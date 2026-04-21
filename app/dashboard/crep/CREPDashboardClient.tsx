@@ -258,6 +258,10 @@ import Mapbox3DBuildings from "@/components/crep/layers/mapbox-3d-buildings";
 // Google Map Tiles API + is adding Cesium Ion key now. Goes live the moment
 // NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN lands.
 import Photorealistic3DTiles from "@/components/crep/layers/photorealistic-3d-tiles";
+// Right-click → waypoint / places-saving system. Apr 20, 2026 (Morgan:
+// "right click should be able to open up a widget for markers to add
+// waypoints check what this is and places saving").
+import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -8238,6 +8242,12 @@ export default function CREPDashboardPage() {
             opacity={layers.find(l => l.id === "photorealistic3D")?.opacity ?? 1.0}
             preferred="auto"
           />
+
+          {/* Right-click waypoint / places-saving system (Apr 20, 2026).
+              Right-click the map → context menu → save / drop pin / copy
+              lat-lng / "what's here" lookup. Persists to localStorage +
+              best-effort to MINDEX so waypoints survive across devices. */}
+          <WaypointSystem map={mapRef} />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —

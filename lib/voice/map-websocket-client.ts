@@ -44,6 +44,17 @@ export interface MapWebSocketClientOptions {
 
 export class MapWebSocketClient {
   static _errorLogged = false
+  // Session-wide circuit breaker — once the voice bridge fails for this
+  // page load, refuse to reconnect for the rest of the session. Prevents
+  // the render-loop bug where useEffect cleanup + re-mount would spawn a
+  // fresh client every React re-render. Before this, a 10-second CREP
+  // session accumulated 700+ "[MapWS] Disconnected / Reconnecting
+  // (attempt 1/3)" console lines (Apr 20, 2026 diagnosis).
+  //
+  // The voice bridge is optional — CREP works fine without it. Operator
+  // can manually reset via `MapWebSocketClient.resetBreaker()` if they
+  // later start the bridge.
+  static _breakerTripped = false
   private ws: WebSocket | null = null
   private url: string
   private reconnectInterval: number
@@ -52,6 +63,11 @@ export class MapWebSocketClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private isConnecting: boolean = false
+
+  static resetBreaker(): void {
+    MapWebSocketClient._breakerTripped = false
+    MapWebSocketClient._errorLogged = false
+  }
   
   private onConnect?: () => void
   private onDisconnect?: () => void
@@ -74,7 +90,13 @@ export class MapWebSocketClient {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
       return
     }
-    
+    // Session circuit breaker. After the first failure we never retry;
+    // voice bridge is optional and retries are expensive (they spawn
+    // WebSocket objects, log to console, and trigger React re-renders).
+    if (MapWebSocketClient._breakerTripped) {
+      return
+    }
+
     this.isConnecting = true
     
     try {
@@ -108,10 +130,12 @@ export class MapWebSocketClient {
       
       this.ws.onerror = () => {
         this.isConnecting = false
-        // Only log once total — voice bridge is optional, don't spam console
+        // Trip the circuit breaker — voice bridge is optional, connection
+        // failure means "not running" not "transient". No more retries.
+        MapWebSocketClient._breakerTripped = true
         if (!MapWebSocketClient._errorLogged) {
           MapWebSocketClient._errorLogged = true
-          console.warn("[MapWS] Voice bridge unavailable (optional). No further retry logs.")
+          console.warn("[MapWS] Voice bridge unavailable (optional). Circuit breaker tripped — no further retries. Call MapWebSocketClient.resetBreaker() to re-enable.")
         }
         const error = new Error("WebSocket connection failed")
         this.onError?.(error)
@@ -149,6 +173,10 @@ export class MapWebSocketClient {
   }
   
   private scheduleReconnect(): void {
+    // Circuit breaker: if we've confirmed the bridge is down once, stop.
+    if (MapWebSocketClient._breakerTripped) {
+      return
+    }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log("[MapWS] Max reconnect attempts reached")
       return
