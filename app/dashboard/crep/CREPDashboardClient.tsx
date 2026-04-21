@@ -262,6 +262,10 @@ import Photorealistic3DTiles from "@/components/crep/layers/photorealistic-3d-ti
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
 import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
+// Glass-morphism device widget (Apr 20, 2026). Replaces the old cramped
+// inline MarkerPopup with a beautiful floating high-tech dialog with
+// explicit GPS state surfacing + sparkline telemetry cards.
+import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -934,10 +938,24 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
 }
 
 // Device marker component - uses device-widget-mapper for type-specific visuals (Feb 12, 2026)
-function DeviceMarker({ device, isSelected, onClick }: { 
-  device: Device; 
+//
+// Apr 20, 2026 (Morgan: "the most beautiful highly detailed and profound
+// widget with a different and more visually modern floating high tech ui
+// is needed for all device widgets this mycobrain gateway is not over our
+// home with no gps on it at the moment but this widget is shit make it
+// way better mycobrain-sidea-10b41d"). The popup body now mounts the new
+// glass-morphism <DeviceWidget> from components/crep/devices/DeviceWidget.tsx
+// — it explicitly surfaces GPS state (locked / drift / unavailable / manual)
+// so it's obvious when a device's pin is approximate, has a richer header
+// with status orb + signal-strength bars, sparkline-bearing telemetry
+// cards, and styled quick-control buttons. Pulls history from a per-device
+// in-memory ring buffer maintained by sensorHistoryRef.
+function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
+  device: Device;
   isSelected: boolean;
   onClick: () => void;
+  history?: import("@/components/crep/devices/DeviceWidget").SensorHistory;
+  onControl?: (peripheral: string, params?: Record<string, any>) => Promise<void>;
 }) {
   const isOnline = device.status === "online";
   const [controlLoading, setControlLoading] = useState<string | null>(null);
@@ -1003,202 +1021,14 @@ function DeviceMarker({ device, isSelected, onClick }: {
         </div>
       </MarkerContent>
       {isSelected && (
-        <MarkerPopup
-          className="min-w-[280px] bg-[#0a1628]/95 backdrop-blur border-green-500/30"
-          closeButton
+        <DeviceWidget
+          device={device as any}
+          history={history}
           onClose={onClick}
-        >
-        <div className="space-y-3">
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "w-8 h-8 rounded flex items-center justify-center text-lg",
-              isOnline ? widgetConfig.bgColor : "bg-red-500/20"
-            )}>
-              {deviceEmoji}
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-white">{device.name}</div>
-              <div className={cn("text-[9px] mb-0.5", widgetConfig.color)}>{widgetConfig.label}</div>
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-[10px] uppercase font-mono",
-                  isOnline ? widgetConfig.color : "text-red-400"
-                )}>
-                  ● {device.status}
-                </span>
-                {device.port && (
-                  <span className="text-[9px] text-cyan-400 font-mono">{device.port}</span>
-                )}
-              </div>
-            </div>
-            {device.firmware && (
-              <Badge variant="outline" className="text-[8px] h-4 px-1 border-cyan-500/30 text-cyan-400">
-                v{device.firmware}
-              </Badge>
-            )}
-          </div>
-          
-          {/* Live Sensor Data */}
-          {isOnline && device.sensorData && (
-            <div className="bg-slate-800/50 rounded-lg p-2 space-y-2">
-              <div className="text-[9px] text-gray-400 uppercase font-mono flex items-center gap-1">
-                <Activity className="w-3 h-3" /> Live Sensor Data
-              </div>
-              
-              {/* Temperature & Humidity Row */}
-              <div className="grid grid-cols-2 gap-2">
-                {device.sensorData.temperature !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Thermometer className="w-3 h-3 text-orange-400" />
-                      <span className="text-[8px] text-gray-500">TEMP</span>
-                    </div>
-                    <div className="text-sm font-bold text-orange-400">
-                      {device.sensorData.temperature.toFixed(1)}Â°C
-                    </div>
-                  </div>
-                )}
-                {device.sensorData.humidity !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Droplets className="w-3 h-3 text-cyan-400" />
-                      <span className="text-[8px] text-gray-500">HUMIDITY</span>
-                    </div>
-                    <div className="text-sm font-bold text-cyan-400">
-                      {device.sensorData.humidity.toFixed(1)}%
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* IAQ & CO2 Row */}
-              <div className="grid grid-cols-2 gap-2">
-                {device.sensorData.iaq !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Wind className="w-3 h-3 text-purple-400" />
-                      <span className="text-[8px] text-gray-500">IAQ</span>
-                    </div>
-                    <div className={cn("text-sm font-bold", iaqInfo.color)}>
-                      {device.sensorData.iaq} <span className="text-[8px] font-normal">{iaqInfo.label}</span>
-                    </div>
-                  </div>
-                )}
-                {device.sensorData.co2Equivalent !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Cloud className="w-3 h-3 text-blue-400" />
-                      <span className="text-[8px] text-gray-500">eCOâ‚‚</span>
-                    </div>
-                    <div className="text-sm font-bold text-blue-400">
-                      {device.sensorData.co2Equivalent} <span className="text-[8px] font-normal">ppm</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Pressure & VOC Row */}
-              <div className="grid grid-cols-2 gap-2">
-                {device.sensorData.pressure !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Gauge className="w-3 h-3 text-amber-400" />
-                      <span className="text-[8px] text-gray-500">PRESSURE</span>
-                    </div>
-                    <div className="text-sm font-bold text-amber-400">
-                      {device.sensorData.pressure.toFixed(0)} <span className="text-[8px] font-normal">hPa</span>
-                    </div>
-                  </div>
-                )}
-                {device.sensorData.vocEquivalent !== undefined && (
-                  <div className="bg-slate-900/50 rounded p-1.5">
-                    <div className="flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-pink-400" />
-                      <span className="text-[8px] text-gray-500">bVOC</span>
-                    </div>
-                    <div className="text-sm font-bold text-pink-400">
-                      {device.sensorData.vocEquivalent.toFixed(2)} <span className="text-[8px] font-normal">ppm</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Uptime */}
-              {device.sensorData.uptime !== undefined && (
-                <div className="flex items-center justify-between text-[8px] text-gray-500 pt-1 border-t border-slate-700/50">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Uptime
-                  </span>
-                  <span className="text-cyan-400 font-mono">
-                    {Math.floor(device.sensorData.uptime / 3600)}h {Math.floor((device.sensorData.uptime % 3600) / 60)}m
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Quick Controls */}
-          {isOnline && device.port && (
-            <div className="space-y-1.5">
-              <div className="text-[9px] text-gray-400 uppercase font-mono flex items-center gap-1">
-                <Zap className="w-3 h-3" /> Quick Controls
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-6 px-2 text-[9px] border-green-500/30 text-green-400 hover:bg-green-500/20"
-                  disabled={controlLoading !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sendControl("neopixel", { effect: "rainbow" });
-                  }}
-                >
-                  {controlLoading === "neopixel" ? "..." : "ðŸŒˆ Rainbow"}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-6 px-2 text-[9px] border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                  disabled={controlLoading !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100 });
-                  }}
-                >
-                  {controlLoading === "buzzer" ? "..." : "ðŸ”” Beep"}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-6 px-2 text-[9px] border-red-500/30 text-red-400 hover:bg-red-500/20"
-                  disabled={controlLoading !== null}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sendControl("neopixel", { effect: "off" });
-                  }}
-                >
-                  LED Off
-                </Button>
-              </div>
-            </div>
-          )}
-          
-          {/* Device Info Footer */}
-          <div className="pt-2 border-t border-slate-700/50 space-y-1">
-            <div className="flex items-center justify-between text-[8px]">
-              <span className="text-gray-500">Location</span>
-              <span className="text-gray-400 font-mono">
-                {typeof device.lat === 'number' ? device.lat.toFixed(4) : 'â€”'}Â°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : 'â€”'}Â°
-              </span>
-            </div>
-            <div className="text-[7px] text-gray-600 font-mono truncate">{device.id}</div>
-            <div className="text-[7px] text-emerald-500/60">ðŸ“ Chula Vista, San Diego CA 91910</div>
-          </div>
-        </div>
-      </MarkerPopup>
+          onControl={onControl || sendControl}
+        />
       )}
+      {/* Old MarkerPopup body removed — replaced by DeviceWidget above. */}
     </MapMarker>
   );
 }
