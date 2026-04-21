@@ -31,7 +31,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { X, ExternalLink, MapPin, Thermometer, Droplets, Wind, AlertTriangle } from "lucide-react"
+import { X, ExternalLink, MapPin, Thermometer, Droplets, Wind, AlertTriangle, Waves, Gauge } from "lucide-react"
 
 type Category = string
 
@@ -71,6 +71,11 @@ const CATEGORY_META: Record<string, { label: string; accent: string; ring: strin
 
 export default function OysterSiteWidget() {
   const [site, setSite] = useState<ClickDetail | null>(null)
+  // Apr 21, 2026 (Morgan: "data from a noaa buoy on coronado needs to be
+  // in the widget not link to this page full of data"). NDBC buoy live
+  // observation fetched from /api/crep/buoy/[station]. Auto-refresh
+  // every 60 s while the widget is open.
+  const [buoyObs, setBuoyObs] = useState<any | null>(null)
 
   useEffect(() => {
     const onClick = (e: Event) => {
@@ -78,13 +83,36 @@ export default function OysterSiteWidget() {
       if (ce.detail) setSite(ce.detail)
     }
     window.addEventListener("crep:oyster:site-click", onClick as any)
-    // Legacy event from pre-expansion TijuanaStationWidget — still route here:
     window.addEventListener("crep:tijuana:station-click", onClick as any)
     return () => {
       window.removeEventListener("crep:oyster:site-click", onClick as any)
       window.removeEventListener("crep:tijuana:station-click", onClick as any)
     }
   }, [])
+
+  // Live NDBC fetch when a buoy sensor is clicked.
+  useEffect(() => {
+    if (!site) { setBuoyObs(null); return }
+    const isBuoy = site.kind === "buoy" || (typeof site.id === "string" && /^sens-ndbc-/.test(site.id))
+    if (!isBuoy) { setBuoyObs(null); return }
+    // Extract station id from sens-ndbc-46232 or raw 46232
+    const stationId = typeof site.id === "string"
+      ? (site.id.match(/ndbc-?(\w+)/i)?.[1] || site.id.replace(/^sens-|\D+/g, ""))
+      : null
+    if (!stationId) return
+    let cancelled = false
+    const fetchBuoy = async () => {
+      try {
+        const r = await fetch(`/api/crep/buoy/${stationId}`, { signal: AbortSignal.timeout(10_000) })
+        if (!r.ok) return
+        const j = await r.json()
+        if (!cancelled && j?.observation) setBuoyObs(j.observation)
+      } catch { /* ignore */ }
+    }
+    fetchBuoy()
+    const iv = setInterval(fetchBuoy, 60_000)
+    return () => { cancelled = true; clearInterval(iv) }
+  }, [site?.id, site?.kind])
 
   if (!site) return null
 
@@ -133,6 +161,69 @@ export default function OysterSiteWidget() {
       {description && (
         <div className="text-[12px] text-white/80 leading-relaxed mb-3">
           {description}
+        </div>
+      )}
+
+      {/* NDBC buoy live observation — Apr 21, 2026 Morgan ask.
+          Fetched from /api/crep/buoy/[station], refreshes every 60 s. */}
+      {buoyObs && (
+        <div className="mb-3 space-y-2">
+          <div className="text-[10px] uppercase tracking-[0.15em] text-cyan-300/90 font-mono flex items-center gap-1">
+            <Waves className="w-3 h-3" /> NDBC LIVE · {buoyObs.station_id}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {buoyObs.water_temp_c != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-cyan-300 uppercase tracking-wider">
+                  <Thermometer className="w-2.5 h-2.5" /> Water
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.water_temp_c).toFixed(1)}°C</div>
+              </div>
+            )}
+            {buoyObs.air_temp_c != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-amber-300 uppercase tracking-wider">
+                  <Thermometer className="w-2.5 h-2.5" /> Air
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.air_temp_c).toFixed(1)}°C</div>
+              </div>
+            )}
+            {buoyObs.wave_height_m != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-sky-300 uppercase tracking-wider">
+                  <Waves className="w-2.5 h-2.5" /> Wave
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.wave_height_m).toFixed(1)} m</div>
+              </div>
+            )}
+            {buoyObs.dominant_wave_period_s != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-teal-300 uppercase tracking-wider">
+                  Period
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.dominant_wave_period_s).toFixed(1)} s</div>
+              </div>
+            )}
+            {buoyObs.wind_speed_ms != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-emerald-300 uppercase tracking-wider">
+                  <Wind className="w-2.5 h-2.5" /> Wind
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.wind_speed_ms * 1.944).toFixed(1)} kt</div>
+              </div>
+            )}
+            {buoyObs.pressure_hpa != null && (
+              <div className="bg-black/30 rounded-lg p-2 border border-white/10">
+                <div className="flex items-center gap-1 text-[9px] text-violet-300 uppercase tracking-wider">
+                  <Gauge className="w-2.5 h-2.5" /> Pres
+                </div>
+                <div className="text-white text-sm font-mono mt-0.5">{Number(buoyObs.pressure_hpa).toFixed(0)} hPa</div>
+              </div>
+            )}
+          </div>
+          <div className="text-[9px] text-white/50 font-mono text-right">
+            obs {new Date(buoyObs.observed_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} · auto-refreshes every 60 s
+          </div>
         </div>
       )}
 

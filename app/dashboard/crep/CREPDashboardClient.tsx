@@ -1640,19 +1640,31 @@ export default function CREPDashboardPage() {
   useEffect(() => {
     const isMapLibreAjax = (msg: string) =>
       /AJAXError/.test(msg) && /(blob:|https?:\/\/)/.test(msg);
+    // Apr 21, 2026 (Morgan: "crep is still reloading in browser"). React
+    // 18/19 can throw "Cannot read properties of null (reading
+    // 'removeChild')" + "Should not already be working" when MapLibre's
+    // native DOM (canvas + control buttons) gets cleaned up via
+    // map.remove() while React's reconciler is mid-commit. These errors
+    // are non-fatal to CREP — MapLibre has already torn itself down —
+    // but Next.js Fast Refresh treats them as unrecoverable and
+    // full-page-reloads. Suppress to break the reload loop.
+    const isReactReconcilerNoise = (msg: string) =>
+      /Cannot read properties of null \(reading 'removeChild'\)/.test(msg) ||
+      /Should not already be working/.test(msg) ||
+      /The node to be removed is not a child of this node/.test(msg);
     const onUnhandled = (e: PromiseRejectionEvent) => {
       const reason = e.reason as any;
       const msg = reason?.message || String(reason);
-      if (isMapLibreAjax(msg)) {
+      if (isMapLibreAjax(msg) || isReactReconcilerNoise(msg)) {
         e.preventDefault();  // keep Next dev overlay from surfacing
-        console.warn("[CREP] silenced non-fatal MapLibre AJAXError:", msg.slice(0, 140));
+        console.warn("[CREP] silenced non-fatal error:", msg.slice(0, 140));
       }
     };
     const onError = (e: ErrorEvent) => {
       const msg = e?.error?.message || e?.message || "";
-      if (isMapLibreAjax(msg)) {
+      if (isMapLibreAjax(msg) || isReactReconcilerNoise(msg)) {
         e.preventDefault();
-        console.warn("[CREP] silenced non-fatal MapLibre AJAXError (error):", msg.slice(0, 140));
+        console.warn("[CREP] silenced non-fatal error (error):", msg.slice(0, 140));
       }
     };
     window.addEventListener("unhandledrejection", onUnhandled);

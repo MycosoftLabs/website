@@ -1464,7 +1464,14 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               "text-halo-width": 1.4,
             },
           })
-          map.on("click", "crep-drone-no-fly-fill", (e: any) => {
+          // Apr 21, 2026 (Morgan URGENT: "the drone no fly zone selection
+          // stops any icons from being selected under it that cannot
+          // happen"). The fill layer was intercepting clicks meant for
+          // dots UNDER the zone. Click handler moved to outline + label
+          // only — the fill itself is click-transparent. Outline lines
+          // are thin and label is at the centroid, so cameras / power /
+          // sensors / any dot inside the zone stay clickable.
+          const onNoFlyClick = (e: any) => {
             const p = e.features?.[0]?.properties || {}
             const c = e.lngLat
             try {
@@ -1480,9 +1487,13 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
                 })
               }
             } catch { /* ignore */ }
-          })
-          map.on("mouseenter", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "pointer" })
-          map.on("mouseleave", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "" })
+          }
+          map.on("click", "crep-drone-no-fly-outline", onNoFlyClick)
+          map.on("click", "crep-drone-no-fly-label", onNoFlyClick)
+          map.on("mouseenter", "crep-drone-no-fly-outline", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-drone-no-fly-outline", () => { map.getCanvas().style.cursor = "" })
+          map.on("mouseenter", "crep-drone-no-fly-label", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-drone-no-fly-label", () => { map.getCanvas().style.cursor = "" })
         } else {
           (map.getSource("crep-drone-no-fly") as any).setData(fc)
         }
