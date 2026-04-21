@@ -281,6 +281,10 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
+// Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
+// NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
+import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
+import MojaveSiteWidget from "@/components/crep/mojave/MojaveSiteWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2302,6 +2306,18 @@ export default function CREPDashboardPage() {
     { id: "tjBeachClosures",         name: "Sewage beach closures (SD County DEH)",         category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
     { id: "tjNavyTraining",          name: "Navy training waters affected (Coronado)",      category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
     { id: "tjEstuaryMonitors",       name: "TJ NERR + estuary research monitors",           category: "pollution", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
+
+    // ── MOJAVE NATIONAL PRESERVE + GOFFS (MYCOSOFT project) ──
+    // Apr 21, 2026 (Morgan: "why is there no data at goffs ca we have a
+    // project there need more data ... mojave national reserve all that
+    // park data and climate data and specific site nature data is needed").
+    // Goffs is a Mycosoft biz-dev vertical thesis site. Garret completed
+    // the 16/16 item thesis Apr 18. Data from /api/crep/mojave.
+    { id: "mojavePreserve",   name: "Mojave National Preserve — Boundary",  category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary polygon. Dashed amber outline + 8% fill. Source: NPS Land Resources Division Boundary service (live-fetch with local approx fallback)." },
+    { id: "mojaveGoffs",      name: "Goffs, CA — MYCOSOFT project site",    category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Historic Route 66 community, 34.92° N / -115.07° W, adjacent to Mojave Preserve. Pulsing teal halo + cyan core marker — click for project context + climate + ecology." },
+    { id: "mojaveWilderness", name: "Mojave wilderness POIs",               category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome Joshua tree forest + Kelso Dunes + Mitchell Caverns + Cinder Cones + Hole-in-the-Wall + New York Mts + Castle Peaks + Granite Mts Research Center. 8 landmark markers." },
+    { id: "mojaveClimate",    name: "Mojave climate — ASOS / RAWS / COOP",  category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
+    { id: "mojaveINat",       name: "Mojave iNat observations",             category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent research-grade iNaturalist observations in a bbox around Goffs — desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (50 obs/fetch adds points over the preserve)." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -8262,6 +8278,23 @@ export default function CREPDashboardPage() {
           {/* Tijuana station detail widget — listens for crep:tijuana:station-click
               dispatched by TijuanaEstuaryLayer click handlers. */}
           <TijuanaStationWidget />
+
+          {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) —
+              Apr 21, 2026. NPS MOJA boundary + Goffs anchor marker +
+              wilderness POIs + ASOS/RAWS climate + iNat observations.
+              Source: /api/crep/mojave (NPS Land Resources ArcGIS +
+              api.weather.gov + iNaturalist, 1 h edge cache). */}
+          <MojavePreserveLayer
+            map={mapRef}
+            enabled={{
+              mojavePreserve:   layers.find(l => l.id === "mojavePreserve")?.enabled   ?? true,
+              mojaveGoffs:      layers.find(l => l.id === "mojaveGoffs")?.enabled      ?? true,
+              mojaveWilderness: layers.find(l => l.id === "mojaveWilderness")?.enabled ?? true,
+              mojaveClimate:    layers.find(l => l.id === "mojaveClimate")?.enabled    ?? true,
+              mojaveINat:       layers.find(l => l.id === "mojaveINat")?.enabled       ?? false,
+            }}
+          />
+          <MojaveSiteWidget />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
