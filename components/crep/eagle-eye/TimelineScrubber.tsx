@@ -29,14 +29,48 @@ interface Event {
   title?: string | null
 }
 
-const PROVIDERS = [
-  { id: "youtube-live",    name: "YouTube Live",  color: "#ef4444" },
-  { id: "bluesky",         name: "Bluesky",       color: "#38bdf8" },
-  { id: "mastodon",        name: "Mastodon",      color: "#6d28d9" },
-  { id: "x",               name: "X",             color: "#f3f4f6" },
-  { id: "tiktok",          name: "TikTok",        color: "#ec4899" },
-  { id: "mindex-ephemeral",name: "MINDEX",        color: "#22d3ee" },
+// Apr 20, 2026 expansion (Morgan: "ensure you have all sources and that
+// eagle eye timeline is working not just with social media but any events
+// seen on all video"). Timeline now spans ALL Eagle Eye event sources
+// grouped into 3 categories: Social / Camera / Sensor. Each provider
+// gets a distinct hue + a category tag so users can filter by category
+// or by individual source.
+type ProviderDef = {
+  id: string
+  name: string
+  color: string
+  category: "social" | "camera" | "sensor"
+}
+const PROVIDERS: ProviderDef[] = [
+  // Social — public posts + live broadcasts
+  { id: "youtube-live",     name: "YouTube Live",      color: "#ef4444", category: "social" },
+  { id: "bluesky",          name: "Bluesky",           color: "#38bdf8", category: "social" },
+  { id: "mastodon",         name: "Mastodon",          color: "#6d28d9", category: "social" },
+  { id: "twitch",           name: "Twitch",            color: "#9146ff", category: "social" },
+  { id: "x",                name: "X",                 color: "#f3f4f6", category: "social" },
+  { id: "tiktok",           name: "TikTok",            color: "#ec4899", category: "social" },
+  { id: "reddit",           name: "Reddit",            color: "#ff4500", category: "social" },
+
+  // Camera — events from registered camera infrastructure
+  { id: "shinobi-detector", name: "Shinobi detector",  color: "#22d3ee", category: "camera" },
+  { id: "alertwildfire",    name: "ALERTWildfire",     color: "#f97316", category: "camera" },
+  { id: "hpwren",           name: "HPWREN",            color: "#fbbf24", category: "camera" },
+  { id: "caltrans-incident",name: "Caltrans CCTV",     color: "#fde047", category: "camera" },
+  { id: "nps-cam-event",    name: "NPS cam",           color: "#22c55e", category: "camera" },
+  { id: "usgs-cam-event",   name: "USGS cam",          color: "#a3e635", category: "camera" },
+
+  // Sensor — non-camera events that pin to a video viewport
+  { id: "cbp-wait-spike",   name: "CBP wait spike",    color: "#f43f5e", category: "sensor" },
+  { id: "511-incident",     name: "511 incident",      color: "#fb923c", category: "sensor" },
+  { id: "fire-alert",       name: "Fire alert",        color: "#dc2626", category: "sensor" },
+  { id: "weather-warning",  name: "Weather warning",   color: "#0ea5e9", category: "sensor" },
+  { id: "mindex-ephemeral", name: "MINDEX",            color: "#14b8a6", category: "sensor" },
 ]
+const CATEGORIES = [
+  { id: "social", name: "Social", color: "#a855f7" },
+  { id: "camera", name: "Camera", color: "#22d3ee" },
+  { id: "sensor", name: "Sensor", color: "#fb923c" },
+] as const
 
 const HOURS_BACK = 24
 const TICK_SECONDS = 30 // horizontal granularity: one tick = 30 s
@@ -143,34 +177,71 @@ export default function TimelineScrubber() {
             ))}
           </div>
 
-          {/* Provider filter chips */}
-          <div className="flex items-center gap-1 flex-wrap">
-            <Filter className="w-3 h-3 text-gray-500 mr-0.5" />
-            {PROVIDERS.map((p) => {
-              const on = enabledProviders.has(p.id)
-              const count = events.filter((e) => e.provider === p.id).length
+          {/* Category filter row — quick toggle of social/camera/sensor groups */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-500 mr-1">category</span>
+            {CATEGORIES.map((cat) => {
+              const ids = PROVIDERS.filter((p) => p.category === cat.id).map((p) => p.id)
+              const allOn = ids.every((id) => enabledProviders.has(id))
+              const someOn = ids.some((id) => enabledProviders.has(id))
+              const catCount = events.filter((e) => ids.includes(e.provider)).length
               return (
                 <button
-                  key={p.id}
+                  key={cat.id}
                   onClick={() => {
                     setEnabledProviders((prev) => {
                       const next = new Set(prev)
-                      if (next.has(p.id)) next.delete(p.id)
-                      else next.add(p.id)
+                      if (allOn) for (const id of ids) next.delete(id)
+                      else for (const id of ids) next.add(id)
                       return next
                     })
                   }}
                   className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                    on ? "border-white/30 text-white" : "border-gray-800 text-gray-600 line-through"
+                    allOn ? "border-white/40 text-white" : someOn ? "border-white/20 text-gray-300" : "border-gray-800 text-gray-600"
                   }`}
-                  style={on ? { backgroundColor: `${p.color}26` } : {}}
+                  style={allOn ? { backgroundColor: `${cat.color}33` } : {}}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: 9, background: p.color, display: "inline-block" }} />
-                  {p.name}
-                  <span className="text-gray-500">{count}</span>
+                  <span style={{ width: 6, height: 6, borderRadius: 9, background: cat.color, display: "inline-block" }} />
+                  {cat.name}
+                  <span className="text-gray-500">{catCount}</span>
                 </button>
               )
             })}
+          </div>
+
+          {/* Provider filter chips — grouped by category for readability */}
+          <div className="space-y-1">
+            {CATEGORIES.map((cat) => (
+              <div key={cat.id} className="flex items-center gap-1 flex-wrap">
+                <Filter className="w-3 h-3 text-gray-500 mr-0.5" />
+                <span className="text-[9px] text-gray-500 mr-1 uppercase tracking-wider" style={{ minWidth: 38 }}>{cat.name}</span>
+                {PROVIDERS.filter((p) => p.category === cat.id).map((p) => {
+                  const on = enabledProviders.has(p.id)
+                  const count = events.filter((e) => e.provider === p.id).length
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setEnabledProviders((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(p.id)) next.delete(p.id)
+                          else next.add(p.id)
+                          return next
+                        })
+                      }}
+                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                        on ? "border-white/30 text-white" : "border-gray-800 text-gray-600 line-through"
+                      }`}
+                      style={on ? { backgroundColor: `${p.color}26` } : {}}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: 9, background: p.color, display: "inline-block" }} />
+                      {p.name}
+                      <span className="text-gray-500">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
           </div>
 
           {/* Timeline strip */}
