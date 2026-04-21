@@ -140,22 +140,38 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
   // so every render re-fetched. Now we track the attempt in a ref so
   // a failed fetch doesn't spin forever, and drop `data` from deps.
   const fetchAttemptedRef = useRef(false)
+  // Apr 21, 2026 v2 (Morgan: "we need real coverage here at project
+  // oyster"). Same React 18 strict-mode double-mount bug that was
+  // discarding Mojave data: `let cancelled = false` + cleanup that
+  // flips it to true on synthetic unmount causes setData to be
+  // skipped when the fetch resolves. Fix: mountedRef that only
+  // flips on TRUE unmount via a separate [] effect.
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   // Fetch data once when enabled (or re-enable after a disable)
   useEffect(() => {
     if (!enabled.tijuanaEstuary) {
-      // reset the guard so a re-enable re-fetches fresh
       fetchAttemptedRef.current = false
       return
     }
     if (fetchAttemptedRef.current) return
     fetchAttemptedRef.current = true
-    let cancelled = false
+    console.log("[TijuanaEstuary] fetching /api/crep/tijuana-estuary ...")
     fetch("/api/crep/tijuana-estuary")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled && j) setData(j) })
-      .catch(() => { /* ignore */ })
-    return () => { cancelled = true }
+      .then((r) => {
+        console.log("[TijuanaEstuary] response:", r.status)
+        return r.ok ? r.json() : null
+      })
+      .then((j) => {
+        console.log("[TijuanaEstuary] data received:", j ? `oyster=${j.oyster?.name} cameras=${j.cameras?.length} sensors=${j.sensors?.length}` : "null")
+        if (mountedRef.current && j) setData(j)
+      })
+      .catch((e) => { console.warn("[TijuanaEstuary] fetch failed:", e?.message) })
+    // Intentionally no cleanup — strict-mode cleanup was aborting mount-1.
   }, [enabled.tijuanaEstuary])
 
   useEffect(() => {
