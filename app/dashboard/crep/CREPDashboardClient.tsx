@@ -4330,6 +4330,86 @@ export default function CREPDashboardPage() {
   // If raw>0 and rendered>0 → map is showing them, check zoom/visibility.
   // Also exposes __crep_live_stats() as a global for quick console probes.
   // ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FLIGHT HISTORY TRAIL — map layer for the currently-selected aircraft.
+  // Apr 20, 2026 (Morgan: "all plane data on crep needs this stuff live on
+  // widget and map of history" + https://www.airnavradar.com/data/flights/).
+  //
+  // AircraftDetail dispatches crep:flight-history:trail with the trail
+  // returned from /api/oei/flight-history/[id]. We paint it as:
+  //   • line   — gradient amber→cyan from older to newer points
+  //   • points — small circles at each observation for click hover
+  // On deselect (:clear event), source is emptied.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const m = mapNativeRef.current
+    if (!m) return
+    const ensureLayer = () => {
+      if (!m.getSource || typeof m.getSource !== "function") return
+      if (!m.getSource("crep-flight-history")) {
+        m.addSource("crep-flight-history", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        })
+        m.addLayer({
+          id: "crep-flight-history-line",
+          type: "line",
+          source: "crep-flight-history",
+          filter: ["==", ["geometry-type"], "LineString"],
+          paint: {
+            "line-color": "#fbbf24",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1.5, 8, 3, 14, 4],
+            "line-opacity": 0.85,
+            "line-blur": 0.3,
+          },
+          layout: { "line-cap": "round", "line-join": "round" },
+        })
+        m.addLayer({
+          id: "crep-flight-history-points",
+          type: "circle",
+          source: "crep-flight-history",
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.2, 8, 2.2, 14, 3],
+            "circle-color": "#fbbf24",
+            "circle-stroke-color": "#0b1220",
+            "circle-stroke-width": 0.8,
+            "circle-opacity": 0.9,
+          },
+        })
+      }
+    }
+    const onTrail = (ev: any) => {
+      ensureLayer()
+      const d = ev?.detail
+      const trail: any[] = d?.trail || []
+      if (!trail.length) return
+      const coords = trail.map((p: any) => [Number(p.lng), Number(p.lat)]).filter((c: any) => Number.isFinite(c[0]) && Number.isFinite(c[1]))
+      if (coords.length < 2) return
+      const features: any[] = [
+        { type: "Feature", properties: { id: d.id, kind: "line" }, geometry: { type: "LineString", coordinates: coords } },
+        ...trail.map((p: any, i: number) => ({
+          type: "Feature",
+          properties: { id: `${d.id}-${i}`, ts: p.timestamp, alt: p.alt_ft, spd: p.speed_kts },
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        })),
+      ]
+      const src = m.getSource("crep-flight-history") as any
+      if (src?.setData) src.setData({ type: "FeatureCollection", features })
+    }
+    const onClear = () => {
+      ensureLayer()
+      const src = m.getSource("crep-flight-history") as any
+      if (src?.setData) src.setData({ type: "FeatureCollection", features: [] })
+    }
+    window.addEventListener("crep:flight-history:trail", onTrail as any)
+    window.addEventListener("crep:flight-history:clear", onClear as any)
+    return () => {
+      window.removeEventListener("crep:flight-history:trail", onTrail as any)
+      window.removeEventListener("crep:flight-history:clear", onClear as any)
+    }
+  }, [])
+
   useEffect(() => {
     const diag = () => {
       const m = mapNativeRef.current

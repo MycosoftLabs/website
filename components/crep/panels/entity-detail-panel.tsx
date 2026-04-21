@@ -424,6 +424,76 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
     }
     return () => { cancelled = true; };
   }, [aircraftType]);
+
+  // Apr 20, 2026 (Morgan: "all plane data on crep needs this stuff live
+  // on widget and map of history" + https://www.airnavradar.com/data/
+  // flights/SHWK425). Fetch full trail + profile from FR24 clickhandler /
+  // OpenSky tracks, then render altitude + speed sparklines alongside
+  // the position trail on the map.
+  const [history, setHistory] = useState<any | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  useEffect(() => {
+    if (!aircraft?.id) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    const idForLookup = aircraft.callsign || aircraft.flightNumber || aircraft.id;
+    fetch(`/api/oei/flight-history/${encodeURIComponent(String(idForLookup))}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((h) => { if (!cancelled) { setHistory(h); setHistoryLoading(false); } })
+      .catch(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [aircraft?.id, aircraft?.callsign, aircraft?.flightNumber]);
+
+  // Emit a CustomEvent so the map can render a trail for this aircraft.
+  // The dashboard listens and paints a line+points layer on `crep-flight-
+  // history` source for the currently-selected plane.
+  useEffect(() => {
+    try {
+      if (history?.trail?.length) {
+        window.dispatchEvent(new CustomEvent("crep:flight-history:trail", {
+          detail: {
+            id: aircraft.id,
+            callsign: history.callsign,
+            trail: history.trail,
+          },
+        }));
+      }
+    } catch { /* ignore */ }
+    return () => {
+      try { window.dispatchEvent(new CustomEvent("crep:flight-history:clear")); } catch { /* ignore */ }
+    };
+  }, [history?.trail, aircraft?.id]);
+
+  // Render a tiny inline sparkline SVG (no recharts). cap points at 200
+  // so very long-haul flights don't overdraw.
+  const Sparkline = ({ values, color, label, unit }: { values: number[]; color: string; label: string; unit: string }) => {
+    if (!values.length) return null
+    const w = 160, h = 28
+    const max = Math.max(...values)
+    const min = Math.min(...values)
+    const range = max - min || 1
+    const step = w / Math.max(1, values.length - 1)
+    const d = values.map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(" ")
+    const last = values[values.length - 1]
+    return (
+      <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[9px] text-gray-500 uppercase">{label}</span>
+          <span className="text-[10px] font-mono" style={{ color }}>
+            {Math.round(last)} {unit}
+          </span>
+        </div>
+        <svg width={w} height={h} className="block">
+          <path d={d} stroke={color} strokeWidth={1.2} fill="none" />
+          <circle cx={(values.length - 1) * step} cy={h - ((last - min) / range) * h} r={1.8} fill={color} />
+        </svg>
+        <div className="flex justify-between text-[8px] text-gray-500 mt-0.5">
+          <span>min {Math.round(min)}</span>
+          <span>max {Math.round(max)}</span>
+        </div>
+      </div>
+    )
+  }
   
   return (
     <div className="bg-[#0a1628] border border-blue-500/30 rounded-lg overflow-hidden shadow-2xl">
@@ -461,15 +531,19 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
 
       {/* Compact Content */}
       <div className="p-2 space-y-1.5">
-        {/* Flight Route */}
+        {/* Flight Route — prefer rich history data when available */}
         <div className="grid grid-cols-2 gap-1.5">
           <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
             <div className="text-[9px] text-gray-500 uppercase">Origin</div>
-            <div className="text-[10px] text-white truncate">{aircraft.origin || "Unknown"}</div>
+            <div className="text-[10px] text-white truncate">
+              {history?.origin?.iata ? `${history.origin.iata} · ${history.origin.city || history.origin.country || ""}` : (aircraft.origin || "Unknown")}
+            </div>
           </div>
           <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
             <div className="text-[9px] text-gray-500 uppercase">Destination</div>
-            <div className="text-[10px] text-white truncate">{aircraft.destination || "Unknown"}</div>
+            <div className="text-[10px] text-white truncate">
+              {history?.destination?.iata ? `${history.destination.iata} · ${history.destination.city || history.destination.country || ""}` : (aircraft.destination || "Unknown")}
+            </div>
           </div>
         </div>
 
@@ -492,15 +566,68 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
         {/* Details Row */}
         <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
-            {aircraft.airline && (
-              <span><span className="text-gray-500">Airline:</span> <span className="text-white">{aircraft.airline}</span></span>
+            {(history?.airline || aircraft.airline) && (
+              <span><span className="text-gray-500">Airline:</span> <span className="text-white">{history?.airline || aircraft.airline}</span></span>
             )}
-            {aircraft.registration && (
-              <span><span className="text-gray-500">Reg:</span> <span className="text-white font-mono">{aircraft.registration}</span></span>
+            {(history?.registration || aircraft.registration) && (
+              <span><span className="text-gray-500">Reg:</span> <span className="text-white font-mono">{history?.registration || aircraft.registration}</span></span>
+            )}
+            {history?.icao24 && (
+              <span><span className="text-gray-500">ICAO24:</span> <span className="text-white font-mono uppercase">{history.icao24}</span></span>
             )}
             <span className="text-cyan-400 font-mono">{typeof latitude === 'number' ? latitude.toFixed(4) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(4) : '—'}°</span>
           </div>
         </div>
+
+        {/* Flight history profile — altitude + speed sparklines (Apr 20, 2026) */}
+        {history?.trail?.length >= 3 ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            <Sparkline
+              label="Altitude profile"
+              values={history.trail.map((p: any) => p.alt_ft).filter((v: number | null) => v != null)}
+              color="#22d3ee"
+              unit="ft"
+            />
+            <Sparkline
+              label="Speed profile"
+              values={history.trail.map((p: any) => p.speed_kts).filter((v: number | null) => v != null)}
+              color="#4ade80"
+              unit="kts"
+            />
+          </div>
+        ) : historyLoading ? (
+          <div className="text-[10px] text-gray-500 italic text-center py-1">Loading flight history…</div>
+        ) : null}
+
+        {/* Flight stats summary (distance / duration / min-max) */}
+        {history?.stats?.distance_nm != null && history.stats.distance_nm > 0 ? (
+          <div className="bg-black/40 rounded p-1.5 border border-gray-700/50 text-[9px] text-gray-300 flex flex-wrap gap-x-3 gap-y-0.5">
+            <span><span className="text-gray-500">Dist:</span> <span className="text-white font-mono">{history.stats.distance_nm} nm</span></span>
+            {history.stats.duration_sec ? (
+              <span><span className="text-gray-500">Dur:</span> <span className="text-white font-mono">{Math.floor(history.stats.duration_sec / 3600)}h {Math.floor((history.stats.duration_sec % 3600) / 60)}m</span></span>
+            ) : null}
+            {history.stats.max_alt != null ? (
+              <span><span className="text-gray-500">Max FL:</span> <span className="text-white font-mono">FL{Math.round(history.stats.max_alt / 100)}</span></span>
+            ) : null}
+            <span className="text-gray-500">Trail:</span> <span className="text-white font-mono">{history.trail.length} pts</span>
+            <span className="text-gray-500">Src:</span> <span className="text-amber-400 font-mono">{history.source}</span>
+          </div>
+        ) : null}
+
+        {/* External tracker links — click through to full page */}
+        {history ? (
+          <div className="flex gap-1 text-[9px]">
+            <a href={history.external_links.airnavradar} target="_blank" rel="noopener noreferrer" className="flex-1 bg-cyan-900/40 hover:bg-cyan-700/60 text-cyan-200 hover:text-white px-1.5 py-1 rounded text-center border border-cyan-500/30 transition-colors" title="Open on AirNavRadar">
+              AirNavRadar ↗
+            </a>
+            <a href={history.external_links.flightradar24} target="_blank" rel="noopener noreferrer" className="flex-1 bg-amber-900/40 hover:bg-amber-700/60 text-amber-200 hover:text-white px-1.5 py-1 rounded text-center border border-amber-500/30 transition-colors" title="Open on FlightRadar24">
+              FR24 ↗
+            </a>
+            <a href={history.external_links.flightaware} target="_blank" rel="noopener noreferrer" className="flex-1 bg-sky-900/40 hover:bg-sky-700/60 text-sky-200 hover:text-white px-1.5 py-1 rounded text-center border border-sky-500/30 transition-colors" title="Open on FlightAware">
+              FlightAware ↗
+            </a>
+          </div>
+        ) : null}
       </div>
     </div>
   );
