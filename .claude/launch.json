@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--max-old-space-size=3072", "node_modules/next/dist/bin/next", "dev", "--port", "3010"],
       "port": 3010
+    },
+    {
+      "name": "dev-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--max-old-space-size=3072", "node_modules/next/dist/bin/next", "dev", "--port", "3020"],
+      "port": 3020
     }
   ]
 }
