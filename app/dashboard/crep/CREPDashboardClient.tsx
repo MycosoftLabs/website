@@ -4212,7 +4212,20 @@ export default function CREPDashboardPage() {
   }, [filteredAircraft, filteredVessels]);
 
   // ██████████████████████████████████████████████████████████████████████████
-  // AIRCRAFT + VESSEL DEAD-RECKONING — rAF loop, updates MapLibre DIRECTLY.
+  // AIRCRAFT + VESSEL DEAD-RECKONING — dual-pump (rAF + setInterval fallback)
+  //
+  // Apr 20, 2026 (Morgan: "i dont see any planes or satelites or movment of
+  // baots or rail cars npw"). Verified via headless-browser probe that when
+  // the tab is `document.hidden === true` (backgrounded, minimised, obscured
+  // by another window, preview iframe, etc.) ALL requestAnimationFrame
+  // callbacks are paused by the browser. Before this change that froze every
+  // live-mover (aircraft, vessels, SGP4 sats, cloud shadow). Map looked
+  // empty as soon as you alt-tabbed or opened devtools undocked.
+  //
+  // Fix: dual pump. rAF when visible (smooth 5 FPS animation), setInterval
+  // as a constant backstop. Background tabs throttle setInterval to 1s min
+  // but the data still flows — map never freezes just because you looked
+  // away.
   //
   // Reads mapNativeRef.current FRESH each tick (the map isn't ready at mount
   // so we can't capture it once). Reads lastKnownRef (position + velocity)
@@ -4226,62 +4239,79 @@ export default function CREPDashboardPage() {
   // ██████████████████████████████████████████████████████████████████████████
   useEffect(() => {
     let rafId: number | null = null;
-    let last = 0;
-    const TICK_MS = 200; // 5 FPS — smooth enough, cheap enough
+    let intervalId: any = null;
+    let lastTickAt = 0;
+    const TICK_MS = 200; // 5 FPS when visible — smooth enough, cheap enough
 
-    const tick = (ts: number) => {
-      const map = mapNativeRef.current; // fresh each tick — not captured at mount
-      if (!map || typeof map.getSource !== "function") {
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-      if (ts - last >= TICK_MS) {
-        last = ts;
-        const lk = lastKnownRef.current;
-        const nowMs = Date.now();
-        try {
-          const acFeats: any[] = [];
-          const vFeats: any[] = [];
-          for (const id of Object.keys(lk)) {
-            const a = lk[id];
-            if (!a) continue;
-            const dtSec = (nowMs - a.ts) / 1000;
-            const lng = a.lng + a.velLng * dtSec;
-            const lat = a.lat + a.velLat * dtSec;
-            const kind = aircraftIdSetRef.current.has(id)
-              ? "aircraft"
-              : vesselIdSetRef.current.has(id)
-              ? "vessel"
-              : null;
-            if (!kind) continue;
-            // Heading from velocity vector (rAF keeps icons pointing the
-            // right way). If velocity is effectively zero, leave as 0.
-            const speed = Math.hypot(a.velLng, a.velLat);
-            const heading = speed > 1e-9 ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360 : 0;
-            const feat = {
-              type: "Feature" as const,
-              properties: { id, heading },
-              geometry: { type: "Point" as const, coordinates: [lng, lat] },
-            };
-            if (kind === "aircraft") acFeats.push(feat);
-            else vFeats.push(feat);
-          }
-          if (acFeats.length > 0) {
-            const acSrc = map.getSource("crep-live-aircraft") as any;
-            if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
-          }
-          if (vFeats.length > 0) {
-            const vSrc = map.getSource("crep-live-vessels") as any;
-            if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
-          }
-        } catch {
-          // source missing or map torn down; keep looping
+    const pumpOnce = () => {
+      const map = mapNativeRef.current;
+      if (!map || typeof map.getSource !== "function") return;
+      const lk = lastKnownRef.current;
+      const nowMs = Date.now();
+      try {
+        const acFeats: any[] = [];
+        const vFeats: any[] = [];
+        for (const id of Object.keys(lk)) {
+          const a = lk[id];
+          if (!a) continue;
+          const dtSec = (nowMs - a.ts) / 1000;
+          const lng = a.lng + a.velLng * dtSec;
+          const lat = a.lat + a.velLat * dtSec;
+          const kind = aircraftIdSetRef.current.has(id)
+            ? "aircraft"
+            : vesselIdSetRef.current.has(id)
+            ? "vessel"
+            : null;
+          if (!kind) continue;
+          const speed = Math.hypot(a.velLng, a.velLat);
+          const heading = speed > 1e-9 ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360 : 0;
+          const feat = {
+            type: "Feature" as const,
+            properties: { id, heading },
+            geometry: { type: "Point" as const, coordinates: [lng, lat] },
+          };
+          if (kind === "aircraft") acFeats.push(feat);
+          else vFeats.push(feat);
         }
+        if (acFeats.length > 0) {
+          const acSrc = map.getSource("crep-live-aircraft") as any;
+          if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+        }
+        if (vFeats.length > 0) {
+          const vSrc = map.getSource("crep-live-vessels") as any;
+          if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+        }
+      } catch {
+        // source missing or map torn down; keep looping
       }
-      rafId = requestAnimationFrame(tick);
     };
-    rafId = requestAnimationFrame(tick);
-    return () => { if (rafId != null) cancelAnimationFrame(rafId); };
+
+    // rAF tick: runs at ~60 Hz when tab is visible; browser pauses when hidden.
+    const rafTick = (ts: number) => {
+      if (ts - lastTickAt >= TICK_MS) {
+        lastTickAt = ts;
+        pumpOnce();
+      }
+      rafId = requestAnimationFrame(rafTick);
+    };
+    rafId = requestAnimationFrame(rafTick);
+
+    // setInterval backstop: fires at 250 ms (throttled to ~1 s on hidden
+    // tabs, but that's fine — map doesn't need 5 FPS when no-one is looking;
+    // we just need it to keep moving so when Morgan looks back, positions
+    // are current).
+    intervalId = setInterval(() => {
+      // Guard against double-ticks when rAF is also firing: if rAF ran in
+      // the last 150 ms, skip this interval tick.
+      if (Date.now() - lastTickAt < 150) return;
+      lastTickAt = performance.now();
+      pumpOnce();
+    }, 250);
+
+    return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+      if (intervalId != null) clearInterval(intervalId);
+    };
   }, []); // mount once — ref is read fresh each tick
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4303,12 +4333,22 @@ export default function CREPDashboardPage() {
   useEffect(() => {
     const diag = () => {
       const m = mapNativeRef.current
-      const acSrc = m?.getSource?.("crep-live-aircraft") as any
-      const vSrc = m?.getSource?.("crep-live-vessels") as any
-      const satSrc = m?.getSource?.("crep-live-satellites") as any
-      const renderedAc = acSrc?._data?.features?.length ?? 0
-      const renderedV = vSrc?._data?.features?.length ?? 0
-      const renderedSat = satSrc?._data?.features?.length ?? 0
+      // Apr 20, 2026 diag fix: MapLibre's GeoJSONSource doesn't keep
+      // features on `_data` after setData — it ships them to a worker and
+      // clears the main-thread copy. Use queryRenderedFeatures instead to
+      // get the actual rendered count; fall back to _options.data if the
+      // renderer hasn't processed the latest setData yet.
+      const countFeatures = (sourceId: string, layerIds: string[]): number => {
+        try {
+          const rendered = m.queryRenderedFeatures({ layers: layerIds }).length
+          if (rendered > 0) return rendered
+        } catch { /* layer may not exist */ }
+        const src = m?.getSource?.(sourceId) as any
+        return src?._options?.data?.features?.length ?? src?._data?.features?.length ?? 0
+      }
+      const renderedAc = countFeatures("crep-live-aircraft", ["crep-live-aircraft-dot"])
+      const renderedV = countFeatures("crep-live-vessels", ["crep-live-vessels-dot"])
+      const renderedSat = countFeatures("crep-live-satellites", ["crep-live-satellites-dot"])
       const acVis = (m?.getLayer?.("crep-live-aircraft-dot") && m.getLayoutProperty?.("crep-live-aircraft-dot", "visibility")) ?? "?"
       const vVis = (m?.getLayer?.("crep-live-vessels-dot") && m.getLayoutProperty?.("crep-live-vessels-dot", "visibility")) ?? "?"
       const satVis = (m?.getLayer?.("crep-live-satellites-dot") && m.getLayoutProperty?.("crep-live-satellites-dot", "visibility")) ?? "?"
