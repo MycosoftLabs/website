@@ -48,10 +48,16 @@ interface Props {
   }
 }
 
-// Project Oyster operational perimeter — wraps the lower TJ Estuary,
-// south Imperial Beach, and the river outflow into the Pacific. Approximate
-// polygon based on the TJ River National Estuarine Research Reserve
-// boundary + MYCODAO active deployment zones.
+// Project Oyster operational perimeter — wraps the lower TJ Estuary
+// from the Pacific outflow EAST to Saturn Blvd, encompassing the
+// military training land that straddles both banks of the river.
+//
+// Apr 20, 2026 update (Morgan: "project oyster goes all the way east
+// of the eastuary mouth all the way to saturn blvd where the military
+// base crosses both sides of the land on the river"). Saturn Blvd
+// runs north-south near lng -117.051. Polygon now extends from the
+// IB pier west edge all the way east to Saturn Blvd, with both banks
+// north + south of the river included.
 const PROJECT_OYSTER_PERIMETER_GEOJSON = {
   type: "FeatureCollection" as const,
   features: [
@@ -61,15 +67,19 @@ const PROJECT_OYSTER_PERIMETER_GEOJSON = {
       geometry: {
         type: "Polygon" as const,
         coordinates: [[
-          [-117.1380, 32.5380], // SW — south Imperial Beach pier
-          [-117.1280, 32.5380], // S edge — estuary mouth
-          [-117.1180, 32.5440], // SE — south slough
-          [-117.1080, 32.5510], // E — Iris Ave
-          [-117.1080, 32.5640], // NE — Saturn Blvd
-          [-117.1180, 32.5720], // N — north estuary boundary
-          [-117.1320, 32.5720], // NW — beach corridor
-          [-117.1380, 32.5640], // W — IB pier north
-          [-117.1380, 32.5380], // close
+          [-117.1380, 32.5350], // SW — south of IB pier
+          [-117.1280, 32.5340], // S — estuary mouth (south bank)
+          [-117.1080, 32.5360], // S — south slough
+          [-117.0900, 32.5400], // S — Nestor / south river bank
+          [-117.0700, 32.5430], // S — south of Saturn approach
+          [-117.0510, 32.5470], // SE — Saturn Blvd south
+          [-117.0510, 32.5680], // NE — Saturn Blvd north (military boundary)
+          [-117.0700, 32.5710], // N — north of Saturn
+          [-117.0900, 32.5720], // N — Iris Ave / north river bank
+          [-117.1080, 32.5720], // N — beach approach
+          [-117.1280, 32.5720], // NW — beach corridor north
+          [-117.1380, 32.5680], // W — IB pier north
+          [-117.1380, 32.5350], // close
         ]],
       },
     },
