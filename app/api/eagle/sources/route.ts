@@ -148,20 +148,27 @@ async function fromMindex(
         const lat = c.lat ?? c.latitude ?? c.geometry?.coordinates?.[1]
         const lng = c.lng ?? c.longitude ?? c.geometry?.coordinates?.[0]
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        // Apr 21, 2026 (Morgan: "all the cameras now say unknown"). MINDEX's
+        // bulk-upsert stores source metadata in the properties JSON, so
+        // top-level `provider` / `kind` / `stream_url` / etc. are null when
+        // we read back. Fall through to properties.* / metadata.* to get
+        // the original connector tag. This is defensive — works whether
+        // MINDEX promotes these to columns later or keeps them in JSON.
+        const p = c.properties || c.metadata || {}
         return {
-          id: String(c.id ?? `${lat}-${lng}`),
-          kind: (c.kind || "permanent") as VideoSource["kind"],
-          provider: c.provider || "unknown",
-          stable_location: c.stable_location !== false,
+          id: String(c.id ?? p.id ?? `${lat}-${lng}`),
+          kind: (c.kind || p.kind || "permanent") as VideoSource["kind"],
+          provider: c.provider || p.provider || "unknown",
+          stable_location: (c.stable_location ?? p.stable_location) !== false,
           lat: Number(lat),
           lng: Number(lng),
-          location_confidence: c.location_confidence ?? null,
-          stream_url: c.stream_url ?? null,
-          embed_url: c.embed_url ?? null,
-          media_url: c.media_url ?? null,
-          source_status: c.source_status ?? null,
-          permissions: c.permissions ?? null,
-          updated_at: c.updated_at ?? c.timestamp ?? null,
+          location_confidence: c.location_confidence ?? p.location_confidence ?? null,
+          stream_url: c.stream_url ?? p.stream_url ?? null,
+          embed_url: c.embed_url ?? p.embed_url ?? null,
+          media_url: c.media_url ?? p.media_url ?? null,
+          source_status: c.source_status ?? p.source_status ?? null,
+          permissions: c.permissions ?? p.permissions ?? null,
+          updated_at: c.updated_at ?? c.timestamp ?? p.updated_at ?? null,
         } as VideoSource
       })
       .filter((x): x is VideoSource => !!x)
