@@ -307,7 +307,48 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
           minzoom: 3,
           paint,
         } as any)
-        console.log(`[ProposalOverlays] power plants: ${mode} source added`)
+        // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY
+        // GRID NEEDS TO BE SELECTABLE AND HAVE LABELS"). Label + click.
+        map.addLayer({
+          id: "crep-plants-global-label",
+          type: "symbol",
+          source: cfg.sourceId,
+          ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
+          minzoom: 9,
+          layout: {
+            "text-field": ["concat", ["coalesce", ["get", "name"], "Plant"], "  ·  ", ["coalesce", ["get", "fuel"], ""], " ", ["coalesce", ["to-string", ["get", "capacity_mw"]], ""], " MW"],
+            "text-size": 10,
+            "text-offset": [0, 0.9],
+            "text-anchor": "top",
+            "text-allow-overlap": false,
+            "text-optional": true,
+          } as any,
+          paint: {
+            "text-color": "#fef3c7",
+            "text-halo-color": "rgba(0,0,0,0.85)",
+            "text-halo-width": 1.3,
+          },
+        } as any)
+        map.on("click", "crep-plants-global-dot", (e: any) => {
+          const p = e.features?.[0]?.properties || {}
+          const c = e.lngLat
+          try {
+            const hook = (window as any).__crep_selectAsset
+            if (typeof hook === "function") {
+              hook({
+                type: "power_plant",
+                id: p.id || `plant-${c.lat}-${c.lng}`,
+                name: p.name || `${p.fuel || "Power"} plant`,
+                lat: c?.lat ?? 0,
+                lng: c?.lng ?? 0,
+                properties: p,
+              })
+            }
+          } catch { /* ignore */ }
+        })
+        map.on("mouseenter", "crep-plants-global-dot", () => { map.getCanvas().style.cursor = "pointer" })
+        map.on("mouseleave", "crep-plants-global-dot", () => { map.getCanvas().style.cursor = "" })
+        console.log(`[ProposalOverlays] power plants: ${mode} source added (click + label wired)`)
       } catch (e: any) { console.warn("[ProposalOverlays/plants]", e.message) }
     })
   }, [map, enabled.powerPlantsG])
@@ -339,6 +380,22 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               "circle-opacity": 0.6, "circle-stroke-width": 0.3, "circle-stroke-color": "#7c2d12",
             },
           })
+          // Apr 21, 2026 (Morgan: pollution layers need label + click)
+          map.addLayer({
+            id: "crep-factories-label", type: "symbol", source: "crep-factories", minzoom: 9,
+            layout: {
+              "text-field": ["concat", ["coalesce", ["get", "name"], "Factory"], "  ·  ", ["coalesce", ["get", "industry"], ""]],
+              "text-size": 10, "text-offset": [0, 0.9], "text-anchor": "top",
+              "text-allow-overlap": false, "text-optional": true,
+            } as any,
+            paint: { "text-color": "#fed7aa", "text-halo-color": "rgba(0,0,0,0.85)", "text-halo-width": 1.3 },
+          })
+          map.on("click", "crep-factories-dot", (e: any) => {
+            const p = e.features?.[0]?.properties || {}; const c = e.lngLat
+            try { const h = (window as any).__crep_selectAsset; if (typeof h === "function") h({ type: "factory", id: p.id, name: p.name || "Factory", lat: c?.lat ?? 0, lng: c?.lng ?? 0, properties: p }) } catch {}
+          })
+          map.on("mouseenter", "crep-factories-dot", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-factories-dot", () => { map.getCanvas().style.cursor = "" })
         } else {
           (map.getSource("crep-factories") as any).setData(fc)
         }
@@ -1377,6 +1434,52 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               "line-opacity": 0.7,
               "line-dasharray": [2, 2],
             },
+          })
+          // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY
+          // GRID NEEDS TO BE SELECTABLE AND HAVE LABELS"). Add label +
+          // click-to-select dispatch so operator knows what's restricting
+          // drone ops at this location.
+          map.addLayer({
+            id: "crep-drone-no-fly-label",
+            type: "symbol",
+            source: "crep-drone-no-fly",
+            minzoom: 7,
+            layout: {
+              "text-field": [
+                "concat",
+                ["coalesce", ["get", "airspace_class"], "NOFLY"],
+                "  ·  ",
+                ["coalesce", ["get", "name"], "UAS zone"],
+              ],
+              "text-size": ["interpolate", ["linear"], ["zoom"], 7, 9, 13, 12],
+              "text-anchor": "center",
+              "text-allow-overlap": false,
+              "text-optional": true,
+              "text-letter-spacing": 0.04,
+              "text-transform": "uppercase",
+            } as any,
+            paint: {
+              "text-color": "#fecaca",
+              "text-halo-color": "rgba(0,0,0,0.85)",
+              "text-halo-width": 1.4,
+            },
+          })
+          map.on("click", "crep-drone-no-fly-fill", (e: any) => {
+            const p = e.features?.[0]?.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") {
+                hook({
+                  type: "drone_no_fly_zone",
+                  id: p.id || `noFly-${c.lat}-${c.lng}`,
+                  name: p.name || `${p.airspace_class || "UAS"} zone`,
+                  lat: c?.lat ?? 0,
+                  lng: c?.lng ?? 0,
+                  properties: p,
+                })
+              }
+            } catch { /* ignore */ }
           })
           map.on("mouseenter", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "" })

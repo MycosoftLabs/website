@@ -112,6 +112,39 @@ function ensureHeatmapLayer(map: MapLibreMap, id: string, source: string, paint:
   try { map.addLayer({ id, type: "heatmap", source, paint, layout: { visibility: "visible" } }) } catch { /* ignore */ }
 }
 
+// Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY GRID
+// NEEDS TO BE SELECTABLE AND HAVE LABELS"). Shared helper to tack a
+// text label layer onto the same source as a circle layer. Each label
+// defaults to minzoom 10 so world view isn't cluttered.
+function ensureSymbolLabel(
+  map: MapLibreMap,
+  id: string,
+  source: string,
+  opts: { textFields: any; color?: string; halo?: string; minzoom?: number },
+) {
+  if (!mapReady(map) || map.getLayer(id)) return
+  try {
+    map.addLayer({
+      id, type: "symbol", source,
+      minzoom: opts.minzoom ?? 10,
+      layout: {
+        "text-field": opts.textFields,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 12],
+        "text-offset": [0, 0.9],
+        "text-anchor": "top",
+        "text-allow-overlap": false,
+        "text-optional": true,
+        "visibility": "visible",
+      } as any,
+      paint: {
+        "text-color": opts.color ?? "#ffffff",
+        "text-halo-color": opts.halo ?? "rgba(0,0,0,0.85)",
+        "text-halo-width": 1.3,
+      },
+    })
+  } catch { /* ignore */ }
+}
+
 function setVisibility(map: MapLibreMap, id: string, visible: boolean) {
   if (!mapReady(map) || !map.getLayer(id)) return
   try { map.setLayoutProperty(id, "visibility", visible ? "visible" : "none") } catch { /* ignore */ }
@@ -343,12 +376,31 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
         metalOutput: "#a16207",
         waterPollution: "#0284c7",
       }
+      const labelColor: Record<string, string> = {
+        oilGas: "#fed7aa",
+        methaneSources: "#fecaca",
+        metalOutput: "#fde68a",
+        waterPollution: "#bae6fd",
+      }
+      const prefix: Record<string, string> = {
+        oilGas: "OIL/GAS",
+        methaneSources: "CH₄",
+        metalOutput: "METAL/MINING",
+        waterPollution: "WATER POLLUTION",
+      }
       ensureCircleLayer(map, `${id}-dot`, id, {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1.8, 8, 3, 12, 5, 16, 8],
         "circle-color": colorMap[k],
         "circle-opacity": 0.7,
         "circle-stroke-width": 0.5,
         "circle-stroke-color": "#ffffff",
+      })
+      // Apr 21, 2026: add label per pollution marker.
+      ensureSymbolLabel(map, `${id}-label`, id, {
+        textFields: ["concat", prefix[k], "  ·  ", ["coalesce", ["get", "name"], ["get", "tags.name"], ""]],
+        color: labelColor[k],
+        halo: "rgba(0,0,0,0.85)",
+        minzoom: 11,
       })
       wireClick(map, `${id}-dot`, k, k)
     }
@@ -464,9 +516,13 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-firestations-dot", !!enabled.fireStations)
     flip("crep-universities-dot", !!enabled.universities)
     flip("crep-oilgas-dot", !!enabled.oilGas)
+    flip("crep-oilgas-label", !!enabled.oilGas)
     flip("crep-methanesources-dot", !!enabled.methaneSources)
+    flip("crep-methanesources-label", !!enabled.methaneSources)
     flip("crep-metaloutput-dot", !!enabled.metalOutput)
+    flip("crep-metaloutput-label", !!enabled.metalOutput)
     flip("crep-waterpollution-dot", !!enabled.waterPollution)
+    flip("crep-waterpollution-label", !!enabled.waterPollution)
     flip("crep-population-heat", !!enabled.population)
     flip("crep-humanmovement-heat", !!enabled.humanMovement)
     flip("crep-events_human-heat", !!enabled.events_human)
