@@ -4284,6 +4284,49 @@ export default function CREPDashboardPage() {
     return () => { if (rafId != null) cancelAnimationFrame(rafId); };
   }, []); // mount once — ref is read fresh each tick
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 — Morgan: "i dont see any planes or
+  // satelites or movment of baots or rail cars npw").
+  //
+  // Logs a single summary line every 10 s with counts at each stage of the
+  // live-mover pipeline so operators can see where the data stops flowing:
+  //
+  //   raw      — how many rows the upstream APIs returned (aircraft state)
+  //   filtered — how many survived the category/altitude/LOD filter
+  //   tracked  — how many are in the rAF dead-reckoning anchor map
+  //   rendered — how many features are currently on the MapLibre sources
+  //
+  // If raw>0 but rendered=0 → filter or layer issue.
+  // If raw>0 and rendered>0 → map is showing them, check zoom/visibility.
+  // Also exposes __crep_live_stats() as a global for quick console probes.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const diag = () => {
+      const m = mapNativeRef.current
+      const acSrc = m?.getSource?.("crep-live-aircraft") as any
+      const vSrc = m?.getSource?.("crep-live-vessels") as any
+      const satSrc = m?.getSource?.("crep-live-satellites") as any
+      const renderedAc = acSrc?._data?.features?.length ?? 0
+      const renderedV = vSrc?._data?.features?.length ?? 0
+      const renderedSat = satSrc?._data?.features?.length ?? 0
+      const acVis = (m?.getLayer?.("crep-live-aircraft-dot") && m.getLayoutProperty?.("crep-live-aircraft-dot", "visibility")) ?? "?"
+      const vVis = (m?.getLayer?.("crep-live-vessels-dot") && m.getLayoutProperty?.("crep-live-vessels-dot", "visibility")) ?? "?"
+      const satVis = (m?.getLayer?.("crep-live-satellites-dot") && m.getLayoutProperty?.("crep-live-satellites-dot", "visibility")) ?? "?"
+      const summary = {
+        map_ready: !!m,
+        zoom: m?.getZoom?.().toFixed?.(1),
+        aircraft: { raw: aircraft.length, filtered: filteredAircraft.length, tracked: aircraftIdSetRef.current.size, rendered: renderedAc, vis: acVis },
+        vessels:  { raw: vessels.length,  filtered: filteredVessels.length,  tracked: vesselIdSetRef.current.size,   rendered: renderedV, vis: vVis },
+        satellites: { raw: satellites.length, rendered: renderedSat, vis: satVis },
+      }
+      try { (window as any).__crep_live_stats = () => summary } catch { /* ignore */ }
+      console.log("[CREP/diag live]", JSON.stringify(summary))
+    }
+    const id = setInterval(diag, 10_000)
+    const first = setTimeout(diag, 3_000)
+    return () => { clearInterval(id); clearTimeout(first) }
+  }, [aircraft.length, vessels.length, satellites.length, filteredAircraft.length, filteredVessels.length])
+
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
     const lastKnown = lastKnownRef.current;
     const sourceEntities = [
