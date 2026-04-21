@@ -113,18 +113,33 @@ const TJ_RIVER_COURSE_GEOJSON = {
 export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
   const loadedRef = useRef(false)
   const [data, setData] = useState<any | null>(null)
+  // Apr 21, 2026 (Morgan: "crep keeps reloading ... too much data?"):
+  // guard against the infinite-fetch loop we had here before. The old
+  // effect listed `data` in its deps AND called setData(j) where j
+  // could be null when the endpoint 5xx'd — flipping data from null
+  // to null re-evaluated the deps array (still null) but React fires
+  // the effect once per mount regardless of equality. More importantly,
+  // when j was null the `if (data) return` gate didn't catch it,
+  // so every render re-fetched. Now we track the attempt in a ref so
+  // a failed fetch doesn't spin forever, and drop `data` from deps.
+  const fetchAttemptedRef = useRef(false)
 
-  // Fetch data once on mount (or re-enable)
+  // Fetch data once when enabled (or re-enable after a disable)
   useEffect(() => {
-    if (!enabled.tijuanaEstuary) return
-    if (data) return
+    if (!enabled.tijuanaEstuary) {
+      // reset the guard so a re-enable re-fetches fresh
+      fetchAttemptedRef.current = false
+      return
+    }
+    if (fetchAttemptedRef.current) return
+    fetchAttemptedRef.current = true
     let cancelled = false
     fetch("/api/crep/tijuana-estuary")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled) setData(j) })
+      .then((j) => { if (!cancelled && j) setData(j) })
       .catch(() => { /* ignore */ })
     return () => { cancelled = true }
-  }, [enabled.tijuanaEstuary, data])
+  }, [enabled.tijuanaEstuary])
 
   useEffect(() => {
     if (!map) return

@@ -6625,8 +6625,24 @@ export default function CREPDashboardPage() {
                 // Deferred via idleLoad so the 12MB GeoJSON doesn't block
                 // first paint. The renderSubstations layer has its own
                 // minzoom guard so it won't clutter the world view.
-                // ════════════════════════════════════════════════════════
-                idleLoad(async () => {
+                //
+                // Apr 21, 2026 (Morgan: "crep keeps reloading ... too much
+                // data?"): the layer's minzoom gate hides the dots at
+                // z<4, but we were STILL pulling the 12 MB payload + 76 k
+                // entities into heap on every map mount regardless of the
+                // user's zoom. On a laptop dev box this + the 14 MB TX
+                // lines load = 26 MB raw JSON parsed + 3 MapLibre sources
+                // held whether or not the user ever zooms in. Now we gate
+                // the idleLoad on zoom ≥ 3 AND re-attempt on moveend when
+                // the user zooms in.
+                const loadSubstationsOnceAtZoom = () => {
+                  if ((window as any).__crep_substations_loaded) return
+                  if (!mapReady()) return
+                  if (map.getZoom() < 3) return
+                  ;(window as any).__crep_substations_loaded = true
+                  idleLoad(loadSubstationsFetch)
+                }
+                const loadSubstationsFetch = async () => {
                   try {
                     const res = await fetch("/data/crep/substations-us.geojson", { cache: "default" });
                     if (!res.ok) return;
@@ -6650,7 +6666,12 @@ export default function CREPDashboardPage() {
                   } catch (e) {
                     console.warn("[CREP/Static] substations load failed:", (e as Error)?.message);
                   }
-                });
+                };
+                // Fire immediately if already zoomed in, else wait for the
+                // first zoomend that crosses the threshold. One-shot via
+                // the window flag inside loadSubstationsOnceAtZoom().
+                loadSubstationsOnceAtZoom();
+                map.on("zoomend", loadSubstationsOnceAtZoom);
 
                 batchFetch("substations", 20000, (vpResults) => {
                   const vpSubs = vpResults.flatMap(r => r?.entities || []);
