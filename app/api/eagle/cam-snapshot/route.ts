@@ -38,19 +38,52 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
 // Allowlist of hosts we'll headless-render. Each is a public viewer page
-// for cameras whose stream URL isn't directly accessible.
+// for cameras whose stream URL isn't directly accessible. Apr 20, 2026 v2
+// (Morgan: "all videos that say anything like this need a full workaround
+// to get that video placed in a passthrough directly into the widget no
+// excuses") — list expanded to cover every provider VideoWallWidget might
+// encounter so it can ALWAYS try a headless render before falling back to
+// the info card.
 const ALLOW_HOSTS = new Set<string>([
-  "cameras.alertcalifornia.org",
-  "www.alertcalifornia.org",
-  "cameras.alertwildfire.org",
-  "www.alertwildfire.org",
+  // Fire-watch / wilderness research
+  "cameras.alertcalifornia.org", "www.alertcalifornia.org",
+  "cameras.alertwildfire.org", "www.alertwildfire.org",
   "alertca.live",
-  "hpwren.ucsd.edu",
-  "www.hpwren.ucsd.edu",
-  // Surfline free spot pages (paid spots will paywall and we'll show that)
-  "www.surfline.com",
-  // EarthCam viewer pages (when they don't expose the embed widget)
+  "hpwren.ucsd.edu", "www.hpwren.ucsd.edu",
+  // Surf
+  "www.surfline.com", "cams.cdn-surfline.com",
+  // EarthCam viewer pages
   "www.earthcam.com",
+  // Skyline / global landmark viewer
+  "www.skylinewebcams.com",
+  // Webcamtaxi
+  "www.webcamtaxi.com",
+  // NPS park webcam pages
+  "www.nps.gov", "webcams.nps.gov",
+  // USGS webcam pages
+  "volcanoes.usgs.gov", "hvo-api.wr.usgs.gov", "www.usgs.gov",
+  // Windy webcam viewer
+  "www.windy.com",
+  // State DOTs
+  "cwwp2.dot.ca.gov",
+  "wsdot.wa.gov",
+  "fl511.com",
+  "511ny.org",
+  "www.drivetexas.org",
+  // Marine / port operations
+  "www.portofrotterdam.com",
+  "www.portoflosangeles.org",
+  "micanaldepanama.com",
+  // Resort / wildlife / aquarium
+  "www.mammothmountain.com", "www.vail.com", "www.northstarcalifornia.com",
+  "www.whistlerblackcomb.com",
+  "www.sandiegozoo.org", "nationalzoo.si.edu",
+  "www.montereybayaquarium.org",
+  "explore.org", "www.africam.com",
+  // Aviation
+  "www.flysfo.com", "www.jfkairport.com",
+  // Pikes Peak / weather
+  "pikespeakwebcam.com",
 ])
 
 type CacheEntry = { jpeg: Buffer; t: number }

@@ -78,8 +78,13 @@ async function ibwcDischargeStation(): Promise<Station> {
       const csv = readFileSync(csvPath, "utf8")
       const lines = csv.split(/\r?\n/).slice(2) // skip header lines
       const measurements: { ts: string; value: number; unit: string; param: string }[] = []
-      // Subsample to last 30 days to keep response size sane (36k full → ~3k 30d)
-      const cutoff = Date.now() - 30 * 86400_000
+      // Apr 20, 2026 OOM fix (Morgan: "local site crashed with Error code:
+      // Out of Memory"). Drastically reduce dataset size:
+      //   • Window: last 7 days only (was 30) → ~700 raw points
+      //   • Decimate to every 16th point (4 hr cadence) → ~40 points
+      // Operator can fetch the full bundle directly from the CSV file
+      // when they need it (public/data/crep/tijuana/...).
+      const cutoff = Date.now() - 7 * 86400_000
       for (const line of lines) {
         if (!line.startsWith("20")) continue // data lines start with year
         const [ts, val] = line.split(",")
@@ -90,8 +95,8 @@ async function ibwcDischargeStation(): Promise<Station> {
         if (!Number.isFinite(v)) continue
         measurements.push({ ts, value: v, unit: "m³/s", param: "discharge" })
       }
-      // Decimate to ~hourly when displayed (every 4th point of 15-min cadence)
-      station.measurements = measurements.filter((_, i) => i % 4 === 0)
+      // Decimate to ~4 hr cadence (every 16th point of 15-min raw)
+      station.measurements = measurements.filter((_, i) => i % 16 === 0)
       const recent = measurements[measurements.length - 1]
       if (recent) {
         ;(station.metadata as any).latest_discharge_m3s = recent.value

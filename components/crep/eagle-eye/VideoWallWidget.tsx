@@ -162,11 +162,13 @@ function looksLikeVideoEmbed(url: string): boolean {
   return VIDEO_EMBED_PATTERNS.some((re) => re.test(url))
 }
 
-// Provider categories where the embed is just an INFO page (not video)
-// → never iframe, show info card.
+// Provider categories where there's NO video element on the upstream
+// page at all (purely informational pages — CBP wait times, etc.).
+// These skip the snapshot attempt entirely and go straight to the
+// info card. Apr 20, 2026 v2: removed alertwildfire / surfline / hpwren
+// from this set — they DO have video elements on their viewer pages,
+// so the SnapshotProxyVideo headless renderer works for them.
 const INFO_ONLY_PROVIDERS = new Set([
-  "alertwildfire",
-  "surfline",
   "cbp",
   "static-poe",
 ])
@@ -198,29 +200,93 @@ function ProviderInfoCard({ url, provider, name, kind }: { url: string; provider
 }
 
 function IframeEmbed({ url, provider, name }: { url: string; provider?: string; name?: string }) {
-  // Apr 20, 2026 (Morgan: "all camera widgets must be audited none can
-  // show iframes or website only video streams live"). Two filters:
-  //   1. INFO_ONLY_PROVIDERS → known to never expose a live stream;
-  //      always show info card with external link.
-  //   2. URL pattern check → only iframe if URL matches a known video
-  //      player embed pattern (EarthCam /embed/, YouTube, Twitch,
-  //      Vimeo, Windy player, etc.). Anything else (including
-  //      provider viewer pages, info pages, marketing pages) gets the
-  //      "no live stream" info card.
+  // Apr 20, 2026 (Morgan: "all videos that say anything like this need a
+  // full workaround to get that video placed in a passthrough directly
+  // into the widget no excuses").
+  //
+  // Decision tree:
+  //   1. URL matches video-player whitelist (EarthCam embed, YouTube,
+  //      Twitch, Vimeo, Windy player, *.m3u8, /hls/, /whep/, etc.) →
+  //      iframe directly. These are designed for embedding.
+  //   2. URL is for a provider known to host a <video> element on the
+  //      page (alertwildfire, surfline, hpwren, nps, usgs, windy,
+  //      skylinewebcams, webcamtaxi, ski/zoo/wildlife sites in the
+  //      cam-snapshot allowlist) → render via SnapshotProxyVideo which
+  //      headless-renders the page, screenshots the video element
+  //      every 8 s, and serves the JPEG. No iframe at all.
+  //   3. Anything else → info card with external link.
+  // CBP wait-time pages, static-POE markers, etc. → no video element,
+  // skip snapshot attempt entirely
   if (provider && INFO_ONLY_PROVIDERS.has(provider)) {
     return <ProviderInfoCard url={url} provider={provider} name={name} />
   }
-  if (!looksLikeVideoEmbed(url)) {
+  if (looksLikeVideoEmbed(url)) {
+    return (
+      <iframe
+        src={url}
+        className="w-full h-full bg-black"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+        referrerPolicy="no-referrer-when-downgrade"
+        loading="lazy"
+      />
+    )
+  }
+  // Try the headless snapshot service for everything else. The service
+  // returns 403 for non-allowlisted hosts (then we fall back to info)
+  // and 502 when the page has no video element to capture (same).
+  return <SnapshotProxyVideo url={url} provider={provider} name={name} />
+}
+
+// Headless-snapshot-backed pseudo-video player. Loads the upstream
+// viewer page in server-side Chromium, screenshots the <video> element
+// every 8 s, serves the resulting JPEG via /api/eagle/cam-snapshot.
+// Auto-refreshes every 8 s so the widget shows near-live frames. If
+// the snapshot service can't render (host not allowlisted, no video
+// element on page, render error), gracefully falls back to the
+// ProviderInfoCard with external link.
+function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: string; name?: string }) {
+  const [t, setT] = useState(Date.now())
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const id = setInterval(() => setT(Date.now()), 8_000)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => { setFailed(false) }, [url])
+
+  // Pick a CSS selector for the video element based on provider so the
+  // headless renderer focuses on the player not the chrome
+  const selector = provider === "alertwildfire" ? "video"
+                : provider === "surfline" ? "video"
+                : provider === "hpwren" ? "img"
+                : provider === "windy" ? "video, .player-video"
+                : "video"
+  const snapshotApi = `/api/eagle/cam-snapshot?url=${encodeURIComponent(url)}&selector=${encodeURIComponent(selector)}&_t=${t}`
+
+  if (failed) {
     return <ProviderInfoCard url={url} provider={provider} name={name} />
   }
   return (
-    <iframe
-      src={url}
-      className="w-full h-full bg-black"
-      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-      referrerPolicy="no-referrer-when-downgrade"
-      loading="lazy"
-    />
+    <div className="relative w-full h-full bg-black group">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={snapshotApi}
+        alt=""
+        className="w-full h-full object-contain bg-black"
+        onError={() => setFailed(true)}
+      />
+      <div className="absolute top-2 left-2 bg-black/70 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded font-mono border border-cyan-500/30">
+        ◉ LIVE · headless render · refresh 8s
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-2 right-2 bg-black/60 hover:bg-cyan-700/80 text-cyan-200 hover:text-white text-[10px] px-2 py-1 rounded pointer-events-auto border border-cyan-500/40 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Open provider site"
+      >
+        Provider site ↗
+      </a>
+    </div>
   )
 }
 
