@@ -90,23 +90,49 @@ export default function TimelineScrubber() {
     } catch { /* ignore */ }
   }, [hoursBack])
 
-  // Poll /api/eagle/events every 60s when expanded
+  // Poll /api/eagle/events with adaptive backoff. Apr 20, 2026 perf-3:
+  // - Skip when document.hidden (tab background)
+  // - Backoff cadence: 60 s if events arriving, 5 min if 30 min idle
+  // - Only when expanded (already gated)
   useEffect(() => {
     if (!expanded) return
     let cancelled = false
+    let lastEventCount = 0
+    let idleSince = Date.now()
     const fetchEvents = async () => {
+      if (typeof document !== "undefined" && document.hidden) return
       setLoading(true)
       try {
         const res = await fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000`)
         if (!res.ok) return
         const j = await res.json()
-        if (!cancelled) setEvents(j.events || [])
+        if (!cancelled) {
+          const evs = j.events || []
+          setEvents(evs)
+          if (evs.length > lastEventCount) idleSince = Date.now()
+          lastEventCount = evs.length
+        }
       } catch { /* ignore */ }
       finally { if (!cancelled) setLoading(false) }
     }
     fetchEvents()
-    const t = setInterval(fetchEvents, 60_000)
-    return () => { cancelled = true; clearInterval(t) }
+    // Adaptive interval: every 60 s normally, every 5 min after 30 min
+    // with no new events arriving.
+    let t: any = null
+    const reschedule = () => {
+      const idleMin = (Date.now() - idleSince) / 60_000
+      const cadenceMs = idleMin > 30 ? 5 * 60_000 : 60_000
+      if (t) clearInterval(t)
+      t = setInterval(async () => {
+        await fetchEvents()
+        // Check if cadence should change after this fetch
+        const newIdleMin = (Date.now() - idleSince) / 60_000
+        const wantCadenceMs = newIdleMin > 30 ? 5 * 60_000 : 60_000
+        if (wantCadenceMs !== cadenceMs) reschedule()
+      }, cadenceMs)
+    }
+    reschedule()
+    return () => { cancelled = true; if (t) clearInterval(t) }
   }, [expanded, hoursBack])
 
   const buckets = useMemo(() => {

@@ -389,19 +389,26 @@ export default function VideoWallWidget() {
     // entirely and render instantly.
     const onCamera = (e: any) => {
       const d = e?.detail || {}
+      // Apr 20, 2026 (Morgan: Caltrans cam page shown instead of video).
+      // PREFER stream_url (raw HLS m3u8 / WebRTC / MJPEG) over embed_url
+      // (which is often a viewer page wrapping the video). Caltrans cams
+      // expose stream_url=https://wzmedia.dot.ca.gov/D{N}/...m3u8 +
+      // embed_url=https://cwwp2.dot.ca.gov/vm/iframemap.htm — we want
+      // the m3u8 so HlsPlayer renders pure video, not the iframe page.
       setFeed({
         id: d.id, name: d.name || `${d.provider} camera`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "camera",
-        directEmbed: d.embed_url || d.stream_url || undefined,
+        directEmbed: d.stream_url || d.embed_url || undefined,
         thumbnail: d.media_url || d.thumbnail || undefined,
       })
     }
     const onEvent = (e: any) => {
       const d = e?.detail || {}
+      // Same priority for ephemeral events.
       setFeed({
         id: d.id, name: d.title || d.name || `${d.provider} clip`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "video_event",
-        directEmbed: d.embed_url || d.stream_url || undefined,
+        directEmbed: d.stream_url || d.embed_url || undefined,
         thumbnail: d.thumbnail || d.media_url || undefined,
         confidence: d.confidence,
       })

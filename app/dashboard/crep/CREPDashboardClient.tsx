@@ -1927,11 +1927,26 @@ export default function CREPDashboardPage() {
     };
 
     pumpLive();
-    const interval = setInterval(pumpLive, 30_000); // 30s refresh
+    // Apr 20, 2026 perf-1 (Morgan: "make all map load faster every single
+    // asset and system can have small if not micro efficiency improvments").
+    // Visibility-aware throttle: skip the live-entity pump when the tab is
+    // backgrounded — no point burning ~3 API calls + 3 setState's every 30s
+    // when nobody's looking. Last poll persists; rAF backstop keeps painting
+    // existing positions. When user returns + visibilitychange fires, we
+    // do an immediate pump to catch up.
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      pumpLive()
+    }, 30_000) // 30s refresh
+    const onVisible = () => {
+      if (typeof document !== "undefined" && !document.hidden) pumpLive()
+    }
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible)
     return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+      cancelled = true
+      clearInterval(interval)
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible)
+    }
   }, []);
 
   // Filter states for map controls
@@ -2633,9 +2648,14 @@ export default function CREPDashboardPage() {
     }
 
     fetchData();
-    // Refresh every 60s to reduce cold-path and polling load (was 15s)
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
+    // Refresh every 60s to reduce cold-path and polling load (was 15s).
+    // Apr 20, 2026 perf: skip when document.hidden so backgrounded tabs
+    // stop triggering the multi-API fan-out.
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchData()
+    }, 60000)
+    return () => clearInterval(interval)
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2659,9 +2679,13 @@ export default function CREPDashboardPage() {
     };
 
     fetchBuoys();
-    // Refresh every 5 minutes (buoy data updates every 5-10 min at NDBC)
-    const interval = setInterval(fetchBuoys, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    // Refresh every 5 minutes (buoy data updates every 5-10 min at NDBC).
+    // Apr 20, 2026 perf: visibility-throttle.
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchBuoys()
+    }, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2685,7 +2709,10 @@ export default function CREPDashboardPage() {
     };
 
     fetchMilitary();
-    const interval = setInterval(fetchMilitary, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchMilitary()
+    }, 5 * 60 * 1000)
     return () => clearInterval(interval);
   }, []);
 
@@ -4113,6 +4140,23 @@ export default function CREPDashboardPage() {
     let lastTickAt = 0;
     const TICK_MS = 200; // 5 FPS when visible — smooth enough, cheap enough
 
+    // Apr 20, 2026 perf-2: cheap dirty-check on the rounded coords +
+    // heading per id. If nothing visibly moved between ticks (e.g. all
+    // grounded planes), skip the setData call entirely. Cuts MapLibre
+    // worker IO for the most common case (long-haul flights at cruise
+    // moving < 0.0001° between 200 ms ticks at far zoom).
+    let lastAcSig = ""
+    let lastVSig = ""
+    const sigOf = (feats: any[]) => {
+      // 4 dec places ≈ 11 m at equator — finer than icon position fidelity
+      let s = ""
+      for (const f of feats) {
+        const c = f.geometry.coordinates
+        s += `${f.properties.id}:${c[0].toFixed(4)},${c[1].toFixed(4)},${(f.properties.heading | 0)};`
+      }
+      return s
+    }
+
     const pumpOnce = () => {
       const map = mapNativeRef.current;
       if (!map || typeof map.getSource !== "function") return;
@@ -4144,12 +4188,20 @@ export default function CREPDashboardPage() {
           else vFeats.push(feat);
         }
         if (acFeats.length > 0) {
-          const acSrc = map.getSource("crep-live-aircraft") as any;
-          if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+          const sig = sigOf(acFeats)
+          if (sig !== lastAcSig) {
+            lastAcSig = sig
+            const acSrc = map.getSource("crep-live-aircraft") as any;
+            if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+          }
         }
         if (vFeats.length > 0) {
-          const vSrc = map.getSource("crep-live-vessels") as any;
-          if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+          const sig = sigOf(vFeats)
+          if (sig !== lastVSig) {
+            lastVSig = sig
+            const vSrc = map.getSource("crep-live-vessels") as any;
+            if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+          }
         }
       } catch {
         // source missing or map torn down; keep looping
