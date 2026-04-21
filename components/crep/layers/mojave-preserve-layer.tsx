@@ -105,7 +105,10 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
             source: "mojave-boundary",
             paint: {
               "fill-color": "#ca8a04", // park amber
-              "fill-opacity": 0.08,
+              // Zoom-ramped: punchier at world view so the preserve is
+              // visible without needing to zoom in; eases off when the
+              // user is close so fill doesn't dominate site detail.
+              "fill-opacity": ["interpolate", ["linear"], ["zoom"], 2, 0.28, 5, 0.18, 9, 0.10, 12, 0.06],
               "fill-antialias": true,
             },
           }, beforeLabels)
@@ -115,8 +118,10 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
             source: "mojave-boundary",
             paint: {
               "line-color": "#facc15",
-              "line-width": 1.8,
-              "line-opacity": 0.85,
+              // Zoom-ramped line width so the outline is visible on the
+              // globe (3px at z2) but doesn't go nuclear up close.
+              "line-width": ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 2.2, 9, 1.8, 14, 1.2],
+              "line-opacity": 0.9,
               "line-dasharray": [3, 2],
             },
           }, beforeLabels)
@@ -133,25 +138,27 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
             }],
           }
           map.addSource("mojave-goffs", { type: "geojson", data: goffsFC })
-          // Outer pulsing halo
+          // Outer pulsing halo — visible at globe view so Morgan can
+          // spot the project site without zooming first. 14 px halo at
+          // z2 scales up to 20 px at site zoom.
           map.addLayer({
             id: "mojave-goffs-halo",
             type: "circle",
             source: "mojave-goffs",
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 10, 16],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 14, 5, 16, 10, 20],
               "circle-color": "#14b8a6",
-              "circle-opacity": 0.25,
-              "circle-blur": 0.6,
+              "circle-opacity": ["interpolate", ["linear"], ["zoom"], 2, 0.55, 5, 0.40, 10, 0.25],
+              "circle-blur": 0.55,
             },
           })
-          // Branded teal + cyan core
+          // Branded teal + cyan core — 6 px at globe, 9 px up close.
           map.addLayer({
             id: "mojave-goffs-dot",
             type: "circle",
             source: "mojave-goffs",
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 10, 7],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 5, 6, 10, 9],
               "circle-color": "#22d3ee",
               "circle-stroke-color": "#0891b2",
               "circle-stroke-width": 2,

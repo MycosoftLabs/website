@@ -326,6 +326,7 @@ import { PlantPopup } from "@/components/crep/popups/plant-popup";
 import { InfraDetailWidget, type InfraAsset } from "@/components/crep/popups/infra-detail-widget";
 import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
 import { FlyToButtons } from "@/components/crep/controls/fly-to-buttons";
+import { FlyToProjects } from "@/components/crep/controls/fly-to-projects";
 import { MapLayersPopup } from "@/components/crep/controls/map-layers-popup";
 import { InfrastructureStatsPanel } from "@/components/crep/panels/infrastructure-stats-panel";
 import { mindexFetch } from "@/lib/crep/mindex-cache-client";
@@ -8437,15 +8438,37 @@ export default function CREPDashboardPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════
-              FLY-TO COUNTRY BUTTONS (Apr 2026)
+              FLY-TO COUNTRY BUTTONS + MYCOSOFT PROJECTS (Apr 2026)
+              Apr 21 update (Morgan: "make a fly to projects also project
+              oyster, project goffs, ect"). Project chips fly to the site
+              AND auto-enable the project's layer set so the user lands on
+              a fully-painted view.
               ═══════════════════════════════════════════════════════════════ */}
           <div className={cn(
-            "absolute top-14 z-20 transition-all duration-300",
+            "absolute top-14 z-20 transition-all duration-300 flex flex-col gap-2",
             rightPanelOpen ? "right-[340px]" : "right-4"
           )}>
             <FlyToButtons
               onFlyTo={(center, zoom) => {
                 mapRef?.flyTo({ center, zoom, duration: 1200 });
+              }}
+              compact
+            />
+            <FlyToProjects
+              onFlyTo={(t) => {
+                if (!mapRef?.flyTo) return;
+                mapRef.flyTo({
+                  center: t.center,
+                  zoom: t.zoom,
+                  pitch: t.pitch ?? 0,
+                  bearing: t.bearing ?? 0,
+                  duration: 1800,
+                });
+              }}
+              onEnableLayers={(ids) => {
+                setLayers((prev) => prev.map((l) =>
+                  ids.includes(l.id) ? { ...l, enabled: true } : l
+                ));
               }}
               compact
             />
