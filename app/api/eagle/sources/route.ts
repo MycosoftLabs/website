@@ -136,9 +136,14 @@ async function fromMindex(
     if (kind) qp.set("kind", kind)
     if (provider) qp.set("provider", provider)
 
+    // Apr 22, 2026 — 2 s timeout instead of 8 s. MINDEX is either fast
+    // (≤500 ms when warm, populated) or we should move on to the live
+    // fan-out. Waiting 8 s adds 8 s to every response when MINDEX is
+    // cold/empty — which is exactly when the user most needs cameras
+    // to appear quickly from live connectors.
     const res = await fetch(`${MINDEX_BASE}/api/mindex/earth/map/bbox?${qp}`, {
       headers: { Accept: "application/json", ...authHeaders() },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(2_000),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -180,28 +185,24 @@ async function fromMindex(
 // Live connector fan-out. Invoked when MINDEX is empty so the user
 // sees cameras on the map RIGHT NOW instead of waiting for the Shinobi
 // ingest cron. Each connector is self-isolated.
-async function fromLiveConnectors(origin: string, bbox: string | undefined): Promise<VideoSource[]> {
+async function fromLiveConnectors(origin: string, bbox: string | undefined, fast = false): Promise<VideoSource[]> {
   const qp = bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""
-  const endpoints = [
+  // Apr 22, 2026 — Morgan: "needs first load fast". Split connectors into
+  // FAST tier (<2 s) and SLOW tier (up to 11 s for state-dot-cctv's nested
+  // DOT fan-out). ?fast=1 returns only the FAST tier so the map gets
+  // cameras on first paint; the SLOW tier runs in background via the
+  // async-warm path in GET and the overlay's next poll picks them up.
+  const FAST_ENDPOINTS = [
     `${origin}/api/eagle/connectors/public-webcams${qp}`,
     `${origin}/api/eagle/connectors/traffic-511${qp}`,
-    `${origin}/api/eagle/connectors/shinobi${qp}`,
-    // Apr 20, 2026 — state DOT CCTV networks (Caltrans + WSDOT + FDOT +
-    // 511NY + TxDOT) add ~8,000 cameras across CA/WA/FL/NY/TX. Morgan:
-    // "so many cctv streaming vodeo services web cams public cams missing
-    // from map". Fan-out fetches each DOT in parallel; bbox-filters
-    // per-endpoint to keep the response size bounded.
-    `${origin}/api/eagle/connectors/state-dot-cctv${qp}`,
-    // Apr 20, 2026 — US-MX southern border ports of entry + CBP live
-    // wait times. Morgan: "the tijuana boarder needs massive amount of
-    // added data". 19 ports of entry across CA/AZ/NM/TX with live CBP
-    // delay minutes per lane (POV / commercial / pedestrian).
     `${origin}/api/eagle/connectors/border-crossing${qp}`,
-    // Apr 20, 2026 — Webcamtaxi global landmark / beach / marine cams.
-    // Doc Phase 2 source. Hand-curated seed of pages whose iframe embeds
-    // are whitelisted in VideoWallWidget so they render as actual video.
     `${origin}/api/eagle/connectors/webcamtaxi${qp}`,
   ]
+  const SLOW_ENDPOINTS = [
+    `${origin}/api/eagle/connectors/shinobi${qp}`,
+    `${origin}/api/eagle/connectors/state-dot-cctv${qp}`,
+  ]
+  const endpoints = fast ? FAST_ENDPOINTS : [...FAST_ENDPOINTS, ...SLOW_ENDPOINTS]
   // Apr 20, 2026 hotfix (Morgan: "where are all the cameras icons and feeds
   // on crep add them now"). Probed: state-dot-cctv takes ~10 s on cold cache
   // (12 Caltrans districts + WSDOT + FDOT + 511NY + TxDOT in parallel).
@@ -258,23 +259,20 @@ export async function GET(req: NextRequest) {
   const provider = url.searchParams.get("provider") || undefined
   const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
   const skipLive = url.searchParams.get("live") === "0"
+  // Apr 22, 2026 — Morgan: "needs first load fast". ?fast=1 returns the
+  // fast-tier connectors (public-webcams + 511 + border + webcamtaxi
+  // ≈ 1.5 s) and kicks off state-dot-cctv + shinobi in the background.
+  // The overlay's next 30 s poll picks up the slow-tier cams.
+  const fast = url.searchParams.get("fast") === "1"
 
   let sources = await fromMindex(bbox, kind, provider, limit)
   let liveUsed = false
 
-  // Apr 22, 2026 — Morgan: "still no caltran cams".
-  // Strategy:
-  //   MINDEX has data (>= MIN_SOURCES)   → return it, no fan-out (fast)
-  //   MINDEX has SOME (>0 < MIN_SOURCES) → return it + async warm
-  //   MINDEX EMPTY (== 0) OR ?live=1     → sync fan-out so map isn't blank
-  // Live fan-out itself is now capped at 8 s per connector (was 35 s)
-  // and uses Promise.allSettled so slow connectors don't starve the
-  // whole response.
   const forceLive = url.searchParams.get("live") === "1"
   const mindexCold = sources.length === 0
   if (!skipLive && (mindexCold || forceLive)) {
     const origin = new URL(req.url).origin
-    const live = await fromLiveConnectors(origin, bbox)
+    const live = await fromLiveConnectors(origin, bbox, fast)
     if (live.length) {
       const seen = new Set(sources.map((s) => `${s.provider}:${s.id}`))
       for (const s of live) {
@@ -283,13 +281,27 @@ export async function GET(req: NextRequest) {
       }
       liveUsed = true
     }
+    // If fast mode: kick off the slow tier in background so MINDEX warms
+    // and the next poll cycle picks up Caltrans + Shinobi without
+    // blocking this response.
+    if (fast) {
+      after(() => {
+        void (async () => {
+          try {
+            const slow = await fromLiveConnectors(origin, bbox, false)
+            if (slow.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
+              await persistMergedSourcesToMindex(slow)
+            }
+          } catch { /* ignore */ }
+        })()
+      })
+    }
   } else if (!skipLive && sources.length < MIN_SOURCES) {
-    // Async warm — response is NOT blocked on slow connectors.
     const origin = new URL(req.url).origin
     after(() => {
       void (async () => {
         try {
-          const live = await fromLiveConnectors(origin, bbox)
+          const live = await fromLiveConnectors(origin, bbox, false)
           if (live.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
             await persistMergedSourcesToMindex(live)
           }

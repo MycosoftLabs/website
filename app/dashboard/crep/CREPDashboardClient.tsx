@@ -7550,7 +7550,12 @@ export default function CREPDashboardPage() {
 
                 void (async () => {
                   try {
-                    const res = await fetch("/data/crep/cell-towers-us-tw-instant.geojson", { cache: "force-cache" });
+                    // Apr 22, 2026 — Morgan: "no cell towers are there".
+                    // cell-towers-us-tw-instant.geojson was a 43-byte stub
+                    // with zero features. Switching to cell-towers-us.geojson
+                    // (24 KB, 192 curated US towers) for the instant render.
+                    // The global 93 MB set loads on-demand via cellTowersG.
+                    const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "force-cache" });
                     if (!res.ok) return;
                     const gj = await res.json();
                     if (ctState.globalLoaded) return;

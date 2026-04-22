@@ -104,7 +104,23 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       // the tab is backgrounded. Next tick runs on return.
       if (typeof document !== "undefined" && document.hidden) return
       try {
-        const bboxParam = bbox ? `?bbox=${bbox.join(",")}&limit=10000` : "?limit=10000"
+        // Apr 22, 2026 — Morgan: "needs first load fast". First call uses
+        // ?fast=1 (returns public-webcams + 511 + border + webcamtaxi in
+        // ~2.5 s, skips state-dot-cctv + shinobi which take 10 s+).
+        // After the fast-tier paints, schedule ONE follow-up full fetch
+        // a few seconds later to merge in Caltrans + NYSDOT + Shinobi.
+        // Subsequent scheduled ticks (every 5 min) also use full mode.
+        const fastMode = !loadedRef.current.cams
+        const bboxBase = bbox ? `bbox=${bbox.join(",")}&limit=10000` : "limit=10000"
+        const bboxParam = `?${bboxBase}${fastMode ? "&fast=1" : ""}`
+        if (fastMode) {
+          // Schedule the slow-tier merge 4 s after the fast paint lands.
+          // Doesn't block the fast paint; just refills with the full set.
+          setTimeout(() => {
+            if (typeof document !== "undefined" && document.hidden) return
+            fetchAndPaint().catch(() => { /* ignore */ })
+          }, 4_000)
+        }
         const res = await fetch(`/api/eagle/sources${bboxParam}`)
         if (!res.ok) return
         const j = await res.json()
