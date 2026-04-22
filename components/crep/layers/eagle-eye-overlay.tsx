@@ -138,31 +138,50 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
 
     const paintBakedRegistry = async (): Promise<boolean> => {
       try {
-        const r = await fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" })
-        if (!r.ok) return false
-        const gj = await r.json()
-        // Reuse paintFromSources by projecting registry feature props
-        // (id, provider, lat, lng, stream_url, ...) into the same shape.
-        const srcLike = (gj.features || []).map((f: any) => ({
-          id: f.properties?.id,
-          provider: f.properties?.provider,
-          kind: f.properties?.kind,
-          stream_url: f.properties?.stream_url,
-          embed_url: f.properties?.embed_url,
-          source_status: f.properties?.status,
-          lat: f.geometry?.coordinates?.[1],
-          lng: f.geometry?.coordinates?.[0],
-        }))
+        // Apr 22, 2026 — Morgan: "find every single publically accessible
+        // camera in san diego county on the tijuana bourader and in
+        // downtown san diego, imperial beach and little italy all navy
+        // bases and usmc base camp pendleton mir mar". Load BOTH the
+        // nightly-baked registry AND the hand-curated manual seed
+        // (Surfline / HPWREN / Scripps / NOAA / EarthCam / Skyline /
+        // CBP refs / NPS / Border Field / Port of SD). Manual seed wins
+        // on id conflict so curated metadata overrides stale bakes.
+        const [rReg, rSeed] = await Promise.all([
+          fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
+        ])
+        const projFeat = (f: any) => ({
+          id: f?.properties?.id,
+          provider: f?.properties?.provider,
+          kind: f?.properties?.kind,
+          name: f?.properties?.name,
+          stream_url: f?.properties?.stream_url,
+          embed_url: f?.properties?.embed_url,
+          media_url: f?.properties?.media_url,
+          source_status: f?.properties?.status,
+          lat: f?.geometry?.coordinates?.[1],
+          lng: f?.geometry?.coordinates?.[0],
+        })
+        const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
+        const seedFeats  = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
+        const merged = new Map<string, any>()
+        for (const f of bakedFeats) {
+          const p = projFeat(f)
+          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+        }
+        for (const f of seedFeats) {
+          const p = projFeat(f)
+          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+        }
+        const srcLike = Array.from(merged.values())
         const fc = paintFromSources(srcLike)
         if (fc.features.length === 0) return false
         if (!map.getSource("crep-eagle-cams")) {
-          // Source + layers will be created by the main fetch block below;
-          // push data into a pending slot that the creator picks up.
           ;(map as any).__crepEaglePendingFc = fc
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(fc)
         }
-        console.log(`[EagleEye] ${fc.features.length} cameras painted from baked registry (bake timestamp: ${gj.baked_at || "unknown"})`)
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seed (baked=${bakedFeats.length} seed=${seedFeats.length})`)
         return true
       } catch (e: any) {
         console.warn("[EagleEye] baked registry load failed:", e?.message)
