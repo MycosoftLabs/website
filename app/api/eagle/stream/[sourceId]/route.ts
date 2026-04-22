@@ -43,6 +43,81 @@ function authHeaders(): Record<string, string> {
   return {}
 }
 
+// Apr 22, 2026 — global eagle_video_sources cache, refreshed every 60 s.
+// MINDEX doesn't support by-id lookup on this layer (bbox required), so we
+// fetch all globally and filter locally. 500 rows at the moment; fine in RAM.
+interface SourcesCache { ts: number; rows: any[] }
+let sourcesCache: SourcesCache = { ts: 0, rows: [] }
+const SOURCES_TTL_MS = 60_000
+
+async function getAllEagleVideoSourcesCached(): Promise<any[]> {
+  const now = Date.now()
+  if (sourcesCache.rows.length > 0 && now - sourcesCache.ts < SOURCES_TTL_MS) {
+    return sourcesCache.rows
+  }
+  // Fetch global bbox; cap 10000 — MINDEX currently has ~2000 and nysdot
+  // dominates the first page so we pull a large batch to surface caltrans
+  // + future state DOTs.
+  const url = `${MINDEX_BASE}/api/mindex/earth/map/bbox?layer=eagle_video_sources&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=10000`
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", ...authHeaders() },
+    signal: AbortSignal.timeout(12_000),
+    cache: "no-store",
+  })
+  if (!res.ok) {
+    return sourcesCache.rows
+  }
+  const j = await res.json()
+  const rows: any[] = j?.entities || j?.features || j?.sources || []
+  sourcesCache = { ts: now, rows }
+  return rows
+}
+
+/**
+ * Caltrans D11 / D12 ids encode the camera coordinates, e.g.
+ *   caltrans-d11-32.69845,-117.18376
+ * When the global cache misses, we parse the coord out and do a tight-bbox
+ * MINDEX lookup instead of giving up. Returns null for ids that don't
+ * match the coord pattern.
+ */
+async function fetchByCoordHintedId(sourceId: string): Promise<any | null> {
+  const m = sourceId.match(/^([a-z0-9_-]+)-(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)$/)
+  if (!m) return null
+  const lat = parseFloat(m[2])
+  const lng = parseFloat(m[3])
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  const pad = 0.002 // ~200 m bbox
+  const url = `${MINDEX_BASE}/api/mindex/earth/map/bbox?layer=eagle_video_sources&lat_min=${lat - pad}&lat_max=${lat + pad}&lng_min=${lng - pad}&lng_max=${lng + pad}&limit=25`
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", ...authHeaders() },
+    signal: AbortSignal.timeout(6_000),
+    cache: "no-store",
+  })
+  if (!res.ok) return null
+  const j = await res.json()
+  const rows: any[] = j?.entities || j?.features || j?.sources || []
+  return rows.find((r) => String(r.id) === sourceId) ?? rows[0] ?? null
+}
+
+// MINDEX nests provider/kind/stream_url/embed_url/media_url under properties{}.
+// Flatten those onto the record so the handler logic below can read directly.
+function flattenSource(raw: any): any {
+  const props = raw?.properties ?? {}
+  return {
+    id: raw.id ?? raw.source_id ?? props.source_id,
+    source_id: raw.source_id ?? props.source_id,
+    provider: raw.provider ?? props.provider ?? raw.source ?? "unknown",
+    kind: raw.kind ?? props.kind ?? "permanent",
+    stream_url: raw.stream_url ?? props.stream_url ?? null,
+    embed_url: raw.embed_url ?? props.embed_url ?? null,
+    media_url: raw.media_url ?? props.media_url ?? null,
+    lat: raw.lat,
+    lng: raw.lng,
+    name: raw.name,
+    properties: props,
+  }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sourceId: string }> },
@@ -52,21 +127,27 @@ export async function GET(
     return NextResponse.json({ error: "sourceId required" }, { status: 400 })
   }
   try {
-    // Lookup source via MINDEX
-    const lookupUrl = `${MINDEX_BASE}/api/mindex/earth/map/bbox?layer=eagle_video_sources&id=${encodeURIComponent(sourceId)}&limit=1`
-    const res = await fetch(lookupUrl, {
-      headers: { Accept: "application/json", ...authHeaders() },
-      signal: AbortSignal.timeout(6_000),
-    })
-    if (!res.ok) {
-      return NextResponse.json({ error: `MINDEX ${res.status}` }, { status: 502 })
+    // Apr 22, 2026 — MINDEX's earth/map/bbox layer=eagle_video_sources requires
+    // lat/lng bbox and has no id filter (prior ?id=X returned 422, so every
+    // camera widget was getting "no video"). Lookup by pulling the whole
+    // global layer once and finding the entity by id client-side. Process-
+    // cached for 60 s to avoid hammering MINDEX on rapid camera clicks.
+    const allSources = await getAllEagleVideoSourcesCached()
+    let raw = allSources.find(
+      (s: any) =>
+        String(s.id) === sourceId ||
+        String(s.source_id) === sourceId ||
+        String(s?.properties?.source_id ?? "") === sourceId,
+    )
+    if (!raw) {
+      // Coord-hinted fallback — the global query gets truncated before
+      // caltrans rows on busy MINDEX state; retry with a tight bbox.
+      raw = await fetchByCoordHintedId(sourceId)
     }
-    const j = await res.json()
-    const src = (j?.entities || j?.features || j?.sources || [])[0]
-    if (!src) {
-      return NextResponse.json({ error: "source not found" }, { status: 404 })
+    if (!raw) {
+      return NextResponse.json({ error: "source not found", id: sourceId }, { status: 404 })
     }
-
+    const src = flattenSource(raw)
     const provider = src.provider || "unknown"
     const kind = src.kind || "permanent"
 
