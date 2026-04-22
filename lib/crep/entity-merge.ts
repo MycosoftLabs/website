@@ -39,9 +39,18 @@ export function mergeById<T extends Record<string, any>>(
     idKey: string | ((e: T) => string | undefined | null)
     ttlMs: number
     now?: number
+    /**
+     * Apr 22, 2026 — Morgan: "controls locking out after time". Unbounded
+     * merge let the entity array grow for hours until React re-renders
+     * choked the main thread. Hard cap per type (default 20 000) — when
+     * the merged set exceeds it we drop the oldest lastSeen entries.
+     * Set `Infinity` to disable.
+     */
+    maxEntries?: number
   },
 ): T[] {
   const now = opts.now ?? Date.now()
+  const maxEntries = opts.maxEntries ?? 20_000
   const getId: (e: T) => string | undefined | null =
     typeof opts.idKey === "function"
       ? opts.idKey
@@ -69,6 +78,12 @@ export function mergeById<T extends Record<string, any>>(
       ...e,
       lastSeen: now,
     })
+  }
+
+  // Cap size — keep the N most-recently-seen entries, drop older ones.
+  if (Number.isFinite(maxEntries) && byId.size > maxEntries) {
+    const sorted = Array.from(byId.values()).sort((a, b) => b.lastSeen - a.lastSeen)
+    return sorted.slice(0, maxEntries)
   }
 
   return Array.from(byId.values())
