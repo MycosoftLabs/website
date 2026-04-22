@@ -192,24 +192,25 @@ export default function TijuanaStationWidget() {
           </div>
         ) : null}
 
-        {/* External links */}
+        {/* Apr 22, 2026 — data-in-widget: external Sources block removed.
+            All station metrics/readings render inline above via the
+            /api/crep/tijuana-estuary data pull. Source attribution is shown
+            as a small badge in the header; no click-out links. */}
         {externalLinks.length ? (
-          <div className="px-3 pt-3">
-            <div className="text-[10px] uppercase tracking-wider text-cyan-300/70 mb-1.5">Sources</div>
-            <div className="space-y-1">
-              {externalLinks.map((l) => (
-                <a
-                  key={l.url}
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-black/40 hover:bg-cyan-700/30 border border-white/5 hover:border-cyan-500/40 rounded p-1.5 text-[10px] text-cyan-300 hover:text-white transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3 shrink-0" />
-                  <span className="flex-1 truncate">{l.label}</span>
-                  <span className="text-gray-500 font-mono text-[9px] truncate">{new URL(l.url).hostname}</span>
-                </a>
-              ))}
+          <div className="px-3 pt-2 pb-1">
+            <div className="flex flex-wrap gap-1">
+              {externalLinks.map((l) => {
+                const host = (() => { try { return new URL(l.url).hostname } catch { return "source" } })()
+                return (
+                  <span
+                    key={l.url}
+                    className="inline-flex items-center gap-1 bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-[9px] text-cyan-300/70 font-mono"
+                    title={l.label}
+                  >
+                    {host}
+                  </span>
+                )
+              })}
             </div>
           </div>
         ) : null}

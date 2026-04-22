@@ -307,20 +307,18 @@ function FungalDetail({ observation, onClose }: { observation: FungalObservation
         </div>
 
         {/* Compact Action Button */}
-        <Link
-          href={
-            observation.source === "MINDEX"
-              ? `/mindex/observations/${observation.id}`
-              : observation.source === "GBIF"
-                ? `https://www.gbif.org/occurrence/${String(observation.id).replace("gbif-", "")}`
-                : `https://www.inaturalist.org/observations/${String(observation.id).replace("inat-", "")}`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1 w-full py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded text-xs font-medium transition-colors border border-green-500/30"
-        >
-          View on {observation.source || "iNaturalist"} <ExternalLink className="w-3 h-3" />
-        </Link>
+        {/* Apr 22, 2026 — only keep the internal MINDEX detail page link;
+            external iNat/GBIF click-throughs violate the data-in-widget rule.
+            All observation metadata (photo, species, observer, grade, date)
+            already renders inline above. */}
+        {observation.source === "MINDEX" ? (
+          <Link
+            href={`/mindex/observations/${observation.id}`}
+            className="flex items-center justify-center gap-1 w-full py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded text-xs font-medium transition-colors border border-green-500/30"
+          >
+            Open full MINDEX record
+          </Link>
+        ) : null}
       </div>
     </div>
   );
@@ -614,20 +612,10 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
           </div>
         ) : null}
 
-        {/* External tracker links — click through to full page */}
-        {history ? (
-          <div className="flex gap-1 text-[9px]">
-            <a href={history.external_links.airnavradar} target="_blank" rel="noopener noreferrer" className="flex-1 bg-cyan-900/40 hover:bg-cyan-700/60 text-cyan-200 hover:text-white px-1.5 py-1 rounded text-center border border-cyan-500/30 transition-colors" title="Open on AirNavRadar">
-              AirNavRadar ↗
-            </a>
-            <a href={history.external_links.flightradar24} target="_blank" rel="noopener noreferrer" className="flex-1 bg-amber-900/40 hover:bg-amber-700/60 text-amber-200 hover:text-white px-1.5 py-1 rounded text-center border border-amber-500/30 transition-colors" title="Open on FlightRadar24">
-              FR24 ↗
-            </a>
-            <a href={history.external_links.flightaware} target="_blank" rel="noopener noreferrer" className="flex-1 bg-sky-900/40 hover:bg-sky-700/60 text-sky-200 hover:text-white px-1.5 py-1 rounded text-center border border-sky-500/30 transition-colors" title="Open on FlightAware">
-              FlightAware ↗
-            </a>
-          </div>
-        ) : null}
+        {/* Apr 22, 2026 — data-in-widget: removed AirNavRadar/FR24/FlightAware
+            click-through buttons. Trail, stats, and metadata all render inline
+            from history.trail + history.stats above; source attribution is in
+            the "Src:" chip. No external links. */}
       </div>
     </div>
   );
@@ -882,16 +870,8 @@ function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; o
                 <span className="text-gray-300">{meta.purpose}</span>
               </div>
             ) : null}
-            {meta.wikipediaUrl ? (
-              <a
-                href={meta.wikipediaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-purple-300 hover:text-purple-200"
-              >
-                Read more on Wikipedia <ExternalLink className="w-3 h-3" />
-              </a>
-            ) : null}
+            {/* Apr 22, 2026 — Wikipedia link removed (data-in-widget policy).
+                mission + purpose are already rendered inline above. */}
           </div>
         ) : null}
 

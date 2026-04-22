@@ -190,18 +190,9 @@ export function GSSatelliteInfoPanel({
             <span className="text-gray-300">{new Date(satellite.launched).toLocaleDateString()}</span>
           </div>
         )}
-        {satellite.website && (
-          <div className="flex justify-end">
-            <a
-              href={satellite.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-            >
-              Website <ExternalLink className="w-2.5 h-2.5" />
-            </a>
-          </div>
-        )}
+        {/* Apr 22, 2026 — operator website external link removed (data-in-widget).
+            All satellite metadata (NORAD, TLE, operator, country, status, transmitters)
+            renders inline above. */}
       </div>
 
       {/* Transmitters */}

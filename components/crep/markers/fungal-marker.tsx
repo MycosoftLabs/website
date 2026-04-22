@@ -256,21 +256,15 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
 
         {/* Data Grid */}
         <div className="p-2 space-y-1.5">
-          {/* Source + Coords Row — Source is clickable and goes to MINDEX/iNaturalist/GBIF */}
+          {/* Source + Coords Row — Apr 22, 2026 source is now a passive tag, not a link */}
           <div className="grid grid-cols-2 gap-1.5">
-            <a
-              href={getExternalUrl(observation)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50 hover:border-amber-500/50 transition-colors group"
-            >
+            <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
               <div className="text-[8px] text-gray-500 uppercase mb-0.5">Source</div>
-              <div className={cn("text-[10px] font-semibold flex items-center gap-1", sourceInfo.color, "group-hover:text-amber-400")}>
+              <div className={cn("text-[10px] font-semibold flex items-center gap-1", sourceInfo.color)}>
                 {sourceInfo.icon}
                 {sourceInfo.label}
-                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
               </div>
-            </a>
+            </div>
             <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
               <div className="text-[8px] text-gray-500 uppercase mb-0.5">Coordinates</div>
               <div className="text-[10px] text-cyan-400 font-mono">
@@ -309,16 +303,17 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
             )}
           </div>
 
-          {/* Action Button - amber/brown theme */}
-          <Link
-            href={getExternalUrl(observation)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded text-[11px] font-medium transition-colors border border-amber-500/30"
-          >
-            View in {observation.source === "MINDEX" ? "MINDEX" : observation.source || "iNaturalist"}
-            <ExternalLink className="w-3 h-3" />
-          </Link>
+          {/* Apr 22, 2026 — only keep the internal MINDEX detail link.
+              iNat/GBIF click-throughs removed (data-in-widget policy).
+              Species, observer, photos, grade already render inline above. */}
+          {observation.source === "MINDEX" ? (
+            <Link
+              href={`/mindex/observations/${observation.id}`}
+              className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded text-[11px] font-medium transition-colors border border-amber-500/30"
+            >
+              Open full MINDEX record
+            </Link>
+          ) : null}
         </div>
         </MarkerPopup>
       )}
