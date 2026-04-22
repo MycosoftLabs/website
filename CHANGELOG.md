@@ -300,6 +300,9 @@ All notable changes to this project will be documented in this file.
 - *(net)* HMR-safe robust-fetch singleton — stop Agent leak on every recompile
 - *(crep)* Cap vessel-disk-cache at 15k + 6 GB dev heap — root cause of OOM
 - *(crep)* Cell towers render + fast first-paint for cameras
+- *(crep)* HLS player error surface + cell tower viewport LOD
+- *(crep)* Drop HLS loading overlay — show video immediately, keep error surface
+- *(crep)* Drop entity-merge caps (20k→6k vessels, 3k aircraft, 2.5k sats) — lockup root cause
 
 ### CREP
 
@@ -433,6 +436,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -597,6 +601,9 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Add /dashboard/crep/photo3d — three.js Google 3D Tiles view
 - *(crep)* Persist SDR-contributed vessels to disk cache on ingest
 - *(crep)* H2S UCSD collector — every-5-min ETL into CREP + Worldview
+- *(crep)* Baked camera registry — hard-coded icons + API for deltas
+- *(myca)* Fast-intent map control — "show me X" flies camera instantly
+- *(crep)* Ship baked camera registry + pass media_url through click
 
 ### Fix
 
@@ -654,6 +661,8 @@ All notable changes to this project will be documented in this file.
 - Re-trigger deploy [fast]
 - *(crep)* Add generated PMTiles for substations, transmission, power plants
 - *(crep)* Refresh cell-tower tiles from OSM + OpenCelliD (#97)
+- *(security)* Remove legacy _secret_replacements.txt
+- *(crep)* Nightly warm-eagle MINDEX + bake camera registry (GHA)
 
 ### Performance
 
