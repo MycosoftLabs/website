@@ -188,6 +188,13 @@ function WebRTCPlayer({ url }: { url: string }) {
 // gets the "no live stream" card instead of being iframed (Morgan
 // Apr 20, 2026: "all camera widgets must be audited none can show
 // iframes or website only video streams live").
+//
+// Apr 22, 2026 v2 (Morgan: "this caltrans not working" — SR-75 Silver
+// Strand was falling through to SnapshotProxyVideo because its embed_url
+// lives at /vm/loc/d11/{slug}.htm and the old pattern only matched
+// iframemap.htm. Broadened to all /vm/ pages. Added surfline /surf-report
+// and Surfline's embed-cam format so surfline cams at least get the
+// iframe attempt before bottom-failing to the "no stream" tile.)
 const VIDEO_EMBED_PATTERNS: RegExp[] = [
   /earthcam\.com\/embed\//i,
   /youtube\.com\/embed\//i,
@@ -203,8 +210,11 @@ const VIDEO_EMBED_PATTERNS: RegExp[] = [
   /\/mjpeg\//i,                                // shinobi MJPEG
   /api\.windy\.com\/webcams.*player/i,         // windy webcam player iframe
   /\.(jpe?g|png|webp|gif)(\?|$)/i,             // direct image (handled as snapshot really)
-  /cwwp2\.dot\.ca\.gov\/vm\/iframemap\.htm/i,  // caltrans cam iframe map
+  /cwwp2\.dot\.ca\.gov\/vm\//i,                // caltrans: iframemap.htm + /loc/d{N}/{id}.htm + any /vm/ viewer
   /webcamtaxi\.com.*embed/i,
+  /surfline\.com\/surf-report\//i,             // surfline spot pages — their player renders inline
+  /surfline\.com\/embed-?cam/i,                // surfline official embed
+  /cams\.cdn-surfline\.com\//i,                // surfline CDN player
 ]
 
 function looksLikeVideoEmbed(url: string): boolean {
@@ -227,12 +237,16 @@ const INFO_ONLY_PROVIDERS = new Set<string>([])
 // resolved, render a compact "no stream" status tile inside CREP itself.
 // The user stays in CREP; no data ever lives outside the widget.
 function NoStreamStatusTile({ provider, name, kind }: { provider?: string; name?: string; kind?: string }) {
+  // Apr 22, 2026 v3 (Morgan: "what is this" — the old "All snapshot
+  // variants returned empty" wording was read as a CREP bug rather than
+  // as the upstream provider not exposing video. New copy is plainer:
+  // stream not available from source right now, try again later.)
   return (
     <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-2 p-4 text-center">
       <div className="text-3xl opacity-60">📷</div>
-      <div className="text-xs text-white/85 font-semibold uppercase tracking-wider">No live stream resolved</div>
+      <div className="text-xs text-white/85 font-semibold uppercase tracking-wider">Stream unavailable</div>
       <div className="text-[10px] text-cyan-300/70 max-w-xs">
-        All snapshot variants returned empty. Marker stays on map for location reference.
+        Source didn't expose a playable feed. The marker remains on the map for location context.
       </div>
       {name ? <div className="text-[9px] text-cyan-400 font-mono mt-1">{name}</div> : null}
       {provider ? <div className="text-[8px] text-white/40 font-mono">provider: {provider} · kind: {kind || "camera"}</div> : null}
@@ -302,11 +316,15 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
   // element found). Final fallback is `mode=fullpage` which screenshots
   // the whole viewer page. Only after ALL attempts fail do we show the
   // no-stream status tile.
-  const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas"]
+  // Apr 22, 2026 — Surfline renders cam inside a nested iframe with a
+  // canvas; the <video> element is gated behind their player JS. Broad
+  // chain + body fallback so we always end up with SOME screenshot.
+  const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas", "body"]
                       : provider === "windy" ? ["video", ".player-video", "canvas.leaflet-zoom-animated", "body"]
-                      : provider === "alertwildfire" ? ["video", "img", "canvas"]
-                      : provider === "surfline" ? ["video", "img[src*='surfline']"]
-                      : ["video", "img", "canvas"]
+                      : provider === "alertwildfire" ? ["video", "img", "canvas", "body"]
+                      : provider === "surfline" ? ["video", "canvas", "iframe", "img[src*='surfline']", "img", "body"]
+                      : provider === "caltrans" ? ["img", "video", "body"]
+                      : ["video", "img", "canvas", "body"]
   const [t, setT] = useState(Date.now())
   const [selectorIdx, setSelectorIdx] = useState(0)
   const [allFailed, setAllFailed] = useState(false)
@@ -496,32 +514,82 @@ export default function VideoWallWidget() {
     }
   }, [])
 
-  // Resolve stream URL when feed changes. Priority order:
-  //   1. media_url ending in .jpg/.jpeg/.png → render as auto-refreshing
-  //      snapshot (instant load, perfect for HPWREN static cams)
-  //   2. directEmbed pointing to .m3u8 → HLS player (Shinobi / MediaMTX)
-  //   3. directEmbed pointing to WHEP endpoint → WebRTC (low-latency)
-  //   4. Any other directEmbed → iframe (EarthCam, Surfline, Twitch, etc.)
-  //   5. No direct URL → round-trip to /api/eagle/stream/{id}
+  // Resolve stream URL when feed changes.
+  //
+  // Apr 22, 2026 v2 (Morgan: "this caltrans not working", "no surflines
+  // working"). Priority reordered: LIVE video (HLS / WebRTC) ALWAYS wins
+  // over a static snapshot when the source gave us both. Previously
+  // Caltrans cams that carry both streamingVideoURL (m3u8) AND
+  // currentImageURL (jpg) were rendering the stale jpg instead of the
+  // live feed because the thumbnail-snapshot path fired first. Also
+  // patched Caltrans /vm/loc/ pages to auto-derive the refreshing
+  // snapshot URL (cwwp2 /data/d{N}/cctv/image/{slug}/{slug}.jpg).
+  //
+  // Priority order:
+  //   1. directEmbed is HLS (.m3u8) → HlsPlayer (live video wins)
+  //   2. directEmbed is WHEP (/whep/) → WebRTCPlayer (low-latency live)
+  //   3. media_url / thumbnail ending in .jpg/.png → SnapshotStream
+  //   4. directEmbed matches a known video-embed pattern → IframeEmbed
+  //   5. directEmbed + Caltrans /vm/loc/ URL → derive snapshot URL
+  //   6. directEmbed + Surfline surf-report URL → use embed-cam URL
+  //   7. Anything else → IframeEmbed (fall through to snapshot proxy)
+  //   8. No URL at all → round-trip to /api/eagle/stream/{id}
   useEffect(() => {
     if (!feed) { setResolved(null); return }
 
+    const isHls    = (u: string) => /\.m3u8(\?|$)/i.test(u)
+    const isWhep   = (u: string) => /\/whep(\?|\/|$)/i.test(u)
+    const isImage  = (u: string) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u)
+    const isOurCamSnap = (u: string) => /\/api\/eagle\/cam-(snapshot|image)/i.test(u)
+
     const pickStreamType = (url: string): StreamType => {
-      // /api/eagle/cam-snapshot — our headless-rendered video frames
-      // from provider viewer pages (HPWREN, ALERTCalifornia, etc.).
-      // These return JPEG and should auto-refresh like other snapshots.
-      if (/\/api\/eagle\/cam-(snapshot|image)/i.test(url)) return "snapshot"
-      if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)) return "snapshot"
-      if (/\.m3u8(\?|$)/i.test(url)) return "hls"
-      if (/\/whep(\?|$)|\/whep\//i.test(url)) return "webrtc"
+      if (isOurCamSnap(url)) return "snapshot"
+      if (isImage(url))      return "snapshot"
+      if (isHls(url))        return "hls"
+      if (isWhep(url))       return "webrtc"
       return "iframe"
     }
 
-    // Instant-load path: thumbnail snapshot wins over iframe because it
-    // starts rendering on the next paint with zero network spin-up. User
-    // can still click the iframe URL in a new tab if they want the
-    // full interactive player.
-    if (feed.thumbnail && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(feed.thumbnail)) {
+    // Caltrans /vm/loc/d{N}/{slug}.htm → refreshing JPEG at
+    // /data/d{N}/cctv/image/{slug}/{slug}.jpg. Every Caltrans cam that
+    // publishes a viewer page also publishes this JPEG — it refreshes
+    // every ~30 s server-side and renders fine in a plain <img>.
+    function deriveCaltransSnapshot(embed: string | undefined): string | null {
+      if (!embed) return null
+      const m = /cwwp2\.dot\.ca\.gov\/vm\/loc\/(d\d+)\/([^/.?#]+)\.htm/i.exec(embed)
+      if (!m) return null
+      const [, dist, slug] = m
+      return `https://cwwp2.dot.ca.gov/data/${dist}/cctv/image/${slug}/${slug}.jpg`
+    }
+
+    // Surfline surf-report URL → official embed-cam URL (cleaner than
+    // trying to iframe the marketing page which has heavy CSP).
+    //   https://www.surfline.com/surf-report/{slug}/{camId}
+    //     → https://www.surfline.com/embed-cam/{camId}
+    function deriveSurflineEmbed(embed: string | undefined): string | null {
+      if (!embed) return null
+      const m = /surfline\.com\/surf-report\/[^/]+\/([a-f0-9]{16,})/i.exec(embed)
+      if (!m) return null
+      return `https://www.surfline.com/embed-cam/${m[1]}`
+    }
+
+    const de = feed.directEmbed
+
+    // 1+2: live video (HLS / WebRTC) always wins
+    if (de && (isHls(de) || isWhep(de))) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: isHls(de) ? "hls" : "webrtc",
+        stream_url: de,
+        embed_url: de,
+      })
+      return
+    }
+
+    // 3: static snapshot — media_url ending in image extension
+    if (feed.thumbnail && isImage(feed.thumbnail)) {
       setResolved({
         id: feed.id,
         provider: feed.provider,
@@ -532,23 +600,57 @@ export default function VideoWallWidget() {
       })
       return
     }
-    if (feed.directEmbed) {
+
+    // 4a: Caltrans — no stream_url + no media_url, derive snapshot JPEG
+    // from the /vm/loc/ URL so the user sees the live-ish frame instead
+    // of a blank iframemap fallback.
+    const caltransSnap = deriveCaltransSnapshot(de)
+    if (caltransSnap && !feed.thumbnail) {
       setResolved({
         id: feed.id,
         provider: feed.provider,
         kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-        stream_type: pickStreamType(feed.directEmbed),
-        embed_url: feed.directEmbed,
-        stream_url: feed.directEmbed,
+        stream_type: "snapshot",
+        stream_url: caltransSnap,
+        embed_url: de,
       })
       return
     }
+
+    // 4b: Surfline — rewrite surf-report to embed-cam
+    const surflineEmbed = deriveSurflineEmbed(de)
+    if (surflineEmbed) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "iframe",
+        stream_url: surflineEmbed,
+        embed_url: surflineEmbed,
+      })
+      return
+    }
+
+    // 5: any other directEmbed
+    if (de) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: pickStreamType(de),
+        embed_url: de,
+        stream_url: de,
+      })
+      return
+    }
+
+    // 6: fallback to server-side resolver
     setLoading(true)
     resolveStream(feed.id).then((r) => {
       setResolved(r)
       setLoading(false)
     })
-  }, [feed?.id, feed?.directEmbed, feed?.thumbnail])
+  }, [feed?.id, feed?.directEmbed, feed?.thumbnail, feed?.provider, feed?.kind])
 
   if (!feed) return null
 
