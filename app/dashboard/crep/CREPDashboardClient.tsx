@@ -4273,6 +4273,12 @@ export default function CREPDashboardPage() {
   // loop below can update / read them without React dep churn.)
   const aircraftIdSetRef = useRef<Set<string>>(new Set());
   const vesselIdSetRef = useRef<Set<string>>(new Set());
+  // Apr 22, 2026 — Morgan: "all airplanes that are registered as
+  // helecopters need a helecopter icon not a plane". Set of aircraft ids
+  // whose category / ICAO type / aircraft_type string marks them as a
+  // rotorcraft. Consumed by the pump tick so each feature carries
+  // is_helo:true and the symbol layer swaps to helicopter-icon.
+  const helicopterIdSetRef = useRef<Set<string>>(new Set());
 
   // Sync last-known position + velocity (deg/s) for extrapolation when API data changes
   useEffect(() => {
@@ -4280,9 +4286,25 @@ export default function CREPDashboardPage() {
     const next: Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }> = {};
     const acIds = new Set<string>();
     const vIds = new Set<string>();
+    const heloIds = new Set<string>();
     const now = Date.now();
+    // Helicopter detection — OpenSky/ICAO category 8 ("Rotorcraft") is
+    // authoritative when present. Fall back to aircraft_type text match
+    // (covers Flightradar24 which exposes ICAO type codes like EC35/AS65/
+    // H145/R44) + registration prefix heuristics (N-number for helos
+    // often tagged explicitly by FAA DB).
+    const HELO_TYPE_RE = /\b(heli|rotor|copter|h[0-9]{2,3}|r[2-6][0-9]|as[0-9]{2,3}|ec[0-9]{2,3}|ah[0-9]{1,2}|uh[0-9]{1,2}|ch[0-9]{1,2}|mi[0-9]{1,2})\b/i
+    const isHelicopter = (a: any): boolean => {
+      const cat = a?.category ?? a?.aircraftCategory ?? a?.icaoCategory ?? a?.properties?.category
+      if (cat === 8 || cat === "8" || cat === "Rotorcraft") return true
+      const type = String(a?.aircraft_type || a?.aircraftType || a?.icaoType || a?.model || a?.properties?.aircraftType || a?.properties?.aircraft_type || "")
+      if (type && HELO_TYPE_RE.test(type)) return true
+      if (typeof a?.isHelicopter === "boolean") return a.isHelicopter
+      return false
+    }
     for (const a of filteredAircraft) {
       acIds.add(a.id);
+      if (isHelicopter(a)) heloIds.add(a.id);
       // Apr 19, 2026 (critical rendering bug — see deckEntities map below):
       // /api/oei/flightradar24 serves flat top-level lat/lng. Old extraction
       // looked only at entity.location.longitude / entity.location.coordinates,
@@ -4372,6 +4394,19 @@ export default function CREPDashboardPage() {
     lastKnownRef.current = mergedNext
     aircraftIdSetRef.current = acIds
     vesselIdSetRef.current = vIds
+    helicopterIdSetRef.current = heloIds
+    // Apr 22, 2026 — Morgan: "all planes boats satelites need accurate
+    // moving live gps data long lat in their widget moving live like a
+    // clock". Expose the Kalman-filtered position+velocity map so the
+    // entity detail panel can run its own local-tick extrapolation
+    // (useLiveEntityPosition hook). Same object the pump reads; only
+    // this reference is exported for read-only consumption.
+    try {
+      (window as any).__crep_lastKnown = mergedNext
+      ;(window as any).__crep_aircraftIds = acIds
+      ;(window as any).__crep_vesselIds = vIds
+      ;(window as any).__crep_helicopterIds = heloIds
+    } catch { /* SSR or headless */ }
   }, [filteredAircraft, filteredVessels]);
 
   // ██████████████████████████████████████████████████████████████████████████
@@ -4472,9 +4507,14 @@ export default function CREPDashboardPage() {
           if (!kind) continue;
           const speed = Math.hypot(a.velLng, a.velLat);
           const heading = speed > 1e-9 ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360 : 0;
+          // Apr 22, 2026 — is_helo flips the symbol layer to
+          // helicopter-icon for rotorcraft (ICAO category 8 / aircraft
+          // type regex). helicopterIdSetRef is rebuilt every pump poll
+          // so a reclassified aircraft flips icon within one tick.
+          const isHelo = kind === "aircraft" && helicopterIdSetRef.current.has(id);
           const feat = {
             type: "Feature" as const,
-            properties: { id, heading },
+            properties: { id, heading, is_helo: isHelo },
             geometry: { type: "Point" as const, coordinates: [lng, lat] },
           };
           if (kind === "aircraft") acFeats.push(feat);
@@ -5860,13 +5900,28 @@ export default function CREPDashboardPage() {
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-aircraft", { type: "geojson", data: emptyFC });
                 void loadDetailedIcon("/crep/icons/aircraft.svg", "aircraft-icon");
+                // Apr 22, 2026 — Morgan: "all airplanes that are registered
+                // as helecopters need a helecopter icon not a plane".
+                // Load a second sprite for rotorcraft so the icon-image
+                // expression below can switch per-feature.
+                void loadDetailedIcon("/crep/icons/helicopter.svg", "helicopter-icon");
                 // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
                 // Aircraft ICON (symbol layer — rotates by heading, detailed plane sprite)
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
                   layout: {
-                    "icon-image": "aircraft-icon",
+                    // Helicopters: ICAO category 8 (Rotorcraft), OpenSky
+                    // `category: 8`, or aircraft type strings that match
+                    // the regex "heli|rotor|copter". Pump-tick puts
+                    // `is_helo:true` on those features so the expression
+                    // can switch cleanly at render time (no per-frame JS).
+                    "icon-image": [
+                      "case",
+                      ["==", ["coalesce", ["get", "is_helo"], false], true],
+                      "helicopter-icon",
+                      "aircraft-icon",
+                    ],
                     // Detailed sprite → render at ~22–50px screen size
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.18, 6, 0.24, 10, 0.34, 14, 0.48],
                     "icon-rotate": ["get", "heading"],

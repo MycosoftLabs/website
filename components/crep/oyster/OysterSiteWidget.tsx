@@ -32,6 +32,7 @@
 
 import { useEffect, useState } from "react"
 import { X, MapPin, Thermometer, Droplets, Wind, AlertTriangle, Waves, Gauge } from "lucide-react"
+import LiveAQIWidget from "@/components/crep/LiveAQIWidget"
 
 type Category = string
 
@@ -338,6 +339,44 @@ function CategoryLivePanel({ site }: { site: ClickDetail }) {
   if (cat === "mycosoft-project") return <ProjectPartnerPanel />
   if (cat === "camera") return <CameraLivePanel site={site} />
   if (cat === "inat-observation") return <InatLivePanel site={site} />
+  // Apr 22, 2026 — Morgan: "all aqs all enviornmental sensor needs
+  // live data in the widget streamed into the widget not links and
+  // not just labels but actual aqs and other sensor data live in
+  // widget" (EPA AQS Point Loma monitor had no body). The `sensor`
+  // category was previously rendering null. LiveSensorPanel dispatches
+  // on kind/param to render the right live feed — AirNow for
+  // air-quality-ish kinds, buoy for tide / wave, streamflow for
+  // USGS — so every environmental sensor has a live payload inside
+  // the widget instead of a label.
+  if (cat === "sensor") return <LiveSensorPanel site={site} />
+  return null
+}
+
+function LiveSensorPanel({ site }: { site: ClickDetail }) {
+  // Decide which live feed to render based on the sensor's kind/param.
+  const kind = String(site.kind || site.param || "").toLowerCase()
+  const hasCoords = typeof site.lat === "number" && typeof site.lng === "number"
+
+  // Air quality / AQS / PM2.5 / ozone — AirNow live monitor
+  if (/aqs|aqi|pm2|pm10|ozone|o3|no2|so2|co|ambient|air|arsenic/.test(kind) || site.category === "sensor") {
+    return (
+      <div className="space-y-2">
+        <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">Environmental sensor · live feed</div>
+        {hasCoords ? (
+          <LiveAQIWidget lat={Number(site.lat)} lng={Number(site.lng)} radiusMi={25} title={`EPA AirNow · nearest monitor`} />
+        ) : (
+          <div className="bg-black/30 rounded-lg p-2 border border-white/10 text-[10px] text-white/60">
+            No coordinates on this sensor — can't resolve nearest AirNow monitor.
+          </div>
+        )}
+        <div className="bg-black/30 rounded-lg p-2 border border-white/10 text-[10px] text-white/70 space-y-0.5">
+          {site.param && <div><span className="text-white/40">Parameter:</span> <span className="font-mono">{String(site.param)}</span></div>}
+          {site.kind  && <div><span className="text-white/40">Kind:</span> <span className="font-mono">{String(site.kind)}</span></div>}
+          {site.agency && <div><span className="text-white/40">Agency:</span> <span className="font-mono">{String(site.agency)}</span></div>}
+        </div>
+      </div>
+    )
+  }
   return null
 }
 
@@ -406,14 +445,19 @@ function EmitLivePanel({ site }: { site: ClickDetail }) {
 }
 
 function AirQualityLivePanel({ site }: { site: ClickDetail }) {
-  // For SDAPCD + EPA AQS markers we surface the param they measure and
-  // the metadata we have. Live ppm values require a SDAPCD JSON feed
-  // which Cursor hasn't wired yet — until then, widget states clearly
-  // what's measured vs what's coming.
+  // Apr 22, 2026 — Morgan: "all aqi widgets even ones we added for
+  // project oyster and goffs need live data in widget no refresh
+  // needed". LiveAQIWidget pulls current EPA AirNow readings for the
+  // nearest reporting monitor and auto-refreshes every 10 min, so this
+  // no longer shows stale / placeholder data.
   const param = site.param || site.kind || "H₂S / PM2.5 / O₃"
+  const hasCoords = typeof site.lat === "number" && typeof site.lng === "number"
   return (
-    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-1.5">
+    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-2">
       <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">SDAPCD / EPA AQS monitor</div>
+      {hasCoords && (
+        <LiveAQIWidget lat={Number(site.lat)} lng={Number(site.lng)} radiusMi={25} title="EPA AirNow · live" />
+      )}
       <div className="grid grid-cols-2 gap-1.5 text-[11px]">
         <div className="text-white/60">Parameter</div>
         <div className="text-white font-mono text-right">{String(param)}</div>

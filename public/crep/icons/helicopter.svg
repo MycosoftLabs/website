@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="heloBodyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff6d9"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#a66a00"/>
+    </linearGradient>
+    <linearGradient id="heloTailG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c88914"/>
+      <stop offset="100%" stop-color="#7a5008"/>
+    </linearGradient>
+    <radialGradient id="heloCockpitG" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </radialGradient>
+    <filter id="heloShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#heloShadow)">
+    <!-- Main rotor blades (translucent, spinning suggestion) — wide sweep -->
+    <ellipse cx="32" cy="26" rx="28" ry="1.8" fill="#18181b" opacity="0.35"/>
+    <ellipse cx="32" cy="26" rx="28" ry="0.6" fill="#27272a" opacity="0.7"/>
+    <!-- Rotor hub -->
+    <circle cx="32" cy="26" r="2.4" fill="#18181b" stroke="#000" stroke-width="0.5"/>
+    <circle cx="32" cy="26" r="0.9" fill="#fbbf24"/>
+
+    <!-- Main cabin body — bulbous front, tapering to tail boom -->
+    <path d="M24 30 Q24 24 32 22 Q40 24 40 30 L40 42 Q40 46 32 46 Q24 46 24 42 Z"
+          fill="url(#heloBodyG)" stroke="#7a5008" stroke-width="0.7"/>
+
+    <!-- Bubble cockpit glass -->
+    <path d="M26 30 Q26 24 32 23 Q38 24 38 30 Z"
+          fill="url(#heloCockpitG)" stroke="#0c4a6e" stroke-width="0.4" opacity="0.9"/>
+
+    <!-- Skids (landing gear) — thin lines under body -->
+    <rect x="20.5" y="46.5" width="23" height="1.1" rx="0.5" fill="#3f3f46" stroke="#000" stroke-width="0.3"/>
+    <line x1="24" y1="44" x2="22" y2="46.5" stroke="#3f3f46" stroke-width="0.8"/>
+    <line x1="40" y1="44" x2="42" y2="46.5" stroke="#3f3f46" stroke-width="0.8"/>
+
+    <!-- Tail boom — narrow aft of cabin -->
+    <path d="M30 44 L30 56 L34 56 L34 44 Z"
+          fill="url(#heloTailG)" stroke="#7a5008" stroke-width="0.5"/>
+
+    <!-- Vertical stabilizer fin at tail end -->
+    <path d="M30 54 L28 58 L34 58 L34 54 Z"
+          fill="#c88914" stroke="#7a5008" stroke-width="0.4"/>
+
+    <!-- Tail rotor (small circle on the fin) -->
+    <circle cx="36" cy="56" r="2.6" fill="none" stroke="#27272a" stroke-width="0.6" opacity="0.6"/>
+    <line x1="33.4" y1="56" x2="38.6" y2="56" stroke="#27272a" stroke-width="0.8" opacity="0.8"/>
+    <circle cx="36" cy="56" r="0.5" fill="#fbbf24"/>
+
+    <!-- Nav lights -->
+    <circle cx="26" cy="30" r="0.6" fill="#10b981"/>  <!-- port (green) -->
+    <circle cx="38" cy="30" r="0.6" fill="#ef4444"/>  <!-- starboard (red) -->
+  </g>
+</svg>

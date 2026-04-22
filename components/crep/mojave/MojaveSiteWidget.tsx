@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react"
 import { X, MapPin, Thermometer, Droplets, Wind, Mountain } from "lucide-react"
+import LiveAQIWidget from "@/components/crep/LiveAQIWidget"
 
 type Category = "mycosoft-project" | "wilderness" | "climate" | "inat-observation"
 
@@ -162,6 +163,16 @@ export default function MojaveSiteWidget() {
           including video streams"). External agency links removed. All
           data surfaces inline via category-specific panels below. */}
       <MojaveCategoryPanel site={site} />
+
+      {/* Apr 22, 2026 — Morgan: "all aqi widgets even ones we added for
+          project oyster and goffs need live data in widget no refresh
+          needed". LiveAQIWidget auto-refreshes via useAirNowAQI hook
+          every 10 min. Rendered for any Mojave site with valid coords. */}
+      {typeof site.lat === "number" && typeof site.lng === "number" && (
+        <div className="mt-3">
+          <LiveAQIWidget lat={site.lat} lng={site.lng} radiusMi={50} title="Air Quality (EPA AirNow)" />
+        </div>
+      )}
     </div>
   )
 }

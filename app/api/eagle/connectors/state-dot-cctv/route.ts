@@ -69,17 +69,40 @@ async function pullCaltrans(): Promise<Cam[]> {
           const lat = Number(loc?.latitude)
           const lng = Number(loc?.longitude)
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-          const still = cctv?.imageData?.static?.currentImageURL || cctv?.imageData?.streamingVideoURL
-          const stream = cctv?.imageData?.streamingVideoURL
+          // Apr 22, 2026 v3 — Morgan: "all caltrans must work no excuse
+          // fix this one fully" (SR-75 Silver Strand).
+          // Fixes:
+          //   1. media_url must be the JPEG only, never the m3u8 (old
+          //      code: `still || streamingVideoURL` → m3u8 fell through
+          //      to <img src=m3u8> which never renders).
+          //   2. embed_url prefers the single-cam /vm/loc/d{N}/{slug}.htm
+          //      viewer when we can derive the slug from the snapshot
+          //      URL. The old iframemap.htm?code=... URL shows a whole
+          //      Google Map of every D{N} cam instead of the one the
+          //      user clicked, which reads as "no stream resolved".
+          //   3. Falls back to iframemap with the indexCctv so we still
+          //      render something when the snapshot URL isn't there.
+          const snapshot = cctv?.imageData?.static?.currentImageURL || null
+          const stream = cctv?.imageData?.streamingVideoURL || null
+          // Snapshot URLs follow /data/d{N}/cctv/image/{slug}/{slug}.jpg.
+          // Extract slug and build the single-cam viewer URL.
+          let locViewer: string | null = null
+          if (snapshot) {
+            const m = /cwwp2\.dot\.ca\.gov\/data\/(d\d+)\/cctv\/image\/([^/]+)\//i.exec(snapshot)
+            if (m) locViewer = `https://cwwp2.dot.ca.gov/vm/loc/${m[1]}/${m[2]}.htm`
+          }
+          const embedUrl = locViewer
+            || `https://cwwp2.dot.ca.gov/vm/iframemap.htm?code=${encodeURIComponent(cctv?.indexCctv || "")}`
           return {
             id: `caltrans-d${d}-${cctv?.recordId || cctv?.indexCctv || `${lat},${lng}`}`,
             provider: "caltrans",
             name: cctv?.location?.nearbyPlace || cctv?.location?.locationName || `Caltrans D${d} cam`,
             lat,
             lng,
-            stream_url: stream || null,
-            embed_url: `https://cwwp2.dot.ca.gov/vm/iframemap.htm?code=${encodeURIComponent(cctv?.indexCctv || "")}`,
-            media_url: still || null,
+            stream_url: stream,
+            embed_url: embedUrl,
+            // Snapshot is ONLY the still JPEG — never the m3u8.
+            media_url: snapshot,
             category: "traffic",
           }
         })
