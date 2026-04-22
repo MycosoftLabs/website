@@ -7589,12 +7589,41 @@ export default function CREPDashboardPage() {
                 // 615 k features into heap anyway. Gate the addInfraSource
                 // call on the layer's actual enabled flag so OFF = 0 MB.
                 idleLoad(async () => {
-                  const cellTowersOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "cellTowersG")?.enabled ?? false;
+                  // Apr 22, 2026 — Morgan: "level of detail not working when
+                  // im zoomed into a city close like san diego i should see
+                  // massive more data assets loaded fast".
+                  // The "cellTowers" toggle (ON by default) renders the 192-
+                  // tower US bundle only. The richer bbox-scoped batchFetch
+                  // (20k at high zoom) + PMTiles global set live in this
+                  // idleLoad block — previously gated on `cellTowersG` which
+                  // is OFF by default, so nobody ever saw dense tower
+                  // coverage at city zoom. Now opens up when EITHER toggle
+                  // is on so the default-ON cellTowers gets viewport data.
+                  const layersList = (window as any).__crep_layers?.() || [];
+                  const cellTowersMain = layersList.find((l: any) => l.id === "cellTowers")?.enabled ?? false;
+                  const cellTowersGlobal = layersList.find((l: any) => l.id === "cellTowersG")?.enabled ?? false;
+                  const cellTowersOn = cellTowersMain || cellTowersGlobal;
                   if (!cellTowersOn) {
-                    console.log("[CREP/Infra] cellTowersG disabled — skipping 615k-feature load");
+                    console.log("[CREP/Infra] cell towers disabled — skipping load");
                     return;
                   }
+                  // Only enable the 93 MB PMTiles / global geojson load when
+                  // the explicit global toggle is on. Main toggle uses the
+                  // lighter bbox-scoped batchFetch path.
+                  const useGlobal = cellTowersGlobal;
+                  if (!useGlobal) {
+                    console.log("[CREP/Infra] cellTowers ON (viewport mode) — bbox batchFetch at zoom ≥ 10");
+                    // Fall through to the legacy US bundle + batchFetch
+                    // path below by NOT returning early but skipping the
+                    // PMTiles block. We need to skip via a flag so the
+                    // existing try-catch stays intact.
+                  }
                   try {
+                    // Only attempt the 93 MB PMTiles load when global toggle
+                    // is explicitly on. Skip otherwise so the bbox path runs.
+                    if (!useGlobal) {
+                      throw new Error("cellTowers viewport mode — skip PMTiles, use batchFetch below")
+                    }
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.cellTowersGlobal);
                     if (result.mode === "pmtiles" || result.mode === "geojson") {
                       ctState.globalLoaded = true;

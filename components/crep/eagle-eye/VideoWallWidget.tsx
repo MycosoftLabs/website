@@ -54,42 +54,108 @@ async function resolveStream(sourceId: string): Promise<ResolvedStream> {
 
 function HlsPlayer({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  // Apr 22, 2026 — Morgan: "caltrans cameras just spinning not showing
+  // video". The previous HlsPlayer had no internal loading/error state —
+  // hls.js would silently fail (manifest error, segment load fail,
+  // network drop) and the user just saw a black <video> with the browser-
+  // native spinner forever. Now we track phase, surface hls.js ERROR
+  // events, and retry once on recoverable errors.
+  const [phase, setPhase] = useState<"loading" | "playing" | "error">("loading")
+  const [errMsg, setErrMsg] = useState<string>("")
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
+    setPhase("loading")
+    setErrMsg("")
     let cleanup = () => {}
+
+    const onPlaying = () => setPhase("playing")
+    const onLoadedData = () => setPhase("playing")
+    video.addEventListener("playing", onPlaying)
+    video.addEventListener("loadeddata", onLoadedData)
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native HLS (Safari, Edge on macOS/iOS)
+      // Native HLS (Safari / iOS / Edge-macOS)
       video.src = url
-      video.play().catch(() => { /* autoplay blocked */ })
+      video.play().catch(() => { /* autoplay blocked — user can click */ })
     } else {
-      // Dynamic import hls.js
       import("hls.js").then((Hls) => {
         const H = (Hls as any).default || Hls
         if (!H.isSupported()) {
-          console.warn("[VideoWallWidget] hls.js unsupported in this browser")
+          // Fallback: try direct src, some browsers (Firefox with plugin)
+          // can still play.
+          video.src = url
+          video.play().catch(() => {})
           return
         }
-        const hls = new H({ maxBufferLength: 10 })
+        const hls = new H({ maxBufferLength: 10, manifestLoadingTimeOut: 12_000, levelLoadingTimeOut: 12_000, fragLoadingTimeOut: 12_000 })
         hls.loadSource(url)
         hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, () => video.play().catch(() => {}))
-        cleanup = () => hls.destroy()
+        hls.on(H.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => { /* autoplay blocked */ })
+        })
+        let recoveryAttempts = 0
+        hls.on(H.Events.ERROR, (_evt: any, data: any) => {
+          if (!data?.fatal) return
+          if (data?.type === H.ErrorTypes.NETWORK_ERROR && recoveryAttempts < 1) {
+            recoveryAttempts++
+            try { hls.startLoad() } catch { /* ignore */ }
+            return
+          }
+          if (data?.type === H.ErrorTypes.MEDIA_ERROR && recoveryAttempts < 1) {
+            recoveryAttempts++
+            try { hls.recoverMediaError() } catch { /* ignore */ }
+            return
+          }
+          const detail = data?.details || data?.reason || data?.type || "playback failed"
+          setErrMsg(String(detail))
+          setPhase("error")
+          try { hls.destroy() } catch { /* ignore */ }
+        })
+        cleanup = () => { try { hls.destroy() } catch { /* ignore */ } }
       }).catch((err) => {
-        console.warn("[VideoWallWidget] hls.js import failed — falling back to direct src:", err?.message)
+        // hls.js couldn't load — try direct src as last resort
         video.src = url
+        video.play().catch(() => {
+          setErrMsg("hls.js unavailable: " + (err?.message || ""))
+          setPhase("error")
+        })
       })
     }
-    return cleanup
+
+    return () => {
+      video.removeEventListener("playing", onPlaying)
+      video.removeEventListener("loadeddata", onLoadedData)
+      cleanup()
+    }
   }, [url])
+
   return (
-    <video
-      ref={videoRef}
-      className="w-full h-full bg-black"
-      controls
-      muted
-      playsInline
-    />
+    <div className="relative w-full h-full bg-black">
+      <video
+        ref={videoRef}
+        className="w-full h-full bg-black"
+        controls
+        muted
+        playsInline
+      />
+      {phase === "loading" && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-[1px]">
+          <div className="text-[10px] text-cyan-300 font-mono uppercase tracking-[0.15em]">
+            loading HLS…
+          </div>
+        </div>
+      )}
+      {phase === "error" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-3 text-center">
+          <div className="text-[11px] text-red-300 font-mono">HLS playback error</div>
+          <div className="text-[9px] text-gray-400 font-mono mt-1">{errMsg}</div>
+          <div className="text-[9px] text-gray-500 font-mono mt-1">
+            Source may be offline or blocking the browser.
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
