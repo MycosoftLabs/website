@@ -34,41 +34,47 @@
 
 import { Agent, setGlobalDispatcher } from "undici"
 
-// Module-level dispatcher state. `installed` gates a one-time
-// setGlobalDispatcher call so Next.js's native fetch also benefits.
-let agent: Agent | null = null
-let installed = false
+// Apr 22, 2026 — HMR-safe singleton: pin agent + installed flag to
+// globalThis so Next.js dev HMR doesn't rebuild them on every module
+// re-evaluation. Without this, each recompile leaked an Agent + called
+// setGlobalDispatcher again (~300 Agent instances over 20 min of dev
+// uptime, each with its own socket pool).
+interface OutboundState { agent: Agent | null; installed: boolean }
+const OUTBOUND_STATE_KEY = "__mycosoft_outbound_state__"
+type GlobalWithOutbound = typeof globalThis & { [OUTBOUND_STATE_KEY]?: OutboundState }
+const gOut = globalThis as GlobalWithOutbound
+if (!gOut[OUTBOUND_STATE_KEY]) gOut[OUTBOUND_STATE_KEY] = { agent: null, installed: false }
+const state = gOut[OUTBOUND_STATE_KEY]!
 
 function buildAgent(): Agent {
   return new Agent({
-    connections: 64,               // max per-origin keep-alive sockets
-    pipelining: 0,                 // HTTP/1.1 pipelining off — simpler, safer
-    keepAliveTimeout: 30_000,      // close idle sockets after 30 s
-    keepAliveMaxTimeout: 300_000,  // hard cap 5 min
-    bodyTimeout: 20_000,           // 20 s body read timeout
-    headersTimeout: 10_000,        // 10 s headers timeout
-    // undici default is strictContentLength:true — keep it
+    connections: 64,
+    pipelining: 0,
+    keepAliveTimeout: 30_000,
+    keepAliveMaxTimeout: 300_000,
+    bodyTimeout: 20_000,
+    headersTimeout: 10_000,
   })
 }
 
 function getAgent(): Agent {
-  if (!agent) {
-    agent = buildAgent()
-    if (!installed) {
+  if (!state.agent) {
+    state.agent = buildAgent()
+    if (!state.installed) {
       try {
-        setGlobalDispatcher(agent)
-        installed = true
-      } catch { /* ignore — not fatal if another module already set it */ }
+        setGlobalDispatcher(state.agent)
+        state.installed = true
+      } catch { /* ignore */ }
     }
   }
-  return agent
+  return state.agent
 }
 
 /** Dispose the current agent and create a fresh one. */
 export async function resetOutboundDispatcher(): Promise<void> {
-  const prev = agent
-  agent = buildAgent()
-  try { setGlobalDispatcher(agent); installed = true } catch { /* ignore */ }
+  const prev = state.agent
+  state.agent = buildAgent()
+  try { setGlobalDispatcher(state.agent); state.installed = true } catch { /* ignore */ }
   if (prev) {
     try { await prev.close() } catch { /* ignore */ }
   }
@@ -119,7 +125,7 @@ export async function robustFetch(
 
 export function getOutboundDispatcherStats() {
   return {
-    installed,
-    has_agent: agent !== null,
+    installed: state.installed,
+    has_agent: state.agent !== null,
   }
 }
