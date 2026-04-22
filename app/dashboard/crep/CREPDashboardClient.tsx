@@ -1970,6 +1970,7 @@ export default function CREPDashboardPage() {
               setAircraft((prev) => mergeById(prev, data.aircraft, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
+                maxEntries: 3_000,
               }));
               console.log(`[CREP/pump] aircraft: ${data.aircraft.length} (merged into persistent union)`);
               try { syncToMINDEX("aircraft", data.aircraft); } catch {}
@@ -2000,6 +2001,7 @@ export default function CREPDashboardPage() {
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
+                maxEntries: 6_000,
               }));
               console.log(`[CREP/pump] vessels: ${data.vessels.length} (merged into persistent union)`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
@@ -2044,6 +2046,7 @@ export default function CREPDashboardPage() {
               setSatellites((prev) => mergeById(prev, sats as any[], {
                 idKey: (s: any) => s.noradId || s.norad_id || s.id,
                 ttlMs: ENTITY_TTL_MS.satellite,
+                maxEntries: 2_500,
               }))
               try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
               breakerMark("__crep_pump_satellites_breaker", true, "satellites")
@@ -2761,6 +2764,7 @@ export default function CREPDashboardPage() {
               setAircraft((prev) => mergeById(prev, data.aircraft, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
+                maxEntries: 3_000,
               }));
               console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} → merged`);
               syncToMINDEX("aircraft", data.aircraft);
@@ -2775,6 +2779,7 @@ export default function CREPDashboardPage() {
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
+                maxEntries: 6_000,
               }));
               console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → merged`);
               syncToMINDEX("vessels", data.vessels);
@@ -2790,6 +2795,7 @@ export default function CREPDashboardPage() {
               setSatellites((prev) => mergeById(prev, data.satellites, {
                 idKey: (s: any) => s.noradId || s.norad_id || s.id,
                 ttlMs: ENTITY_TTL_MS.satellite,
+                maxEntries: 2_500,
               }));
               console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} → merged`);
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);

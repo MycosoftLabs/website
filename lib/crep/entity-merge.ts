@@ -50,7 +50,13 @@ export function mergeById<T extends Record<string, any>>(
   },
 ): T[] {
   const now = opts.now ?? Date.now()
-  const maxEntries = opts.maxEntries ?? 20_000
+  // Apr 22, 2026 v2 — Morgan: "entire crep is locked". Previous 20 000
+  // default was still too high. Probed heap at 1.3 GB / 4 GB with 20k
+  // vessels in window.__crep_vessels — every pump created a fresh 20k
+  // array which React diffed against the previous, MapLibre re-uploaded
+  // 20k circle features to GPU, main thread pinned for seconds. Dropped
+  // default to 6 000 so pump cycles stay fluid; callers override per type.
+  const maxEntries = opts.maxEntries ?? 6_000
   const getId: (e: T) => string | undefined | null =
     typeof opts.idKey === "function"
       ? opts.idKey
