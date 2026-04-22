@@ -20,6 +20,23 @@ import { collectH2sCharts, staleChartIds } from "@/lib/crep/h2s-ucsd-collector"
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
+/**
+ * When `CRON_SECRET` is set: require `?key=`, `Authorization: Bearer`, or (on Vercel only) `x-vercel-cron`.
+ * On self-hosted Next.js, `x-vercel-cron` is not trusted (spoofable) — use `?key=` in cron.
+ */
+function isAuthorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return true
+  if (process.env.VERCEL === "1" && (req.headers.get("x-vercel-cron") === "1" || req.headers.get("x-vercel-cron") === "true")) {
+    return true
+  }
+  const auth = req.headers.get("authorization")
+  if (auth === `Bearer ${secret}`) return true
+  const key = new URL(req.url).searchParams.get("key")
+  if (key === secret) return true
+  return false
+}
+
 async function runOnce(force: boolean) {
   if (!force) {
     const stale = staleChartIds()
@@ -36,12 +53,18 @@ async function runOnce(force: boolean) {
 }
 
 export async function POST(req: Request) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
+  }
   const force = new URL(req.url).searchParams.get("force") === "true"
   const result = await runOnce(force)
   return NextResponse.json(result)
 }
 
 export async function GET(req: Request) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
+  }
   const force = new URL(req.url).searchParams.get("force") === "true"
   const result = await runOnce(force)
   return NextResponse.json(result)

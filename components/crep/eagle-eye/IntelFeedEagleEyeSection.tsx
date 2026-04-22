@@ -16,7 +16,7 @@
  * component) so this drops into any panel that renders this component.
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo } from "react"
 import { Camera, Radio, PlaySquare } from "lucide-react"
 
 interface EagleCounts {
@@ -45,7 +45,7 @@ const EVENT_PROVIDERS: Array<{ id: string; name: string; color: string }> = [
   { id: "mindex-ephemeral", name: "MINDEX",        color: "#22d3ee" },
 ]
 
-export default function IntelFeedEagleEyeSection() {
+function IntelFeedEagleEyeSection() {
   const [cams, setCams] = useState<EagleCounts>({ total: 0, by_provider: {} })
   const [events, setEvents] = useState<EagleCounts>({ total: 0, by_provider: {} })
 
@@ -154,3 +154,5 @@ export default function IntelFeedEagleEyeSection() {
     </div>
   )
 }
+
+export default memo(IntelFeedEagleEyeSection)

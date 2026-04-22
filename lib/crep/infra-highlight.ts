@@ -34,7 +34,13 @@ export function initHighlightLayers(map: any) {
     }
   } catch {}
 
-  // Outer glow ring
+  // Apr 22, 2026 — Morgan: "strange selection bubble is still around
+  // cameras not actually selecting them ... it also shows around cell
+  // towers". The ring was 40 px at z14 — huge, and visually implied
+  // selection even when the target widget (VideoWallWidget for cameras,
+  // InfraAsset panel for plants/subs) hadn't opened. Tuned down to a
+  // subtle tight ring: 8–14 px outer, 3–5 px inner. Keeps the "click
+  // landed" signal without the misleading mega-bubble.
   try {
     if (map.getLayer("crep-highlight-point-glow")) map.removeLayer("crep-highlight-point-glow")
     map.addLayer({
@@ -42,12 +48,12 @@ export function initHighlightLayers(map: any) {
       type: "circle",
       source: "crep-highlight-point",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 18, 8, 28, 14, 40],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 8, 10, 14, 14],
         "circle-color": "transparent",
-        "circle-stroke-width": 3,
+        "circle-stroke-width": 1.5,
         "circle-stroke-color": "#00ffff",
-        "circle-opacity": 0.9,
-        "circle-stroke-opacity": 0.8,
+        "circle-opacity": 0.7,
+        "circle-stroke-opacity": 0.6,
       },
     })
   } catch (e: any) {
@@ -62,12 +68,12 @@ export function initHighlightLayers(map: any) {
       type: "circle",
       source: "crep-highlight-point",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 8, 8, 14, 14, 22],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 8, 4, 14, 5.5],
         "circle-color": "#00ffff",
-        "circle-opacity": 0.4,
-        "circle-stroke-width": 2,
+        "circle-opacity": 0.25,
+        "circle-stroke-width": 0.8,
         "circle-stroke-color": "#ffffff",
-        "circle-stroke-opacity": 0.9,
+        "circle-stroke-opacity": 0.5,
       },
     })
   } catch (e: any) {
@@ -123,48 +129,20 @@ export function initHighlightLayers(map: any) {
 }
 
 /**
- * Highlight a point feature (plant, substation, cell tower).
+ * Apr 22, 2026 — Morgan: "we dont need that ring at all anywhere".
+ * highlightPoint / highlightLine / highlightFromEvent all no-op now.
+ * The cyan ring on every asset click was being misread as a "loading"
+ * state and obscuring the entities below. Selection is signalled by
+ * the widget panel opening, not by a map glow. Keeping the functions
+ * exported so existing callsites compile + `clearHighlight` still
+ * works for legacy state cleanup.
  */
-export function highlightPoint(map: any, lng: number, lat: number, properties?: Record<string, any>) {
-  clearHighlight(map)
-  try {
-    const source = map.getSource("crep-highlight-point")
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: [{
-          type: "Feature",
-          properties: properties || {},
-          geometry: { type: "Point", coordinates: [lng, lat] },
-        }],
-      })
-    }
-  } catch (e: any) {
-    console.warn("[CREP/Highlight] highlightPoint:", e.message)
-  }
+export function highlightPoint(_map: any, _lng: number, _lat: number, _properties?: Record<string, any>) {
+  // disabled
 }
 
-/**
- * Highlight a line feature (cable, TX line).
- * Pass the full GeoJSON geometry to highlight the entire line.
- */
-export function highlightLine(map: any, geometry: any, properties?: Record<string, any>) {
-  clearHighlight(map)
-  try {
-    const source = map.getSource("crep-highlight-line")
-    if (source) {
-      source.setData({
-        type: "FeatureCollection",
-        features: [{
-          type: "Feature",
-          properties: properties || {},
-          geometry,
-        }],
-      })
-    }
-  } catch (e: any) {
-    console.warn("[CREP/Highlight] highlightLine:", e.message)
-  }
+export function highlightLine(_map: any, _geometry: any, _properties?: Record<string, any>) {
+  // disabled
 }
 
 /**
@@ -180,62 +158,10 @@ export function highlightLine(map: any, geometry: any, properties?: Record<strin
  * or a missing MapLibre API can never crash the click handler (which
  * bubbles to React and triggers "missing required error components").
  */
-export function highlightFromEvent(map: any, e: any) {
-  try {
-    const feature = e?.features?.[0]
-    if (!feature) return
-
-    const geomType = feature.geometry?.type
-    if (geomType === "Point" || geomType === "MultiPoint") {
-      const coords = feature.geometry.coordinates
-      if (Array.isArray(coords) && typeof coords[0] === "number" && typeof coords[1] === "number") {
-        highlightPoint(map, coords[0], coords[1], feature.properties)
-      }
-      return
-    }
-
-    if (geomType !== "LineString" && geomType !== "MultiLineString") return
-
-    // Try to find all sibling segments that share the same cable_id / line_id /
-    // id within the source. This turns a partial-segment click into a full
-    // end-to-end highlight.
-    const sourceId: string | undefined =
-      (feature as any).source ||
-      e?.features?.[0]?.layer?.source ||
-      undefined
-    const props = feature.properties || {}
-    const groupKey =
-      props.cable_id ?? props.line_id ?? props.cableId ?? props.lineId ?? props.id
-
-    let wholeLineShown = false
-    if (sourceId && groupKey != null && groupKey !== "") {
-      try {
-        const merged = gatherLineByGroupId(map, sourceId, groupKey)
-        if (merged && merged.geometry.coordinates.length > 0) {
-          highlightLine(map, merged.geometry, { ...props, __fullLine: true, __segments: merged.segmentCount })
-          wholeLineShown = true
-          // Apr 20, 2026 (Morgan: "selecting the sea cable shows widget
-          // over a different area thats wrong"). The old behaviour also
-          // fitBounds()-ed to the ENTIRE cable extent — for a transatlantic
-          // cable that jumped the camera across the ocean while the widget
-          // remained anchored to the original click point, making it
-          // appear disconnected from the highlighted feature. Removed the
-          // fitBounds: stay at the user's current zoom, highlight the
-          // full line end-to-end, let them pan/zoom out themselves if
-          // they want to see the whole route.
-        }
-      } catch (mergeErr) {
-        console.warn("[CREP/Highlight] whole-line merge failed, falling back to single segment:", (mergeErr as any)?.message)
-      }
-    }
-
-    if (!wholeLineShown && feature.geometry) {
-      highlightLine(map, feature.geometry, feature.properties)
-    }
-  } catch (e: any) {
-    // Absolute last-resort swallow — a click must never crash the CREP tree.
-    console.warn("[CREP/Highlight] highlightFromEvent failed:", e?.message || e)
-  }
+export function highlightFromEvent(_map: any, _e: any) {
+  // Apr 22, 2026 — disabled per Morgan ("we dont need that ring at all
+  // anywhere"). Kept as an exported no-op so all 7 existing callsites
+  // in CREPDashboardClient continue to compile without edits.
 }
 
 /**

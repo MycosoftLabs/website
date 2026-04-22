@@ -67,6 +67,27 @@ const MINDEX_INTERNAL_TOKEN =
 
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
+/**
+ * Base URL for server-side fetches to this app's own API routes.
+ * In Docker/VM, `new URL(req.url).origin` is often `https://mycosoft.com` —
+ * self-HTTP fetches can fail (hairpin, TLS, cold DNS). Use loopback to the
+ * Node listener instead. Vercel keeps the public request origin.
+ * Override with EAGLE_CONNECTOR_FETCH_BASE / EAGLE_INTERNAL_ORIGIN if needed.
+ */
+function connectorFetchBase(req: NextRequest): string {
+  const fromEnv = (process.env.EAGLE_CONNECTOR_FETCH_BASE || process.env.EAGLE_INTERNAL_ORIGIN || "").trim()
+  if (fromEnv) return fromEnv.replace(/\/$/, "")
+  if (process.env.VERCEL) return new URL(req.url).origin
+  const u = new URL(req.url)
+  // Local dev: http://localhost:3010/... has explicit port. Production HTTPS
+  // to :443 has no port — use the Node listen port (Docker 3000, etc.).
+  if (u.port && u.port !== "80" && u.port !== "443") {
+    return `http://127.0.0.1:${u.port}`
+  }
+  const port = process.env.PORT || "3000"
+  return `http://127.0.0.1:${port}`
+}
+
 function authHeaders(): Record<string, string> {
   if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
   if (MINDEX_API_KEY) return { "X-API-Key": MINDEX_API_KEY }
@@ -271,7 +292,7 @@ export async function GET(req: NextRequest) {
   const forceLive = url.searchParams.get("live") === "1"
   const mindexCold = sources.length === 0
   if (!skipLive && (mindexCold || forceLive)) {
-    const origin = new URL(req.url).origin
+    const origin = connectorFetchBase(req)
     const live = await fromLiveConnectors(origin, bbox, fast)
     if (live.length) {
       const seen = new Set(sources.map((s) => `${s.provider}:${s.id}`))
@@ -297,7 +318,7 @@ export async function GET(req: NextRequest) {
       })
     }
   } else if (!skipLive && sources.length < MIN_SOURCES) {
-    const origin = new URL(req.url).origin
+    const origin = connectorFetchBase(req)
     after(() => {
       void (async () => {
         try {

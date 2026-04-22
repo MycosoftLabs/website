@@ -18,7 +18,7 @@
  * Route: /dashboard/crep
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import dynamic from "next/dynamic";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
@@ -262,6 +262,7 @@ import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import TimelineScrubber from "@/components/crep/eagle-eye/TimelineScrubber";
 import IntelFeedEagleEyeSection from "@/components/crep/eagle-eye/IntelFeedEagleEyeSection";
+import { RegisterCrepDataServiceWorker } from "@/components/crep/register-crep-data-sw";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 // Realistic cloud rendering — Three.js volumetric + satellite-texture pipeline
 // driven by /api/eagle/weather/multi (Open-Meteo + NWS + Windy + OWM + Earth-2).
@@ -1519,7 +1520,7 @@ function ServicesPanel() {
 }
 
 // Right Panel - CREP MYCA Integration (full real MYCA with map context)
-function CREPMycaPanel({
+const CREPMycaPanel = memo(function CREPMycaPanel({
   mapRef,
   layers,
   toggleLayer,
@@ -1600,7 +1601,8 @@ function CREPMycaPanel({
       />
     </div>
   );
-}
+});
+CREPMycaPanel.displayName = "CREPMycaPanel";
 
 /**
  * Client-side MINDEX sync -- pushes fetched entity data to MINDEX proxy as a
@@ -3417,10 +3419,11 @@ export default function CREPDashboardPage() {
     (window as any).__crep_selectAsset = (payload: any) => {
       if (!payload || payload.lat == null || payload.lng == null) return;
       lastEntityPickTimeRef.current = Date.now();
-      try {
-        const m = mapNativeRef.current;
-        if (m) highlightPoint(m, payload.lng, payload.lat);
-      } catch { /* ignore */ }
+      // Apr 22, 2026 — Morgan: "we dont need that ring at all anywhere".
+      // The OpenGridWorks-style cyan highlight ring was firing on every
+      // asset click and being misread as a "selecting…" state, especially
+      // when the detail widget took a moment to mount. Ring disabled
+      // globally — selection is signalled by the widget opening.
       setSelectedInfraAsset({
         type: payload.type || "asset",
         id: payload.id,
@@ -5222,6 +5225,7 @@ export default function CREPDashboardPage() {
 
   return (
     <div className="relative w-full h-dvh bg-[#0a1628] overflow-hidden flex flex-col">
+      <RegisterCrepDataServiceWorker />
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
@@ -6198,20 +6202,26 @@ export default function CREPDashboardPage() {
                     const entities = (window as any).__crep_deckEntities;
                     if (!entities?.length) return;
                     const toFC = (ents: any[]) => ({
-                      type: "FeatureCollection",
+                      type: "FeatureCollection" as const,
                       features: ents.filter((e: any) => e.geometry?.coordinates?.length >= 2).map((e: any) => ({
-                        type: "Feature",
+                        type: "Feature" as const,
                         properties: { id: e.id, heading: e.state?.heading ?? 0, type: e.type,
                           name: e.properties?.callsign || e.properties?.name || e.properties?.mmsi || e.id },
                         geometry: e.geometry,
                       })),
                     });
+                    const b = map.getBounds();
+                    const bbox = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
                     const ac = entities.filter((e: any) => e.type === "aircraft");
                     const v = entities.filter((e: any) => e.type === "vessel");
-                    (map.getSource("crep-live-aircraft") as any)?.setData(toFC(ac));
+                    const acFc = toFC(ac);
+                    const vFc = toFC(v);
+                    const acFeatures = cullToViewport(acFc.features, bbox, 2);
+                    const vFeatures = cullToViewport(vFc.features, bbox, 2);
+                    (map.getSource("crep-live-aircraft") as any)?.setData({ type: "FeatureCollection", features: acFeatures });
                     // Satellites are handled by SGP4 satellite-animation module — not pumped here
-                    (map.getSource("crep-live-vessels") as any)?.setData(toFC(v));
-                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🚢${v.length} (satellites via SGP4 animation)`);
+                    (map.getSource("crep-live-vessels") as any)?.setData({ type: "FeatureCollection", features: vFeatures });
+                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🚢${v.length} (culled to viewport; satellites via SGP4 animation)`);
                   } catch {}
                 }, 1000);
               } catch (err: any) {
