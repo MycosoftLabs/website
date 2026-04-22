@@ -467,8 +467,32 @@ function ProjectPartnerPanel() {
 }
 
 function CameraLivePanel({ site }: { site: ClickDetail }) {
-  // Video frame lives in the VideoWallWidget. Side-widget shows the
-  // metadata operators need without opening the provider site.
+  // Apr 22, 2026 — Morgan: "none of those work yet" + "find all issues".
+  // The side-widget was a passive info card; the VideoWallWidget listens
+  // for `crep:eagle:camera-click` but nothing was dispatching it when the
+  // user clicked through a Tijuana / Oyster camera marker. Dispatch it
+  // on mount so the player actually mounts the stream.
+  useEffect(() => {
+    if (!site?.id) return
+    try {
+      window.dispatchEvent(
+        new CustomEvent("crep:eagle:camera-click", {
+          detail: {
+            id: String(site.id),
+            provider: site.provider,
+            name: site.name,
+            kind: site.kind || "permanent",
+            lat: site.lat,
+            lng: site.lng,
+            stream_url: site.stream_url,
+            embed_url: site.embed_url,
+            has_stream: site.has_stream,
+          },
+        }),
+      )
+    } catch { /* ignore */ }
+  }, [site?.id])
+
   return (
     <div className="bg-black/30 rounded-lg p-2.5 border border-sky-500/30 space-y-1.5">
       <div className="text-[9px] uppercase tracking-[0.15em] text-sky-300 font-mono">Camera feed info</div>
@@ -479,7 +503,7 @@ function CameraLivePanel({ site }: { site: ClickDetail }) {
         <div className="text-white font-mono text-right">{site.has_stream ? "yes" : "no"}</div>
         {site.kind && <><div className="text-white/60">Kind</div><div className="text-white font-mono text-right">{String(site.kind)}</div></>}
       </div>
-      <div className="text-[10px] text-white/50 font-mono">Live video frame renders in VideoWallWidget — no external link.</div>
+      <div className="text-[10px] text-white/50 font-mono">Live video opens in VideoWallWidget on the map.</div>
     </div>
   )
 }

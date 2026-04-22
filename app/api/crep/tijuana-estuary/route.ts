@@ -406,7 +406,7 @@ const TJ_OYSTER_POWER = [
 const TJ_OYSTER_RAILS = [
   { id: "rail-trolley-sanysidro",  name: "Blue Line — San Ysidro (S terminus)",   lat: 32.5431, lng: -117.0293, category: "rail", operator: "SDMTS",  description: "MTS Blue Line trolley southern terminus, cross-border pedestrian POE." },
   { id: "rail-trolley-iris",       name: "Blue Line — Iris Ave",                  lat: 32.5640, lng: -117.0730, category: "rail", operator: "SDMTS",  description: "Trolley stop near Nestor H2S monitor." },
-  { id: "rail-trolley-palm",       name: "Blue Line — Palm Ave (IB)",             lat: 32.5790, lng: -117.0850, category: "rail", operator: "SDMTS",  description: "Imperial Beach gateway trolley station." },
+  { id: "rail-trolley-palm",       name: "Blue Line — Palm Ave (IB)",             lat: 32.5843, lng: -117.0819, category: "rail", operator: "SDMTS",  description: "Imperial Beach gateway trolley station." },
   { id: "rail-trolley-cvista",     name: "Blue Line — H St (Chula Vista)",       lat: 32.6220, lng: -117.0830, category: "rail", operator: "SDMTS",  description: "Chula Vista trolley station." },
   { id: "rail-trolley-12th",       name: "Blue Line — 12th & Imperial (SD)",     lat: 32.7083, lng: -117.1560, category: "rail", operator: "SDMTS",  description: "Downtown SD transit hub, Blue/Green/Orange intersect." },
   { id: "rail-sd-amtrak",          name: "Amtrak — Santa Fe Depot SD",            lat: 32.7190, lng: -117.1700, category: "rail", operator: "Amtrak", description: "Pacific Surfliner northbound origin." },

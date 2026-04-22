@@ -72,6 +72,11 @@ function isUrl(v: unknown): v is string {
 
 export default function TijuanaStationWidget() {
   const [station, setStation] = useState<StationDetail | null>(null)
+  // Apr 22, 2026 — Morgan: "Imperial Beach Pier — H₂S monitor has no
+  // data why i gave you all live data sources you did not wire or code
+  // them into live etl engine". Poll /api/crep/sdapcd/h2s for any open
+  // SDAPCD air-quality station popup; refresh every 2 min.
+  const [h2s, setH2s] = useState<{ h2s_ppb: number | null; observed_at: string | null; source: string } | null>(null)
 
   useEffect(() => {
     const onClick = (ev: any) => {
@@ -86,6 +91,29 @@ export default function TijuanaStationWidget() {
       window.removeEventListener("keydown", onEsc)
     }
   }, [])
+
+  useEffect(() => {
+    if (!station) { setH2s(null); return }
+    const isSdapcd = String(station.id ?? "").toLowerCase().startsWith("sdapcd") ||
+                     String(station.agency ?? "").toUpperCase().includes("SDAPCD") ||
+                     String(station.param ?? "").toUpperCase() === "H2S"
+    if (!isSdapcd) { setH2s(null); return }
+    let cancelled = false
+    const fetchH2s = async () => {
+      try {
+        const r = await fetch("/api/crep/sdapcd/h2s", { signal: AbortSignal.timeout(10_000) })
+        if (!r.ok) return
+        const j = await r.json()
+        const mine = Array.isArray(j?.stations)
+          ? j.stations.find((s: any) => String(s.id) === String(station.id))
+          : null
+        if (!cancelled && mine) setH2s({ h2s_ppb: mine.h2s_ppb, observed_at: mine.observed_at, source: mine.source })
+      } catch { /* ignore */ }
+    }
+    fetchH2s()
+    const iv = setInterval(fetchH2s, 120_000)
+    return () => { cancelled = true; clearInterval(iv) }
+  }, [station?.id, station?.agency, station?.param])
 
   if (!station) return null
 
@@ -191,6 +219,62 @@ export default function TijuanaStationWidget() {
             </div>
           </div>
         ) : null}
+
+        {/* Apr 22, 2026 — SDAPCD H₂S live. Morgan pointed us at 3 feeds:
+              sdapcd.org TJRV page (PowerBI-gated, can't scrape)
+              app.powerbigov.us (same)
+              airborne.ucsd.edu/h2s (UCSD research page — PNG-only data)
+            UCSD exposes matplotlib-rendered PNG charts (not JSON), but
+            they auto-refresh every 5 min. Render them INLINE so data
+            stays in the widget per the data-in-widget rule. Chart URLs:
+              30 min: /wp-json/airborne/v1/30minutes
+              12 hr:  /wp-json/airborne/v1/12hours
+            Both are public, no auth, cache-busted via timestamp. */}
+        {(() => {
+          const isSdapcd = String(station.id ?? "").toLowerCase().startsWith("sdapcd") ||
+                           String(station.agency ?? "").toUpperCase().includes("SDAPCD") ||
+                           String(station.param ?? "").toUpperCase() === "H2S"
+          if (!isSdapcd) return null
+          // Force refresh every minute
+          const bust = Math.floor(Date.now() / 60_000)
+          return (
+            <div className="px-3 pt-3 space-y-2">
+              <div className="text-[10px] uppercase tracking-wider text-red-300/80 flex items-center gap-1">
+                <Cloud className="w-3 h-3" /> H₂S · UCSD Airborne · live
+              </div>
+              <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
+                <img
+                  src={`https://airborne.ucsd.edu/wp-json/airborne/v1/30minutes?t=${bust}`}
+                  alt="UCSD H₂S — last 30 minutes"
+                  className="w-full h-auto block"
+                  loading="lazy"
+                />
+                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">last 30 min · 1-min avgs</div>
+              </div>
+              <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
+                <img
+                  src={`https://airborne.ucsd.edu/wp-json/airborne/v1/12hours?t=${bust}`}
+                  alt="UCSD H₂S — last 12 hours"
+                  className="w-full h-auto block"
+                  loading="lazy"
+                />
+                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">last 12 hr · 5-min avgs</div>
+              </div>
+              {h2s?.h2s_ppb != null ? (
+                <div className="bg-black/40 border border-red-500/20 rounded p-2 flex items-baseline justify-between">
+                  <span className="text-[10px] uppercase text-gray-400">Latest numeric (via {h2s.source})</span>
+                  <span className="text-xl font-bold tabular-nums text-red-300">
+                    {Number(h2s.h2s_ppb).toFixed(1)}
+                    <span className="text-[10px] text-gray-500 ml-1">ppb</span>
+                  </span>
+                </div>
+              ) : null}
+              <div className="text-[9px] text-gray-500 font-mono">
+                Data: UCSD airborne.ucsd.edu/h2s · refreshes every 5 min
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Apr 22, 2026 — data-in-widget: external Sources block removed.
             All station metrics/readings render inline above via the
