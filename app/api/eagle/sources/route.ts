@@ -210,14 +210,15 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined): Pro
   // the overlay. Bumped to 35 s so we always wait for the slow connector.
   // Each connector still has its own internal timeouts; this only widens
   // our patience for them to respond.
-  // Apr 22, 2026 — Promise.allSettled with TIGHT per-connector timeout
-  // so one slow connector (Shinobi 10 s timeout, state-dot-cctv cold
-  // start) doesn't starve the whole response. Was Promise.all + 35 s
-  // per call → total up to 35 s. Now 8 s cap; whichever connectors
-  // return in time contribute, laggards skipped.
+  // Apr 22, 2026 — Promise.allSettled with bounded per-connector timeout.
+  // Measured: state-dot-cctv (Caltrans 1128 + NYSDOT 2921) direct returns
+  // in 11.5 s. 12 s cap was too tight (timer fires before the nested fan-
+  // out completes). Bumped to 18 s giving 6 s headroom so Caltrans reliably
+  // lands. Overall response still bounded — whichever slower connectors
+  // don't finish are skipped and the warm-MINDEX async path picks them up.
   const settled = await Promise.allSettled(
     endpoints.map((u) =>
-      fetch(u, { signal: AbortSignal.timeout(8_000) })
+      fetch(u, { signal: AbortSignal.timeout(18_000) })
         .then((r) => (r.ok ? r.json() : null)),
     ),
   )
