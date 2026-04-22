@@ -231,6 +231,7 @@ import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
 import { mergeById, ENTITY_TTL_MS } from "@/lib/crep/entity-merge";
 import { cullToViewport, makeDebouncedSetData } from "@/lib/crep/map-perf";
+import { selectForZoom as lodSelectForZoom } from "@/lib/crep/vessel-lod";
 import {
   startSatelliteAnimation,
   stopSatelliteAnimation,
@@ -282,6 +283,7 @@ import Photorealistic3DTiles from "@/components/crep/layers/photorealistic-3d-ti
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
 import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
+import LookupHereWidget from "@/components/crep/waypoints/LookupHereWidget";
 // Glass-morphism device widget (Apr 20, 2026). Replaces the old cramped
 // inline MarkerPopup with a beautiful floating high-tech dialog with
 // explicit GPS state surfacing + sparkline telemetry cards.
@@ -2001,10 +2003,16 @@ export default function CREPDashboardPage() {
             if (!res.ok || cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
             const data = await res.json();
             if (Array.isArray(data.vessels) && data.vessels.length > 0) {
+              // Apr 22, 2026 v3 — Morgan: "world zoom i need ≥30% of all
+              // vessels". Cap bumped 6k → 20k so the pool is deep enough
+              // for stratified LOD to show ~30% globally without starving.
+              // GPU upload is still capped via lodSelectForZoom() at
+              // render time, so main-thread React diff cost only scales
+              // with selected set (not full 20k).
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: 6_000,
+                maxEntries: 20_000,
               }));
               console.log(`[CREP/pump] vessels: ${data.vessels.length} (merged into persistent union)`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
@@ -2782,7 +2790,7 @@ export default function CREPDashboardPage() {
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: 6_000,
+                maxEntries: 20_000, // Apr 22, 2026 v3 LOD pool depth
               }));
               console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → merged`);
               syncToMINDEX("vessels", data.vessels);
@@ -4399,6 +4407,13 @@ export default function CREPDashboardPage() {
   // the GPU upload.
   const mapBoundsRef = useRef<typeof mapBounds>(mapBounds);
   useEffect(() => { mapBoundsRef.current = mapBounds }, [mapBounds]);
+  // Apr 22, 2026 — Morgan: "at zoom out seeing world i need to see at
+  // least 30% of all vessles ... then with each zoom in tick i need
+  // more in viewport and none outside of viewport".
+  // Zoom ref keeps the pump tick in sync with current map zoom so
+  // selectForZoom() can pick the right LOD tier without closure rebuild.
+  const mapZoomRef = useRef<number>(mapZoom);
+  useEffect(() => { mapZoomRef.current = mapZoom }, [mapZoom]);
 
   useEffect(() => {
     let rafId: number | null = null;
@@ -4465,27 +4480,35 @@ export default function CREPDashboardPage() {
           if (kind === "aircraft") acFeats.push(feat);
           else vFeats.push(feat);
         }
-        // Apr 22, 2026 perf: cull features to the current viewport +2°
-        // before GPU upload. At city zoom (~z12) this drops 90%+ of
-        // features for AIS-dense vessel counts. At world zoom culling
-        // is a no-op because bbox covers the whole globe. Then coalesce
-        // through the rAF debouncer so pump bursts collapse to one
-        // upload per source per frame.
+        // Apr 22, 2026 v3 — zoom-dependent LOD via lodSelectForZoom.
+        // Morgan: "at zoom out seeing world i need to see at least 30%
+        // of all vessles ... with each zoom in tick i need more in
+        // viewport and none outside of viewport".
+        //
+        // Behavior by tier:
+        //   z ≤ 2 (world)    — stratified 35% global sample, no bbox cull
+        //   z 3–6 (regional) — viewport cull then progressive sample
+        //                      (40% at z3 → 100% at z6)
+        //   z ≥ 7 (local)    — strict viewport cull, everything inside
+        //
+        // Then the rAF debouncer folds rapid consecutive setData calls
+        // into a single GPU upload per source per frame.
         const bbox = mapBoundsRef.current
+        const zoom = mapZoomRef.current
         if (acFeats.length > 0) {
           const sig = sigOf(acFeats)
           if (sig !== lastAcSig) {
             lastAcSig = sig
-            const culled = cullToViewport(acFeats, bbox, 2)
-            debouncedAcSetData({ type: "FeatureCollection", features: culled });
+            const picked = lodSelectForZoom(acFeats, bbox, zoom, 2)
+            debouncedAcSetData({ type: "FeatureCollection", features: picked });
           }
         }
         if (vFeats.length > 0) {
           const sig = sigOf(vFeats)
           if (sig !== lastVSig) {
             lastVSig = sig
-            const culled = cullToViewport(vFeats, bbox, 2)
-            debouncedVSetData({ type: "FeatureCollection", features: culled });
+            const picked = lodSelectForZoom(vFeats, bbox, zoom, 2)
+            debouncedVSetData({ type: "FeatureCollection", features: picked });
           }
         }
       } catch {
@@ -6212,16 +6235,20 @@ export default function CREPDashboardPage() {
                     });
                     const b = map.getBounds();
                     const bbox = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
+                    const zoom = map.getZoom?.() ?? 2;
                     const ac = entities.filter((e: any) => e.type === "aircraft");
                     const v = entities.filter((e: any) => e.type === "vessel");
                     const acFc = toFC(ac);
                     const vFc = toFC(v);
-                    const acFeatures = cullToViewport(acFc.features, bbox, 2);
-                    const vFeatures = cullToViewport(vFc.features, bbox, 2);
+                    // Apr 22, 2026 v3 — LOD-aware initial pump so the
+                    // first paint also respects world-zoom 30% floor +
+                    // strict viewport cull on zoom-in.
+                    const acFeatures = lodSelectForZoom(acFc.features, bbox, zoom, 2);
+                    const vFeatures = lodSelectForZoom(vFc.features, bbox, zoom, 2);
                     (map.getSource("crep-live-aircraft") as any)?.setData({ type: "FeatureCollection", features: acFeatures });
                     // Satellites are handled by SGP4 satellite-animation module — not pumped here
                     (map.getSource("crep-live-vessels") as any)?.setData({ type: "FeatureCollection", features: vFeatures });
-                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🚢${v.length} (culled to viewport; satellites via SGP4 animation)`);
+                    console.log(`[CREP/Live] Initial pump: ✈${ac.length}→${acFeatures.length} 🚢${v.length}→${vFeatures.length} @z${zoom.toFixed(1)} (LOD-selected)`);
                   } catch {}
                 }, 1000);
               } catch (err: any) {
@@ -8592,6 +8619,12 @@ export default function CREPDashboardPage() {
               lat-lng / "what's here" lookup. Persists to localStorage +
               best-effort to MINDEX so waypoints survive across devices. */}
           <WaypointSystem map={mapRef} />
+          {/* Apr 22, 2026 — Morgan: "the right click whats here search
+              does not work needs to be fixed". WaypointSystem dispatches
+              crep:lookup-here when the menu item is clicked; this widget
+              listens, calls /api/crep/reverse-geocode, and renders the
+              address + nearby MINDEX infrastructure in a floating panel. */}
+          <LookupHereWidget />
 
           {/* Project Oyster (MYCODAO + MYCOSOFT) — Tijuana Estuary
               pollution showcase (Apr 20, 2026). Federated overlay of

@@ -282,13 +282,19 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
     return <ProviderInfoCard url={url} provider={provider} name={name} />
   }
   if (looksLikeVideoEmbed(url)) {
+    // Apr 22, 2026 — Morgan: "every surfline camera needs to not open a
+    // widget with a play button it needs to open the video widget and
+    // auto play". Autoplay is in the allow list; eager load so we don't
+    // wait for intersection observer; referrerPolicy kept permissive so
+    // surfline/earthcam/twitch can verify the embed source.
     return (
       <iframe
         src={url}
         className="w-full h-full bg-black"
         allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+        allowFullScreen
         referrerPolicy="no-referrer-when-downgrade"
-        loading="lazy"
+        loading="eager"
       />
     )
   }
@@ -562,15 +568,19 @@ export default function VideoWallWidget() {
       return `https://cwwp2.dot.ca.gov/data/${dist}/cctv/image/${slug}/${slug}.jpg`
     }
 
-    // Surfline surf-report URL → official embed-cam URL (cleaner than
-    // trying to iframe the marketing page which has heavy CSP).
+    // Surfline surf-report URL → official embed-cam URL with autoplay.
+    // Morgan Apr 22, 2026: "every surfline camera needs to not open a
+    // widget with a play button it needs to open the video widget and
+    // auto play thats dumb". Use ?autoplay=1&muted=1 so the browser's
+    // autoplay policy permits playback (muted autoplay is always
+    // allowed; we let the user unmute).
     //   https://www.surfline.com/surf-report/{slug}/{camId}
-    //     → https://www.surfline.com/embed-cam/{camId}
+    //     → https://www.surfline.com/embed-cam/{camId}?autoplay=1&muted=1
     function deriveSurflineEmbed(embed: string | undefined): string | null {
       if (!embed) return null
       const m = /surfline\.com\/surf-report\/[^/]+\/([a-f0-9]{16,})/i.exec(embed)
       if (!m) return null
-      return `https://www.surfline.com/embed-cam/${m[1]}`
+      return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&muted=1`
     }
 
     const de = feed.directEmbed
