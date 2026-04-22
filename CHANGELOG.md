@@ -283,6 +283,10 @@ All notable changes to this project will be documented in this file.
 - *(crep-etl)* WPI ports fetch via NGA CSV when GeoJSON returns 403; regenerate ports-global.geojson
 - *(api)* Wire CREP MINDEX ingest proxy to real MINDEX writers
 - *(api)* Wire CREP ingest 422 types; fix military earth/ingest
+- *(crep)* Mojave layer HMR-defensive + unmissable Goffs marker
+- *(crep)* Kill the "fake huge heatmap circles at world view" regression
+- *(crep)* Bump jitter 1.5m→65m + apply to ALL sub-layer categories
+- *(crep)* Add MINDEX internal-token auth to vessel registry source #2
 
 ### CREP
 
@@ -414,6 +418,8 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(crep)* Shinobi connector POST path + DDL applied + entity stream
 
 ### Features
 
@@ -559,6 +565,16 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Headless cam-snapshot service + Webcamtaxi + HPWREN/ALERTCA reseed
 - *(crep)* Eagle Eye timeline expansion — all video event categories
 - *(crep)* Tijuana Estuary / Project Oyster pollution showcase
+- *(crep)* Mojave National Preserve + Goffs, CA site data
+- *(crep)* FlyToProjects chips (OYSTER + GOFFS) + Mojave low-zoom visibility
+- *(crep)* Massive Project Oyster + Goffs data expansion + "projects" category
+- *(crep)* Project Oyster v2 — anchor icon + widget + 11 sub-layers + UCSD PFM + NASA EMIT
+- *(crep)* Labels + click-to-select on no-fly, pollution, grid layers (P0-2)
+- *(crep)* Meter-accurate GPS in entity widgets (P1-7 partial)
+- *(crep)* Goffs anti-overlap + WorldView snapshot aggregator + pipeline audit
+- *(crep)* Deferred a/b/c shipped — iNat preload + PFM live + EMIT live (all SWR-fast)
+- *(crep)* 6h auto-refresh on Oyster+Goffs layers + preload seed for NatureStream + bbox-mode preload
+- *(crep)* WorldView SSE stream + kill all widget external links (data-in-widget)
 
 ### Fix
 
@@ -626,6 +642,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Preconnect + dns-prefetch hints for external map origins
 - *(crep)* MIN_SOURCES 50 → 1 — trust MINDEX warm cache
 - *(crep)* Land mask uses 1.6 MB NE_50m at low zoom (was 10 MB NE_10m)
+- *(crep)* PMTiles power plants + visibility-throttle overlay pollers
 
 ### Refactor
 
@@ -647,6 +664,7 @@ All notable changes to this project will be documented in this file.
 ### Diag
 
 - *(crep)* Add live-mover pipeline counters (console + window global)
+- *(crep)* Verbose console logging in MojavePreserveLayer
 
 ### Diagnostic
 
