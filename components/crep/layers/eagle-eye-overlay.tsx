@@ -120,8 +120,14 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             id: s.id,
             provider: s.provider,
             kind: s.kind,
+            name: s.name,
             stream_url: s.stream_url,
             embed_url: s.embed_url,
+            // Apr 22, 2026 — Morgan: "only some caltrans working". ~44 % of
+            // Caltrans cams have stream_url:null but DO have media_url (the
+            // auto-refreshing JPG snapshot). VideoWallWidget's thumbnail
+            // path picks these up ONLY if media_url travels with the click.
+            media_url: s.media_url,
             status: s.source_status ?? s.status,
             color: PROVIDER_COLOR[s.provider] || "#22d3ee",
           },
