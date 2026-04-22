@@ -467,12 +467,14 @@ function ProjectPartnerPanel() {
 }
 
 function CameraLivePanel({ site }: { site: ClickDetail }) {
-  // Apr 22, 2026 — Morgan: "none of those work yet" + "find all issues".
-  // The side-widget was a passive info card; the VideoWallWidget listens
-  // for `crep:eagle:camera-click` but nothing was dispatching it when the
-  // user clicked through a Tijuana / Oyster camera marker. Dispatch it
-  // on mount so the player actually mounts the stream.
-  useEffect(() => {
+  // Apr 22, 2026 — reverted auto-dispatch. The eagle-eye-overlay layer
+  // already fires crep:eagle:camera-click on its own markers; double-
+  // dispatching from this popup was leaving VideoWallWidget stuck in
+  // a state that blocked map interaction ("nothing is selectable").
+  // User clicks a Caltrans / webcamtaxi / EarthCam marker on the eagle
+  // layer → that layer dispatches the event → VideoWallWidget plays the
+  // stream. This popup just shows metadata.
+  const dispatch = () => {
     if (!site?.id) return
     try {
       window.dispatchEvent(
@@ -491,8 +493,7 @@ function CameraLivePanel({ site }: { site: ClickDetail }) {
         }),
       )
     } catch { /* ignore */ }
-  }, [site?.id])
-
+  }
   return (
     <div className="bg-black/30 rounded-lg p-2.5 border border-sky-500/30 space-y-1.5">
       <div className="text-[9px] uppercase tracking-[0.15em] text-sky-300 font-mono">Camera feed info</div>
@@ -503,7 +504,13 @@ function CameraLivePanel({ site }: { site: ClickDetail }) {
         <div className="text-white font-mono text-right">{site.has_stream ? "yes" : "no"}</div>
         {site.kind && <><div className="text-white/60">Kind</div><div className="text-white font-mono text-right">{String(site.kind)}</div></>}
       </div>
-      <div className="text-[10px] text-white/50 font-mono">Live video opens in VideoWallWidget on the map.</div>
+      <button
+        type="button"
+        onClick={dispatch}
+        className="w-full py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 hover:text-white rounded text-[11px] font-medium border border-sky-500/30 transition-colors"
+      >
+        Play live feed →
+      </button>
     </div>
   )
 }
