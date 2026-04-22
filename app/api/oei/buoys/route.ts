@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
+import { saveBuoysToDiskCache, readBuoysFromDiskCache } from "@/lib/crep/buoy-disk-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -325,6 +326,12 @@ export async function GET(request: NextRequest) {
       ingestBuoysToMINDEX(ndbcBuoys)
     }
 
+    // Apr 22, 2026 — also persist to disk so NDBC outages don't wipe buoys
+    // off the map. 6 h TTL per station_id; parallel to vessel-disk-cache.
+    if (combined.length > 0) {
+      saveBuoysToDiskCache(combined)
+    }
+
     return NextResponse.json({
       success: true,
       total: combined.length,
@@ -360,6 +367,21 @@ export async function GET(request: NextRequest) {
         })
       }
     } catch {}
+
+    // Apr 22, 2026 — disk cache as last-resort fallback: NDBC + MINDEX both
+    // cold, we still serve up to 6 h old obs so the globe doesn't go blank.
+    const diskBuoys = readBuoysFromDiskCache()
+    if (diskBuoys.length > 0) {
+      console.log(`[Buoys] Emergency fallback → ${diskBuoys.length} from disk cache`)
+      return NextResponse.json({
+        success: true,
+        total: diskBuoys.length,
+        buoys: diskBuoys,
+        source: "disk-cache",
+        timestamp: new Date().toISOString(),
+        cached: true,
+      })
+    }
 
     return NextResponse.json({
       success: false,
