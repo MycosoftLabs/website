@@ -303,6 +303,9 @@ All notable changes to this project will be documented in this file.
 - *(crep)* HLS player error surface + cell tower viewport LOD
 - *(crep)* Drop HLS loading overlay — show video immediately, keep error surface
 - *(crep)* Drop entity-merge caps (20k→6k vessels, 3k aircraft, 2.5k sats) — lockup root cause
+- *(deploy)* Use nginx -t exit code in reload_proxy (no grep pipeline)
+- *(crep)* Remove cyan selection ring + Cursor's perf/prod pass combined
+- *(crep)* Commit missing service-worker files to unblock prod build
 
 ### CREP
 
@@ -436,6 +439,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -604,6 +608,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Baked camera registry — hard-coded icons + API for deltas
 - *(myca)* Fast-intent map control — "show me X" flies camera instantly
 - *(crep)* Ship baked camera registry + pass media_url through click
+- *(crep)* H2S direct UCSD + perf helpers + permanent layer defaults ON
+- *(crep)* Add manual camera seed for SD region (surfline + hpwren + scripps + earthcam + skyline + cbp refs + nps)
 
 ### Fix
 
@@ -663,6 +669,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Refresh cell-tower tiles from OSM + OpenCelliD (#97)
 - *(security)* Remove legacy _secret_replacements.txt
 - *(crep)* Nightly warm-eagle MINDEX + bake camera registry (GHA)
+- *(crep)* Log deployment to \$HOME instead of /var/log
 
 ### Performance
 
@@ -674,6 +681,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* MIN_SOURCES 50 → 1 — trust MINDEX warm cache
 - *(crep)* Land mask uses 1.6 MB NE_50m at low zoom (was 10 MB NE_10m)
 - *(crep)* PMTiles power plants + visibility-throttle overlay pollers
+- *(crep)* Wire viewport cull + rAF debounce into aircraft/vessel pump
 
 ### Refactor
 
