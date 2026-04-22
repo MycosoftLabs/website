@@ -21,6 +21,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { robustFetch } from "@/lib/net/robust-fetch"
 
 export interface H2SChart {
   id: string
@@ -86,25 +87,19 @@ export async function collectH2sCharts(): Promise<{
 
   await Promise.all(CHARTS.map(async (c) => {
     try {
-      // Apr 22, 2026 — default Node fetch from inside Next.js dev loader
-      // was failing with "fetch failed" even though direct Node + curl
-      // succeed. UA header fixes it; some servers 403 the bare Node UA.
-      const ctrl = new AbortController()
-      const timer = setTimeout(() => ctrl.abort(), 20_000)
-      let res: Response
-      try {
-        res = await fetch(c.url, {
-          signal: ctrl.signal,
-          headers: {
-            "Accept": "image/png, image/*, */*",
-            "User-Agent": "Mozilla/5.0 Mycosoft-CREP/1.0 (+https://mycosoft.com)",
-          },
-          cache: "no-store",
-          redirect: "follow",
-        })
-      } finally {
-        clearTimeout(timer)
-      }
+      // Apr 22, 2026 — robustFetch bounded undici agent + 20 s timeout
+      // + 1 retry on transient errors. Prevents the Node-dev connection-
+      // pool exhaustion that wedged earlier attempts.
+      const res = await robustFetch(c.url, {
+        timeoutMs: 20_000,
+        retry: 1,
+        headers: {
+          "Accept": "image/png, image/*, */*",
+          "User-Agent": "Mozilla/5.0 Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+        },
+        cache: "no-store",
+        redirect: "follow",
+      })
       if (!res.ok) {
         results.push({ id: c.id, error: `HTTP ${res.status}` })
         return

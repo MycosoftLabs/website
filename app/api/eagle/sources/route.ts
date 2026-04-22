@@ -210,13 +210,18 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined): Pro
   // the overlay. Bumped to 35 s so we always wait for the slow connector.
   // Each connector still has its own internal timeouts; this only widens
   // our patience for them to respond.
-  const responses = await Promise.all(
+  // Apr 22, 2026 — Promise.allSettled with TIGHT per-connector timeout
+  // so one slow connector (Shinobi 10 s timeout, state-dot-cctv cold
+  // start) doesn't starve the whole response. Was Promise.all + 35 s
+  // per call → total up to 35 s. Now 8 s cap; whichever connectors
+  // return in time contribute, laggards skipped.
+  const settled = await Promise.allSettled(
     endpoints.map((u) =>
-      fetch(u, { signal: AbortSignal.timeout(35_000) })
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null),
+      fetch(u, { signal: AbortSignal.timeout(8_000) })
+        .then((r) => (r.ok ? r.json() : null)),
     ),
   )
+  const responses = settled.map((s) => s.status === "fulfilled" ? s.value : null)
   const out: VideoSource[] = []
   for (const j of responses) {
     if (!j) continue
@@ -256,14 +261,20 @@ export async function GET(req: NextRequest) {
   let sources = await fromMindex(bbox, kind, provider, limit)
   let liveUsed = false
 
-  // MINDEX empty or sparse → fall back to live connector fan-out so the
-  // map shows SOMETHING right now instead of being silently empty.
-  if (!skipLive && sources.length < MIN_SOURCES) {
+  // Apr 22, 2026 — Morgan: "still no caltran cams".
+  // Strategy:
+  //   MINDEX has data (>= MIN_SOURCES)   → return it, no fan-out (fast)
+  //   MINDEX has SOME (>0 < MIN_SOURCES) → return it + async warm
+  //   MINDEX EMPTY (== 0) OR ?live=1     → sync fan-out so map isn't blank
+  // Live fan-out itself is now capped at 8 s per connector (was 35 s)
+  // and uses Promise.allSettled so slow connectors don't starve the
+  // whole response.
+  const forceLive = url.searchParams.get("live") === "1"
+  const mindexCold = sources.length === 0
+  if (!skipLive && (mindexCold || forceLive)) {
     const origin = new URL(req.url).origin
     const live = await fromLiveConnectors(origin, bbox)
     if (live.length) {
-      // Dedup by provider+id to avoid double-render when MINDEX partially
-      // seeded from the same connectors.
       const seen = new Set(sources.map((s) => `${s.provider}:${s.id}`))
       for (const s of live) {
         const key = `${s.provider}:${s.id}`
@@ -271,9 +282,21 @@ export async function GET(req: NextRequest) {
       }
       liveUsed = true
     }
+  } else if (!skipLive && sources.length < MIN_SOURCES) {
+    // Async warm — response is NOT blocked on slow connectors.
+    const origin = new URL(req.url).origin
+    after(() => {
+      void (async () => {
+        try {
+          const live = await fromLiveConnectors(origin, bbox)
+          if (live.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
+            await persistMergedSourcesToMindex(live)
+          }
+        } catch { /* ignore */ }
+      })()
+    })
   }
 
-  // Warm MINDEX: after live fan-out, persist merged rows in the background (non-blocking).
   if (liveUsed && sources.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
     const snapshot = sources.map((s) => ({ ...s }))
     after(() => {
