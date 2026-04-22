@@ -23,7 +23,10 @@
     "db:migrate": "npx drizzle-kit migrate",
     "db:push": "npx drizzle-kit push",
     "db:studio": "npx drizzle-kit studio",
-    "assets:sync-cursor-image": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-cursor-chat-image-to-public.ps1"
+    "assets:sync-cursor-image": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-cursor-chat-image-to-public.ps1",
+    "ops:warm-eagle-mindex": "node scripts/ops/warm-eagle-mindex.mjs",
+    "etl:cell-towers": "node scripts/etl/crep/fetch-celltowers-global.mjs",
+    "etl:bake-cameras": "node scripts/etl/crep/bake-eagle-cameras-registry.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.10",

@@ -98,24 +98,87 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     }
     loadedRef.current.cams = true
 
+    // Apr 22, 2026 — Morgan: "cameras are PERMANENT assets ... the icon
+    // of camera should be hard coded in map unless update shows its gone".
+    // First mount: paint the baked registry geojson (instant — 10s of ms,
+    // ~3 900 cameras with id + provider + lat/lng + stream_url snapshot).
+    // Then API delta for stream_url changes + new cameras only.
+    const paintFromSources = (sources: any[]) => {
+      const providerFilter = (p: string): boolean => {
+        if (p === "shinobi") return enabled.eagleEyeShinobi !== false
+        if (p.startsWith("511")) return enabled.eagleEye511Traffic !== false
+        if (p === "windy") return enabled.eagleEyeWeatherCams !== false
+        if (p === "earthcam" || p === "webcamtaxi") return enabled.eagleEyeWebcams !== false
+        if (p === "nps" || p === "usgs") return enabled.eagleEyeNpsUsgs !== false
+        return true
+      }
+      const features = (sources || [])
+        .filter((s: any) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && providerFilter(s.provider || ""))
+        .map((s: any) => ({
+          type: "Feature" as const,
+          properties: {
+            id: s.id,
+            provider: s.provider,
+            kind: s.kind,
+            stream_url: s.stream_url,
+            embed_url: s.embed_url,
+            status: s.source_status ?? s.status,
+            color: PROVIDER_COLOR[s.provider] || "#22d3ee",
+          },
+          geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
+        }))
+      return { type: "FeatureCollection" as const, features }
+    }
+
+    const paintBakedRegistry = async (): Promise<boolean> => {
+      try {
+        const r = await fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" })
+        if (!r.ok) return false
+        const gj = await r.json()
+        // Reuse paintFromSources by projecting registry feature props
+        // (id, provider, lat, lng, stream_url, ...) into the same shape.
+        const srcLike = (gj.features || []).map((f: any) => ({
+          id: f.properties?.id,
+          provider: f.properties?.provider,
+          kind: f.properties?.kind,
+          stream_url: f.properties?.stream_url,
+          embed_url: f.properties?.embed_url,
+          source_status: f.properties?.status,
+          lat: f.geometry?.coordinates?.[1],
+          lng: f.geometry?.coordinates?.[0],
+        }))
+        const fc = paintFromSources(srcLike)
+        if (fc.features.length === 0) return false
+        if (!map.getSource("crep-eagle-cams")) {
+          // Source + layers will be created by the main fetch block below;
+          // push data into a pending slot that the creator picks up.
+          ;(map as any).__crepEaglePendingFc = fc
+        } else {
+          ;(map.getSource("crep-eagle-cams") as any).setData(fc)
+        }
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from baked registry (bake timestamp: ${gj.baked_at || "unknown"})`)
+        return true
+      } catch (e: any) {
+        console.warn("[EagleEye] baked registry load failed:", e?.message)
+        return false
+      }
+    }
+
     const fetchAndPaint = async () => {
-      // Apr 20, 2026 perf: cameras tick every 5 min. Don't hit the
-      // aggregator + re-setData on the crep-eagle-cams source while
-      // the tab is backgrounded. Next tick runs on return.
       if (typeof document !== "undefined" && document.hidden) return
       try {
-        // Apr 22, 2026 — Morgan: "needs first load fast". First call uses
-        // ?fast=1 (returns public-webcams + 511 + border + webcamtaxi in
-        // ~2.5 s, skips state-dot-cctv + shinobi which take 10 s+).
-        // After the fast-tier paints, schedule ONE follow-up full fetch
-        // a few seconds later to merge in Caltrans + NYSDOT + Shinobi.
-        // Subsequent scheduled ticks (every 5 min) also use full mode.
-        const fastMode = !loadedRef.current.cams
+        // Apr 22, 2026 v2 — baked registry is the instant path. If it
+        // paints, the API fetch becomes a DELTA call (pick up new cams,
+        // stream_url changes, offline status). If registry is missing
+        // (fresh clone without `npm run etl:bake-cameras`), fall back to
+        // the prior fast-then-full API fan-out.
+        const bakedPainted = !loadedRef.current.cams && await paintBakedRegistry()
+        // After baked paint: use full mode so API deltas include Caltrans
+        // + Shinobi. Without baked: use fast-then-full for first mount.
+        const fastMode = !loadedRef.current.cams && !bakedPainted
         const bboxBase = bbox ? `bbox=${bbox.join(",")}&limit=10000` : "limit=10000"
         const bboxParam = `?${bboxBase}${fastMode ? "&fast=1" : ""}`
         if (fastMode) {
-          // Schedule the slow-tier merge 4 s after the fast paint lands.
-          // Doesn't block the fast paint; just refills with the full set.
           setTimeout(() => {
             if (typeof document !== "undefined" && document.hidden) return
             fetchAndPaint().catch(() => { /* ignore */ })
