@@ -558,7 +558,12 @@ jobs:
       - name: Log deployment
         continue-on-error: true
         run: |
-          ssh production "echo '${{ github.sha }} deployed at $(date)' >> /var/log/mycosoft-deployments.log"
+          # Apr 22, 2026 — /var/log/mycosoft-deployments.log required root
+          # (ssh user got Permission denied). Write to the ssh user's home
+          # dir so the step is green; root-owned rotation can still tail
+          # from here via a periodic `sudo cp ~/mycosoft-deployments.log
+          # /var/log/…` in a cron if you want it archived.
+          ssh production "echo '${{ github.sha }} deployed at $(date)' >> \$HOME/mycosoft-deployments.log || true"
 
       - name: Notify deployment
         uses: slackapi/slack-github-action@v1.24.0
@@ -832,7 +837,8 @@ jobs:
       - name: Log deployment
         continue-on-error: true
         run: |
-          ssh-retry production "echo '${{ github.sha }} (fast) deployed at $(date)' >> /var/log/mycosoft-deployments.log"
+          # Apr 22, 2026 — same perm fix as slow path above.
+          ssh-retry production "echo '${{ github.sha }} (fast) deployed at $(date)' >> \$HOME/mycosoft-deployments.log || true"
 
       - name: Notify deployment
         if: always()
