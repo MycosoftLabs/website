@@ -46,10 +46,78 @@ export function MYCAChatWidget({
     [messages]
   )
 
+  // Apr 22, 2026 — Morgan: "when i search or type in myca box on right
+  // panel it took 20 seconds to say this and did nothign that needs to
+  // be instant and move the map and show filters". Intent-first fast lane:
+  // parse "show me / fly to / go to / zoom to / take me to <place>" BEFORE
+  // waiting on the LLM and dispatch a map event immediately. LLM response
+  // still produces the chat text; the map moves first.
+  const tryFastIntent = async (message: string): Promise<boolean> => {
+    const m = message.match(
+      /^\s*(?:show|fly|go|take|zoom|navigate|send|move)(?:\s+me|\s+us)?\s+(?:to|into|on|at|over)?\s+(.+?)\s*$/i,
+    )
+    const place = m?.[1]?.trim()
+    if (!place || place.length < 2) return false
+    try {
+      // Best-effort geocode via /api/search/location if present,
+      // Nominatim fallback. Returns lat/lng/zoom for map.flyTo.
+      let res: Response | null = null
+      try {
+        res = await fetch(`/api/search/location?q=${encodeURIComponent(place)}`, { signal: AbortSignal.timeout(4_000) })
+      } catch { res = null }
+      let lat: number | null = null
+      let lng: number | null = null
+      let name = place
+      if (res && res.ok) {
+        const j = await res.json()
+        const hit = Array.isArray(j?.results) ? j.results[0] : (j?.lat && j?.lng ? j : null)
+        if (hit) {
+          lat = Number(hit.lat ?? hit.latitude ?? hit.geometry?.coordinates?.[1])
+          lng = Number(hit.lng ?? hit.lon ?? hit.longitude ?? hit.geometry?.coordinates?.[0])
+          name = hit.name ?? hit.display_name ?? place
+        }
+      }
+      if (lat == null || lng == null) {
+        // Nominatim public fallback
+        const nr = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(place)}`,
+          { headers: { "Accept": "application/json", "User-Agent": "Mycosoft-CREP/1.0" }, signal: AbortSignal.timeout(4_000) },
+        )
+        if (nr.ok) {
+          const rows = await nr.json()
+          if (Array.isArray(rows) && rows[0]) {
+            lat = Number(rows[0].lat)
+            lng = Number(rows[0].lon)
+            name = rows[0].display_name ?? place
+          }
+        }
+      }
+      if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return false
+      // Fire the map-control event — CREP overlay listens for this and
+      // flies the camera. Also update `myca-search-action` so the fungal
+      // handler can pick it up if the place happens to match an observation.
+      window.dispatchEvent(
+        new CustomEvent("crep:flyto", {
+          detail: { lat, lng, zoom: 11, name, source: "myca-fast-intent" },
+        }),
+      )
+      window.dispatchEvent(
+        new CustomEvent("myca-search-action", {
+          detail: { type: "flyto", query: place, lat, lng, name },
+        }),
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const handleSend = async () => {
     const message = input.trim()
     if (!message) return
     setInput("")
+    // Fire-and-forget intent parse — don't block the LLM send.
+    void tryFastIntent(message)
     await sendMessage(message, {
       contextText: getContextText?.(),
       source: "web",

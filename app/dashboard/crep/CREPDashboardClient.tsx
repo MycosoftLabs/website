@@ -1763,9 +1763,26 @@ export default function CREPDashboardPage() {
       } catch { /* ignore */ }
     };
     const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") setPiggybackSatelliteId(null); };
+    // Apr 22, 2026 — Morgan: MYCA "should be instant and move the map".
+    // crep:flyto is MYCA's fast-lane map-control event — dispatched by
+    // the chat widget BEFORE the LLM response (intent parser matches
+    // "show me / fly to / go to <place>"). Moves the camera immediately
+    // even while the LLM is still thinking.
+    const onFlyTo = (e: any) => {
+      const d = e?.detail || {};
+      const lat = Number(d.lat), lng = Number(d.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const zoom = Number.isFinite(Number(d.zoom)) ? Number(d.zoom) : 11;
+      try {
+        const m = mapNativeRef.current as any;
+        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, duration: 1200 });
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("crep:flyto", onFlyTo as any);
     window.addEventListener("crep:satellite:piggyback", onPiggyback as any);
     window.addEventListener("keydown", onKey);
     return () => {
+      window.removeEventListener("crep:flyto", onFlyTo as any);
       window.removeEventListener("crep:satellite:piggyback", onPiggyback as any);
       window.removeEventListener("keydown", onKey);
     };
