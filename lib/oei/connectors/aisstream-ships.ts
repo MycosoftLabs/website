@@ -379,11 +379,18 @@ export class AISStreamClient {
 // SINGLETON INSTANCE
 // =============================================================================
 
-let clientInstance: AISStreamClient | null = null
+// Apr 22, 2026 — AISstream.io limits to 1 concurrent WebSocket per API key
+// (HTTP 429 "concurrent connections per user exceeded"). Next.js HMR re-
+// evaluates modules without closing the old WebSocket, leaking connections
+// until the key is locked out. Pin the client to globalThis so HMR reuses
+// the same instance and the same WebSocket.
+const AIS_CLIENT_KEY = "__mycosoft_aisstream_client__"
+type GlobalWithAIS = typeof globalThis & { [AIS_CLIENT_KEY]?: AISStreamClient }
 
 export function getAISStreamClient(): AISStreamClient {
-  if (!clientInstance) {
-    clientInstance = new AISStreamClient()
+  const g = globalThis as GlobalWithAIS
+  if (!g[AIS_CLIENT_KEY]) {
+    g[AIS_CLIENT_KEY] = new AISStreamClient()
   }
-  return clientInstance
+  return g[AIS_CLIENT_KEY]!
 }

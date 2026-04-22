@@ -21,6 +21,7 @@
 
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
 import { getSdrVesselsAsRecords } from "@/lib/crep/sdr-vessel-cache"
+import { saveVesselsToDiskCache, readVesselsFromDiskCache } from "@/lib/crep/vessel-disk-cache"
 
 // =============================================================================
 // TYPES
@@ -533,6 +534,11 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
     // User-owned SDR receivers (RTL-SDR + rtl-ais / AIS-catcher) that POST
     // position reports to /api/vessels/ingest. Pulls from in-memory cache.
     { name: "sdr", fn: async () => getSdrVesselsAsRecords() },
+    // Apr 22, 2026 — disk-backed last-known vessels. AISstream WebSocket
+    // is unstable; when it delivers, we persist to var/cache/vessels.json.
+    // Reading this source bridges AIS outages so the globe keeps showing
+    // vessels even when every live source is dry.
+    { name: "disk", fn: async () => readVesselsFromDiskCache() },
   ]
 
   const results = await Promise.allSettled(
@@ -571,6 +577,14 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
       .map(([s, c]) => `${s}(${c})`)
       .join(", ") || "no sources"}`
   )
+
+  // Apr 22, 2026 — persist any live-source vessels to disk so they
+  // survive AIS WebSocket drops. Only cache vessels that came from a
+  // live source (not our own disk cache re-read).
+  const freshVessels = deduplicated.filter((v) => v.source !== "disk")
+  if (freshVessels.length > 0) {
+    saveVesselsToDiskCache(freshVessels)
+  }
 
   // Apr 20, 2026: warm MINDEX crep.vessel_live (fire-and-forget). Ingest
   // layer name "vessel_live" mirrors rail_live / aircraft_live conventions

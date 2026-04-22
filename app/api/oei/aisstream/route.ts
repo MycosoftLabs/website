@@ -41,18 +41,34 @@ const RECONNECT_BASE_MS = 3000  // Initial reconnect delay
 const MAX_RECONNECT_MS = 300000 // Cap reconnect delay at 5 minutes (was 1 min — too aggressive)
 const MAX_RETRIES = 5           // Stop retrying after 5 failures to avoid log spam
 
-// Module-level persistent stream state (survives across requests in the same process)
-let streamRunning = false
-let reconnectDelay = RECONNECT_BASE_MS
-let reconnectAttempts = 0
-let streamCleanup: (() => void) | null = null
+// Apr 22, 2026 — pin stream state to globalThis so Next.js HMR doesn't
+// create a new WebSocket subscription on every code change (AISstream
+// throttles to 1 concurrent connection per API key).
+interface AISStreamState {
+  streamRunning: boolean
+  reconnectDelay: number
+  reconnectAttempts: number
+  streamCleanup: (() => void) | null
+}
+const AIS_STATE_KEY = "__mycosoft_aisstream_state__"
+type GlobalWithAISState = typeof globalThis & { [AIS_STATE_KEY]?: AISStreamState }
+const gAis = globalThis as GlobalWithAISState
+if (!gAis[AIS_STATE_KEY]) {
+  gAis[AIS_STATE_KEY] = {
+    streamRunning: false,
+    reconnectDelay: RECONNECT_BASE_MS,
+    reconnectAttempts: 0,
+    streamCleanup: null,
+  }
+}
+const aisState = gAis[AIS_STATE_KEY]!
 
 /**
  * Ensure a global AIS WebSocket stream is running.
  * Called once on first request; the stream stays alive for the process lifetime.
  */
 function ensureAISStream(): void {
-  if (streamRunning) return
+  if (aisState.streamRunning) return
 
   const client = getAISStreamClient()
   if (!client.hasApiKey()) {
@@ -60,29 +76,29 @@ function ensureAISStream(): void {
     return
   }
 
-  streamRunning = true
-  reconnectDelay = RECONNECT_BASE_MS
+  aisState.streamRunning = true
+  aisState.reconnectDelay = RECONNECT_BASE_MS
   console.log("[AISStream] Starting persistent global stream (all shipping lanes)…")
 
   // Subscribe to global bounds – AISstream will deliver all vessels it receives
-  streamCleanup = client.connectRealtime(
+  aisState.streamCleanup = client.connectRealtime(
     { north: 90, south: -90, east: 180, west: -180 },
     (_vessel) => {
       // Vessel is automatically added to the client's internal cache
     },
     (err) => {
-      streamRunning = false
-      streamCleanup = null
-      reconnectAttempts++
+      aisState.streamRunning = false
+      aisState.streamCleanup = null
+      aisState.reconnectAttempts++
 
-      if (reconnectAttempts >= MAX_RETRIES) {
+      if (aisState.reconnectAttempts >= MAX_RETRIES) {
         console.warn(`[AISStream] Stopped after ${MAX_RETRIES} failures. Service may be down.`)
         return // Stop retrying — no more log spam
       }
 
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_MS)
-      console.warn(`[AISStream] Error: ${err.message} — retry ${reconnectAttempts}/${MAX_RETRIES} in ${reconnectDelay / 1000}s`)
-      setTimeout(() => ensureAISStream(), reconnectDelay)
+      aisState.reconnectDelay = Math.min(aisState.reconnectDelay * 2, MAX_RECONNECT_MS)
+      console.warn(`[AISStream] Error: ${err.message} — retry ${aisState.reconnectAttempts}/${MAX_RETRIES} in ${aisState.reconnectDelay / 1000}s`)
+      setTimeout(() => ensureAISStream(), aisState.reconnectDelay)
     }
   )
 }
@@ -212,7 +228,7 @@ export async function GET(request: NextRequest) {
         published: result.published,
         total: result.entities.length,
         vessels: result.entities,
-        isLive: streamRunning,
+        isLive: aisState.streamRunning,
         available: result.entities.length > 0,
         source: activeSource,
         sources: registryResult.sources,
@@ -227,7 +243,7 @@ export async function GET(request: NextRequest) {
         success: true,
         total: vessels.length,
         vessels,
-        isLive: streamRunning,
+        isLive: aisState.streamRunning,
         source: activeSource,
         sources: registryResult.sources,
         available: vessels.length > 0,
