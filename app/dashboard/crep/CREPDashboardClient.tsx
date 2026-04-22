@@ -229,6 +229,7 @@ import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
+import { mergeById, ENTITY_TTL_MS } from "@/lib/crep/entity-merge";
 import {
   startSatelliteAnimation,
   stopSatelliteAnimation,
@@ -1949,8 +1950,11 @@ export default function CREPDashboardPage() {
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             if (Array.isArray(data.aircraft) && data.aircraft.length > 0) {
-              setAircraft(() => data.aircraft);
-              console.log(`[CREP/pump] aircraft: ${data.aircraft.length}`);
+              setAircraft((prev) => mergeById(prev, data.aircraft, {
+                idKey: (a: any) => a.icao24 || a.icao || a.id,
+                ttlMs: ENTITY_TTL_MS.aircraft,
+              }));
+              console.log(`[CREP/pump] aircraft: ${data.aircraft.length} (merged into persistent union)`);
               try { syncToMINDEX("aircraft", data.aircraft); } catch {}
             }
             breakerMark("__crep_pump_aircraft_breaker", true, "aircraft")
@@ -1976,8 +1980,11 @@ export default function CREPDashboardPage() {
             if (!res.ok || cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
             const data = await res.json();
             if (Array.isArray(data.vessels) && data.vessels.length > 0) {
-              setVessels(() => data.vessels);
-              console.log(`[CREP/pump] vessels: ${data.vessels.length} (via publish path)`);
+              setVessels((prev) => mergeById(prev, data.vessels, {
+                idKey: (v: any) => v.mmsi || v.id,
+                ttlMs: ENTITY_TTL_MS.vessel,
+              }));
+              console.log(`[CREP/pump] vessels: ${data.vessels.length} (merged into persistent union)`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
             }
             breakerMark("__crep_pump_vessels_breaker", true, "vessels")
@@ -2017,7 +2024,10 @@ export default function CREPDashboardPage() {
             if (!sats) sats = await tryCategory("/api/oei/satellites?category=starlink&mode=legacy&limit=500", "starlink-legacy")
             initialSatelliteLoadDoneRef.current = true
             if (sats && sats.length > 0) {
-              setSatellites(() => sats as any[])
+              setSatellites((prev) => mergeById(prev, sats as any[], {
+                idKey: (s: any) => s.noradId || s.norad_id || s.id,
+                ttlMs: ENTITY_TTL_MS.satellite,
+              }))
               try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
               breakerMark("__crep_pump_satellites_breaker", true, "satellites")
             } else {
@@ -2729,10 +2739,13 @@ export default function CREPDashboardPage() {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.aircraft && Array.isArray(data.aircraft) && data.aircraft.length > 0) {
-              // Functional setState: survives mount races because React
-              // always passes the CURRENT value even to a stale setter.
-              setAircraft(() => data.aircraft);
-              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} → setAircraft called`);
+              // Apr 22, 2026 — merge into persistent union instead of replacing
+              // (prior behaviour dropped 100s of planes on every short fetch).
+              setAircraft((prev) => mergeById(prev, data.aircraft, {
+                idKey: (a: any) => a.icao24 || a.icao || a.id,
+                ttlMs: ENTITY_TTL_MS.aircraft,
+              }));
+              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} → merged`);
               syncToMINDEX("aircraft", data.aircraft);
             }
             return data;
@@ -2742,8 +2755,11 @@ export default function CREPDashboardPage() {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.vessels && Array.isArray(data.vessels) && data.vessels.length > 0) {
-              setVessels(() => data.vessels);
-              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → setVessels called`);
+              setVessels((prev) => mergeById(prev, data.vessels, {
+                idKey: (v: any) => v.mmsi || v.id,
+                ttlMs: ENTITY_TTL_MS.vessel,
+              }));
+              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → merged`);
               syncToMINDEX("vessels", data.vessels);
             }
             return data;
@@ -2754,8 +2770,11 @@ export default function CREPDashboardPage() {
             initialSatelliteLoadDoneRef.current = true;
             const data = await res.json();
             if (data.satellites && Array.isArray(data.satellites) && data.satellites.length > 0) {
-              setSatellites(() => data.satellites);
-              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} → setSatellites called`);
+              setSatellites((prev) => mergeById(prev, data.satellites, {
+                idKey: (s: any) => s.noradId || s.norad_id || s.id,
+                ttlMs: ENTITY_TTL_MS.satellite,
+              }));
+              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} → merged`);
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);
             }
             return data;
