@@ -15,6 +15,7 @@
 
 import crypto from "node:crypto"
 import type { VesselRecord } from "@/lib/crep/registries/vessel-registry"
+import { saveVesselsToDiskCache } from "@/lib/crep/vessel-disk-cache"
 
 // ─────────────────────────────────────────────────────────────────────
 // Device registry
@@ -184,6 +185,30 @@ export function ingestSdrVessels(
 
   device.messageCount += accepted
   device.lastSeenAt = new Date().toISOString()
+
+  // Apr 22, 2026 — mirror every accepted SDR vessel into the shared
+  // disk-backed cache so Morgan's SDR contributions survive HMR + process
+  // restarts the same way AIS-stream vessels do (12 h TTL in
+  // var/cache/vessels.json). Vessels tagged source:"sdr".
+  if (accepted > 0) {
+    const records: VesselRecord[] = Array.from(vessels.values())
+      .filter((v) => v.deviceId === device.id)
+      .map((v) => ({
+        id: `sdr_${v.mmsi}`,
+        mmsi: v.mmsi,
+        name: v.name?.trim() || `MMSI ${v.mmsi}`,
+        lat: v.lat,
+        lng: v.lng,
+        sog: v.sog ?? null,
+        cog: v.cog ?? null,
+        heading: v.heading ?? null,
+        shipType: v.shipType ?? null,
+        destination: v.destination ?? null,
+        source: "sdr",
+        timestamp: v.timestamp ?? new Date(v.ingestedAt).toISOString(),
+      }))
+    if (records.length > 0) saveVesselsToDiskCache(records)
+  }
 
   return { accepted, rejected, reasons }
 }
