@@ -289,6 +289,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Add MINDEX internal-token auth to vessel registry source #2
 - *(crep)* Persist vessels to disk + fix AIS WebSocket HMR leak (22k live)
 - *(crep)* Eagle/stream route resolves cameras + install 3D Tiles deps
+- *(crep)* Stop HMR recompile loop that stranded /dashboard/crep at loading
 
 ### CREP
 
@@ -422,6 +423,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 
