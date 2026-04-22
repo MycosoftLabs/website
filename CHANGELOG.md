@@ -290,6 +290,14 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Persist vessels to disk + fix AIS WebSocket HMR leak (22k live)
 - *(crep)* Eagle/stream route resolves cameras + install 3D Tiles deps
 - *(crep)* Stop HMR recompile loop that stranded /dashboard/crep at loading
+- *(crep)* Wire buoy disk cache + eagle/stream by-id via MINDEX
+- *(crep)* Remove duplicate visitor-center POI + expand search to all entity types
+- *(crep)* Camera popup plays video + Palm Ave coord + SDAPCD H2S live
+- *(crep)* Revert CameraLivePanel auto-dispatch — restored map selection
+- *(crep)* Permanent outbound-fetch hardening + eagle/sources fast path
+- *(crep)* Cap mergeById union at 20k/type to stop control lockout
+- *(crep)* Bump eagle/sources per-connector timeout 12→18s (Caltrans returns)
+- *(net)* HMR-safe robust-fetch singleton — stop Agent leak on every recompile
 
 ### CREP
 
@@ -423,6 +431,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -581,6 +590,10 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Deferred a/b/c shipped — iNat preload + PFM live + EMIT live (all SWR-fast)
 - *(crep)* 6h auto-refresh on Oyster+Goffs layers + preload seed for NatureStream + bbox-mode preload
 - *(crep)* WorldView SSE stream + kill all widget external links (data-in-widget)
+- *(crep)* Persistent entity merge + buoy disk cache
+- *(crep)* Add /dashboard/crep/photo3d — three.js Google 3D Tiles view
+- *(crep)* Persist SDR-contributed vessels to disk cache on ingest
+- *(crep)* H2S UCSD collector — every-5-min ETL into CREP + Worldview
 
 ### Fix
 
@@ -653,6 +666,7 @@ All notable changes to this project will be documented in this file.
 ### Refactor
 
 - Remove Web Speech API - Moshi handles all STT, MAS gets async memory clone
+- *(crep)* Scrub external-link anti-pattern from 4 more widgets
 
 ### Search
 
