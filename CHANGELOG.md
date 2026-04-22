@@ -298,6 +298,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Cap mergeById union at 20k/type to stop control lockout
 - *(crep)* Bump eagle/sources per-connector timeout 12→18s (Caltrans returns)
 - *(net)* HMR-safe robust-fetch singleton — stop Agent leak on every recompile
+- *(crep)* Cap vessel-disk-cache at 15k + 6 GB dev heap — root cause of OOM
+- *(crep)* Cell towers render + fast first-paint for cameras
 
 ### CREP
 
@@ -431,6 +433,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
