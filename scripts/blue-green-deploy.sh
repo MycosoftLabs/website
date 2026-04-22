@@ -104,9 +104,15 @@ render_nginx_conf_for() {
 }
 
 reload_proxy() {
-  # Test config first — fail fast if broken
-  if ! docker exec mycosoft-website-proxy nginx -t 2>&1 | tee -a "$LOG_FILE" | grep -q "syntax is ok"; then
-    err "nginx config test failed — not reloading"; return 1
+  # Test config first — fail fast if broken. Do not use `| grep -q` after `tee` under
+  # set -o pipefail: pipeline exit can be wrong, causing false "test failed" on success
+  # (see manual cutover Apr 22 2026).
+  local out rc
+  out=$(docker exec mycosoft-website-proxy sh -c 'nginx -t' 2>&1) && rc=0 || rc=$?
+  echo "$out" | tee -a "$LOG_FILE" >/dev/null
+  if (( rc != 0 )); then
+    err "nginx config test failed — not reloading: $out"
+    return 1
   fi
   docker exec mycosoft-website-proxy nginx -s reload
   ok "nginx reloaded (graceful — in-flight requests finish on prior upstream)"
