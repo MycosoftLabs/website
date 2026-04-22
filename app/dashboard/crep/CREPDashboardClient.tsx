@@ -8742,20 +8742,36 @@ export default function CREPDashboardPage() {
               ═══════════════════════════════════════════════════════════════ */}
           <UnifiedSearch
             plants={powerPlants}
+            aircraft={aircraft}
+            vessels={vessels}
+            satellites={satellites as any[]}
+            fungal={fungalObservations}
             viewportCenter={mapRef ? { lat: mapRef.getCenter().lat, lng: mapRef.getCenter().lng } : undefined}
             onSelect={(result) => {
               if (result.id === "__open") {
                 setSearchOpen(true);
                 return;
               }
-              // Fly to result
+              // Fly to result — zoom in closer for entity types than for plants
               if (result.lat && result.lng) {
-                mapRef?.flyTo({ center: [result.lng, result.lat], zoom: 10, duration: 800 });
+                const zoom = result.type === "plant" ? 10
+                  : result.type === "aircraft" || result.type === "vessel" ? 8
+                  : result.type === "satellite" ? 4
+                  : 12;
+                mapRef?.flyTo({ center: [result.lng, result.lat], zoom, duration: 800 });
               }
-              // Open popup based on type
+              // Open the right detail panel based on type
               if (result.type === "plant" && result.data) {
                 setSelectedPlant(result.data);
                 setSelectedInfraAsset(null);
+              } else if (result.type === "aircraft" && result.data) {
+                setSelectedAircraft(result.data);
+              } else if (result.type === "vessel" && result.data) {
+                setSelectedVessel(result.data);
+              } else if (result.type === "satellite" && result.data) {
+                setSelectedSatellite(result.data);
+              } else if (result.type === "species" && result.data) {
+                setSelectedFungal(result.data);
               }
             }}
             onClose={() => setSearchOpen(false)}

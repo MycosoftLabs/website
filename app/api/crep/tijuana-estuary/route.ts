@@ -132,7 +132,11 @@ const PROJECT_OYSTER_SITES: Station[] = [
   { id: "po-tjne-mouth",      name: "Project Oyster — TJ Estuary mouth",        agency: "MYCODAO + MYCOSOFT", lat: 32.5415, lng: -117.1280, category: "project-oyster", metadata: { project: "Project Oyster", partner: "MYCODAO", reef_type: "Olympia oyster restoration", purpose: "biofiltration of TJ River outflow", reference: "https://www.mycodao.com/projects/project-oyster" } },
   { id: "po-tjne-southreef",  name: "Project Oyster — South Reef",              agency: "MYCODAO + MYCOSOFT", lat: 32.5470, lng: -117.1235, category: "project-oyster", metadata: { project: "Project Oyster", partner: "MYCODAO", reference: "https://www.mycodao.com/projects/project-oyster" } },
   { id: "po-tjne-northreef",  name: "Project Oyster — North Reef",              agency: "MYCODAO + MYCOSOFT", lat: 32.5530, lng: -117.1220, category: "project-oyster", metadata: { project: "Project Oyster", partner: "MYCODAO", reference: "https://www.mycodao.com/projects/project-oyster" } },
-  { id: "po-research-reserve",name: "TJ River National Estuarine Research Reserve HQ", agency: "NOAA + CDPR", lat: 32.5615, lng: -117.1155, category: "estuary-monitor", metadata: { facility: "Visitor Center / lab", reference: "https://trnerr.org/" } },
+  // Apr 22, 2026 — po-research-reserve removed. Was a duplicate "TJ NERR
+  // Visitor Center" label at 32.5615,-117.1155 (inside the marsh). The
+  // authoritative entry is gov-trnerr-hq at 32.5740,-117.1310 (301
+  // Caspian Way, IB, CA). Morgan: "ib visitor center icon is switched
+  // with the buoy" — caused by the marsh-located duplicate.
 ]
 
 // ─── Naval Special Warfare training waters affected by contamination ──

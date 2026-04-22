@@ -48,6 +48,10 @@ interface UnifiedSearchProps {
   plants?: PowerPlant[]
   substations?: Substation[]
   datacenters?: Datacenter[]
+  aircraft?: any[]
+  vessels?: any[]
+  satellites?: any[]
+  fungal?: any[]
   viewportCenter?: { lat: number; lng: number }
   onSelect: (result: SearchResult) => void
   onClose: () => void
@@ -119,6 +123,10 @@ export function UnifiedSearch({
   plants = [],
   substations = [],
   datacenters = [],
+  aircraft = [],
+  vessels = [],
+  satellites = [],
+  fungal = [],
   viewportCenter,
   onSelect,
   onClose,
@@ -225,11 +233,128 @@ export function UnifiedSearch({
       }
     }
 
+    // Apr 22, 2026 — Morgan: "if i search in MYCA area of right panel
+    // it does nothing at all". Search was only iterating plants/subs/dcs.
+    // Extended below to aircraft (callsign / ICAO), vessels (name / MMSI /
+    // destination), satellites (name / NORAD), and fungal observations
+    // (species / taxon name).
+
+    // Search aircraft — callsign, ICAO hex, ICAO24 address
+    for (const a of aircraft) {
+      const cs = String(a.callsign ?? "").trim()
+      const icao = String(a.icao ?? a.icao24 ?? a.hex ?? "").trim()
+      const aTrain = String(a.flight ?? a.flightNumber ?? "").trim()
+      if (
+        (cs && cs.toLowerCase().includes(q)) ||
+        (icao && icao.toLowerCase().includes(q)) ||
+        (aTrain && aTrain.toLowerCase().includes(q))
+      ) {
+        const lat = a.lat ?? a.latitude
+        const lng = a.lng ?? a.longitude
+        if (typeof lat !== "number" || typeof lng !== "number") continue
+        matches.push({
+          id: String(a.id ?? icao ?? cs),
+          type: "aircraft",
+          name: cs || icao || "Unknown aircraft",
+          subtitle: [
+            icao ? `ICAO ${icao}` : null,
+            a.altitude ? `${Math.round((a.altitude as number) * 3.28084)} ft` : null,
+            a.velocity ? `${Math.round((a.velocity as number) * 1.94384)} kts` : null,
+            a.origin && a.destination ? `${a.origin}→${a.destination}` : null,
+          ].filter(Boolean).join(" · "),
+          lat, lng,
+          distance: haversineDistance(centerLat, centerLng, lat, lng),
+          source: a.source,
+          data: a,
+        })
+      }
+    }
+
+    // Search vessels — ship name, MMSI, destination
+    for (const v of vessels) {
+      const name = String(v.name ?? "").trim()
+      const mmsi = String(v.mmsi ?? "").trim()
+      const dest = String(v.destination ?? "").trim()
+      if (
+        (name && name.toLowerCase().includes(q)) ||
+        (mmsi && mmsi.includes(q)) ||
+        (dest && dest.toLowerCase().includes(q))
+      ) {
+        const lat = v.lat ?? v.latitude
+        const lng = v.lng ?? v.longitude
+        if (typeof lat !== "number" || typeof lng !== "number") continue
+        matches.push({
+          id: String(v.id ?? mmsi ?? name),
+          type: "vessel",
+          name: name || `MMSI ${mmsi}` || "Unknown vessel",
+          subtitle: [mmsi ? `MMSI ${mmsi}` : null, dest ? `→ ${dest}` : null].filter(Boolean).join(" · "),
+          lat, lng,
+          distance: haversineDistance(centerLat, centerLng, lat, lng),
+          source: v.source,
+          data: v,
+        })
+      }
+    }
+
+    // Search satellites — name, NORAD id, COSPAR
+    for (const s of satellites) {
+      const name = String(s.name ?? "").trim()
+      const norad = String(s.noradId ?? s.norad_id ?? s.catalogNumber ?? "").trim()
+      const cospar = String(s.cospar ?? s.intlDesignator ?? "").trim()
+      if (
+        (name && name.toLowerCase().includes(q)) ||
+        (norad && norad.includes(q)) ||
+        (cospar && cospar.toLowerCase().includes(q))
+      ) {
+        const lat = s.lat ?? s.latitude
+        const lng = s.lng ?? s.longitude
+        if (typeof lat !== "number" || typeof lng !== "number") continue
+        matches.push({
+          id: String(s.id ?? norad ?? name),
+          type: "satellite",
+          name: name || `NORAD ${norad}` || "Unknown satellite",
+          subtitle: [
+            norad ? `NORAD ${norad}` : null,
+            s.altitude ? `${Math.round((s.altitude as number) / 1000)} km` : null,
+            cospar || null,
+          ].filter(Boolean).join(" · "),
+          lat, lng,
+          distance: haversineDistance(centerLat, centerLng, lat, lng),
+          source: s.source,
+          data: s,
+        })
+      }
+    }
+
+    // Search fungal observations — species guess, taxon, common name
+    for (const f of fungal) {
+      const species = String(f.species_guess ?? f.taxon_name ?? f.species ?? f.taxon?.name ?? "").trim()
+      const common = String(f.taxon?.preferred_common_name ?? "").trim()
+      if (
+        (species && species.toLowerCase().includes(q)) ||
+        (common && common.toLowerCase().includes(q))
+      ) {
+        const lat = f.latitude ?? f.lat
+        const lng = f.longitude ?? f.lng
+        if (typeof lat !== "number" || typeof lng !== "number") continue
+        matches.push({
+          id: String(f.id ?? f.uuid ?? species),
+          type: "species",
+          name: species || common || "Observation",
+          subtitle: [common, f.quality_grade, f.user?.login ? `@${f.user.login}` : null].filter(Boolean).join(" · "),
+          lat, lng,
+          distance: haversineDistance(centerLat, centerLng, lat, lng),
+          source: f.source || "inaturalist",
+          data: f,
+        })
+      }
+    }
+
     // Sort by distance
     matches.sort((a, b) => (a.distance || 0) - (b.distance || 0))
 
-    return matches.slice(0, 20)
-  }, [query, plants, substations, datacenters, viewportCenter])
+    return matches.slice(0, 30)
+  }, [query, plants, substations, datacenters, aircraft, vessels, satellites, fungal, viewportCenter])
 
   if (!isOpen) return null
 
@@ -247,7 +372,7 @@ export function UnifiedSearch({
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search plants, places..."
+            placeholder="Search aircraft, vessels, satellites, species, plants..."
             className="flex-1 bg-transparent text-white text-sm placeholder:text-gray-500 focus:outline-none"
           />
           <kbd className="hidden sm:flex items-center px-1.5 py-0.5 rounded border border-gray-700 text-[9px] text-gray-500 font-mono">
