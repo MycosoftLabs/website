@@ -244,21 +244,30 @@ export default function TijuanaStationWidget() {
               </div>
               <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
                 <img
-                  src={`https://airborne.ucsd.edu/wp-json/airborne/v1/30minutes?t=${bust}`}
-                  alt="UCSD H₂S — last 30 minutes"
+                  src={`/api/crep/sdapcd/h2s/chart?id=nestor_30m&t=${bust}`}
+                  alt="UCSD H₂S Nestor — last 30 minutes"
                   className="w-full h-auto block"
                   loading="lazy"
                 />
-                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">last 30 min · 1-min avgs</div>
+                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">Nestor · last 30 min · 1-min avgs</div>
               </div>
               <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
                 <img
-                  src={`https://airborne.ucsd.edu/wp-json/airborne/v1/12hours?t=${bust}`}
-                  alt="UCSD H₂S — last 12 hours"
+                  src={`/api/crep/sdapcd/h2s/chart?id=coast_30m&t=${bust}`}
+                  alt="UCSD H₂S IB Coast — last 30 minutes"
                   className="w-full h-auto block"
                   loading="lazy"
                 />
-                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">last 12 hr · 5-min avgs</div>
+                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">IB Coast · last 30 min · 1-min avgs</div>
+              </div>
+              <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
+                <img
+                  src={`/api/crep/sdapcd/h2s/chart?id=nestor_12h&t=${bust}`}
+                  alt="UCSD H₂S Nestor — last 12 hours"
+                  className="w-full h-auto block"
+                  loading="lazy"
+                />
+                <div className="text-[9px] text-gray-600 font-mono px-2 py-1">Nestor · last 12 hr · 5-min avgs</div>
               </div>
               {h2s?.h2s_ppb != null ? (
                 <div className="bg-black/40 border border-red-500/20 rounded p-2 flex items-baseline justify-between">

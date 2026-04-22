@@ -28,6 +28,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { listChartsIndex, staleChartIds, collectH2sCharts } from "@/lib/crep/h2s-ucsd-collector"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -126,11 +127,27 @@ async function fetchFromAirNow(): Promise<H2SReading[]> {
 
 export async function GET() {
   const now = Date.now()
+
+  // Apr 22, 2026 — always surface the UCSD chart index, independent of
+  // the structured-numeric upstreams below. Morgan: "make a tool to
+  // take that data its updated every 5 min and put it in mindex into
+  // the crep map and worldview api its vital". Auto-collect stale charts
+  // on read so the widget always gets fresh images.
+  try {
+    const stale = staleChartIds()
+    if (stale.length > 0) {
+      // Fire-and-forget background refresh; don't block the response.
+      void collectH2sCharts().catch(() => { /* ignore */ })
+    }
+  } catch { /* ignore */ }
+  const charts = listChartsIndex()
+
   if (now - cached.ts < TTL_MS && cached.data.length > 0) {
     return NextResponse.json({
       success: true,
       source: cached.source + " (cached)",
       stations: cached.data,
+      charts,
       timestamp: new Date(cached.ts).toISOString(),
     })
   }
@@ -169,6 +186,7 @@ export async function GET() {
     success: true,
     source: sourceUsed,
     stations: readings,
+    charts,
     timestamp: new Date().toISOString(),
   })
 }

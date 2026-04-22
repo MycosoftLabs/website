@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   // Fan-out all fetches in parallel
   const [
     aircraft, vessels, satellites, buoys, military,
-    oyster, goffs, eagleSources,
+    oyster, goffs, eagleSources, h2s,
     mindexHealth, masHealth,
   ] = await Promise.all([
     safeJson(`${origin}/api/oei/flightradar24`, 10_000),
@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
     (project === "oyster" || project === "global") ? safeJson(`${origin}/api/crep/tijuana-estuary`, 15_000) : Promise.resolve(null),
     (project === "goffs"  || project === "global") ? safeJson(`${origin}/api/crep/mojave`, 15_000) : Promise.resolve(null),
     safeJson(`${origin}/api/eagle/sources?limit=5000`, 15_000),
+    safeJson(`${origin}/api/crep/sdapcd/h2s`, 10_000),
     headReachable(`${MINDEX_URL}/health`),
     headReachable(`${MAS_URL}/health`),
   ])
@@ -147,6 +148,21 @@ export async function GET(req: NextRequest) {
       oyster: oysterSummary,
       goffs:  goffsSummary,
     },
+
+    // Apr 22, 2026 — SDAPCD TJ River Valley H₂S, sourced from UCSD
+    // airborne.ucsd.edu (PNG charts only, proxied + cached server-side
+    // via /api/crep/sdapcd/h2s/chart?id=...). "stations" array has
+    // latest numeric ppb when a structured upstream (OpenAQ / AirNow)
+    // returns it; "charts" lists the 6 live PNG endpoints any consumer
+    // can <img src=...>.
+    tjrv_h2s: h2s ? {
+      source: h2s.source,
+      station_count: Array.isArray(h2s.stations) ? h2s.stations.length : 0,
+      chart_count: Array.isArray(h2s.charts) ? h2s.charts.length : 0,
+      stations: h2s.stations || [],
+      charts: h2s.charts || [],
+      timestamp: h2s.timestamp,
+    } : null,
 
     middleware: {
       mindex: {
