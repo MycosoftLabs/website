@@ -237,6 +237,16 @@ export default function TijuanaStationWidget() {
           if (!isSdapcd) return null
           // Force refresh every minute
           const bust = Math.floor(Date.now() / 60_000)
+          // Apr 22, 2026 v3 — Morgan: "all of this data shows broken images
+          // live in widget". The server-proxy path (/api/crep/sdapcd/h2s/
+          // chart) relies on var/cache/h2s-ucsd/ which Vercel serverless
+          // doesn't persist across invocations, so the first prod request
+          // hits an empty cache and the route's 302-to-UCSD fallback gets
+          // blocked by some browser privacy modes. UCSD's own endpoint is
+          // already CORS-open (cors=* on /wp-json/airborne/v1/*) — just
+          // point <img src> at UCSD directly for maximum uptime. Only the
+          // nightly bake job still hits the route for the static registry.
+          const UCSD = "https://airborne.ucsd.edu/wp-json/airborne/v1"
           return (
             <div className="px-3 pt-3 space-y-2">
               <div className="text-[10px] uppercase tracking-wider text-red-300/80 flex items-center gap-1">
@@ -244,28 +254,31 @@ export default function TijuanaStationWidget() {
               </div>
               <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
                 <img
-                  src={`/api/crep/sdapcd/h2s/chart?id=nestor_30m&t=${bust}`}
+                  src={`${UCSD}/30minutes?t=${bust}`}
                   alt="UCSD H₂S Nestor — last 30 minutes"
                   className="w-full h-auto block"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
                 <div className="text-[9px] text-gray-600 font-mono px-2 py-1">Nestor · last 30 min · 1-min avgs</div>
               </div>
               <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
                 <img
-                  src={`/api/crep/sdapcd/h2s/chart?id=coast_30m&t=${bust}`}
+                  src={`${UCSD}/coast_30minutes?t=${bust}`}
                   alt="UCSD H₂S IB Coast — last 30 minutes"
                   className="w-full h-auto block"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
                 <div className="text-[9px] text-gray-600 font-mono px-2 py-1">IB Coast · last 30 min · 1-min avgs</div>
               </div>
               <div className="bg-white rounded-lg overflow-hidden border border-red-500/30">
                 <img
-                  src={`/api/crep/sdapcd/h2s/chart?id=nestor_12h&t=${bust}`}
+                  src={`${UCSD}/12hours?t=${bust}`}
                   alt="UCSD H₂S Nestor — last 12 hours"
                   className="w-full h-auto block"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
                 <div className="text-[9px] text-gray-600 font-mono px-2 py-1">Nestor · last 12 hr · 5-min avgs</div>
               </div>
