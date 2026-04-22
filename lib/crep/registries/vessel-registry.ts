@@ -58,6 +58,17 @@ const MINDEX_URL =
   "http://192.168.0.189:8000"
 
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_INTERNAL_TOKEN =
+  process.env.MINDEX_INTERNAL_TOKEN ||
+  (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||
+  ""
+
+function mindexAuthHeaders(): Record<string, string> {
+  const h: Record<string, string> = { Accept: "application/json" }
+  if (MINDEX_INTERNAL_TOKEN) h["X-Internal-Token"] = MINDEX_INTERNAL_TOKEN
+  if (MINDEX_API_KEY) h["X-API-Key"] = MINDEX_API_KEY
+  return h
+}
 
 const MARINETRAFFIC_API_KEY = process.env.MARINETRAFFIC_API_KEY || ""
 const VESSELFINDER_API_KEY = process.env.VESSELFINDER_API_KEY || ""
@@ -97,7 +108,7 @@ async function fetchFromMINDEX(): Promise<VesselRecord[]> {
   const res = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json", "X-API-Key": MINDEX_API_KEY },
+    headers: mindexAuthHeaders(),
   })
   if (!res.ok) return []
   const data = await res.json()
