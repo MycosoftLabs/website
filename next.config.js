@@ -80,11 +80,27 @@ const nextConfig = {
       };
     }
     // Reduce EBUSY / file lock crashes and OOM on Windows (Next 15 dev server)
-    if (dev && process.platform === 'win32') {
+    // Apr 22, 2026 — also ignore var/, coverage/, tmp/. The vessel-disk-cache
+    // writes var/cache/vessels.json every 5 s; without this ignore rule Next
+    // HMR recompiles the whole bundle every write, which stranded /dashboard/
+    // crep on the loading screen forever. Applied to all platforms, not just
+    // Windows — the loop also fires on Linux dev.
+    const watchIgnore = [
+      '**/node_modules',
+      '**/.next',
+      '**/.git',
+      '**/.*',
+      '**/var/**',
+      '**/coverage/**',
+      '**/tmp/**',
+      '**/dist/**',
+      '**/public/data/crep/**',
+    ];
+    if (dev) {
       config.watchOptions = {
-        poll: 2000,
+        ...(process.platform === 'win32' ? { poll: 2000 } : {}),
         aggregateTimeout: 300,
-        ignored: ['**/node_modules', '**/.next', '**/.git', '**/.*'],
+        ignored: watchIgnore,
       };
     }
     return config;
