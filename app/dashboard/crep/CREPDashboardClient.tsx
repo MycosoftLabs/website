@@ -230,6 +230,7 @@ import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
 import { mergeById, ENTITY_TTL_MS } from "@/lib/crep/entity-merge";
+import { cullToViewport, makeDebouncedSetData } from "@/lib/crep/map-perf";
 import {
   startSatelliteAnimation,
   stopSatelliteAnimation,
@@ -4388,11 +4389,31 @@ export default function CREPDashboardPage() {
   // but all pointing the same direction, so they looked "fake" in motion).
   // Satellites have their own SGP4 animation module (see below).
   // ██████████████████████████████████████████████████████████████████████████
+  // Apr 22, 2026 — Morgan: "make the entire crep system efficient".
+  // Mirror the React state into a ref so the rAF pump (mount-only effect)
+  // reads FRESH bounds each tick without a closure rebuild. Used by
+  // cullToViewport to drop features outside the current viewport before
+  // the GPU upload.
+  const mapBoundsRef = useRef<typeof mapBounds>(mapBounds);
+  useEffect(() => { mapBoundsRef.current = mapBounds }, [mapBounds]);
+
   useEffect(() => {
     let rafId: number | null = null;
     let intervalId: any = null;
     let lastTickAt = 0;
     const TICK_MS = 200; // 5 FPS when visible — smooth enough, cheap enough
+
+    // Apr 22, 2026 perf: one-rAF setData coalescer per source. Aircraft +
+    // vessel sigs still deduplicate NO-OP ticks at the data level; the
+    // debouncer folds rapid consecutive setData calls into a single GPU
+    // upload per source per frame (so a burst from pump + extrapolation
+    // arriving in the same frame costs one upload, not two).
+    const debouncedAcSetData = makeDebouncedSetData(() =>
+      mapNativeRef.current?.getSource("crep-live-aircraft") as any,
+    );
+    const debouncedVSetData = makeDebouncedSetData(() =>
+      mapNativeRef.current?.getSource("crep-live-vessels") as any,
+    );
 
     // Apr 20, 2026 perf-2: cheap dirty-check on the rounded coords +
     // heading per id. If nothing visibly moved between ticks (e.g. all
@@ -4441,20 +4462,27 @@ export default function CREPDashboardPage() {
           if (kind === "aircraft") acFeats.push(feat);
           else vFeats.push(feat);
         }
+        // Apr 22, 2026 perf: cull features to the current viewport +2°
+        // before GPU upload. At city zoom (~z12) this drops 90%+ of
+        // features for AIS-dense vessel counts. At world zoom culling
+        // is a no-op because bbox covers the whole globe. Then coalesce
+        // through the rAF debouncer so pump bursts collapse to one
+        // upload per source per frame.
+        const bbox = mapBoundsRef.current
         if (acFeats.length > 0) {
           const sig = sigOf(acFeats)
           if (sig !== lastAcSig) {
             lastAcSig = sig
-            const acSrc = map.getSource("crep-live-aircraft") as any;
-            if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+            const culled = cullToViewport(acFeats, bbox, 2)
+            debouncedAcSetData({ type: "FeatureCollection", features: culled });
           }
         }
         if (vFeats.length > 0) {
           const sig = sigOf(vFeats)
           if (sig !== lastVSig) {
             lastVSig = sig
-            const vSrc = map.getSource("crep-live-vessels") as any;
-            if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+            const culled = cullToViewport(vFeats, bbox, 2)
+            debouncedVSetData({ type: "FeatureCollection", features: culled });
           }
         }
       } catch {
