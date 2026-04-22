@@ -163,32 +163,56 @@ export function VesselTrackerWidget({
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<VesselType>("all")
 
-  const fetchData = useCallback(async () => {
+  // Apr 22, 2026 (Morgan: "TypeError: Failed to fetch ... VesselTracker
+  // fetchData"). Root cause: 30 s setInterval + user-triggered onRefresh
+  // button both fire fetch without aborting the prior in-flight one. On
+  // navigation or component unmount, the unresolved fetch rejects with
+  // TypeError("Failed to fetch"). Fix: AbortController per call + abort
+  // on unmount + on new call. Also quiet single-log-per-burst and add
+  // "empty OK" state distinct from "error" state.
+  const fetchData = useCallback(async (abort?: AbortSignal) => {
     try {
       setLoading(true)
       let url = `/api/oei/aisstream?limit=${limit}`
-      
       if (bounds) {
         url += `&lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`
       }
-      
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Failed to fetch")
+      const response = await fetch(url, { signal: abort })
+      if (!response.ok) {
+        setError(`Vessel feed returned HTTP ${response.status}`)
+        return
+      }
       const json = await response.json()
       setData(json)
       setError(null)
-    } catch (err) {
-      setError("Unable to fetch vessel data")
-      console.error("[VesselTracker]", err)
+    } catch (err: any) {
+      // AbortController aborts are expected (unmount or re-fetch) — silent
+      if (err?.name === "AbortError") return
+      // TypeError("Failed to fetch") = network / CORS / DNS. Single-log
+      // per session so the console isn't flooded if the feed is down.
+      if (typeof window !== "undefined" && !(window as any).__crep_vessel_fetch_logged) {
+        (window as any).__crep_vessel_fetch_logged = true
+        console.warn("[VesselTracker] feed unreachable — widget will show 0 vessels:", err?.message)
+      }
+      setError("Vessel feed temporarily unreachable")
     } finally {
       setLoading(false)
     }
   }, [bounds, limit])
 
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 30000) // Update every 30 seconds
-    return () => clearInterval(interval)
+    const ctrl = new AbortController()
+    fetchData(ctrl.signal)
+    const interval = setInterval(() => {
+      // If tab is backgrounded, skip to save CPU — SSE / pump layers keep
+      // their own independent fetch cadence.
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchData(ctrl.signal)
+    }, 30000)
+    return () => {
+      ctrl.abort()
+      clearInterval(interval)
+    }
   }, [fetchData])
 
   const vesselList = data?.vessels || []
@@ -266,7 +290,7 @@ export function VesselTrackerWidget({
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={fetchData}
+            onClick={() => { void fetchData() }}
             className="h-6 w-6"
             disabled={loading}
           >

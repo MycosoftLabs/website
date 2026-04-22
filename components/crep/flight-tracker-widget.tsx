@@ -146,32 +146,47 @@ export function FlightTrackerWidget({
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<"all" | "airborne" | "ground">("all")
 
-  const fetchData = useCallback(async () => {
+  // Apr 22, 2026: same AbortController/TypeError-safe pattern as
+  // VesselTrackerWidget — unhandled "Failed to fetch" TypeError was
+  // surfacing in Next dev console on unmount/re-fetch.
+  const fetchData = useCallback(async (abort?: AbortSignal) => {
     try {
       setLoading(true)
       let url = `/api/oei/flightradar24?limit=${limit}`
-      
       if (bounds) {
         url += `&lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`
       }
-      
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Failed to fetch")
+      const response = await fetch(url, { signal: abort })
+      if (!response.ok) {
+        setError(`Flight feed returned HTTP ${response.status}`)
+        return
+      }
       const json = await response.json()
       setData(json)
       setError(null)
-    } catch (err) {
-      setError("Unable to fetch flight data")
-      console.error("[FlightTracker]", err)
+    } catch (err: any) {
+      if (err?.name === "AbortError") return
+      if (typeof window !== "undefined" && !(window as any).__crep_flight_fetch_logged) {
+        (window as any).__crep_flight_fetch_logged = true
+        console.warn("[FlightTracker] feed unreachable:", err?.message)
+      }
+      setError("Flight feed temporarily unreachable")
     } finally {
       setLoading(false)
     }
   }, [bounds, limit])
 
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 30000) // Update every 30 seconds
-    return () => clearInterval(interval)
+    const ctrl = new AbortController()
+    fetchData(ctrl.signal)
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchData(ctrl.signal)
+    }, 30000)
+    return () => {
+      ctrl.abort()
+      clearInterval(interval)
+    }
   }, [fetchData])
 
   const aircraftList = data?.aircraft || []
@@ -229,10 +244,10 @@ export function FlightTrackerWidget({
           <span className="text-xs font-bold text-white">AIRCRAFT TRACKING</span>
         </div>
         <div className="flex items-center gap-1">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={fetchData}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { void fetchData() }}
             className="h-6 w-6"
             disabled={loading}
           >

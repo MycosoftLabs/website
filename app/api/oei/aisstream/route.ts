@@ -151,6 +151,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Apr 22, 2026 (Morgan: "dont stop until all vessel satelite and
+    // planes are showing animated and live on globe"). If the multi-
+    // source registry is still empty but the AIS client's internal
+    // cache has vessels (persistent WebSocket did receive data), pull
+    // them directly. Live probe showed registry=0 while client cache
+    // had 15,815 vessels — this bridges the gap for non-?publish=true
+    // callers (widgets, MYCA voice, external consumers).
+    if (vessels.length === 0 && client.hasApiKey()) {
+      try {
+        const cached = await client.publishCachedVessels({})
+        if (Array.isArray(cached?.entities) && cached.entities.length > 0) {
+          vessels = cached.entities as unknown as VesselRecord[]
+          console.log(`[AISStream] Multi-source empty — serving ${vessels.length} vessels from AIS client cache directly.`)
+        }
+      } catch { /* fall through with empty */ }
+    }
+
     // Apply bounding box filter if provided
     if (lamin && lamax && lomin && lomax) {
       const south = parseFloat(lamin)

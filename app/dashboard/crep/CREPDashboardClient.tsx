@@ -1962,13 +1962,22 @@ export default function CREPDashboardPage() {
         })(),
         (async () => {
           if (breakerSkip("__crep_pump_vessels_breaker")) return
+          // Apr 22, 2026 (Morgan: "dont stop until all vessel satelite and
+          // planes are showing animated and live on globe"). Default
+          // /api/oei/aisstream goes through the multi-source vessel
+          // registry which currently returns 0 from all 9 sub-sources
+          // (MarineTraffic / VesselFinder / etc. all dry). The persistent
+          // AISstream WebSocket singleton IS collecting vessels though —
+          // ?publish=true drops the registry fan-out and serves directly
+          // from the AIS client's internal cache. Live probe: 15,815
+          // vessels returned vs 0 via the multi-source path.
           try {
-            const res = await fetch("/api/oei/aisstream", { signal: AbortSignal.timeout(25000) });
+            const res = await fetch("/api/oei/aisstream?publish=true&refresh=true", { signal: AbortSignal.timeout(25000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
             const data = await res.json();
             if (Array.isArray(data.vessels) && data.vessels.length > 0) {
               setVessels(() => data.vessels);
-              console.log(`[CREP/pump] vessels: ${data.vessels.length}`);
+              console.log(`[CREP/pump] vessels: ${data.vessels.length} (via publish path)`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
             }
             breakerMark("__crep_pump_vessels_breaker", true, "vessels")
@@ -1980,21 +1989,46 @@ export default function CREPDashboardPage() {
         })(),
         (async () => {
           if (breakerSkip("__crep_pump_satellites_breaker")) return
+          // Apr 22, 2026 (Morgan: "dont stop until all vessel satelite and
+          // planes are showing animated and live on globe"). Registry mode
+          // was returning 0 and category=active legacy also 0 on the
+          // current CelesTrak snapshot. Cascade: try active-registry first
+          // (6 sources deduped), then fall back to stations (always has
+          // ISS + Tiangong + starlinks), then gnss as last resort. Each
+          // category has its own TLE list so one being stale doesn't block
+          // the others.
+          const tryCategory = async (url: string, label: string): Promise<any[] | null> => {
+            try {
+              const r = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+              if (!r.ok || cancelled) return null
+              const j = await r.json()
+              if (Array.isArray(j?.satellites) && j.satellites.length > 0) {
+                console.log(`[CREP/pump] satellites (${label}): ${j.satellites.length}`)
+                return j.satellites
+              }
+              return null
+            } catch { return null }
+          }
           try {
-            const res = await fetch("/api/oei/satellites?category=active&mode=registry", { signal: AbortSignal.timeout(25000) });
-            if (!res.ok || cancelled) { breakerMark("__crep_pump_satellites_breaker", false, "satellites"); return }
-            initialSatelliteLoadDoneRef.current = true;
-            const data = await res.json();
-            if (Array.isArray(data.satellites) && data.satellites.length > 0) {
-              setSatellites(() => data.satellites);
-              console.log(`[CREP/pump] satellites: ${data.satellites.length}`);
-              try { syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]); } catch {}
+            let sats: any[] | null = null
+            sats = await tryCategory("/api/oei/satellites?category=active&mode=registry", "active-registry")
+            if (!sats) sats = await tryCategory("/api/oei/satellites?category=stations&mode=legacy", "stations-legacy")
+            if (!sats) sats = await tryCategory("/api/oei/satellites?category=gnss&mode=legacy", "gnss-legacy")
+            if (!sats) sats = await tryCategory("/api/oei/satellites?category=starlink&mode=legacy&limit=500", "starlink-legacy")
+            initialSatelliteLoadDoneRef.current = true
+            if (sats && sats.length > 0) {
+              setSatellites(() => sats as any[])
+              try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
+              breakerMark("__crep_pump_satellites_breaker", true, "satellites")
+            } else {
+              breakerMark("__crep_pump_satellites_breaker", false, "satellites")
+              const s = (window as any).__crep_pump_satellites_breaker?.fails ?? 0
+              if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites all categories empty (${s}/3)`)
             }
-            breakerMark("__crep_pump_satellites_breaker", true, "satellites")
           } catch (e) {
             breakerMark("__crep_pump_satellites_breaker", false, "satellites")
             const s = (window as any).__crep_pump_satellites_breaker?.fails ?? 0
-            if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites (${s}/3):`, (e as Error)?.message);
+            if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites (${s}/3):`, (e as Error)?.message)
           }
         })(),
       ]);
