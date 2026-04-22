@@ -17,12 +17,12 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -iE "shino
 # Expect: shinobi container healthy on :8080, mediamtx on :8554/:8888/:8889
 ```
 
-If either container is not running:
+If either container is not running, find the compose project that owns them on 188 (paths vary). **Verified 2026-04-22:** `shinobi` and `mediamtx` are named Docker containers, **Up**; MediaMTX config bind is **`/opt/mycosoft/mediamtx/config.yml`** (not `media-stack/mediamtx.yml`).
+
 ```bash
-cd /opt/mycosoft/media-stack
-docker compose up -d shinobi mediamtx
-sleep 15
-docker compose logs shinobi mediamtx --tail 80
+# If a container is down, start it from the compose project on the host (path varies), then:
+docker logs shinobi --tail 80
+docker logs mediamtx --tail 80
 ```
 
 ### 1.2 Validate keys (3 min)
@@ -67,10 +67,10 @@ Shinobi polls the snapshot URL every 10 s and stores the JPEG; MediaMTX republis
 ### 1.4 Wire Shinobi → MediaMTX (5 min)
 Verify MediaMTX yml has the paths defined:
 ```bash
-cat /opt/mycosoft/media-stack/mediamtx.yml | grep -A2 "shinobi-sd-"
+grep -E "shinobi|paths:" /opt/mycosoft/mediamtx/config.yml
 ```
 
-If empty, append:
+If empty, append to **`/opt/mycosoft/mediamtx/config.yml`** (then `docker restart mediamtx`):
 ```yaml
 paths:
   shinobi-sd-ib-pier:
@@ -82,10 +82,14 @@ paths:
 Then `docker compose restart mediamtx`.
 
 ### 1.5 Seed MINDEX (3 min)
+**POST path** (Next.js route file is a single `route.ts`): **`POST /api/eagle/connectors/shinobi`** — not `/shinobi/sync`.
+
 ```bash
-curl -s -X POST http://192.168.0.187:3000/api/eagle/connectors/shinobi/sync | jq
-# Expect: {"synced": 10, "ingested_to_mindex": 10}
+curl -s -X POST http://192.168.0.187:3000/api/eagle/connectors/shinobi | jq
+# Expect after 1.3: {"synced": N, "total_monitors": ...} with N>0 when monitors have crep_lat/crep_lng
 ```
+
+**Verified 2026-04-22 (dev 3010):** `POST` returns `{"synced":0,"note":"no geo-located monitors to sync"}` until Shinobi has monitors with coordinates.
 
 Verify:
 ```bash
@@ -192,7 +196,11 @@ This surfaces MYCA / PersonaPlex / external consumers to the same data as CREP i
 
 After each Cursor step completes, add a checkmark line in this doc:
 ```
-✅ 1.1 done — Cursor @ 2026-04-21 15:42 · shinobi up, mediamtx up, keys valid
+✅ 1.1 done — Cursor @ 2026-04-22 · LAN: MINDEX+MAS+Shinobi:8080 HTTP 200. SSH 188: containers shinobi + mediamtx Up; mediamtx.yml → /opt/mycosoft/mediamtx/config.yml (minimal, no shinobi-sd paths yet). No PersonaPlex container on 188 (voice bridge runs on GPU Legion 241, not 188). Next: 1.2 keys in UI + 1.3 create 10 monitors, then 1.4 paths + 1.5 MINDEX sync.
+
+✅ MINDEX DDL — Cursor @ 2026-04-22 · `crep.project_nature_cache` applied on **189** via `scripts/apply_crep_project_nature_cache_189.py` (repo: `MINDEX/mindex/migrations/crep_project_nature_cache_APR22_2026.sql`).
+
+✅ Entity stream HTTP — MAS PR: `GET /api/entities/stream` returns JSON metadata (WebSocket is the real transport); deploy MAS 188 to pick up — stops false "404 = broken" in audits.
 ```
 
 Claude won't re-read this doc automatically; ping with a short message after step 1.5 so I verify the MINDEX row count in browser.
