@@ -22,6 +22,15 @@ const CACHE_DIR = path.resolve(process.cwd(), "var", "cache")
 const CACHE_FILE = path.join(CACHE_DIR, "vessels.json")
 const VESSEL_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h — enough to bridge AIS outages
 const WRITE_DEBOUNCE_MS = 5_000
+// Apr 22, 2026 — Morgan: "controls locked up we cant have that happen
+// anymore fix the root cause". Dev crashed with V8 heap OOM after the
+// cache had accumulated 52 454 vessels over days of sessions. Each
+// readVesselsFromDiskCache() pulled all 52k into a fresh array every
+// pump cycle, aisstream route returned all 52k in a JSON response,
+// vessel-registry normalized all 52k — multiple copies in flight per
+// 30 s tick. Cap at 15 000 (max of reasonable active global AIS set).
+// When over the cap we keep the newest by cached_at and drop the rest.
+const VESSEL_MAX_ENTRIES = 15_000
 
 interface CachedVessel extends VesselRecord {
   cached_at: string
@@ -96,6 +105,16 @@ export function saveVesselsToDiskCache(vessels: VesselRecord[]): number {
     cache[v.mmsi] = { ...v, cached_at: cachedAt }
     stored++
   }
+  // Enforce hard cap — keep the newest VESSEL_MAX_ENTRIES by cached_at.
+  // Prevents unbounded growth that OOM'd the dev server on 2026-04-22.
+  const keys = Object.keys(cache)
+  if (keys.length > VESSEL_MAX_ENTRIES) {
+    const entries = keys
+      .map((k) => ({ k, t: new Date(cache[k].cached_at).getTime() || 0 }))
+      .sort((a, b) => b.t - a.t)
+    const keep = new Set(entries.slice(0, VESSEL_MAX_ENTRIES).map((e) => e.k))
+    for (const k of keys) if (!keep.has(k)) delete cache[k]
+  }
   if (stored > 0) scheduleWrite()
   return stored
 }
@@ -107,22 +126,30 @@ export function saveVesselsToDiskCache(vessels: VesselRecord[]): number {
 export function readVesselsFromDiskCache(): VesselRecord[] {
   const cache = getMemCache()
   const now = Date.now()
-  const fresh: VesselRecord[] = []
+  const fresh: Array<{ t: number; v: VesselRecord }> = []
   const expiredKeys: string[] = []
   for (const [mmsi, v] of Object.entries(cache)) {
-    const age = now - new Date(v.cached_at).getTime()
+    const t = new Date(v.cached_at).getTime()
+    const age = now - t
     if (age > VESSEL_MAX_AGE_MS || Number.isNaN(age)) {
       expiredKeys.push(mmsi)
       continue
     }
     const { cached_at, ...rest } = v
-    fresh.push(rest)
+    fresh.push({ t, v: rest })
   }
   if (expiredKeys.length > 0) {
     for (const k of expiredKeys) delete cache[k]
     scheduleWrite()
   }
-  return fresh
+  // Belt-and-braces cap on read — if a legacy cache file is larger than
+  // VESSEL_MAX_ENTRIES (from before the cap), only return the newest N.
+  // Save path also trims on next write.
+  if (fresh.length > VESSEL_MAX_ENTRIES) {
+    fresh.sort((a, b) => b.t - a.t)
+    fresh.length = VESSEL_MAX_ENTRIES
+  }
+  return fresh.map((x) => x.v)
 }
 
 export function getVesselDiskCacheStats() {
