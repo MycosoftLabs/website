@@ -11,8 +11,15 @@
  */
 
 import type { NextRequest } from "next/server"
+import { applyDeviceVisibility, resolveEffectiveScope } from "./company-auth"
+import { getAgentProfile } from "@/lib/agent-auth"
 
-export type WorldviewScope = "public" | "agent" | "fusarium" | "ops"
+// Apr 23, 2026 — Morgan: "'Company view' so we can test that live now"
+// adds the `company` scope between `agent` and `fusarium`. Requires an
+// @mycosoft.org email on the JWT OR an API key explicitly marked with
+// the `company` scope. Used to gate live device telemetry + MYCA-managed
+// visibility of any device on the CREP map.
+export type WorldviewScope = "public" | "agent" | "company" | "fusarium" | "ops"
 export type WorldviewCategory =
   | "infrastructure.power"
   | "infrastructure.comms"
@@ -32,6 +39,7 @@ export type WorldviewCategory =
   | "projects.goffs"
   | "security.shodan"
   | "natureos"
+  | "devices.mycosoft"
 
 export type ResponseShape =
   | "geojson.FeatureCollection"
@@ -103,6 +111,45 @@ async function proxyJson(url: string, ttlS: number, meta?: Record<string, any>):
   }
   const data = await res.json()
   return { data, ttl_s: ttlS, cache: "miss", meta }
+}
+
+/**
+ * proxy a JSON endpoint and apply the MYCA device visibility gate.
+ * Used by the `crep.devices.*` datasets so MYCA's per-device
+ * visible_scopes / hidden_until policies always take effect, even
+ * when the underlying route doesn't know about them.
+ */
+async function proxyJsonWithDeviceGate(
+  url: string,
+  ttlS: number,
+  req: NextRequest,
+  deviceArrayKey: string, // which field in the response holds the device array (e.g. "devices")
+): Promise<DatasetHandlerResult> {
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": "WorldviewV1/1.0" },
+    signal: AbortSignal.timeout(15_000),
+    cache: "no-store",
+  })
+  if (!res.ok) throw new Error(`upstream ${res.status} on ${url}`)
+  const data = await res.json()
+  try {
+    const profile = await getAgentProfile(req)
+    const scope = resolveEffectiveScope(profile)
+    const list = Array.isArray(data?.[deviceArrayKey]) ? data[deviceArrayKey] : []
+    if (list.length) {
+      const filtered = await applyDeviceVisibility(list, scope)
+      const hidden = list.length - filtered.length
+      return {
+        data: { ...data, [deviceArrayKey]: filtered },
+        ttl_s: ttlS,
+        cache: "miss",
+        meta: { total: filtered.length, hidden_by_myca: hidden, caller_scope: scope },
+      }
+    }
+  } catch (e: any) {
+    console.warn("[registry/device-gate] fallthrough:", e?.message)
+  }
+  return { data, ttl_s: ttlS, cache: "miss" }
 }
 
 async function proxyStatic(publicPath: string, internalOrigin: string, ttlS: number): Promise<DatasetHandlerResult> {
@@ -1291,6 +1338,109 @@ export const DATASETS: Dataset[] = [
       return proxyJson(`${internalOrigin}/api/shodan/count?q=${encodeURIComponent(q)}`, 12 * 3600)
     },
   },
+
+  // ============================================================
+  // DEVICES — MYCOSOFT (company scope — @mycosoft.org gate)
+  // Apr 23, 2026 — Morgan: "all of it on for anyone with a mycosoft.org
+  // email only for now 'Company view' so we can test that live now".
+  // These datasets apply the MYCA visibility gate on top of the scope
+  // check: MYCA can hide any device at any time via
+  // /api/myca/devices/visibility. Gate is a no-op when MYCA hasn't
+  // touched a device (default = visible to company).
+  // ============================================================
+  {
+    id: "crep.devices.mycosoft",
+    name: "Mycosoft devices on CREP map",
+    category: "devices.mycosoft",
+    description: "Every Mycosoft MycoBrain-powered device with live lat/lng + device_type + status + last_seen. Backed by MINDEX devices layer + MQTT telemetry overlay.",
+    underlying_routes: ["/api/crep/mycosoft-devices"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: true, tile: false, id_lookup: true },
+    scope: "company",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 15_000,
+    example: "/api/worldview/v1/query?type=crep.devices.mycosoft",
+    handler: async ({ req, internalOrigin }) => proxyJsonWithDeviceGate(`${internalOrigin}/api/crep/mycosoft-devices`, 15, req, "devices"),
+  },
+  {
+    id: "crep.devices.network",
+    name: "MAS Device Network Registry",
+    category: "devices.mycosoft",
+    description: "Devices registered with the MAS Device Registry via heartbeat (Tailscale or CF tunnel connections). Includes firmware, sensors, capabilities.",
+    underlying_routes: ["/api/devices/network"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: true, tile: false, id_lookup: true },
+    scope: "company",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=crep.devices.network",
+    handler: async ({ req, internalOrigin }) => proxyJsonWithDeviceGate(`${internalOrigin}/api/devices/network`, 30, req, "devices"),
+  },
+  {
+    id: "crep.devices.telemetry-latest",
+    name: "Device Telemetry (latest)",
+    category: "devices.mycosoft",
+    description: "Most recent telemetry sample per device across MQTT + LoRaWAN + HomeAssistant ingest paths.",
+    underlying_routes: ["/api/natureos/devices/telemetry"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: true, stream: true, tile: false, id_lookup: true },
+    scope: "company",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 10_000,
+    example: "/api/worldview/v1/query?type=crep.devices.telemetry-latest",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/devices/telemetry`, 10),
+  },
+  {
+    id: "crep.devices.mycobrain",
+    name: "MycoBrain devices (detailed)",
+    category: "devices.mycosoft",
+    description: "MycoBrain-specific device roster with role (mushroom1/sporebase/gateway/science_comms/side_a/side_b/portable) + sensor capability flags.",
+    underlying_routes: ["/api/natureos/devices/mycobrain"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "company",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.devices.mycobrain",
+    handler: async ({ req, internalOrigin }) => proxyJsonWithDeviceGate(`${internalOrigin}/api/natureos/devices/mycobrain`, 60, req, "devices"),
+  },
+  {
+    id: "crep.devices.twin",
+    name: "Device Digital Twin state",
+    category: "devices.mycosoft",
+    description: "Full digital-twin snapshot per device (state, properties, last commands, firmware diff).",
+    underlying_routes: ["/api/natureos/devices/twin"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "company",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.devices.twin&id=mbrain-001",
+    handler: async ({ params, internalOrigin }) => {
+      const id = params.get("id") || ""
+      return proxyJson(`${internalOrigin}/api/natureos/devices/twin${id ? `?id=${encodeURIComponent(id)}` : ""}`, 60)
+    },
+  },
+  {
+    id: "crep.devices.ingest-status",
+    name: "Device Ingest Pipeline Status",
+    category: "devices.mycosoft",
+    description: "Health of MQTT broker + HomeAssistant bridge + LoRaWAN ChirpStack ingestion paths.",
+    underlying_routes: ["/api/natureos/mindex/etl-status"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "company",
+    cost_per_request: 0,
+    rate_weight: 1,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=crep.devices.ingest-status",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/mindex/etl-status`, 30),
+  },
 ]
 
 // Build an id→dataset lookup for O(1) access from query handler.
@@ -1309,6 +1459,9 @@ export function listDatasets(opts: { scope?: WorldviewScope; category?: Worldvie
 }
 
 export function scopeAllows(callerScope: WorldviewScope, required: WorldviewScope): boolean {
-  const tier = (s: WorldviewScope) => ({ public: 0, agent: 1, fusarium: 2, ops: 3 }[s])
+  // Apr 23, 2026 — `company` sits between `agent` and `fusarium`. An ops
+  // key can access everything; a company key can access everything that
+  // isn't fusarium-gated.
+  const tier = (s: WorldviewScope) => ({ public: 0, agent: 1, company: 2, fusarium: 3, ops: 4 }[s])
   return tier(callerScope) >= tier(required)
 }

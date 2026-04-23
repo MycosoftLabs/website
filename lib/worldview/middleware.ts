@@ -20,6 +20,7 @@ import { getDataset, scopeAllows, type Dataset, type WorldviewScope } from "./re
 import { meterAndLimit } from "./metering"
 import { ok, err, newRequestId } from "./envelope"
 import { readCache, writeCache } from "./cache"
+import { resolveEffectiveScope } from "./company-auth"
 
 /** What the handler-wrapper needs from the dataset. */
 interface RunContext {
@@ -166,14 +167,10 @@ export async function runWithEnvelope(ctx: RunContext) {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function profileScope(profile: AgentProfile | null): WorldviewScope {
-  if (!profile) return "public"
-  // Map from agent_api_keys.scopes array. For now we treat any authenticated
-  // profile as `agent`; the fusarium/ops tiers come from scopes explicit
-  // membership (added in P1).
-  const p: any = profile
-  if (Array.isArray(p.scopes) && p.scopes.includes("ops")) return "ops"
-  if (Array.isArray(p.scopes) && p.scopes.includes("fusarium")) return "fusarium"
-  return "agent"
+  // Apr 23, 2026 — Delegated to resolveEffectiveScope so the
+  // `company` tier (email-domain + scopes-array) is applied uniformly
+  // across every Worldview path.
+  return resolveEffectiveScope(profile)
 }
 
 function paramKeyFor(p: URLSearchParams): string {

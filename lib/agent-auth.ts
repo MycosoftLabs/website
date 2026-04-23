@@ -24,6 +24,12 @@ export interface AgentProfile {
   rate_limit_per_day?: number
   requests_this_minute?: number
   requests_today?: number
+  // Apr 23, 2026 — added for Worldview v1 `company` scope gate.
+  // Populated from validate_api_key (api_key path) or from Supabase
+  // auth.users.email (JWT path). Worldview checks the email domain
+  // to grant the `company` scope.
+  email?: string | null
+  scopes?: string[]
 }
 
 /**
@@ -37,10 +43,14 @@ export async function getAgentProfile(request: NextRequest): Promise<AgentProfil
   if (authHeader?.startsWith('Bearer mk_')) {
     const rawKey = authHeader.slice(7) // strip "Bearer "
     const keyHash = createHash('sha256').update(rawKey).digest('hex')
-    const { data } = await getAdmin().rpc('validate_api_key', { p_key_hash: keyHash })
+    // Cast admin to any — validate_api_key RPC isn't in the generated
+    // Supabase types yet (added by migration 20260316_agent_payment_pipeline.sql);
+    // we pinky-promise the shape via the AgentProfile interface.
+    const admin = getAdmin() as any
+    const { data } = await admin.rpc('validate_api_key', { p_key_hash: keyHash })
 
     if (data && data.length > 0 && data[0].is_active) {
-      const row = data[0]
+      const row: any = data[0]
       return {
         profile_id: row.profile_id,
         via: 'api_key',
@@ -48,6 +58,8 @@ export async function getAgentProfile(request: NextRequest): Promise<AgentProfil
         balance_cents: row.balance_cents,
         rate_limit_per_minute: row.rate_limit_per_minute,
         rate_limit_per_day: row.rate_limit_per_day,
+        email: row.email ?? null,
+        scopes: Array.isArray(row.scopes) ? row.scopes : undefined,
         requests_this_minute: row.requests_this_minute,
         requests_today: row.requests_today,
       }
@@ -76,19 +88,23 @@ export async function getAgentProfile(request: NextRequest): Promise<AgentProfil
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    // Look up profile balance
+    // Look up profile balance + scopes (Apr 23, 2026: added for
+    // Worldview v1 `company` scope gate — email domain triggers
+    // auto-promotion to `company` in resolveEffectiveScope()).
     const { data: profile } = await getAdmin()
       .from('profiles')
       .select('id, balance_cents')
       .eq('id', user.id)
-      .single()
+      .single() as any
 
     if (!profile) return null
 
     return {
-      profile_id: profile.id,
+      profile_id: (profile as any).id,
       via: 'jwt',
-      balance_cents: profile.balance_cents,
+      balance_cents: (profile as any).balance_cents,
+      email: user.email ?? null,
+      scopes: Array.isArray((user as any).app_metadata?.scopes) ? (user as any).app_metadata.scopes : undefined,
     }
   } catch {
     return null

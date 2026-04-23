@@ -2,6 +2,8 @@ import { NextRequest } from "next/server"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { err, newRequestId } from "@/lib/worldview/envelope"
 import { meterAndLimit } from "@/lib/worldview/metering"
+import { resolveEffectiveScope } from "@/lib/worldview/company-auth"
+import { scopeAllows } from "@/lib/worldview/registry"
 
 /**
  * Worldview v1 — Server-Sent Events streams — Apr 23, 2026
@@ -26,7 +28,7 @@ export const dynamic = "force-dynamic"
 
 interface ChannelDef {
   id: string
-  scope: "public" | "agent" | "fusarium" | "ops"
+  scope: "public" | "agent" | "company" | "fusarium" | "ops"
   cost_per_minute: number
   rate_weight_per_minute: number
   poll_ms: number
@@ -106,6 +108,29 @@ const CHANNELS: Record<string, ChannelDef> = {
       return `${o}/api/shodan/search?q=${encodeURIComponent(q)}`
     },
   },
+  // Apr 23, 2026 — device telemetry channel. `company` scope + MYCA
+  // visibility gate. Agents/dashboards subscribe with bbox + optional
+  // device_id filter and get a push every 5s with the latest device
+  // positions + telemetry deltas.
+  "devices.telemetry": {
+    id: "devices.telemetry",
+    scope: "company",
+    cost_per_minute: 2,
+    rate_weight_per_minute: 4,
+    poll_ms: 5_000,
+    upstream: (o, p) => {
+      const bbox = p.get("bbox")
+      return `${o}/api/crep/mycosoft-devices${bbox ? `?bbox=${bbox}` : ""}`
+    },
+  },
+  "devices.network": {
+    id: "devices.network",
+    scope: "company",
+    cost_per_minute: 2,
+    rate_weight_per_minute: 3,
+    poll_ms: 15_000,
+    upstream: (o) => `${o}/api/devices/network`,
+  },
 }
 
 export async function GET(req: NextRequest, { params }: { params: { channel: string } }) {
@@ -129,6 +154,18 @@ export async function GET(req: NextRequest, { params }: { params: { channel: str
       status: 401,
       request_id: requestId,
       details: { top_up_url: "https://mycosoft.com/agent" },
+    })
+  }
+
+  // Scope gate — channels like `devices.*` require company+, `alerts.shodan` requires fusarium+
+  const callerScope = resolveEffectiveScope(profile)
+  if (!scopeAllows(callerScope, def.scope)) {
+    return err({
+      code: "INSUFFICIENT_SCOPE",
+      message: `Stream ${def.id} requires scope >= ${def.scope}. Your scope: ${callerScope}.`,
+      status: 403,
+      request_id: requestId,
+      details: { required_scope: def.scope, caller_scope: callerScope, upgrade_url: "https://mycosoft.com/agent" },
     })
   }
 

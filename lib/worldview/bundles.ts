@@ -218,7 +218,7 @@ export function getBundle(id: string): Bundle | undefined {
 export function listBundles(scope?: WorldviewScope): Bundle[] {
   if (!scope) return BUNDLES
   return BUNDLES.filter((b) => {
-    const tier = (s: WorldviewScope) => ({ public: 0, agent: 1, fusarium: 2, ops: 3 }[s])
+    const tier = (s: WorldviewScope) => ({ public: 0, agent: 1, company: 2, fusarium: 3, ops: 4 }[s] ?? 0)
     return tier(scope) >= tier(b.scope)
   })
 }
