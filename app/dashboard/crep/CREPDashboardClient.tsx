@@ -3508,6 +3508,42 @@ export default function CREPDashboardPage() {
     (window as any).__crep_selectAsset = (payload: any) => {
       if (!payload || payload.lat == null || payload.lng == null) return;
       lastEntityPickTimeRef.current = Date.now();
+      // Apr 23, 2026 — Morgan: "none of these green dots in dc are
+      // selectable i dont know what they are and i see no nature data".
+      // Baked iNat layers (crep-{region}-inat) were routing through
+      // __crep_selectAsset (generic infra widget) which just shows
+      // "asset" metadata — useless for a nature observation. When the
+      // selectType marks it as iNat, short-circuit to the species
+      // popup instead so the user gets photos, scientific name, source
+      // link, kingdom colour, grade, etc.
+      if (payload.type === "inat-observation") {
+        const p = payload.properties || {};
+        const obs: FungalObservation = {
+          id: payload.id ?? p.id,
+          latitude: payload.lat,
+          longitude: payload.lng,
+          species: p.species || p.commonName || p.scientificName || p.name || "Unknown",
+          taxon: p.taxon || {
+            id: Number(p.taxon_id) || 0,
+            name: p.scientificName || p.name || "Unknown",
+            preferred_common_name: p.commonName || p.species || undefined,
+            rank: p.rank || "species",
+          },
+          observed_on: p.observed_on || p.observedOn || p.timestamp || "",
+          quality_grade: p.quality_grade || p.grade || "research",
+          photos: Array.isArray(p.photos)
+            ? p.photos.map((u: any) => (typeof u === "string" ? { id: 0, url: u } : u))
+            : undefined,
+          source: p.source || "iNaturalist",
+          sourceUrl: p.sourceUrl || p.source_url || undefined,
+          user: p.observer || p.user || undefined,
+          location: p.placeGuess || p.location || undefined,
+          kingdom: p.kingdom || undefined,
+          iconicTaxon: p.iconicTaxon || p.kingdom || undefined,
+        };
+        setSelectedFungal(obs);
+        return;
+      }
       // Apr 22, 2026 — Morgan: "we dont need that ring at all anywhere".
       // The OpenGridWorks-style cyan highlight ring was firing on every
       // asset click and being misread as a "selecting…" state, especially
@@ -3522,10 +3558,18 @@ export default function CREPDashboardPage() {
         properties: payload.properties || {},
       });
     };
+    // Apr 23, 2026 — separate hook the baked iNat circle layers call
+    // directly (avoids going through __crep_selectAsset's shape check).
+    (window as any).__crep_selectFungal = (obs: FungalObservation) => {
+      if (!obs) return;
+      lastEntityPickTimeRef.current = Date.now();
+      setSelectedFungal(obs);
+    };
     return () => {
       try { delete (window as any).__crep_setLayer; } catch { /* noop */ }
       try { delete (window as any).__crep_layers; } catch { /* noop */ }
       try { delete (window as any).__crep_selectAsset; } catch { /* noop */ }
+      try { delete (window as any).__crep_selectFungal; } catch { /* noop */ }
     };
   }, [layers]);
 

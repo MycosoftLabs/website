@@ -85,7 +85,11 @@ const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
   // nature data icon in nyc or washington dc that is a huge violation
   // of our product fix that now"). 10k research-grade observations
   // per region; kingdom-colored dots, minzoom 10 to keep it legible.
-  { id: `${region}Inat` as keyof Enabled,          file: `/data/crep/${region}-inat.geojson`,            layerId: `crep-${region}-inat`,          sourceId: `crep-${region}-inat-src`,          label: "Nature observations (iNat)", color: "#84cc16", selectType: "inat-observation", minzoom: 10 },
+  // Apr 23, 2026 — minzoom lowered 10 → 7 so iNat density reads as a
+  // metro-scale overlay, not just neighbourhood-scale. 10k points per
+  // region × 2 regions = 20k; MapLibre's internal tile bin handles it
+  // fine at z≥7 viewport cull.
+  { id: `${region}Inat` as keyof Enabled,          file: `/data/crep/${region}-inat.geojson`,            layerId: `crep-${region}-inat`,          sourceId: `crep-${region}-inat-src`,          label: "Nature observations (iNat)", color: "#84cc16", selectType: "inat-observation", minzoom: 7 },
 ]
 
 export interface ProjectNycDcLayerProps {
