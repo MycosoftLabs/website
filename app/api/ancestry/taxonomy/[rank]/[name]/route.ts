@@ -10,9 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const INAT = "https://api.inaturalist.org/v1"
-const MINDEX = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX = resolveMindexServerBaseUrl()
 
 const RANK_ORDER = ["kingdom", "phylum", "class", "order", "family", "genus", "species"] as const
 type Rank = typeof RANK_ORDER[number]

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 
 /**
  * MINDEX Compounds API Proxy
@@ -12,11 +13,10 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
  */
 export async function GET() {
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (MINDEX_API_KEY) headers["X-API-Key"] = MINDEX_API_KEY
     const response = await fetch(`${MINDEX_API_URL}/api/mindex/compounds`, {
-      headers: {
-        "X-API-Key": MINDEX_API_KEY,
-        "Content-Type": "application/json",
-      },
+      headers,
       next: { revalidate: 300 }, // Cache for 5 minutes
     })
 

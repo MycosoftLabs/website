@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
 // Fetch real device telemetry from MycoBrain, MINDEX, and network
 async function fetchRealDeviceTelemetry() {
   const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
-  const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
+  const mindexUrl = resolveMindexServerBaseUrl()
   
   try {
     const devices: any[] = []

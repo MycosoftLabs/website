@@ -7,9 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY
 
 interface GroundingStatus {

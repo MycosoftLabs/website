@@ -82,7 +82,7 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
       # MAS Orchestrator (cross-VM, may be unreachable through tunnel)
       - MAS_API_URL=${MAS_API_URL:-${MAS_API_URL:-http://localhost:8001}}
-      - MINDEX_API_URL=${MINDEX_API_URL:-${MINDEX_API_URL:-http://localhost:8000}}
+      - MINDEX_API_URL=${MINDEX_API_URL:-http://192.168.0.189:8000}
       - N8N_URL=${N8N_URL:-http://n8n:5678}
       # NemoClaw Gateway (Jetson with NVIDIA Nemotron for on-site AI)
       - NEMOCLAW_GATEWAY_URL=${NEMOCLAW_GATEWAY_URL:-http://192.168.0.123:18789}

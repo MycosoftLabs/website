@@ -32,12 +32,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const MINDEX_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
-const MAS_URL = process.env.MAS_URL || "http://192.168.0.188:8001"
+const MINDEX_URL = resolveMindexServerBaseUrl()
+const MAS_URL = resolveMasServerBaseUrl()
 
 // Safe-fetch helper: returns null on error, never throws.
 async function safeJson(url: string, timeoutMs = 8000): Promise<any | null> {

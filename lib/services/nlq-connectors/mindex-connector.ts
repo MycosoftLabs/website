@@ -6,7 +6,9 @@
 import type { Intent } from "../myca-nlq"
 import type { BaseConnector, ConnectorOptions, ConnectorResult } from "./base-connector"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.NEXT_PUBLIC_MINDEX_URL || "http://localhost:8000"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 
 export class MindexConnector implements BaseConnector {
   readonly name = "MINDEX Database"

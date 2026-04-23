@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 import { createClient } from "@/lib/supabase/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
@@ -20,7 +21,7 @@ import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-g
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // MINDEX API (port 8000) - for data-aware fallback when consciousness fails
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 
 // n8n Webhooks
 const N8N_URL = process.env.N8N_URL || "http://localhost:5678"

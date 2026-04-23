@@ -12,7 +12,9 @@
  * March 19, 2026 — Segregated public/internal API migration
  */
 
-const MINDEX_BASE = process.env.MINDEX_API_URL || "http://localhost:8000"
+import { resolveMindexServerBaseUrl } from "./mindex-base-url"
+
+const MINDEX_BASE = resolveMindexServerBaseUrl()
 const MINDEX_INTERNAL_TOKEN = process.env.MINDEX_INTERNAL_TOKEN || process.env.INTERNAL_API_SECRET
 
 /**

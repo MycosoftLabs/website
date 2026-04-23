@@ -7,7 +7,9 @@
  * @route GET /api/crep/services
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 interface ServiceStatus {
   name: string;
@@ -18,8 +20,8 @@ interface ServiceStatus {
 }
 
 const SERVICES = [
-  { name: "MINDEX", url: process.env.MINDEX_API_URL || "http://localhost:8000", healthPath: "/api/mindex/health" },
-  { name: "MAS Orchestrator", url: process.env.MAS_API_URL || "http://localhost:8001", healthPath: "/health" },
+  { name: "MINDEX", url: resolveMindexServerBaseUrl(), healthPath: "/api/mindex/health" },
+  { name: "MAS Orchestrator", url: resolveMasServerBaseUrl(), healthPath: "/health" },
   { name: "n8n Workflows", url: process.env.N8N_URL || "http://localhost:5678", healthPath: "/healthz" },
   { name: "Redis", url: process.env.REDIS_URL || "http://localhost:6379", healthPath: "", ping: true },
   { name: "Qdrant Vector DB", url: process.env.QDRANT_URL || "http://localhost:6333", healthPath: "/healthz" },

@@ -14,7 +14,9 @@
  * - Source attribution
  */
 
-const MINDEX_API = process.env.MINDEX_API_URL || 'http://localhost:8000';
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+
+const MINDEX_API = resolveMindexServerBaseUrl()
 const BATCH_SIZE = 100;
 const FLUSH_INTERVAL = 10_000; // 10 seconds
 

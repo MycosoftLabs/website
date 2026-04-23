@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
@@ -102,7 +103,7 @@ export async function GET() {
   // Check MINDEX API connectivity
   try {
     const mindexStart = Date.now()
-    const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
+    const mindexUrl = resolveMindexServerBaseUrl()
     const mindexResponse = await fetch(`${mindexUrl}/api/v1/taxon/stats`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)

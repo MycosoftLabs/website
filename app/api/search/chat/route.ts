@@ -5,12 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { evaluateGovernance } from "@/lib/services/avani-governance"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 
 interface ChatRequest {

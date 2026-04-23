@@ -1,6 +1,10 @@
 /**
  * Canonical MAS orchestrator base URL for server-side Next.js (API routes, RSC).
- * Default: MAS VM 192.168.0.188:8001. Loopback in production is rewritten (Docker-safe).
+ * Default: MAS VM 192.168.0.188:8001. Loopback on the server is rewritten so a
+ * misset / missing env var can't knock live CREP off the LAN MAS.
+ *
+ * Escape hatch for local dev: `ALLOW_LOOPBACK_MAS=1` keeps http://localhost:8001
+ * when the operator really is running MAS on their laptop.
  */
 const MAS_VM_LAN = "http://192.168.0.188:8001"
 
@@ -23,8 +27,10 @@ export function resolveMasServerBaseUrl(): string {
   if (!fromEnv || fromEnv.startsWith("/")) {
     return MAS_VM_LAN
   }
-  let base = fromEnv.replace(/\/$/, "")
-  if (process.env.NODE_ENV === "production" && isLoopbackMasUrl(base)) {
+  const base = fromEnv.replace(/\/$/, "")
+  const isServer = typeof window === "undefined"
+  const allowLoopback = process.env.ALLOW_LOOPBACK_MAS === "1"
+  if (isServer && !allowLoopback && isLoopbackMasUrl(base)) {
     return MAS_VM_LAN
   }
   return base

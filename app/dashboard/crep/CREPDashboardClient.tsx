@@ -313,6 +313,7 @@ import ProjectNycDcLayer from "@/components/crep/layers/project-nyc-dc-layer";
 // Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
+import { LiveTransitLayer } from "@/components/crep/layers/live-transit-layer";
 import MojaveSiteWidget from "@/components/crep/mojave/MojaveSiteWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -2376,6 +2377,13 @@ export default function CREPDashboardPage() {
     { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
     { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Data centers worldwide from OSM" },
     { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
+    // ═══════════════════════════════════════════════════════════════════════
+    // LIVE TRANSIT — Apr 23 2026, Morgan: "compete with google maps live
+    // traffic public transportation". Polls /api/transit/all every 15 s,
+    // aggregated feed from MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/
+    // Amtrak/SEPTA/Metrolink/DART. Colored by vehicle_type.
+    // ═══════════════════════════════════════════════════════════════════════
+    { id: "liveTransit", name: "Live Transit (Trains/Buses)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "Live US transit: MTA, WMATA, BART, MBTA, Bay Area 511, CTA, TriMet, MARTA, Amtrak, SEPTA, Metrolink, DART" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
@@ -8937,6 +8945,15 @@ export default function CREPDashboardPage() {
               "massive amount of missing data from ... whitehouse and dc
               ... fly to and layers of details perimeters and special
               icon locations for dc and new york". */}
+          {/* Live Transit — Apr 23 2026 (Morgan: "still no trains rendering").
+              Aggregates MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/Amtrak/
+              SEPTA/Metrolink/DART into a single MapLibre circle layer. */}
+          <LiveTransitLayer
+            map={mapRef}
+            visible={layers.find(l => l.id === "liveTransit")?.enabled ?? true}
+            bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
+          />
+
           <ProjectNycDcLayer
             map={mapRef}
             enabled={{

@@ -40,6 +40,13 @@ const fusariumComponents = [
     features: ["Real-time threat map", "Alert prioritization", "Mission planning integration", "Multi-echelon access"]
   },
   {
+    name: "Eagle Eye (CREP layers)",
+    description:
+      "Dual-plane video intelligence inside CREP: registry-backed cameras plus connector-sourced feeds. Enable Eagle Eye in the CREP layer panel. Coverage depends on MINDEX seeding and public connectors—not every map marker guarantees a playable live stream.",
+    icon: Eye,
+    features: ["MINDEX-backed sources when seeded", "Live connector fan-out when cache is cold", "Honest UX: stream availability varies by source"]
+  },
+  {
     name: "Mushroom1-D",
     description: "Defense-variant platform with enhanced comms, encrypted telemetry, and tactical integration. $10,000",
     icon: Radar,
@@ -259,6 +266,9 @@ export default function FusariumPage() {
             <h2 className="text-4xl font-bold mb-4">CREP Dashboard</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Common Relevant Environmental Picture - the tactical interface for environmental intelligence.
+            </p>
+            <p className="text-base text-muted-foreground max-w-2xl mx-auto mt-4">
+              Eagle Eye video layers run in the same CREP dashboard: open CREP and use the layer panel to toggle Eagle Eye. Feeds are sourced from the Eagle registry and public connectors where available—availability is data-dependent, not universal live video everywhere.
             </p>
           </div>
 

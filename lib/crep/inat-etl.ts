@@ -28,8 +28,10 @@
  *   - scripts/inat-backfill.ts (long-running bulk backfill)
  */
 
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+
 const INAT_API = "https://api.inaturalist.org/v1"
-const MINDEX_API = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const PAGE_SIZE = 200 // iNat max

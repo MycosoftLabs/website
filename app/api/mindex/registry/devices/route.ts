@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 
 // Mycosoft device types
 const DEVICE_TYPES = [
