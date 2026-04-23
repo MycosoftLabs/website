@@ -1651,6 +1651,27 @@ export default function CREPDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Apr 23, 2026 — Morgan: "crep locally is supper laggy now even slowing
+  // my pc down". Service worker caches /data/crep/*.geojson + /crep/icons
+  // + /_next/static with a cache-first strategy so return visits never
+  // touch the network for ~80-200 MB of baked infra + iNat + sprite
+  // atlases. First-visit cost unchanged; every subsequent load is
+  // instant-interactive.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return
+    // Register the SW but don't block the page on it.
+    navigator.serviceWorker
+      .register("/crep-sw.js", { scope: "/" })
+      .then((reg) => {
+        // eslint-disable-next-line no-console
+        console.log(`[CREP/SW] registered scope=${reg.scope}`)
+      })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn("[CREP/SW] registration failed:", e?.message)
+      })
+  }, [])
+
   // ════════════════════════════════════════════════════════════════════
   // Silence MapLibre AJAXError unhandled rejections so the Next.js dev
   // error overlay doesn't pop up over the dashboard (blocks all clicks →
