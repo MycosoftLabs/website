@@ -52,10 +52,19 @@ function isCacheable(url) {
 }
 
 self.addEventListener("install", (event) => {
-  self.skipWaiting()
+  // Apr 23, 2026 — removed `skipWaiting()` (was tripping the auto-reload
+  // Morgan reported on prod). Without it, a NEW SW waits in the
+  // `installed` state until every tab controlled by the OLD SW closes.
+  // Tab refresh / navigation naturally picks up the new SW; nothing
+  // yanks control out from under an active session mid-click.
+  // If we ever need a forced update, it's one `navigator.serviceWorker
+  // .getRegistration().update()` call from the app, not automatic.
 })
 
 self.addEventListener("activate", (event) => {
+  // Apr 23, 2026 — removed `clients.claim()` for the same reason. The
+  // new SW only takes over clients that have navigated AFTER it
+  // activated. No forced hostile takeover of in-flight requests.
   event.waitUntil(
     caches
       .keys()
@@ -65,8 +74,7 @@ self.addEventListener("activate", (event) => {
             .filter((n) => n.startsWith("mycosoft-") && n !== CACHE_NAME)
             .map((n) => caches.delete(n)),
         ),
-      )
-      .then(() => self.clients.claim()),
+      ),
   )
 })
 
