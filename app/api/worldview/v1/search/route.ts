@@ -20,10 +20,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { createClient } from "@/lib/supabase/server"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
+// Apr 23, 2026 — fix pre-existing broken import noted in PR #107 / Cursor
+// audit. Module defines the helper at lib/mindex-base-url.ts.
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_BASE = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_BASE = resolveMindexServerBaseUrl()
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
