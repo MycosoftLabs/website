@@ -35,12 +35,22 @@ const defenseItems = [
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
 ]
 
-const natureOSItems = [
-  { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map, description: "Common Relevant Environmental Picture" },
-  { title: "Device Network", href: "/natureos/devices", icon: Network, description: "Connected device management", companyOnly: true },
-  { title: "MINDEX", href: "/mindex", icon: Database, description: "Cryptographic data integrity index", companyOnly: true },
-  { title: "Species Explorer", href: "/natureos/mindex/explorer", icon: Globe, description: "Spatial species visualization" },
-  { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe, description: "Global environmental modeling" },
+// Apr 23, 2026 (Morgan): NatureOS top-nav dropdown slimmed to the
+// four most-used public tools — Earth Simulator (CREP), Fungi Compute,
+// Petri Dish Simulator, Ancestry Database. MINDEX / Device Network /
+// Species Explorer moved to the full sidebar on /natureos routes.
+type NavItem = {
+  title: string
+  href: string
+  icon: React.ElementType
+  description: string
+  companyOnly?: boolean
+}
+const natureOSItems: NavItem[] = [
+  { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Globe, description: "Live planetary intelligence — the CREP globe" },
+  { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Cpu, description: "Mycelial neural networks & bio-compute" },
+  { title: "Petri Dish Simulator", href: "/natureos/tools/petri-dish", icon: FlaskConical, description: "Virtual culture growth simulation" },
+  { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous, description: "Fungal genealogy & genomics explorer" },
 ]
 
 const devicesItems = [
