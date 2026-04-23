@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import type { TransitVehicle } from "@/lib/transit/gtfs-realtime"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 /**
  * Aggregate every connected transit agency into one GeoJSON FeatureCollection
@@ -46,12 +47,12 @@ const AGENCIES: AgencyDef[] = [
   { id: "dart", path: "/api/transit/dart" },
 ]
 
-async function fetchAgency(origin: string, def: AgencyDef, bbox: string | null): Promise<{ id: string; vehicles: TransitVehicle[]; ok: boolean; err?: string }> {
+async function fetchAgency(internalBase: string, def: AgencyDef, bbox: string | null): Promise<{ id: string; vehicles: TransitVehicle[]; ok: boolean; err?: string }> {
   if (def.keyEnv && !process.env[def.keyEnv]?.trim()) {
     return { id: def.id, vehicles: [], ok: false, err: `${def.keyEnv} not configured` }
   }
   try {
-    const url = `${origin}${def.path}${bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""}`
+    const url = `${internalBase}${def.path}${bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""}`
     const r = await fetch(url, { signal: AbortSignal.timeout(12_000), cache: "no-store" })
     if (!r.ok) return { id: def.id, vehicles: [], ok: false, err: `upstream ${r.status}` }
     const j = await r.json()
@@ -70,8 +71,8 @@ export async function GET(req: NextRequest) {
     ? AGENCIES.filter((a) => agenciesParam.includes(a.id))
     : AGENCIES
 
-  const origin = new URL(req.url).origin
-  const results = await Promise.all(defs.map((d) => fetchAgency(origin, d, bboxParam)))
+  const internalBase = resolveInternalBaseUrl(new URL(req.url).origin)
+  const results = await Promise.all(defs.map((d) => fetchAgency(internalBase, d, bboxParam)))
 
   // Dedupe by id across agencies (shouldn't overlap, but defensive)
   const seen = new Set<string>()

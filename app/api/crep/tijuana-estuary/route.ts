@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { readFileSync, existsSync } from "node:fs"
 import path from "node:path"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 /**
  * Tijuana Estuary / Project Oyster — environmental data aggregator
@@ -231,7 +232,7 @@ export async function GET(req: NextRequest) {
   const tourism = TJ_OYSTER_TOURISM
   const sensors = TJ_OYSTER_SENSORS
   const heatmaps = TJ_OYSTER_HEATMAPS
-  const origin = new URL(req.url).origin
+  const origin = resolveInternalBaseUrl(new URL(req.url).origin)
   const inatObs = await fetchINatOysterPreloadedFirst(origin)
 
   // Perimeter + thesis anchor for Project Oyster widget
