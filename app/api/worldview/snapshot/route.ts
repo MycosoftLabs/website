@@ -34,6 +34,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
   const started = Date.now()
   const project = (req.nextUrl.searchParams.get("project") || "global").toLowerCase()
 
-  const origin = new URL(req.url).origin
+  const origin = resolveInternalBaseUrl(new URL(req.url).origin)
 
   // Fan-out all fetches in parallel
   const [

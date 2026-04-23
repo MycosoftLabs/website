@@ -35,6 +35,7 @@
  */
 
 import { NextRequest } from "next/server"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -72,7 +73,8 @@ export async function GET(req: NextRequest) {
 
       const tick = async () => {
         try {
-          const r = await fetch(`${origin}/api/worldview/snapshot?project=${encodeURIComponent(project)}`, {
+          const internalOrigin = resolveInternalBaseUrl(origin)
+          const r = await fetch(`${internalOrigin}/api/worldview/snapshot?project=${encodeURIComponent(project)}`, {
             signal: AbortSignal.timeout(20_000),
           })
           if (!r.ok) {

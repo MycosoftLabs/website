@@ -40,6 +40,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -379,7 +380,7 @@ async function fetchNpsBoundary(): Promise<GeoJSON.Polygon | GeoJSON.MultiPolygo
 
 export async function GET(req: Request) {
   const started = Date.now()
-  const origin = new URL(req.url).origin
+  const origin = resolveInternalBaseUrl(new URL(req.url).origin)
 
   const [npsGeom, inatObs, ...obs] = await Promise.all([
     fetchNpsBoundary(),
