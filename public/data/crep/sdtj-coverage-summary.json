@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-04-23T00:24:40.860Z",
+  "bbox": [
+    -117.9,
+    32.3,
+    -116.8,
+    33.6
+  ],
+  "layers": {
+    "hospitals": {
+      "file": "sdtj-hospitals.geojson",
+      "count": 136,
+      "bytes": 78556
+    },
+    "police": {
+      "file": "sdtj-police.geojson",
+      "count": 128,
+      "bytes": 52061
+    },
+    "sewage": {
+      "file": "sdtj-sewage.geojson",
+      "count": 1,
+      "bytes": 617
+    },
+    "cell-towers": {
+      "file": "sdtj-cell-towers.geojson",
+      "count": 449,
+      "bytes": 158804
+    },
+    "am-fm-antennas": {
+      "file": "sdtj-am-fm-antennas.geojson",
+      "count": 84,
+      "bytes": 40752
+    },
+    "military": {
+      "file": "sdtj-military.geojson",
+      "count": 229,
+      "bytes": 108981
+    },
+    "data-centers": {
+      "file": "sdtj-data-centers.geojson",
+      "count": 13,
+      "bytes": 7181
+    }
+  }
+}

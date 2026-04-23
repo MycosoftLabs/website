@@ -295,6 +295,11 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
+// Apr 22, 2026 — SD + TJ data coverage expansion: 7 OSM-derived
+// layers (hospitals, police, sewage, cell towers, AM/FM, military,
+// data centers) that fill the gap HIFLD + global cell-towers-global
+// didn't cover. Baked by scripts/etl/crep/bake-sdtj-coverage.mjs.
+import SdtjCoverageLayer from "@/components/crep/layers/sdtj-coverage-layer";
 // Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
@@ -2432,6 +2437,18 @@ export default function CREPDashboardPage() {
     { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan — the fill polygons block icon clicks underneath the zone." },
+    // Apr 22, 2026 — SD + TJ coverage expansion layers (Morgan: "massive
+    // amount of missing data from TIJUANA including infra cell towers
+    // enviornmental sensors, military, police, hospitals, sewage line
+    // data centers, am fm antennas same with san diego missing data").
+    // Baked by scripts/etl/crep/bake-sdtj-coverage.mjs from OSM Overpass.
+    { id: "sdtjHospitals",    name: "Hospitals (SD/TJ)",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped hospitals + clinics within the SD County + Tijuana bbox (136 points). Fills gaps HIFLD doesn't cover in Mexico and municipal-scale care facilities." },
+    { id: "sdtjPolice",       name: "Police / Fire / Border (SD/TJ)", category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "OSM police stations, fire stations, border-control posts in SD + TJ (128 points). US CBP, SD PD, SD Fire, Policía Municipal de Tijuana, Bomberos TJ." },
+    { id: "sdtjSewage",       name: "Sewage Works (SD/TJ)",           category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "OSM sewage treatment plants + wastewater facilities (1 major — SBIWTP etc.). Relevant to cross-border contamination tracking for Project Oyster." },
+    { id: "sdtjCellTowers",   name: "Cell Towers (OSM, SD/TJ detail)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast in SD + TJ (449 points). Supplements the global OpenCellID dataset for local detail, especially Mexican carriers Telcel / AT&T Mexico / Movistar." },
+    { id: "sdtjAmFmAntennas", name: "AM/FM / TV antennas (SD/TJ)",    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + tower:type=broadcast (84 points). AM/FM radio + TV transmit antennas not in the global datacenter set." },
+    { id: "sdtjMilitary",     name: "Military installations (OSM)",   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* boundaries and landuse=military polygons (229 features). Covers US Navy + USMC + Army + the Mexican SEDENA side of the border. Supplements the existing Navy base overlay with smaller depots/guard stations." },
+    { id: "sdtjDataCenters",  name: "Data Centers (SD/TJ detail)",    category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center + building=data_center (13 points). Complements the global data-centers file with carrier-hotel details." },
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
@@ -8750,6 +8767,26 @@ export default function CREPDashboardPage() {
             }}
           />
           <MojaveSiteWidget />
+
+          {/* Apr 22, 2026 — SD + TJ coverage expansion layers. Morgan:
+              "massive amount of missing data from TIJUANA including
+              infra cell towers enviornmental sensors, military, police,
+              hospitals, sewage line data centers, am fm antennas same
+              with san diego missing data". Pulls OSM Overpass into 7
+              category-specific geojsons refreshed weekly by
+              .github/workflows/sdtj-coverage-weekly.yml. */}
+          <SdtjCoverageLayer
+            map={mapRef}
+            enabled={{
+              sdtjHospitals:    layers.find(l => l.id === "sdtjHospitals")?.enabled    ?? true,
+              sdtjPolice:       layers.find(l => l.id === "sdtjPolice")?.enabled       ?? true,
+              sdtjSewage:       layers.find(l => l.id === "sdtjSewage")?.enabled       ?? true,
+              sdtjCellTowers:   layers.find(l => l.id === "sdtjCellTowers")?.enabled   ?? true,
+              sdtjAmFmAntennas: layers.find(l => l.id === "sdtjAmFmAntennas")?.enabled ?? true,
+              sdtjMilitary:     layers.find(l => l.id === "sdtjMilitary")?.enabled     ?? true,
+              sdtjDataCenters:  layers.find(l => l.id === "sdtjDataCenters")?.enabled  ?? true,
+            }}
+          />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
