@@ -113,8 +113,20 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 15_000, onSelect
       map.on("mouseleave", `${SOURCE_ID}-dot`, () => { map.getCanvas().style.cursor = "" })
     }
 
-    if ((map as any).isStyleLoaded?.()) addLayers()
-    else map.once("load", addLayers)
+    // Apr 23, 2026 — robust readiness: `isStyleLoaded()` can return false
+    // even when the map is fully interactive (e.g. during incremental
+    // style diffs). `once("load")` never fires if the "load" event
+    // already passed before we attached. Try both styledata + load +
+    // idle events so whichever fires first wins, then one immediate
+    // attempt in case all three already fired.
+    let fired = false
+    const once = () => { if (fired) return; fired = true; addLayers() }
+    if ((map as any).isStyleLoaded?.()) once()
+    map.once("load", once)
+    map.once("styledata", once)
+    map.once("idle", once)
+    // Immediate attempt — addLayers is idempotent (guarded by getSource)
+    try { once() } catch { /* map not ready yet, handlers will catch */ }
 
     return () => {
       try {

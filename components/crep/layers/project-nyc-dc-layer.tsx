@@ -92,15 +92,32 @@ const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
   { id: `${region}Inat` as keyof Enabled,          file: `/data/crep/${region}-inat.geojson`,            layerId: `crep-${region}-inat`,          sourceId: `crep-${region}-inat-src`,          label: "Nature observations (iNat)", color: "#84cc16", selectType: "inat-observation", minzoom: 7 },
 ]
 
+// Apr 23, 2026 — Morgan: "massivly missing nature data in nyc also".
+// Root cause found in browser audit: CREPDashboardClient passes the
+// MapLibre instance DIRECTLY (stored in state, not a ref) to this
+// component, but the component did `map?.current` which returns
+// `undefined` for a Map instance — so every useEffect bailed before
+// adding sources. The regression silently dropped all 12 baked NYC/DC
+// layers (hospitals, police, sewage, cells, AM/FM, military, DCs,
+// transit subway/rail, airports, gov/embassy, iNat) for NYC AND DC.
+// We now accept EITHER a Map instance OR a RefObject<Map>.
+type MapOrRef = MapLibreMap | React.RefObject<MapLibreMap | null> | null
+function resolveMap(m: MapOrRef): MapLibreMap | null {
+  if (!m) return null
+  if (typeof (m as any).getZoom === "function") return m as MapLibreMap
+  const current = (m as React.RefObject<MapLibreMap | null>).current
+  return current ?? null
+}
+
 export interface ProjectNycDcLayerProps {
-  map: React.RefObject<MapLibreMap | null>
+  map: MapOrRef
   enabled: Enabled
 }
 
 export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerProps) {
   // Anchor + perimeter + POIs for BOTH projects
   useEffect(() => {
-    const m = map?.current
+    const m = resolveMap(map)
     if (!m) return
     let cancelled = false
     const projects = [
@@ -219,7 +236,7 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
 
   // Regional OSM layers (NYC + DC)
   useEffect(() => {
-    const m = map?.current
+    const m = resolveMap(map)
     if (!m) return
     let cancelled = false
     const all = [...makeCategories("nyc"), ...makeCategories("dc")]
