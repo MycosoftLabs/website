@@ -1,0 +1,94 @@
+# Hourly prod health monitor for Worldview + MINDEX reachability
+# ============================================================================
+# Morgan / Apr 23, 2026 — "A cron workflow that calls /api/worldview/snapshot
+# and alerts on mindex.reachable: false is reasonable".
+#
+# Fires every hour, pulls /api/worldview/snapshot from prod, and:
+#   - exits non-zero if mindex.reachable=false OR mas.reachable=false
+#   - exits non-zero if live_entities.aircraft + vessels + satellites all 0
+#     (both are strong signals MINDEX is a config gap away from working)
+#   - logs the snapshot to $GITHUB_STEP_SUMMARY for easy browsing
+#
+# Failures show up as red Xs on the Actions tab. Optional: add a Slack
+# webhook step if you want phone alerts.
+
+name: Worldview — hourly health monitor
+
+on:
+  schedule:
+    - cron: "0 * * * *"      # every hour on the hour
+  workflow_dispatch: {}
+
+concurrency:
+  group: worldview-health
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe /api/worldview/snapshot + /v1/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Probe /v1/health
+        id: v1_health
+        run: |
+          set -e
+          body=$(curl -sf --max-time 15 https://mycosoft.com/api/worldview/v1/health)
+          echo "body=$body"
+          status=$(echo "$body" | jq -r '.status')
+          mindex_ok=$(echo "$body" | jq -r '.upstream.mindex.reachable')
+          mas_ok=$(echo "$body" | jq -r '.upstream.mas.reachable')
+          echo "status=$status" >> $GITHUB_OUTPUT
+          echo "mindex_ok=$mindex_ok" >> $GITHUB_OUTPUT
+          echo "mas_ok=$mas_ok" >> $GITHUB_OUTPUT
+          {
+            echo "### /v1/health"
+            echo "- status: \`$status\`"
+            echo "- mindex.reachable: \`$mindex_ok\`"
+            echo "- mas.reachable: \`$mas_ok\`"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Probe /api/worldview/snapshot
+        id: snapshot
+        run: |
+          set -e
+          body=$(curl -sf --max-time 15 https://mycosoft.com/api/worldview/snapshot)
+          aircraft=$(echo "$body" | jq -r '.live_entities.aircraft')
+          vessels=$(echo "$body" | jq -r '.live_entities.vessels')
+          satellites=$(echo "$body" | jq -r '.live_entities.satellites')
+          mindex_url=$(echo "$body" | jq -r '.middleware.mindex.url')
+          mindex_reach=$(echo "$body" | jq -r '.middleware.mindex.reachable')
+          {
+            echo "### /api/worldview/snapshot"
+            echo "- aircraft: **$aircraft**"
+            echo "- vessels: **$vessels**"
+            echo "- satellites: **$satellites**"
+            echo "- middleware.mindex.url: \`$mindex_url\`"
+            echo "- middleware.mindex.reachable: \`$mindex_reach\`"
+          } >> $GITHUB_STEP_SUMMARY
+          echo "aircraft=$aircraft" >> $GITHUB_OUTPUT
+          echo "vessels=$vessels" >> $GITHUB_OUTPUT
+          echo "satellites=$satellites" >> $GITHUB_OUTPUT
+          echo "mindex_url=$mindex_url" >> $GITHUB_OUTPUT
+          echo "mindex_reach=$mindex_reach" >> $GITHUB_OUTPUT
+
+      - name: Alert on MINDEX unreachable
+        if: steps.snapshot.outputs.mindex_reach != 'true'
+        run: |
+          echo "::error title=MINDEX unreachable::mindex.url=${{ steps.snapshot.outputs.mindex_url }} reachable=${{ steps.snapshot.outputs.mindex_reach }}"
+          exit 1
+
+      - name: Alert on MAS unreachable
+        if: steps.v1_health.outputs.mas_ok != 'true'
+        run: |
+          echo "::error title=MAS unreachable::mas.reachable=${{ steps.v1_health.outputs.mas_ok }}"
+          exit 1
+
+      - name: Warn on all-zero live entities
+        if: |
+          steps.snapshot.outputs.aircraft == '0' &&
+          steps.snapshot.outputs.vessels == '0' &&
+          steps.snapshot.outputs.satellites == '0'
+        run: |
+          echo "::warning title=All live entity counts = 0::aircraft=0 vessels=0 satellites=0 — MINDEX data pumps may be cold or MINDEX reachability is false."

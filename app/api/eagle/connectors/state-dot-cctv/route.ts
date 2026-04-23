@@ -128,17 +128,21 @@ async function pullWSDOT(): Promise<Cam[]> {
     const items: any[] = await res.json()
     return items
       .filter((c: any) => Number.isFinite(Number(c.CameraLocation?.Latitude)) && Number.isFinite(Number(c.CameraLocation?.Longitude)))
-      .map((c: any): Cam => ({
-        id: `wsdot-${c.CameraID}`,
-        provider: "wsdot",
-        name: c.Title || c.Description || `WSDOT ${c.CameraID}`,
-        lat: Number(c.CameraLocation.Latitude),
-        lng: Number(c.CameraLocation.Longitude),
-        stream_url: null,
-        embed_url: c.ImageURL || null,
-        media_url: c.ImageURL || null,
-        category: "traffic",
-      }))
+      .map((c: any): Cam => {
+        const rawImg = c.ImageURL || null
+        const proxiedImg = rawImg ? `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}` : null
+        return {
+          id: `wsdot-${c.CameraID}`,
+          provider: "wsdot",
+          name: c.Title || c.Description || `WSDOT ${c.CameraID}`,
+          lat: Number(c.CameraLocation.Latitude),
+          lng: Number(c.CameraLocation.Longitude),
+          stream_url: null,
+          embed_url: rawImg,
+          media_url: proxiedImg,
+          category: "traffic",
+        }
+      })
   } catch { return [] }
 }
 
@@ -157,6 +161,8 @@ async function pullFDOT(): Promise<Cam[]> {
         const lat = Number(c.latitude ?? c.lat ?? c.geometry?.coordinates?.[1])
         const lng = Number(c.longitude ?? c.lng ?? c.geometry?.coordinates?.[0])
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        const rawImg = c.imageUrl || c.snapshotUrl || null
+        const proxiedImg = rawImg ? `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}` : null
         return {
           id: `fdot-${c.id || c.camId || `${lat},${lng}`}`,
           provider: "fdot",
@@ -165,7 +171,7 @@ async function pullFDOT(): Promise<Cam[]> {
           lng,
           stream_url: c.hlsUrl || null,
           embed_url: c.url || c.videoUrl || null,
-          media_url: c.imageUrl || c.snapshotUrl || null,
+          media_url: proxiedImg,
           category: "traffic",
         }
       })
@@ -185,17 +191,32 @@ async function pullNYSDOT(): Promise<Cam[]> {
     const items: any[] = await res.json()
     return items
       .filter((c: any) => Number.isFinite(Number(c.Latitude)) && Number.isFinite(Number(c.Longitude)))
-      .map((c: any): Cam => ({
-        id: `nysdot-${c.ID}`,
-        provider: "nysdot",
-        name: c.Name || `511NY ${c.ID}`,
-        lat: Number(c.Latitude),
-        lng: Number(c.Longitude),
-        stream_url: null,
-        embed_url: c.Url || null,
-        media_url: c.ImageUrl || null,
-        category: "traffic",
-      }))
+      .map((c: any): Cam => {
+        // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
+        // need to work". 511NY ImageUrl is a direct JPEG that 511ny.org
+        // returns — but from the browser it's cross-origin + may drop
+        // without a proper Referer. Wrap in our /api/eagle/cam-image
+        // proxy so the VideoWallWidget's SnapshotStream can load it
+        // same-origin. The proxy has 511ny.org allowlisted.
+        const rawImg = c.ImageUrl || null
+        const proxiedImg = rawImg
+          ? `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}`
+          : null
+        return {
+          id: `nysdot-${c.ID}`,
+          provider: "nysdot",
+          // Prefer the more descriptive Name + route ref when present
+          name: c.Name
+            ? (c.RoadwayName ? `${c.Name} (${c.RoadwayName})` : c.Name)
+            : `511NY ${c.ID}`,
+          lat: Number(c.Latitude),
+          lng: Number(c.Longitude),
+          stream_url: null,
+          embed_url: c.Url || null,
+          media_url: proxiedImg,
+          category: "traffic",
+        }
+      })
   } catch { return [] }
 }
 

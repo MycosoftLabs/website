@@ -7,10 +7,27 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { Key, Clock, Activity, Loader2, RefreshCw, AlertCircle } from "lucide-react"
+import { Key, Clock, Activity, Loader2, RefreshCw, AlertCircle, Wallet, Gauge, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+// Apr 23, 2026 — Worldview v1 dashboard addition
+interface WorldviewUsage {
+  ok: boolean
+  profile_id?: string
+  api_key_id?: string
+  balance_cents?: number | null
+  rate_limit?: {
+    per_minute: number | null
+    requests_this_minute: number | null
+    per_day: number | null
+    requests_today: number | null
+  }
+  top_up_url?: string
+  generated_at?: string
+  error?: { code: string; message: string }
+}
 
 const STORAGE_KEY = "mycosoft_raas_api_key"
 
@@ -50,6 +67,10 @@ export default function AgentDashboardPage() {
   const [usage, setUsage] = useState<BalanceUsageResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Worldview v1 state
+  const [wvUsage, setWvUsage] = useState<WorldviewUsage | null>(null)
+  const [wvLoading, setWvLoading] = useState(false)
+  const [wvError, setWvError] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -79,6 +100,30 @@ export default function AgentDashboardPage() {
     }
   }, [])
 
+  // Apr 23, 2026 — Worldview v1 /usage loader (uses Bearer mk_... not X-API-Key)
+  const loadWorldview = useCallback(async (key: string) => {
+    setWvLoading(true)
+    setWvError(null)
+    try {
+      const bearer = key.startsWith("mk_") ? key : key // support both raas keys and mk_ keys
+      const res = await fetch("/api/worldview/v1/usage", {
+        headers: { Authorization: `Bearer ${bearer}` },
+      })
+      const data = (await res.json()) as WorldviewUsage
+      if (!data.ok) {
+        setWvError(data?.error?.message ?? `Worldview error ${res.status}`)
+        setWvUsage(null)
+        return
+      }
+      setWvUsage(data)
+    } catch {
+      setWvError("Network error")
+      setWvUsage(null)
+    } finally {
+      setWvLoading(false)
+    }
+  }, [])
+
   const handleSaveKey = () => {
     const trimmed = apiKey.trim()
     if (!trimmed) return
@@ -87,10 +132,14 @@ export default function AgentDashboardPage() {
       setSavedKey(trimmed)
     }
     loadUsage(trimmed)
+    loadWorldview(trimmed)
   }
 
   const handleLoadWithSaved = () => {
-    if (savedKey) loadUsage(savedKey)
+    if (savedKey) {
+      loadUsage(savedKey)
+      loadWorldview(savedKey)
+    }
   }
 
   const handleClearKey = () => {
@@ -232,6 +281,76 @@ export default function AgentDashboardPage() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {/* Apr 23, 2026 — Worldview v1 usage card */}
+        {savedKey && (
+          <Card className="mb-6 border-cyan-500/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Globe className="w-4 h-4 text-cyan-500" />
+                Worldview API v1 usage
+              </CardTitle>
+              <CardDescription>
+                Balance + rate-limit for the unified /api/worldview/v1/* gateway. Uses <code className="text-xs bg-muted px-1 rounded">Authorization: Bearer</code> header.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {wvLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading /v1/usage…
+                </div>
+              ) : wvError ? (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{wvError}</span>
+                </div>
+              ) : wvUsage ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                      <Wallet className="w-3 h-3" /> Balance
+                    </div>
+                    <div className="text-xl font-semibold mt-1">
+                      {wvUsage.balance_cents != null ? `${wvUsage.balance_cents}¢` : "—"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">Cents remaining</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                      <Gauge className="w-3 h-3" /> Rate / min
+                    </div>
+                    <div className="text-xl font-semibold mt-1">
+                      {wvUsage.rate_limit?.per_minute ?? "—"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      {wvUsage.rate_limit?.requests_this_minute ?? 0} used this min
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide">
+                      <Activity className="w-3 h-3" /> Today
+                    </div>
+                    <div className="text-xl font-semibold mt-1">
+                      {wvUsage.rate_limit?.requests_today ?? 0}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      of {wvUsage.rate_limit?.per_day ?? "—"}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No Worldview v1 data loaded. Click Refresh.</p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <Link href="/api/worldview/v1/catalog" className="text-cyan-600 hover:underline">Browse catalog →</Link>
+                <span className="text-muted-foreground">·</span>
+                <Link href="/api/worldview/v1/bundles" className="text-cyan-600 hover:underline">Bundles →</Link>
+                <span className="text-muted-foreground">·</span>
+                <Link href="/api/worldview/v1/openapi.json" className="text-cyan-600 hover:underline">OpenAPI spec →</Link>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <div className="flex flex-wrap gap-4 pt-4">

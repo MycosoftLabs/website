@@ -1,28 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
- * CREP reverse-geocode + at-point lookup — Apr 22, 2026
+ * CREP reverse-geocode + at-point lookup — Apr 22, 2026 v2 (Apr 23 timeout fix)
  *
- * Morgan: "the right click whats here search does not work needs to
- * be fixed".
+ * Morgan: "check search here just pops up and says ... Lookup failed:
+ * signal timed out".
  *
- * Takes a lat/lng and returns:
- *   - Reverse-geocoded address (Nominatim)
- *   - Nearby MINDEX entities (infrastructure, species obs, events) in
- *     a ~1 km bbox around the point
- *   - Admin region / country / timezone when available
+ * Root cause of v1 timeouts:
+ *   - Server-side timeouts totalled 6s (nominatim) + 8s (mindex) parallel,
+ *     so worst case should have been ~8s.
+ *   - But Node `fetch` hangs beyond the AbortSignal timeout when the
+ *     target is firewalled / dropped. A MINDEX_API_URL pointing at an
+ *     unreachable host would spin for 30s+ of TCP syn before resolving.
+ *   - Plus Next.js middleware cost (Supabase getUser() on /api/crep/*)
+ *     adds 1-3 s before the route handler even runs.
+ *   - Client timeout was 15 s; server sometimes took longer.
  *
- * Result shape:
- *   { address: string|null, country: string|null, admin: string|null,
- *     tz: string|null, nearby: [{ id, type, name, lat, lng, dist_m }] }
+ * v2 fixes:
+ *   - Uses resolveMindexServerBaseUrl() so localhost misconfigs auto-
+ *     repair to the LAN VM URL.
+ *   - Hard server-side deadline: 5 s each lookup, 8 s total.
+ *   - Always returns 200 with as much as we have (lat/lng + whatever
+ *     source returned first). Never hangs past the deadline.
+ *   - Client timeout tightened to 10 s (matches server cap).
  */
+
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const MINDEX_BASE =
-  process.env.MINDEX_API_URL ||
-  process.env.NEXT_PUBLIC_MINDEX_API_URL ||
-  "http://192.168.0.189:8000"
+const MINDEX_BASE = resolveMindexServerBaseUrl()
 
 function mindexAuthHeaders(): Record<string, string> {
   const tok = process.env.MINDEX_INTERNAL_TOKEN ||
@@ -35,7 +42,7 @@ function mindexAuthHeaders(): Record<string, string> {
 const DEG_PER_KM = 1 / 111
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000 // m
+  const R = 6371000
   const dLat = ((lat2 - lat1) * Math.PI) / 180
   const dLng = ((lng2 - lng1) * Math.PI) / 180
   const a =
@@ -46,6 +53,17 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
+/**
+ * Race a promise against a hard deadline. Returns the fallback if the
+ * promise doesn't settle in time. Never throws.
+ */
+function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
+
 export async function GET(req: NextRequest) {
   const lat = Number(req.nextUrl.searchParams.get("lat"))
   const lng = Number(req.nextUrl.searchParams.get("lng"))
@@ -54,13 +72,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "lat/lng required" }, { status: 400 })
   }
 
-  // Fire both lookups in parallel so worst-case latency is max(nominatim, mindex)
-  const addrPromise = (async () => {
+  const t0 = Date.now()
+
+  // Nominatim — 4s hard deadline
+  const addrPromise = withDeadline((async () => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=14`
       const res = await fetch(url, {
-        headers: { "User-Agent": "Mycosoft-CREP/1.0" },
-        signal: AbortSignal.timeout(6_000),
+        headers: { "User-Agent": "Mycosoft-CREP/1.0 (https://mycosoft.com)" },
+        signal: AbortSignal.timeout(3_500),
       })
       if (!res.ok) return null
       const j = await res.json()
@@ -71,17 +91,17 @@ export async function GET(req: NextRequest) {
         place: j.address?.city || j.address?.town || j.address?.village || j.address?.hamlet || null,
       }
     } catch { return null }
-  })()
+  })(), 4_000, null as any)
 
-  const nearbyPromise = (async () => {
+  // MINDEX — 5s hard deadline; return [] on any failure.
+  const nearbyPromise = withDeadline((async () => {
     try {
       const pad = radiusKm * DEG_PER_KM
       const bbox = [lng - pad, lat - pad, lng + pad, lat + pad].join(",")
-      // MINDEX earth/bbox — query a handful of most useful entity types.
       const url = `${MINDEX_BASE}/api/v1/earth/bbox?bbox=${bbox}&types=power_plant,substation,cable,tx_line,cell_tower,data_center,camera,species_observation,fire,earthquake,alert&limit=200`
       const res = await fetch(url, {
         headers: { Accept: "application/json", ...mindexAuthHeaders() },
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(4_500),
       })
       if (!res.ok) return []
       const j = await res.json()
@@ -109,9 +129,10 @@ export async function GET(req: NextRequest) {
       nearby.sort((a, b) => a.dist_m - b.dist_m)
       return nearby.slice(0, 30)
     } catch { return [] }
-  })()
+  })(), 5_000, [] as any[])
 
   const [addr, nearby] = await Promise.all([addrPromise, nearbyPromise])
+
   return NextResponse.json({
     lat,
     lng,
@@ -120,6 +141,13 @@ export async function GET(req: NextRequest) {
     place: addr?.place ?? null,
     admin: addr?.admin ?? null,
     country: addr?.country ?? null,
-    nearby,
+    nearby: Array.isArray(nearby) ? nearby : [],
+    // Diagnostics for the widget — surfaces which sources were reached
+    sources: {
+      nominatim: addr ? "ok" : "timeout",
+      mindex: Array.isArray(nearby) && nearby.length ? "ok" : (nearby as any)?.length === 0 ? "empty" : "timeout",
+      mindex_url: MINDEX_BASE,
+    },
+    latency_ms: Date.now() - t0,
   })
 }

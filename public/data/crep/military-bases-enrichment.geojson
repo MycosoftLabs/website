@@ -1,0 +1,316 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2026-04-23T05:00:00Z",
+  "source": "Hand-curated enrichment for major US military installations — Morgan: 'update all military base widgets with more data contact information base commander what branches are at base and way more usable data'. Sources: DoD installation public directories, base public-affairs pages, Wikipedia. This is a PUBLIC-INFO seed — no classified or OPSEC-sensitive fields. Use base public affairs office (PAO) for authoritative commander attribution.",
+  "note": "Supplements public/data/military-bases-us.geojson (TIGER Census boundaries). The CREP InfraAsset panel joins on `id` or normalized `name` to surface commander + branches + contact.",
+  "schema_fields": {
+    "id": "canonical id we use (optional; most entries keyed by normalized name)",
+    "name": "display name (matched against TIGER SITE_NAME when possible)",
+    "aliases": "other names or acronyms users search for",
+    "branches": "array of services stationed there",
+    "primary_component": "singular owning service (Navy/Army/USAF/USMC/USSF/USCG/Joint)",
+    "command": "major command tenant",
+    "commander": "current senior installation commander when known — pull-date included",
+    "pao_phone": "Public Affairs Office phone",
+    "pao_email": "Public Affairs Office email",
+    "website": "official public website",
+    "address": "street address",
+    "commissioned": "year established",
+    "area_acres": "total acreage",
+    "personnel": "approximate total personnel",
+    "notable_tenants": "notable tenant units / agencies",
+    "last_updated": "ISO date this record was verified"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "pentagon",
+        "name": "The Pentagon",
+        "aliases": ["DoD HQ", "OSD"],
+        "branches": ["Army", "Navy", "Air Force", "Marine Corps", "Space Force", "Joint"],
+        "primary_component": "Joint (DoD HQ)",
+        "command": "Office of the Secretary of Defense",
+        "commander": "N/A — civilian leadership; DoD force protection by Pentagon Force Protection Agency",
+        "pao_phone": "+1-703-697-5131",
+        "pao_email": "osd.pentagon.pa.mbx.press@mail.mil",
+        "website": "https://www.defense.gov",
+        "address": "1400 Defense Pentagon, Washington, DC 20301",
+        "commissioned": "1943",
+        "area_acres": 583,
+        "personnel": "~23,000",
+        "notable_tenants": ["OSD", "Joint Chiefs of Staff", "Army HQ", "Navy HQ", "USAF HQ", "USMC HQ"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.0552, 38.8719] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "jb-andrews",
+        "name": "Joint Base Andrews",
+        "aliases": ["Andrews AFB", "JBA", "KADW"],
+        "branches": ["Air Force", "Navy", "Army", "DC ANG"],
+        "primary_component": "Air Force",
+        "command": "Air Force District of Washington",
+        "commander": "Col. Paul R. Pawluk (PAO as of 2025-12; verify current)",
+        "pao_phone": "+1-301-981-4511",
+        "pao_email": "jbandrews.pao@us.af.mil",
+        "website": "https://www.andrews.af.mil",
+        "address": "1500 W Perimeter Rd, Joint Base Andrews, MD 20762",
+        "commissioned": "1943 (as Camp Springs AAF)",
+        "area_acres": 4320,
+        "personnel": "~17,000",
+        "notable_tenants": ["89th Airlift Wing (Air Force One support)", "11th Wing", "DC ANG 113th Wing"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-76.867, 38.8105] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "jb-anacostia-bolling",
+        "name": "Joint Base Anacostia-Bolling",
+        "aliases": ["JBAB", "Bolling AFB"],
+        "branches": ["Air Force", "Navy", "Marine Corps"],
+        "primary_component": "Air Force (Air Force District of Washington)",
+        "command": "AFDW",
+        "pao_phone": "+1-202-767-5081",
+        "pao_email": "jbab.pa@us.af.mil",
+        "website": "https://www.jbab.jb.mil",
+        "address": "50 Kelly Dr SW, Washington, DC 20032",
+        "commissioned": "2010 (BRAC joint base)",
+        "personnel": "~19,000",
+        "notable_tenants": ["DIA HQ", "Bolling AFB flying unit", "HQ Marine Corps"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.019, 38.8459] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ft-meade",
+        "name": "Fort George G. Meade",
+        "aliases": ["Ft Meade", "FTM"],
+        "branches": ["Army", "Navy", "USAF", "USMC", "Joint", "NSA", "USCYBERCOM"],
+        "primary_component": "Army",
+        "command": "US Army Installation Management Command",
+        "pao_phone": "+1-301-677-1360",
+        "pao_email": "usarmy.meade.imcom-atlantic.list.pao@mail.mil",
+        "website": "https://home.army.mil/meade",
+        "address": "4551 Llewellyn Ave, Fort Meade, MD 20755",
+        "commissioned": "1917",
+        "area_acres": 5400,
+        "personnel": "~53,000 (incl. NSA + Cyber Command)",
+        "notable_tenants": ["NSA HQ", "US Cyber Command", "DISA HQ", "704th Military Intelligence Brigade", "DINFOS"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-76.741, 39.1083] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "walter-reed-nmmc",
+        "name": "Walter Reed National Military Medical Center",
+        "aliases": ["Walter Reed", "WRNMMC", "Bethesda Naval Hospital"],
+        "branches": ["Navy", "Army", "Air Force", "Joint"],
+        "primary_component": "Navy (DHA tertiary care)",
+        "command": "Defense Health Agency",
+        "pao_phone": "+1-301-295-1803",
+        "website": "https://walterreed.tricare.mil",
+        "address": "8901 Rockville Pike, Bethesda, MD 20889",
+        "commissioned": "2011 (merged Walter Reed AMC + NNMC Bethesda)",
+        "personnel": "~7,100",
+        "notable_tenants": ["Presidential medical care", "Uniformed Services University (USUHS)", "DHA"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.0919, 38.996] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "arlington-cemetery",
+        "name": "Arlington National Cemetery",
+        "aliases": ["ANC"],
+        "branches": ["Army"],
+        "primary_component": "Army (Office of Army Cemeteries)",
+        "command": "DASA-CMA",
+        "pao_phone": "+1-877-907-8585",
+        "website": "https://www.arlingtoncemetery.mil",
+        "address": "1 Memorial Ave, Arlington, VA 22211",
+        "commissioned": "1864",
+        "area_acres": 639,
+        "notable_tenants": ["Tomb of the Unknown Soldier", "The Old Guard (3rd US Infantry Regiment)"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.0727, 38.8783] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ft-myer",
+        "name": "Joint Base Myer-Henderson Hall",
+        "aliases": ["Ft Myer", "JBM-HH"],
+        "branches": ["Army", "Marine Corps"],
+        "primary_component": "Army",
+        "command": "Military District of Washington",
+        "pao_phone": "+1-703-696-3250",
+        "website": "https://home.army.mil/jbmhh",
+        "address": "201 Custer Rd, Fort Myer, VA 22211",
+        "personnel": "~6,000",
+        "notable_tenants": ["The Old Guard", "US Army Band 'Pershing's Own'", "HQ Marine Corps garrison"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.084, 38.8815] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "cia-hq",
+        "name": "CIA Headquarters (George Bush Center)",
+        "aliases": ["Langley", "CIA"],
+        "branches": ["IC — Central Intelligence Agency"],
+        "primary_component": "Civilian (IC)",
+        "command": "Office of the Director of National Intelligence (coordinating)",
+        "pao_phone": "+1-703-482-0623",
+        "website": "https://www.cia.gov",
+        "address": "1000 Colonial Farm Rd, McLean, VA 22101",
+        "commissioned": "1961",
+        "area_acres": 258,
+        "notable_tenants": ["Office of the Director", "Directorate of Operations", "Directorate of Analysis"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.1477, 38.9517] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "quantico",
+        "name": "Marine Corps Base Quantico",
+        "aliases": ["MCB Quantico", "Quantico"],
+        "branches": ["Marine Corps", "FBI Academy", "DEA Academy"],
+        "primary_component": "Marine Corps",
+        "command": "Marine Corps Installations Command",
+        "pao_phone": "+1-703-432-0098",
+        "website": "https://www.quantico.marines.mil",
+        "address": "3250 Catlin Ave, Quantico, VA 22134",
+        "area_acres": 55000,
+        "personnel": "~27,000",
+        "notable_tenants": ["MCRD OCS", "FBI Academy", "FBI Laboratory", "DEA Training Academy", "TBS"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.3086, 38.522] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ft-belvoir",
+        "name": "Fort Belvoir",
+        "aliases": ["Belvoir"],
+        "branches": ["Army", "IC — NGA"],
+        "primary_component": "Army",
+        "command": "Installation Management Command",
+        "pao_phone": "+1-703-805-3030",
+        "website": "https://home.army.mil/belvoir",
+        "address": "9820 Flagler Rd, Fort Belvoir, VA 22060",
+        "area_acres": 8656,
+        "personnel": "~45,000",
+        "notable_tenants": ["NGA HQ", "Army INSCOM", "DLA HQ", "Fort Belvoir Community Hospital"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.145, 38.7075] }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "naval-base-san-diego",
+        "name": "Naval Base San Diego",
+        "aliases": ["NBSD", "32nd Street Naval Station"],
+        "branches": ["Navy"],
+        "primary_component": "Navy",
+        "command": "Naval Region Southwest / US Pacific Fleet",
+        "pao_phone": "+1-619-556-1220",
+        "pao_email": "navybasesandiego.fct@navy.mil",
+        "website": "https://cnrsw.cnic.navy.mil",
+        "address": "3455 Senn St, San Diego, CA 92136",
+        "commissioned": "1922",
+        "area_acres": 977,
+        "personnel": "~47,000",
+        "notable_tenants": ["Naval Surface Force US Pacific Fleet HQ", "Carrier Strike Group 11", "54 Navy ships homeported"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.1211, 32.6836] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "naval-air-station-north-island",
+        "name": "Naval Air Station North Island",
+        "aliases": ["NAS North Island", "NASNI"],
+        "branches": ["Navy"],
+        "primary_component": "Navy",
+        "command": "Naval Base Coronado",
+        "pao_phone": "+1-619-545-8167",
+        "website": "https://cnrsw.cnic.navy.mil",
+        "address": "Naval Air Station North Island, Coronado, CA 92135",
+        "notable_tenants": ["Commander Naval Air Forces", "CNAP HQ", "USS Theodore Roosevelt (when homeported)"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.1953, 32.6986] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "mcas-miramar",
+        "name": "Marine Corps Air Station Miramar",
+        "aliases": ["MCAS Miramar", "Miramar"],
+        "branches": ["Marine Corps"],
+        "primary_component": "Marine Corps",
+        "command": "3rd Marine Aircraft Wing",
+        "pao_phone": "+1-858-577-1011",
+        "website": "https://www.mcasmiramar.marines.mil",
+        "address": "MCAS Miramar, San Diego, CA 92145",
+        "personnel": "~12,000",
+        "notable_tenants": ["3rd Marine Aircraft Wing HQ", "VMFA-122", "VMFA-314", "MALS-11", "MAG-11", "MAG-16"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.1436, 32.8686] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "camp-pendleton",
+        "name": "Marine Corps Base Camp Pendleton",
+        "aliases": ["MCB Camp Pendleton", "Pendleton"],
+        "branches": ["Marine Corps"],
+        "primary_component": "Marine Corps",
+        "command": "Marine Corps Installations West",
+        "pao_phone": "+1-760-725-5061",
+        "website": "https://www.pendleton.marines.mil",
+        "address": "Marine Corps Base Camp Pendleton, CA 92055",
+        "area_acres": 125000,
+        "personnel": "~70,000",
+        "notable_tenants": ["I Marine Expeditionary Force HQ", "1st Marine Division", "MCIWEST HQ"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.4022, 33.3872] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "naval-amphibious-base-coronado",
+        "name": "Naval Amphibious Base Coronado",
+        "aliases": ["NAB Coronado"],
+        "branches": ["Navy"],
+        "primary_component": "Navy",
+        "command": "Naval Base Coronado",
+        "pao_phone": "+1-619-437-2735",
+        "address": "Naval Amphibious Base Coronado, CA 92155",
+        "notable_tenants": ["Naval Special Warfare Center (BUD/S)", "Naval Special Warfare Group 1", "Expeditionary Combat Command"],
+        "last_updated": "2026-04-23"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.158, 32.6767] }
+    }
+  ]
+}
