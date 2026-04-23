@@ -454,6 +454,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -725,6 +726,8 @@ All notable changes to this project will be documented in this file.
 - Live transit layer + force LAN MINDEX on server (fix empty map) (#109)
 - 15-metro US coverage bake (11 categories each) (#110)
 - *(transit,worldview)* Route self-fetch through localhost to dodge Cloudflare loop (#112)
+- *(transit)* Correct Metrolink + DART feed URLs (both require API keys) (#113)
+- *(eagle)* NYSDOT upstream-offline banner (511ny.org returning 302→NotFound) (#114)
 
 ### Diag
 
