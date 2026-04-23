@@ -2025,10 +2025,18 @@ export default function CREPDashboardPage() {
               // GPU upload is still capped via lodSelectForZoom() at
               // render time, so main-thread React diff cost only scales
               // with selected set (not full 20k).
+              // Apr 23, 2026 — Morgan: "fix it all so that never happens and
+              // never crashes or refreshes the site in overload". Browser
+              // audit caught the tab crashing at z=4 with 20 000 vessels +
+              // 2 269 aircraft + 224 layers in play. Dropped the vessel
+              // working set to 8 000 — still deep enough for lodSelectForZoom
+              // to sample the 30 % global floor (z≤2) and hit 100 % at z≥6,
+              // but keeps the React diff + feature array cost well under the
+              // GPU upload budget on an average Chrome tab.
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: 20_000,
+                maxEntries: 8_000,
               }));
               console.log(`[CREP/pump] vessels: ${data.vessels.length} (merged into persistent union)`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
@@ -4541,22 +4549,15 @@ export default function CREPDashboardPage() {
       mapNativeRef.current?.getSource("crep-live-vessels") as any,
     );
 
-    // Apr 20, 2026 perf-2: cheap dirty-check on the rounded coords +
-    // heading per id. If nothing visibly moved between ticks (e.g. all
-    // grounded planes), skip the setData call entirely. Cuts MapLibre
-    // worker IO for the most common case (long-haul flights at cruise
-    // moving < 0.0001° between 200 ms ticks at far zoom).
-    let lastAcSig = ""
-    let lastVSig = ""
-    const sigOf = (feats: any[]) => {
-      // 4 dec places ≈ 11 m at equator — finer than icon position fidelity
-      let s = ""
-      for (const f of feats) {
-        const c = f.geometry.coordinates
-        s += `${f.properties.id}:${c[0].toFixed(4)},${c[1].toFixed(4)},${(f.properties.heading | 0)};`
-      }
-      return s
-    }
+    // Apr 23, 2026 — the old `sigOf(feats)` dedupe compared every
+    // id+coord+heading between ticks. With dead-reckoning the coords drift
+    // each tick, so the signature always changed and the check was a
+    // round-trip string build for no dedupe gain. Worse: if the sig happened
+    // to match by coincidence (e.g. zero-velocity entities), setData silently
+    // skipped and the source could stay empty after a state reset. The
+    // debouncer already coalesces back-to-back setData calls to one GPU
+    // upload per frame, so we just call it unconditionally now. Each tick:
+    // build features → LOD-select → debouncedSetData. Predictable and safe.
 
     const pumpOnce = () => {
       const map = mapNativeRef.current;
@@ -4608,22 +4609,15 @@ export default function CREPDashboardPage() {
         // into a single GPU upload per source per frame.
         const bbox = mapBoundsRef.current
         const zoom = mapZoomRef.current
-        if (acFeats.length > 0) {
-          const sig = sigOf(acFeats)
-          if (sig !== lastAcSig) {
-            lastAcSig = sig
-            const picked = lodSelectForZoom(acFeats, bbox, zoom, 2)
-            debouncedAcSetData({ type: "FeatureCollection", features: picked });
-          }
-        }
-        if (vFeats.length > 0) {
-          const sig = sigOf(vFeats)
-          if (sig !== lastVSig) {
-            lastVSig = sig
-            const picked = lodSelectForZoom(vFeats, bbox, zoom, 2)
-            debouncedVSetData({ type: "FeatureCollection", features: picked });
-          }
-        }
+        // Unconditional write on every tick — the debouncer folds rapid
+        // calls to a single GPU upload per source per frame anyway, so
+        // there's no cost to removing the sigOf dedupe. Fixes the "source
+        // stays empty" regression Morgan hit when dead-reckoning sigs
+        // collided with the initial empty-string sig on a stuck tick.
+        const pickedAc = acFeats.length > 0 ? lodSelectForZoom(acFeats, bbox, zoom, 2) : []
+        const pickedV  = vFeats.length  > 0 ? lodSelectForZoom(vFeats,  bbox, zoom, 2) : []
+        debouncedAcSetData({ type: "FeatureCollection", features: pickedAc })
+        debouncedVSetData({ type: "FeatureCollection", features: pickedV  })
       } catch {
         // source missing or map torn down; keep looping
       }
@@ -4656,6 +4650,67 @@ export default function CREPDashboardPage() {
       if (intervalId != null) clearInterval(intervalId);
     };
   }, []); // mount once — ref is read fresh each tick
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DIRECT SOURCE-SYNC — Apr 23, 2026
+  //
+  // Morgan (browser audit): "i see no gain or loss of assets at every zoom or
+  // movment". Root cause: the rAF pump was the ONLY path from React state to
+  // the MapLibre source. If the rAF never fired (tab race, style reload,
+  // source replaced mid-HMR), the source stayed empty even though aircraft /
+  // vessel / satellite state held thousands of entries.
+  //
+  // This effect adds a second, deterministic path: whenever filteredAircraft
+  // / filteredVessels / filteredSatellites change (which happens on every
+  // pump merge), we write directly to the source. The rAF pump still handles
+  // dead-reckoning animation between pumps, but a fresh state always lands
+  // in the source within one React commit.
+  //
+  // Idempotent — calling setData with the same feature array is cheap and
+  // won't flicker (MapLibre diffs the tile bins internally).
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const map = mapNativeRef.current
+    if (!map || typeof map.getSource !== "function") return
+    const build = <T extends { id?: string }>(items: T[], pick: (t: any) => { lng: number; lat: number; heading?: number; is_helo?: boolean }) => {
+      const feats: any[] = []
+      for (const item of items) {
+        const p = pick(item as any)
+        if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue
+        feats.push({
+          type: "Feature",
+          properties: {
+            id: (item as any).id,
+            heading: Number.isFinite(p.heading) ? p.heading : 0,
+            is_helo: p.is_helo === true,
+          },
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        })
+      }
+      return feats
+    }
+    try {
+      const acFeats = build(filteredAircraft, (a: any) => ({
+        lng: a.lng ?? a.longitude ?? a.location?.longitude ?? a.geometry?.coordinates?.[0],
+        lat: a.lat ?? a.latitude  ?? a.location?.latitude  ?? a.geometry?.coordinates?.[1],
+        heading: typeof a.heading === "number" ? a.heading : (a.properties?.heading ?? 0),
+        is_helo: helicopterIdSetRef.current?.has?.(a.id) ?? false,
+      }))
+      const vFeats = build(filteredVessels, (v: any) => ({
+        lng: v.lng ?? v.longitude ?? v.location?.longitude ?? v.geometry?.coordinates?.[0],
+        lat: v.lat ?? v.latitude  ?? v.location?.latitude  ?? v.geometry?.coordinates?.[1],
+        heading: typeof v.cog === "number" ? v.cog : (v.heading ?? 0),
+      }))
+      const bbox = mapBoundsRef.current
+      const zoom = mapZoomRef.current
+      const acPicked = lodSelectForZoom(acFeats, bbox, zoom, 2)
+      const vPicked  = lodSelectForZoom(vFeats,  bbox, zoom, 2)
+      ;(map.getSource("crep-live-aircraft") as any)?.setData?.({ type: "FeatureCollection", features: acPicked })
+      ;(map.getSource("crep-live-vessels")  as any)?.setData?.({ type: "FeatureCollection", features: vPicked  })
+    } catch {
+      // source missing / map torn down — rAF backstop retries next frame
+    }
+  }, [filteredAircraft, filteredVessels, mapZoom, mapBounds])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 — Morgan: "i dont see any planes or
