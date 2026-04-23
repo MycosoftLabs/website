@@ -2425,6 +2425,12 @@ export default function CREPDashboardPage() {
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud. OFF by default: rendering 1.2M deck.gl points + everything else crashes the browser. Enable explicitly when the orbital debris view is the focus." },
     { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) — 22,760 lines. Apr 22 2026 flipped ON per Morgan — served via PMTiles so only viewport tiles hit heap." },
     { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — 52,244 lines incl. 69/115/138/230 kV feeders. Apr 22 2026 flipped ON per Morgan — PMTiles path only. If prod shows OOM, switch back to PMTiles-only fallback (static-infra-loader handles mode selection)." },
+    // Apr 22, 2026 — Morgan: "example i see a substation with no line to
+    // it that doesnt make sense ... THIS NEEDS TO BE FIXED ACROSS ALL
+    // INFRA GLOBALLY". HIFLD only carries ≥115 kV; this layer fills the
+    // ≤115 kV sub-transmission gap from OSM (baked weekly via GHA cron).
+    // Dashed lines differentiate community OSM from authoritative HIFLD.
+    { id: "txLinesSub", name: "Sub-Transmission (OSM)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.65, color: "#f97316", description: "OSM community-mapped sub-transmission lines (≤115 kV). Fills the 69/34.5 kV feeder gap HIFLD misses — Loveland, Jamacha, Otay, Chula Vista etc. Dashed rendering. Rebuilt weekly by the OSM harvester (bake-osm-sub-transmission.mjs)." },
     { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally). Apr 22 2026 flipped ON per Morgan — bbox-scoped so viewport-relevant only." },
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan — viewport-scoped tile render only keeps wide-area OOM at bay." },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
@@ -7134,6 +7140,91 @@ export default function CREPDashboardPage() {
                   setInfraTransmissionLines(features as any);
                   console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre (${label})`);
                 };
+
+                // ════════════════════════════════════════════════════════
+                // OSM SUB-TRANSMISSION — Apr 22, 2026.
+                // Morgan flagged Loveland / Jamacha / Otay / Chula Vista
+                // substations showing with no connecting lines because
+                // HIFLD only carries ≥115 kV. OSM has the sub-transmission
+                // feeders (69 kV) and this layer surfaces them as DASHED
+                // lines (so users see provenance differs from HIFLD solid).
+                // File is baked by scripts/etl/crep/bake-osm-sub-
+                // transmission.mjs and refreshed weekly by GHA cron.
+                // ════════════════════════════════════════════════════════
+                idleLoad(async () => {
+                  const subTxOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesSub")?.enabled ?? true
+                  if (!subTxOn) { console.log("[CREP/Static] sub-transmission disabled"); return }
+                  try {
+                    const res = await fetch("/data/crep/transmission-lines-sub-transmission.geojson", { cache: "default" })
+                    if (!res.ok) {
+                      console.log("[CREP/Static] sub-transmission geojson not baked yet — falling back to HIFLD-only")
+                      return
+                    }
+                    const gj = await res.json()
+                    const features = (gj.features || []).map((f: any, i: number) => ({
+                      type: "Feature" as const,
+                      properties: {
+                        id: f.properties?.id || `osm-subtx-${i}`,
+                        name: f.properties?.n ?? "Sub-transmission line",
+                        operator: f.properties?.op,
+                        voltage_kv: Math.round((f.properties?.v ?? 0) / 1000),
+                        voltage_class: f.properties?.v_class || "unknown",
+                        status: "Active",
+                        source: "osm-subtransmission",
+                      },
+                      geometry: f.geometry,
+                    }))
+                    if (features.length && mapReady()) {
+                      safeAddSource("crep-txlines-sub", { type: "geojson", data: { type: "FeatureCollection", features } })
+                      safeAddLayer({
+                        id: "crep-txlines-sub-line", type: "line", source: "crep-txlines-sub",
+                        paint: {
+                          "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                            0,  "#6b7280",  // unknown / distribution — cool gray
+                            31, "#f97316",  // 31-69 kV MV — orange
+                            69, "#eab308",  // 69-115 kV MV — amber
+                            115, "#f43f5e"],// 115+ (if OSM tagged but HIFLD missed) — rose
+                          "line-width": ["interpolate", ["linear"], ["zoom"],
+                            4, 0.6, 8, 1.2, 12, 2.0],
+                          "line-opacity": 0.65,
+                          // DASHED pattern differentiates OSM sub-transmission
+                          // from the solid HIFLD backbone.
+                          "line-dasharray": [2, 1.5],
+                        },
+                        // minzoom 5 — sub-transmission is irrelevant at
+                        // world view and would obscure the HIFLD backbone.
+                        minzoom: 5,
+                      })
+                      // Click popup — shows voltage + operator
+                      map.on("click", "crep-txlines-sub-line", (e: any) => {
+                        const f = e.features?.[0]
+                        if (!f) return
+                        const p = f.properties || {}
+                        const hook = (window as any).__crep_selectAsset
+                        if (typeof hook === "function") {
+                          hook({
+                            type: "transmission_line_sub",
+                            id: p.id,
+                            name: p.name,
+                            lat: e.lngLat?.lat,
+                            lng: e.lngLat?.lng,
+                            properties: {
+                              voltage_kv: p.voltage_kv,
+                              voltage_class: p.voltage_class,
+                              operator: p.operator,
+                              source: "OSM sub-transmission (community-mapped)",
+                            },
+                          })
+                        }
+                      })
+                      map.on("mouseenter", "crep-txlines-sub-line", () => { map.getCanvas().style.cursor = "pointer" })
+                      map.on("mouseleave", "crep-txlines-sub-line", () => { map.getCanvas().style.cursor = "" })
+                      console.log(`[CREP/Static] ${features.length} OSM sub-transmission lines rendered (dashed, zoom>=5)`)
+                    }
+                  } catch (e) {
+                    console.warn("[CREP/Static] sub-transmission load failed:", (e as Error)?.message)
+                  }
+                })
 
                 // ════════════════════════════════════════════════════════
                 // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV.
