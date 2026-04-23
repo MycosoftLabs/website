@@ -96,7 +96,15 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "6h", minSeverity: "high", maxRendered: 500 },
     movers: { aircraft: 300, vessels: 100, satellites: 500, bboxFilter: false },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 2000 },
-    nature: { timeWindow: "7d", qualityGrade: "research", maxRendered: 300 },
+    // Apr 23, 2026 — Morgan: "green dots not selectable, masking cells".
+    // Nature is DOM-marker rendered (FungalMarker → maplibregl.Marker per
+    // observation). >~1500 markers pins the main thread creating/updating
+    // DOM nodes long enough that MapLibre WebGL tile paints starve (a
+    // browser tab check found 4 515 markers at city zoom, with literally
+    // 0 rendered features from any other layer because the main thread
+    // was busy). Per-tier caps here bound DOM marker count; spatial grid
+    // sampling downstream still distributes them evenly.
+    nature: { timeWindow: "7d", qualityGrade: "research", maxRendered: 200 },
   },
   // ─── Continent view: last day, medium+ severity ─────────────────────
   {
@@ -105,7 +113,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "24h", minSeverity: "medium", maxRendered: 1500 },
     movers: { aircraft: 1000, vessels: 500, satellites: 2000, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 5000 },
-    nature: { timeWindow: "30d", qualityGrade: "research", maxRendered: 1000 },
+    nature: { timeWindow: "30d", qualityGrade: "research", maxRendered: 400 },
   },
   // ─── Region view: last week, low severity, MINDEX kicks in ──────────
   {
@@ -114,7 +122,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "7d", minSeverity: "low", maxRendered: 3000 },
     movers: { aircraft: 3000, vessels: 2000, satellites: 5000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
-    nature: { timeWindow: "1y", qualityGrade: "research", maxRendered: 3000 },
+    nature: { timeWindow: "1y", qualityGrade: "research", maxRendered: 600 },
   },
   // ─── State/metro view: last month, all severity, full infra ────────
   {
@@ -123,7 +131,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 6000 },
     movers: { aircraft: 8000, vessels: 5000, satellites: 15000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
-    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 8000 },
+    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 900 },
   },
   // ─── City view: last 6 months, historical nature kicks in ──────────
   {
@@ -132,7 +140,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "6m", minSeverity: "info", maxRendered: 10000 },
     movers: { aircraft: 15000, vessels: 10000, satellites: 20000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 60000 },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 20000 },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 1500 },
   },
   // ─── Street view: everything in bbox, uncapped ─────────────────────
   {
@@ -141,7 +149,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "all", minSeverity: "info", maxRendered: 50000 },
     movers: { aircraft: 50000, vessels: 50000, satellites: 50000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: Infinity },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 100000 },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 2500 },
   },
 ]
 
