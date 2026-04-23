@@ -154,7 +154,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         // (Surfline / HPWREN / Scripps / NOAA / EarthCam / Skyline /
         // CBP refs / NPS / Border Field / Port of SD). Manual seed wins
         // on id conflict so curated metadata overrides stale bakes.
-        const [rReg, rSeed, rNycDc] = await Promise.all([
+        const [rReg, rSeed, rNycDc, rVegas] = await Promise.all([
           fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
@@ -162,6 +162,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           // EarthCam landmarks, VDOT 511, MDOT CHART, White House/Capitol
           // viewers, NOAA tide/buoy refs).
           fetch("/data/crep/eagle-cameras-nyc-dc-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          // Apr 23, 2026 — Morgan (going to Vegas): "i want massive extra
+          // las vegas data icons real live on the las vegas strip and
+          // fremont street". Curated seed of EarthCam + YouTube Live
+          // channels for the Strip, Fremont, Bellagio fountains, Sphere,
+          // Hoover Dam, Lake Mead, Red Rock Canyon, Harry Reid airport,
+          // City Hall live stream, NDOT traffic cams on I-15/US-95/I-215.
+          fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
         ])
         const projFeat = (f: any) => ({
           id: f?.properties?.id,
@@ -178,6 +185,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
         const seedFeats  = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
         const nycDcFeats = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
+        const vegasFeats = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
         const merged = new Map<string, any>()
         for (const f of bakedFeats) {
           const p = projFeat(f)
@@ -191,6 +199,10 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           const p = projFeat(f)
           if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
         }
+        for (const f of vegasFeats) {
+          const p = projFeat(f)
+          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+        }
         const srcLike = Array.from(merged.values())
         const fc = paintFromSources(srcLike)
         if (fc.features.length === 0) return false
@@ -199,7 +211,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(fc)
         }
-        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} nyc-dc=${nycDcFeats.length})`)
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length})`)
         return true
       } catch (e: any) {
         console.warn("[EagleEye] baked registry load failed:", e?.message)
