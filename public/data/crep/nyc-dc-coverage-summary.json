@@ -1,0 +1,135 @@
+{
+  "generated_at": "2026-04-23T04:04:37.141Z",
+  "regions": {
+    "nyc": {
+      "bbox": [
+        -74.1,
+        40.55,
+        -73.7,
+        40.92
+      ],
+      "layers": {
+        "hospitals": {
+          "file": "nyc-hospitals.geojson",
+          "count": 612,
+          "bytes": 373171
+        },
+        "police": {
+          "file": "nyc-police.geojson",
+          "count": 253,
+          "bytes": 126415
+        },
+        "sewage": {
+          "file": "nyc-sewage.geojson",
+          "count": 1,
+          "bytes": 579
+        },
+        "cell-towers": {
+          "file": "nyc-cell-towers.geojson",
+          "count": 478,
+          "bytes": 167160
+        },
+        "am-fm-antennas": {
+          "file": "nyc-am-fm-antennas.geojson",
+          "count": 2,
+          "bytes": 787
+        },
+        "military": {
+          "file": "nyc-military.geojson",
+          "count": 25,
+          "bytes": 10261
+        },
+        "data-centers": {
+          "file": "nyc-data-centers.geojson",
+          "count": 38,
+          "bytes": 20739
+        },
+        "transit-subway": {
+          "file": "nyc-transit-subway.geojson",
+          "count": 557,
+          "bytes": 417603
+        },
+        "transit-rail": {
+          "file": "nyc-transit-rail.geojson",
+          "count": 578,
+          "bytes": 430224
+        },
+        "airports": {
+          "file": "nyc-airports.geojson",
+          "count": 5,
+          "bytes": 2643
+        },
+        "govt-embassy": {
+          "file": "nyc-govt-embassy.geojson",
+          "count": 179,
+          "bytes": 147377
+        }
+      }
+    },
+    "dc": {
+      "bbox": [
+        -77.3,
+        38.7,
+        -76.8,
+        39.1
+      ],
+      "layers": {
+        "hospitals": {
+          "file": "dc-hospitals.geojson",
+          "count": 152,
+          "bytes": 95956
+        },
+        "police": {
+          "file": "dc-police.geojson",
+          "count": 117,
+          "bytes": 58822
+        },
+        "sewage": {
+          "file": "dc-sewage.geojson",
+          "count": 1,
+          "bytes": 908
+        },
+        "cell-towers": {
+          "file": "dc-cell-towers.geojson",
+          "count": 530,
+          "bytes": 192940
+        },
+        "am-fm-antennas": {
+          "file": "dc-am-fm-antennas.geojson",
+          "count": 25,
+          "bytes": 8741
+        },
+        "military": {
+          "file": "dc-military.geojson",
+          "count": 86,
+          "bytes": 41745
+        },
+        "data-centers": {
+          "file": "dc-data-centers.geojson",
+          "count": 22,
+          "bytes": 11377
+        },
+        "transit-subway": {
+          "file": "dc-transit-subway.geojson",
+          "count": 120,
+          "bytes": 115461
+        },
+        "transit-rail": {
+          "file": "dc-transit-rail.geojson",
+          "count": 120,
+          "bytes": 115219
+        },
+        "airports": {
+          "file": "dc-airports.geojson",
+          "count": 1,
+          "bytes": 719
+        },
+        "govt-embassy": {
+          "file": "dc-govt-embassy.geojson",
+          "count": 82,
+          "bytes": 109780
+        }
+      }
+    }
+  }
+}

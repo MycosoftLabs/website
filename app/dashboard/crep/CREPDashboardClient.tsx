@@ -305,6 +305,11 @@ import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // data centers) that fill the gap HIFLD + global cell-towers-global
 // didn't cover. Baked by scripts/etl/crep/bake-sdtj-coverage.mjs.
 import SdtjCoverageLayer from "@/components/crep/layers/sdtj-coverage-layer";
+// Apr 23, 2026 — Project NYC + Project DC expansion (Morgan: "massive
+// amount of missing data ... cameras cell towers all environmental
+// sensors ... fly to and layers of details perimeters and special icon
+// locations for dc and new york"). Parallel to Oyster / Goffs pattern.
+import ProjectNycDcLayer from "@/components/crep/layers/project-nyc-dc-layer";
 // Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
@@ -2460,6 +2465,36 @@ export default function CREPDashboardPage() {
     { id: "sdtjAmFmAntennas", name: "AM/FM / TV antennas (SD/TJ)",    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + tower:type=broadcast (84 points). AM/FM radio + TV transmit antennas not in the global datacenter set." },
     { id: "sdtjMilitary",     name: "Military installations (OSM)",   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* boundaries and landuse=military polygons (229 features). Covers US Navy + USMC + Army + the Mexican SEDENA side of the border. Supplements the existing Navy base overlay with smaller depots/guard stations." },
     { id: "sdtjDataCenters",  name: "Data Centers (SD/TJ detail)",    category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center + building=data_center (13 points). Complements the global data-centers file with carrier-hotel details." },
+
+    // Apr 23, 2026 — Project NYC (Morgan: "massive amount of missing data
+    // ... fly to and layers of details perimeters and special icon locations
+    // for dc and new york"). 11 OSM-baked regional layers + project anchor.
+    { id: "projectNyc",         name: "Project NYC — anchor + perimeter",  category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT Project NYC anchor + 5-borough perimeter + landmark POIs (Times Sq, Central Park, WTC, etc). Fly to with __crep_flyTo('project-nyc')." },
+    { id: "nycHospitals",       name: "NYC — Hospitals",                   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped NYC 5-borough + NJ approach hospitals + clinics (~400)." },
+    { id: "nycPolice",          name: "NYC — Police / Fire",               category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "NYPD + FDNY precincts + firehouses (OSM)." },
+    { id: "nycSewage",          name: "NYC — Sewage Works",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "NYC DEP wastewater treatment plants (Newtown Creek etc.)." },
+    { id: "nycCellTowers",      name: "NYC — Cell Towers (detail)",        category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast across NYC." },
+    { id: "nycAmFmAntennas",    name: "NYC — AM/FM / TV antennas",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + broadcast tower." },
+    { id: "nycMilitary",        name: "NYC — Military installations",      category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* NYC bbox (Army Reserves, USCG, Ft Hamilton etc.)." },
+    { id: "nycDataCenters",     name: "NYC — Data Centers",                category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center NYC detail (60 Hudson, 111 8th, 325 Hudson etc.)." },
+    { id: "nycTransitSubway",   name: "NYC — Subway Stations",             category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "MTA NYC subway stations (all lines)." },
+    { id: "nycTransitRail",     name: "NYC — Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
+    { id: "nycAirports",        name: "NYC — Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
+    { id: "nycGovtEmbassy",     name: "NYC — Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
+
+    // Project DC
+    { id: "projectDc",          name: "Project DC — anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
+    { id: "dcHospitals",        name: "DC — Hospitals",                    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals DC + Arlington + Bethesda + Walter Reed (152 features)." },
+    { id: "dcPolice",           name: "DC — Police / Fire / USSS",         category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "MPD + USSS + Capitol Police + AFD + Arlington County fire (117 points)." },
+    { id: "dcSewage",           name: "DC — Sewage Works",                 category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "DC Water + regional WW treatment (Blue Plains etc.)." },
+    { id: "dcCellTowers",       name: "DC — Cell Towers (detail)",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "530 OSM comms towers + masts across the NCR." },
+    { id: "dcAmFmAntennas",     name: "DC — AM/FM / TV antennas",          category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas (25 points)." },
+    { id: "dcMilitary",         name: "DC — Military installations",       category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* — Pentagon, Ft Myer, JB Andrews, Ft Meade, Ft Belvoir, Walter Reed, NSA (86 features)." },
+    { id: "dcDataCenters",      name: "DC — Data Centers",                 category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Ashburn cluster + NoVA + DC proper." },
+    { id: "dcTransitSubway",    name: "DC — WMATA Metro Stations",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "WMATA Metrorail (all lines)." },
+    { id: "dcTransitRail",      name: "DC — Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
+    { id: "dcAirports",         name: "DC — Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
+    { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
@@ -8887,6 +8922,40 @@ export default function CREPDashboardPage() {
               sdtjAmFmAntennas: layers.find(l => l.id === "sdtjAmFmAntennas")?.enabled ?? true,
               sdtjMilitary:     layers.find(l => l.id === "sdtjMilitary")?.enabled     ?? true,
               sdtjDataCenters:  layers.find(l => l.id === "sdtjDataCenters")?.enabled  ?? true,
+            }}
+          />
+          {/* Apr 23, 2026 — Project NYC + Project DC layers (anchor +
+              perimeter + 11 regional OSM layers per region). Morgan:
+              "massive amount of missing data from ... whitehouse and dc
+              ... fly to and layers of details perimeters and special
+              icon locations for dc and new york". */}
+          <ProjectNycDcLayer
+            map={mapRef}
+            enabled={{
+              projectNyc:        layers.find(l => l.id === "projectNyc")?.enabled        ?? true,
+              nycHospitals:      layers.find(l => l.id === "nycHospitals")?.enabled      ?? true,
+              nycPolice:         layers.find(l => l.id === "nycPolice")?.enabled         ?? true,
+              nycSewage:         layers.find(l => l.id === "nycSewage")?.enabled         ?? true,
+              nycCellTowers:     layers.find(l => l.id === "nycCellTowers")?.enabled     ?? true,
+              nycAmFmAntennas:   layers.find(l => l.id === "nycAmFmAntennas")?.enabled   ?? true,
+              nycMilitary:       layers.find(l => l.id === "nycMilitary")?.enabled       ?? true,
+              nycDataCenters:    layers.find(l => l.id === "nycDataCenters")?.enabled    ?? true,
+              nycTransitSubway:  layers.find(l => l.id === "nycTransitSubway")?.enabled  ?? true,
+              nycTransitRail:    layers.find(l => l.id === "nycTransitRail")?.enabled    ?? true,
+              nycAirports:       layers.find(l => l.id === "nycAirports")?.enabled       ?? true,
+              nycGovtEmbassy:    layers.find(l => l.id === "nycGovtEmbassy")?.enabled    ?? true,
+              projectDc:         layers.find(l => l.id === "projectDc")?.enabled         ?? true,
+              dcHospitals:       layers.find(l => l.id === "dcHospitals")?.enabled       ?? true,
+              dcPolice:          layers.find(l => l.id === "dcPolice")?.enabled          ?? true,
+              dcSewage:          layers.find(l => l.id === "dcSewage")?.enabled          ?? true,
+              dcCellTowers:      layers.find(l => l.id === "dcCellTowers")?.enabled      ?? true,
+              dcAmFmAntennas:    layers.find(l => l.id === "dcAmFmAntennas")?.enabled    ?? true,
+              dcMilitary:        layers.find(l => l.id === "dcMilitary")?.enabled        ?? true,
+              dcDataCenters:     layers.find(l => l.id === "dcDataCenters")?.enabled     ?? true,
+              dcTransitSubway:   layers.find(l => l.id === "dcTransitSubway")?.enabled   ?? true,
+              dcTransitRail:     layers.find(l => l.id === "dcTransitRail")?.enabled     ?? true,
+              dcAirports:        layers.find(l => l.id === "dcAirports")?.enabled        ?? true,
+              dcGovtEmbassy:     layers.find(l => l.id === "dcGovtEmbassy")?.enabled     ?? true,
             }}
           />
 

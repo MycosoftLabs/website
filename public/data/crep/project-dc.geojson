@@ -1,0 +1,60 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2026-04-23T04:30:00Z",
+  "source": "Hand-curated Project DC anchor + perimeter + key POIs. Parallel to Project Oyster / Project Goffs / Project NYC. Covers DC + NoVA (Arlington/Alex) + Bethesda/Silver Spring.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "project-dc-anchor",
+        "kind": "project-anchor",
+        "category": "mycosoft-project",
+        "name": "Project DC",
+        "subtitle": "National capital region — White House, Capitol, Pentagon, NGA, IC",
+        "project": "dc",
+        "owner": "MYCOSOFT",
+        "thesis": "Proving CREP to Mil/Gov/IC: centralized, live, multi-domain awareness over the most instrumented 250 sq mi in the world.",
+        "partners": ["VDOT 511", "MDOT CHART", "DDOT", "WMATA", "NPS National Mall", "NOAA", "USGS"],
+        "status": "active",
+        "anchor_lat": 38.8977,
+        "anchor_lng": -77.0365,
+        "fly_to_zoom": 11.5,
+        "icon": "dc"
+      },
+      "geometry": { "type": "Point", "coordinates": [-77.0365, 38.8977] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "project-dc-perimeter",
+        "kind": "project-perimeter",
+        "category": "mycosoft-project",
+        "name": "Project DC — service perimeter",
+        "project": "dc",
+        "thesis": "DC diamond + NoVA (Arlington/Alexandria/Fairfax) + Maryland (Bethesda/Silver Spring/Prince George's County). Pulls in Pentagon, Dulles, Reagan National, Joint Base Andrews approach."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-77.30, 38.72], [-76.80, 38.72], [-76.80, 39.05], [-77.10, 39.12],
+          [-77.30, 39.05], [-77.30, 38.72]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "id": "poi-dc-white-house",       "kind": "project-poi", "category": "government", "project": "dc", "name": "The White House" },                        "geometry": { "type": "Point", "coordinates": [-77.0365, 38.8977] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-us-capitol",        "kind": "project-poi", "category": "government", "project": "dc", "name": "US Capitol" },                             "geometry": { "type": "Point", "coordinates": [-77.0091, 38.8899] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-supreme-court",     "kind": "project-poi", "category": "government", "project": "dc", "name": "Supreme Court" },                          "geometry": { "type": "Point", "coordinates": [-77.0044, 38.8906] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-pentagon",          "kind": "project-poi", "category": "military",   "project": "dc", "name": "The Pentagon" },                           "geometry": { "type": "Point", "coordinates": [-77.0552, 38.8719] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-washington-monument","kind": "project-poi","category": "landmark",    "project": "dc", "name": "Washington Monument" },                   "geometry": { "type": "Point", "coordinates": [-77.0353, 38.8895] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-lincoln-memorial",  "kind": "project-poi", "category": "landmark",   "project": "dc", "name": "Lincoln Memorial" },                       "geometry": { "type": "Point", "coordinates": [-77.0502, 38.8893] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-arlington-cemetery","kind": "project-poi", "category": "military",   "project": "dc", "name": "Arlington National Cemetery" },            "geometry": { "type": "Point", "coordinates": [-77.0727, 38.8783] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-union-station",     "kind": "project-poi", "category": "transit",    "project": "dc", "name": "Union Station (Amtrak + MARC + WMATA)" }, "geometry": { "type": "Point", "coordinates": [-77.0075, 38.8973] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-reagan-national",   "kind": "project-poi", "category": "aviation",   "project": "dc", "name": "Reagan National Airport (DCA)" },          "geometry": { "type": "Point", "coordinates": [-77.0378, 38.8521] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-dulles",            "kind": "project-poi", "category": "aviation",   "project": "dc", "name": "Washington Dulles International (IAD)" },  "geometry": { "type": "Point", "coordinates": [-77.4557, 38.9531] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-jb-andrews",        "kind": "project-poi", "category": "military",   "project": "dc", "name": "Joint Base Andrews" },                     "geometry": { "type": "Point", "coordinates": [-76.8670, 38.8105] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-walter-reed",       "kind": "project-poi", "category": "government", "project": "dc", "name": "Walter Reed National Military Medical Ctr" }, "geometry": { "type": "Point", "coordinates": [-77.0919, 38.9960] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-cia-hq",            "kind": "project-poi", "category": "government", "project": "dc", "name": "CIA Headquarters (Langley)" },             "geometry": { "type": "Point", "coordinates": [-77.1477, 38.9517] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-natl-mall",         "kind": "project-poi", "category": "nature",     "project": "dc", "name": "National Mall (NPS NAMA)" },               "geometry": { "type": "Point", "coordinates": [-77.0235, 38.8897] } },
+    { "type": "Feature", "properties": { "id": "poi-dc-rock-creek-park",   "kind": "project-poi", "category": "nature",     "project": "dc", "name": "Rock Creek Park (NPS ROCR)" },             "geometry": { "type": "Point", "coordinates": [-77.0462, 38.9570] } }
+  ]
+}

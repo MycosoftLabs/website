@@ -1,0 +1,60 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2026-04-23T04:30:00Z",
+  "source": "Hand-curated Project NYC anchor + perimeter + key POIs. Parallel to Project Oyster / Project Goffs. Covers NYC 5 boroughs + Jersey City + Newark approach.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "project-nyc-anchor",
+        "kind": "project-anchor",
+        "category": "mycosoft-project",
+        "name": "Project NYC",
+        "subtitle": "Urban intelligence test zone — Manhattan + 5 boroughs",
+        "project": "nyc",
+        "owner": "MYCOSOFT",
+        "thesis": "Densest sensor + camera + transit environment in the US. Validates CREP's ability to scale to municipal-grade live ops coverage.",
+        "partners": ["NYSDOT", "MTA", "NYPD (public feed)", "FDNY (public feed)", "NYS-OEM"],
+        "status": "active",
+        "anchor_lat": 40.7128,
+        "anchor_lng": -74.0060,
+        "fly_to_zoom": 11.5,
+        "icon": "nyc"
+      },
+      "geometry": { "type": "Point", "coordinates": [-74.0060, 40.7128] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "project-nyc-perimeter",
+        "kind": "project-perimeter",
+        "category": "mycosoft-project",
+        "name": "Project NYC — service perimeter",
+        "project": "nyc",
+        "thesis": "Tri-state commuter shed approximation. Widens to cover Newark Liberty, JFK, LGA, and Long Island commuter rail territories."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.20, 40.55], [-73.70, 40.55], [-73.65, 40.72], [-73.55, 40.85],
+          [-73.70, 40.95], [-74.05, 40.95], [-74.25, 40.85], [-74.25, 40.68],
+          [-74.20, 40.55]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "id": "poi-nyc-times-square",     "kind": "project-poi", "category": "landmark",   "project": "nyc", "name": "Times Square" },                         "geometry": { "type": "Point", "coordinates": [-73.9855, 40.7580] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-central-park",     "kind": "project-poi", "category": "landmark",   "project": "nyc", "name": "Central Park" },                         "geometry": { "type": "Point", "coordinates": [-73.9654, 40.7829] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-statue-of-liberty","kind": "project-poi", "category": "landmark",   "project": "nyc", "name": "Statue of Liberty" },                    "geometry": { "type": "Point", "coordinates": [-74.0445, 40.6892] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-one-wtc",          "kind": "project-poi", "category": "landmark",   "project": "nyc", "name": "One World Trade Center" },               "geometry": { "type": "Point", "coordinates": [-74.0134, 40.7127] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-empire-state",     "kind": "project-poi", "category": "landmark",   "project": "nyc", "name": "Empire State Building" },                "geometry": { "type": "Point", "coordinates": [-73.9857, 40.7484] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-grand-central",    "kind": "project-poi", "category": "transit",    "project": "nyc", "name": "Grand Central Terminal" },               "geometry": { "type": "Point", "coordinates": [-73.9772, 40.7527] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-penn-station",     "kind": "project-poi", "category": "transit",    "project": "nyc", "name": "Penn Station" },                         "geometry": { "type": "Point", "coordinates": [-73.9932, 40.7505] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-jfk",              "kind": "project-poi", "category": "aviation",   "project": "nyc", "name": "JFK International Airport" },            "geometry": { "type": "Point", "coordinates": [-73.7781, 40.6413] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-lga",              "kind": "project-poi", "category": "aviation",   "project": "nyc", "name": "LaGuardia Airport" },                    "geometry": { "type": "Point", "coordinates": [-73.8740, 40.7769] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-newark",           "kind": "project-poi", "category": "aviation",   "project": "nyc", "name": "Newark Liberty International Airport" }, "geometry": { "type": "Point", "coordinates": [-74.1745, 40.6895] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-port-newark",      "kind": "project-poi", "category": "marine",     "project": "nyc", "name": "Port Newark / Elizabeth" },              "geometry": { "type": "Point", "coordinates": [-74.1390, 40.6860] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-sandy-hook",       "kind": "project-poi", "category": "marine",     "project": "nyc", "name": "Sandy Hook (bay entrance)" },            "geometry": { "type": "Point", "coordinates": [-74.0144, 40.4669] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-prospect-park",    "kind": "project-poi", "category": "nature",     "project": "nyc", "name": "Prospect Park" },                        "geometry": { "type": "Point", "coordinates": [-73.9690, 40.6602] } },
+    { "type": "Feature", "properties": { "id": "poi-nyc-governors-island", "kind": "project-poi", "category": "marine",     "project": "nyc", "name": "Governors Island (Coast Guard relic)" }, "geometry": { "type": "Point", "coordinates": [-74.0158, 40.6892] } }
+  ]
+}

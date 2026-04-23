@@ -17,6 +17,15 @@ export async function middleware(request: NextRequest) {
       ? NextResponse.redirect(new URL("/myca", request.url), 302)
       : NextResponse.next({ request })
 
+  // Apr 23, 2026 — Explicit public-prefix bypass for Worldview v1.
+  // Route handlers in /api/worldview/v1/* do their own Bearer auth via
+  // getAgentProfile() (lib/agent-auth.ts). Middleware Supabase cookie
+  // lookup would (a) be pointless for bearer-auth callers and (b) has
+  // caused observed HTML-instead-of-JSON responses when config_missing
+  // triggers a login redirect on image-builds that predate the route
+  // file. Shortcut: never gate /api/worldview/* via the page-auth flow.
+  if (pathname.startsWith("/api/worldview/")) return response
+
   // Fast path: skip Supabase getUser() entirely for public pages that don't
   // need auth. This eliminates a network round-trip on every navigation to
   // /, /about, /devices/*, etc. and fixes the "page won't load until clicked" lag.

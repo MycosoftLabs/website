@@ -43,6 +43,31 @@ const ALLOW_HOSTS = new Set([
   "camsecure.co",
   "www.surfline.com",
   "cams.cdn-surfline.com",
+  // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras need to work".
+  // NYSDOT 511NY ImageUrl and equivalent state DOT image endpoints. All
+  // publicly-served gov open-data images, CORS-blocked on their origin
+  // but serveable through our proxy.
+  "511ny.org",
+  "www.511ny.org",
+  "wsdot.wa.gov",
+  "www.wsdot.wa.gov",
+  "fl511.com",
+  "www.fl511.com",
+  "www.drivetexas.org",
+  "drivetexas.org",
+  "its.dot.ny.gov",
+  "cwwp2.dot.ca.gov",
+  "www.dot.ny.gov",
+  // DC / VDOT / Maryland / DDOT
+  "511va.org",
+  "www.511va.org",
+  "chart.maryland.gov",
+  "ddot.dc.gov",
+  "dc.gov",
+  // MTA / Amtrak (for still-frames from subway / train cams)
+  "web.mta.info",
+  "mta.info",
+  "www.amtrak.com",
 ])
 
 // Hosts with known certificate issues — we fetch them with lenient TLS.
