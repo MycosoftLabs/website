@@ -67,6 +67,78 @@ jobs:
             echo "Env vars injected"
           ENVSCRIPT2
 
+      # Apr 23, 2026 — Morgan: "you need to prevent data from building up
+      # in sandbox for builds that will kill resources especially in fixes
+      # and deployments this needs to be cleaned autonomously when
+      # deployments". The sandbox VM was hanging at "Pull image and deploy"
+      # because old image tags + stale buildx cache + zombie containers
+      # were eating disk. This step runs BEFORE the new docker pull so
+      # the VM has free space + clean state every deploy.
+      - name: Clean sandbox VM before deploy (autonomous)
+        continue-on-error: true
+        run: |
+          ssh-retry production bash -s <<'CLEANUP'
+            set -uo pipefail
+            echo "=== Disk BEFORE cleanup ==="
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+
+            # 1. Stop any zombie deploys (stale flocks from hung SSH sessions).
+            #    flock -u releases; if the lock is held by a dead PID the
+            #    kernel already freed it, this is belt-and-suspenders.
+            if [ -f /tmp/mycosoft-prod-deploy.lock ]; then
+              fuser -k /tmp/mycosoft-prod-deploy.lock 2>/dev/null || true
+              rm -f /tmp/mycosoft-prod-deploy.lock
+              echo "Cleared stale deploy lock."
+            fi
+
+            # 2. Remove containers stopped >15 min (old blue/green slots +
+            #    crashed/restart-loop containers from previous deploys).
+            docker container prune -f --filter "until=15m" 2>/dev/null || true
+
+            # 3. Remove our own image history beyond the 3 most recent tags.
+            #    Keep `production-latest`, `previous`, and the current run's
+            #    commit SHA — everything else is disposable rollback ballast.
+            KEEP_TAGS="production-latest previous"
+            mapfile -t ALL_TAGS < <(docker images \
+              --filter "reference=ghcr.io/mycosoftlabs/website:*" \
+              --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
+              | sort -k2 -r | awk '{print $1}')
+            KEEP_COUNT=0
+            for tag in "${ALL_TAGS[@]}"; do
+              base="${tag##*:}"
+              if echo "$KEEP_TAGS" | grep -qw "$base" || [ "$KEEP_COUNT" -lt 3 ]; then
+                KEEP_COUNT=$((KEEP_COUNT + 1))
+                continue
+              fi
+              docker image rm "$tag" 2>/dev/null || true
+            done
+
+            # 4. Prune dangling (untagged intermediate layers) + unused
+            #    volumes. `-a` on image prune only removes images not
+            #    referenced by any container — safe.
+            docker image prune -af --filter "until=24h" 2>/dev/null || true
+            docker volume prune -f 2>/dev/null || true
+            docker network prune -f --filter "until=1h" 2>/dev/null || true
+
+            # 5. Buildx build cache — if buildkit was ever enabled on the
+            #    VM this can be gigabytes of stale layer cache.
+            docker buildx prune -af --filter "until=24h" 2>/dev/null || true
+
+            # 6. Old deploy logs (>14 days) — we keep two weeks for
+            #    incident review, older is noise.
+            find /var/log/mycosoft-deploys.log* -mtime +14 -delete 2>/dev/null || true
+            find /tmp -name "mycosoft-*.log" -mtime +3 -delete 2>/dev/null || true
+
+            # 7. APT cache — Ubuntu will happily hoard hundreds of MB here.
+            sudo apt-get clean 2>/dev/null || true
+            sudo journalctl --vacuum-time=7d 2>/dev/null || true
+
+            echo "=== Disk AFTER cleanup ==="
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            echo "=== Container count ==="
+            docker ps -a --format '{{.Names}} {{.Status}}' | wc -l
+          CLEANUP
+
       - name: Pull image and deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

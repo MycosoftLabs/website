@@ -411,6 +411,50 @@ jobs:
             echo "Env vars injected"
           ENVSCRIPT2
 
+      # Apr 23, 2026 — Morgan: "you need to prevent data from building up
+      # in sandbox for builds that will kill resources especially in fixes
+      # and deployments this needs to be cleaned autonomously when
+      # deployments". Same cleanup as Fast Deploy, runs BEFORE the
+      # blue/green cutover so the sandbox never builds up zombie
+      # containers / stale image tags / buildx cache across deploys.
+      - name: Clean sandbox VM before deploy (autonomous)
+        continue-on-error: true
+        run: |
+          ssh-retry production bash -s <<'CLEANUP'
+            set -uo pipefail
+            echo "=== Disk BEFORE cleanup ==="
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            if [ -f /tmp/mycosoft-prod-deploy.lock ]; then
+              fuser -k /tmp/mycosoft-prod-deploy.lock 2>/dev/null || true
+              rm -f /tmp/mycosoft-prod-deploy.lock
+            fi
+            docker container prune -f --filter "until=15m" 2>/dev/null || true
+            KEEP_TAGS="production-latest previous"
+            mapfile -t ALL_TAGS < <(docker images \
+              --filter "reference=ghcr.io/mycosoftlabs/website:*" \
+              --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
+              | sort -k2 -r | awk '{print $1}')
+            KEEP_COUNT=0
+            for tag in "${ALL_TAGS[@]}"; do
+              base="${tag##*:}"
+              if echo "$KEEP_TAGS" | grep -qw "$base" || [ "$KEEP_COUNT" -lt 3 ]; then
+                KEEP_COUNT=$((KEEP_COUNT + 1))
+                continue
+              fi
+              docker image rm "$tag" 2>/dev/null || true
+            done
+            docker image prune -af --filter "until=24h" 2>/dev/null || true
+            docker volume prune -f 2>/dev/null || true
+            docker network prune -f --filter "until=1h" 2>/dev/null || true
+            docker buildx prune -af --filter "until=24h" 2>/dev/null || true
+            find /var/log/mycosoft-deploys.log* -mtime +14 -delete 2>/dev/null || true
+            find /tmp -name "mycosoft-*.log" -mtime +3 -delete 2>/dev/null || true
+            sudo apt-get clean 2>/dev/null || true
+            sudo journalctl --vacuum-time=7d 2>/dev/null || true
+            echo "=== Disk AFTER cleanup ==="
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+          CLEANUP
+
       - name: Blue/Green deploy (zero-downtime cutover + Cloudflare purge)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
