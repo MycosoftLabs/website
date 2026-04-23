@@ -456,6 +456,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -736,6 +737,7 @@ All notable changes to this project will be documented in this file.
 - Render stability — always write, cap vessels 8k, direct source-sync (#116)
 - Green iNat dots click-through to species popup + show at metro zoom (#117)
 - *(eagle-eye)* Refetch on bbox change + consume pending baked FC (#118)
+- ProjectNycDc + LiveTransit map-prop wiring (sources were MISSING) (#119)
 
 ### Diag
 
