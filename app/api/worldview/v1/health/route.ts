@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 /**
  * Worldview v1 — liveness check. Free, no auth.
@@ -10,8 +12,8 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const started = Date.now()
-  const mindexUrl = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
-  const masUrl = process.env.MAS_URL || "http://192.168.0.188:8001"
+  const mindexUrl = resolveMindexServerBaseUrl()
+  const masUrl = resolveMasServerBaseUrl()
 
   const [mindex, mas] = await Promise.all([
     headReachable(`${mindexUrl}/health`),

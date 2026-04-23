@@ -192,8 +192,8 @@ jobs:
             echo ""
 
             echo "--- MINDEX VM (${MINDEX_VM_HOST}) ---"
-            check_http "MINDEX API"       "${MINDEX_API_URL:-http://localhost:8000}"
-            check_http "MINDEX Health"    "${MINDEX_API_URL:-http://localhost:8000}/health"
+            check_http "MINDEX API"       "${MINDEX_API_URL:-http://192.168.0.189:8000}"
+            check_http "MINDEX Health"    "${MINDEX_API_URL:-http://192.168.0.189:8000}/health"
             echo ""
 
             echo "--- In-Stack Services ---"

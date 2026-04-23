@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { searchFungi } from "@/lib/services/inaturalist"
 import { searchElsevierArticles } from "@/lib/services/elsevier"
 import type { SearchResult } from "@/types/search"
@@ -8,7 +9,7 @@ import { searchExpandedMushrooms } from "@/lib/data/top-mushrooms-expanded"
 import { searchTracker } from "@/lib/services/search-tracker"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
-const MINDEX_BASE = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_BASE = resolveMindexServerBaseUrl()
 const USE_WORLDVIEW_SEARCH = process.env.USE_WORLDVIEW_SEARCH === "true"
 
 interface SpeciesMappingEntry {

@@ -25,13 +25,14 @@
  */
 
 import { NextRequest } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const maxDuration = 300 // 5 min connection lifetime, then client reconnects
 
 const INAT_API = "https://api.inaturalist.org/v1"
-const MINDEX_API = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 const POLL_MS = 60_000 // 1 minute
 const HEARTBEAT_MS = 30_000 // 30s

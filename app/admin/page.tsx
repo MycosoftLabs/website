@@ -400,7 +400,7 @@ const ALL_DATABASES: DatabaseInfo[] = [
     tables: 47,
     records: 156847,
     description: 'Master fungal species database with geospatial data',
-    link: 'http://localhost:8000'
+    link: 'http://192.168.0.189:8000'
   },
   { 
     name: 'Supabase Cloud', 

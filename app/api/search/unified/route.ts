@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
 import {
@@ -22,7 +23,7 @@ import { searchEarthIntelligence, detectEarthDomains } from "@/lib/search/earth-
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
@@ -159,11 +160,7 @@ async function fetchGBIFObservations(
 
 // Check MINDEX API (VM 189:8000 or local)
 async function fetchLocalMINDEX(limit: number): Promise<Observation[]> {
-  const mindexUrl =
-    process.env.MINDEX_API_URL ||
-    process.env.MINDEX_API_BASE_URL ||
-    process.env.MINDEX_DATABASE_URL ||
-    "http://localhost:8000"
+  const mindexUrl = process.env.MINDEX_DATABASE_URL || resolveMindexServerBaseUrl()
 
   try {
     const url = mindexUrl.includes("/api/") ? `${mindexUrl}/observations` : `${mindexUrl}/api/mindex/observations`

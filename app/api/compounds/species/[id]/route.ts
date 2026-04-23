@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
  * Compounds by species API - Server-side proxy to MINDEX.
  * NO client env vars needed; MINDEX_API_URL is server-only.
  */
-const MINDEX_API_URL =
-  process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 
 export async function GET(
   request: NextRequest,
@@ -20,11 +20,10 @@ export async function GET(
 
   try {
     const url = `${MINDEX_API_URL}/api/mindex/compounds/for-taxon/${taxonId}`
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (MINDEX_API_KEY) headers["X-API-Key"] = MINDEX_API_KEY
     const res = await fetch(url, {
-      headers: {
-        "X-API-Key": MINDEX_API_KEY,
-        "Content-Type": "application/json",
-      },
+      headers,
       next: { revalidate: 300 },
     })
 

@@ -28,6 +28,12 @@
 # Use this workflow when you want to ship a known-good main commit without
 # waiting for the full lint + test + integration pipeline. Triggered from
 # the Actions tab → Instant Deploy → Run workflow.
+#
+# Production environment secrets (GitHub → Settings → Environments → production):
+#   MINDEX_API_URL=http://192.168.0.189:8000  (not localhost — web container has no MINDEX on :8000)
+#   MINDEX_API_KEY=… if MAS proxy requires it
+#   AIRNOW_API_KEY=… for /api/crep/airnow/* (optional; no key in repo)
+#   MAS_API_URL, NEXT_PUBLIC_*, etc. — see ci-cd.yml header
 
 name: Instant Deploy
 
@@ -179,7 +185,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL MINDEX_API_KEY OPENAI_API_KEY AIRNOW_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -193,7 +199,9 @@ jobs:
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 

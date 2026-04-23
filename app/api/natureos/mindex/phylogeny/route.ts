@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
  * MINDEX Phylogeny Data API
@@ -19,7 +20,7 @@ interface PhylogenyNode {
   genome_available?: boolean
 }
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 function flattenTree(

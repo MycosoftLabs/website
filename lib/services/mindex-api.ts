@@ -3,7 +3,9 @@
  * Interface to the MYCA biological data warehouse
  */
 
-const MINDEX_URL = process.env.NEXT_PUBLIC_MINDEX_URL || process.env.MINDEX_API_URL || 'http://localhost:8000'
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+
+const MINDEX_URL = resolveMindexServerBaseUrl()
 
 export interface QueryResult {
   rows: Record<string, unknown>[]

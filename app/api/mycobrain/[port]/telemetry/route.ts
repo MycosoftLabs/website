@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { createHash, randomUUID } from "crypto"
 
 export const dynamic = "force-dynamic"
 
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 function buildEnvelopeFromTelemetry(deviceId: string, entries: TelemetryEntry[]) {

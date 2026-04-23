@@ -21,6 +21,20 @@ import {
   Database, Bot, Loader2, Check, History, RefreshCw 
 } from "lucide-react"
 
+const REF_PUBLIC_SITE =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_BASE_URL) ||
+  "http://192.168.0.187:3000"
+const REF_MAS =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MAS_API_URL) ||
+  "http://192.168.0.188:8001"
+const REF_MINDEX =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MINDEX_API_URL) ||
+  "http://192.168.0.189:8000"
+const REF_N8N =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_N8N_URL) || "http://192.168.0.188:5678"
+const REF_MYCOBRAIN =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MYCOBRAIN_URL) || "http://192.168.0.187:8003"
+
 export default function ProfilePage() {
   const { setTheme, resolvedTheme } = useTheme()
   const { user, loading: authLoading, signOut } = useSupabaseUser()
@@ -687,11 +701,11 @@ export default function ProfilePage() {
                 <CardContent>
                   <div className="space-y-3">
                     {[
-                      { name: "Website", status: "online", url: "localhost:3000" },
-                      { name: "MAS API", status: "online", url: "localhost:8000" },
-                      { name: "N8N Workflows", status: "online", url: "localhost:5678" },
-                      { name: "MycoBrain Service", status: "online", url: "localhost:8765" },
-                      { name: "MINDEX Database", status: "online", url: "localhost:5432" },
+                      { name: "Website (sandbox ref)", status: "online", url: REF_PUBLIC_SITE },
+                      { name: "MAS API", status: "online", url: REF_MAS },
+                      { name: "N8N (MAS VM)", status: "online", url: REF_N8N },
+                      { name: "MycoBrain (sandbox)", status: "online", url: REF_MYCOBRAIN },
+                      { name: "MINDEX API", status: "online", url: REF_MINDEX },
                     ].map(service => (
                       <div key={service.name} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                         <div className="flex items-center gap-2">

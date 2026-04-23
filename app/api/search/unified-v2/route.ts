@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
@@ -21,7 +22,7 @@ export const maxDuration = 30
 // CONFIGURATION
 // =============================================================================
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const INATURALIST_API = "https://api.inaturalist.org/v1"

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || process.env.MYCOBRAIN_API_URL || "http://localhost:8003"
-  const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
+  const mindexUrl = resolveMindexServerBaseUrl()
   const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
   
   try {

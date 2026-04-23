@@ -23,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import bboxPolygon from "@turf/bbox-polygon"
 import area from "@turf/area"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
@@ -31,7 +32,7 @@ import { ingestBatchToMINDEX } from "@/lib/crep/species-catalog"
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
 // MINDEX runs on port 8000 (Docker container)
-const MINDEX_API = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API = resolveMindexServerBaseUrl()
 
 const EXTERNAL_API_TIMEOUT_MS = 10000 // 10s per request
 const EXTERNAL_API_MAX_RETRIES = 2

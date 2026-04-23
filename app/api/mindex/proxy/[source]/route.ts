@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
  * MINDEX Cache Proxy — Unified data access for all CREP map layers
@@ -22,12 +23,14 @@ import { NextRequest, NextResponse } from "next/server"
  * (/api/oei/*, /api/crep/*, /api/natureos/*) but data won't be persisted.
  */
 
-const MINDEX_URL =
-  process.env.MINDEX_API_URL ||
-  process.env.NEXT_PUBLIC_MINDEX_URL ||
-  "http://192.168.0.189:8000"
+const MINDEX_URL = resolveMindexServerBaseUrl()
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+function mindexHeaders(): HeadersInit {
+  const h: Record<string, string> = { Accept: "application/json" }
+  if (MINDEX_API_KEY) h["X-API-Key"] = MINDEX_API_KEY
+  return h
+}
 
 /** Map source names to MINDEX earth/map/bbox layer names */
 const SOURCE_TO_MINDEX_LAYER: Record<string, string> = {
@@ -118,7 +121,7 @@ export async function GET(
     const res = await fetch(mindexUrl, {
       cache: "no-store",
       signal: AbortSignal.timeout(30000),
-      headers: { Accept: "application/json", "X-API-Key": MINDEX_API_KEY },
+      headers: mindexHeaders(),
     })
 
     if (res.ok) {
@@ -228,12 +231,11 @@ export async function POST(
   const valid = entities.filter(e => e.lat != null && e.lng != null)
 
   try {
+    const ingestHeaders: Record<string, string> = { "Content-Type": "application/json" }
+    if (MINDEX_API_KEY) ingestHeaders["X-API-Key"] = MINDEX_API_KEY
     const res = await fetch(`${MINDEX_URL}/api/mindex/earth/ingest`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": MINDEX_API_KEY,
-      },
+      headers: ingestHeaders,
       body: JSON.stringify({
         source,
         layer: mindexLayer,

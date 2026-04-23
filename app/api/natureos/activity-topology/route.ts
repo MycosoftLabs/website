@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import type { ActivityNode, ActivityConnection, ActivityTopologyData } from "@/components/mas/topology/activity-types"
 
 export const dynamic = "force-dynamic"
 
 const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const N8N_URL = process.env.N8N_URL || process.env.N8N_WEBHOOK_URL?.replace(/\/webhook.*$/, "") || "http://localhost:5678"
 const HEALTH_TIMEOUT_MS = 4000
 

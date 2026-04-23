@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import useSWR from 'swr';
 
-const MAS_API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || 'http://localhost:8000';
+const MAS_API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001";
 
 // ============================================
 // TYPES

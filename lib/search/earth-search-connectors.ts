@@ -30,6 +30,7 @@ import type {
   SpaceWeatherResult,
   CameraResult,
 } from "./unified-search-sdk"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /** Collapse duplicate EONET rows (different id strings) or same lat/lng/title/time from multiple sources. */
 function deduplicateEarthEvents(events: EventResult[]): EventResult[] {
@@ -555,50 +556,82 @@ export async function searchSpaceWeather(query: string, origin: string, _limit =
 }
 
 // ---------------------------------------------------------------------------
-// 10. CCTV & Webcams (Static Mocks / Aggregator Fallbacks)
+// 10. CCTV & Webcams — MINDEX Eagle Eye (eagle.video_sources via unified-search)
 // ---------------------------------------------------------------------------
 
 const CAMERA_KEYWORDS = [
   "camera", "cctv", "webcam", "livestream", "live stream", "traffic cam"
 ]
 
+const MINDEX_BASE = resolveMindexServerBaseUrl()
+
+const MINDEX_INTERNAL_TOKEN =
+  process.env.MINDEX_INTERNAL_TOKEN ||
+  (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||
+  ""
+
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
+
+function mindexAuthHeaders(): Record<string, string> {
+  if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
+  if (MINDEX_API_KEY) return { "X-API-Key": MINDEX_API_KEY }
+  return {}
+}
+
 export function isCamerasQuery(query: string): boolean {
   const q = query.toLowerCase()
   return CAMERA_KEYWORDS.some(kw => q.includes(kw))
 }
 
+function mapEagleUnifiedRowToCamera(row: Record<string, unknown>): CameraResult | null {
+  const lat = Number(row.lat)
+  const lng = Number(row.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  const props = (row.properties as Record<string, unknown> | undefined) || {}
+  const streamUrl =
+    (props.stream_url as string | undefined) ||
+    (props.embed_url as string | undefined) ||
+    (props.media_url as string | undefined)
+  const name = String(row.name || row.id || "Video source")
+  return {
+    id: String(row.id),
+    title: name,
+    location: `${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+    lat,
+    lng,
+    type: "webcam",
+    status: "live",
+    source: String(row.source || "eagle.video_sources"),
+    streamUrl: streamUrl || undefined,
+  }
+}
+
+/** Fluid Search / earth intelligence: real Eagle rows from MINDEX unified-search (types=eagle_video). */
 export async function searchCameras(query: string, limit = 10): Promise<CameraResult[]> {
   try {
-    // Return curated high-quality live streams for demo/fallback purposes
-    const MOCK_CAMERAS: CameraResult[] = [
-      {
-        id: "cam-iss", title: "ISS Live Stream", location: "Low Earth Orbit", lat: 0, lng: 0, type: "satellite", status: "live", source: "NASA",
-        streamUrl: "https://www.youtube.com/embed/86YLFOog4GM?autoplay=1&mute=1"
-      },
-      {
-        id: "cam-ts", title: "Times Square Live", location: "New York, USA", lat: 40.7580, lng: -73.9855, type: "cctv", status: "live", source: "EarthCam",
-        streamUrl: "https://www.youtube.com/embed/1-iS7LArMPA?autoplay=1&mute=1"
-      },
-      {
-        id: "cam-tyo", title: "Tokyo Shibuya Crossing", location: "Tokyo, Japan", lat: 35.6595, lng: 139.7001, type: "traffic", status: "live", source: "Shibuya Cam",
-        streamUrl: "https://www.youtube.com/embed/HpdO5Kq3o7Y?autoplay=1&mute=1"
-      },
-      {
-        id: "cam-reyk", title: "Reykjavik Volcano", location: "Reykjavik, Iceland", lat: 63.8933, lng: -22.2729, type: "webcam", status: "live", source: "LiveFromIceland",
-        streamUrl: "https://www.youtube.com/embed/80CGkH0gXVE?autoplay=1&mute=1"
-      }
-    ]
-    
-    // Filter down based on query, or return all if broad
-    const q = query.toLowerCase()
-    let results = MOCK_CAMERAS
-    
-    if (q.includes("new york") || q.includes("ny")) results = MOCK_CAMERAS.filter(c => c.id === "cam-ts")
-    else if (q.includes("tokyo") || q.includes("japan")) results = MOCK_CAMERAS.filter(c => c.id === "cam-tyo")
-    else if (q.includes("space") || q.includes("iss") || q.includes("orbit")) results = MOCK_CAMERAS.filter(c => c.id === "cam-iss")
-    else if (q.includes("volcano") || q.includes("iceland")) results = MOCK_CAMERAS.filter(c => c.id === "cam-reyk")
-
-    return results.slice(0, limit)
+    if (!MINDEX_INTERNAL_TOKEN && !MINDEX_API_KEY) return []
+    const qRaw = query.trim()
+    const q = qRaw.length >= 2 ? qRaw : "camera"
+    const cap = Math.min(Math.max(limit, 1), 100)
+    const qp = new URLSearchParams({
+      q,
+      types: "eagle_video",
+      limit: String(cap),
+    })
+    const res = await fetch(`${MINDEX_BASE}/api/mindex/unified-search?${qp}`, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Accept: "application/json", ...mindexAuthHeaders() },
+    })
+    if (!res.ok) return []
+    const j = (await res.json()) as { results?: Record<string, unknown[]> }
+    const rows = j?.results?.eagle_video || []
+    const out: CameraResult[] = []
+    for (const row of rows) {
+      const c = mapEagleUnifiedRowToCamera(row as Record<string, unknown>)
+      if (c) out.push(c)
+      if (out.length >= cap) break
+    }
+    return out
   } catch {
     return []
   }
@@ -641,10 +674,10 @@ export function detectEarthDomains(query: string): EarthSearchDomains {
  * Falls through to external APIs if MINDEX returns nothing.
  */
 async function searchMindexEarth(query: string, limit: number): Promise<Record<string, unknown[]> | null> {
-  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+  const mindexBase = resolveMindexServerBaseUrl()
   try {
     const res = await safeFetch(
-      `${MINDEX_API_URL}/api/search/earth?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${mindexBase}/api/search/earth?q=${encodeURIComponent(query)}&limit=${limit}`,
       6000
     )
     if (!res) return null
@@ -729,8 +762,7 @@ export async function searchEarthIntelligence(
       promises.cameras,
     ])
 
-  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
-  
+  const mindexIngestBase = resolveMindexServerBaseUrl()
   // Background ingestion: "scrape that live data and put it in MINDEX"
   if (!mindexEarth && Object.keys(domains).some(d => domains[d as keyof EarthSearchDomains])) {
     const payload: Record<string, any> = {
@@ -739,7 +771,7 @@ export async function searchEarthIntelligence(
     // Only send non-empty arrays
     const validPayload = Object.fromEntries(Object.entries(payload).filter(([_, v]) => v && v.length > 0))
     if (Object.keys(validPayload).length > 0) {
-      fetch(`${MINDEX_API_URL}/api/search/earth/ingest`, {
+      fetch(`${mindexIngestBase}/api/search/earth/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validPayload),

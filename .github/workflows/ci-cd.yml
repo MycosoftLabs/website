@@ -7,7 +7,7 @@
 #   CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET (Cloudflare Access Service Auth for SSH over tunnel)
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 #   NEXTAUTH_SECRET (production cookie signing — set a strong secret)
-#   Optional: SUPABASE_SERVICE_ROLE_KEY, MAS_API_URL, MINDEX_API_URL, OPENAI_API_KEY, wallet keys
+#   Optional: SUPABASE_SERVICE_ROLE_KEY, MAS_API_URL, MINDEX_API_URL, MINDEX_API_KEY, OPENAI_API_KEY, AIRNOW_API_KEY, wallet keys
 #   Optional: CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN (purge after deploy)
 #
 # CREP map/globe client tokens — inlined at `next build` time via Docker
@@ -390,7 +390,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL MINDEX_API_KEY OPENAI_API_KEY AIRNOW_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -404,7 +404,9 @@ jobs:
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
             echo "Env vars injected"
           ENVSCRIPT2
@@ -728,7 +730,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL MINDEX_API_KEY OPENAI_API_KEY AIRNOW_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -742,7 +744,9 @@ jobs:
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 

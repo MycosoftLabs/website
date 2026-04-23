@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 /**
  * Genetic Sequence Download API
@@ -9,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 const VALID_REGIONS = ["ITS", "LSU", "SSU", "TEF1", "RPB1", "RPB2", "FASTA"] as const
 type GeneticRegion = (typeof VALID_REGIONS)[number]
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 interface GeneticSequence {
