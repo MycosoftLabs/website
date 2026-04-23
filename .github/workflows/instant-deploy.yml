@@ -1,13 +1,45 @@
-# Instant Deploy — Build on VM, no CI overhead
-# For rapid content/code changes. ~2-5 min total.
-# Skips CI lint/test/GHCR — builds directly on the production VM.
+# Instant Deploy — GH runner build → GHCR → VM pull → blue/green cutover
+# ============================================================================
+# Apr 23, 2026 rewrite.
+# Previous implementation built the Docker image ON the VM and hit the
+# 15-min timeout whenever the image grew (last run: 24811980320 cancelled
+# after 15m while building with ~3 MB of new CREP geojson bundles).
+#
+# New path mirrors the proven `instant-build` + `instant-deploy` pair
+# inside ci-cd.yml (gated there behind an is_fast flag):
+#
+#   Phase A  build-image      GH runner (16 cores) → docker buildx →
+#                              push ghcr.io/mycosoftlabs/website:
+#                                 fast-${sha}, manual-${sha}, latest
+#                              GHA build cache keeps repeat builds ~2-4 min
+#                              warm / 10-15 min cold.
+#   Phase B  deploy-vm        SSH to VM → docker pull → blue/green
+#                              cutover via scripts/blue-green-deploy.sh
+#                              ~1-2 min. Concurrency-serialised on
+#                              `production-deploy` so new runs QUEUE
+#                              instead of cancelling a live cutover.
+#
+# Why:
+#   - VM never runs `docker build`, so it can't time out on a big image.
+#   - Concurrency group shared with ci-cd.yml's production-deploy job so
+#     instant-deploy + push-triggered CI can't stomp on each other.
+#   - 45-min total budget — plenty for cold cache on a fat image.
+#
+# Use this workflow when you want to ship a known-good main commit without
+# waiting for the full lint + test + integration pipeline. Triggered from
+# the Actions tab → Instant Deploy → Run workflow.
+
 name: Instant Deploy
 
 on:
   workflow_dispatch:
     inputs:
+      ref:
+        description: 'Git ref to deploy (default: main)'
+        required: false
+        default: 'main'
       skip_build:
-        description: 'Skip Docker build (restart only, for compose/env changes)'
+        description: 'Skip build + just pull the latest production-latest tag + cutover'
         required: false
         default: 'false'
         type: choice
@@ -15,15 +47,103 @@ on:
           - 'false'
           - 'true'
 
+concurrency:
+  # Same group name as ci-cd.yml's instant-deploy job — so a manual
+  # instant-deploy waits for any in-flight push-triggered deploy.
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  instant-deploy:
-    name: Instant Deploy to Production
+
+  # ─── Phase A: build the image on a GH runner and push to GHCR ────────
+  build-image:
+    name: Build on GH runner → push to GHCR
+    if: inputs.skip_build != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build-push.outputs.digest }}
+      deploy_sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          lfs: true
+
+      - name: Resolve deploy SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=production-latest
+            type=raw,value=manual-${{ steps.sha.outputs.sha }}
+            type=raw,value=fast-${{ steps.sha.outputs.sha }}
+
+      - name: Build and push (GHA cache + GHCR)
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          # Share the GHA cache with ci-cd.yml's instant-build so a
+          # push-triggered deploy followed by an instant-deploy hits
+          # warm cache on the second run.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ steps.sha.outputs.sha }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=https://mycosoft.com
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            NEXT_PUBLIC_CESIUM_ION_TOKEN=${{ secrets.NEXT_PUBLIC_CESIUM_ION_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+            NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}
+
+  # ─── Phase B: VM pulls the image and runs blue/green cutover ─────────
+  deploy-vm:
+    name: VM pull + blue/green cutover
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
+    # Wait for the build phase UNLESS caller asked for skip_build, in
+    # which case we go straight to VM pull of production-latest.
+    needs: [build-image]
+    if: always() && (needs.build-image.result == 'success' || inputs.skip_build == 'true')
     steps:
-      - name: Checkout (for composite action)
+      - name: Checkout (for composite action + deploy scripts)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
 
       - name: Setup SSH via Cloudflare Tunnel
         uses: ./.github/actions/setup-ssh
@@ -36,14 +156,21 @@ jobs:
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           require-cloudflare-access: true
 
-      - name: Pull latest code on VM
+      - name: Sync deploy scripts + compose overlay from target ref
         run: |
           ssh-retry production bash -s <<'SCRIPT'
             set -e
             cd /opt/mycosoft/website
-            git fetch origin main
-            git reset --hard origin/main
-            echo "Code synced to $(git rev-parse --short HEAD)"
+            git fetch origin
+            git checkout ${{ inputs.ref || 'main' }} -- \
+              docker-compose.production.yml \
+              docker-compose.production.blue-green.yml \
+              deploy/nginx/nginx.conf \
+              deploy/nginx/conf.d/website.conf.template \
+              scripts/blue-green-deploy.sh \
+              scripts/blue-green-bootstrap.sh 2>/dev/null || true
+            chmod +x scripts/blue-green-*.sh 2>/dev/null || true
+            echo "Deploy scripts synced to $(git rev-parse --short HEAD)"
           SCRIPT
 
       - name: Inject environment variables
@@ -52,7 +179,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -64,54 +191,57 @@ jobs:
             echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
             echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
+            echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 
-      - name: Build and deploy on VM
-        if: inputs.skip_build != 'true'
+      - name: Pull GHCR image + blue/green cutover
         run: |
-          ssh-retry production bash -s <<'BUILD'
-            set -e
+          ssh-retry production bash -s <<BUILD
+            set -euo pipefail
             cd /opt/mycosoft/website
 
-            echo "=== Building Docker image locally ==="
-            docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL="$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
-              -f Dockerfile.production \
-              -t mycosoft-website:local \
-              .
+            echo "=== Authenticating with GHCR ==="
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-            echo "=== Restarting website container ==="
-            export WEBSITE_IMAGE="mycosoft-website:local"
-            docker rm -f mycosoft-website 2>/dev/null || true
-            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+            IMAGE_NAME_LC=\$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+            # Pin to a specific tag — manual-<sha> if we built it, else production-latest
+            if [ '${{ inputs.skip_build }}' = 'true' ]; then
+              export IMAGE="ghcr.io/\${IMAGE_NAME_LC}:production-latest"
+            else
+              export IMAGE="ghcr.io/\${IMAGE_NAME_LC}:manual-${{ needs.build-image.outputs.deploy_sha }}"
+            fi
+            echo "=== Pulling: \$IMAGE ==="
+            docker pull -q "\$IMAGE"
 
-            echo "=== Deployed at $(date) ==="
+            echo "=== First-run bootstrap (idempotent) ==="
+            if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
+              echo "Blue/green not yet bootstrapped — running bootstrap"
+              ./scripts/blue-green-bootstrap.sh
+            fi
+
+            echo "=== Blue/green cutover ==="
+            export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
+            export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
+            export PUBLIC_HOST='mycosoft.com'
+            ./scripts/blue-green-deploy.sh
           BUILD
 
-      - name: Restart only (no build)
-        if: inputs.skip_build == 'true'
-        run: |
-          ssh-retry production bash -s <<'RESTART'
-            set -e
-            cd /opt/mycosoft/website
-            docker rm -f mycosoft-website 2>/dev/null || true
-            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
-            echo "Restarted at $(date)"
-          RESTART
-
-      - name: Health check
+      - name: Health check (origin)
         run: |
           ssh-retry production bash -s <<'SCRIPT'
-          for i in 1 2 3 4 5 6; do
-            if curl -sf http://localhost:3000/api/health; then
-              echo ""
-              echo "Healthy on attempt $i"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::warning::Health check timeout"
+            set -e
+            for i in 1 2 3 4 5 6 7 8; do
+              if curl -sf http://localhost:3000/api/health; then
+                echo ""
+                echo "Healthy on attempt $i"
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "::warning::Health check timeout (nginx may still be serving the old slot)"
           SCRIPT
 
       - name: Purge Cloudflare cache
@@ -125,3 +255,12 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cache purged"
           fi
+
+      - name: Append deploy log
+        continue-on-error: true
+        run: |
+          ssh-retry production bash -s <<SCRIPT
+            set -e
+            mkdir -p "\$HOME/mycosoft-logs"
+            echo "[\$(date -u +%FT%TZ)] instant-deploy manual ref=${{ inputs.ref || 'main' }} sha=${{ needs.build-image.outputs.deploy_sha || 'skip_build' }} actor=${{ github.actor }}" >> "\$HOME/mycosoft-deployments.log"
+          SCRIPT
