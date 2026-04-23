@@ -448,6 +448,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -672,6 +673,7 @@ All notable changes to this project will be documented in this file.
 - *(security)* Remove legacy _secret_replacements.txt
 - *(crep)* Nightly warm-eagle MINDEX + bake camera registry (GHA)
 - *(crep)* Log deployment to \$HOME instead of /var/log
+- Rewrite instant-deploy.yml to GHCR build + VM pull
 
 ### Performance
 
