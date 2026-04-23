@@ -534,6 +534,763 @@ export const DATASETS: Dataset[] = [
     example: "/api/worldview/v1/query?type=natureos.global-events",
     handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/global-events`, 60),
   },
+  {
+    id: "natureos.intel-reports",
+    name: "NatureOS Intel Reports",
+    category: "natureos",
+    description: "Aggregated intelligence reports across CREP + MINDEX.",
+    underlying_routes: ["/api/natureos/intel-reports"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=natureos.intel-reports",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/intel-reports`, 5 * 60),
+  },
+  {
+    id: "natureos.biodiversity-analytics",
+    name: "NatureOS Biodiversity Analytics",
+    category: "natureos",
+    description: "Biodiversity metrics + timeseries for any bbox.",
+    underlying_routes: ["/api/natureos/analytics/biodiversity"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 3,
+    rate_weight: 3,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=natureos.biodiversity-analytics&bbox=-118,32,-116,34",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/natureos/analytics/biodiversity${bbox ? `?bbox=${bbox}` : ""}`, 10 * 60)
+    },
+  },
+  {
+    id: "natureos.mycelium-network",
+    name: "NatureOS Mycelium Network",
+    category: "natureos",
+    description: "Live mycelium network state + symbiosis graph.",
+    underlying_routes: ["/api/natureos/mycelium/network"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 3,
+    rate_weight: 3,
+    cache_ttl_ms: 2 * 60_000,
+    example: "/api/worldview/v1/query?type=natureos.mycelium-network",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/mycelium/network`, 2 * 60),
+  },
+  {
+    id: "natureos.live-stats",
+    name: "NatureOS Live Stats",
+    category: "natureos",
+    description: "Global NatureOS platform live metrics.",
+    underlying_routes: ["/api/natureos/live-stats"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=natureos.live-stats",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/natureos/live-stats`, 30),
+  },
+
+  // ============================================================
+  // LIVE — AVIATION (additional)
+  // ============================================================
+  {
+    id: "crep.live.aviation.opensky",
+    name: "Live Aircraft (OpenSky)",
+    category: "live.aviation",
+    description: "Open-source ADS-B via OpenSky Network. Complementary to FlightRadar24.",
+    underlying_routes: ["/api/oei/opensky"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: true, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 2,
+    cache_ttl_ms: 15_000,
+    example: "/api/worldview/v1/query?type=crep.live.aviation.opensky&bbox=-118,32,-116,34",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/opensky${bbox ? `?bbox=${bbox}` : ""}`, 15)
+    },
+  },
+  {
+    id: "crep.live.aviation.flight-history",
+    name: "Flight history for a specific aircraft",
+    category: "live.aviation",
+    description: "Historical trail + telemetry for one aircraft id.",
+    underlying_routes: ["/api/oei/flight-history/[id]"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.aviation.flight-history&id=SWA1234",
+    handler: async ({ params, internalOrigin }) => {
+      const id = params.get("id")
+      if (!id) throw new Error("INVALID_PARAMS: id required")
+      return proxyJson(`${internalOrigin}/api/oei/flight-history/${encodeURIComponent(id)}`, 60)
+    },
+  },
+
+  // ============================================================
+  // LIVE — SPACE (additional)
+  // ============================================================
+  {
+    id: "crep.live.space.orbital-objects",
+    name: "Orbital Objects / Debris",
+    category: "live.space",
+    description: "CelesTrak debris + recent launch tracking.",
+    underlying_routes: ["/api/oei/orbital-objects"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.space.orbital-objects",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/oei/orbital-objects`, 5 * 60),
+  },
+  {
+    id: "crep.live.space.debris",
+    name: "Space Debris (AstriaGraph / CelesTrak)",
+    category: "live.space",
+    description: "Tracked space debris catalog.",
+    underlying_routes: ["/api/oei/debris"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 3,
+    cache_ttl_ms: 15 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.space.debris",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/oei/debris`, 15 * 60),
+  },
+
+  // ============================================================
+  // LIVE — ENVIRONMENTAL (additional)
+  // ============================================================
+  {
+    id: "crep.live.environmental.nws-alerts",
+    name: "NWS Alerts (CAP)",
+    category: "live.environmental",
+    description: "National Weather Service alerts (storms, floods, fires) via CAP feed.",
+    underlying_routes: ["/api/oei/nws-alerts"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: true, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 2 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.nws-alerts",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/nws-alerts${bbox ? `?bbox=${bbox}` : ""}`, 2 * 60)
+    },
+  },
+  {
+    id: "crep.live.environmental.eonet-events",
+    name: "NASA EONET Natural Events",
+    category: "live.environmental",
+    description: "NASA Earth Observatory Natural Event Tracker — storms, eruptions, fires, etc.",
+    underlying_routes: ["/api/oei/eonet"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.eonet-events&category=severeStorms",
+    handler: async ({ params, internalOrigin }) => {
+      const cat = params.get("category") || ""
+      return proxyJson(`${internalOrigin}/api/oei/eonet${cat ? `?category=${encodeURIComponent(cat)}` : ""}`, 5 * 60)
+    },
+  },
+  {
+    id: "crep.live.environmental.space-weather",
+    name: "Space Weather + Aurora",
+    category: "live.environmental",
+    description: "NOAA SWPC space weather + DONKI + aurora oval.",
+    underlying_routes: ["/api/oei/space-weather", "/api/oei/space-weather/aurora"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.space-weather",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/oei/space-weather`, 5 * 60),
+  },
+  {
+    id: "crep.live.environmental.usgs-volcano",
+    name: "USGS Volcano Hazards",
+    category: "live.environmental",
+    description: "USGS Volcano Hazards Program feed — alerts, activity levels, cam references.",
+    underlying_routes: ["/api/oei/usgs-volcano"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.usgs-volcano",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/oei/usgs-volcano`, 10 * 60),
+  },
+  {
+    id: "crep.live.environmental.carbon-mapper",
+    name: "Carbon Mapper Methane/CO2 Plumes",
+    category: "live.environmental",
+    description: "Carbon Mapper satellite-observed methane + CO2 plumes.",
+    underlying_routes: ["/api/oei/carbon-mapper"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 30 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.environmental.carbon-mapper",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/carbon-mapper${bbox ? `?bbox=${bbox}` : ""}`, 30 * 60)
+    },
+  },
+
+  // ============================================================
+  // LIVE — MARITIME (additional)
+  // ============================================================
+  {
+    id: "crep.live.maritime.fishing-activity",
+    name: "Global Fishing Activity",
+    category: "live.maritime",
+    description: "Global Fishing Watch activity + AIS-based fishing effort.",
+    underlying_routes: ["/api/oei/fishing"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 3,
+    rate_weight: 3,
+    cache_ttl_ms: 30 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.maritime.fishing-activity",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/fishing${bbox ? `?bbox=${bbox}` : ""}`, 30 * 60)
+    },
+  },
+  {
+    id: "crep.live.maritime.ports-live",
+    name: "Ports Live Status",
+    category: "live.maritime",
+    description: "Global ports with live vessel counts + activity.",
+    underlying_routes: ["/api/oei/ports"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.live.maritime.ports-live",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/ports${bbox ? `?bbox=${bbox}` : ""}`, 10 * 60)
+    },
+  },
+
+  // ============================================================
+  // SENSORS — AIR QUALITY (additional)
+  // ============================================================
+  {
+    id: "crep.sensors.airquality.openaq",
+    name: "OpenAQ Global Air Quality",
+    category: "sensors.airquality",
+    description: "Global ambient air-quality observations from OpenAQ (complementary to US-only AirNow).",
+    underlying_routes: ["/api/oei/openaq"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 15 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.airquality.openaq&bbox=-118,32,-116,34",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/openaq${bbox ? `?bbox=${bbox}` : ""}`, 15 * 60)
+    },
+  },
+
+  // ============================================================
+  // SENSORS — WATER
+  // ============================================================
+  {
+    id: "crep.sensors.water.ndbc-buoys",
+    name: "NOAA NDBC Buoys",
+    category: "sensors.water",
+    description: "National Data Buoy Center buoys — waves, wind, water temp, pressure.",
+    underlying_routes: ["/api/oei/buoys"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: true, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 5 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.water.ndbc-buoys",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/buoys${bbox ? `?bbox=${bbox}` : ""}`, 5 * 60)
+    },
+  },
+  {
+    id: "crep.sensors.water.buoy-detail",
+    name: "NOAA Buoy Station Detail",
+    category: "sensors.water",
+    description: "Full latest obs for one NDBC station.",
+    underlying_routes: ["/api/crep/buoy/[station]"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.water.buoy-detail&station=46232",
+    handler: async ({ params, internalOrigin }) => {
+      const station = params.get("station")
+      if (!station) throw new Error("INVALID_PARAMS: station required")
+      return proxyJson(`${internalOrigin}/api/crep/buoy/${encodeURIComponent(station)}`, 60)
+    },
+  },
+
+  // ============================================================
+  // SENSORS — BIODIVERSITY
+  // ============================================================
+  {
+    id: "crep.sensors.biodiversity.inaturalist",
+    name: "iNaturalist observations",
+    category: "sensors.biodiversity",
+    description: "iNat observations from NatureOS preloaded index.",
+    underlying_routes: ["/api/crep/nature/preloaded", "/api/crep/fungal"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 30 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.biodiversity.inaturalist&bbox=-118,32,-116,34",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/crep/nature/preloaded${bbox ? `?bbox=${bbox}` : ""}`, 30 * 60)
+    },
+  },
+  {
+    id: "crep.sensors.biodiversity.gbif",
+    name: "GBIF Occurrences",
+    category: "sensors.biodiversity",
+    description: "Global Biodiversity Information Facility occurrence records.",
+    underlying_routes: ["/api/oei/gbif"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 3,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.biodiversity.gbif",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/gbif${bbox ? `?bbox=${bbox}` : ""}`, 60 * 60)
+    },
+  },
+  {
+    id: "crep.sensors.biodiversity.ebird",
+    name: "eBird Recent Observations",
+    category: "sensors.biodiversity",
+    description: "eBird recent observations near a point.",
+    underlying_routes: ["/api/oei/ebird"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: true, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 30 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.biodiversity.ebird",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/ebird${bbox ? `?bbox=${bbox}` : ""}`, 30 * 60)
+    },
+  },
+  {
+    id: "crep.sensors.biodiversity.obis",
+    name: "OBIS Marine Biodiversity",
+    category: "sensors.biodiversity",
+    description: "OBIS marine species occurrences.",
+    underlying_routes: ["/api/oei/obis"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: true, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.sensors.biodiversity.obis",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/obis${bbox ? `?bbox=${bbox}` : ""}`, 60 * 60)
+    },
+  },
+
+  // ============================================================
+  // INFRASTRUCTURE — TRANSPORT
+  // ============================================================
+  {
+    id: "crep.infra.transport.ports-global",
+    name: "Global Ports",
+    category: "infrastructure.transport",
+    description: "Global ports dataset.",
+    underlying_routes: ["/data/crep/ports-global.geojson"],
+    response_shape: "geojson.FeatureCollection",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: true, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 24 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.infra.transport.ports-global",
+    handler: ({ internalOrigin }) => proxyStatic("/data/crep/ports-global.geojson", internalOrigin, 24 * 3600),
+  },
+  {
+    id: "crep.infra.transport.railways",
+    name: "Global Railways + Live Trains",
+    category: "infrastructure.transport",
+    description: "OSM railway network + live Amtrak trains.",
+    underlying_routes: ["/api/oei/railways", "/api/oei/railway-live"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: true, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 3,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.infra.transport.railways&bbox=-118,32,-116,34",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/railway-live${bbox ? `?bbox=${bbox}` : ""}`, 60)
+    },
+  },
+  {
+    id: "crep.infra.transport.drone-no-fly",
+    name: "Drone No-Fly Zones",
+    category: "infrastructure.transport",
+    description: "FAA + ICAO drone no-fly zone polygons.",
+    underlying_routes: ["/api/oei/drone-no-fly"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.infra.transport.drone-no-fly",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/oei/drone-no-fly${bbox ? `?bbox=${bbox}` : ""}`, 60 * 60)
+    },
+  },
+
+  // ============================================================
+  // INFRASTRUCTURE — DEFENSE
+  // ============================================================
+  {
+    id: "crep.infra.defense.military-bases-us",
+    name: "US Military Bases",
+    category: "infrastructure.defense",
+    description: "HIFLD US military installations + boundaries.",
+    underlying_routes: ["/data/military-bases-us.geojson", "/api/oei/military"],
+    response_shape: "geojson.FeatureCollection",
+    supports: { bbox: true, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 24 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.infra.defense.military-bases-us",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/oei/military`, 24 * 3600),
+  },
+  {
+    id: "crep.infra.defense.sdtj-coverage",
+    name: "SD+TJ Coverage (7 OSM layers)",
+    category: "infrastructure.defense",
+    description: "San Diego + Tijuana OSM coverage: hospitals / police / sewage / cell / AM-FM / military / data-centers.",
+    underlying_routes: ["/data/crep/sdtj-*.geojson"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 5,
+    rate_weight: 7,
+    cache_ttl_ms: 24 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.infra.defense.sdtj-coverage",
+    handler: async ({ internalOrigin }) => {
+      const layers = ["hospitals", "police", "sewage", "cell-towers", "am-fm-antennas", "military", "data-centers"]
+      const fetches = await Promise.all(
+        layers.map((l) =>
+          fetch(`${internalOrigin}/data/crep/sdtj-${l}.geojson`, { signal: AbortSignal.timeout(10_000), cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+        ),
+      )
+      const data: Record<string, any> = {}
+      let total = 0
+      layers.forEach((l, i) => {
+        data[l] = fetches[i] ?? { error: "unreachable" }
+        total += fetches[i]?.features?.length ?? 0
+      })
+      return { data: { ...data, total_features: total }, ttl_s: 24 * 3600, cache: "miss", meta: { total_features: total } }
+    },
+  },
+  {
+    id: "crep.infra.defense.myca-verified",
+    name: "MYCA Verified Entities (recent)",
+    category: "infrastructure.defense",
+    description: "Entities MYCA's waypoint-verify pipeline has auto-confirmed.",
+    underlying_routes: ["/api/myca/entity-feed (SSE)"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: true, stream: true, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=crep.infra.defense.myca-verified (or /v1/stream/myca.verified-entities for live)",
+    handler: async ({ internalOrigin }) => {
+      // Prefer a snapshot endpoint — SSE is exposed via /v1/stream/myca.verified-entities
+      return proxyJson(`${internalOrigin}/api/natureos/intel-reports?filter=myca-verified`, 30).catch(
+        async () => ({ data: { note: "MYCA verified entity feed available via SSE at /api/worldview/v1/stream/myca.verified-entities" }, ttl_s: 30, cache: "miss" as const }),
+      )
+    },
+  },
+
+  // ============================================================
+  // MINDEX KNOWLEDGE (additional)
+  // ============================================================
+  {
+    id: "mindex.knowledge.compounds",
+    name: "MINDEX Compounds",
+    category: "mindex.knowledge",
+    description: "Chemical compounds with source species + activity data.",
+    underlying_routes: ["/api/natureos/mindex/compounds"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=mindex.knowledge.compounds&q=psilocybin",
+    handler: async ({ params, internalOrigin }) => {
+      const q = params.get("q") || ""
+      return proxyJson(`${internalOrigin}/api/natureos/mindex/compounds${q ? `?q=${encodeURIComponent(q)}` : ""}`, 60 * 60)
+    },
+  },
+  {
+    id: "mindex.knowledge.taxa",
+    name: "MINDEX Taxa (lineage walks)",
+    category: "mindex.knowledge",
+    description: "Taxonomic trees via ltree. Walk kingdom → species.",
+    underlying_routes: ["/api/mindex/taxa"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=mindex.knowledge.taxa&id=Fungi",
+    handler: async ({ params, internalOrigin }) => {
+      const id = params.get("id") || ""
+      return proxyJson(`${internalOrigin}/api/mindex/taxa${id ? `?id=${encodeURIComponent(id)}` : ""}`, 60 * 60)
+    },
+  },
+  {
+    id: "mindex.knowledge.genomes",
+    name: "MINDEX Genomes",
+    category: "mindex.knowledge",
+    description: "Genomic references linked to species records.",
+    underlying_routes: ["/api/natureos/mindex/genomes"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=mindex.knowledge.genomes&q=fusarium",
+    handler: async ({ params, internalOrigin }) => {
+      const q = params.get("q") || ""
+      return proxyJson(`${internalOrigin}/api/natureos/mindex/genomes${q ? `?q=${encodeURIComponent(q)}` : ""}`, 60 * 60)
+    },
+  },
+  {
+    id: "mindex.knowledge.phylogeny",
+    name: "MINDEX Phylogeny",
+    category: "mindex.knowledge",
+    description: "Phylogenetic trees + relationships.",
+    underlying_routes: ["/api/natureos/mindex/phylogeny"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60 * 60_000,
+    example: "/api/worldview/v1/query?type=mindex.knowledge.phylogeny",
+    handler: async ({ params, internalOrigin }) => {
+      const q = params.get("q") || ""
+      return proxyJson(`${internalOrigin}/api/natureos/mindex/phylogeny${q ? `?q=${encodeURIComponent(q)}` : ""}`, 60 * 60)
+    },
+  },
+
+  // ============================================================
+  // MINDEX TELEMETRY
+  // ============================================================
+  {
+    id: "mindex.telemetry.latest",
+    name: "MINDEX Telemetry Latest",
+    category: "mindex.telemetry",
+    description: "Latest telemetry samples from MyCoBrain devices.",
+    underlying_routes: ["/api/mindex/telemetry/latest"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: false, time_range: false, stream: true, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=mindex.telemetry.latest",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/mindex/telemetry/latest`, 30),
+  },
+  {
+    id: "mindex.telemetry.samples",
+    name: "MINDEX Telemetry Sample Feed",
+    category: "mindex.telemetry",
+    description: "Time-series sample feed per device / channel.",
+    underlying_routes: ["/api/mindex/telemetry/samples"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: true, stream: true, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 30_000,
+    example: "/api/worldview/v1/query?type=mindex.telemetry.samples",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/mindex/telemetry/samples`, 30),
+  },
+  {
+    id: "mindex.telemetry.devices",
+    name: "MINDEX Registered Devices",
+    category: "mindex.telemetry",
+    description: "MyCoBrain + partner device registry.",
+    underlying_routes: ["/api/mindex/devices"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 10 * 60_000,
+    example: "/api/worldview/v1/query?type=mindex.telemetry.devices",
+    handler: async ({ internalOrigin }) => proxyJson(`${internalOrigin}/api/mindex/devices`, 10 * 60),
+  },
+
+  // ============================================================
+  // CAMERAS (additional)
+  // ============================================================
+  {
+    id: "crep.cameras.stream",
+    name: "Eagle camera stream resolver",
+    category: "cameras",
+    description: "Resolve a specific camera's live stream URL (HLS / iframe / mjpeg).",
+    underlying_routes: ["/api/eagle/stream/[sourceId]"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "agent",
+    cost_per_request: 1,
+    rate_weight: 1,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.cameras.stream&id=caltrans-d11-sr75-silverstrand",
+    handler: async ({ params, internalOrigin }) => {
+      const id = params.get("id")
+      if (!id) throw new Error("INVALID_PARAMS: id required")
+      return proxyJson(`${internalOrigin}/api/eagle/stream/${encodeURIComponent(id)}`, 60)
+    },
+  },
+  {
+    id: "crep.cameras.events",
+    name: "Eagle Video Events (ephemeral)",
+    category: "cameras",
+    description: "Recent video events across the camera network.",
+    underlying_routes: ["/api/eagle/events"],
+    response_shape: "json.Object",
+    supports: { bbox: true, cursor: true, time_range: true, stream: true, tile: false, id_lookup: false },
+    scope: "agent",
+    cost_per_request: 2,
+    rate_weight: 2,
+    cache_ttl_ms: 60_000,
+    example: "/api/worldview/v1/query?type=crep.cameras.events",
+    handler: async ({ params, internalOrigin }) => {
+      const bbox = bboxParam(params)
+      return proxyJson(`${internalOrigin}/api/eagle/events${bbox ? `?bbox=${bbox}` : ""}`, 60)
+    },
+  },
+
+  // ============================================================
+  // SECURITY — SHODAN (fusarium scope only)
+  // ============================================================
+  {
+    id: "crep.security.shodan.search",
+    name: "Shodan Search (fusarium only)",
+    category: "security.shodan",
+    description: "Shodan host search. Requires fusarium scope + SHODAN_API_KEY.",
+    underlying_routes: ["/api/shodan/search"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: true, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "fusarium",
+    cost_per_request: 20,
+    rate_weight: 10,
+    cache_ttl_ms: 24 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.security.shodan.search&q=product:DNP3",
+    handler: async ({ params, internalOrigin }) => {
+      const q = params.get("q")
+      if (!q) throw new Error("INVALID_PARAMS: q (Shodan query) required")
+      return proxyJson(`${internalOrigin}/api/shodan/search?q=${encodeURIComponent(q)}`, 24 * 3600)
+    },
+  },
+  {
+    id: "crep.security.shodan.host",
+    name: "Shodan Host Detail (fusarium only)",
+    category: "security.shodan",
+    description: "All services/ports/CVEs for a single IP.",
+    underlying_routes: ["/api/shodan/host/[ip]"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: true },
+    scope: "fusarium",
+    cost_per_request: 10,
+    rate_weight: 5,
+    cache_ttl_ms: 7 * 24 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.security.shodan.host&ip=1.1.1.1",
+    handler: async ({ params, internalOrigin }) => {
+      const ip = params.get("ip")
+      if (!ip) throw new Error("INVALID_PARAMS: ip required")
+      return proxyJson(`${internalOrigin}/api/shodan/host/${encodeURIComponent(ip)}`, 7 * 24 * 3600)
+    },
+  },
+  {
+    id: "crep.security.shodan.count",
+    name: "Shodan Query Count (cheap, fusarium only)",
+    category: "security.shodan",
+    description: "Free count endpoint — no query credits consumed upstream.",
+    underlying_routes: ["/api/shodan/count"],
+    response_shape: "json.Object",
+    supports: { bbox: false, cursor: false, time_range: false, stream: false, tile: false, id_lookup: false },
+    scope: "fusarium",
+    cost_per_request: 2,
+    rate_weight: 1,
+    cache_ttl_ms: 12 * 60 * 60_000,
+    example: "/api/worldview/v1/query?type=crep.security.shodan.count&q=port:502",
+    handler: async ({ params, internalOrigin }) => {
+      const q = params.get("q")
+      if (!q) throw new Error("INVALID_PARAMS: q required")
+      return proxyJson(`${internalOrigin}/api/shodan/count?q=${encodeURIComponent(q)}`, 12 * 3600)
+    },
+  },
 ]
 
 // Build an id→dataset lookup for O(1) access from query handler.

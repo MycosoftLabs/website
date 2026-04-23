@@ -10,6 +10,7 @@ import {
   Loader2,
   Key,
 } from "lucide-react";
+import WorldviewCatalogBrowser from "./WorldviewCatalogBrowser";
 
 // ---- Types ----
 interface WalletInfo {
@@ -908,6 +909,26 @@ The cost is $1. The cost of not paying is operational blindness.`}
           >
             → /search (human interface)
           </a>
+        </section>
+
+        {/* Apr 23, 2026 — Worldview v1 live catalog + bundle browser.
+            Fetches /api/worldview/v1/catalog + /bundles and lets
+            agents (and humans) filter by scope / category / search. */}
+        <section className="mt-12 pt-8 border-t border-zinc-800">
+          <h2 className="text-lg font-mono text-cyan-400 font-bold mb-2">
+            ## WORLDVIEW v1 — LIVE CATALOG
+          </h2>
+          <p className="text-xs text-zinc-500 mb-4 font-mono">
+            Browse every dataset + bundle. Filter by scope. Every entry is callable via
+            <code className="mx-1 px-1.5 py-0.5 bg-zinc-900 rounded text-cyan-300">GET /api/worldview/v1/query?type=&lt;id&gt;</code>
+            or
+            <code className="mx-1 px-1.5 py-0.5 bg-zinc-900 rounded text-cyan-300">GET /api/worldview/v1/bundle/&lt;id&gt;</code>.
+            OpenAPI spec at
+            <a href="/api/worldview/v1/openapi.json" className="ml-1 text-cyan-400 hover:underline">
+              /api/worldview/v1/openapi.json
+            </a>.
+          </p>
+          <WorldviewCatalogBrowser />
         </section>
       </div>
     </div>
