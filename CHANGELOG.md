@@ -455,6 +455,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -702,6 +703,10 @@ All notable changes to this project will be documented in this file.
 
 - Notepad gated on auth, world-view suggestions, fluid search rollout
 
+### Transit
+
+- WMATA secondary key failover; MARTA requires MARTA_API_KEY
+
 ### WIP
 
 - CREP, test-voice, MYCA components, OEI for cross-agent work
@@ -728,6 +733,9 @@ All notable changes to this project will be documented in this file.
 - *(transit,worldview)* Route self-fetch through localhost to dodge Cloudflare loop (#112)
 - *(transit)* Correct Metrolink + DART feed URLs (both require API keys) (#113)
 - *(eagle)* NYSDOT upstream-offline banner (511ny.org returning 302→NotFound) (#114)
+- Render stability — always write, cap vessels 8k, direct source-sync (#116)
+- Green iNat dots click-through to species popup + show at metro zoom (#117)
+- *(eagle-eye)* Refetch on bbox change + consume pending baked FC (#118)
 
 ### Diag
 
