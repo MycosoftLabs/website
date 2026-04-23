@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Mendocino Forest — Mycosoft device deployment, Apr 23 2026. Mendocino National Forest + coastal redwood ecology (high fungal biodiversity).",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "id": "project-mendocino-anchor", "name": "Project Mendocino Forest" },
+      "geometry": { "type": "Point", "coordinates": [-122.9503, 39.6544] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "id": "project-mendocino-perimeter", "name": "Mendocino National Forest" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-123.170, 39.240], [-123.170, 39.995], [-122.615, 39.995], [-122.615, 39.240], [-123.170, 39.240]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-upperlakeRS", "name": "Upper Lake Ranger Station", "category": "ranger" }, "geometry": { "type": "Point", "coordinates": [-122.9128, 39.1625] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-grindstoneRS", "name": "Grindstone Ranger Station", "category": "ranger" }, "geometry": { "type": "Point", "coordinates": [-122.5419, 39.8444] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-covelowt", "name": "Covelo Ranger District", "category": "ranger" }, "geometry": { "type": "Point", "coordinates": [-123.2503, 39.7928] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-sanhedrin", "name": "Sanhedrin Wilderness", "category": "wilderness" }, "geometry": { "type": "Point", "coordinates": [-122.9769, 39.4597] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-snowmountain", "name": "Snow Mountain Wilderness", "category": "wilderness" }, "geometry": { "type": "Point", "coordinates": [-122.7467, 39.5894] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-ycmarcus", "name": "Anthony Peak Fire Lookout", "category": "fire-lookout" }, "geometry": { "type": "Point", "coordinates": [-122.9347, 39.8803] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-shinbone", "name": "Shinbone Peak Fire Lookout", "category": "fire-lookout" }, "geometry": { "type": "Point", "coordinates": [-122.8278, 39.4375] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "mendo-bloodymtn", "name": "Bloody Rock (fungal biodiversity hotspot)", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-122.9300, 39.5500] } }
+  ]
+}

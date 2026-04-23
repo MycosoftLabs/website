@@ -151,6 +151,88 @@ export const MYCOSOFT_PROJECTS: MycosoftProject[] = [
     ],
     accent: "border-rose-500/50 hover:border-rose-400 hover:bg-rose-500/15 text-rose-200 hover:text-rose-100",
   },
+  // Apr 23, 2026 — Morgan: 2026 Mycosoft device deployment sites.
+  // "Yosemite, Zion National Park, Yellowstone, Mendocino Forest and
+  // Starbase, tx ... i want all to have data, filters, aqi iqa,
+  // cameras, tourist markers, relevant to site data, nature data".
+  // Camera seeds live in /data/crep/eagle-cameras-deployment-sites-seed.geojson
+  // and flow through EagleEyeOverlay's paintBakedRegistry(). Nature
+  // data comes from the live iNat SSE + per-site future bakes.
+  {
+    id: "project-yosemite",
+    code: "YOS",
+    label: "Project Yosemite — device deployment 2026",
+    pitch: "Yosemite Valley anchor. Half Dome, El Capitan, Yosemite Falls cams. Tuolumne + Wawona ranger stations. Mariposa sequoias. Glacier Point. Device deployment + live iNat + NPS webcams + AQI.",
+    center: [-119.5383, 37.8651],
+    zoom: 10,
+    pitch3d: 50,
+    bearing: 0,
+    layersOn: ["eagleEyeCameras", "fungi", "liveAqi"],
+    accent: "border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-500/15 text-emerald-200 hover:text-emerald-100",
+  },
+  {
+    id: "project-zion",
+    code: "ZION",
+    label: "Project Zion — device deployment 2026",
+    pitch: "Zion Canyon anchor. Angels Landing, The Narrows, Observation Point, Emerald Pools, Checkerboard Mesa. NPS webcams + iNat + AQI + device deployment.",
+    center: [-112.9867, 37.2000],
+    zoom: 11,
+    pitch3d: 50,
+    bearing: 0,
+    layersOn: ["eagleEyeCameras", "fungi", "liveAqi"],
+    accent: "border-orange-500/50 hover:border-orange-400 hover:bg-orange-500/15 text-orange-200 hover:text-orange-100",
+  },
+  {
+    id: "project-yellowstone",
+    code: "YELL",
+    label: "Project Yellowstone — device deployment 2026",
+    pitch: "Old Faithful anchor. Grand Prismatic, Mammoth Hot Springs, Lamar Valley wildlife, Hayden bison. USGS geothermal + NPS live webcams + wolf YouTube + iNat + AQI.",
+    center: [-110.8280, 44.4605],
+    zoom: 9,
+    pitch3d: 45,
+    bearing: 0,
+    layersOn: ["eagleEyeCameras", "fungi", "liveAqi", "earthquakes"],
+    accent: "border-yellow-500/50 hover:border-yellow-400 hover:bg-yellow-500/15 text-yellow-200 hover:text-yellow-100",
+  },
+  {
+    id: "project-mendocino",
+    code: "MENDO",
+    label: "Project Mendocino Forest — device deployment 2026",
+    pitch: "Mendocino NF anchor. Sanhedrin + Snow Mountain wilderness, Anthony/Shinbone fire lookouts. High fungal biodiversity zone. ALERTWildfire cams + live iNat + FIRMS wildfire + AQI.",
+    center: [-122.9503, 39.6544],
+    zoom: 9,
+    pitch3d: 40,
+    bearing: 0,
+    layersOn: ["eagleEyeCameras", "fungi", "liveAqi", "wildfires"],
+    accent: "border-green-600/50 hover:border-green-500 hover:bg-green-600/15 text-green-200 hover:text-green-100",
+  },
+  {
+    id: "project-starbase",
+    code: "BASE",
+    label: "Project Starbase TX — device deployment 2026",
+    pitch: "SpaceX Starbase anchor. OLP + production site, Highway 4 lookout, Boca Chica beach, Port Isabel, South Padre Island, Rio Grande delta ecology. NSF + SpaceX YouTube Live + iNat + AIS Gulf vessels + AQI.",
+    center: [-97.1560, 25.9971],
+    zoom: 12,
+    pitch3d: 55,
+    bearing: 0,
+    layersOn: ["eagleEyeCameras", "fungi", "liveAqi", "ships"],
+    accent: "border-slate-500/50 hover:border-slate-400 hover:bg-slate-500/15 text-slate-200 hover:text-slate-100",
+  },
+  // Apr 23, 2026 — Morgan: "only 3 devices are in my home san diego
+  // chula vista 451 Acero pl chula vista ca 91910 on this network on
+  // mqtt for now". Home-lab chip flies to the live hardware site.
+  {
+    id: "project-home-acero",
+    code: "HOME",
+    label: "Mycosoft Home Lab — 451 Acero Pl, Chula Vista",
+    pitch: "Live hardware — 3 devices on home MQTT broker: Mushroom 1 fruiting chamber, Hyphae 1 mycelium VOC sensor, SporeBase spore detector. ESP32-S3 + BME688. Real-time telemetry drives the device widgets when clicked.",
+    center: [-117.04175, 32.62540],
+    zoom: 18,
+    pitch3d: 60,
+    bearing: 0,
+    layersOn: ["mycobrain", "devMushroom1", "devHyphae1", "sporebase", "fungi", "liveAqi"],
+    accent: "border-fuchsia-500/50 hover:border-fuchsia-400 hover:bg-fuchsia-500/15 text-fuchsia-200 hover:text-fuchsia-100",
+  },
 ]
 
 // Apr 23, 2026 — Morgan: "every single environmental sensor and data

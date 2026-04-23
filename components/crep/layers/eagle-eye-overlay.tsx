@@ -154,7 +154,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         // (Surfline / HPWREN / Scripps / NOAA / EarthCam / Skyline /
         // CBP refs / NPS / Border Field / Port of SD). Manual seed wins
         // on id conflict so curated metadata overrides stale bakes.
-        const [rReg, rSeed, rNycDc, rVegas] = await Promise.all([
+        const [rReg, rSeed, rNycDc, rVegas, rDeploy] = await Promise.all([
           fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
@@ -169,6 +169,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           // Hoover Dam, Lake Mead, Red Rock Canyon, Harry Reid airport,
           // City Hall live stream, NDOT traffic cams on I-15/US-95/I-215.
           fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          // Apr 23, 2026 — Morgan (2026 deployment sites): "the same for,
+          // Yosemite, Zion National Park, Yellowstone, Mendocino Forest
+          // and Starbase, tx". NPS webcams (Half Dome, El Cap, Yos Falls,
+          // Zion Canyon, Old Faithful, Upper Geyser Basin, Mammoth),
+          // ALERTWildfire (Mendocino lookouts), YouTube Live (SpaceX NSF,
+          // Yellowstone wolf cam), EarthCam (South Padre).
+          fetch("/data/crep/eagle-cameras-deployment-sites-seed.geojson", { cache: "force-cache" }).catch(() => null),
         ])
         const projFeat = (f: any) => ({
           id: f?.properties?.id,
@@ -182,27 +189,23 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           lat: f?.geometry?.coordinates?.[1],
           lng: f?.geometry?.coordinates?.[0],
         })
-        const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
-        const seedFeats  = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
-        const nycDcFeats = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
-        const vegasFeats = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
+        const bakedFeats  = rReg?.ok   ? ((await rReg.json())?.features   || []) : []
+        const seedFeats   = rSeed?.ok  ? ((await rSeed.json())?.features  || []) : []
+        const nycDcFeats  = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
+        const vegasFeats  = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
+        const deployFeats = rDeploy?.ok ? ((await rDeploy.json())?.features || []) : []
         const merged = new Map<string, any>()
-        for (const f of bakedFeats) {
-          const p = projFeat(f)
-          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+        const mergeBatch = (arr: any[]) => {
+          for (const f of arr) {
+            const p = projFeat(f)
+            if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+          }
         }
-        for (const f of seedFeats) {
-          const p = projFeat(f)
-          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
-        }
-        for (const f of nycDcFeats) {
-          const p = projFeat(f)
-          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
-        }
-        for (const f of vegasFeats) {
-          const p = projFeat(f)
-          if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
-        }
+        mergeBatch(bakedFeats)
+        mergeBatch(seedFeats)
+        mergeBatch(nycDcFeats)
+        mergeBatch(vegasFeats)
+        mergeBatch(deployFeats)
         const srcLike = Array.from(merged.values())
         const fc = paintFromSources(srcLike)
         if (fc.features.length === 0) return false
@@ -211,7 +214,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(fc)
         }
-        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length})`)
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length} deploy-sites=${deployFeats.length})`)
         return true
       } catch (e: any) {
         console.warn("[EagleEye] baked registry load failed:", e?.message)

@@ -1,0 +1,63 @@
+{
+  "type": "FeatureCollection",
+  "note": "Mycosoft home-site live devices — 451 Acero Pl, Chula Vista CA 91910. Apr 23 2026. 3 MQTT-connected prototypes on the home LAN. Live telemetry pushed via /api/mycobrain/[port]/telemetry; this geojson is the static bootstrap (anchor + device positions). When the MQTT bridge publishes a reading, EntityDetailPanel's device widget opens with the live value.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "mycosoft-device",
+        "id": "home-acero-anchor",
+        "name": "Mycosoft Home Lab — 451 Acero Pl",
+        "device_type": "site-anchor",
+        "deployment_status": "live",
+        "network": "home-wifi + mqtt://192.168.x.x:1883"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.04175, 32.62540] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "mycosoft-device",
+        "id": "home-mushroom1-001",
+        "name": "Mushroom 1 — fruiting-body chamber",
+        "device_type": "mushroom-1",
+        "deployment_status": "live",
+        "broker": "mqtt://home-broker:1883",
+        "topic": "mycosoft/mushroom-1/001/telemetry",
+        "sensors": ["BME688 (VOC + CO2e + temp + RH + pressure)", "ESP32-S3"],
+        "port": 1001
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.04178, 32.62545] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "mycosoft-device",
+        "id": "home-hyphae1-001",
+        "name": "Hyphae 1 — mycelium VOC sensor",
+        "device_type": "hyphae-1",
+        "deployment_status": "live",
+        "broker": "mqtt://home-broker:1883",
+        "topic": "mycosoft/hyphae-1/001/telemetry",
+        "sensors": ["BME688", "substrate conductivity", "ESP32-S3"],
+        "port": 1002
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.04172, 32.62535] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "mycosoft-device",
+        "id": "home-sporebase-001",
+        "name": "SporeBase — environmental spore detection",
+        "device_type": "sporebase",
+        "deployment_status": "live",
+        "broker": "mqtt://home-broker:1883",
+        "topic": "mycosoft/sporebase/001/telemetry",
+        "sensors": ["airborne particulate", "BME688", "ESP32-S3"],
+        "port": 1003
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.04180, 32.62538] }
+    }
+  ]
+}

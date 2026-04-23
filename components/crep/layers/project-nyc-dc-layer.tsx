@@ -26,6 +26,13 @@ type Enabled = {
   projectNyc?: boolean
   projectDc?: boolean
   projectVegas?: boolean
+  // Apr 23, 2026 — 2026 Mycosoft deployment sites
+  projectYosemite?: boolean
+  projectZion?: boolean
+  projectYellowstone?: boolean
+  projectMendocino?: boolean
+  projectStarbase?: boolean
+  projectHomeAcero?: boolean
   // OSM-baked layers (shared toggle structure; NYC copies)
   nycHospitals?: boolean
   nycPolice?: boolean
@@ -149,6 +156,20 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
       { id: "nyc" as const, file: "/data/crep/project-nyc.geojson", anchorColor: "#06b6d4", perimeterColor: "#22d3ee", enabled: enabled.projectNyc },
       { id: "dc" as const, file: "/data/crep/project-dc.geojson", anchorColor: "#facc15", perimeterColor: "#fbbf24", enabled: enabled.projectDc },
       { id: "vegas" as const, file: "/data/crep/project-vegas.geojson", anchorColor: "#f43f5e", perimeterColor: "#fb7185", enabled: enabled.projectVegas },
+      // Apr 23, 2026 — Morgan: "Yosemite, Zion National Park, Yellowstone,
+      // Mendocino Forest and Starbase, tx, these sites are our planned
+      // first deployments of Mycosoft Devices". Anchor + perimeter + POI
+      // files live at /data/crep/project-{site}.geojson. Always-on
+      // rendering (no per-site toggle yet — parked as nature/industrial
+      // projects distinct from the urban NYC/DC/Vegas stack).
+      { id: "yosemite" as const, file: "/data/crep/project-yosemite.geojson", anchorColor: "#10b981", perimeterColor: "#34d399", enabled: enabled.projectYosemite !== false },
+      { id: "zion" as const, file: "/data/crep/project-zion.geojson", anchorColor: "#fb923c", perimeterColor: "#fdba74", enabled: enabled.projectZion !== false },
+      { id: "yellowstone" as const, file: "/data/crep/project-yellowstone.geojson", anchorColor: "#eab308", perimeterColor: "#facc15", enabled: enabled.projectYellowstone !== false },
+      { id: "mendocino" as const, file: "/data/crep/project-mendocino.geojson", anchorColor: "#16a34a", perimeterColor: "#22c55e", enabled: enabled.projectMendocino !== false },
+      { id: "starbase" as const, file: "/data/crep/project-starbase.geojson", anchorColor: "#64748b", perimeterColor: "#94a3b8", enabled: enabled.projectStarbase !== false },
+      // Morgan's home lab (live 3 MQTT devices — Mushroom 1, Hyphae 1,
+      // SporeBase) at 451 Acero Pl Chula Vista.
+      { id: "home-acero" as const, file: "/data/crep/mycosoft-home-devices.geojson", anchorColor: "#d946ef", perimeterColor: "#e879f9", enabled: enabled.projectHomeAcero !== false },
     ]
 
     const run = async () => {
