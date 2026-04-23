@@ -306,6 +306,8 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Use nginx -t exit code in reload_proxy (no grep pipeline)
 - *(crep)* Remove cyan selection ring + Cursor's perf/prod pass combined
 - *(crep)* Commit missing service-worker files to unblock prod build
+- *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
+- *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 
 ### CREP
 
@@ -439,6 +441,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -713,6 +716,10 @@ All notable changes to this project will be documented in this file.
 - Fill TX-line sub-transmission coverage gap (OSM ≤115 kV)
 - SD + TJ data coverage expansion (7 OSM layers)
 - MYCA waypoint → verify → auto-add entity pipeline
+- NYC + DC expansion — NYSDOT cam fix + Project NYC/DC + 22 OSM layers
+- NYSDOT cam visuals + iNat NYC/DC + military enrichment + what's-here timeout
+- Fly-to buttons for Project NYC + DC + 15 US major metros
+- Cell-tower dots 50% smaller + US major-cities ETL + Cursor handoff doc
 
 ### Diag
 
@@ -749,4 +756,11 @@ All notable changes to this project will be documented in this file.
 ### Ux
 
 - Mobile devices page - sticky tab strip replaces scroll-up-scroll-down picker
+
+### Worldview
+
+- *(api)* V2 plan + core gateway scaffold
+- *(api)* Ship P1 + P2 + P3 (migration, 51 datasets, streams, tiles, SDK)
+- *(ops)* Migration runner + smoke test + health monitor + PersonaPlex plan
+- *(devices)* Company scope + MYCA visibility gate + 7 device datasets + SSE
 
