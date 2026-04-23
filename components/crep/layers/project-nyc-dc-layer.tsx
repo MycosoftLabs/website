@@ -37,7 +37,6 @@ type Enabled = {
   nycTransitRail?: boolean
   nycAirports?: boolean
   nycGovtEmbassy?: boolean
-  nycInat?: boolean
   // DC copies
   dcHospitals?: boolean
   dcPolice?: boolean
@@ -50,7 +49,10 @@ type Enabled = {
   dcTransitRail?: boolean
   dcAirports?: boolean
   dcGovtEmbassy?: boolean
-  dcInat?: boolean
+  // nycInat / dcInat removed — baked iNat loads into the shared
+  // fungalObservations React state in CREPDashboardClient and is gated
+  // by the master "fungi" layer toggle (see "BAKED HISTORICAL iNAT"
+  // useEffect). No separate per-region toggle needed.
 }
 
 interface RegionCategory {
