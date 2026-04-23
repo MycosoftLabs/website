@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { fetchVehiclePositions, cullVehiclesToBbox } from "@/lib/transit/gtfs-realtime"
 
 /**
- * DART (Dallas Area Rapid Transit) — GTFS-rt protobuf (open).
- * Covers bus + light rail (Red/Blue/Green/Orange) + TRE commuter rail.
+ * DART (Dallas Area Rapid Transit) — GTFS-rt protobuf.
  *
- * Feed URL — DART publishes via trackingmap.org aggregator (no key required);
- * the `?agency=DART` param filters to DART only.
+ * Apr 23, 2026 correction: DART moved its realtime feeds behind an Azure API
+ * Management gateway (https://dart.developer.azure-api.net/). The older
+ * `www.dart.org/transitdata/gtfsrt/vehiclepositions.pb` path returns 404.
+ * Subscription key required via header `Ocp-Apim-Subscription-Key` → env
+ * var DART_API_KEY.
  *
  * GET /api/transit/dart?bbox=w,s,e,n
  */
@@ -14,13 +16,15 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
+  const key = process.env.DART_API_KEY?.trim()
+  if (!key) return NextResponse.json({ ok: false, error: "DART_API_KEY not configured" }, { status: 501 })
   const bbox = parseBbox(req.nextUrl.searchParams.get("bbox"))
-  // Primary: DART's own GTFS-rt VP endpoint (OpenMobilityData mirror).
-  const url = "https://www.dart.org/transitdata/gtfsrt/vehiclepositions.pb"
+  const url = "https://dartgtfsrealtime.azure-api.net/vehiclepositions.pb"
   const result = await fetchVehiclePositions(url, {
     agency: "o-9vfh-dart",
     agency_name: "DART",
     vehicleType: "bus",
+    headers: { "Ocp-Apim-Subscription-Key": key },
   })
   const vehicles = cullVehiclesToBbox(result.vehicles, bbox)
   return NextResponse.json({

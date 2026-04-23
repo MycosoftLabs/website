@@ -43,8 +43,8 @@ const AGENCIES: AgencyDef[] = [
   { id: "marta", path: "/api/transit/marta", keyEnv: "MARTA_API_KEY" },
   { id: "amtrak", path: "/api/transit/amtrak" },
   { id: "septa", path: "/api/transit/septa" },
-  { id: "metrolink", path: "/api/transit/metrolink" },
-  { id: "dart", path: "/api/transit/dart" },
+  { id: "metrolink", path: "/api/transit/metrolink", keyEnv: "METROLINK_API_KEY" },
+  { id: "dart", path: "/api/transit/dart", keyEnv: "DART_API_KEY" },
 ]
 
 async function fetchAgency(internalBase: string, def: AgencyDef, bbox: string | null): Promise<{ id: string; vehicles: TransitVehicle[]; ok: boolean; err?: string }> {
