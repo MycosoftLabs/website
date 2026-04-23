@@ -1,0 +1,85 @@
+# Weekly: refresh San Diego + Tijuana coverage layers for CREP
+# ==============================================================================
+# Morgan / Apr 22, 2026 — "massive amount of missing data from TIJUANA
+# including infra cell towers enviornmental sensors, military, police,
+# hospitals, sewage line data centers, am fm antennas same with san diego
+# missing data".
+#
+# Runs bake-sdtj-coverage.mjs which queries OSM Overpass for 7 categories
+# in the SD + TJ bbox and writes 7 geojson layers. Fast (<5 min) because
+# the bbox is small.
+
+name: CREP — weekly SD+TJ coverage bake
+
+on:
+  schedule:
+    # Wednesdays 09:00 UTC (off-cycle from the Sunday sub-transmission
+    # run so Overpass isn't hit twice on the same day).
+    - cron: "0 9 * * 3"
+  workflow_dispatch:
+    inputs:
+      bbox:
+        description: 'Harvest bbox (comma-separated w,s,e,n). Default: SD+TJ+Rosarito.'
+        required: false
+        default: "-117.9,32.3,-116.8,33.6"
+
+concurrency:
+  group: sdtj-coverage-weekly
+  cancel-in-progress: true
+
+jobs:
+  bake:
+    name: Harvest SD+TJ coverage + write 7 geojson files
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Bake SD+TJ coverage geojsons
+        env:
+          BBOX: ${{ github.event.inputs.bbox || '-117.9,32.3,-116.8,33.6' }}
+        run: |
+          node scripts/etl/crep/bake-sdtj-coverage.mjs --bbox="$BBOX"
+
+      - name: Report sizes
+        run: |
+          cat public/data/crep/sdtj-coverage-summary.json
+          echo "---"
+          ls -lh public/data/crep/sdtj-*.geojson
+
+      - name: Open PR if any geojson changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(crep): refresh SD+TJ coverage layers (weekly)"
+          title: "chore(crep): weekly SD+TJ coverage refresh"
+          body: |
+            Automated OSM harvest for San Diego + Tijuana coverage layers.
+
+            Categories:
+              - `sdtj-hospitals.geojson`
+              - `sdtj-police.geojson`
+              - `sdtj-sewage.geojson`
+              - `sdtj-cell-towers.geojson`
+              - `sdtj-am-fm-antennas.geojson`
+              - `sdtj-military.geojson`
+              - `sdtj-data-centers.geojson`
+
+            Summary in `sdtj-coverage-summary.json`.
+
+            **Merge** to ship the refreshed coverage. Review file sizes in the
+            workflow run — sharp shrink in any category suggests Overpass
+            rate-limiting on that query.
+          branch: bot/sdtj-coverage-weekly
+          delete-branch: true
