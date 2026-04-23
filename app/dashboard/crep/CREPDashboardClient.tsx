@@ -284,6 +284,11 @@ import Photorealistic3DTiles from "@/components/crep/layers/photorealistic-3d-ti
 // waypoints check what this is and places saving").
 import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
 import LookupHereWidget from "@/components/crep/waypoints/LookupHereWidget";
+// Apr 22, 2026 — MYCA waypoint→verify→auto-add pipeline. User drops a
+// waypoint → POST /api/myca/waypoint-verify → when confidence ≥ 0.85,
+// MYCA publishes to SSE /api/myca/entity-feed which this component
+// subscribes to and renders live markers + perimeter polygons.
+import MycaVerifiedEntityFeed from "@/components/crep/myca/MycaVerifiedEntityFeed";
 // Glass-morphism device widget (Apr 20, 2026). Replaces the old cramped
 // inline MarkerPopup with a beautiful floating high-tech dialog with
 // explicit GPS state surfacing + sparkline telemetry cards.
@@ -8788,6 +8793,12 @@ export default function CREPDashboardPage() {
               listens, calls /api/crep/reverse-geocode, and renders the
               address + nearby MINDEX infrastructure in a floating panel. */}
           <LookupHereWidget />
+          {/* Apr 22, 2026 — MYCA waypoint→verify→auto-add live feed.
+              Subscribes to SSE /api/myca/entity-feed and paints
+              verified entities (Navy depots etc.) on the map within
+              100ms of confirmation. Also shows a toast when an entity
+              lands. */}
+          <MycaVerifiedEntityFeed map={mapRef} />
 
           {/* Project Oyster (MYCODAO + MYCOSOFT) — Tijuana Estuary
               pollution showcase (Apr 20, 2026). Federated overlay of
