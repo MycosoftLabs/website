@@ -21,6 +21,7 @@
  *   • /api/eagle/sources       — Eagle Eye camera source count
  *   • MINDEX /health           — infra reachability
  *   • MAS 8001 /health         — middleware reachability
+ *   • Earth-2 legion GET /health (EARTH2_API_URL, default 249:8220)
  *
  * Query params:
  *   ?project=oyster|goffs|global  (default global)
@@ -35,12 +36,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
+import { resolveEarth2ApiBaseUrl, VOICE_ENDPOINTS } from "@/lib/config/api-urls"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const MINDEX_URL = resolveMindexServerBaseUrl()
 const MAS_URL = resolveMasServerBaseUrl()
+const EARTH2_BASE = resolveEarth2ApiBaseUrl()
 
 // Safe-fetch helper: returns null on error, never throws.
 async function safeJson(url: string, timeoutMs = 8000): Promise<any | null> {
@@ -69,7 +72,7 @@ export async function GET(req: NextRequest) {
   const [
     aircraft, vessels, satellites, buoys, military,
     oyster, goffs, eagleSources, h2s,
-    mindexHealth, masHealth,
+    mindexHealth, masHealth, earth2Health,
   ] = await Promise.all([
     safeJson(`${origin}/api/oei/flightradar24`, 10_000),
     safeJson(`${origin}/api/oei/aisstream`, 10_000),
@@ -82,6 +85,7 @@ export async function GET(req: NextRequest) {
     safeJson(`${origin}/api/crep/sdapcd/h2s`, 10_000),
     headReachable(`${MINDEX_URL}/health`),
     headReachable(`${MAS_URL}/health`),
+    headReachable(`${EARTH2_BASE}/health`),
   ])
 
   // Normalize entity counts — different connectors return different shapes
@@ -178,12 +182,18 @@ export async function GET(req: NextRequest) {
         reachable: masHealth.ok,
         latency_ms: masHealth.ms,
       },
+      earth2_api: {
+        url: EARTH2_BASE,
+        reachable: earth2Health.ok,
+        latency_ms: earth2Health.ms,
+        note: "Override with EARTH2_API_URL; Earth-2 legion defaults GPU_EARTH2_IP:8220.",
+      },
       personaplex_voice: {
-        url: "ws://localhost:8999/ws/crep/commands",
+        url: VOICE_ENDPOINTS.CREP_BRIDGE_WS,
         // PersonaPlex WS can't be HEAD-probed from here — consumer-side
         // breaker state is the real indicator.
         reachable: null,
-        note: "Probed client-side only; check window.__crep_pump_*_breaker from browser.",
+        note: "Probed client-side only; set CREP_BRIDGE_WS for runtime URL (avoids build-time inlining).",
       },
       shinobi: {
         url: process.env.SHINOBI_URL || "http://192.168.0.188:8080",

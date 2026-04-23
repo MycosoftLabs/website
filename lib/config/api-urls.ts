@@ -21,6 +21,23 @@ const POSTGRES_PORT = "5432"
 const QDRANT_PORT = "6333"
 const OLLAMA_PORT = "11434"
 
+/** Split RTX 4080 Legions on UniFi LAN (canonical: 241 = Voice, 249 = Earth-2). */
+export const GPU_LEGION_DEFAULTS = {
+  VOICE: "192.168.0.241",
+  EARTH2: "192.168.0.249",
+} as const
+
+/**
+ * Earth-2 HTTP API (port 8220 on Earth-2 legion). Not NEXT_PUBLIC — runtime on server.
+ */
+export function resolveEarth2ApiBaseUrl(): string {
+  if (process.env.EARTH2_API_URL?.trim()) {
+    return process.env.EARTH2_API_URL.replace(/\/$/, "")
+  }
+  const ip = process.env.GPU_EARTH2_IP || GPU_LEGION_DEFAULTS.EARTH2
+  return `http://${ip}:8220`
+}
+
 /**
  * API URLs - use environment variables with sensible defaults
  */
@@ -121,9 +138,10 @@ export const MINDEX_ENDPOINTS = {
 
 /**
  * Voice and TTS endpoints
+ * CREP: prefer `CREP_BRIDGE_WS` (runtime, not baked at build) then NEXT_PUBLIC_*.
  */
 export const VOICE_ENDPOINTS = {
-  // PersonaPlex (local GPU, port 8998/8999). Prefer NEXT_PUBLIC_* for browser bundles.
+  // PersonaPlex (port 8998/8999). Prefer NEXT_PUBLIC_* for browser bundles.
   PERSONAPLEX_WS:
     process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL ||
     process.env.PERSONAPLEX_WS_URL ||
@@ -131,11 +149,14 @@ export const VOICE_ENDPOINTS = {
   PERSONAPLEX_HTTP: process.env.PERSONAPLEX_HTTP_URL || "http://localhost:8998",
   
   // CREP map command WebSocket (PersonaPlex Bridge CREP channel)
-  // Uses PERSONAPLEX for ws - Bridge runs alongside PersonaPlex
-  CREP_BRIDGE_WS:
-    process.env.NEXT_PUBLIC_CREP_BRIDGE_WS ||
-    process.env.CREP_BRIDGE_WS ||
-    "ws://localhost:8999/ws/crep/commands",
+  CREP_BRIDGE_WS: (() => {
+    if (process.env.CREP_BRIDGE_WS) return process.env.CREP_BRIDGE_WS
+    if (process.env.NEXT_PUBLIC_CREP_BRIDGE_WS) return process.env.NEXT_PUBLIC_CREP_BRIDGE_WS
+    if (process.env.NODE_ENV !== "production") {
+      return "ws://localhost:8999/ws/crep/commands"
+    }
+    return `ws://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999/ws/crep/commands`
+  })(),
   
   // MAS TTS endpoint
   MAS_TTS: `${API_URLS.MAS}/voice/tts`,
