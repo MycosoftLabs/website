@@ -37,6 +37,7 @@ type Enabled = {
   nycTransitRail?: boolean
   nycAirports?: boolean
   nycGovtEmbassy?: boolean
+  nycInat?: boolean
   // DC copies
   dcHospitals?: boolean
   dcPolice?: boolean
@@ -49,6 +50,7 @@ type Enabled = {
   dcTransitRail?: boolean
   dcAirports?: boolean
   dcGovtEmbassy?: boolean
+  dcInat?: boolean
 }
 
 interface RegionCategory {
@@ -75,6 +77,11 @@ const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
   { id: `${region}TransitRail` as keyof Enabled,   file: `/data/crep/${region}-transit-rail.geojson`,    layerId: `crep-${region}-rail`,          sourceId: `crep-${region}-rail-src`,          label: "Rail station", color: "#eab308", selectType: "rail_station", minzoom: 8 },
   { id: `${region}Airports` as keyof Enabled,      file: `/data/crep/${region}-airports.geojson`,        layerId: `crep-${region}-air`,           sourceId: `crep-${region}-air-src`,           label: "Airport", color: "#8b5cf6", selectType: "airport", minzoom: 5 },
   { id: `${region}GovtEmbassy` as keyof Enabled,   file: `/data/crep/${region}-govt-embassy.geojson`,    layerId: `crep-${region}-gov`,           sourceId: `crep-${region}-gov-src`,           label: "Government / Embassy", color: "#14b8a6", selectType: "government", minzoom: 9 },
+  // Apr 23, 2026 — iNat nature observations (Morgan: "i see not one
+  // nature data icon in nyc or washington dc that is a huge violation
+  // of our product fix that now"). 10k research-grade observations
+  // per region; kingdom-colored dots, minzoom 10 to keep it legible.
+  { id: `${region}Inat` as keyof Enabled,          file: `/data/crep/${region}-inat.geojson`,            layerId: `crep-${region}-inat`,          sourceId: `crep-${region}-inat-src`,          label: "Nature observations (iNat)", color: "#84cc16", selectType: "inat-observation", minzoom: 10 },
 ]
 
 export interface ProjectNycDcLayerProps {

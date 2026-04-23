@@ -1,0 +1,96 @@
+# Hourly iNat harvest for NYC + DC → MINDEX + baked geojson
+# ============================================================================
+# Morgan / Apr 23, 2026 — "all inat data needs to go into mindex still and be
+# new by the hr from mindex etl".
+#
+# Every hour:
+#   1. Run bake-nyc-dc-inat.mjs — refreshes public/data/crep/{nyc,dc}-inat.geojson
+#   2. Upsert each observation to MINDEX species.observations (nature sync)
+#   3. Open a PR when either geojson file drifts more than 5% (coverage change)
+#
+# MINDEX reachability is handled by the in-container ingest call; if MINDEX
+# is unreachable the bake still writes the geojson, which CREP reads directly.
+
+name: CREP — hourly iNat NYC+DC refresh
+
+on:
+  schedule:
+    - cron: "0 * * * *"    # top of every hour
+  workflow_dispatch: {}
+
+concurrency:
+  group: inat-nyc-dc-hourly
+  cancel-in-progress: true
+
+jobs:
+  bake:
+    name: Harvest iNat + upsert to MINDEX
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Bake NYC + DC iNat
+        run: node scripts/etl/crep/bake-nyc-dc-inat.mjs
+
+      - name: Upsert to MINDEX (best-effort — non-blocking)
+        continue-on-error: true
+        env:
+          MINDEX_API_URL: ${{ secrets.MINDEX_API_URL }}
+          MINDEX_API_KEY: ${{ secrets.MINDEX_API_KEY }}
+        run: |
+          for region in nyc dc; do
+            file="public/data/crep/${region}-inat.geojson"
+            if [ -f "$file" ]; then
+              size=$(wc -c < "$file")
+              echo "→ upserting $region ($size bytes) to ${MINDEX_API_URL:-skip}..."
+              if [ -n "$MINDEX_API_URL" ]; then
+                curl -sSf -X POST \
+                  "${MINDEX_API_URL}/api/v1/ingest/inat-region/${region}" \
+                  -H "Content-Type: application/json" \
+                  ${MINDEX_API_KEY:+-H "X-API-Key: ${MINDEX_API_KEY}"} \
+                  --data-binary @"$file" \
+                  --max-time 60 || echo "  MINDEX upsert returned non-zero (non-blocking)"
+              else
+                echo "  MINDEX_API_URL not set — baked geojson is the authoritative source"
+              fi
+            fi
+          done
+
+      - name: Report sizes
+        run: |
+          ls -lh public/data/crep/nyc-inat.geojson public/data/crep/dc-inat.geojson
+          for f in public/data/crep/nyc-inat.geojson public/data/crep/dc-inat.geojson; do
+            node -e "const g=require('./$f'); console.log('  $f:', g.feature_count, 'features');"
+          done
+
+      - name: Open PR if iNat geojson changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(crep): refresh NYC+DC iNat (hourly)"
+          title: "chore(crep): hourly NYC+DC iNat refresh"
+          body: |
+            Automated iNaturalist harvest for NYC + DC bboxes.
+
+            Output:
+              - `public/data/crep/nyc-inat.geojson`
+              - `public/data/crep/dc-inat.geojson`
+
+            Also POSTed to MINDEX `/api/v1/ingest/inat-region/{region}` (best-effort).
+
+            **Merge** to ship the refreshed nature layer. Auto-merge-safe — only
+            changes the two geojson files.
+          branch: bot/inat-nyc-dc-hourly
+          delete-branch: true

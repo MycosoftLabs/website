@@ -325,11 +325,24 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
   // Apr 22, 2026 — Surfline renders cam inside a nested iframe with a
   // canvas; the <video> element is gated behind their player JS. Broad
   // chain + body fallback so we always end up with SOME screenshot.
+  //
+  // Apr 23, 2026 — Morgan: "none of these headless cameras work at
+  // all ... fix that". State-DOT providers (nysdot/vdot/chart-md/ddot)
+  // viewer pages are <img>-based not <video>, so we skip straight to
+  // the `img` selector and fall through to body. Starting at "video"
+  // wastes 8s + a 502 before advancing.
   const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas", "body"]
                       : provider === "windy" ? ["video", ".player-video", "canvas.leaflet-zoom-animated", "body"]
                       : provider === "alertwildfire" ? ["video", "img", "canvas", "body"]
                       : provider === "surfline" ? ["video", "canvas", "iframe", "img[src*='surfline']", "img", "body"]
                       : provider === "caltrans" ? ["img", "video", "body"]
+                      : provider === "nysdot" ? ["img", "body"]
+                      : provider === "vdot" ? ["img", "body"]
+                      : provider === "chart-md" ? ["img", "body"]
+                      : provider === "ddot" ? ["img", "body"]
+                      : provider === "wsdot" ? ["img", "body"]
+                      : provider === "fdot" ? ["img", "body"]
+                      : provider === "txdot" ? ["img", "body"]
                       : ["video", "img", "canvas", "body"]
   const [t, setT] = useState(Date.now())
   const [selectorIdx, setSelectorIdx] = useState(0)
@@ -583,6 +596,28 @@ export default function VideoWallWidget() {
       return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&muted=1`
     }
 
+    // Apr 23, 2026 — Morgan: "none of these headless cameras work at
+    // all ... fix that its not tolerable if they show up but no video
+    // shows". State-DOT viewer pages route through the headless
+    // snapshot proxy today but that almost always fails (no <video>
+    // element, selector chain drains, body-screenshot returns 502).
+    // Every state DOT exposes its JPEG snapshot at a predictable URL
+    // derived from the viewer page URL — rewrite those here and route
+    // through /api/eagle/cam-image (allowlist-safe, works every time).
+    function deriveStateDotSnapshot(embed: string | undefined, mediaUrl?: string): string | null {
+      if (!embed) return null
+      // 511NY: /map/Cctv/{id}  →  /map/GetImage?id={id}
+      let m = /511ny\.org\/map\/Cctv\/(\d+)/i.exec(embed)
+      if (m) return `/api/eagle/cam-image?url=${encodeURIComponent(`https://511ny.org/map/GetImage?id=${m[1]}`)}`
+      // 511VA: same pattern
+      m = /511va\.org\/map\/Cctv\/(\d+)/i.exec(embed)
+      if (m) return `/api/eagle/cam-image?url=${encodeURIComponent(`https://511va.org/map/GetImage?id=${m[1]}`)}`
+      // MDOT CHART: chart.maryland.gov/video/video.asp?feed=XX → /video/VideoStill.asp?feed=XX
+      m = /chart\.maryland\.gov\/video\/video\.asp\?feed=(\w+)/i.exec(embed)
+      if (m) return `/api/eagle/cam-image?url=${encodeURIComponent(`https://chart.maryland.gov/video/VideoStill.asp?feed=${m[1]}`)}`
+      return null
+    }
+
     const de = feed.directEmbed
 
     // 1+2: live video (HLS / WebRTC) always wins
@@ -599,7 +634,17 @@ export default function VideoWallWidget() {
     }
 
     // 3: static snapshot — media_url ending in image extension
-    if (feed.thumbnail && isImage(feed.thumbnail)) {
+    //    OR a /api/eagle/cam-image proxy URL (Apr 23, 2026 fix —
+    //    Morgan: "none of these headless cameras work at all ... fix
+    //    that its not tolerable if they show up but no video shows").
+    //    Our proxy URL is `/api/eagle/cam-image?url=<encoded>` which
+    //    doesn't end in .jpg, so the old isImage()-only check fell
+    //    through to IframeEmbed → SnapshotProxyVideo → headless render
+    //    (which almost always fails for state-DOT viewer pages). The
+    //    proxy endpoint already returns the JPEG bytes from the
+    //    allowlisted upstream, so it's the right thing to render as
+    //    a refreshing <img>.
+    if (feed.thumbnail && (isImage(feed.thumbnail) || isOurCamSnap(feed.thumbnail))) {
       setResolved({
         id: feed.id,
         provider: feed.provider,
@@ -622,6 +667,21 @@ export default function VideoWallWidget() {
         kind: feed.kind === "camera" ? "permanent" : "ephemeral",
         stream_type: "snapshot",
         stream_url: caltransSnap,
+        embed_url: de,
+      })
+      return
+    }
+
+    // 4a2: State DOT viewer page — derive the proxied JPEG URL
+    // (Apr 23, 2026 — NYSDOT / VDOT / MDOT CHART fix).
+    const stateDotSnap = deriveStateDotSnapshot(de, feed.thumbnail)
+    if (stateDotSnap) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: stateDotSnap,
         embed_url: de,
       })
       return

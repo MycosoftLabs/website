@@ -2481,6 +2481,7 @@ export default function CREPDashboardPage() {
     { id: "nycTransitRail",     name: "NYC — Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
     { id: "nycAirports",        name: "NYC — Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
     { id: "nycGovtEmbassy",     name: "NYC — Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
+    { id: "nycInat",            name: "NYC — Nature observations (iNat)", category: "projects", icon: <Leaf className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#84cc16", description: "10k research-grade iNaturalist observations in the NYC bbox — ~4800 plants, 2100 birds, 1700 insects, 490 reptiles, 290 mammals. Hourly MINDEX ETL refresh planned." },
 
     // Project DC
     { id: "projectDc",          name: "Project DC — anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
@@ -2495,6 +2496,7 @@ export default function CREPDashboardPage() {
     { id: "dcTransitRail",      name: "DC — Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
     { id: "dcAirports",         name: "DC — Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
     { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
+    { id: "dcInat",             name: "DC — Nature observations (iNat)",   category: "projects",       icon: <Leaf className="w-3 h-3" />,       enabled: true,  opacity: 0.85, color: "#84cc16", description: "10k research-grade iNaturalist observations in the DC metro bbox — ~4800 plants, 2100 birds, 1700 insects, 490 reptiles. Hourly MINDEX ETL refresh planned." },
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
@@ -8944,6 +8946,7 @@ export default function CREPDashboardPage() {
               nycTransitRail:    layers.find(l => l.id === "nycTransitRail")?.enabled    ?? true,
               nycAirports:       layers.find(l => l.id === "nycAirports")?.enabled       ?? true,
               nycGovtEmbassy:    layers.find(l => l.id === "nycGovtEmbassy")?.enabled    ?? true,
+              nycInat:           layers.find(l => l.id === "nycInat")?.enabled           ?? true,
               projectDc:         layers.find(l => l.id === "projectDc")?.enabled         ?? true,
               dcHospitals:       layers.find(l => l.id === "dcHospitals")?.enabled       ?? true,
               dcPolice:          layers.find(l => l.id === "dcPolice")?.enabled          ?? true,
@@ -8956,6 +8959,7 @@ export default function CREPDashboardPage() {
               dcTransitRail:     layers.find(l => l.id === "dcTransitRail")?.enabled     ?? true,
               dcAirports:        layers.find(l => l.id === "dcAirports")?.enabled        ?? true,
               dcGovtEmbassy:     layers.find(l => l.id === "dcGovtEmbassy")?.enabled     ?? true,
+              dcInat:            layers.find(l => l.id === "dcInat")?.enabled            ?? true,
             }}
           />
 

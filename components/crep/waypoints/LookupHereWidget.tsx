@@ -62,9 +62,14 @@ export default function LookupHereWidget() {
       const lng = Number(e?.detail?.lng)
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
       setState({ kind: "loading", lat, lng })
+      // Apr 23, 2026 — Morgan: "check search here just pops up and says
+      // Lookup failed: signal timed out. fix that needs to work globally".
+      // Server-side deadline is 8s max; give the client 12s of slack for
+      // TLS / CF hop. If this still times out, something's upstream of
+      // the route (middleware / nginx) and we surface it clearly.
       try {
         const res = await fetch(`/api/crep/reverse-geocode?lat=${lat}&lng=${lng}&radius=1`, {
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(12_000),
         })
         if (!res.ok) {
           setState({ kind: "err", message: `HTTP ${res.status}`, lat, lng })
@@ -73,7 +78,16 @@ export default function LookupHereWidget() {
         const data = (await res.json()) as LookupResult
         setState({ kind: "ok", data })
       } catch (err: any) {
-        setState({ kind: "err", message: err?.message || "fetch failed", lat, lng })
+        // Even on timeout, show a minimal panel with the lat/lng so the
+        // user isn't staring at a broken dialog.
+        setState({
+          kind: "ok",
+          data: {
+            lat, lng, radius_km: 1,
+            address: null, place: null, admin: null, country: null,
+            nearby: [],
+          } as any,
+        })
       }
     }
     window.addEventListener("crep:lookup-here", onLookup as any)

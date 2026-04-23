@@ -14,14 +14,20 @@
  * Positioned near the click point on the map, floats above the asset.
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   X, Cable, Zap, MapPin, Building2, Radio, Server,
   Calendar, Hash, ExternalLink, Globe, Signal,
-  Activity, ArrowRight, CircleDot, Factory, Navigation
+  Activity, ArrowRight, CircleDot, Factory, Navigation,
+  Phone, Mail, Users, Shield as ShieldIcon
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+// Apr 23, 2026 — Morgan: "update all military base widgets with more data
+// contact information base commander what branches are at base and way
+// more usable data". Pulls commander / PAO / branches / tenants from the
+// hand-curated enrichment geojson.
+import { findEnrichment, type MilitaryEnrichment } from "@/lib/crep/military-enrichment"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,6 +235,27 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
   const sourceBadge = getSourceBadge(asset.properties?.source)
   const vkv = asset.properties?.voltage_kv ? Number(asset.properties.voltage_kv) : 0
 
+  // Apr 23, 2026 — Military enrichment (commander / branches / PAO /
+  // tenants) for "military" and "military_installation" asset types.
+  // Looks up in public/data/crep/military-bases-enrichment.geojson keyed
+  // by id / name / aliases.
+  const [milEnrich, setMilEnrich] = useState<MilitaryEnrichment | null>(null)
+  useEffect(() => {
+    const typ = asset.type as string
+    if (typ !== "military" && typ !== "military_installation") return
+    const p = asset.properties || {}
+    let cancelled = false
+    findEnrichment([
+      asset.id,
+      asset.name,
+      p.SITE_NAME,
+      p.site_name,
+      p.NAME,
+      p.ref,
+    ]).then((hit) => { if (!cancelled) setMilEnrich(hit) })
+    return () => { cancelled = true }
+  }, [asset.id, asset.name, asset.type])
+
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -354,6 +381,103 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Apr 23, 2026 — Military base enrichment panel (commander, PAO,
+          branches, tenants). Renders only when findEnrichment() returned
+          a match for this installation. */}
+      {milEnrich && (
+        <div className="px-4 py-2.5 border-b border-gray-700/30 space-y-2 bg-emerald-900/10">
+          <div className="text-[9px] font-mono uppercase tracking-[0.15em] text-emerald-300 mb-1 flex items-center gap-1">
+            <ShieldIcon className="w-3 h-3" /> Military installation detail
+          </div>
+          {milEnrich.primary_component && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5"><ShieldIcon className="w-3 h-3" />Component</span>
+              <span className="font-medium text-white text-right">{milEnrich.primary_component}</span>
+            </div>
+          )}
+          {Array.isArray(milEnrich.branches) && milEnrich.branches.length > 0 && (
+            <div className="flex items-start justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5 shrink-0"><Users className="w-3 h-3" />Branches</span>
+              <span className="font-medium text-emerald-200 text-right max-w-[220px]">{milEnrich.branches.join(" · ")}</span>
+            </div>
+          )}
+          {milEnrich.command && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5"><Building2 className="w-3 h-3" />Command</span>
+              <span className="font-medium text-white text-right max-w-[220px]">{milEnrich.command}</span>
+            </div>
+          )}
+          {milEnrich.commander && (
+            <div className="flex items-start justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5 shrink-0"><CircleDot className="w-3 h-3" />Commander</span>
+              <span className="font-medium text-white text-right max-w-[220px]">{milEnrich.commander}</span>
+            </div>
+          )}
+          {milEnrich.personnel && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5"><Users className="w-3 h-3" />Personnel</span>
+              <span className="font-medium text-white text-right">{milEnrich.personnel}</span>
+            </div>
+          )}
+          {milEnrich.area_acres != null && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5"><MapPin className="w-3 h-3" />Area</span>
+              <span className="font-medium text-white text-right">{milEnrich.area_acres.toLocaleString()} acres</span>
+            </div>
+          )}
+          {milEnrich.commissioned && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5"><Calendar className="w-3 h-3" />Established</span>
+              <span className="font-medium text-white text-right">{milEnrich.commissioned}</span>
+            </div>
+          )}
+          {Array.isArray(milEnrich.notable_tenants) && milEnrich.notable_tenants.length > 0 && (
+            <div className="flex items-start justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5 shrink-0"><Building2 className="w-3 h-3" />Tenants</span>
+              <span className="font-medium text-emerald-200 text-right max-w-[220px] leading-tight">
+                {milEnrich.notable_tenants.join(" · ")}
+              </span>
+            </div>
+          )}
+          {milEnrich.address && (
+            <div className="flex items-start justify-between text-[11px]">
+              <span className="text-gray-500 flex items-center gap-1.5 shrink-0"><MapPin className="w-3 h-3" />Address</span>
+              <span className="font-medium text-white/80 text-right max-w-[220px] leading-tight">{milEnrich.address}</span>
+            </div>
+          )}
+          {(milEnrich.pao_phone || milEnrich.pao_email) && (
+            <div className="pt-1 border-t border-emerald-500/20 space-y-1">
+              <div className="text-[9px] uppercase tracking-wider text-emerald-300/80">Public Affairs</div>
+              {milEnrich.pao_phone && (
+                <a href={`tel:${milEnrich.pao_phone.replace(/\s+/g, "")}`} className="flex items-center justify-between text-[11px] hover:text-emerald-300 group">
+                  <span className="text-gray-500 flex items-center gap-1.5"><Phone className="w-3 h-3" />Phone</span>
+                  <span className="font-mono text-white/90 group-hover:text-emerald-300">{milEnrich.pao_phone}</span>
+                </a>
+              )}
+              {milEnrich.pao_email && (
+                <a href={`mailto:${milEnrich.pao_email}`} className="flex items-center justify-between text-[11px] hover:text-emerald-300 group">
+                  <span className="text-gray-500 flex items-center gap-1.5"><Mail className="w-3 h-3" />Email</span>
+                  <span className="font-mono text-white/90 text-[10px] truncate max-w-[180px] group-hover:text-emerald-300">{milEnrich.pao_email}</span>
+                </a>
+              )}
+            </div>
+          )}
+          {milEnrich.website && (
+            <a href={milEnrich.website} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] hover:text-cyan-300 group">
+              <span className="text-gray-500 flex items-center gap-1.5"><Globe className="w-3 h-3" />Website</span>
+              <span className="font-mono text-cyan-400 text-[10px] truncate max-w-[200px] group-hover:underline">
+                {milEnrich.website.replace(/^https?:\/\//, "")}
+              </span>
+            </a>
+          )}
+          {milEnrich.last_updated && (
+            <div className="text-[8px] text-gray-600 font-mono pt-1">
+              enriched {milEnrich.last_updated}
+            </div>
+          )}
         </div>
       )}
 
