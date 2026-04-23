@@ -435,7 +435,13 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
     let cancelled = false;
     setHistoryLoading(true);
     const idForLookup = aircraft.callsign || aircraft.flightNumber || aircraft.id;
-    fetch(`/api/oei/flight-history/${encodeURIComponent(String(idForLookup))}`)
+    // Apr 23, 2026 audit: fetch had no timeout so the Flight History
+    // section would stay at "Loading…" indefinitely when flightradar24
+    // or ADS-B backend is slow. 10 s deadline guarantees the spinner
+    // always resolves (either data or empty state).
+    fetch(`/api/oei/flight-history/${encodeURIComponent(String(idForLookup))}`, {
+      signal: AbortSignal.timeout(10_000),
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((h) => { if (!cancelled) { setHistory(h); setHistoryLoading(false); } })
       .catch(() => { if (!cancelled) setHistoryLoading(false); });

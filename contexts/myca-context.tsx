@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout"
 
 export interface MYCAMessage {
   id: string
@@ -197,7 +198,11 @@ export function MYCAProvider({
     async (message: MYCAMessage) => {
       if (!memoryEnabled || !sessionId) return
       try {
-        await fetch("/api/mas/memory", {
+        // Apr 23, 2026 audit: was `fetch()` without timeout. If MAS
+        // restarts mid-session, every user message would block the
+        // memory-store call forever. 5 s hard deadline; memory is
+        // best-effort so dropping a slow-write is fine.
+        await fetchWithTimeout("/api/mas/memory", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -211,6 +216,7 @@ export function MYCAProvider({
               ...message.metadata,
             },
           }),
+          timeoutMs: 5_000,
         })
       } catch (error) {
         console.error("Failed to store MYCA memory:", error)
@@ -357,7 +363,10 @@ export function MYCAProvider({
     async (transcript: string) => {
       if (!pendingConfirmationId) return
       try {
-        const response = await fetch("/api/mas/voice/confirm", {
+        // Apr 23, 2026 audit: was `fetch()` without timeout. If MAS is
+        // slow, the voice-confirm modal would hang with no recovery.
+        // 10 s deadline → user can retry.
+        const response = await fetchWithTimeout("/api/mas/voice/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -365,6 +374,7 @@ export function MYCAProvider({
             actor: "user",
             transcript,
           }),
+          timeoutMs: 10_000,
         })
 
         const data = await response.json()
@@ -405,10 +415,14 @@ export function MYCAProvider({
     async (targetConversationId: string) => {
       if (!targetConversationId) return
       try {
-        const response = await fetch("/api/myca/conversations", {
+        // Apr 23, 2026 audit: conversation loader had no timeout. The
+        // "Load conversation" menu would hang silently when MAS is busy.
+        // 8 s deadline; returns early on timeout so user can retry.
+        const response = await fetchWithTimeout("/api/myca/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ conversationId: targetConversationId }),
+          timeoutMs: 8_000,
         })
         if (!response.ok) return
         const data = await response.json()
@@ -446,7 +460,10 @@ export function MYCAProvider({
   const syncToMAS = useCallback(async () => {
     if (!sessionId || messages.length === 0) return
     try {
-      await fetch("/api/myca/sync", {
+      // Apr 23, 2026 audit: MAS sync had no timeout. Best-effort write
+      // so a 10 s cap is fine — if MAS is down the messages persist in
+      // localStorage anyway.
+      await fetchWithTimeout("/api/myca/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -455,6 +472,7 @@ export function MYCAProvider({
           conversation_id: conversationId,
           messages,
         }),
+        timeoutMs: 10_000,
       })
     } catch (error) {
       console.error("Failed to sync MYCA messages:", error)
