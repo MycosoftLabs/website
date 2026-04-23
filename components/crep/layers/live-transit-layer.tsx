@@ -155,28 +155,69 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 15_000, onSelect
     if (!map || !visible) return
     let cancelled = false
     let intervalId: any = null
-
+    // Apr 23, 2026 — Morgan (browser audit after PR #119 deployed):
+    // source "crep-live-transit" exists, /api/transit/all returns 3047 MTA
+    // vehicles for NYC bbox, but window.__crep_last_transit_count stayed
+    // undefined. That means the poll's try-block never reached the write.
+    //
+    // Likely race: `poll()` fires on mount BEFORE the add-layers effect
+    // (same component, different useEffect) actually creates the source.
+    // Previously we silently `return` when source is missing — permanent
+    // data loss if the source spawns *after* poll's first tick and before
+    // the 15s interval wraps. Worse: the silent `catch{}` hid every
+    // fetch / JSON / setData error too.
+    //
+    // New contract:
+    //   • `poll()` retries every 500 ms until the source exists (up to 30s)
+    //   • Any thrown error logs [CREP/LiveTransit] and counts toward a
+    //     breaker so we don't spam devtools if the endpoint is dead.
+    //   • Success writes window.__crep_last_transit_count + logs the first
+    //     successful paint count.
     const bboxStr = bbox ? bbox.join(",") : ""
+    const errCountRef = { v: 0 }
+    let firstLogged = false
+
+    const waitForSource = async (timeoutMs = 30_000): Promise<maplibregl.GeoJSONSource | null> => {
+      const start = Date.now()
+      while (Date.now() - start < timeoutMs) {
+        if (cancelled) return null
+        const s = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+        if (s) return s
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      return null
+    }
 
     const poll = async () => {
       if (cancelled) return
       try {
         const url = `/api/transit/all${bboxStr ? `?bbox=${encodeURIComponent(bboxStr)}` : ""}`
         const r = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" })
-        if (!r.ok || cancelled) return
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const j = await r.json()
         if (cancelled) return
-        const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined
-        if (!src) return
+        const src = await waitForSource()
+        if (!src) throw new Error("source 'crep-live-transit' never appeared")
         src.setData({
           type: "FeatureCollection",
           features: Array.isArray(j?.features) ? j.features : [],
         })
+        errCountRef.v = 0
+        const n = j?.vehicles_total ?? j?.features?.length ?? 0
         if (typeof window !== "undefined") {
-          ;(window as any).__crep_last_transit_count = j?.vehicles_total ?? j?.features?.length ?? 0
+          ;(window as any).__crep_last_transit_count = n
         }
-      } catch {
-        // Silent — transient failure, try next tick.
+        if (!firstLogged) {
+          firstLogged = true
+          // eslint-disable-next-line no-console
+          console.log(`[CREP/LiveTransit] first paint: ${n} vehicles (bbox=${bboxStr || "global"})`)
+        }
+      } catch (e) {
+        errCountRef.v++
+        if (errCountRef.v <= 3) {
+          // eslint-disable-next-line no-console
+          console.warn(`[CREP/LiveTransit] poll ${errCountRef.v}:`, (e as Error)?.message)
+        }
       }
     }
 
