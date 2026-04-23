@@ -453,6 +453,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -722,6 +723,8 @@ All notable changes to this project will be documented in this file.
 - Fly-to buttons for Project NYC + DC + 15 US major metros
 - Cell-tower dots 50% smaller + US major-cities ETL + Cursor handoff doc
 - Live transit layer + force LAN MINDEX on server (fix empty map) (#109)
+- 15-metro US coverage bake (11 categories each) (#110)
+- *(transit,worldview)* Route self-fetch through localhost to dodge Cloudflare loop (#112)
 
 ### Diag
 
