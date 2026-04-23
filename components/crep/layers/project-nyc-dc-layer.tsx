@@ -89,7 +89,15 @@ const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
   // metro-scale overlay, not just neighbourhood-scale. 10k points per
   // region × 2 regions = 20k; MapLibre's internal tile bin handles it
   // fine at z≥7 viewport cull.
-  { id: `${region}Inat` as keyof Enabled,          file: `/data/crep/${region}-inat.geojson`,            layerId: `crep-${region}-inat`,          sourceId: `crep-${region}-inat-src`,          label: "Nature observations (iNat)", color: "#84cc16", selectType: "inat-observation", minzoom: 7 },
+  // Apr 23, 2026 — Morgan: "that data should not be icon different then all
+  // the other nature data and using the same widgets its not different source
+  // or time is irrelivant as long as its relevant! naturedata from inat goes
+  // into mindex we just need more historical data in those cities for obvious
+  // reasons you did that wrong". iNat category REMOVED from this layer. The
+  // baked historical per-city geojsons now load straight into the shared
+  // fungalObservations React state in CREPDashboardClient (see the
+  // "BAKED HISTORICAL iNAT" effect) and render through the same FungalMarker
+  // + species popup as the live SSE stream. One icon, one widget, one truth.
 ]
 
 // Apr 23, 2026 — Morgan: "massivly missing nature data in nyc also".
