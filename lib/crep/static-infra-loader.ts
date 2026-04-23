@@ -112,6 +112,51 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
 }
 
 /**
+ * Apr 23, 2026 — Morgan: "scale up fast now with aws compute/gpu/extra vms".
+ * When Cursor's AWS MVT tile pipeline is live (see
+ * docs/CURSOR_AWS_MVT_TILE_PIPELINE.md), each layer's .pmtiles archive is
+ * baked nightly on 249 (or AWS g6.xlarge spot) and parked on Cloudflare R2
+ * at https://tiles.mycosoft.com. The CDN has zero egress cost and sits on
+ * every Cloudflare edge POP — pulling tiles from there is ~10 ms instead
+ * of ~500 ms through our origin `/api/crep/tiles/*` route.
+ *
+ * Set `NEXT_PUBLIC_TILES_CDN=https://tiles.mycosoft.com` (or a preview CDN)
+ * and we rewrite the PMTiles URLs to the CDN. If the env is unset, we fall
+ * back to the existing app-served path, which in turn falls back to GeoJSON
+ * when the pmtiles archive isn't published yet. No behavioural change until
+ * the CDN is live.
+ *
+ * Naming convention on the CDN (matches scripts/bake_mvt_tiles.sh output):
+ *   substations.pmtiles
+ *   transmission-major.pmtiles    (≥345 kV backbone)
+ *   transmission-full.pmtiles     (all voltages)
+ *   data-centers.pmtiles
+ *   power-plants.pmtiles
+ *   cell-towers.pmtiles           (global)
+ *   cell-towers-us-tw.pmtiles     (instant bundle)
+ */
+function resolvePmtilesUrl(appPath: string): string {
+  const cdn = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_TILES_CDN)?.trim()
+  if (!cdn) return appPath
+  // Pull the filename off the app path and serve it from the CDN root.
+  // Handles both /data/crep/tiles/foo.pmtiles and /api/crep/tiles/foo.pmtiles.
+  const fname = appPath.split("/").pop() || appPath
+  // Map old verbose filenames to the canonical CDN names the bake script
+  // produces. Unmapped → use the filename as-is (zero-config new layers).
+  const canonical: Record<string, string> = {
+    "substations-us.pmtiles": "substations.pmtiles",
+    "transmission-lines-us-major.pmtiles": "transmission-major.pmtiles",
+    "transmission-lines-us-full.pmtiles": "transmission-full.pmtiles",
+    "data-centers-global.pmtiles": "data-centers.pmtiles",
+    "power-plants-global.pmtiles": "power-plants.pmtiles",
+    "cell-towers-global.pmtiles": "cell-towers.pmtiles",
+    "cell-towers-us-tw-instant.pmtiles": "cell-towers-us-tw.pmtiles",
+  }
+  const mapped = canonical[fname] || fname
+  return `${cdn.replace(/\/$/, "")}/${mapped}`
+}
+
+/**
  * Probe whether a .pmtiles file is reachable (HEAD request).
  * 15-second in-memory memoization so we don't re-probe on every source add.
  */
@@ -156,13 +201,21 @@ export async function addInfraSourceWithFallback(
     return { mode: "skipped", sourceId: cfg.sourceId }
   }
 
-  // Prefer PMTiles when the archive is published
-  if (!opts?.forceGeoJSON && (await isPMTilesAvailable(cfg.pmtilesUrl))) {
+  // Prefer PMTiles when the archive is published. If the
+  // NEXT_PUBLIC_TILES_CDN env is set (Cloudflare R2 edge), fetch directly
+  // from the CDN — zero origin cost and ~10 ms edge latency vs ~500 ms
+  // through /api/crep/tiles/*. The client pmtiles library handles HTTP
+  // range requests natively.
+  const pmtilesUrl = resolvePmtilesUrl(cfg.pmtilesUrl)
+  if (!opts?.forceGeoJSON && (await isPMTilesAvailable(pmtilesUrl))) {
+    const absoluteUrl = /^https?:\/\//.test(pmtilesUrl)
+      ? pmtilesUrl
+      : new URL(pmtilesUrl, window.location.origin).toString()
     map.addSource(cfg.sourceId, {
       type: "vector",
-      url: `pmtiles://${new URL(cfg.pmtilesUrl, window.location.origin).toString()}`,
+      url: `pmtiles://${absoluteUrl}`,
     })
-    console.log(`[CREP/Infra] ${cfg.label}: PMTiles source added`)
+    console.log(`[CREP/Infra] ${cfg.label}: PMTiles source added (${/^https?:\/\//.test(pmtilesUrl) ? "CDN" : "origin"})`)
     return { mode: "pmtiles", sourceId: cfg.sourceId }
   }
 
