@@ -62,6 +62,8 @@ interface RegionCategory {
   color: string
   selectType: string
   polygon?: boolean
+  /** 50%-smaller dots (cell towers — Morgan Apr 23, 2026). */
+  cellSmall?: boolean
   minzoom?: number
 }
 
@@ -69,7 +71,9 @@ const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
   { id: `${region}Hospitals` as keyof Enabled,     file: `/data/crep/${region}-hospitals.geojson`,       layerId: `crep-${region}-hospitals`,     sourceId: `crep-${region}-hospitals-src`,     label: "Hospital", color: "#f43f5e", selectType: "hospital", minzoom: 7 },
   { id: `${region}Police` as keyof Enabled,        file: `/data/crep/${region}-police.geojson`,          layerId: `crep-${region}-police`,        sourceId: `crep-${region}-police-src`,        label: "Police / Fire", color: "#3b82f6", selectType: "police", minzoom: 8 },
   { id: `${region}Sewage` as keyof Enabled,        file: `/data/crep/${region}-sewage.geojson`,          layerId: `crep-${region}-sewage`,        sourceId: `crep-${region}-sewage-src`,        label: "Sewage works", color: "#a16207", selectType: "sewage_works", polygon: true, minzoom: 7 },
-  { id: `${region}CellTowers` as keyof Enabled,    file: `/data/crep/${region}-cell-towers.geojson`,     layerId: `crep-${region}-cell`,          sourceId: `crep-${region}-cell-src`,          label: "Cell tower", color: "#ec4899", selectType: "cell_tower", minzoom: 9 },
+  // Apr 23, 2026 — cell-tower dots at 50% of default per Morgan. See
+  // `cellSmall` override in the layer paint below.
+  { id: `${region}CellTowers` as keyof Enabled,    file: `/data/crep/${region}-cell-towers.geojson`,     layerId: `crep-${region}-cell`,          sourceId: `crep-${region}-cell-src`,          label: "Cell tower", color: "#ec4899", selectType: "cell_tower", minzoom: 9, cellSmall: true as any },
   { id: `${region}AmFmAntennas` as keyof Enabled,  file: `/data/crep/${region}-am-fm-antennas.geojson`,  layerId: `crep-${region}-amfm`,          sourceId: `crep-${region}-amfm-src`,          label: "AM/FM antenna", color: "#a855f7", selectType: "broadcast_antenna", minzoom: 7 },
   { id: `${region}Military` as keyof Enabled,      file: `/data/crep/${region}-military.geojson`,        layerId: `crep-${region}-mil`,           sourceId: `crep-${region}-mil-src`,           label: "Military installation", color: "#10b981", selectType: "military_installation", polygon: true, minzoom: 6 },
   { id: `${region}DataCenters` as keyof Enabled,   file: `/data/crep/${region}-data-centers.geojson`,    layerId: `crep-${region}-dc`,            sourceId: `crep-${region}-dc-src`,            label: "Data center", color: "#06b6d4", selectType: "data_center", minzoom: 7 },
@@ -230,7 +234,17 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
           try { if (!m.getLayer(cat.layerId + "-outline")) m.addLayer({ id: cat.layerId + "-outline", type: "line", source: cat.sourceId, filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": cat.color, "line-width": 1.4, "line-dasharray": [3, 1.5] }, minzoom: cat.minzoom ?? 6 }) } catch {}
           try { if (!m.getLayer(cat.layerId)) m.addLayer({ id: cat.layerId, type: "circle", source: cat.sourceId, filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4, 14, 6], "circle-color": cat.color, "circle-opacity": 0.85, "circle-stroke-color": "#000", "circle-stroke-width": 0.6 }, minzoom: cat.minzoom ?? 6 }) } catch {}
         } else {
-          try { if (!m.getLayer(cat.layerId)) m.addLayer({ id: cat.layerId, type: "circle", source: cat.sourceId, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4.5, 14, 7], "circle-color": cat.color, "circle-opacity": 0.85, "circle-stroke-color": "#000", "circle-stroke-width": 0.5 }, minzoom: cat.minzoom ?? 6 }) } catch {}
+          try {
+            if (!m.getLayer(cat.layerId)) {
+              // Apr 23, 2026 — cellSmall=true halves the dot radius per
+              // Morgan ("make every single cell phone tower dot 50%
+              // smaller"). Applied to nycCellTowers + dcCellTowers.
+              const radius: any = cat.cellSmall
+                ? ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2.25, 14, 3.5]
+                : ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4.5, 14, 7]
+              m.addLayer({ id: cat.layerId, type: "circle", source: cat.sourceId, paint: { "circle-radius": radius, "circle-color": cat.color, "circle-opacity": 0.85, "circle-stroke-color": "#000", "circle-stroke-width": 0.5 }, minzoom: cat.minzoom ?? 6 })
+            }
+          } catch {}
         }
         const openClick = (e: any) => {
           const f = e.features?.[0]; if (!f) return

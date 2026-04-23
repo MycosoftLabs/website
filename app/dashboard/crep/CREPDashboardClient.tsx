@@ -7704,13 +7704,16 @@ export default function CREPDashboardPage() {
                       // Apr 19, 2026 (see crep-celltowers-global-circle above for
                       // the full bug-history comment). Top-level interpolate on
                       // zoom, with hover-case inside each stop value.
+                      // Apr 23, 2026 — Morgan: "if it makes rendering better make
+                      // every single cell phone tower dot 50% smaller". Halved
+                      // every radius stop. Hover radius kept reasonably hit-able.
                       "circle-radius": [
                         "interpolate", ["linear"], ["zoom"],
-                        2, ["case", ["boolean", ["feature-state", "hover"], false], 3,    2],
-                        5, ["case", ["boolean", ["feature-state", "hover"], false], 4,    2.5],
-                        8, ["case", ["boolean", ["feature-state", "hover"], false], 5.5,  3],
-                        12, ["case", ["boolean", ["feature-state", "hover"], false], 7,    4],
-                        16, ["case", ["boolean", ["feature-state", "hover"], false], 10,   6],
+                        2,  ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 1],
+                        5,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.25],
+                        8,  ["case", ["boolean", ["feature-state", "hover"], false], 2.75, 1.5],
+                        12, ["case", ["boolean", ["feature-state", "hover"], false], 3.5,  2],
+                        16, ["case", ["boolean", ["feature-state", "hover"], false], 5,    3],
                       ],
                       "circle-color": "#39ff14",        // neon green (cell tower signature)
                       "circle-opacity": [
@@ -7937,13 +7940,16 @@ export default function CREPDashboardPage() {
                           //      a DIRECT input to interpolate — no wrapping expression allowed.
                           //   3. Correct pattern: top-level interpolate on zoom, with each stop
                           //      VALUE being a feature-state case. Legal MapLibre syntax.
+                          // Apr 23, 2026 — Morgan: "make every single cell phone
+                          // tower dot 50% smaller". Halved every stop; hover sizes
+                          // kept big enough to stay clickable.
                           "circle-radius": [
                             "interpolate", ["linear"], ["zoom"],
-                            2, ["case", ["boolean", ["feature-state", "hover"], false], 3,    2],
-                            5, ["case", ["boolean", ["feature-state", "hover"], false], 4,    2.5],
-                            8, ["case", ["boolean", ["feature-state", "hover"], false], 5.5,  3],
-                            12, ["case", ["boolean", ["feature-state", "hover"], false], 7,    4],
-                            16, ["case", ["boolean", ["feature-state", "hover"], false], 10,   6],
+                            2,  ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 1],
+                            5,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.25],
+                            8,  ["case", ["boolean", ["feature-state", "hover"], false], 2.75, 1.5],
+                            12, ["case", ["boolean", ["feature-state", "hover"], false], 3.5,  2],
+                            16, ["case", ["boolean", ["feature-state", "hover"], false], 5,    3],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
