@@ -78,6 +78,36 @@ function saveWaypoints(wps: Waypoint[]): void {
   } catch { /* ignore */ }
 }
 
+/**
+ * Apr 22, 2026 — Morgan: waypoint → MYCA verify → auto-add pipeline.
+ *
+ * Fires a POST /api/myca/waypoint-verify for a single newly-created or
+ * updated waypoint. Server runs the verifier, and when confidence is
+ * high enough also pushes to MINDEX + broadcasts over the SSE entity
+ * feed so the new entity paints on CREP live.
+ *
+ * Also dispatches a local crep:myca:waypoint-verified custom event
+ * so the waypoint dialog (if open) can show the classification result
+ * with confidence + citations.
+ */
+async function triggerMycaVerify(wp: Waypoint): Promise<void> {
+  try {
+    const res = await fetch("/api/myca/waypoint-verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ waypoint: wp }),
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!res.ok) return
+    const result = await res.json()
+    try {
+      window.dispatchEvent(new CustomEvent("crep:myca:waypoint-verified", {
+        detail: { waypoint: wp, result },
+      }))
+    } catch { /* ignore */ }
+  } catch { /* verify is best-effort; waypoint itself is already saved */ }
+}
+
 interface WaypointSystemProps {
   map: MapLibreMap | null
 }
@@ -210,6 +240,14 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
     const next = [...waypoints, wp]
     setWaypoints(next)
     saveWaypoints(next)
+    // Apr 22, 2026 — Morgan: "a new navy base marker and perimeter
+    // should be added to it live almost instantly after confirmed
+    // automatically that is a backend agent automation etl system
+    // needed to be functional globally". Fire-and-forget verify so
+    // MYCA picks up the waypoint, cross-references OSM + Nominatim +
+    // MINDEX + known-bases, and (if confidence >= 0.85) auto-adds
+    // the verified entity to MINDEX + broadcasts via SSE.
+    triggerMycaVerify(wp)
     return wp
   }
 
@@ -217,6 +255,10 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
     const next = waypoints.map((w) => (w.id === id ? { ...w, ...patch } : w))
     setWaypoints(next)
     saveWaypoints(next)
+    // Re-verify when the user names or recategorizes a waypoint —
+    // the extra metadata improves classification.
+    const updated = next.find((w) => w.id === id)
+    if (updated) triggerMycaVerify(updated)
   }
 
   const deleteWaypoint = (id: string) => {
