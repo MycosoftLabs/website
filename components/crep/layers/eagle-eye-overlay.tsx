@@ -90,13 +90,21 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       if (camsTimerRef.current) { clearInterval(camsTimerRef.current); camsTimerRef.current = null }
       return
     }
-    if (loadedRef.current.cams) {
-      try {
-        for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
-      } catch { /* ignore */ }
-      return
-    }
-    loadedRef.current.cams = true
+    // Apr 23, 2026 — Morgan: "eagle eye shows nothign get that working now
+    // i see no social media youtube shinobi nps usgs no sensors nothing as
+    // im over san diego". Root cause: the previous `loadedRef.current.cams`
+    // short-circuit returned on every bbox change after the first mount,
+    // so the initial fetch's bbox was the ONLY bbox ever queried. Panning
+    // to SD, NYC, anywhere else never triggered a new /api/eagle/sources
+    // call and the layer stayed stale.
+    //
+    // New contract: `loadedRef.current.cams` tracks whether the SOURCE +
+    // LAYERS have been created (addSource / addLayer must only run once
+    // per map lifetime). Every bbox / toggle change still calls
+    // fetchAndPaint which refreshes the source data.
+    try {
+      for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
+    } catch { /* ignore */ }
 
     // Apr 22, 2026 — Morgan: "cameras are PERMANENT assets ... the icon
     // of camera should be hard coded in map unless update shows its gone".
@@ -247,7 +255,21 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           }))
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-eagle-cams")) {
-          map.addSource("crep-eagle-cams", { type: "geojson", data: fc, generateId: true })
+          // Apr 23, 2026 — pre-seed with the baked-registry FC if
+          // paintBakedRegistry already stashed one (previously it stashed
+          // on __crepEaglePendingFc but nothing consumed it, so the
+          // baked-registry features were silently lost on first mount).
+          const pending = (map as any).__crepEaglePendingFc
+          let initialFc = fc
+          if (pending?.features?.length) {
+            const merged = new Map<string, any>()
+            for (const f of pending.features) if (f?.properties?.id) merged.set(String(f.properties.id), f)
+            for (const f of fc.features) if (f?.properties?.id) merged.set(String(f.properties.id), f)
+            initialFc = { type: "FeatureCollection" as const, features: Array.from(merged.values()) }
+            delete (map as any).__crepEaglePendingFc
+          }
+          map.addSource("crep-eagle-cams", { type: "geojson", data: initialFc, generateId: true })
+          loadedRef.current.cams = true
           map.addLayer({
             id: "crep-eagle-cams-halo",
             type: "circle",
