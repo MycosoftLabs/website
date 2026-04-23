@@ -446,6 +446,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -700,6 +701,12 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Crep
+
+- Fix Surfline + Caltrans cam playback in VideoWallWidget
+- Vessel LOD + what's-here lookup + Surfline autoplay + Shodan scaffold
+- Caltrans Silver Strand + AirNow live + helicopter icon + live GPS
 
 ### Diag
 
