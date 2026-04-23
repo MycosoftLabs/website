@@ -632,6 +632,11 @@ export default function VideoWallWidget() {
       // MDOT CHART: chart.maryland.gov/video/video.asp?feed=XX → /video/VideoStill.asp?feed=XX
       m = /chart\.maryland\.gov\/video\/video\.asp\?feed=(\w+)/i.exec(embed)
       if (m) return `/api/eagle/cam-image?url=${encodeURIComponent(`https://chart.maryland.gov/video/VideoStill.asp?feed=${m[1]}`)}`
+      // Apr 23, 2026 — NYC DOT TMC. Two URL shapes observed in the wild:
+      //   viewer: https://webcams.nyctmc.org/map/camera/{uuid}
+      //   image : https://webcams.nyctmc.org/api/cameras/{uuid}/image
+      m = /webcams\.nyctmc\.org\/(?:map\/camera|api\/cameras)\/([a-f0-9-]{36})/i.exec(embed)
+      if (m) return `/api/eagle/cam-image?url=${encodeURIComponent(`https://webcams.nyctmc.org/api/cameras/${m[1]}/image`)}`
       return null
     }
 

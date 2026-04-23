@@ -64,6 +64,13 @@ const ALLOW_HOSTS = new Set([
   "chart.maryland.gov",
   "ddot.dc.gov",
   "dc.gov",
+  // Apr 23, 2026 — NYC DOT TMC cams (city-run, independent of NYSDOT
+  // 511ny.org). Added as a fallback because 511ny.org has been down for
+  // hours today returning HTTP 404 for every camera. NYC DOT's own
+  // system at webcams.nyctmc.org covers ~750 cams across all 5 boroughs,
+  // bridges, tunnels, highways. JPEG-per-cam (same format as state feeds).
+  "webcams.nyctmc.org",
+  "nyctmc.org",
   // MTA / Amtrak (for still-frames from subway / train cams)
   "web.mta.info",
   "mta.info",
