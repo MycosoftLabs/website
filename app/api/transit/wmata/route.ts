@@ -27,11 +27,19 @@ export async function GET(req: NextRequest) {
   if (modes.includes("rail")) feeds.push({ url: RAIL_VP, vehicleType: "rail" })
   if (modes.includes("bus")) feeds.push({ url: BUS_VP, vehicleType: "bus" })
 
-  const result = await fetchMultipleFeeds(feeds, {
+  const secondary = process.env.WMATA_API_KEY_SECONDARY?.trim()
+  let result = await fetchMultipleFeeds(feeds, {
     agency: "o-dqc-wmata",
     agency_name: "WMATA",
     headers: { api_key: key },
   })
+  if (!result.ok && secondary) {
+    result = await fetchMultipleFeeds(feeds, {
+      agency: "o-dqc-wmata",
+      agency_name: "WMATA",
+      headers: { api_key: secondary },
+    })
+  }
   const vehicles = cullVehiclesToBbox(result.vehicles, bbox)
 
   return NextResponse.json({

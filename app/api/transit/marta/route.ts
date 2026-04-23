@@ -6,17 +6,22 @@ import { fetchVehiclePositions, cullVehiclesToBbox } from "@/lib/transit/gtfs-re
  *
  * GET /api/transit/marta?bbox=w,s,e,n
  *
- * Requires MARTA_API_KEY. MARTA activates keys within 24h of issue.
+ * Requires MARTA_API_KEY (no unauthenticated path in production).
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const MARTA_VP = "https://gtfs-rt.itsmarta.com/TMGTFSRealTimeWebService/vehicle/vehiclepositions.pb"
+
 export async function GET(req: NextRequest) {
   const key = process.env.MARTA_API_KEY?.trim()
-  // MARTA's .pb endpoint accepts the apiKey as a query param OR no param.
-  const url = key
-    ? `https://gtfs-rt.itsmarta.com/TMGTFSRealTimeWebService/vehicle/vehiclepositions.pb?apiKey=${encodeURIComponent(key)}`
-    : `https://gtfs-rt.itsmarta.com/TMGTFSRealTimeWebService/vehicle/vehiclepositions.pb`
+  if (!key) {
+    return NextResponse.json(
+      { ok: false, error: "MARTA_API_KEY not configured" },
+      { status: 501 },
+    )
+  }
+  const url = `${MARTA_VP}?apiKey=${encodeURIComponent(key)}`
   const bbox = parseBbox(req.nextUrl.searchParams.get("bbox"))
   const result = await fetchVehiclePositions(url, {
     agency: "o-dn5-marta",
