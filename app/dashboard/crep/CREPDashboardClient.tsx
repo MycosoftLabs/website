@@ -3077,6 +3077,94 @@ export default function CREPDashboardPage() {
   }, []); // mount only
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // BAKED HISTORICAL iNAT — Apr 23, 2026
+  //
+  // Morgan: "naturedata from inat goes into mindex we just need more historical
+  // data in those cities for obvious reasons you did that wrong" — previously
+  // we rendered the baked 10k-per-region files as a separate MapLibre circle
+  // layer (crep-nyc-inat / crep-dc-inat) with different styling, paint, and
+  // click-widget wiring than the live SSE observations. That was backwards.
+  // Historical + live iNat are the SAME data type from the SAME source — they
+  // should use the SAME FungalMarker + species popup. Source and time are
+  // irrelevant; relevance is what matters.
+  //
+  // Fix: load the baked city geojsons once at mount, reshape each feature to
+  // a FungalObservation, merge into the shared fungalStoreRef via setData().
+  // The existing visibleFungalObservations pipeline does viewport cull +
+  // kingdom filter + species filter. FungalMarker renders them identically
+  // to live-stream observations. Click → species popup. Done.
+  //
+  // More cities can be added to BAKED_REGIONS without any rendering changes.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const BAKED_REGIONS = ["nyc", "dc"] as const;
+    let cancelled = false;
+    (async () => {
+      for (const region of BAKED_REGIONS) {
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/data/crep/${region}-inat.geojson`, { cache: "force-cache" });
+          if (!res.ok) { console.log(`[CREP/iNat-baked] ${region} missing`); continue; }
+          const gj = await res.json();
+          const features: any[] = Array.isArray(gj?.features) ? gj.features : [];
+          if (!features.length) continue;
+          const store = fungalStoreRef.current;
+          let added = 0;
+          for (const f of features) {
+            const p = f?.properties || {};
+            const coords = f?.geometry?.coordinates;
+            const lat = Number(coords?.[1] ?? p.latitude ?? p.lat);
+            const lng = Number(coords?.[0] ?? p.longitude ?? p.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+            if (lat === 0 && lng === 0) continue;
+            const rawId = p.id ?? p.inat_id;
+            const id = String(rawId != null ? rawId : "");
+            if (!id) continue;
+            // Don't clobber a live-stream entry that already exists with
+            // richer / fresher data — only fill gaps with baked history.
+            if (store.has(id)) continue;
+            // Snake_case (baked) OR camelCase (live) — accept both.
+            const commonName = p.commonName || p.common_name || p.name || p.species;
+            const sciName = p.scientificName || p.sci_name || p.scientific_name || p.name || "Unknown";
+            const photoUrl = Array.isArray(p.photos)
+              ? (typeof p.photos[0] === "string" ? p.photos[0] : p.photos[0]?.url)
+              : (p.photo || p.photoUrl);
+            const kingdom = p.kingdom || p.iconic_taxon || p.iconicTaxon || "Fungi";
+            store.set(id, {
+              id,
+              observed_on: p.observed_on || p.timestamp || "",
+              latitude: lat,
+              longitude: lng,
+              species: commonName || sciName,
+              taxon_id: Number(p.taxon_id ?? p.taxonId) || 0,
+              taxon: {
+                id: Number(p.taxon_id ?? p.taxonId) || 0,
+                name: sciName,
+                preferred_common_name: commonName,
+                rank: p.rank || "species",
+              },
+              photos: photoUrl ? [{ id: 1, url: String(photoUrl), license: "CC-BY-NC" }] : [],
+              quality_grade: p.quality_grade || p.qualityGrade || p.grade || "research",
+              user: p.observer || p.user,
+              source: p.source || "iNaturalist",
+              sourceUrl: p.sourceUrl || p.source_url || p.url,
+              location: p.placeGuess || p.place_guess || p.location,
+              kingdom,
+              iconicTaxon: p.iconicTaxon || p.iconic_taxon || kingdom,
+            } as FungalObservation);
+            added++;
+          }
+          if (!cancelled) setFungalObservations(Array.from(store.values()));
+          console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations → merged into fungalObservations (total now ${store.size})`);
+        } catch (e) {
+          if (!cancelled) console.warn(`[CREP/iNat-baked] ${region} failed:`, (e as Error)?.message);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // mount only
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // LIVE NATURE STREAM (SSE) — dots pop onto the map as iNat publishes them
   // Backend (/api/crep/nature-stream) polls iNat every 60s for new observations
   // and pushes each as a "nature" event. Simultaneously writes to MINDEX so
@@ -3518,28 +3606,37 @@ export default function CREPDashboardPage() {
       // link, kingdom colour, grade, etc.
       if (payload.type === "inat-observation") {
         const p = payload.properties || {};
+        // Apr 23, 2026 — baked iNat features use snake_case keys
+        // (`name` = common name, `sci_name`, `iconic_taxon`, `photo`, `url`)
+        // from scripts/etl/crep/bake-nyc-dc-inat.mjs; SSE live features use
+        // camelCase (`species`, `scientificName`, `iconicTaxon`, `photos`,
+        // `sourceUrl`). Accept both so FungalMarker always gets a populated
+        // species + photo + link regardless of source.
+        const commonName = p.commonName || p.common_name || p.name || p.species || undefined;
+        const sciName = p.scientificName || p.sci_name || p.scientific_name || p.name || "Unknown";
+        const photoUrl = Array.isArray(p.photos)
+          ? (typeof p.photos[0] === "string" ? p.photos[0] : p.photos[0]?.url)
+          : (p.photo || p.photoUrl || undefined);
         const obs: FungalObservation = {
           id: payload.id ?? p.id,
           latitude: payload.lat,
           longitude: payload.lng,
-          species: p.species || p.commonName || p.scientificName || p.name || "Unknown",
+          species: commonName || sciName,
           taxon: p.taxon || {
-            id: Number(p.taxon_id) || 0,
-            name: p.scientificName || p.name || "Unknown",
-            preferred_common_name: p.commonName || p.species || undefined,
+            id: Number(p.taxon_id ?? p.taxonId) || 0,
+            name: sciName,
+            preferred_common_name: commonName,
             rank: p.rank || "species",
           },
           observed_on: p.observed_on || p.observedOn || p.timestamp || "",
-          quality_grade: p.quality_grade || p.grade || "research",
-          photos: Array.isArray(p.photos)
-            ? p.photos.map((u: any) => (typeof u === "string" ? { id: 0, url: u } : u))
-            : undefined,
+          quality_grade: p.quality_grade || p.qualityGrade || p.grade || "research",
+          photos: photoUrl ? [{ id: 0, url: photoUrl }] : undefined,
           source: p.source || "iNaturalist",
-          sourceUrl: p.sourceUrl || p.source_url || undefined,
+          sourceUrl: p.sourceUrl || p.source_url || p.url || undefined,
           user: p.observer || p.user || undefined,
-          location: p.placeGuess || p.location || undefined,
-          kingdom: p.kingdom || undefined,
-          iconicTaxon: p.iconicTaxon || p.kingdom || undefined,
+          location: p.placeGuess || p.place_guess || p.location || undefined,
+          kingdom: p.kingdom || p.iconic_taxon || p.iconicTaxon || undefined,
+          iconicTaxon: p.iconicTaxon || p.iconic_taxon || p.kingdom || undefined,
         };
         setSelectedFungal(obs);
         return;
@@ -8652,6 +8749,27 @@ export default function CREPDashboardPage() {
                 onClose={() => handleSelectFungal(null)}
               />
             ))}
+
+            {/* Apr 23, 2026 — Morgan: "none of these green dots in dc are
+                selectable". Baked iNat observations (crep-{region}-inat)
+                live on MapLibre circle layers, NOT in visibleFungalObservations
+                (that array only holds the SSE live-stream). When
+                __crep_selectAsset routes an "inat-observation" payload to
+                setSelectedFungal, the id never matches anything in the
+                array above, so no FungalMarker renders the popup. Render
+                a standalone FungalMarker whenever selectedFungal is set
+                but isn't already in the array — gives every green dot a
+                working species popup regardless of source. */}
+            {selectedFungal &&
+              !visibleFungalObservations.some(o => o.id === selectedFungal.id) && (
+                <FungalMarker
+                  key={`fungal-selected-${selectedFungal.id}`}
+                  observation={selectedFungal}
+                  isSelected={true}
+                  onClick={() => handleSelectFungal(null)}
+                  onClose={() => handleSelectFungal(null)}
+                />
+              )}
 
             {/* Other entity popup (weather, earthquake, elephant, device, fire, crisis) - P0 biodiversity/wildlife bubble selection */}
             {selectedOther && selectedOther.geometry.type === "Point" && selectedOther.geometry.coordinates.length >= 2 && (
