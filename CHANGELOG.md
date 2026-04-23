@@ -308,6 +308,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Commit missing service-worker files to unblock prod build
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
+- *(worldview)* Earth2 /health in snapshot, runtime CREP bridge for Legions (241/249)
 
 ### CREP
 
@@ -441,6 +442,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -738,6 +740,12 @@ All notable changes to this project will be documented in this file.
 - Green iNat dots click-through to species popup + show at metro zoom (#117)
 - *(eagle-eye)* Refetch on bbox change + consume pending baked FC (#118)
 - ProjectNycDc + LiveTransit map-prop wiring (sources were MISSING) (#119)
+- *(eagle-eye)* Allow NYC DOT TMC (webcams.nyctmc.org) as 511ny fallback (#120)
+- *(live-transit)* Resilient poll — wait for source + surface errors (#121)
+- Baked city iNat uses SAME pipeline as live SSE (no separate layer) (#122)
+- *(lod)* Cap nature DOM markers — 300-20000 → 200-2500 (#123)
+- Remove vestigial nycInat / dcInat toggles (unified pipeline cleanup) (#124)
+- *(perf)* Service worker + GPU tile proxy + web worker + Cursor AWS runbook (#125)
 
 ### Diag
 
