@@ -447,6 +447,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -707,6 +708,9 @@ All notable changes to this project will be documented in this file.
 - Fix Surfline + Caltrans cam playback in VideoWallWidget
 - Vessel LOD + what's-here lookup + Surfline autoplay + Shodan scaffold
 - Caltrans Silver Strand + AirNow live + helicopter icon + live GPS
+- Fill TX-line sub-transmission coverage gap (OSM ≤115 kV)
+- SD + TJ data coverage expansion (7 OSM layers)
+- MYCA waypoint → verify → auto-add entity pipeline
 
 ### Diag
 
