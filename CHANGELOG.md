@@ -452,6 +452,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -720,6 +721,7 @@ All notable changes to this project will be documented in this file.
 - NYSDOT cam visuals + iNat NYC/DC + military enrichment + what's-here timeout
 - Fly-to buttons for Project NYC + DC + 15 US major metros
 - Cell-tower dots 50% smaller + US major-cities ETL + Cursor handoff doc
+- Live transit layer + force LAN MINDEX on server (fix empty map) (#109)
 
 ### Diag
 
