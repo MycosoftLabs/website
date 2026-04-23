@@ -83,6 +83,74 @@ export const MYCOSOFT_PROJECTS: MycosoftProject[] = [
     ],
     accent: "border-cyan-500/50 hover:border-cyan-400 hover:bg-cyan-500/15 text-cyan-200 hover:text-cyan-100",
   },
+  // Apr 23, 2026 — Morgan: "i dont see any fly to buttons for anything
+  // but goffs and oyster fix that now" + "i also want just like goffs
+  // and osyer a fly to and layers od detaisl perimeters and special
+  // icon locations for dc and new york".
+  {
+    id: "project-nyc",
+    code: "NYC",
+    label: "Project NYC — 5 boroughs + NJ approach",
+    pitch: "Urban intelligence test zone. Manhattan anchor + perimeter over 5 boroughs. MTA subway + rail, LaGuardia + JFK + Newark, 400+ hospitals, 530 cell towers, UN + consulates, Statue of Liberty, WTC, Central Park, 10k iNat observations.",
+    center: [-74.006, 40.7128],
+    zoom: 11,
+    pitch3d: 45,
+    bearing: 0,
+    layersOn: [
+      "projectNyc",
+      "nycHospitals", "nycPolice", "nycSewage", "nycCellTowers",
+      "nycAmFmAntennas", "nycMilitary", "nycDataCenters",
+      "nycTransitSubway", "nycTransitRail", "nycAirports",
+      "nycGovtEmbassy", "nycInat",
+    ],
+    accent: "border-cyan-500/50 hover:border-cyan-400 hover:bg-cyan-500/15 text-cyan-200 hover:text-cyan-100",
+  },
+  {
+    id: "project-dc",
+    code: "DC",
+    label: "Project DC — National Capital Region",
+    pitch: "Proving CREP to Mil/Gov/IC. White House, Capitol, Pentagon, CIA HQ, Walter Reed, JB Andrews, Ft Meade, NSA, Arlington Cemetery. WMATA + MARC + VRE + Amtrak. 82 embassies + 530 cell towers + 10k iNat obs.",
+    center: [-77.0365, 38.8977],
+    zoom: 11,
+    pitch3d: 45,
+    bearing: 0,
+    layersOn: [
+      "projectDc",
+      "dcHospitals", "dcPolice", "dcSewage", "dcCellTowers",
+      "dcAmFmAntennas", "dcMilitary", "dcDataCenters",
+      "dcTransitSubway", "dcTransitRail", "dcAirports",
+      "dcGovtEmbassy", "dcInat",
+    ],
+    accent: "border-amber-500/50 hover:border-amber-400 hover:bg-amber-500/15 text-amber-200 hover:text-amber-100",
+  },
+]
+
+// Apr 23, 2026 — Morgan: "every single environmental sensor and data
+// source tool in nyc and cd and san diego los angeles and san francisco
+// and chicago and austin houston texas and miami florida and denver
+// colorado and salt lake city and other large cities in the us need to
+// be on crep in map no questions asked".
+// Fly-to targets for top US metros — even when their coverage layers
+// aren't baked yet, the user can still jump the map to the city and
+// the global layers (CREP live entities, HIFLD infra, AIS, etc.) paint.
+// New city bakes (bake-us-major-cities.mjs) wire their own toggles in
+// later; this list is the navigation baseline.
+export const US_MAJOR_CITIES: MycosoftProject[] = [
+  { id: "fly-sd",       code: "SD",   label: "San Diego + Tijuana",       pitch: "SDG&E zone, Project Oyster, Mexican border, Navy fleet, Camp Pendleton.", center: [-117.1611, 32.7157], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-la",       code: "LA",   label: "Los Angeles",              pitch: "LA Metro, Port of LA/Long Beach, LAX, CalGuard, wildfires + traffic.",   center: [-118.2437, 34.0522], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-sf",       code: "SF",   label: "San Francisco Bay",        pitch: "BART + Caltrain, Presidio, Mission Bay, Port of Oakland, 49 Mile route.", center: [-122.4194, 37.7749], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-chicago",  code: "CHI",  label: "Chicago",                  pitch: "CTA L, ORD + MDW, Lake Michigan, Ft Sheridan.",                         center: [-87.6298, 41.8781], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-austin",   code: "AUS",  label: "Austin, TX",               pitch: "Capital, SXSW, semi fabs, Ft Hood approach.",                           center: [-97.7431, 30.2672], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-houston",  code: "HOU",  label: "Houston, TX",              pitch: "Port of Houston, Ship Channel, NASA JSC, oil refineries.",              center: [-95.3698, 29.7604], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-miami",    code: "MIA",  label: "Miami, FL",                pitch: "Port of Miami, MIA airport, Homestead AFB, Everglades.",                center: [-80.1918, 25.7617], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-denver",   code: "DEN",  label: "Denver, CO",               pitch: "RTD, Buckley SFB, Cheyenne Mtn approach, Rocky Mtn NP edge.",           center: [-104.9903, 39.7392], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-slc",      code: "SLC",  label: "Salt Lake City, UT",       pitch: "Hill AFB, Wasatch Front, Great Salt Lake.",                             center: [-111.8910, 40.7608], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-seattle",  code: "SEA",  label: "Seattle, WA",              pitch: "Sound Transit, JBLM, Elliott Bay, Boeing.",                             center: [-122.3321, 47.6062], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-boston",   code: "BOS",  label: "Boston, MA",               pitch: "MBTA T, Logan, Hanscom AFB, Harvard/MIT.",                              center: [-71.0589, 42.3601], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-philly",   code: "PHL",  label: "Philadelphia",             pitch: "SEPTA, PHL airport, Philly Navy Yard, DE Valley.",                      center: [-75.1652, 39.9526], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-atlanta",  code: "ATL",  label: "Atlanta, GA",              pitch: "MARTA, ATL, Dobbins ARB, CDC HQ.",                                      center: [-84.3880, 33.7490], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-phoenix",  code: "PHX",  label: "Phoenix, AZ",              pitch: "Luke AFB, Sky Harbor, Intel + TSMC fabs.",                              center: [-112.0740, 33.4484], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-dallas",   code: "DAL",  label: "Dallas-Fort Worth",        pitch: "DART, DFW, NAS JRB Ft Worth, Sheppard AFB.",                            center: [-96.7970, 32.7767], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
 ]
 
 interface FlyToProjectsProps {
@@ -95,31 +163,46 @@ interface FlyToProjectsProps {
 }
 
 export function FlyToProjects({ onFlyTo, onEnableLayers, className, compact = false }: FlyToProjectsProps) {
+  const chip = (p: MycosoftProject) => (
+    <button
+      key={p.id}
+      onClick={() => {
+        onFlyTo({ center: p.center, zoom: p.zoom, pitch: p.pitch3d, bearing: p.bearing })
+        if (p.layersOn && p.layersOn.length && onEnableLayers) onEnableLayers(p.layersOn)
+      }}
+      className={cn(
+        "rounded-lg border bg-black/40 backdrop-blur-sm transition-all font-mono tracking-wider",
+        "active:scale-95",
+        p.accent,
+        compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]",
+      )}
+      title={`${p.label} — ${p.pitch}`}
+      aria-label={p.label}
+    >
+      {p.code}
+    </button>
+  )
+
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <div className="text-[9px] uppercase tracking-[0.15em] text-white/40 font-mono px-1">
-        Projects
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div>
+        <div className="text-[9px] uppercase tracking-[0.15em] text-white/40 font-mono px-1 mb-1">
+          Projects
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {MYCOSOFT_PROJECTS.map(chip)}
+        </div>
       </div>
-      <div className="flex gap-1 flex-wrap">
-        {MYCOSOFT_PROJECTS.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => {
-              onFlyTo({ center: p.center, zoom: p.zoom, pitch: p.pitch3d, bearing: p.bearing })
-              if (p.layersOn && p.layersOn.length && onEnableLayers) onEnableLayers(p.layersOn)
-            }}
-            className={cn(
-              "rounded-lg border bg-black/40 backdrop-blur-sm transition-all font-mono tracking-wider",
-              "active:scale-95",
-              p.accent,
-              compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]",
-            )}
-            title={`${p.label} — ${p.pitch}`}
-            aria-label={p.label}
-          >
-            {p.code}
-          </button>
-        ))}
+      {/* Apr 23, 2026 — Morgan: "every single environmental sensor and
+          data source tool in nyc and cd and san diego los angeles ... and
+          other large cities in the us". US major-metros fly-to strip. */}
+      <div>
+        <div className="text-[9px] uppercase tracking-[0.15em] text-white/40 font-mono px-1 mb-1">
+          US metros
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {US_MAJOR_CITIES.map(chip)}
+        </div>
       </div>
     </div>
   )
