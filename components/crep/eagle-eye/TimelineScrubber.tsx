@@ -103,7 +103,11 @@ export default function TimelineScrubber() {
       if (typeof document !== "undefined" && document.hidden) return
       setLoading(true)
       try {
-        const res = await fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000`)
+        // Apr 23, 2026 audit: no timeout meant a stalled Eagle backend
+        // left this panel "Loading events…" forever. 12 s deadline.
+        const res = await fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000`, {
+          signal: AbortSignal.timeout(12_000),
+        })
         if (!res.ok) return
         const j = await res.json()
         if (!cancelled) {

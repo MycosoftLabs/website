@@ -47,9 +47,19 @@ interface ActiveFeed {
 }
 
 async function resolveStream(sourceId: string): Promise<ResolvedStream> {
-  const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}`)
-  if (!res.ok) return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: `HTTP ${res.status}` }
-  return res.json()
+  // Apr 23, 2026 audit: no timeout on the stream resolver meant a slow
+  // Eagle Eye backend left every video tile stuck at "Loading stream".
+  // 8 s deadline; on timeout we fall through to iframe embed which at
+  // least lets the user click through to the provider site.
+  try {
+    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}`, {
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!res.ok) return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: `HTTP ${res.status}` }
+    return res.json()
+  } catch (err) {
+    return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: (err as Error)?.message || "stream resolver timeout" }
+  }
 }
 
 function HlsPlayer({ url }: { url: string }) {
