@@ -263,7 +263,10 @@ import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import TimelineScrubber from "@/components/crep/eagle-eye/TimelineScrubber";
 import IntelFeedEagleEyeSection from "@/components/crep/eagle-eye/IntelFeedEagleEyeSection";
-import { RegisterCrepDataServiceWorker } from "@/components/crep/register-crep-data-sw";
+// Apr 23, 2026 — RegisterCrepDataServiceWorker removed, superseded by /crep-sw.js
+// (cache-first SW inline-registered in CREPDashboardPage). The old component
+// still exists at components/crep/register-crep-data-sw.tsx for any other
+// callers but is no longer imported here.
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 // Realistic cloud rendering — Three.js volumetric + satellite-texture pipeline
 // driven by /api/eagle/weather/multi (Open-Meteo + NWS + Windy + OWM + Earth-2).
@@ -5587,7 +5590,13 @@ export default function CREPDashboardPage() {
 
   return (
     <div className="relative w-full h-dvh bg-[#0a1628] overflow-hidden flex flex-col">
-      <RegisterCrepDataServiceWorker />
+      {/* Apr 23, 2026 — <RegisterCrepDataServiceWorker /> removed. Its
+          /sw-crep-data.js fought with /crep-sw.js (both scope "/") and
+          caused auto-refreshes mid-session. The old SW is now a
+          self-unregistering stub (public/sw-crep-data.js) that drops
+          its cache and removes itself the next time a user hits the
+          page — after which only /crep-sw.js runs, which is the
+          unified cache for /data/crep + /crep/icons + /_next/static. */}
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
