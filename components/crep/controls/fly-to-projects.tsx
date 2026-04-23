@@ -123,6 +123,34 @@ export const MYCOSOFT_PROJECTS: MycosoftProject[] = [
     ],
     accent: "border-amber-500/50 hover:border-amber-400 hover:bg-amber-500/15 text-amber-200 hover:text-amber-100",
   },
+  // Apr 23, 2026 — Morgan (going to Vegas for Bitcoin conference):
+  // "project Las Vegas and add filters and cameras and naturedata ... i
+  // want massive extra las vegas data icons real live on the las vegas
+  // strip and fremont street". Full project chip with all 11 Vegas
+  // OSM-baked layers + Strip/Fremont/Bellagio/Sphere/Hoover Dam cams
+  // loaded from eagle-cameras-vegas-seed.geojson.
+  {
+    id: "project-vegas",
+    code: "LV",
+    label: "Project Las Vegas — Strip + Fremont + Valley",
+    pitch: "Bitcoin conference demo site. Las Vegas Strip, Fremont Street Experience, Bellagio Fountains, Sphere, City Hall live cam, Harry Reid Int'l, Nellis AFB, Red Rock Canyon, Hoover Dam, Lake Mead. Switch SUPERNAP data centers + Brightline corridor + NDOT traffic cams. EarthCam + YouTube Live 24/7 on all landmark sites.",
+    center: [-115.1398, 36.1699],
+    zoom: 11,
+    pitch3d: 50,
+    bearing: 0,
+    layersOn: [
+      "projectVegas",
+      "vegasHospitals", "vegasPolice", "vegasSewage", "vegasCellTowers",
+      "vegasAmFmAntennas", "vegasMilitary", "vegasDataCenters",
+      "vegasTransitSubway", "vegasTransitRail", "vegasAirports",
+      "vegasGovtEmbassy",
+      // Also on: master Eagle Eye camera layer (picks up Vegas seed)
+      "eagleEyeCameras",
+      // Live transit (Brightline + local) + AQI + fungi
+      "liveTransit", "liveAqi", "fungi",
+    ],
+    accent: "border-rose-500/50 hover:border-rose-400 hover:bg-rose-500/15 text-rose-200 hover:text-rose-100",
+  },
 ]
 
 // Apr 23, 2026 — Morgan: "every single environmental sensor and data
