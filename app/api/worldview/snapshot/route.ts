@@ -58,11 +58,33 @@ async function headReachable(url: string, timeoutMs = 3000): Promise<{ ok: boole
   } catch { return { ok: false, ms: Date.now() - t0 } }
 }
 
+/**
+ * Resolve internal base URL to avoid the Cloudflare self-fetch loop.
+ *
+ * Apr 23, 2026 — Morgan: "no satelites planes inaturalist nature events
+ * vessles nothing is showing up on the fucking map". `/api/worldview/snapshot`
+ * was reporting `live_entities.aircraft: 0` even though direct
+ * `/api/oei/flightradar24` returned 6311 aircraft. The snapshot fans out via
+ * `new URL(req.url).origin` which resolves to `https://mycosoft.com` in prod,
+ * and the container fetching its own public origin hits Cloudflare instead
+ * of its own Next.js server — origin-self-fetch often 502s. Route through
+ * localhost:PORT whenever we're running on the server.
+ */
+function resolveInternalBase(reqOrigin: string): string {
+  const explicit = process.env.INTERNAL_SELF_URL?.trim()
+  if (explicit) return explicit
+  if (typeof window === "undefined") {
+    const port = process.env.PORT || "3000"
+    return `http://localhost:${port}`
+  }
+  return reqOrigin
+}
+
 export async function GET(req: NextRequest) {
   const started = Date.now()
   const project = (req.nextUrl.searchParams.get("project") || "global").toLowerCase()
 
-  const origin = new URL(req.url).origin
+  const origin = resolveInternalBase(new URL(req.url).origin)
 
   // Fan-out all fetches in parallel
   const [

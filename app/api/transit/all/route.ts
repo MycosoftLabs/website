@@ -46,12 +46,35 @@ const AGENCIES: AgencyDef[] = [
   { id: "dart", path: "/api/transit/dart" },
 ]
 
-async function fetchAgency(origin: string, def: AgencyDef, bbox: string | null): Promise<{ id: string; vehicles: TransitVehicle[]; ok: boolean; err?: string }> {
+/**
+ * Resolve the internal base URL for the aggregator's per-agency fetches.
+ *
+ * Apr 23, 2026 — Morgan verification found the aggregator returning 0 vehicles
+ * on prod even though the direct endpoints were live: `/api/transit/mta`
+ * returned 278 vehicles while `/api/transit/all` returned `fetch failed` for
+ * every agency. Root cause: `new URL(req.url).origin` on prod resolves to
+ * `https://mycosoft.com`, and the Next.js container fetching its own public
+ * origin bounces off Cloudflare (origin-self-fetch loop / SSL handshake
+ * failure / 502). Solution: always target the container's own localhost:PORT
+ * when we're already inside the server, which is how Docker health checks
+ * reach the app in the same container.
+ */
+function resolveInternalBase(reqOrigin: string): string {
+  const explicit = process.env.INTERNAL_SELF_URL?.trim()
+  if (explicit) return explicit
+  if (typeof window === "undefined") {
+    const port = process.env.PORT || "3000"
+    return `http://localhost:${port}`
+  }
+  return reqOrigin
+}
+
+async function fetchAgency(internalBase: string, def: AgencyDef, bbox: string | null): Promise<{ id: string; vehicles: TransitVehicle[]; ok: boolean; err?: string }> {
   if (def.keyEnv && !process.env[def.keyEnv]?.trim()) {
     return { id: def.id, vehicles: [], ok: false, err: `${def.keyEnv} not configured` }
   }
   try {
-    const url = `${origin}${def.path}${bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""}`
+    const url = `${internalBase}${def.path}${bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""}`
     const r = await fetch(url, { signal: AbortSignal.timeout(12_000), cache: "no-store" })
     if (!r.ok) return { id: def.id, vehicles: [], ok: false, err: `upstream ${r.status}` }
     const j = await r.json()
@@ -70,8 +93,8 @@ export async function GET(req: NextRequest) {
     ? AGENCIES.filter((a) => agenciesParam.includes(a.id))
     : AGENCIES
 
-  const origin = new URL(req.url).origin
-  const results = await Promise.all(defs.map((d) => fetchAgency(origin, d, bboxParam)))
+  const internalBase = resolveInternalBase(new URL(req.url).origin)
+  const results = await Promise.all(defs.map((d) => fetchAgency(internalBase, d, bboxParam)))
 
   // Dedupe by id across agencies (shouldn't overlap, but defensive)
   const seen = new Set<string>()
