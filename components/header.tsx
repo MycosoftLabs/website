@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSupabaseUser } from "@/hooks/use-supabase-user"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState, useRef, useCallback, memo } from "react"
 import { cn } from "@/lib/utils"
@@ -74,6 +74,26 @@ interface NavDropdownProps {
 }
 
 function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accentColor = "blue", mainHref, globalTimeoutRef }: NavDropdownProps & { mainHref?: string }) {
+  // Apr 23, 2026 — Morgan: "double click needed even from mycosoft.com home
+  // page on globe icon". Root cause: the <a href> main-label click was
+  // firing onClick={handleMainClick} → onClose() synchronously, which
+  // batched a React state update that raced framer-motion's exit
+  // animation against the browser's default anchor navigation. On about
+  // half of clicks, the exit animation/state update delayed the click
+  // just enough that the browser skipped the navigation and the user
+  // had to click again.
+  //
+  // Fix: do NOT intercept the click at all. Let <a href> navigate
+  // natively. Close the dropdown in a useEffect bound to pathname
+  // changes (usePathname) — guaranteed to fire after the navigation
+  // commits, never before. Same UX (dropdown closes after navigation)
+  // but zero interference with the click itself.
+  const pathname = usePathname()
+  useEffect(() => {
+    if (isOpen) onClose()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
+
   const handleMouseEnter = useCallback(() => {
     // Clear any pending close timeout when entering any dropdown trigger
     if (globalTimeoutRef.current) {
@@ -105,12 +125,11 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
     }, 150)
   }, [onClose, globalTimeoutRef])
   
-  // Main label click handler - navigate to main page
-  const handleMainClick = useCallback(() => {
-    if (mainHref) {
-      onClose()
-    }
-  }, [mainHref, onClose])
+  // Apr 23, 2026 — handleMainClick removed. Previously called onClose()
+  // synchronously, which raced framer-motion's AnimatePresence exit
+  // against the browser's anchor navigation and caused the "needs
+  // double-click" bug. Dropdown now closes via the pathname-change
+  // effect above, after navigation actually commits.
 
   const colorVariants: Record<string, string> = {
     blue: "from-blue-500/20 to-cyan-500/20 border-blue-500/40",
@@ -176,7 +195,6 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
           href={mainHref}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          onClick={handleMainClick}
           className={buttonClasses}
         >
           {buttonContent}
