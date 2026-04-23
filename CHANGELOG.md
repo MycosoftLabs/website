@@ -309,6 +309,7 @@ All notable changes to this project will be documented in this file.
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 - *(worldview)* Earth2 /health in snapshot, runtime CREP bridge for Legions (241/249)
+- *(nav)* Double-click bug — header dropdown raced framer-motion vs <a> nav (#130)
 
 ### CREP
 
@@ -442,6 +443,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -684,6 +686,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Nightly warm-eagle MINDEX + bake camera registry (GHA)
 - *(crep)* Log deployment to \$HOME instead of /var/log
 - Rewrite instant-deploy.yml to GHCR build + VM pull
+- Document CREP tile URLs and AirNow in .env.example (Apr 23, 2026)
 
 ### Performance
 
@@ -746,6 +749,10 @@ All notable changes to this project will be documented in this file.
 - *(lod)* Cap nature DOM markers — 300-20000 → 200-2500 (#123)
 - Remove vestigial nycInat / dcInat toggles (unified pipeline cleanup) (#124)
 - *(perf)* Service worker + GPU tile proxy + web worker + Cursor AWS runbook (#125)
+- Stop CREP auto-refreshing mid-session — dual-SW conflict resolved (#127)
+- *(perf)* PMTiles source URLs rewrite to Cloudflare R2 CDN when configured (#126)
+- Live AQI map layer — AirNow monitors as color-coded dots (#128)
+- FetchWithTimeout helper + fix 7 critical hang sites
 
 ### Diag
 
