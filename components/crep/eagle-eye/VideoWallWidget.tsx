@@ -432,12 +432,29 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
   const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
 
   if (failed) {
+    // Apr 23, 2026 — Morgan: "not one nyc camera works". Verified that
+    // 511ny.org/map/GetImage?id=* currently 302-redirects to /NotFound
+    // (HTML 404) for every cam, so the JPEG the proxy expects never
+    // arrives. This is an UPSTREAM outage on 511ny.org's side, not a
+    // bug in our proxy or cam selection. Show a provider-specific
+    // status so it's obvious Mycosoft isn't at fault.
+    const providerLc = (provider || "").toLowerCase()
+    const isStateDot = /nysdot|vdot|mdot|dotd|wsdot|fdot|txdot|caltrans|chart|511/.test(providerLc)
+    const isNysdot = providerLc.includes("nysdot") || providerLc.includes("511ny") || /511ny\.org/.test(url)
     return (
       <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-2 p-4 text-center">
         <div className="text-3xl opacity-40">📷</div>
-        <div className="text-xs text-white font-semibold">Image unavailable</div>
+        <div className="text-xs text-white font-semibold">
+          {isNysdot ? "NYSDOT camera upstream offline" : isStateDot ? "State DOT camera offline" : "Image unavailable"}
+        </div>
         <div className="text-[10px] text-gray-400 max-w-xs">
-          {provider ? `${provider} didn't serve a still frame — the source host may be offline or blocking our proxy.` : "Source host offline or blocking proxy."}
+          {isNysdot
+            ? "511ny.org is currently returning HTTP 404 for all camera JPEGs. Wait for NYSDOT's feed to come back — the map marker stays so the camera re-appears the moment they fix upstream."
+            : isStateDot
+            ? "Upstream state DOT image feed is returning an error. Try the provider site or check back later."
+            : provider
+            ? `${provider} didn't serve a still frame — the source host may be offline or blocking our proxy.`
+            : "Source host offline or blocking proxy."}
         </div>
         {embedUrl ? (
           <a
