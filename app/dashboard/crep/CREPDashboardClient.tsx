@@ -317,6 +317,7 @@ import ProjectNycDcLayer from "@/components/crep/layers/project-nyc-dc-layer";
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
 import { LiveTransitLayer } from "@/components/crep/layers/live-transit-layer";
+import { LiveAqiLayer } from "@/components/crep/layers/live-aqi-layer";
 import MojaveSiteWidget from "@/components/crep/mojave/MojaveSiteWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -2416,6 +2417,11 @@ export default function CREPDashboardPage() {
     // Amtrak/SEPTA/Metrolink/DART. Colored by vehicle_type.
     // ═══════════════════════════════════════════════════════════════════════
     { id: "liveTransit", name: "Live Transit (Trains/Buses)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "Live US transit: MTA, WMATA, BART, MBTA, Bay Area 511, CTA, TriMet, MARTA, Amtrak, SEPTA, Metrolink, DART" },
+    // Apr 23, 2026 — Morgan: "all aqi live feeds not working fix them".
+    // Fixed the AIRNOW_API_KEY config on the sandbox; now adding the
+    // MapLibre dot layer so every AirNow monitor in viewport renders
+    // color-coded by EPA AQI category. Click → LiveAQIWidget popup.
+    { id: "liveAqi", name: "Air Quality (AirNow)", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#00e400", description: "Live AQI from AirNow monitors — ~2 000 US + partner sites, updated hourly. Circles colored EPA Good→Hazardous. Click a monitor for the per-pollutant widget." },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
@@ -9207,6 +9213,15 @@ export default function CREPDashboardPage() {
           <LiveTransitLayer
             map={mapRef}
             visible={layers.find(l => l.id === "liveTransit")?.enabled ?? true}
+            bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
+          />
+
+          {/* Live AQI — Apr 23 2026 (Morgan: "all aqi live feeds not working
+              fix them"). AIRNOW_API_KEY synced to sandbox; this paints every
+              monitor in viewport color-coded by EPA AQI category. */}
+          <LiveAqiLayer
+            map={mapRef}
+            visible={layers.find(l => l.id === "liveAqi")?.enabled ?? true}
             bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
           />
 
