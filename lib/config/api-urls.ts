@@ -149,13 +149,37 @@ export const VOICE_ENDPOINTS = {
   PERSONAPLEX_HTTP: process.env.PERSONAPLEX_HTTP_URL || "http://localhost:8998",
   
   // CREP map command WebSocket (PersonaPlex Bridge CREP channel)
+  //
+  // Apr 23, 2026 (Morgan: "ssl on cloudflare not live it says not secure"):
+  // This used to return `ws://192.168.0.241:8999/...` in production when no
+  // env was set. From a public HTTPS page, a ws:// to a LAN IP triggers the
+  // browser's mixed-content warning (lock → "Not Secure") AND can never
+  // connect anyway because 192.168.0.x is not routable from the internet.
+  //
+  // Now: on production (NEXT_PUBLIC_*) we ONLY honor a secure wss:// URL
+  // if someone explicitly sets one; otherwise return an empty string so
+  // the consuming hook can skip the connection instead of poisoning the
+  // page with a ws:// attempt. Dev keeps localhost for local iteration.
   CREP_BRIDGE_WS: (() => {
-    if (process.env.CREP_BRIDGE_WS) return process.env.CREP_BRIDGE_WS
-    if (process.env.NEXT_PUBLIC_CREP_BRIDGE_WS) return process.env.NEXT_PUBLIC_CREP_BRIDGE_WS
+    const explicit = process.env.CREP_BRIDGE_WS || process.env.NEXT_PUBLIC_CREP_BRIDGE_WS || ""
+    if (explicit) {
+      // In production, refuse insecure ws://LAN URLs — they only work on the
+      // same LAN and fail HTTPS mixed-content rules. Allow wss:// always.
+      if (process.env.NODE_ENV === "production" && explicit.startsWith("ws://")) {
+        if (typeof window !== "undefined") {
+          // Client bundle on prod — silently drop the insecure URL.
+          return ""
+        }
+      }
+      return explicit
+    }
     if (process.env.NODE_ENV !== "production") {
       return "ws://localhost:8999/ws/crep/commands"
     }
-    return `ws://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999/ws/crep/commands`
+    // Production with no explicit bridge URL → disabled. Set
+    // NEXT_PUBLIC_CREP_BRIDGE_WS to a wss:// URL via a Cloudflare Tunnel or
+    // equivalent TLS-terminated endpoint to re-enable the feature.
+    return ""
   })(),
   
   // MAS TTS endpoint
