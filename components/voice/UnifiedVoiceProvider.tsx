@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 // Web Speech API types
 declare global {
@@ -66,7 +67,7 @@ export function UnifiedVoiceProvider({
   defaultMode = "web-speech",
   autoConnect = false,
   masApiUrl = "/api/mas",
-  personaplexUrl = "ws://localhost:8999",
+  personaplexUrl = resolveDefaultPersonaPlexWsUrl(),
   onTranscript,
   onResponse,
   onError,
@@ -114,10 +115,10 @@ export function UnifiedVoiceProvider({
     recognition.interimResults = true
     recognition.lang = "en-US"
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = ""
       let final = ""
-      
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
@@ -126,7 +127,7 @@ export function UnifiedVoiceProvider({
           interim += result[0].transcript
         }
       }
-      
+
       if (final) {
         setTranscript(prev => prev + " " + final)
         onTranscript?.(final)
@@ -134,8 +135,8 @@ export function UnifiedVoiceProvider({
       }
       setInterimTranscript(interim)
     }
-    
-    recognition.onerror = (event) => {
+
+    recognition.onerror = (event: Event & { error?: string }) => {
       const errorMsg = `Speech recognition error: ${event.error}`
       setError(errorMsg)
       onError?.(errorMsg)
@@ -172,6 +173,10 @@ export function UnifiedVoiceProvider({
         }
       }
     } else if (mode === "personaplex") {
+      if (!personaplexUrl) {
+        setError("PersonaPlex is not configured for this environment")
+        return
+      }
       // Connect to PersonaPlex WebSocket
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         wsRef.current = new WebSocket(personaplexUrl)

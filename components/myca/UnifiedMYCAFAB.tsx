@@ -12,6 +12,7 @@
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 const MYCAFloatingButton = dynamic(
   () => import("./MYCAFloatingButton").then((m) => ({ default: m.MYCAFloatingButton })),
@@ -59,7 +60,7 @@ export function UnifiedMYCAFAB({
         <PersonaPlexWidget
           position="bottom-right"
           showMonitor={true}
-          serverUrl={process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat"}
+          serverUrl={resolveDefaultPersonaPlexWsUrl()}
           voicePrompt="NATURAL_F2.pt"
           embedded
         />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 // Web Speech API types
 declare global {
@@ -61,7 +62,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
     autoConnect = false,
     mode = "web-speech",
     masApiUrl = "/api/mas",
-    personaplexUrl = "ws://localhost:8999",
+    personaplexUrl = resolveDefaultPersonaPlexWsUrl(),
     onTranscript,
     onResponse,
     onError,
@@ -116,10 +117,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
       setIsConnected(true)
     }
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = ""
       let final = ""
-      
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
@@ -128,12 +129,12 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
           interim += result[0].transcript
         }
       }
-      
+
       if (final) {
         const trimmedFinal = final.trim()
         setTranscript(prev => (prev + " " + trimmedFinal).trim())
         onTranscript?.(trimmedFinal)
-        
+
         // Add user message
         const userMessage: VoiceChatMessage = {
           id: `user-${Date.now()}`,
@@ -142,7 +143,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
           timestamp: new Date(),
         }
         setMessages(prev => [...prev, userMessage])
-        
+
         // Process through handlers first
         if (!processCommand(trimmedFinal)) {
           // If no handler matched, send to MYCA
@@ -151,8 +152,8 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
       }
       setInterimTranscript(interim)
     }
-    
-    recognition.onerror = (event) => {
+
+    recognition.onerror = (event: Event & { error?: string }) => {
       const errorMsg = `Speech recognition error: ${event.error}`
       if (event.error !== "no-speech" && event.error !== "aborted") {
         setError(errorMsg)
@@ -190,6 +191,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
         }
       }
     } else if (mode === "personaplex") {
+      if (!personaplexUrl) {
+        setError("PersonaPlex is not configured for this environment")
+        return
+      }
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         wsRef.current = new WebSocket(personaplexUrl)
         wsRef.current.onopen = () => {

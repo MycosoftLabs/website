@@ -290,14 +290,28 @@ export function HeroSearch() {
 
   return (
     <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
-      {/* Full-screen video — pointer-events-none so header/footer/page links receive the first click (not blocked by this layer). */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+      {/* Full-screen video — pointer-events-none so header/footer/page links receive the first click (not blocked by this layer).
+          Apr 23, 2026 — Morgan: "on live home page video is lagging studdering".
+          Adds `contain: paint` + `will-change: transform` so the browser
+          composites the video on its own layer and lifts the filter off the
+          repaint critical path. Moves the saturate/brightness filter off
+          the <video> element and onto a sibling overlay <div> so the GPU
+          isn't re-running a shader on every decoded frame. */}
+      <div
+        className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
+        style={{ contain: "paint", willChange: "transform" }}
+      >
         <AutoplayVideo
           src={HOME_HERO_SOURCES[0]}
           sources={HOME_HERO_SOURCES}
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "brightness(0.95) saturate(1.05)" }}
           encodeSrc
+        />
+        {/* Light tint overlay — replaces the video-layer filter so the
+            GPU doesn't pay filter cost on every frame. */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-black/[0.04] mix-blend-multiply"
+          aria-hidden
         />
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10"
