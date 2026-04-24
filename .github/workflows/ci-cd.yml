@@ -188,13 +188,39 @@ jobs:
           lfs: true
 
       - name: Free disk space and add swap
+        # Apr 23, 2026 — PR #132 Build & Push Image failed with
+        # "No space left on device" on the GH Actions runner. The
+        # ubuntu-latest image ships ~14 GB free, but our Next build
+        # + Docker layer cache routinely consumes more. Remove the
+        # big pre-installed toolchains we don't need before building.
         run: |
+          echo "=== Disk BEFORE cleanup ==="
+          df -h /
+          # Remove large pre-installed toolchains we don't use in the
+          # Docker build (Android, .NET, GHC/Cabal, CodeQL, Boost, etc.).
+          # Total reclaimed: ~25-30 GB.
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL \
+            "$AGENT_TOOLSDIRECTORY" \
+            /opt/hostedtoolcache/go \
+            /opt/hostedtoolcache/Ruby \
+            /opt/hostedtoolcache/PyPy \
+            2>/dev/null || true
+          # Prune Docker build cache from any prior step (rare, but cheap).
+          docker system prune -af --volumes 2>/dev/null || true
+          # 4 GB swap file — keeps buildx from OOMing on large next builds.
           sudo swapoff -a || true
           sudo fallocate -l 4G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
           echo "Swap enabled: $(swapon --show)"
+          echo "=== Disk AFTER cleanup ==="
+          df -h /
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
