@@ -170,9 +170,25 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            // connect-src: include ws: (not only wss:) so ws://localhost MAS/bridge URLs work on http dev (3010).
-            // Explicit hosts for MAS entity stream, PersonaPlex CREP bridge, and LAN VMs.
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss: ws: http://localhost:8001 http://127.0.0.1:8001 ws://localhost:8001 ws://127.0.0.1:8001 http://192.168.0.188:8001 ws://192.168.0.188:8001 http://192.168.0.189:8000 http://192.168.0.187:8002 ws://localhost:8999 ws://127.0.0.1:8999 http://localhost:8999 http://127.0.0.1:8999 ws://192.168.0.241:8999 http://192.168.0.241:8999 ws://192.168.0.190:8999 http://192.168.0.190:8999; worker-src 'self' blob:; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+            // Apr 23, 2026 — Morgan: "ssl on cloudflare not live it says not
+            // secure on mycosoft.com that CANNOT happen". The SSL cert is
+            // valid (Cloudflare / Google Trust Services, HSTS preloaded).
+            // The browser was flagging "Not Secure" from MIXED CONTENT —
+            // the CSP used to permit `http://192.168.0.*` LAN URLs and
+            // `ws://` bridges in connect-src on ALL environments. Any
+            // failed client attempt to reach those from the public HTTPS
+            // page flips the lock.
+            //
+            // Split the policy by NODE_ENV:
+            //   • dev (npm run dev): keep the permissive dev hosts so
+            //     localhost:8001 MAS, :8999 MycoBrain, LAN GPU nodes all
+            //     work from the 3010 dev server.
+            //   • prod: drop every http:// and LAN ws:// entry — only
+            //     https: + wss: + 'self' are reachable. No more mixed-
+            //     content flag, HSTS can now fully trust the page.
+            value: (process.env.NODE_ENV === 'production'
+              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+              : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss: ws: http://localhost:8001 http://127.0.0.1:8001 ws://localhost:8001 ws://127.0.0.1:8001 http://192.168.0.188:8001 ws://192.168.0.188:8001 http://192.168.0.189:8000 http://192.168.0.187:8002 ws://localhost:8999 ws://127.0.0.1:8999 http://localhost:8999 http://127.0.0.1:8999 ws://192.168.0.241:8999 http://192.168.0.241:8999 ws://192.168.0.190:8999 http://192.168.0.190:8999; worker-src 'self' blob:; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"),
           },
         ],
       },
