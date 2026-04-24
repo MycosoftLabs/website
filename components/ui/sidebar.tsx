@@ -31,29 +31,68 @@ export function SidebarProvider({
   children: React.ReactNode
   defaultOpen?: boolean
 }) {
+  // Apr 23, 2026 — Morgan: "[sidebar] wont collaps that needs to collaps and
+  // expand fully otherwise we lose real estate on tablets and pc". The old
+  // toggleSidebar was a no-op on desktop (>=768px) and force-reopened the
+  // rail every time the user resized past 768px, so the 16rem sidebar ate
+  // one third of every tablet/PC viewport with no way to reclaim it.
+  //
+  // New behavior:
+  //   • Toggle works on ALL breakpoints.
+  //   • Initial state picks a sensible default per breakpoint on first
+  //     mount (closed on phones, open on tablet/desktop) — unless the
+  //     user has a persisted preference in the sidebar:state cookie.
+  //   • User's choice is persisted to the cookie so it survives reloads
+  //     and SSR hydration. Resizing between breakpoints does NOT override
+  //     the user's explicit choice.
   const [isOpen, setIsOpen] = React.useState(defaultOpen)
-  const [isDesktop, setIsDesktop] = React.useState(false)
 
+  // One-time hydration from cookie / viewport, client-only.
+  const hydratedRef = React.useRef(false)
   React.useEffect(() => {
-    if (typeof window === "undefined") return
-    const media = window.matchMedia("(min-width: 768px)")
-
-    const handleChange = () => {
-      setIsDesktop(media.matches)
-      if (media.matches) {
-        setIsOpen(true)
-      }
+    if (hydratedRef.current) return
+    hydratedRef.current = true
+    if (typeof document === "undefined") return
+    const m = document.cookie.match(
+      new RegExp(`(?:^|; )${SIDEBAR_COOKIE_NAME}=([^;]*)`)
+    )
+    if (m) {
+      setIsOpen(m[1] === "open")
+      return
     }
-
-    handleChange()
-    media.addEventListener("change", handleChange)
-    return () => media.removeEventListener("change", handleChange)
+    // No cookie — fall back to breakpoint default.
+    if (typeof window !== "undefined") {
+      setIsOpen(window.matchMedia("(min-width: 768px)").matches)
+    }
   }, [])
 
+  // Persist to cookie on every change.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return
+    document.cookie = `${SIDEBAR_COOKIE_NAME}=${
+      isOpen ? "open" : "closed"
+    }; Path=/; Max-Age=${SIDEBAR_COOKIE_MAX_AGE}; SameSite=Lax`
+  }, [isOpen])
+
   const toggleSidebar = React.useCallback(() => {
-    if (isDesktop) return
     setIsOpen((prev) => !prev)
-  }, [isDesktop])
+  }, [])
+
+  // Keyboard shortcut: Cmd/Ctrl + B toggles the sidebar on any breakpoint.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.key.toLowerCase() === SIDEBAR_KEYBOARD_SHORTCUT &&
+        (e.metaKey || e.ctrlKey)
+      ) {
+        e.preventDefault()
+        toggleSidebar()
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [toggleSidebar])
 
   return <SidebarContext.Provider value={{ isOpen, setIsOpen, toggleSidebar }}>{children}</SidebarContext.Provider>
 }
