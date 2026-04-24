@@ -79,12 +79,45 @@ jobs:
         run: |
           ssh-retry production bash -s <<'CLEANUP'
             set -uo pipefail
+
+            # Every single docker CLI call is wrapped in `timeout 15` after
+            # the Apr 23, 2026 outage (Cursor diagnosis): the Docker engine
+            # can wedge with systemctl reporting "active" but the API
+            # socket deadlocked — every `docker` invocation hangs until
+            # ctrl-c. Without the timeout wrapper, this cleanup itself
+            # would hang the deploy for 30+ min. Helper function below.
+            dk() { timeout 15 docker "$@"; }
+
             echo "=== Disk BEFORE cleanup ==="
             df -h / /var/lib/docker 2>/dev/null || df -h /
 
+            # 0. WEDGED-DOCKER RECOVERY (autonomous, detects + fixes the
+            #    exact failure mode that took prod down on Apr 23, 2026).
+            #    If a simple `docker version` can't return in 10s, the
+            #    engine is stuck — restart it and wait up to 60s for the
+            #    socket to come back. If it still doesn't, the VM likely
+            #    needs a Proxmox-side reboot; we surface a clear error so
+            #    the human operator can intervene quickly.
+            if ! timeout 10 docker version >/dev/null 2>&1; then
+              echo "::warning::Docker engine not responding — attempting systemctl restart docker"
+              sudo systemctl restart docker 2>/dev/null || true
+              for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                if timeout 5 docker version >/dev/null 2>&1; then
+                  echo "Docker engine recovered after ${i} x 5s wait"
+                  break
+                fi
+                sleep 5
+              done
+              if ! timeout 10 docker version >/dev/null 2>&1; then
+                echo "::error::Docker engine still wedged after systemctl restart."
+                echo "::error::  Operator: reboot VM 192.168.0.187 from Proxmox console"
+                echo "::error::  (sudo reboot from another SSH works if reachable)"
+                echo "::error::Aborting cleanup; the next 'Pull image and deploy' step will likely fail too."
+                exit 0   # continue-on-error: true means step passes, subsequent step will fail loudly
+              fi
+            fi
+
             # 1. Stop any zombie deploys (stale flocks from hung SSH sessions).
-            #    flock -u releases; if the lock is held by a dead PID the
-            #    kernel already freed it, this is belt-and-suspenders.
             if [ -f /tmp/mycosoft-prod-deploy.lock ]; then
               fuser -k /tmp/mycosoft-prod-deploy.lock 2>/dev/null || true
               rm -f /tmp/mycosoft-prod-deploy.lock
@@ -93,16 +126,14 @@ jobs:
 
             # 2. Remove containers stopped >15 min (old blue/green slots +
             #    crashed/restart-loop containers from previous deploys).
-            docker container prune -f --filter "until=15m" 2>/dev/null || true
+            dk container prune -f --filter "until=15m" 2>/dev/null || true
 
             # 3. Remove our own image history beyond the 3 most recent tags.
-            #    Keep `production-latest`, `previous`, and the current run's
-            #    commit SHA — everything else is disposable rollback ballast.
             KEEP_TAGS="production-latest previous"
-            mapfile -t ALL_TAGS < <(docker images \
+            mapfile -t ALL_TAGS < <(dk images \
               --filter "reference=ghcr.io/mycosoftlabs/website:*" \
               --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
-              | sort -k2 -r | awk '{print $1}')
+              2>/dev/null | sort -k2 -r | awk '{print $1}')
             KEEP_COUNT=0
             for tag in "${ALL_TAGS[@]}"; do
               base="${tag##*:}"
@@ -110,33 +141,29 @@ jobs:
                 KEEP_COUNT=$((KEEP_COUNT + 1))
                 continue
               fi
-              docker image rm "$tag" 2>/dev/null || true
+              dk image rm "$tag" 2>/dev/null || true
             done
 
-            # 4. Prune dangling (untagged intermediate layers) + unused
-            #    volumes. `-a` on image prune only removes images not
-            #    referenced by any container — safe.
-            docker image prune -af --filter "until=24h" 2>/dev/null || true
-            docker volume prune -f 2>/dev/null || true
-            docker network prune -f --filter "until=1h" 2>/dev/null || true
+            # 4. Prune dangling layers + unused volumes + stale networks.
+            dk image prune -af --filter "until=24h" 2>/dev/null || true
+            dk volume prune -f 2>/dev/null || true
+            dk network prune -f --filter "until=1h" 2>/dev/null || true
 
-            # 5. Buildx build cache — if buildkit was ever enabled on the
-            #    VM this can be gigabytes of stale layer cache.
-            docker buildx prune -af --filter "until=24h" 2>/dev/null || true
+            # 5. Buildx build cache — can be gigabytes of stale layers.
+            dk buildx prune -af --filter "until=24h" 2>/dev/null || true
 
-            # 6. Old deploy logs (>14 days) — we keep two weeks for
-            #    incident review, older is noise.
+            # 6. Old deploy logs (>14 days).
             find /var/log/mycosoft-deploys.log* -mtime +14 -delete 2>/dev/null || true
             find /tmp -name "mycosoft-*.log" -mtime +3 -delete 2>/dev/null || true
 
-            # 7. APT cache — Ubuntu will happily hoard hundreds of MB here.
+            # 7. APT cache + journalctl.
             sudo apt-get clean 2>/dev/null || true
             sudo journalctl --vacuum-time=7d 2>/dev/null || true
 
             echo "=== Disk AFTER cleanup ==="
             df -h / /var/lib/docker 2>/dev/null || df -h /
             echo "=== Container count ==="
-            docker ps -a --format '{{.Names}} {{.Status}}' | wc -l
+            dk ps -a --format '{{.Names}} {{.Status}}' 2>/dev/null | wc -l
           CLEANUP
 
       - name: Pull image and deploy

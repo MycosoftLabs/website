@@ -422,18 +422,48 @@ jobs:
         run: |
           ssh-retry production bash -s <<'CLEANUP'
             set -uo pipefail
+            # dk() = timeout-wrapped docker. Apr 23, 2026 outage root cause
+            # was a wedged Docker engine (systemctl reports active but API
+            # deadlocked); every `docker` call hangs until ctrl-c. Without
+            # wrapping in `timeout 15` this cleanup itself would hang for
+            # 30+ min, delaying the actual site recovery.
+            dk() { timeout 15 docker "$@"; }
+
             echo "=== Disk BEFORE cleanup ==="
             df -h / /var/lib/docker 2>/dev/null || df -h /
+
+            # Wedged-docker autonomous recovery — detects + fixes the exact
+            # failure mode that took prod down today. If the engine doesn't
+            # respond to a `docker version` in 10s, restart it and wait up
+            # to 60s for the socket. If still wedged, log a clear Proxmox
+            # reboot pointer and let the next deploy step fail loudly
+            # (continue-on-error on this step keeps the log readable).
+            if ! timeout 10 docker version >/dev/null 2>&1; then
+              echo "::warning::Docker engine not responding — systemctl restart docker"
+              sudo systemctl restart docker 2>/dev/null || true
+              for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                if timeout 5 docker version >/dev/null 2>&1; then
+                  echo "Docker engine recovered after ${i} x 5s wait"
+                  break
+                fi
+                sleep 5
+              done
+              if ! timeout 10 docker version >/dev/null 2>&1; then
+                echo "::error::Docker engine still wedged. Operator: reboot VM 192.168.0.187 from Proxmox console."
+                exit 0
+              fi
+            fi
+
             if [ -f /tmp/mycosoft-prod-deploy.lock ]; then
               fuser -k /tmp/mycosoft-prod-deploy.lock 2>/dev/null || true
               rm -f /tmp/mycosoft-prod-deploy.lock
             fi
-            docker container prune -f --filter "until=15m" 2>/dev/null || true
+            dk container prune -f --filter "until=15m" 2>/dev/null || true
             KEEP_TAGS="production-latest previous"
-            mapfile -t ALL_TAGS < <(docker images \
+            mapfile -t ALL_TAGS < <(dk images \
               --filter "reference=ghcr.io/mycosoftlabs/website:*" \
               --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
-              | sort -k2 -r | awk '{print $1}')
+              2>/dev/null | sort -k2 -r | awk '{print $1}')
             KEEP_COUNT=0
             for tag in "${ALL_TAGS[@]}"; do
               base="${tag##*:}"
@@ -441,12 +471,12 @@ jobs:
                 KEEP_COUNT=$((KEEP_COUNT + 1))
                 continue
               fi
-              docker image rm "$tag" 2>/dev/null || true
+              dk image rm "$tag" 2>/dev/null || true
             done
-            docker image prune -af --filter "until=24h" 2>/dev/null || true
-            docker volume prune -f 2>/dev/null || true
-            docker network prune -f --filter "until=1h" 2>/dev/null || true
-            docker buildx prune -af --filter "until=24h" 2>/dev/null || true
+            dk image prune -af --filter "until=24h" 2>/dev/null || true
+            dk volume prune -f 2>/dev/null || true
+            dk network prune -f --filter "until=1h" 2>/dev/null || true
+            dk buildx prune -af --filter "until=24h" 2>/dev/null || true
             find /var/log/mycosoft-deploys.log* -mtime +14 -delete 2>/dev/null || true
             find /tmp -name "mycosoft-*.log" -mtime +3 -delete 2>/dev/null || true
             sudo apt-get clean 2>/dev/null || true
