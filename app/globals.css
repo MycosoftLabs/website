@@ -810,3 +810,38 @@ body.dashboard-fullscreen main {
     transform: translateZ(-40px) scale(1.06);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* CREP mobile overlay — Apr 23, 2026                                  */
+/*                                                                      */
+/* `<html class="crep-mobile">` is toggled on by CrepMobileShell when   */
+/* the viewport is <768px wide. The mobile shell renders its own slim  */
+/* top bar + left/right FABs + bottom-sheet drawers; the existing      */
+/* desktop-only overlay panels inside CREPDashboardClient (FlyTo chips, */
+/* side toggles, floating stats) would otherwise stack on top of that  */
+/* chrome and eat half the phone viewport.                             */
+/*                                                                     */
+/* Hide them on phone. Any desktop-only overlay that lives ABOVE the   */
+/* map should carry `data-crep-desktop-only="true"` (new attribute)    */
+/* OR live in `.crep-desktop-overlay` (existing class on panels that   */
+/* already use it). Both get `display: none` on phone.                 */
+/* ─────────────────────────────────────────────────────────────────── */
+
+html.crep-mobile [data-crep-desktop-only="true"],
+html.crep-mobile .crep-desktop-overlay {
+  display: none !important;
+}
+
+/* Push the map below the mobile top bar so tiles don't slide under the */
+/* Earth Simulator header. Top bar is ~68px tall (2 rows of chips).     */
+html.crep-mobile .crep-map-container {
+  top: 68px !important;
+}
+
+/* Phone: disable pointer events on residual desktop tooltips that     */
+/* sneak into the map layer.                                           */
+@media (max-width: 767px) {
+  .crep-desktop-tooltip {
+    display: none !important;
+  }
+}
