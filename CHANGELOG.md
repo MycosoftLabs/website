@@ -461,6 +461,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -687,6 +688,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Log deployment to \$HOME instead of /var/log
 - Rewrite instant-deploy.yml to GHCR build + VM pull
 - Document CREP tile URLs and AirNow in .env.example (Apr 23, 2026)
+- Free ~30GB before docker build to prevent 'No space left on device' (#135)
 
 ### Performance
 
@@ -776,6 +778,10 @@ All notable changes to this project will be documented in this file.
 
 - Compact nav bars, sidebar closed on mobile, CREP ssr fix, more content space
 - Comprehensive UX overhaul - phone/tablet/desktop breakpoint strategy across entire site
+
+### Natureos
+
+- Rebrand Earth Simulator → CREP + refreshed overview (#134)
 
 ### Ops
 
