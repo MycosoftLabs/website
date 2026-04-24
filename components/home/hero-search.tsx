@@ -306,12 +306,11 @@ export function HeroSearch() {
             as crep loads". The `Mycosoft Background.mp4` on NAS is 474 MB
             and `-web.mp4` returns 404 on prod. With the previous default
             preload="auto" the browser eagerly streamed the full 474 MB
-            on homepage mount, saturating the connection + pinning the
-            decoder thread which starved every other tab (including
-            typing in DevTools / chat). metadata-only lets the browser
-            fetch just enough to start playback once the user is in
-            view, stops the full download, and yields CPU back to
-            interactive input. */}
+            on homepage mount, saturating the browser's network queue and
+            intercepting the decoder thread, so every other tab (chat /
+            devtools) lagged during CREP load. metadata-only lets the
+            browser fetch just enough to start playback on visibility,
+            stops the full download, and frees the network queue. */}
         <AutoplayVideo
           src={HOME_HERO_SOURCES[0]}
           sources={HOME_HERO_SOURCES}
