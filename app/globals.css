@@ -828,8 +828,14 @@ body.dashboard-fullscreen main {
 /* ─────────────────────────────────────────────────────────────────── */
 
 html.crep-mobile [data-crep-desktop-only="true"],
-html.crep-mobile .crep-desktop-overlay {
+html.crep-mobile .crep-desktop-overlay,
+html.crep-mobile [data-panel="left"],
+html.crep-mobile [data-panel="right"],
+html.crep-mobile [data-panel="fly-to"],
+html.crep-mobile [data-panel="timeline"],
+html.crep-mobile [data-panel="stats"] {
   display: none !important;
+  pointer-events: none !important;
 }
 
 /* Push the map below the mobile top bar so tiles don't slide under the */

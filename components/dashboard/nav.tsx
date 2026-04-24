@@ -128,7 +128,10 @@ const navSections: NavSection[] = [
       { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
       { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
-      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity },
+      // Apr 23, 2026 (Morgan): public-facing rename CREP → Earth Simulator.
+      // The sidebar link is kept at /natureos/tools/earth-simulator so every
+      // entry point lands on the same surface.
+      { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Activity },
       { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },
