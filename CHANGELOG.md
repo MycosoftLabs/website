@@ -310,6 +310,7 @@ All notable changes to this project will be documented in this file.
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 - *(worldview)* Earth2 /health in snapshot, runtime CREP bridge for Legions (241/249)
 - *(nav)* Double-click bug — header dropdown raced framer-motion vs <a> nav (#130)
+- Kill 'Not Secure' badge on https://mycosoft.com (mixed content) (#137)
 
 ### CREP
 
@@ -443,6 +444,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -755,6 +757,10 @@ All notable changes to this project will be documented in this file.
 - *(perf)* PMTiles source URLs rewrite to Cloudflare R2 CDN when configured (#126)
 - Live AQI map layer — AirNow monitors as color-coded dots (#128)
 - FetchWithTimeout helper + fix 7 critical hang sites
+
+### Crep+nav
+
+- Mobile Earth Simulator shell, sidebar collapse fix, home video perf (#138)
 
 ### Diag
 
