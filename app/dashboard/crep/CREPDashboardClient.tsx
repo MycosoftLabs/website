@@ -9028,8 +9028,10 @@ export default function CREPDashboardPage() {
               ephemeral-event filtering. Polls /api/eagle/events + paints
               per-provider tick density; window selector 1/6/12/24 h;
               broadcasts crep:eagle:time-window so overlays pick up the
-              window. */}
-          <TimelineScrubber />
+              window. Wrapped so it can be hidden on mobile viewports.  */}
+          <div data-panel="timeline">
+            <TimelineScrubber />
+          </div>
 
           {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
               Cursor applied eagle.* MINDEX schema on VM 189 + deployed
@@ -9433,7 +9435,7 @@ export default function CREPDashboardPage() {
               AND auto-enable the project's layer set so the user lands on
               a fully-painted view.
               ═══════════════════════════════════════════════════════════════ */}
-          <div className={cn(
+          <div data-panel="fly-to" className={cn(
             "absolute top-14 z-20 transition-all duration-300 flex flex-col gap-2",
             rightPanelOpen ? "right-[340px]" : "right-4"
           )}>
@@ -10202,7 +10204,7 @@ export default function CREPDashboardPage() {
             onToggle={() => setShowGroundStation(!showGroundStation)}
           />
           {/* Pass Timeline at bottom of map */}
-          <div className="fixed bottom-8 left-0 right-0 z-40">
+          <div data-panel="timeline" className="fixed bottom-8 left-0 right-0 z-40">
             <GSPassTimeline
               passes={gsState.passes}
               trackingNoradId={gsState.trackingState?.norad_id ?? undefined}
