@@ -301,9 +301,20 @@ export function HeroSearch() {
         className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
         style={{ contain: "paint", willChange: "transform" }}
       >
+        {/* preload="metadata" — Apr 23, 2026 — Morgan:
+            "running crep in browser literally lagging the typing massively
+            as crep loads". The `Mycosoft Background.mp4` on NAS is 474 MB
+            and `-web.mp4` returns 404 on prod. With the previous default
+            preload="auto" the browser eagerly streamed the full 474 MB
+            on homepage mount, saturating the browser's network queue and
+            intercepting the decoder thread, so every other tab (chat /
+            devtools) lagged during CREP load. metadata-only lets the
+            browser fetch just enough to start playback on visibility,
+            stops the full download, and frees the network queue. */}
         <AutoplayVideo
           src={HOME_HERO_SOURCES[0]}
           sources={HOME_HERO_SOURCES}
+          preload="metadata"
           className="absolute inset-0 w-full h-full object-cover"
           encodeSrc
         />
