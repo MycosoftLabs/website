@@ -115,10 +115,10 @@ export function UnifiedVoiceProvider({
     recognition.interimResults = true
     recognition.lang = "en-US"
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = ""
       let final = ""
-      
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
@@ -127,7 +127,7 @@ export function UnifiedVoiceProvider({
           interim += result[0].transcript
         }
       }
-      
+
       if (final) {
         setTranscript(prev => prev + " " + final)
         onTranscript?.(final)
@@ -135,8 +135,8 @@ export function UnifiedVoiceProvider({
       }
       setInterimTranscript(interim)
     }
-    
-    recognition.onerror = (event) => {
+
+    recognition.onerror = (event: Event & { error?: string }) => {
       const errorMsg = `Speech recognition error: ${event.error}`
       setError(errorMsg)
       onError?.(errorMsg)

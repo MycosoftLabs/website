@@ -60,18 +60,18 @@ function useWebSpeechFallback(
     recognition.interimResults = true
     recognition.lang = "en-US"
     
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
+        .map((result: SpeechRecognitionResult) => result[0].transcript)
         .join("")
-      
+
       // Only process final results
       if (event.results[event.results.length - 1].isFinal) {
         onTranscript(transcript)
       }
     }
-    
-    recognition.onerror = (event) => {
+
+    recognition.onerror = (event: Event & { error?: string }) => {
       if (event.error !== "no-speech" && event.error !== "aborted") {
         onError(`Speech recognition error: ${event.error}`)
       }

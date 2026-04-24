@@ -50,12 +50,21 @@ interface SpeechRecognition extends EventTarget {
   onnomatch: ((event: Event) => void) | null
 }
 
-declare let SpeechRecognition: {
+// Use `var` (not `let`) so the declaration merges with the interface of
+// the same name — TS requires `var` for value/type merge on globals.
+declare var SpeechRecognition: {
   prototype: SpeechRecognition
   new (): SpeechRecognition
 }
 
-declare let webkitSpeechRecognition: {
+declare var webkitSpeechRecognition: {
   prototype: SpeechRecognition
   new (): SpeechRecognition
+}
+
+// Extend Window so `window.SpeechRecognition` and
+// `window.webkitSpeechRecognition` are typed.
+interface Window {
+  SpeechRecognition?: typeof SpeechRecognition
+  webkitSpeechRecognition?: typeof webkitSpeechRecognition
 }
