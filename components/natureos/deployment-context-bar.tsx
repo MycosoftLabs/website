@@ -9,8 +9,10 @@
  * jumping between tabs.
  *
  * Added Apr 23, 2026 to close the gap between CREP (live globe) and the
- * NatureOS device dashboards (fleet ops) — both surface the same planned
- * 2026 deployment sites.
+ * NatureOS device dashboards (fleet ops). Uses theme-aware colors so it
+ * reads the same in light and dark mode (Morgan: "all the devices pages
+ * are fucked in light mode missing data" — first rev had hardcoded
+ * cyan-100 text that vanished on white bg).
  */
 
 import Link from "next/link"
@@ -53,53 +55,63 @@ export function DeploymentContextBar() {
     fleet?.uptime_pct != null ? `${fleet.uptime_pct}%` : "—"
 
   return (
-    <div className="mb-4 overflow-hidden rounded-lg border border-cyan-500/20 bg-gradient-to-r from-[#0a1628]/70 via-[#0a0f1e]/70 to-[#0a1628]/70 p-3 text-xs text-cyan-100/90">
+    <div className="mb-4 overflow-hidden rounded-lg border bg-card p-3 text-xs text-card-foreground">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="flex items-center gap-2">
-          <Activity className="h-3.5 w-3.5 text-emerald-400" />
-          <span className="font-mono text-[11px] uppercase tracking-wider text-cyan-300/70">
+          <Activity className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
             Live
           </span>
           <span>
-            <b className="text-emerald-400">{online.toLocaleString()}</b>
-            <span className="text-cyan-100/50"> / {total.toLocaleString()}</span>{" "}
+            <b className="text-emerald-600 dark:text-emerald-400">
+              {online.toLocaleString()}
+            </b>
+            <span className="text-muted-foreground">
+              {" "}
+              / {total.toLocaleString()}
+            </span>{" "}
             devices online
           </span>
         </span>
 
         <span className="flex items-center gap-2">
-          <Cpu className="h-3.5 w-3.5 text-amber-400" />
+          <Cpu className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
           <span>
-            Uptime <b className="text-amber-300">{uptime}</b>
+            Uptime{" "}
+            <b className="text-amber-600 dark:text-amber-300">{uptime}</b>
           </span>
         </span>
 
         <span className="flex items-center gap-2">
-          <MapPin className="h-3.5 w-3.5 text-rose-400" />
+          <MapPin className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
           <span>
-            <b className="text-rose-300">{DEPLOYMENT_SITES.length}</b>{" "}
+            <b className="text-rose-600 dark:text-rose-300">
+              {DEPLOYMENT_SITES.length}
+            </b>{" "}
             deployment sites
           </span>
-          <span className="hidden text-[11px] text-cyan-100/50 sm:inline">
+          <span className="hidden text-[11px] text-muted-foreground sm:inline">
             ({DEPLOYMENT_SITES.map((s) => s.code).join(" · ")})
           </span>
         </span>
 
         <span className="flex items-center gap-2">
-          <Radio className="h-3.5 w-3.5 text-violet-400" />
-          <span className="text-cyan-100/70">
+          <Radio className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
+          <span className="text-muted-foreground">
             MQTT · LoRa · Meshtastic (planned)
           </span>
         </span>
 
         <span className="flex items-center gap-2">
-          <Wind className="h-3.5 w-3.5 text-sky-400" />
-          <span className="text-cyan-100/70">AQI · VOC · CO₂e · spore</span>
+          <Wind className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
+          <span className="text-muted-foreground">
+            AQI · VOC · CO₂e · spore
+          </span>
         </span>
 
         <Link
           href="/natureos/tools/earth-simulator"
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-cyan-500/30 bg-white/5 px-2 py-1 font-medium text-cyan-200 hover:bg-cyan-500/10"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 font-medium hover:bg-accent hover:text-accent-foreground"
         >
           <Globe2 className="h-3.5 w-3.5" />
           Earth Simulator
