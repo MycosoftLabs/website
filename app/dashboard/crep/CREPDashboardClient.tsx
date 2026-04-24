@@ -2552,6 +2552,30 @@ export default function CREPDashboardPage() {
     { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
     // dcInat removed — see nycInat comment above. Baked DC iNat observations
     // load into the same fungalObservations state as the live stream.
+
+    // Apr 23, 2026 — Morgan (Vegas trip prep): "project Las Vegas and
+    // add filters and cameras and naturedata ... i want massive extra
+    // las vegas data icons real live on the las vegas strip and fremont
+    // street". 11 city layers mirroring NYC/DC, using the vegas-* OSM
+    // bakes from PR #110's 15-metro job. Strip + Fremont + City Hall +
+    // Bellagio + Sphere + Hoover Dam YouTube-live cams ship via the
+    // eagle-cameras-vegas-seed.geojson loaded in EagleEyeOverlay.
+    { id: "projectVegas",       name: "Project Las Vegas — anchor + perimeter", category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f43f5e", description: "MYCOSOFT Project Las Vegas anchor + metro perimeter + landmark POIs (Strip, Fremont, Bellagio, Sphere, Hoover Dam, Red Rock Canyon, Nellis AFB). Fly to with __crep_flyTo('project-vegas')." },
+    { id: "vegasHospitals",     name: "Vegas — Hospitals",                 category: "infrastructure", icon: <Cross className="w-3 h-3" />,      enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals — UMC, Sunrise, Valley, Summerlin, Desert Springs, Nellis AFB medical." },
+    { id: "vegasPolice",        name: "Vegas — Police / Fire",             category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "LVMPD + Clark County + North Las Vegas + Henderson + Fire/Rescue stations." },
+    { id: "vegasSewage",        name: "Vegas — Sewage Works",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "Clark County Water Reclamation District + Henderson WRF." },
+    { id: "vegasCellTowers",    name: "Vegas — Cell Towers (detail)",      category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM comms towers across the Las Vegas Valley." },
+    { id: "vegasAmFmAntennas",  name: "Vegas — AM/FM / TV antennas",       category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas covering LV Valley + Black Mountain." },
+    { id: "vegasMilitary",      name: "Vegas — Military installations",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "Nellis AFB + Creech AFB + NTTR — unclassified OSM perimeters only." },
+    { id: "vegasDataCenters",   name: "Vegas — Data Centers",              category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Switch SUPERNAP campus + Summerlin DCs + colo facilities." },
+    { id: "vegasTransitSubway", name: "Vegas — Monorail + LVCVA tram",     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "Las Vegas Monorail + Mandalay Bay tram + Vegas Loop (Boring Co.) stations from OSM." },
+    { id: "vegasTransitRail",   name: "Vegas — Rail (Brightline / Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "Amtrak bus/rail + Brightline LV-LA stations (where published in OSM)." },
+    { id: "vegasAirports",      name: "Vegas — Airports",                  category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Harry Reid International (LAS) + North Las Vegas (VGT) + Henderson Executive (HND) + heliports." },
+    { id: "vegasGovtEmbassy",   name: "Vegas — Government",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Las Vegas City Hall + Clark County gov + federal courthouse + courthouses + LVCVA." },
+    // vegasInat (no toggle) — baked Vegas iNat observations load into the
+    // shared fungalObservations state alongside NYC/DC when the file is
+    // present at /data/crep/vegas-inat.geojson. Gated by the master
+    // "fungi" layer toggle.
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
@@ -3136,7 +3160,10 @@ export default function CREPDashboardPage() {
   // More cities can be added to BAKED_REGIONS without any rendering changes.
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    const BAKED_REGIONS = ["nyc", "dc"] as const;
+    // Apr 23, 2026 — Morgan (Vegas demo): "naturedata live in las vegas".
+    // Baked Vegas iNat geojson added to BAKED_REGIONS; flows through the
+    // same fungalObservations state as NYC/DC and live SSE.
+    const BAKED_REGIONS = ["nyc", "dc", "vegas"] as const;
     let cancelled = false;
     (async () => {
       for (const region of BAKED_REGIONS) {
@@ -9252,6 +9279,18 @@ export default function CREPDashboardPage() {
               dcTransitRail:     layers.find(l => l.id === "dcTransitRail")?.enabled     ?? true,
               dcAirports:        layers.find(l => l.id === "dcAirports")?.enabled        ?? true,
               dcGovtEmbassy:     layers.find(l => l.id === "dcGovtEmbassy")?.enabled     ?? true,
+              projectVegas:      layers.find(l => l.id === "projectVegas")?.enabled      ?? true,
+              vegasHospitals:    layers.find(l => l.id === "vegasHospitals")?.enabled    ?? true,
+              vegasPolice:       layers.find(l => l.id === "vegasPolice")?.enabled       ?? true,
+              vegasSewage:       layers.find(l => l.id === "vegasSewage")?.enabled       ?? true,
+              vegasCellTowers:   layers.find(l => l.id === "vegasCellTowers")?.enabled   ?? true,
+              vegasAmFmAntennas: layers.find(l => l.id === "vegasAmFmAntennas")?.enabled ?? true,
+              vegasMilitary:     layers.find(l => l.id === "vegasMilitary")?.enabled     ?? true,
+              vegasDataCenters:  layers.find(l => l.id === "vegasDataCenters")?.enabled  ?? true,
+              vegasTransitSubway: layers.find(l => l.id === "vegasTransitSubway")?.enabled ?? true,
+              vegasTransitRail:  layers.find(l => l.id === "vegasTransitRail")?.enabled  ?? true,
+              vegasAirports:     layers.find(l => l.id === "vegasAirports")?.enabled     ?? true,
+              vegasGovtEmbassy:  layers.find(l => l.id === "vegasGovtEmbassy")?.enabled  ?? true,
             }}
           />
 

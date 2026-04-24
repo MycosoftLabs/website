@@ -13,7 +13,7 @@ export default function NatureOSTelemetryPage() {
   return (
     <DevicePageShell
       heading="Telemetry Dashboard"
-      text="Observe device health, sensor readings, and mission-critical signals in real time."
+      text="Live BME688 (VOC + CO₂e + temp + RH + pressure), SporeBase airborne particulate, substrate conductivity, and ESP32 device-health streams from the Mycosoft fleet. 15-second refresh."
     >
       <Suspense fallback={<div className="rounded-lg border p-6">Loading telemetry...</div>}>
         <TelemetryDashboard />

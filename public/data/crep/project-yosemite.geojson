@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Yosemite — Mycosoft device deployment site, Apr 23 2026. Anchor in Yosemite Valley; NPS perimeter + key trailheads + visitor centers + live webcams.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "id": "project-yosemite-anchor", "name": "Project Yosemite" },
+      "geometry": { "type": "Point", "coordinates": [-119.5383, 37.8651] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "id": "project-yosemite-perimeter", "name": "Yosemite National Park" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-119.886, 37.495], [-119.886, 38.185], [-119.200, 38.185], [-119.200, 37.495], [-119.886, 37.495]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-halfdome", "name": "Half Dome", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-119.5333, 37.7460] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-elcap", "name": "El Capitan", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-119.6369, 37.7338] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-yosemitefalls", "name": "Yosemite Falls", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-119.5966, 37.7566] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-vc-valley", "name": "Yosemite Valley Visitor Center", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-119.5889, 37.7489] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-tuolumne", "name": "Tuolumne Meadows Visitor Center", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-119.3500, 37.8775] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-wawona", "name": "Wawona Ranger Station", "category": "ranger" }, "geometry": { "type": "Point", "coordinates": [-119.6564, 37.5378] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-glacierpoint", "name": "Glacier Point", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-119.5736, 37.7278] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-mariposa", "name": "Mariposa Grove of Giant Sequoias", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-119.6064, 37.5111] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yos-tioga", "name": "Tioga Pass Entrance", "category": "entrance" }, "geometry": { "type": "Point", "coordinates": [-119.2581, 37.9108] } }
+  ]
+}

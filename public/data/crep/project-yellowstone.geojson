@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Yellowstone — Mycosoft device deployment, Apr 23 2026. Anchor at Old Faithful; geothermal sensors, wildlife zones, live webcams.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "id": "project-yellowstone-anchor", "name": "Project Yellowstone" },
+      "geometry": { "type": "Point", "coordinates": [-110.8280, 44.4605] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "id": "project-yellowstone-perimeter", "name": "Yellowstone National Park" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-111.165, 44.130], [-111.165, 45.110], [-109.830, 45.110], [-109.830, 44.130], [-111.165, 44.130]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-oldfaithful", "name": "Old Faithful Geyser", "category": "geothermal" }, "geometry": { "type": "Point", "coordinates": [-110.8281, 44.4605] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-grandprismatic", "name": "Grand Prismatic Spring", "category": "geothermal" }, "geometry": { "type": "Point", "coordinates": [-110.8381, 44.5250] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-mammoth", "name": "Mammoth Hot Springs", "category": "geothermal" }, "geometry": { "type": "Point", "coordinates": [-110.7022, 44.9711] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-upperbasin", "name": "Upper Geyser Basin", "category": "geothermal" }, "geometry": { "type": "Point", "coordinates": [-110.8286, 44.4606] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-norrisbasin", "name": "Norris Geyser Basin", "category": "geothermal" }, "geometry": { "type": "Point", "coordinates": [-110.7031, 44.7261] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-lamar", "name": "Lamar Valley (wildlife viewing)", "category": "wildlife" }, "geometry": { "type": "Point", "coordinates": [-110.2164, 44.8942] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-hayden", "name": "Hayden Valley (bison)", "category": "wildlife" }, "geometry": { "type": "Point", "coordinates": [-110.4794, 44.6572] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-fishingbridge", "name": "Fishing Bridge", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-110.3772, 44.5658] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-canyonvc", "name": "Canyon Visitor Education Center", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-110.4977, 44.7355] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "yell-lakevillage", "name": "Lake Village", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-110.3989, 44.5600] } }
+  ]
+}

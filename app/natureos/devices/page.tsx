@@ -16,7 +16,7 @@ export default function NatureOSDevicesPage() {
   return (
     <DevicePageShell
       heading="Device Manager"
-      text="Monitor and control your MycoBrain devices and connected sensors."
+      text="Monitor and control MycoBrain devices, Mushroom-1 / Hyphae-1 / SporeBase prototypes, and connected MQTT sensors in the Mycosoft network."
     >
       <Suspense fallback={<div className="text-center py-8">Loading device manager...</div>}>
         <DeviceManagerContent />

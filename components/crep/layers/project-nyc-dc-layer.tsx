@@ -25,6 +25,14 @@ type Enabled = {
   // Project anchor + perimeter + POIs (one toggle per project)
   projectNyc?: boolean
   projectDc?: boolean
+  projectVegas?: boolean
+  // Apr 23, 2026 — 2026 Mycosoft deployment sites
+  projectYosemite?: boolean
+  projectZion?: boolean
+  projectYellowstone?: boolean
+  projectMendocino?: boolean
+  projectStarbase?: boolean
+  projectHomeAcero?: boolean
   // OSM-baked layers (shared toggle structure; NYC copies)
   nycHospitals?: boolean
   nycPolice?: boolean
@@ -49,7 +57,21 @@ type Enabled = {
   dcTransitRail?: boolean
   dcAirports?: boolean
   dcGovtEmbassy?: boolean
-  // nycInat / dcInat removed — baked iNat loads into the shared
+  // Apr 23, 2026 — Morgan: "project Las Vegas and add filters and cameras
+  // and naturedata ... add all vegas now". 15-metro bake from PR #110
+  // already covers Vegas geojsons; wiring them up here as a 3rd region.
+  vegasHospitals?: boolean
+  vegasPolice?: boolean
+  vegasSewage?: boolean
+  vegasCellTowers?: boolean
+  vegasAmFmAntennas?: boolean
+  vegasMilitary?: boolean
+  vegasDataCenters?: boolean
+  vegasTransitSubway?: boolean
+  vegasTransitRail?: boolean
+  vegasAirports?: boolean
+  vegasGovtEmbassy?: boolean
+  // nycInat / dcInat / vegasInat — baked iNat loads into the shared
   // fungalObservations React state in CREPDashboardClient and is gated
   // by the master "fungi" layer toggle (see "BAKED HISTORICAL iNAT"
   // useEffect). No separate per-region toggle needed.
@@ -69,7 +91,7 @@ interface RegionCategory {
   minzoom?: number
 }
 
-const makeCategories = (region: "nyc" | "dc"): RegionCategory[] => [
+const makeCategories = (region: "nyc" | "dc" | "vegas"): RegionCategory[] => [
   { id: `${region}Hospitals` as keyof Enabled,     file: `/data/crep/${region}-hospitals.geojson`,       layerId: `crep-${region}-hospitals`,     sourceId: `crep-${region}-hospitals-src`,     label: "Hospital", color: "#f43f5e", selectType: "hospital", minzoom: 7 },
   { id: `${region}Police` as keyof Enabled,        file: `/data/crep/${region}-police.geojson`,          layerId: `crep-${region}-police`,        sourceId: `crep-${region}-police-src`,        label: "Police / Fire", color: "#3b82f6", selectType: "police", minzoom: 8 },
   { id: `${region}Sewage` as keyof Enabled,        file: `/data/crep/${region}-sewage.geojson`,          layerId: `crep-${region}-sewage`,        sourceId: `crep-${region}-sewage-src`,        label: "Sewage works", color: "#a16207", selectType: "sewage_works", polygon: true, minzoom: 7 },
@@ -133,6 +155,21 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
     const projects = [
       { id: "nyc" as const, file: "/data/crep/project-nyc.geojson", anchorColor: "#06b6d4", perimeterColor: "#22d3ee", enabled: enabled.projectNyc },
       { id: "dc" as const, file: "/data/crep/project-dc.geojson", anchorColor: "#facc15", perimeterColor: "#fbbf24", enabled: enabled.projectDc },
+      { id: "vegas" as const, file: "/data/crep/project-vegas.geojson", anchorColor: "#f43f5e", perimeterColor: "#fb7185", enabled: enabled.projectVegas },
+      // Apr 23, 2026 — Morgan: "Yosemite, Zion National Park, Yellowstone,
+      // Mendocino Forest and Starbase, tx, these sites are our planned
+      // first deployments of Mycosoft Devices". Anchor + perimeter + POI
+      // files live at /data/crep/project-{site}.geojson. Always-on
+      // rendering (no per-site toggle yet — parked as nature/industrial
+      // projects distinct from the urban NYC/DC/Vegas stack).
+      { id: "yosemite" as const, file: "/data/crep/project-yosemite.geojson", anchorColor: "#10b981", perimeterColor: "#34d399", enabled: enabled.projectYosemite !== false },
+      { id: "zion" as const, file: "/data/crep/project-zion.geojson", anchorColor: "#fb923c", perimeterColor: "#fdba74", enabled: enabled.projectZion !== false },
+      { id: "yellowstone" as const, file: "/data/crep/project-yellowstone.geojson", anchorColor: "#eab308", perimeterColor: "#facc15", enabled: enabled.projectYellowstone !== false },
+      { id: "mendocino" as const, file: "/data/crep/project-mendocino.geojson", anchorColor: "#16a34a", perimeterColor: "#22c55e", enabled: enabled.projectMendocino !== false },
+      { id: "starbase" as const, file: "/data/crep/project-starbase.geojson", anchorColor: "#64748b", perimeterColor: "#94a3b8", enabled: enabled.projectStarbase !== false },
+      // Morgan's home lab (live 3 MQTT devices — Mushroom 1, Hyphae 1,
+      // SporeBase) at 451 Acero Pl Chula Vista.
+      { id: "home-acero" as const, file: "/data/crep/mycosoft-home-devices.geojson", anchorColor: "#d946ef", perimeterColor: "#e879f9", enabled: enabled.projectHomeAcero !== false },
     ]
 
     const run = async () => {
@@ -249,7 +286,7 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
     const m = resolveMap(map)
     if (!m) return
     let cancelled = false
-    const all = [...makeCategories("nyc"), ...makeCategories("dc")]
+    const all = [...makeCategories("nyc"), ...makeCategories("dc"), ...makeCategories("vegas")]
     const loaded = new Set<string>()
 
     const ensureCategory = async (cat: RegionCategory) => {

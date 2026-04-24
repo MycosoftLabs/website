@@ -1,0 +1,32 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Las Vegas anchor + perimeter + landmark POIs. Generated Apr 23, 2026 — Morgan: 'i want massive extra las vegas data icons real live on the las vegas strip and fremont street'.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "name": "Project Las Vegas", "id": "project-vegas-anchor" },
+      "geometry": { "type": "Point", "coordinates": [-115.1398, 36.1699] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "name": "Las Vegas metro", "id": "project-vegas-perimeter" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-115.40, 35.95], [-115.40, 36.38], [-114.85, 36.38], [-114.85, 35.95], [-115.40, 35.95]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-strip", "name": "Las Vegas Strip", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-115.1728, 36.1147] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-fremont", "name": "Fremont Street Experience", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-115.1448, 36.1711] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-cityhall", "name": "Las Vegas City Hall", "category": "government" }, "geometry": { "type": "Point", "coordinates": [-115.1433, 36.1716] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-bellagio", "name": "Bellagio Fountains", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-115.1767, 36.1129] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-sphere", "name": "Sphere at The Venetian", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-115.1675, 36.1215] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-lvcc", "name": "Las Vegas Convention Center (Bitcoin conf)", "category": "conference" }, "geometry": { "type": "Point", "coordinates": [-115.1511, 36.1316] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-harryreid", "name": "Harry Reid International Airport", "category": "airport" }, "geometry": { "type": "Point", "coordinates": [-115.1537, 36.0840] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-nellisafb", "name": "Nellis AFB", "category": "military" }, "geometry": { "type": "Point", "coordinates": [-115.0343, 36.2341] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-hoover", "name": "Hoover Dam", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-114.7377, 36.0161] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-redrock", "name": "Red Rock Canyon NCA", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-115.4281, 36.1350] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "vegas-lakemead", "name": "Lake Mead NRA", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-114.7895, 36.0161] } }
+  ]
+}

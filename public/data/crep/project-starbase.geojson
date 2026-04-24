@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Starbase TX — Mycosoft device deployment, Apr 23 2026. Industrial + Gulf Coast ecology. SpaceX launch pad (public perimeter only), Boca Chica beach, Rio Grande delta.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "id": "project-starbase-anchor", "name": "Project Starbase TX" },
+      "geometry": { "type": "Point", "coordinates": [-97.1560, 25.9971] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "id": "project-starbase-perimeter", "name": "Starbase / Boca Chica area" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-97.22, 25.95], [-97.22, 26.06], [-97.10, 26.06], [-97.10, 25.95], [-97.22, 25.95]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-launch", "name": "SpaceX Starbase Launch Pad (OLP)", "category": "launchpad" }, "geometry": { "type": "Point", "coordinates": [-97.1569, 25.9972] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-productionsite", "name": "SpaceX Production Site", "category": "industrial" }, "geometry": { "type": "Point", "coordinates": [-97.1892, 25.9969] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-hwy4lookout", "name": "Highway 4 Public Viewing Area", "category": "tourism" }, "geometry": { "type": "Point", "coordinates": [-97.1639, 25.9986] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-bocachicabeach", "name": "Boca Chica Beach", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-97.1478, 25.9867] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-portisabel", "name": "Port Isabel", "category": "port" }, "geometry": { "type": "Point", "coordinates": [-97.2139, 26.0731] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-spiislandpark", "name": "South Padre Island", "category": "tourism" }, "geometry": { "type": "Point", "coordinates": [-97.1650, 26.1108] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-riograndedelta", "name": "Rio Grande Delta / Boca Chica Wildlife Refuge", "category": "wildlife" }, "geometry": { "type": "Point", "coordinates": [-97.1414, 25.9564] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "starbase-brownsville", "name": "Brownsville / South Padre Island Int'l Airport", "category": "airport" }, "geometry": { "type": "Point", "coordinates": [-97.4256, 25.9067] } }
+  ]
+}

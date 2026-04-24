@@ -1,0 +1,176 @@
+{
+  "type": "FeatureCollection",
+  "note": "Curated Vegas public camera seed — Apr 23, 2026. Morgan: 'i see no nature data live in las vegas and there are so many live cameras in vegas youtube live especialyl i see none even the city hall has a live youtube cam'. Mix of YouTube Live 24/7 streams, EarthCam, and NDOT state traffic cams. Loaded by EagleEyeOverlay.paintBakedRegistry() alongside the NYC/DC seed.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-fremont",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Fremont Street Experience (EarthCam)",
+        "stream_url": null,
+        "embed_url": "https://www.earthcam.com/usa/nevada/lasvegas/fremontstreet/?cam=fremontst",
+        "media_url": null,
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1448, 36.1711] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-strip-bally",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Las Vegas Strip - Bally's (EarthCam)",
+        "embed_url": "https://www.earthcam.com/usa/nevada/lasvegas/?cam=lasvegas_street",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1725, 36.1126] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-bellagio",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Bellagio Fountains (EarthCam)",
+        "embed_url": "https://www.earthcam.com/usa/nevada/lasvegas/bellagio/?cam=bellagio_fountain",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1767, 36.1129] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-youtube-fremont-live",
+        "provider": "youtube_live",
+        "kind": "permanent",
+        "name": "Fremont Street YouTube Live",
+        "embed_url": "https://www.youtube.com/embed/live_stream?channel=UCgWwDFcpz6FF8KCFEBSLZmA",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1455, 36.1707] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-youtube-strip-live",
+        "provider": "youtube_live",
+        "kind": "permanent",
+        "name": "Las Vegas Strip YouTube Live",
+        "embed_url": "https://www.youtube.com/embed/live_stream?channel=UCBuVdQ4AAQp4yrK2QJqsN8w",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1719, 36.1150] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-youtube-cityhall",
+        "provider": "youtube_live",
+        "kind": "permanent",
+        "name": "Las Vegas City Hall YouTube Live (council chambers)",
+        "embed_url": "https://www.youtube.com/@CityofLasVegas/live",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1433, 36.1716] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-ndot-i15-sahara",
+        "provider": "ndot",
+        "kind": "permanent",
+        "name": "NDOT I-15 @ Sahara Ave",
+        "embed_url": "https://www.nvroads.com/icons/camera/CCTV--702/",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1696, 36.1426] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-ndot-us95-summerlin",
+        "provider": "ndot",
+        "kind": "permanent",
+        "name": "NDOT US-95 @ Summerlin Pkwy",
+        "embed_url": "https://www.nvroads.com/icons/camera/CCTV--215/",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.2586, 36.1838] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-ndot-215-charleston",
+        "provider": "ndot",
+        "kind": "permanent",
+        "name": "NDOT I-215 @ W Charleston",
+        "embed_url": "https://www.nvroads.com/icons/camera/CCTV--310/",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.3194, 36.1586] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-youtube-hoover-dam",
+        "provider": "youtube_live",
+        "kind": "permanent",
+        "name": "Hoover Dam YouTube Live",
+        "embed_url": "https://www.youtube.com/@HooverDam/live",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-114.7377, 36.0161] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-airport",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Harry Reid Int'l Airport (EarthCam)",
+        "embed_url": "https://www.earthcam.com/usa/nevada/lasvegas/?cam=lasvegas_airport",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1537, 36.0840] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-sphere",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Sphere at The Venetian (EarthCam)",
+        "embed_url": "https://www.earthcam.com/usa/nevada/lasvegas/sphere/?cam=sphere",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.1675, 36.1215] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-nps-redrock",
+        "provider": "nps",
+        "kind": "permanent",
+        "name": "Red Rock Canyon NCA Viewpoint",
+        "embed_url": "https://www.recreation.gov/ticket/facility/259219",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-115.4281, 36.1350] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "vegas-earthcam-lakemead",
+        "provider": "earthcam",
+        "kind": "permanent",
+        "name": "Lake Mead NRA (EarthCam)",
+        "embed_url": "https://www.earthcam.com/usa/nevada/lakemead/?cam=lakemead",
+        "status": "online"
+      },
+      "geometry": { "type": "Point", "coordinates": [-114.7895, 36.0161] }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "type": "FeatureCollection",
+  "note": "Project Zion — Mycosoft device deployment, Apr 23 2026. Anchor at Zion Canyon VC; perimeter + Angels Landing + The Narrows + Kolob.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-anchor", "id": "project-zion-anchor", "name": "Project Zion" },
+      "geometry": { "type": "Point", "coordinates": [-112.9867, 37.2000] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "kind": "project-perimeter", "id": "project-zion-perimeter", "name": "Zion National Park" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-113.220, 37.180], [-113.220, 37.470], [-112.820, 37.470], [-112.820, 37.180], [-113.220, 37.180]
+        ]]
+      }
+    },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-angelslanding", "name": "Angels Landing", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-112.9494, 37.2694] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-narrows", "name": "The Narrows", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-112.9475, 37.3017] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-canyonvc", "name": "Zion Canyon Visitor Center", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-112.9867, 37.2000] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-kolobvc", "name": "Kolob Canyons Visitor Center", "category": "visitor-center" }, "geometry": { "type": "Point", "coordinates": [-113.2089, 37.4539] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-observationpt", "name": "Observation Point", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-112.9378, 37.2797] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-emerald", "name": "Emerald Pools", "category": "nature" }, "geometry": { "type": "Point", "coordinates": [-112.9589, 37.2528] } },
+    { "type": "Feature", "properties": { "kind": "poi", "id": "zion-checkerboard", "name": "Checkerboard Mesa", "category": "landmark" }, "geometry": { "type": "Point", "coordinates": [-112.8825, 37.2297] } }
+  ]
+}
