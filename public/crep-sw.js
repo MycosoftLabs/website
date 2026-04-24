@@ -30,14 +30,27 @@
  *   purged in the `activate` event.
  */
 
-const CACHE_VERSION = "crep-v2"
+// Apr 23, 2026 — bumped to v3. Dropped `/_next/static/` from the cache
+// scope. Reason: that prefix is already hash-versioned by Next.js, and
+// in dev mode the bundle filenames are reused across recompiles —
+// which meant the SW would happily serve the OLD compiled header.tsx
+// bundle (referencing an old `Brain` import) to the browser AFTER the
+// dev server had compiled a fresh version. That burned 30+ minutes
+// of debugging today and would have been invisible to any user who
+// hit the site with a stale SW. Let the browser HTTP cache + Next's
+// own hashing handle `_next/static/`; the SW only cares about the
+// big geojson / icon / asset payloads.
+// Bumping to v3 also forces the activate event to purge v2 on next
+// load, so everyone gets fresh `_next/static/` fetches.
+const CACHE_VERSION = "crep-v3"
 const CACHE_NAME = `mycosoft-${CACHE_VERSION}`
 
-// URL patterns eligible for cache-first strategy.
+// URL patterns eligible for cache-first strategy. Next.js bundles
+// intentionally NOT in this list — they're hash-versioned and the SW
+// caching them blocks dev iterations + traps users on old bundles.
 const STATIC_PREFIXES = [
   "/data/crep/",
   "/crep/icons/",
-  "/_next/static/",
   "/assets/",
 ]
 
