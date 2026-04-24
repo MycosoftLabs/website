@@ -65,29 +65,49 @@ function isCacheable(url) {
 }
 
 self.addEventListener("install", (event) => {
-  // Apr 23, 2026 — removed `skipWaiting()` (was tripping the auto-reload
-  // Morgan reported on prod). Without it, a NEW SW waits in the
-  // `installed` state until every tab controlled by the OLD SW closes.
-  // Tab refresh / navigation naturally picks up the new SW; nothing
-  // yanks control out from under an active session mid-click.
-  // If we ever need a forced update, it's one `navigator.serviceWorker
-  // .getRegistration().update()` call from the app, not automatic.
+  // Apr 23, 2026 RE-ENABLE skipWaiting — Morgan reported "Not Secure" +
+  // massive lag persisting after prod deploy because the OLD v2 SW was
+  // still active and serving its cached `/_next/static/` chunks (built
+  // before the ws:// mixed-content fix). v2 won't go away until every
+  // tab controlled by it closes, which on an active session never
+  // happens. Force v3 to take over immediately so users get the new
+  // CSP-safe bundles without having to manually clear data.
+  //
+  // The original reason skipWaiting was removed ("trips auto-reload
+  // mid-session") only matters if successive SW versions keep shipping.
+  // We're on a single-version jump from v2 → v3 for a critical security
+  // fix; that's the exact case skipWaiting exists for.
+  event.waitUntil(self.skipWaiting())
 })
 
 self.addEventListener("activate", (event) => {
-  // Apr 23, 2026 — removed `clients.claim()` for the same reason. The
-  // new SW only takes over clients that have navigated AFTER it
-  // activated. No forced hostile takeover of in-flight requests.
   event.waitUntil(
-    caches
-      .keys()
-      .then((names) =>
-        Promise.all(
-          names
-            .filter((n) => n.startsWith("mycosoft-") && n !== CACHE_NAME)
-            .map((n) => caches.delete(n)),
-        ),
-      ),
+    (async () => {
+      // 1. Delete every non-v3 cache by name.
+      const names = await caches.keys()
+      await Promise.all(
+        names
+          .filter((n) => n.startsWith("mycosoft-") && n !== CACHE_NAME)
+          .map((n) => caches.delete(n))
+      )
+      // 2. Belt-and-suspenders: also delete any `/_next/static/` entries
+      //    that might have lingered if a stale cache name was reused.
+      //    Those chunks are the ones that had the old ws://localhost:8999
+      //    reference baked in from before the PR #137 SSL fix.
+      try {
+        const currentCache = await caches.open(CACHE_NAME)
+        const keys = await currentCache.keys()
+        await Promise.all(
+          keys
+            .filter((req) => req.url.includes("/_next/static/"))
+            .map((req) => currentCache.delete(req))
+        )
+      } catch {
+        /* ignore — cache might be empty */
+      }
+      // 3. Claim all active clients so this v3 takes over immediately.
+      await self.clients.claim()
+    })()
   )
 })
 
