@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 // Web Speech API types
 declare global {
@@ -66,7 +67,7 @@ export function UnifiedVoiceProvider({
   defaultMode = "web-speech",
   autoConnect = false,
   masApiUrl = "/api/mas",
-  personaplexUrl = "ws://localhost:8999",
+  personaplexUrl = resolveDefaultPersonaPlexWsUrl(),
   onTranscript,
   onResponse,
   onError,
@@ -172,6 +173,10 @@ export function UnifiedVoiceProvider({
         }
       }
     } else if (mode === "personaplex") {
+      if (!personaplexUrl) {
+        setError("PersonaPlex is not configured for this environment")
+        return
+      }
       // Connect to PersonaPlex WebSocket
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         wsRef.current = new WebSocket(personaplexUrl)

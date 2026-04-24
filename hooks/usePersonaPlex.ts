@@ -8,6 +8,7 @@ import {
   ConnectionStatus,
   MYCA_PERSONAPLEX_PROMPT 
 } from "@/lib/voice/personaplex-client"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 /**
  * PersonaPlex Hook v2.0 - Separation of Concerns Refactor
@@ -115,9 +116,7 @@ export interface UsePersonaPlexReturn {
   conversationId: string
 }
 
-const DEFAULT_PERSONAPLEX_WS =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_PERSONAPLEX_WS_URL) ||
-  "ws://localhost:8999/api/chat"
+const DEFAULT_PERSONAPLEX_WS = resolveDefaultPersonaPlexWsUrl()
 
 export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaPlexReturn {
   const {

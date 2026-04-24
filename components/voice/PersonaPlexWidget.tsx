@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { VoiceMonitorDashboard } from "./VoiceMonitorDashboard"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 interface PersonaPlexWidgetProps {
   className?: string
@@ -43,7 +44,7 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
   voicePrompt = "NATURAL_F2.pt",
   textPrompt = MYCA_PERSONAPLEX_PROMPT,
   // Default to PersonaPlex Bridge (8999) for MAS Event Engine integration
-  serverUrl = "ws://localhost:8999/api/chat",
+  serverUrl = resolveDefaultPersonaPlexWsUrl(),
   onTranscript,
   onResponse,
   onCommand,

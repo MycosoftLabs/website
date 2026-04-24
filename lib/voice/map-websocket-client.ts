@@ -6,6 +6,8 @@
  * when voice commands are processed through the MAS VoiceCommandRouter.
  */
 
+import { VOICE_ENDPOINTS } from "@/lib/config/api-urls"
+
 export interface FrontendCommand {
   type: string
   center?: [number, number]
@@ -75,8 +77,8 @@ export class MapWebSocketClient {
   private onError?: (error: Error) => void
   
   constructor(options: MapWebSocketClientOptions = {}) {
-    // Connect to PersonaPlex Bridge CREP command channel
-    this.url = options.url || "ws://localhost:8999/ws/crep/commands"
+    // Connect to PersonaPlex Bridge CREP command channel (dev default; prod = env wss:// or "")
+    this.url = (options.url || VOICE_ENDPOINTS.CREP_BRIDGE_WS || "").trim()
     this.reconnectInterval = options.reconnectInterval || 3000
     this.maxReconnectAttempts = options.maxReconnectAttempts || 3
     
@@ -88,6 +90,10 @@ export class MapWebSocketClient {
   
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+      return
+    }
+    if (!this.url) {
+      this.isConnecting = false
       return
     }
     // Session circuit breaker. After the first failure we never retry;

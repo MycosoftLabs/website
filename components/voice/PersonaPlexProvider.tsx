@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 /** Pages with their own voice UI — PersonaPlexWidget is suppressed on these */
 const PAGES_WITH_OWN_MIC = ["/search", "/test-voice"]
@@ -14,12 +15,8 @@ const PAGES_WITH_OWN_MIC = ["/search", "/test-voice"]
  * Created: February 3, 2026
  * Updated: February 5, 2026 - Added voice listening state for search integration
  * Updated: February 11, 2026 - Added Web Speech API fallback + enhanced search integration
- * Updated: April 23, 2026 - Skip insecure ws:// defaults on HTTPS pages to
- *   fix the browser's "Not Secure" mixed-content warning. If the user hasn't
- *   set NEXT_PUBLIC_PERSONAPLEX_WS_URL to a wss:// endpoint, we now return
- *   an empty string in production — PersonaPlex stays disabled until a TLS
- *   bridge URL is configured, instead of triggering the lock by trying
- *   ws://localhost:8999.
+ * Updated: April 23, 2026 - Shared `resolveDefaultPersonaPlexWsUrl()` — no
+ *   ws:// in production bundles (mixed content on https://mycosoft.com).
  *
  * Provides MYCA voice assistant across all pages with:
  * - Floating widget that persists during navigation
@@ -30,27 +27,6 @@ const PAGES_WITH_OWN_MIC = ["/search", "/test-voice"]
  * - n8n workflow execution
  * - Web Speech API fallback for STT when PersonaPlex unavailable
  */
-
-/**
- * Return a WebSocket URL safe for the current origin.
- *   dev / localhost → ws://localhost:8999/api/chat (or env override)
- *   production https:// page → must be wss://; ws:// is silently dropped
- *                               so the browser never flags "Not Secure".
- *   production http:// page (unlikely) → any URL passes through.
- */
-function resolveSafePersonaPlexWsUrl(): string {
-  const env = process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL
-  const isProd = process.env.NODE_ENV === "production"
-  const pageIsHttps =
-    typeof window !== "undefined" && window.location.protocol === "https:"
-  if (env) {
-    if (isProd && pageIsHttps && env.startsWith("ws://")) return ""
-    return env
-  }
-  if (!isProd) return "ws://localhost:8999/api/chat"
-  // Prod with no explicit WSS URL → PersonaPlex stays off until configured.
-  return ""
-}
 
 // =============================================================================
 // WEB SPEECH API FALLBACK
@@ -360,7 +336,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
     // Bridge provides MAS Event Engine integration with tool calls, agents, memory
     // Use env var for flexible deployment (localhost, VM, or cloud GPU)
-    serverUrl: resolveSafePersonaPlexWsUrl(),
+    serverUrl: resolveDefaultPersonaPlexWsUrl(),
     voicePrompt: "NATURAL_F2.pt",
     textPrompt: MYCA_PERSONAPLEX_PROMPT,
     
@@ -528,7 +504,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
         <PersonaPlexWidget
           position="bottom-right"
           showMonitor={true}
-          serverUrl={resolveSafePersonaPlexWsUrl()}
+          serverUrl={resolveDefaultPersonaPlexWsUrl()}
           voicePrompt="NATURAL_F2.pt"
           textPrompt={MYCA_PERSONAPLEX_PROMPT}
           onTranscript={(text) => {

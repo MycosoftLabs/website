@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
 
 // Web Speech API types
 declare global {
@@ -61,7 +62,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
     autoConnect = false,
     mode = "web-speech",
     masApiUrl = "/api/mas",
-    personaplexUrl = "ws://localhost:8999",
+    personaplexUrl = resolveDefaultPersonaPlexWsUrl(),
     onTranscript,
     onResponse,
     onError,
@@ -190,6 +191,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
         }
       }
     } else if (mode === "personaplex") {
+      if (!personaplexUrl) {
+        setError("PersonaPlex is not configured for this environment")
+        return
+      }
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         wsRef.current = new WebSocket(personaplexUrl)
         wsRef.current.onopen = () => {

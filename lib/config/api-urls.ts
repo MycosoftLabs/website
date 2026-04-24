@@ -6,6 +6,8 @@
  * Import this instead of hardcoding URLs in API routes.
  */
 
+import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
+
 // VM IP addresses
 const SANDBOX_VM_IP = "192.168.0.187"
 const MAS_VM_IP = process.env.MAS_VM_HOST || "localhost"
@@ -142,10 +144,7 @@ export const MINDEX_ENDPOINTS = {
  */
 export const VOICE_ENDPOINTS = {
   // PersonaPlex (port 8998/8999). Prefer NEXT_PUBLIC_* for browser bundles.
-  PERSONAPLEX_WS:
-    process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL ||
-    process.env.PERSONAPLEX_WS_URL ||
-    "ws://localhost:8999/api/chat",
+  PERSONAPLEX_WS: resolveDefaultPersonaPlexWsUrl(),
   PERSONAPLEX_HTTP: process.env.PERSONAPLEX_HTTP_URL || "http://localhost:8998",
   
   // CREP map command WebSocket (PersonaPlex Bridge CREP channel)
@@ -166,10 +165,7 @@ export const VOICE_ENDPOINTS = {
       // In production, refuse insecure ws://LAN URLs — they only work on the
       // same LAN and fail HTTPS mixed-content rules. Allow wss:// always.
       if (process.env.NODE_ENV === "production" && explicit.startsWith("ws://")) {
-        if (typeof window !== "undefined") {
-          // Client bundle on prod — silently drop the insecure URL.
-          return ""
-        }
+        return ""
       }
       return explicit
     }
