@@ -70,9 +70,9 @@ const useCases = [
     description: "Research-grade data collection and analysis for ecological studies.",
     icon: Microscope
   },
-  { 
-    title: "Infrastructure Protection",
-    description: "Continuous monitoring of critical facilities for environmental risks.",
+  {
+    title: "Grid & Infrastructure Protection",
+    description: "Continuous monitoring of transmission lines, substations, transformers, data centers, ports and other critical facilities. Supports the April 2026 Presidential Determination under DPA §303 designating grid equipment and supply chain capacity as essential to national defense.",
     icon: Shield
   },
   { 

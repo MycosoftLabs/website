@@ -38,6 +38,30 @@
  * For polyline/polygon data (cables, transmission lines, perimeters)
  * see separate GeoJSON files in public/data/crep/ — added in follow-up
  * commits with real sourced data.
+ *
+ * ───────────────────────────────────────────────────────────────────────
+ * Policy basis — why infrastructure is a first-class CREP layer
+ * ───────────────────────────────────────────────────────────────────────
+ *   Presidential Determination of April 20, 2026 (DPA §303), "Grid
+ *   Infrastructure Equipment and Supply Chain Capacity," finds that
+ *   "America's aging and constrained electric grid infrastructure poses
+ *   an increasing threat to national defense" and authorises action to
+ *   expand domestic production of transformers, transmission lines,
+ *   high-voltage circuit breakers, conductors, power electronics,
+ *   substations, protective relays, capacitor banks, and electrical
+ *   core steel. The determination references EO 14156 (National Energy
+ *   Emergency) and cites foreign-supplier dependency as a vulnerability.
+ *
+ *   CREP renders this physical infrastructure — substations, HV
+ *   transmission (HIFLD ≥345 kV + sub-transmission OSM), EIA-860M
+ *   generators, data centers, cell towers, ports, rail — so analysts
+ *   and commanders can see the grid the determination is meant to
+ *   harden, locate it relative to threats (weather, seismic, wildfire,
+ *   adversary activity), and reason about supply-chain exposure.
+ *
+ *   See app/defense/oei/page.tsx → "Grid & Infrastructure Protection"
+ *   for the public framing, and INFRA_LAYERS in static-infra-loader.ts
+ *   for the per-layer source manifest.
  */
 
 // ═══════════════════════════════════════════════════════════════════════
