@@ -313,6 +313,7 @@ All notable changes to this project will be documented in this file.
 - *(security)* Eliminate prod ws:// defaults for PersonaPlex and CREP bridge
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content) (#137)
 - *(voice)* Use fetchWithTimeout for orchestrator POST (120s) — completes PersonaPlex lag hardening
+- *(voice)* Use fetchWithTimeout 120s for MAS TTS and orchestrator in useVoiceChat (align with usePersonaPlex)
 
 ### CREP
 
@@ -446,6 +447,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
