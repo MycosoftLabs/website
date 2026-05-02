@@ -312,6 +312,7 @@ All notable changes to this project will be documented in this file.
 - *(nav)* Double-click bug — header dropdown raced framer-motion vs <a> nav (#130)
 - *(security)* Eliminate prod ws:// defaults for PersonaPlex and CREP bridge
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content) (#137)
+- *(voice)* Use fetchWithTimeout for orchestrator POST (120s) — completes PersonaPlex lag hardening
 
 ### CREP
 
@@ -445,6 +446,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
