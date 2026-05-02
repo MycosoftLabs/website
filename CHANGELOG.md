@@ -310,6 +310,7 @@ All notable changes to this project will be documented in this file.
 - *(build)* Commit missing lib/mindex-base-url.ts + lib/mas-server-url.ts
 - *(worldview)* Earth2 /health in snapshot, runtime CREP bridge for Legions (241/249)
 - *(nav)* Double-click bug — header dropdown raced framer-motion vs <a> nav (#130)
+- *(security)* Eliminate prod ws:// defaults for PersonaPlex and CREP bridge
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content) (#137)
 
 ### CREP
@@ -444,6 +445,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -629,6 +631,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Ship baked camera registry + pass media_url through click
 - *(crep)* H2S direct UCSD + perf helpers + permanent layer defaults ON
 - *(crep)* Add manual camera seed for SD region (surfline + hpwren + scripps + earthcam + skyline + cbp refs + nps)
+- *(natureos)* Cloud IA May 2026 — app routes, aerosol BFF, tools hub, ancestry move
 
 ### Fix
 
@@ -691,6 +694,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Log deployment to \$HOME instead of /var/log
 - Rewrite instant-deploy.yml to GHCR build + VM pull
 - Document CREP tile URLs and AirNow in .env.example (Apr 23, 2026)
+- Autonomous sandbox cleanup before every deploy
+- Autonomous wedged-docker recovery in deploy cleanup
 - Free ~30GB before docker build to prevent 'No space left on device' (#135)
 
 ### Performance
@@ -713,6 +718,10 @@ All notable changes to this project will be documented in this file.
 ### Search
 
 - Notepad gated on auth, world-view suggestions, fluid search rollout
+
+### Security
+
+- Force SW v3 to take over + stop 474MB video eager-download
 
 ### Transit
 
@@ -758,6 +767,9 @@ All notable changes to this project will be documented in this file.
 - *(perf)* PMTiles source URLs rewrite to Cloudflare R2 CDN when configured (#126)
 - Live AQI map layer — AirNow monitors as color-coded dots (#128)
 - FetchWithTimeout helper + fix 7 critical hang sites
+- Project Las Vegas — 11 city layers + fly-to chip + Strip/Fremont cams
+- 5 deployment sites + Mycosoft home lab + cam seeds
+- Mobile-worthy Earth Simulator (CrepMobileShell) + home video perf
 
 ### Crep+nav
 
@@ -784,6 +796,7 @@ All notable changes to this project will be documented in this file.
 ### Merge
 
 - Claude fix-media-loading (hyphae hero, no cross-device fallbacks)
+- Resolve conflict with main (take PR #134 theme-aware context bar)
 
 ### Mobile
 
@@ -791,9 +804,21 @@ All notable changes to this project will be documented in this file.
 - Comprehensive UX overhaul - phone/tablet/desktop breakpoint strategy across entire site
 - Hide CREP desktop panels on phone + rename sidebar CREP → Earth Simulator (#140)
 
+### Mobile+nav
+
+- Hide CREP desktop panels on phone, rename sidebar CREP → Earth Simulator
+
 ### Natureos
 
+- Rebrand Earth Simulator → CREP + refresh overview
+- Refresh device dashboards with deployment-site context
+- Unblock /natureos render — drop broken DashboardHero
+- Theme-aware DeploymentContextBar (fixes light-mode blank)
 - Rebrand Earth Simulator → CREP + refreshed overview (#134)
+
+### Nav
+
+- Slim NatureOS top-nav dropdown to the 4 public tools (Morgan req)
 
 ### Ops
 
@@ -803,6 +828,19 @@ All notable changes to this project will be documented in this file.
 
 - Purge hardcoded secrets from working tree and history
 - Remove hardcoded private IPs and fix dependency graph
+- Kill 'Not Secure' badge on https://mycosoft.com (mixed content)
+
+### Sidebar
+
+- Allow collapse + persist user's choice across all breakpoints
+
+### Sw
+
+- Drop /_next/static/ from CREP service worker cache scope
+
+### Types
+
+- Fix Web Speech API errors (var-merge + event typing)
 
 ### Ux
 
