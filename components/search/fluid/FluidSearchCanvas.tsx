@@ -255,7 +255,7 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
 export function FluidSearchCanvas({
   initialQuery = "",
   onNavigate,
-  voiceEnabled = true,
+  voiceEnabled = false,
   className,
 }: FluidSearchCanvasProps) {
   const ctx = useSearchContext()
@@ -864,7 +864,7 @@ export function FluidSearchCanvas({
           source: String(item.source || type),
           properties: propsFn(item),
           relevance: 0.5,
-          crepMapUrl: `/dashboard/crep?lat=${item.lat || item.latitude}&lng=${item.lng || item.longitude}&zoom=8&highlight=${id}`,
+          crepMapUrl: `/natureos/earth-simulator?lat=${item.lat || item.latitude}&lng=${item.lng || item.longitude}&zoom=8&highlight=${id}`,
         })
       }
     }

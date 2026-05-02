@@ -71,7 +71,7 @@ export default function SearchPage() {
             >
               <FluidSearchCanvas
                 initialQuery={query}
-                voiceEnabled={true}
+                voiceEnabled={false}
                 onNavigate={handleNavigate}
               />
             </Suspense>

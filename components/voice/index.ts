@@ -1,7 +1,7 @@
 // Voice Components - February 17, 2026
 // Complete voice integration with PersonaPlex, MAS, Memory, and n8n
 
-export { UnifiedVoiceProvider, useVoice } from "./UnifiedVoiceProvider"
+export { UnifiedVoiceProvider, SiteVoiceStubProvider, useVoice } from "./UnifiedVoiceProvider"
 export type { VoiceContextValue, VoiceMode } from "./UnifiedVoiceProvider"
 
 export { VoiceButton, FloatingVoiceButton, InlineVoiceButton } from "./VoiceButton"

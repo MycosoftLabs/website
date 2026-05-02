@@ -103,12 +103,6 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
     await sendMessage(text, { source: "web", contextText: getContextText() })
   }
 
-  // Handle voice input
-  const handleVoice = async (transcript: string) => {
-    if (!transcript.trim()) return
-    await sendMessage(transcript, { source: "web-speech", contextText: getContextText() })
-  }
-
   // Save message to notepad
   const handleSaveToNotes = (message: MobileChatMessage, card?: DataCard) => {
     if (card) {
@@ -258,11 +252,7 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
       </AnimatePresence>
 
       {/* Input Bar */}
-      <ChatInput
-        onSend={handleSend}
-        onVoice={handleVoice}
-        isLoading={isLoading}
-      />
+      <ChatInput onSend={handleSend} isLoading={isLoading} />
 
       {/* Notepad Sheet */}
       <MobileNotepad

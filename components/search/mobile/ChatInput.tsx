@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 interface ChatInputProps {
   onSend: (text: string) => void
   onVoice?: (transcript: string) => void
+  /** When false, mic and Web Speech are not mounted (site shell policy). */
+  voiceInputEnabled?: boolean
   isLoading?: boolean
   placeholder?: string
 }
@@ -23,6 +25,7 @@ interface ChatInputProps {
 export function ChatInput({
   onSend,
   onVoice,
+  voiceInputEnabled = false,
   isLoading = false,
   placeholder = "Ask MYCA...",
 }: ChatInputProps) {
@@ -62,8 +65,9 @@ export function ChatInput({
     }
   }
 
-  // Initialize speech recognition
+  // Initialize speech recognition (only when voice input is enabled for this surface)
   useEffect(() => {
+    if (!voiceInputEnabled) return
     if (typeof window === "undefined") return
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -124,7 +128,7 @@ export function ChatInput({
     return () => {
       recognition.abort()
     }
-  }, [input, interimTranscript, onVoice])
+  }, [voiceInputEnabled, input, interimTranscript, onVoice])
 
   // Toggle voice listening
   const toggleVoice = () => {
@@ -210,24 +214,28 @@ export function ChatInput({
       </AnimatePresence>
 
       {/* Input area */}
-      <div className="flex items-end gap-2 p-3">
-        {/* Voice button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-10 w-10 shrink-0 rounded-full",
-            isListening && "bg-violet-500 text-white hover:bg-violet-600"
-          )}
-          onClick={toggleVoice}
-          disabled={isLoading}
-        >
-          {isListening ? (
-            <MicOff className="h-5 w-5" />
-          ) : (
-            <Mic className="h-5 w-5" />
-          )}
-        </Button>
+      <div className={cn("flex items-end p-3", voiceInputEnabled ? "gap-2" : "gap-0")}>
+        {voiceInputEnabled && (
+          <>
+            {/* Voice button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-10 w-10 shrink-0 rounded-full",
+                isListening && "bg-violet-500 text-white hover:bg-violet-600"
+              )}
+              onClick={toggleVoice}
+              disabled={isLoading}
+            >
+              {isListening ? (
+                <MicOff className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </Button>
+          </>
+        )}
 
         {/* Text input */}
         <div className="flex-1 relative">

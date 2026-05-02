@@ -10,17 +10,11 @@ import { MYCAProvider } from "@/contexts/myca-context"
 import { AvaniProvider } from "@/contexts/avani-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
-import { PersonaPlexProvider } from "@/components/voice/PersonaPlexProvider"
+import { SiteVoiceStubProvider } from "@/components/voice/UnifiedVoiceProvider"
 import { Toaster } from "sonner"
 
 const MYCAFloatingButton = dynamic(
   () => import("@/components/myca/MYCAFloatingButton").then((m) => ({ default: m.MYCAFloatingButton })),
-  { ssr: false }
-)
-
-const UnifiedMYCAFAB = dynamic(
-  () => import("@/components/myca/UnifiedMYCAFAB").then((m) => ({ default: m.UnifiedMYCAFAB })),
   { ssr: false }
 )
 
@@ -38,7 +32,6 @@ const LIGHT_PUBLIC_ROUTES = new Set([
 
 const LIGHT_PUBLIC_PREFIXES = ["/devices/", "/about/", "/research/", "/science/"]
 const MYCA_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/scientific", "/admin"]
-const VOICE_PREFIXES = ["/search", "/myca", "/natureos", "/test-voice", "/apps"]
 const APP_STATE_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/protocols", "/scientific", "/admin"]
 const NATIVE_MYCA_INTERFACE_PREFIXES = [
   "/test-voice",
@@ -93,17 +86,15 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const { enableMyca, enableVoice, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
+  const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
     const lightPublic = isLightPublicRoute(pathname)
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)
-    const routeWantsVoice = startsWithAny(pathname, VOICE_PREFIXES)
     const routeNeedsAppState = startsWithAny(pathname, APP_STATE_PREFIXES)
 
     const mycaEnabled = routeWantsMyca || (!lightPublic && hasUsedMyca)
     const nativeMycaInterface = hasNativeMycaInterface(pathname)
     return {
       enableMyca: mycaEnabled,
-      enableVoice: mycaEnabled && routeWantsVoice,
       showFloating: mycaEnabled && !nativeMycaInterface,
       enableAppState: routeNeedsAppState,
       mycaAlwaysActive: pathname.startsWith("/search") || pathname.startsWith("/myca") || pathname.startsWith("/test-voice"),
@@ -126,9 +117,7 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
         <main className="flex-1 relative w-full overflow-x-hidden">{content}</main>
         <Footer />
       </div>
-      {showFloating && enableVoice ? (
-        <UnifiedMYCAFAB title="MYCA" showVoice getContextText={getContextText} />
-      ) : showFloating ? (
+      {showFloating ? (
         <MYCAFloatingButton title="MYCA" getContextText={getContextText} />
       ) : null}
       <Toaster richColors position="top-right" />
@@ -140,19 +129,11 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
 
   if (enableMyca) {
     shell = (
-      <AvaniProvider>
-        <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{pageLayout}</MYCAProvider>
-      </AvaniProvider>
-    )
-  }
-
-  if (enableVoice) {
-    shell = (
-      <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
-        <PersonaPlexProvider renderFloatingWidget={!showFloating}>
-          {shell}
-        </PersonaPlexProvider>
-      </UnifiedVoiceProvider>
+      <SiteVoiceStubProvider>
+        <AvaniProvider>
+          <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{pageLayout}</MYCAProvider>
+        </AvaniProvider>
+      </SiteVoiceStubProvider>
     )
   }
 

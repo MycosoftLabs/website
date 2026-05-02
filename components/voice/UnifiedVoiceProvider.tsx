@@ -359,3 +359,37 @@ export function UnifiedVoiceProvider({
     </VoiceContext.Provider>
   )
 }
+
+/**
+ * No-op voice context for site-wide shell when PersonaPlex / real voice is not mounted.
+ * Keeps `useVoice()` from throwing in Fluid Search and other opt-in surfaces without
+ * starting listeners or WebSocket work.
+ */
+const SITE_VOICE_DISABLED_MESSAGE =
+  "Voice is disabled in the site shell. Use the MYCA app or /test-voice when available."
+
+const noop = () => {}
+const noopAsync = async () => {}
+const noopAsyncStr = async () => SITE_VOICE_DISABLED_MESSAGE
+
+const SITE_VOICE_STUB: VoiceContextValue = {
+  isListening: false,
+  isSpeaking: false,
+  isConnected: false,
+  transcript: "",
+  interimTranscript: "",
+  error: null,
+  mode: "web-speech",
+  startListening: noop,
+  stopListening: noop,
+  speak: noopAsync,
+  sendCommand: noopAsyncStr,
+  setMode: noop,
+  clearTranscript: noop,
+  registerHandler: noop,
+  unregisterHandler: noop,
+}
+
+export function SiteVoiceStubProvider({ children }: { children: React.ReactNode }) {
+  return <VoiceContext.Provider value={SITE_VOICE_STUB}>{children}</VoiceContext.Provider>
+}
