@@ -9,7 +9,7 @@
  * Picture) — one pipeline, two branded surfaces:
  *
  *   /dashboard/crep                     → engineering + defense view
- *   /natureos/tools/earth-simulator     → public-facing "Earth Simulator" tool
+ *   /natureos/earth-simulator            → public-facing "Earth Simulator" app (legacy /natureos/tools/earth-simulator redirects)
  *   /natureos/crep                      → legacy CREP route (kept for deep links)
  *
  * All three mount the same CREPDashboardLoader so map fixes, perf work,

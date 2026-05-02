@@ -12,9 +12,9 @@
  * - Session memory integration
  */
 
-import { useState, useEffect, useRef, useCallback, startTransition } from "react"
+import { useState, useEffect, useRef, startTransition } from "react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -92,14 +92,6 @@ export function HeroSearch() {
     enabled: !query && !isFocused, // Only animate when input is empty and not focused
   })
   
-  // Mouse position for gradient effect
-  const mouseX = useMotionValue(0)
-  const mouseY = useMotionValue(0)
-  
-  // Gradient position transforms
-  const gradientX = useTransform(mouseX, [0, 1], ["0%", "100%"])
-  const gradientY = useTransform(mouseY, [0, 1], ["0%", "100%"])
-
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -111,16 +103,6 @@ export function HeroSearch() {
     const id = setInterval(refresh, 30000)
     return () => clearInterval(id)
   }, [])
-
-  // Handle mouse move for gradient effect
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    const y = (e.clientY - rect.top) / rect.height
-    mouseX.set(x)
-    mouseY.set(y)
-  }, [mouseX, mouseY])
 
   // Handle voice transcript - auto-fill search from PersonaPlex
   useEffect(() => {
@@ -333,7 +315,6 @@ export function HeroSearch() {
       <div 
         ref={containerRef}
         className="w-full max-w-3xl relative z-10 pointer-events-auto"
-        onMouseMove={handleMouseMove}
       >
         {/* Hero Container with Glass Morphism — no video inside; sits on top of page video */}
         <motion.div
@@ -502,17 +483,14 @@ export function HeroSearch() {
                   )}
                 </motion.button>
 
-                {/* Earth Simulator button — instant CREP access (Apr 18, 2026).
-                    Naming plan: for public / NatureOS users this is "Earth
-                    Simulator"; inside FUSARIUM the same endpoint is CREP
-                    with military data added. Same route for now; product
-                    naming diverges on the destination pages. */}
+                {/* Earth Simulator — public NatureOS tool route (same CREP loader as /dashboard/crep). */}
                 <Link
-                  href="/dashboard/crep"
+                  href="/natureos/earth-simulator"
+                  prefetch={false}
                   aria-label="Earth Simulator"
                   title="Earth Simulator — live 3D globe"
                   className={cn(
-                    "group relative p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
+                    "group relative z-10 flex items-center justify-center p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
                     "bg-gradient-to-br from-cyan-500/15 via-sky-500/15 to-emerald-500/15",
                     "dark:from-cyan-500/25 dark:via-sky-500/25 dark:to-emerald-500/25",
                     "border border-cyan-500/30 dark:border-cyan-400/40",
@@ -520,8 +498,11 @@ export function HeroSearch() {
                     "hover:shadow-[0_0_18px_rgba(6,182,212,0.35)] hover:border-cyan-400/60",
                   )}
                 >
-                  <span className="absolute inset-0 rounded-lg sm:rounded-xl bg-cyan-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <Globe2 className="relative h-4 w-4 sm:h-5 sm:w-5 animate-[spin_24s_linear_infinite] group-hover:text-cyan-400" />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl bg-cyan-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  />
+                  <Globe2 className="relative z-[1] h-4 w-4 sm:h-5 sm:w-5 animate-[spin_24s_linear_infinite] group-hover:text-cyan-400" />
                 </Link>
 
                 {/* Submit Button — onClick via form submit (handleSearch), no onMouseDown race */}

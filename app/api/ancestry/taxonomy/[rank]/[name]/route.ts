@@ -67,7 +67,7 @@ async function fetchChildren(parentId: number, childRankName: string, limit = 50
       rank: t.rank,
       observationCount: t.observations_count || 0,
       imageUrl: t.default_photo?.medium_url || t.default_photo?.url || null,
-      taxonPageUrl: `/ancestry/taxonomy/${t.rank}/${encodeURIComponent(t.name)}`,
+      taxonPageUrl: `/natureos/ancestry/taxonomy/${t.rank}/${encodeURIComponent(t.name)}`,
     }))
   } catch {
     return []
@@ -127,7 +127,7 @@ export async function GET(
           name: a.name,
           rank: a.rank,
           commonName: a.preferred_common_name || null,
-          href: `/ancestry/taxonomy/${a.rank}/${encodeURIComponent(a.name)}`,
+          href: `/natureos/ancestry/taxonomy/${a.rank}/${encodeURIComponent(a.name)}`,
         }))
 
     // ── Fetch children (one rank below) ───────────────────────────────────

@@ -110,7 +110,7 @@ export function DeploymentContextBar() {
         </span>
 
         <Link
-          href="/natureos/tools/earth-simulator"
+          href="/natureos/earth-simulator"
           className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 font-medium hover:bg-accent hover:text-accent-foreground"
         >
           <Globe2 className="h-3.5 w-3.5" />

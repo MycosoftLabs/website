@@ -16,8 +16,8 @@ import HeroSearch from "./hero-search"
  *       • Public / NatureOS users → "Earth Simulator" (same underlying
  *         CREP engine; civilian framing)
  *       • FUSARIUM users → "CREP" with military data overlays
- *     For now both route to /dashboard/crep; naming diverges at the
- *     destination page once the /earth-simulator consumer route ships.
+ *     Globe icon routes to /natureos/earth-simulator (public NatureOS
+ *     Earth Simulator; same CREP pipeline as /dashboard/crep).
  */
 export default function ParallaxSearch() {
   return (

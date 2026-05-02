@@ -26,11 +26,12 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
   { path: '/natureos', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'NatureOS home' },
   { path: '/natureos/mindex/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Species Explorer' },
-  { path: '/ancestry/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Ancestry Explorer' },
+  { path: '/natureos/ancestry/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Ancestry Explorer' },
   { path: '/apps/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator' },
   { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
+  { path: '/natureos/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator (NatureOS)' },
   { path: '/dashboard/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard (public)' },
 ]
 
@@ -67,14 +68,14 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
     description: 'Mushroom catalog' 
   },
   { 
-    path: '/natureos/species', 
+    path: '/natureos/nature-statistics', 
     gate: AccessGate.FREEMIUM, 
     config: { 
       gate: AccessGate.FREEMIUM, 
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 50 }
     }, 
-    description: 'Species database' 
+    description: 'Nature statistics' 
   },
   { 
     path: '/compounds', 
@@ -107,7 +108,7 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
     description: 'Science papers' 
   },
   { 
-    path: '/ancestry', 
+    path: '/natureos/ancestry', 
     gate: AccessGate.FREEMIUM, 
     config: { 
       gate: AccessGate.FREEMIUM, 
@@ -156,7 +157,7 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
   },
 
   { 
-    path: '/ancestry/tools', 
+    path: '/natureos/ancestry/tools', 
     gate: AccessGate.PREMIUM, 
     config: { 
       gate: AccessGate.PREMIUM, 
@@ -343,8 +344,9 @@ const COMPANY_REQUIRED_PREFIXES: string[] = [
 const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/natureos/mindex/explorer',
   '/natureos/crep',
+  '/natureos/earth-simulator',
   '/dashboard/crep',
-  '/ancestry/explorer',
+  '/natureos/ancestry/explorer',
   '/apps/earth-simulator',
   '/apps/petri-dish-sim',
   '/apps/compound-sim'
