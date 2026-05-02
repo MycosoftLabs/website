@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout"
 
 // Web Speech API types
 declare global {
@@ -257,10 +258,11 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
     setIsSpeaking(true)
     
     try {
-      const response = await fetch(`${masApiUrl}/voice`, {
+      const response = await fetchWithTimeout(`${masApiUrl}/voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, voice: "arabella" }),
+        timeoutMs: 120_000,
       })
       
       if (response.ok) {
@@ -288,10 +290,11 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}): UseVoiceChatRet
     setIsProcessing(true)
     
     try {
-      const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
+      const response = await fetchWithTimeout(`${masApiUrl}/voice/orchestrator`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
+        timeoutMs: 120_000,
       })
       
       if (response.ok) {
