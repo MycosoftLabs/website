@@ -77,7 +77,7 @@ const SITEMAP_PATHS: string[] = [
   "/apps", "/apps/earth-simulator", "/apps/alchemy-lab", "/apps/compound-sim", "/apps/digital-twin",
   "/apps/genetic-circuit", "/apps/growth-analytics", "/apps/lifecycle-sim", "/apps/mushroom-sim",
   "/apps/petri-dish-sim", "/apps/physics-sim", "/apps/retrosynthesis", "/apps/spore-tracker", "/apps/symbiosis",
-  "/ancestry", "/ancestry/database", "/ancestry/explorer", "/ancestry/phylogeny", "/ancestry/tools", "/ancestry-db",
+  "/natureos/ancestry", "/natureos/ancestry/database", "/natureos/ancestry/explorer", "/natureos/ancestry/phylogeny", "/natureos/ancestry/tools", "/ancestry-db",
   "/search", "/mindex", "/compounds", "/mushrooms", "/species/submit",
   "/science", "/platform", "/capabilities/genomics", "/protocols/mycorrhizae",
   "/scientific", "/scientific/3d", "/scientific/autonomous", "/scientific/bio", "/scientific/bio-compute",
@@ -87,6 +87,9 @@ const SITEMAP_PATHS: string[] = [
   // NatureOS routes (not in public sitemap but part of site)
   "/natureos", "/natureos/ai-studio", "/natureos/devices", "/natureos/workflows", "/natureos/mindex",
   "/natureos/mas", "/natureos/settings", "/natureos/shell", "/natureos/api", "/natureos/monitoring",
+  "/natureos/nature-statistics", "/natureos/fungi-compute", "/natureos/earth-simulator",
+  "/natureos/virtual-petri-dish", "/natureos/biology-simulator", "/natureos/compound-analyser",
+  "/natureos/aerosol", "/natureos/growth-analytics", "/natureos/tools",
 ]
 
 // Key API routes (Website + MAS) - real endpoints from API catalog / registry

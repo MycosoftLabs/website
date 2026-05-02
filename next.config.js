@@ -202,6 +202,18 @@ const nextConfig = {
       { source: "/myocode", destination: "/devices/myconode", permanent: false },
       { source: "/myo-code", destination: "/devices/myconode", permanent: false },
       { source: "/sporebase", destination: "/devices/sporebase", permanent: false },
+      // NatureOS cloud-style reorg — May 1, 2026 (canonical URLs under /natureos)
+      { source: "/natureos/species", destination: "/natureos/nature-statistics", permanent: true },
+      { source: "/natureos/tools/earth-simulator", destination: "/natureos/earth-simulator", permanent: true },
+      { source: "/natureos/tools/petri-dish", destination: "/natureos/virtual-petri-dish", permanent: true },
+      { source: "/natureos/petri-sim", destination: "/natureos/virtual-petri-dish", permanent: true },
+      { source: "/natureos/tools/mushroom-sim", destination: "/natureos/biology-simulator", permanent: true },
+      { source: "/natureos/tools/spore-tracker", destination: "/natureos/aerosol", permanent: true },
+      { source: "/natureos/tools/compound-sim", destination: "/natureos/compound-analyser", permanent: true },
+      { source: "/natureos/tools/growth-analytics", destination: "/natureos/growth-analytics", permanent: true },
+      { source: "/ancestry", destination: "/natureos/ancestry", permanent: true },
+      { source: "/ancestry/:path*", destination: "/natureos/ancestry/:path*", permanent: true },
+      { source: "/natureos/lab-tools", destination: "/natureos/tools", permanent: true },
     ]
   },
 }

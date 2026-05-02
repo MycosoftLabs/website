@@ -29,6 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/devices/sporebase`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/hyphae-1`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/myconode`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/devices/psathyrella`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/alarm`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/mycobrain`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/specifications`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
@@ -62,11 +63,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/apps/symbiosis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
 
     // Ancestry & Research
-    { url: `${baseUrl}/ancestry`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${baseUrl}/ancestry/database`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/ancestry/explorer`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/ancestry/phylogeny`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${baseUrl}/ancestry/tools`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/natureos/ancestry`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/natureos/ancestry/database`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${baseUrl}/natureos/ancestry/explorer`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${baseUrl}/natureos/ancestry/phylogeny`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/ancestry/tools`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/ancestry-db`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
 
     // Search & Data

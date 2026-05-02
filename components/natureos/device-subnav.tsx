@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/natureos/devices/insights", label: "Insights", icon: Brain },
   { href: "/natureos/devices/fleet", label: "Fleet", icon: Boxes },
   { href: "/natureos/devices/onsite-ai", label: "On-Site AI", icon: Radio },
-  { href: "/natureos/tools/earth-simulator", label: "Earth Sim", icon: Globe2 },
+  { href: "/natureos/earth-simulator", label: "Earth Sim", icon: Globe2 },
 ]
 
 export function DeviceSubnav() {

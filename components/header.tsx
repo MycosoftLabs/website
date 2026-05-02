@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users, Key } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Bot, Users } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -19,9 +19,10 @@ import {
 import { useSupabaseUser } from "@/hooks/use-supabase-user"
 import { useRouter, usePathname } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
-import { useEffect, useState, useRef, useCallback, memo } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo, type MouseEvent } from "react"
 import { cn } from "@/lib/utils"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
+import { PUBLIC_TOOL_HREFS } from "@/lib/nav-public-tools"
 import { useGateAccess } from "@/components/access/gate-wrapper"
 import { AccessGate } from "@/lib/access/types"
 
@@ -47,28 +48,29 @@ type NavItem = {
   companyOnly?: boolean
 }
 const natureOSItems: NavItem[] = [
-  { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Globe, description: "Live planetary intelligence — the CREP globe" },
+  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: Globe, description: "Live planetary intelligence — the CREP globe" },
   { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Cpu, description: "Mycelial neural networks & bio-compute" },
-  { title: "Petri Dish Simulator", href: "/natureos/tools/petri-dish", icon: FlaskConical, description: "Virtual culture growth simulation" },
-  { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous, description: "Fungal genealogy & genomics explorer" },
+  { title: "Virtual Petri Dish", href: "/natureos/virtual-petri-dish", icon: FlaskConical, description: "Virtual culture growth simulation" },
+  { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous, description: "Fungal genealogy & genomics explorer" },
 ]
 
 const devicesItems = [
-  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Quadrupedal Environment Droid" },
-  { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Biological collection system" },
-  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular sensor platform" },
-  { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Subsurface bioelectric probe" },
-  { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Indoor environmental monitor" },
+  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Walking Ground Droid" },
+  { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Breathing Aerosol Collector" },
+  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular Data Center" },
+  { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Mesh Network Probe" },
+  { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Biological Home Alarm" },
+  { title: "Psathyrella", href: "/devices/psathyrella", icon: Waves, description: "Swimming Sensor Buoy" },
 ]
 
 const appsItems = [
-  { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: FlaskConical, description: "Virtual culture growth simulation" },
-  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, description: "3D fungal growth modeling", companyOnly: true },
-  { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical, description: "Chemical compound analysis" },
-  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, description: "Spore dispersal mapping", companyOnly: true },
-  { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
-  { title: "Genomics Tools", href: "/ancestry/tools#genomics", icon: Microscope, description: "Genome browsers & visualization" },
-  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, description: "Performance metrics & insights", companyOnly: true },
+  { title: "Petri Dish Simulator", href: PUBLIC_TOOL_HREFS.petriDish, icon: FlaskConical, description: "Virtual culture growth simulation" },
+  { title: "Mushroom Simulator", href: PUBLIC_TOOL_HREFS.mushroomSim, icon: Microscope, description: "3D fungal growth modeling", companyOnly: true },
+  { title: "Compound Analyzer", href: PUBLIC_TOOL_HREFS.compoundSim, icon: FlaskConical, description: "Chemical compound analysis" },
+  { title: "Spore Tracker", href: PUBLIC_TOOL_HREFS.sporeTracker, icon: Compass, description: "Spore dispersal mapping", companyOnly: true },
+  { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
+  { title: "Genomics Tools", href: "/natureos/ancestry/tools#genomics", icon: Microscope, description: "Genome browsers & visualization" },
+  { title: "Growth Analytics", href: PUBLIC_TOOL_HREFS.growthAnalytics, icon: BarChart3, description: "Performance metrics & insights", companyOnly: true },
 ]
 
 // Individual dropdown component with animations
@@ -84,20 +86,21 @@ interface NavDropdownProps {
 }
 
 function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accentColor = "blue", mainHref, globalTimeoutRef }: NavDropdownProps & { mainHref?: string }) {
-  // Apr 23, 2026 — Morgan: "double click needed even from mycosoft.com home
-  // page on globe icon". Root cause: the <a href> main-label click was
-  // firing onClick={handleMainClick} → onClose() synchronously, which
-  // batched a React state update that raced framer-motion's exit
-  // animation against the browser's default anchor navigation. On about
-  // half of clicks, the exit animation/state update delayed the click
-  // just enough that the browser skipped the navigation and the user
-  // had to click again.
-  //
-  // Fix: do NOT intercept the click at all. Let <a href> navigate
-  // natively. Close the dropdown in a useEffect bound to pathname
-  // changes (usePathname) — guaranteed to fire after the navigation
-  // commits, never before. Same UX (dropdown closes after navigation)
-  // but zero interference with the click itself.
+  /** Hub row when sections use mainHref but items omit it (e.g. NatureOS → /natureos). AI already lists /ai first — skip duplicate. */
+  const displayItems = useMemo(() => {
+    if (!mainHref) return items
+    if (items.some((i) => i.href === mainHref)) return items
+    return [
+      {
+        title: `${label} overview`,
+        href: mainHref,
+        icon: Icon,
+        description: `Hub — all ${label} pages`,
+      },
+      ...items,
+    ]
+  }, [items, mainHref, label, Icon])
+
   const pathname = usePathname()
   useEffect(() => {
     if (isOpen) onClose()
@@ -129,17 +132,24 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
   }, [globalTimeoutRef])
   
   const handleDropdownMouseLeave = useCallback(() => {
-    // Small delay when leaving dropdown content too
     globalTimeoutRef.current = setTimeout(() => {
       onClose()
-    }, 150)
+    }, 180)
   }, [onClose, globalTimeoutRef])
-  
-  // Apr 23, 2026 — handleMainClick removed. Previously called onClose()
-  // synchronously, which raced framer-motion's AnimatePresence exit
-  // against the browser's anchor navigation and caused the "needs
-  // double-click" bug. Dropdown now closes via the pathname-change
-  // effect above, after navigation actually commits.
+
+  /** Click / tap toggles menu (hover alone lagged under load; <a href> triggers navigated instead of opening). */
+  const handleTriggerClick = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation()
+      if (globalTimeoutRef.current) {
+        clearTimeout(globalTimeoutRef.current)
+        globalTimeoutRef.current = null
+      }
+      if (isOpen) onClose()
+      else onOpen()
+    },
+    [isOpen, onOpen, onClose, globalTimeoutRef],
+  )
 
   const colorVariants: Record<string, string> = {
     blue: "from-blue-500/20 to-cyan-500/20 border-blue-500/40",
@@ -170,10 +180,10 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
   }
 
   const buttonClasses = cn(
-    "group flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ease-out",
-    "hover:bg-white/5 border border-transparent",
-    "hover:scale-[1.02] active:scale-[0.98]",
-    isOpen && buttonActiveColor[accentColor]
+    "group flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ease-out",
+    "hover:bg-white/5 border border-transparent touch-manipulation",
+    "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    isOpen && buttonActiveColor[accentColor],
   )
   
   const buttonContent = (
@@ -183,169 +193,108 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
         isOpen ? iconColorVariants[accentColor].split(" ")[0] : "text-muted-foreground group-hover:text-foreground"
       )} />
       <span className="transition-colors duration-300">{label}</span>
-      <motion.div
-        animate={{ rotate: isOpen ? 180 : 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-      >
-        <ChevronDown className={cn(
-          "h-3 w-3 transition-all duration-300 text-muted-foreground",
-          isOpen && "text-foreground"
-        )} />
-      </motion.div>
+      <ChevronDown
+        className={cn(
+          "h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-out",
+          isOpen && "rotate-180 text-foreground",
+        )}
+        aria-hidden
+      />
     </>
   )
 
   return (
     <div className="relative">
-      {mainHref ? (
-        /* Plain <a> matches Search/About links: avoids dev-mode soft-nav race
-           where first click appears to do nothing (dropdown close + client
-           transition compete). */
-        <a
-          href={mainHref}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={buttonClasses}
-        >
-          {buttonContent}
-        </a>
-      ) : (
-        <button
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={buttonClasses}
-        >
-          {buttonContent}
-        </button>
-      )}
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={`${label} menu`}
+        onClick={handleTriggerClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={buttonClasses}
+      >
+        {buttonContent}
+      </button>
 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Invisible bridge to prevent gap from breaking hover */}
-            <div 
-              className="absolute top-full left-0 w-full h-4 bg-transparent"
+            <div
+              className="absolute top-full left-0 z-[60] h-3 w-full bg-transparent"
               onMouseEnter={handleDropdownMouseEnter}
+              aria-hidden
             />
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ 
-                duration: 0.2, 
-                ease: [0.16, 1, 0.3, 1] // Custom spring-like easing
-              }}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
               onMouseEnter={handleDropdownMouseEnter}
               onMouseLeave={handleDropdownMouseLeave}
               className={cn(
                 "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-[60]",
-                "bg-background/95 backdrop-blur-xl",
-                "border shadow-2xl",
+                "bg-background/95 backdrop-blur-xl border shadow-2xl",
                 colorVariants[accentColor],
-                glowVariants[accentColor]
+                glowVariants[accentColor],
               )}
             >
-            {/* Animated gradient background */}
-            <motion.div 
-              className={cn(
-                "absolute inset-0 bg-gradient-to-br opacity-30 pointer-events-none",
-                colorVariants[accentColor]
-              )}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.3 }}
-              exit={{ opacity: 0 }}
-            />
-            
-            {/* Top accent line */}
-            <motion.div 
-              className={cn(
-                "absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r",
-                accentColor === "blue" && "from-blue-500 via-cyan-400 to-blue-500",
-                accentColor === "green" && "from-emerald-500 via-green-400 to-emerald-500",
-                accentColor === "purple" && "from-purple-500 via-fuchsia-400 to-purple-500",
-                accentColor === "orange" && "from-orange-500 via-amber-400 to-orange-500"
-              )}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              exit={{ scaleX: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-            
-            <div className="relative p-2">
-              {items.map((item, index) => {
-                const ItemIcon = item.icon
-                return (
-                  <motion.div
-                    key={item.href}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -15 }}
-                    transition={{ 
-                      delay: index * 0.04, 
-                      duration: 0.25,
-                      ease: [0.16, 1, 0.3, 1]
-                    }}
-                  >
+              <div
+                className={cn(
+                  "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-30",
+                  colorVariants[accentColor],
+                )}
+              />
+              <div
+                className={cn(
+                  "pointer-events-none absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r",
+                  accentColor === "blue" && "from-blue-500 via-cyan-400 to-blue-500",
+                  accentColor === "green" && "from-emerald-500 via-green-400 to-emerald-500",
+                  accentColor === "purple" && "from-purple-500 via-fuchsia-400 to-purple-500",
+                  accentColor === "orange" && "from-orange-500 via-amber-400 to-orange-500",
+                )}
+              />
+
+              <div className="relative p-2">
+                {displayItems.map((item) => {
+                  const ItemIcon = item.icon
+                  return (
                     <a
+                      key={item.href}
                       href={item.href}
                       onClick={onClose}
                       className={cn(
-                        "group/item flex items-start gap-3 p-3 rounded-lg transition-all duration-200",
-                        "hover:bg-white/10",
-                        "relative overflow-hidden"
+                        "group/item flex items-start gap-3 p-3 rounded-lg transition-colors duration-150",
+                        "hover:bg-white/10 relative",
                       )}
                     >
-                      {/* Hover highlight effect */}
-                      <motion.div
+                      <div
                         className={cn(
-                          "absolute inset-0 bg-gradient-to-r opacity-0 transition-opacity duration-200",
-                          "group-hover/item:opacity-100",
-                          accentColor === "blue" && "from-blue-500/10 to-transparent",
-                          accentColor === "green" && "from-emerald-500/10 to-transparent",
-                          accentColor === "purple" && "from-purple-500/10 to-transparent",
-                          accentColor === "orange" && "from-orange-500/10 to-transparent"
+                          "relative shrink-0 rounded-lg border border-white/10 bg-white/5 p-2.5 transition-colors duration-150",
+                          "group-hover/item:bg-white/10 group-hover/item:border-white/20",
                         )}
-                      />
-                      
-                      <div className={cn(
-                        "relative flex-shrink-0 p-2.5 rounded-lg transition-all duration-300",
-                        "bg-white/5 border border-white/10",
-                        "group-hover/item:bg-white/10 group-hover/item:border-white/20",
-                        "group-hover/item:scale-110 group-hover/item:shadow-lg"
-                      )}>
-                        <ItemIcon className={cn(
-                          "h-4 w-4 transition-all duration-300",
-                          iconColorVariants[accentColor]
-                        )} />
-                      </div>
-                      <div className="relative flex-1 min-w-0">
-                        <p className={cn(
-                          "text-sm font-medium text-foreground transition-all duration-200",
-                          "group-hover/item:translate-x-0.5"
-                        )}>
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 transition-colors duration-200 group-hover/item:text-muted-foreground/80">
-                          {item.description}
-                        </p>
-                      </div>
-                      
-                      {/* Arrow indicator */}
-                      <motion.div
-                        className="relative self-center opacity-0 group-hover/item:opacity-100 transition-all duration-200"
-                        initial={{ x: -5 }}
-                        whileHover={{ x: 0 }}
                       >
-                        <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </motion.div>
+                        <ItemIcon className={cn("h-4 w-4", iconColorVariants[accentColor])} />
+                      </div>
+                      <div className="relative min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                      </div>
+                      <svg
+                        className="relative mt-1 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/item:opacity-100"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </a>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </motion.div>
+                  )
+                })}
+              </div>
+            </motion.div>
           </>
         )}
       </AnimatePresence>
@@ -454,17 +403,7 @@ export function Header() {
             <span>About Us</span>
           </a>
 
-          {/* Agent Access — plain <a> for single-click hard nav */}
-          <a
-            href="/agent"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
-            onMouseEnter={() => setOpenDropdown(null)}
-          >
-            <Key className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
-            <span>Agent Access</span>
-          </a>
-
-          {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}
+          {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM, Agent Access */}
           <NavDropdown
             label="AI"
             icon={Bot}
@@ -525,7 +464,7 @@ export function Header() {
             onOpen={() => setOpenDropdown("apps")}
             onClose={() => setOpenDropdown(null)}
             accentColor="orange"
-            mainHref="/apps"
+            mainHref={user ? "/apps" : "/natureos"}
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 

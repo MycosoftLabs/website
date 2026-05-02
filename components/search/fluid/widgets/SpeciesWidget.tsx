@@ -161,9 +161,9 @@ export function getTaxonomyIcon(taxonomy: Record<string, string | null | undefin
 function getSpeciesPageUrl(item: SpeciesResult): string {
   const raw = String(item.id || "")
   const inatMatch = raw.match(/^inat-(\d+)$/)
-  if (inatMatch) return `/ancestry/species/${inatMatch[1]}`
-  if (/^\d+$/.test(raw) && raw !== "0") return `/ancestry/species/${raw}`
-  return `/ancestry/species/name/${encodeURIComponent(item.scientificName)}`
+  if (inatMatch) return `/natureos/ancestry/species/${inatMatch[1]}`
+  if (/^\d+$/.test(raw) && raw !== "0") return `/natureos/ancestry/species/${raw}`
+  return `/natureos/ancestry/species/name/${encodeURIComponent(item.scientificName)}`
 }
 
 /** Ordered taxonomy ranks for display */
@@ -506,8 +506,8 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                         {taxonomyLevels.map((l, i) => {
                           // Build fully internal URL — never links to iNaturalist
                           const href = l.rank === "species"
-                            ? `/ancestry/species/name/${encodeURIComponent(l.name)}`
-                            : `/ancestry/taxonomy/${l.rank}/${encodeURIComponent(l.name)}`
+                            ? `/natureos/ancestry/species/name/${encodeURIComponent(l.name)}`
+                            : `/natureos/ancestry/taxonomy/${l.rank}/${encodeURIComponent(l.name)}`
                           return (
                           <div
                             key={`${l.rank}-${l.id}`}
@@ -925,8 +925,8 @@ export function SpeciesWidget({
                 onLevelClick={(rank, value) => {
                   // Navigate to internal Mycosoft taxonomy page — never iNaturalist
                   const href = rank === "species"
-                    ? `/ancestry/species/name/${encodeURIComponent(value)}`
-                    : `/ancestry/taxonomy/${rank}/${encodeURIComponent(value)}`
+                    ? `/natureos/ancestry/species/name/${encodeURIComponent(value)}`
+                    : `/natureos/ancestry/taxonomy/${rank}/${encodeURIComponent(value)}`
                   window.open(href, "_self")
                 }}
               />

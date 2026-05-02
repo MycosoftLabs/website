@@ -10,7 +10,6 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
 import {
-  Home,
   FlaskConical,
   Microscope,
   Database,
@@ -70,16 +69,16 @@ const navSections: NavSection[] = [
     key: "apps",
     defaultOpen: true,
     items: [
-      { title: "Overview", href: "/natureos", icon: Home },
-      { title: "Nature Statistics", href: "/natureos/species", icon: Leaf },
+      { title: "Nature Statistics", href: "/natureos/nature-statistics", icon: Leaf },
       { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Brain },
-      { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Globe },
-      { title: "Petri Dish Simulator", href: "/natureos/tools/petri-dish", icon: PipetteIcon },
-      { title: "Mushroom Simulator", href: "/natureos/tools/mushroom-sim", icon: Microscope, companyOnly: true },
-      { title: "Compound Analyzer", href: "/natureos/tools/compound-sim", icon: FlaskConical },
-      { title: "Spore Tracker", href: "/natureos/tools/spore-tracker", icon: Globe, companyOnly: true },
-      { title: "Ancestry Database", href: "/ancestry", icon: Database },
-      { title: "Growth Analytics", href: "/natureos/tools/growth-analytics", icon: LineChart, companyOnly: true },
+      { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: Globe },
+      { title: "Virtual Petri Dish", href: "/natureos/virtual-petri-dish", icon: PipetteIcon },
+      { title: "Biology Simulator", href: "/natureos/biology-simulator", icon: Microscope, companyOnly: true },
+      { title: "Compound Analyser", href: "/natureos/compound-analyser", icon: FlaskConical },
+      { title: "Aerosol", href: "/natureos/aerosol", icon: Droplets, companyOnly: true },
+      { title: "Ancestry Database", href: "/natureos/ancestry", icon: Database },
+      { title: "Growth Analytics", href: "/natureos/growth-analytics", icon: LineChart, companyOnly: true },
+      { title: "Tools", href: "/natureos/tools", icon: Wrench },
     ],
   },
   {
@@ -93,19 +92,11 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Tools",
+    title: "Science & Lab Tools",
     key: "tools",
     defaultOpen: false,
     items: [
-      { title: "MATLAB Tools", href: "/natureos/tools/matlab", icon: Wrench },
-      { title: "Genetics Tools", href: "/natureos/genetics", icon: Microscope },
-      { title: "Lab Tools", href: "/natureos/lab-tools", icon: FlaskConical },
-      { title: "Data Explorer", href: "/natureos/data-explorer", icon: Database },
-      { title: "Simulation", href: "/natureos/simulation", icon: Cpu },
-      { title: "Biotech Suite", href: "/natureos/biotech", icon: PipetteIcon },
-      { title: "Reports", href: "/natureos/reports", icon: FileText },
-      { title: "Smell Training", href: "/natureos/smell-training", icon: Activity },
-      { title: "WiFiSense", href: "/natureos/wifisense", icon: Wifi },
+      { title: "Tools Hub (all categories)", href: "/natureos/tools", icon: Layers },
     ],
   },
   {
@@ -128,10 +119,7 @@ const navSections: NavSection[] = [
       { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
       { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
-      // Apr 23, 2026 (Morgan): public-facing rename CREP → Earth Simulator.
-      // The sidebar link is kept at /natureos/tools/earth-simulator so every
-      // entry point lands on the same surface.
-      { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Activity },
+      // Earth Simulator is listed under Apps (/natureos/earth-simulator). Legacy /natureos/tools/earth-simulator redirects.
       { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },

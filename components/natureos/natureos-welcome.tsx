@@ -124,7 +124,7 @@ export function NatureOSWelcome() {
               asChild
               className="h-11 bg-gradient-to-r from-cyan-500 to-emerald-500 text-[#050a1a] hover:from-cyan-400 hover:to-emerald-400"
             >
-              <Link href="/natureos/tools/earth-simulator">
+              <Link href="/natureos/earth-simulator">
                 <Globe2 className="mr-2 h-4 w-4" />
                 Open Earth Simulator
               </Link>
@@ -162,7 +162,7 @@ export function NatureOSWelcome() {
             <Globe2 className="h-4 w-4" /> Earth Simulator — live index
           </h2>
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/natureos/tools/earth-simulator">Open globe →</Link>
+            <Link href="/natureos/earth-simulator">Open globe →</Link>
           </Button>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -298,7 +298,7 @@ export function NatureOSWelcome() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <QuickAction
-            href="/natureos/tools/earth-simulator"
+            href="/natureos/earth-simulator"
             title="Earth Simulator"
             subtitle="865K+ live entities on one globe"
             icon={<Globe2 className="h-4 w-4 text-cyan-400" />}

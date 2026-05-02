@@ -56,9 +56,9 @@ function getTaxonomyUrl(node: TaxonomyNode, isSpecies: boolean): string {
   const rank = node.rank?.toLowerCase() || "species"
   const name = encodeURIComponent(node.name)
   if (isSpecies && (typeof node.id === "string" && node.id.match(/^[0-9a-f-]{36}$/i))) {
-    return `/ancestry/species/${node.id}`
+    return `/natureos/ancestry/species/${node.id}`
   }
-  return `/ancestry/taxonomy/${rank}/${name}`
+  return `/natureos/ancestry/taxonomy/${rank}/${name}`
 }
 
 interface TreeNodeProps {
