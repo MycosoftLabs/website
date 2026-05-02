@@ -119,6 +119,7 @@ const navSections: NavSection[] = [
       { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
       { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
+      // Earth Simulator is listed under Apps (/natureos/earth-simulator). Legacy /natureos/tools/earth-simulator redirects.
       { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },

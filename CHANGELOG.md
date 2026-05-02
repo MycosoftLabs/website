@@ -464,6 +464,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -772,6 +773,10 @@ All notable changes to this project will be documented in this file.
 - List all conf.d files host+container, full curl -v on healthz [fast]
 - Deep inspect of proxy container (mounts, inside-container files, curl -v) [fast]
 
+### Hotfix
+
+- Force SW v3 takeover + stop 474MB video eager-download (#139)
+
 ### Infra
 
 - Zero-downtime blue/green deploy with nginx switch + Cloudflare purge
@@ -784,6 +789,7 @@ All notable changes to this project will be documented in this file.
 
 - Compact nav bars, sidebar closed on mobile, CREP ssr fix, more content space
 - Comprehensive UX overhaul - phone/tablet/desktop breakpoint strategy across entire site
+- Hide CREP desktop panels on phone + rename sidebar CREP → Earth Simulator (#140)
 
 ### Natureos
 
