@@ -198,7 +198,7 @@ export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaP
     try {
       addConsoleMessage("info", `→ Orchestrator: "${message.substring(0, 50)}${message.length > 50 ? "..." : ""}"`)
       
-      const response = await fetch(orchestratorUrl, {
+      const response = await fetchWithTimeout(orchestratorUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -213,6 +213,7 @@ export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaP
           },
           want_audio: true,
         }),
+        timeoutMs: 120_000,
       })
       
       const latencyMs = Date.now() - startTime
