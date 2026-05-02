@@ -32,7 +32,7 @@ const devices = [
   {
     id: "mushroom-1",
     name: "Mushroom 1",
-    tagline: "Ground-Based Fungal Intelligence Station",
+    tagline: "Walking Ground Droid",
     icon: Radar,
     color: "orange-500",
     dimensions: {
@@ -65,7 +65,7 @@ const devices = [
   {
     id: "myconode",
     name: "MycoNode",
-    tagline: "Subsurface Bioelectric Probe",
+    tagline: "Mesh Network Probe",
     icon: Microscope,
     color: "primary",
     dimensions: {
@@ -96,7 +96,7 @@ const devices = [
   {
     id: "sporebase",
     name: "SporeBase",
-    tagline: "Bioaerosol Collection System",
+    tagline: "Breathing Aerosol Collector",
     icon: Wind,
     color: "blue-500",
     dimensions: {
@@ -129,7 +129,7 @@ const devices = [
   {
     id: "alarm",
     name: "ALARM",
-    tagline: "Indoor Environmental Monitor",
+    tagline: "Biological Home Alarm",
     icon: AlertTriangle,
     color: "destructive",
     dimensions: {

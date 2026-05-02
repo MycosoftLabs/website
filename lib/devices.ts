@@ -16,6 +16,8 @@ import {
   Bell,
   Shield,
   Box,
+  Waves,
+  Brain,
   type LucideIcon,
 } from "lucide-react"
 
@@ -52,7 +54,7 @@ export const DEVICES: Device[] = [
   {
     id: "mushroom-1",
     name: "Mushroom 1",
-    tagline: "Ground-Based Fungal Intelligence Station",
+    tagline: "Walking Ground Droid",
     description: "A stationary ground buoy that monitors underground fungal networks and soil conditions in real-time.",
     price: 0,
     status: "Development",
@@ -115,7 +117,7 @@ export const DEVICES: Device[] = [
   {
     id: "sporebase",
     name: "SporeBase",
-    tagline: "Bioaerosol Collection System",
+    tagline: "Breathing Aerosol Collector",
     description: "The world's most advanced bioaerosol collector. Time-indexed spore capture for research and monitoring.",
     price: 0,
     status: "In Stock",
@@ -178,11 +180,11 @@ export const DEVICES: Device[] = [
   {
     id: "hyphae-1",
     name: "Hyphae 1",
-    tagline: "Modular I/O Platform",
+    tagline: "Modular Data Center",
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
     price: 0,
     status: "In Stock",
-    image: "/assets/hyphae1/standard.jpg",
+    image: "/assets/hyphae1/hyphae1-lab-prototype.png",
     video: "/assets/hyphae1/hero.mp4",
     videoTitle: "Industrial Standard",
     videoDescription: "Modular I/O platform designed for decades of reliable operation.",
@@ -213,7 +215,7 @@ export const DEVICES: Device[] = [
           "Digital I/O cards",
           "Relay output modules",
         ],
-        image: "/placeholder.svg?height=400&width=600",
+        image: "/assets/hyphae1/gallery-1.jpg",
       },
       {
         title: "Industrial Connectivity",
@@ -224,7 +226,7 @@ export const DEVICES: Device[] = [
           "REST API",
           "BACnet optional",
         ],
-        image: "/placeholder.svg?height=400&width=600",
+        image: "/assets/hyphae1/gallery-2.jpg",
       },
     ],
     specifications: {
@@ -241,11 +243,11 @@ export const DEVICES: Device[] = [
   {
     id: "myconode",
     name: "MycoNode",
-    tagline: "Subsurface Bioelectric Probe",
+    tagline: "Mesh Network Probe",
     description: "Buried sensor nodes that detect bioelectric signals from mycelial networks and monitor soil conditions at the microvolt level.",
     price: 0,
     status: "Contact Sales",
-    image: "/assets/myconode/myconode a.png",
+    image: "/assets/myconode/myconode-main.png",
     video: "/assets/myconode/myconode hero1.mp4",
     videoTitle: "Listening to the Underground",
     videoDescription: "Decode the bioelectric whispers of fungal networks.",
@@ -304,7 +306,7 @@ export const DEVICES: Device[] = [
   {
     id: "alarm",
     name: "ALARM",
-    tagline: "The Smartest Safety Device Ever Built for Earth",
+    tagline: "Biological Home Alarm",
     description:
       "A next-generation environmental sensing device engineered to replace every smoke alarm on Earth—with identical size, cost, and mounting, but exponentially more intelligent.",
     price: 49.99,
@@ -382,6 +384,110 @@ export const DEVICES: Device[] = [
       "Alert System": "85 dB Piezo buzzer, RGB LED ring indicator",
       Price: "Standard: $49.99, Pro: $79.99",
       Availability: "Pre-orders Q3 2025, Shipping Q4 2025",
+    },
+  },
+  // Hero/media: add files under public/assets/psathyrella/ (NAS: website/assets/psathyrella/)
+  {
+    id: "psathyrella",
+    name: "Psathyrella",
+    tagline: "Swimming Sensor Buoy",
+    description:
+      "Named for Psathyrella aquatica — the only known underwater mushroom — Psathyrella is a biologically inspired autonomous buoy for passive acoustic monitoring and multi-modal ocean sensing. Each node combines MycoBrain acquisition with an edge NLM pipeline (SSM/Mamba-class temporal modeling) so classification runs at the buoy: shallow-water complexity, biological clutter, and evolving signatures meet continuous learning from live waveforms, not static web corpora. Arrays mesh via Mycorrhizae, fuse into CREP on NatureOS, and lift into FUSARIUM for defense-grade situational awareness — with AVANI governance on every inference.",
+    price: 0,
+    status: "Program",
+    image: "/assets/psathyrella/hero.png",
+    video: "/assets/psathyrella/psathyrella-hero.mp4",
+    videoTitle:
+      "A fully autonomous, AI-driven, self-propelled buoy with acoustic and atmospheric sensors processed at the edge, and mesh connectivity to manned and unmanned systems.",
+    videoDescription:
+      "Persistent littoral and coastal observation — edge-native passive acoustics, multi-modal context, and mesh survivability with cryptographic provenance from hydrophone to operator displays.",
+    features: [
+      {
+        icon: Brain,
+        title: "NLM acoustic core",
+        description:
+          "Nature Learning Model on buoy compute: long-sequence hydrophone streams with efficient temporal backbone, graph/hypergraph spatial structure across array elements, and sparse attention for transient events — tuned for real-world ocean noise.",
+      },
+      {
+        icon: Waves,
+        title: "Underwater acoustic stack",
+        description:
+          "Broadband hydrophone chain (0.10 Hz–250 kHz), 24-bit ADC, configurable gain — passive acoustic classification and vessel/biologic discrimination as the primary sense.",
+      },
+      {
+        icon: Cpu,
+        title: "MycoBrain + Jetson edge",
+        description:
+          "ESP32-S3 MycoBrain for acquisition, environmental sensing, and control; NVIDIA Jetson Orin Nano co-processor for NLM inference — tactical relevance without waiting on shore processing.",
+      },
+      {
+        icon: Activity,
+        title: "Six-sense fusion",
+        description:
+          "Acoustic hearing plus spectral, bioelectric, thermal, chemical, and mechanical modalities — correlated contacts to cut false alarms versus single-modality sonobuoy-style pipelines.",
+      },
+      {
+        icon: Network,
+        title: "Mycorrhizae mesh",
+        description:
+          "Self-organizing links over LoRa, satellite (e.g. Iridium SBD), and acoustic modem paths for submerged relays — relay, aggregate, and prioritize through node loss.",
+      },
+      {
+        icon: Shield,
+        title: "AVANI + integrity",
+        description:
+          "Governance and auditability over AI outputs; cryptographic provenance (hash chains, Merkle-rooted trails) for observations, classifications, and calibration events via MINDEX patterns.",
+      },
+    ],
+    detailedFeatures: [
+      {
+        title: "Psathyrella-M buoy — edge sensing & mobility",
+        description:
+          "Hardware follows a MIL-STD-810G-oriented, pressure-rated enclosure (target depth rating 200 m) with solar and battery power for sustained autonomous operation.",
+        bulletPoints: [
+          "Processor: ESP32-S3 dual-core @ 240 MHz, 512 KB SRAM, 8 MB PSRAM",
+          "AI co-processor: NVIDIA Jetson Orin Nano (~40 TOPS INT8) for NLM inference",
+          "Propulsion: four turbopropellers for omnidirectional translation, rotation, and autonomous repositioning",
+          "Onboard environmental sensing: temperature, humidity, pressure, VOCs, CO₂ — fused with acoustics for context",
+        ],
+        image: "/assets/psathyrella/wild-field-wide.png",
+      },
+      {
+        title: "Five-layer stack — from hydrophone to COP",
+        description:
+          "Edge acquisition and Jetson inference; NLM + AVANI; Mycorrhizae mesh; NatureOS + CREP common operating picture; FUSARIUM for integrated defense and biosecurity workflows alongside civilian operators.",
+        bulletPoints: [
+          "Layer 1 — MycoBrain nodes + Jetson: ingest, preprocess, classify at the edge",
+          "Layer 2 — NLM + AVANI: acoustic AI with policy, audit, and tamper-evident records",
+          "Layer 3 — Mycorrhizae: pub/sub mesh routing and resilient array behavior",
+          "Layer 4 — NatureOS + CREP + AI Studio: fusion, 3D COP, continuous model improvement",
+          "Layer 5 — FUSARIUM: defense-grade fusion with OEI correlation and tactical interoperability",
+        ],
+        image: "/assets/psathyrella/waterline-split.png",
+      },
+      {
+        title: "MINDEX, OEI, MYCA",
+        description:
+          "MINDEX-backed integrity for chain-of-custody over acoustic observations and decisions; OEI enriches contacts with sea state, biology, and shipping context; MYCA orchestrates agents for operations, retraining workflows, and integration tasks.",
+        bulletPoints: [
+          "Vector signature libraries (e.g. Qdrant) for rapid similarity and library lookup",
+          "CREP device type psathyrella for live map and device federation",
+          "Optional federated learning patterns — improve models without centralizing all raw hydrophone data",
+        ],
+        image: "/assets/psathyrella/internals-ring.png",
+      },
+    ],
+    specifications: {
+      Etymology: "Psathyrella aquatica — underwater mushroom species",
+      "Edge MCU": "ESP32-S3 dual-core Xtensa LX7 @ 240 MHz, 512 KB SRAM, 8 MB PSRAM",
+      "Edge AI": "NVIDIA Jetson Orin Nano (~40 TOPS INT8)",
+      Hydrophone: "Broadband 0.10 Hz–250 kHz, 24-bit ADC, configurable gain",
+      Propulsion: "Four turbopropellers — omnidirectional buoy mobility",
+      Power: "Solar + battery — autonomous sustained operation",
+      Enclosure: "Ruggedized (MIL-STD-810G-oriented); pressure-rated to 200 m (design target)",
+      "Mesh & backhaul": "Mycorrhizae — LoRa, satellite (Iridium SBD-class), acoustic modem (submerged relay)",
+      "CREP device type": "psathyrella",
+      "Platform integration": "NatureOS, CREP, FUSARIUM, MINDEX, OEI, AI Studio, MAS / MYCA",
     },
   },
 ]

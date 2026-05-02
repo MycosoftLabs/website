@@ -59,6 +59,7 @@ function formatDeviceRole(role?: string): string {
     mushroom1: "Mushroom 1",
     sporebase: "SporeBase",
     hyphae1: "Hyphae 1",
+    psathyrella: "Psathyrella",
     alarm: "Mycosoft Alarm",
     gateway: "Gateway",
     mycodrone: "MycoDrone",

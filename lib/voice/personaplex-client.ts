@@ -152,32 +152,84 @@ export class PersonaPlexClient {
       // Connect WebSocket
       this.ws = new WebSocket(wsUrl)
       this.ws.binaryType = "arraybuffer"
-      
+
+      const OPEN_TIMEOUT_MS = 25_000
+
       this.ws.onopen = () => {
         this.log("info", "WebSocket connected!")
         this.setStatus("connected")
         this.startAudioCapture()
       }
-      
+
       this.ws.onmessage = (event) => {
         this.handleMessage(event.data)
       }
-      
-      this.ws.onerror = (event) => {
+
+      this.ws.onerror = () => {
         this.log("error", "WebSocket error")
         this.config.onError?.("WebSocket connection error")
         this.setStatus("error")
       }
-      
+
       this.ws.onclose = (event) => {
         this.log("info", `WebSocket closed: code=${event.code}`)
         this.setStatus("disconnected")
         this.cleanup()
+        this.ws = null
       }
-      
+
+      await new Promise<void>((resolve, reject) => {
+        const ws = this.ws
+        if (!ws) {
+          reject(new Error("WebSocket not initialized"))
+          return
+        }
+        if (ws.readyState === WebSocket.OPEN) {
+          resolve()
+          return
+        }
+
+        let settled = false
+        const timer = globalThis.setTimeout(() => {
+          if (settled) return
+          settled = true
+          ws.removeEventListener("open", onOpen)
+          ws.removeEventListener("error", onError)
+          try {
+            ws.close()
+          } catch {
+            /* noop */
+          }
+          reject(new Error(`WebSocket open timeout after ${OPEN_TIMEOUT_MS}ms`))
+        }, OPEN_TIMEOUT_MS)
+
+        const done = (fn: () => void) => {
+          if (settled) return
+          settled = true
+          globalThis.clearTimeout(timer)
+          ws.removeEventListener("open", onOpen)
+          ws.removeEventListener("error", onError)
+          fn()
+        }
+
+        const onOpen = () => done(() => resolve())
+        const onError = () => done(() => reject(new Error("WebSocket connection failed")))
+
+        ws.addEventListener("open", onOpen, { once: true })
+        ws.addEventListener("error", onError, { once: true })
+      })
     } catch (error) {
       this.log("error", `Connection failed: ${error}`)
       this.config.onError?.(String(error))
+      if (this.ws) {
+        try {
+          this.ws.close()
+        } catch {
+          /* noop */
+        }
+        this.ws = null
+      }
+      this.cleanup()
       this.setStatus("error")
       throw error
     }

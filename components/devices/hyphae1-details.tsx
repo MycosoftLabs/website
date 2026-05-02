@@ -459,21 +459,26 @@ export function Hyphae1Details() {
 
   return (
     <NeuromorphicProvider className="hyphae1-neu-root">
-    <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
-      {/* Hero Section - Clean White Industrial */}
-      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0 bg-slate-100 dark:bg-slate-900 pointer-events-none" />
-        <AutoplayVideo
-          sources={heroVideoSources}
-          hideUntilPlaying
-          encodeSrc
-          className="absolute inset-0 z-[1] h-full w-full object-cover pointer-events-none"
-        />
-        <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
+    <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-x-hidden">
+      {/* Hero — video flush to viewport top (extends behind sticky header: h-12 md:h-14 + border) */}
+      <section
+        ref={heroRef}
+        className="relative min-h-dvh flex items-center justify-center overflow-x-hidden overflow-y-visible"
+      >
+        <div className="absolute inset-x-0 bottom-0 -top-12 md:-top-14 z-0 pointer-events-none">
+          <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900" />
+          <AutoplayVideo
+            sources={heroVideoSources}
+            hideUntilPlaying
+            encodeSrc
+            className="absolute inset-0 z-[1] h-full w-full object-cover object-top pointer-events-none"
+          />
+          <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
+        </div>
 
         <motion.div 
           style={{ opacity: heroOpacity }}
-          className="relative z-10 text-center px-4 max-w-5xl mx-auto"
+          className="relative z-10 text-center px-4 max-w-5xl mx-auto pt-12 md:pt-14"
         >
           <NeuBadge variant="default" className="mb-4 bg-slate-800 text-white border-0 text-sm px-4 py-1">
             Edge Datacenter

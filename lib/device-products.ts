@@ -55,7 +55,7 @@ export const DEVICE_PRODUCTS: DeviceProduct[] = [
     href: "/devices/mushroom-1",
     variants: [
       { id: "mushroom1-mini", name: "Mushroom 1 Mini", slug: "mini", description: "Compact sensing platform" },
-      { id: "mushroom1-standard", name: "Mushroom 1 Standard", slug: "standard", description: "Flagship quadrupedal sensing platform" },
+      { id: "mushroom1-standard", name: "Mushroom 1 Standard", slug: "standard", description: "Walking ground droid — flagship sensing platform" },
       { id: "mushroom1-large", name: "Mushroom 1 Large", slug: "large", description: "Extended deployment platform" },
       { id: "mushroom1-defense", name: "Mushroom 1 Defense", slug: "defense", description: "Defense & security variant" },
     ],
@@ -65,14 +65,14 @@ export const DEVICE_PRODUCTS: DeviceProduct[] = [
     name: "SporeBase",
     slug: "sporebase",
     href: "/devices/sporebase",
-    variants: [{ id: "sporebase", name: "SporeBase", slug: "", description: "Biological collection system" }],
+    variants: [{ id: "sporebase", name: "SporeBase", slug: "", description: "Breathing Aerosol Collector" }],
   },
   {
     deviceId: "alarm",
     name: "ALARM",
     slug: "alarm",
     href: "/devices/alarm",
-    variants: [{ id: "alarm", name: "Mycosoft Alarm", slug: "", description: "Indoor environmental monitor" }],
+    variants: [{ id: "alarm", name: "Mycosoft Alarm", slug: "", description: "Biological Home Alarm" }],
   },
   {
     deviceId: "myconode",
@@ -83,7 +83,7 @@ export const DEVICE_PRODUCTS: DeviceProduct[] = [
       id: `myconode-${color.toLowerCase().replace(/\s+/g, "-")}`,
       name: `MycoNODE ${color}`,
       slug: color.toLowerCase().replace(/\s+/g, "-"),
-      description: `Subsurface bioelectric probe — ${color}`,
+      description: `Mesh Network Probe — ${color}`,
     })),
   },
   {
@@ -93,7 +93,7 @@ export const DEVICE_PRODUCTS: DeviceProduct[] = [
     href: "/devices/hyphae-1",
     variants: [
       { id: "hypha1-compact", name: "Hypha 1 Compact", slug: "compact", description: "Single-point monitoring" },
-      { id: "hypha1-standard", name: "Hypha 1 Standard", slug: "standard", description: "Modular sensor platform" },
+      { id: "hypha1-standard", name: "Hypha 1 Standard", slug: "standard", description: "Modular Data Center" },
       { id: "hypha1-industrial", name: "Hypha 1 Industrial", slug: "industrial", description: "Maximum capacity" },
     ],
   },

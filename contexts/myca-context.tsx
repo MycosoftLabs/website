@@ -417,12 +417,13 @@ export function MYCAProvider({
       try {
         // Apr 23, 2026 audit: conversation loader had no timeout. The
         // "Load conversation" menu would hang silently when MAS is busy.
-        // 8 s deadline; returns early on timeout so user can retry.
+        // 15 s deadline — slightly above typical cold MAS latency to reduce
+        // console abort noise; still bounded so the UI never hangs forever.
         const response = await fetchWithTimeout("/api/myca/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ conversationId: targetConversationId }),
-          timeoutMs: 8_000,
+          timeoutMs: 15_000,
         })
         if (!response.ok) return
         const data = await response.json()
@@ -503,7 +504,7 @@ export function MYCAProvider({
         if (conversationId) params.set("conversation_id", conversationId)
         const response = await fetch(`/api/myca/consciousness/status?${params.toString()}`, {
           cache: "no-store",
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(15_000),
         })
         if (!response.ok) return
         const data = await response.json()

@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { 
   Microscope, 
   Wind, 
@@ -10,11 +12,8 @@ import {
   Radar,
   Cpu,
   Radio,
-  Battery,
   Wifi,
   Shield,
-  Thermometer,
-  Droplets,
   Zap,
   ArrowRight,
   ChevronRight,
@@ -22,7 +21,13 @@ import {
   Package,
   Truck,
   Settings,
-  Play
+  Play,
+  Waves,
+  Brain,
+  Layers,
+  Factory,
+  RefreshCw,
+  Puzzle,
 } from "lucide-react"
 import {
   NeuButton,
@@ -37,7 +42,7 @@ const devices = [
   {
     id: "mushroom-1",
     name: "Mushroom 1",
-    tagline: "Quadrupedal Enviornment Droid",
+    tagline: "Walking Ground Droid",
     description: "Our flagship autonomous environmental drone that monitors underground fungal networks, soil conditions, and environmental data in real-time with unmatched precision.",
     icon: Radar,
     color: "emerald-500",
@@ -70,7 +75,7 @@ const devices = [
   {
     id: "sporebase",
     name: "SporeBase",
-    tagline: "Biological Collection System",
+    tagline: "Breathing Aerosol Collector",
     description: "Time-indexed bioaerosol collection with sealed adhesive tape cassettes for lab-grade analysis and long-term environmental monitoring.",
     icon: Wind,
     color: "orange-500",
@@ -103,11 +108,11 @@ const devices = [
   {
     id: "hyphae-1",
     name: "Hyphae 1",
-    tagline: "Modular Sensor Platform",
+    tagline: "Modular Data Center",
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
     icon: Microscope,
     color: "slate-500",
-    image: "/assets/hyphae1/standard.jpg",
+    image: "/assets/hyphae1/hyphae1-lab-prototype.png",
     status: "In Stock",
     price: "",
     specs: [
@@ -136,11 +141,11 @@ const devices = [
   {
     id: "myconode",
     name: "MycoNode",
-    tagline: "Subsurface Bioelectric Probe",
+    tagline: "Mesh Network Probe",
     description: "Buried sensor nodes that detect bioelectric signals from mycelial networks and monitor soil conditions at the microvolt level.",
     icon: Radar,
     color: "purple-500",
-    image: "/assets/myconode/myconode%20a.png",
+    image: "/assets/myconode/myconode-main.png",
     status: "Contact Sales",
     price: "Enterprise",
     specs: [
@@ -167,9 +172,43 @@ const devices = [
     ]
   },
   {
+    id: "psathyrella",
+    name: "Psathyrella",
+    tagline: "Swimming Sensor Buoy",
+    description:
+      "Biologically inspired buoy named for Psathyrella aquatica — passive acoustic classification with NLM (SSM/Mamba-class) on Jetson, MycoBrain ESP32-S3 acquisition, six-sense multimodal fusion, four turbopropellers for autonomous repositioning, and Mycorrhizae mesh backhaul into CREP and FUSARIUM.",
+    icon: Waves,
+    color: "sky-500",
+    image: "/assets/psathyrella/hero.png",
+    status: "Program",
+    price: "Contact",
+    specs: [
+      { label: "Primary sense", value: "Passive acoustics (0.1 Hz–250 kHz)" },
+      { label: "Edge AI", value: "Jetson Orin Nano + NLM" },
+      { label: "MCU", value: "ESP32-S3 MycoBrain" },
+      { label: "Depth target", value: "Pressure-rated 200 m" },
+      { label: "Mesh", value: "LoRa · sat · acoustic modem" },
+      { label: "COP / defense", value: "CREP · FUSARIUM · OEI" },
+    ],
+    features: [
+      "NLM real-time passive acoustic classification at the buoy",
+      "Graph/hypergraph + sparse attention for arrays and transients",
+      "Thermal, chemical, mechanical, bioelectric, optical fusion with acoustics",
+      "AVANI governance and MINDEX-style provenance on decisions",
+      "Self-healing Mycorrhizae mesh — survive node loss",
+      "NatureOS + AI Studio for retraining and fleet workflows",
+    ],
+    applications: [
+      "Littoral and coastal passive acoustic surveillance",
+      "Harbor, channel, and choke-point monitoring",
+      "Research moorings and environmental intelligence",
+      "Defense-grade COP via FUSARIUM when mission requires",
+    ],
+  },
+  {
     id: "alarm",
     name: "ALARM",
-    tagline: "The Smartest Safety Device Ever Built",
+    tagline: "Biological Home Alarm",
     description: "Next-generation indoor safety monitor. Detects smoke, mold, pathogens, and air quality threats before they become problems.",
     icon: AlertTriangle,
     color: "red-500",
@@ -228,6 +267,47 @@ const accessories = [
   }
 ]
 
+/** Full-bleed /devices hero — NAS: `/assets/devices/droids-hero.mp4` (optional `-web`). Override: `NEXT_PUBLIC_DEVICES_HERO_MP4`. */
+const DEVICES_PORTAL_HERO_SOURCES = deviceHeroVideoSources("/assets/devices/droids-hero.mp4", {
+  envUrl: process.env.NEXT_PUBLIC_DEVICES_HERO_MP4,
+  aliases: ["/assets/devices/droids-hero-collage.mp4"],
+})
+
+/** MycoBrain section spotlight — NAS: `/assets/devices/mycobrain-showcase.mp4`. Override: `NEXT_PUBLIC_MYCOBRAIN_SHOWCASE_MP4`. */
+const MYCOBRAIN_SHOWCASE_SOURCES = deviceHeroVideoSources("/assets/devices/mycobrain-showcase.mp4", {
+  envUrl: process.env.NEXT_PUBLIC_MYCOBRAIN_SHOWCASE_MP4,
+  aliases: ["/assets/mycobrain/showcase.mp4"],
+})
+
+/** Board photography served from NAS mount — upload to match these paths or swap filenames on NAS. */
+const MYCOBRAIN_BOARD_IMAGES = [
+  { src: "/assets/devices/mycobrain-board-top.jpg", alt: "MycoBrain motherboard — assembly view" },
+  { src: "/assets/devices/mycobrain-board-detail.jpg", alt: "MycoBrain motherboard — connector and sensor detail" },
+] as const
+
+const mycobrainPillars = [
+  {
+    icon: Layers,
+    title: "Expandable",
+    description: "Stack new sensing lanes and capacity without redesigning the core board architecture.",
+  },
+  {
+    icon: Puzzle,
+    title: "Modifiable",
+    description: "Firmware, buses, and MDP-facing profiles evolve with each deployment class.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Interchangeable",
+    description: "Same internal system across bodies — swap enclosures and payloads while keeping compute consistent.",
+  },
+  {
+    icon: Factory,
+    title: "Scalable manufacturing",
+    description: "One qualified motherboard line feeds every SKU — faster ramps when you introduce new device types.",
+  },
+] as const
+
 export function DevicesPortal() {
   const [selectedDevice, setSelectedDevice] = useState(devices[0])
   const detailRef = useRef<HTMLElement>(null)
@@ -246,43 +326,64 @@ export function DevicesPortal() {
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh">
-      {/* Hero Section */}
-      <section className="relative py-16 md:py-24 overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
-        
+      {/* Hero — full-viewport video (MycoBrain + device collage on NAS) */}
+      <section
+        className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden pt-20 pb-12 md:py-28"
+        data-over-video
+      >
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-background via-muted/80 to-background"
+          aria-hidden
+        />
+        {DEVICES_PORTAL_HERO_SOURCES[0] ? (
+          <AutoplayVideo
+            src={DEVICES_PORTAL_HERO_SOURCES[0]}
+            sources={DEVICES_PORTAL_HERO_SOURCES}
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+            style={{ filter: "brightness(0.32)" }}
+            encodeSrc
+          />
+        ) : null}
+        <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-background/55 via-background/75 to-background" />
+        <div className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,#8883_1px,transparent_1px),linear-gradient(to_bottom,#8883_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.07]" />
+        <div className="absolute top-1/4 left-1/2 z-[1] -translate-x-1/2 w-[min(90vw,640px)] h-[min(90vw,640px)] pointer-events-none bg-primary/10 rounded-full blur-3xl" />
+
         <div className="container max-w-7xl mx-auto relative z-10 px-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <NeuBadge variant="default" className="mb-4">Hardware Platform</NeuBadge>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                Environmental
-              </span>
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-green-500">
-                Sensing Hardware
+            <NeuBadge variant="default" className="mb-4 portal-hero-badge">
+              Hardware platform
+            </NeuBadge>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6 portal-hero-title">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-primary">
+                Droids
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Hardware that feeds MYCA and AVANI. Purpose-built sensors and platforms for 
-              environmental intelligence—defense-grade reliability with research-quality precision.
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 px-1 portal-hero-subtitle leading-relaxed">
+              We build droids, or robots with sensors, built to live outside continuously — each device shares the
+              same MycoBrain core, so the fleet scales manufacturing, adds new sensors, and ships new devices without
+              reinventing the nervous system.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
-                <NeuButton variant="primary" className="w-full sm:w-auto gap-2">
+                <NeuButton variant="primary" className="w-full sm:w-auto gap-2 min-h-[44px]">
                   <Play className="h-5 w-5" />
-                  Watch Videos
+                  Watch videos
                 </NeuButton>
               </a>
+              <Link href="/devices/mycobrain">
+                <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                  <Brain className="h-5 w-5" />
+                  MycoBrain
+                </NeuButton>
+              </Link>
               <Link href="/devices/specifications">
-                <NeuButton variant="default" className="w-full sm:w-auto gap-2">
-                  View Specifications
+                <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                  Specifications
                   <ChevronRight className="h-5 w-5" />
                 </NeuButton>
               </Link>
@@ -599,6 +700,85 @@ export function DevicesPortal() {
                 </NeuCardContent>
               </NeuCard>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MycoBrain — shared motherboard across all droids */}
+      <section className="py-20 md:py-28 bg-background border-y border-border/60">
+        <div className="container max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12 md:mb-16 max-w-3xl mx-auto">
+            <NeuBadge variant="default" className="mb-4">
+              MycoBrain
+            </NeuBadge>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+              One motherboard inside every device
+            </h2>
+            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+              MycoBrain is the ESP32-S3 compute and sensor fabric shared across our droids — built so manufacturing
+              stays expandable, firmware modifiable, hardware interchangeable between bodies, and production scalable
+              when you introduce new sensors or entirely new device types. Same internal system, different missions.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 md:mb-14 max-w-6xl mx-auto">
+            {mycobrainPillars.map((pillar) => (
+              <NeuCard key={pillar.title} className="h-full">
+                <NeuCardContent className="pt-6 pb-6">
+                  <div className="inline-flex p-3 rounded-xl bg-primary/10 mb-3">
+                    <pillar.icon className="h-6 w-6 text-primary" aria-hidden />
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2">{pillar.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{pillar.description}</p>
+                </NeuCardContent>
+              </NeuCard>
+            ))}
+          </div>
+
+          <div className="relative rounded-2xl overflow-hidden border border-border/80 bg-muted max-w-5xl mx-auto mb-10 md:mb-12 aspect-video shadow-lg">
+            {MYCOBRAIN_SHOWCASE_SOURCES[0] ? (
+              <AutoplayVideo
+                src={MYCOBRAIN_SHOWCASE_SOURCES[0]}
+                sources={MYCOBRAIN_SHOWCASE_SOURCES}
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{ filter: "brightness(0.85)" }}
+                encodeSrc
+                preload="metadata"
+              />
+            ) : null}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/30 to-transparent" />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto mb-10">
+            {MYCOBRAIN_BOARD_IMAGES.map((photo) => (
+              <div
+                key={photo.src}
+                className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-border/80 bg-muted"
+              >
+                <img
+                  src={photo.src}
+                  alt={photo.alt}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+            <Link href="/devices/mycobrain">
+              <NeuButton variant="primary" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                MycoBrain deep dive
+                <ChevronRight className="h-5 w-5" />
+              </NeuButton>
+            </Link>
+            <Link href="/natureos/devices/network">
+              <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                Device network
+                <ArrowRight className="h-5 w-5" />
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>

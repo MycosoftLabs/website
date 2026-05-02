@@ -211,7 +211,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     {
       pattern: /^(?:go to|navigate to|open)\s+(?:the\s+)?ancestry(?:\s+database)?$/i,
       action: () => {
-        router.push("/ancestry/explorer")
+        router.push("/natureos/ancestry/explorer")
       },
       description: "Go to Ancestry database",
     },

@@ -8,6 +8,7 @@ import { SporeBaseDetails } from "@/components/devices/sporebase-details"
 import { Hyphae1Details } from "@/components/devices/hyphae1-details"
 import { MycoNodeDetails } from "@/components/devices/myconode-details"
 import { AlarmDetails } from "@/components/devices/alarm-details"
+import { PsathyrellaDetails } from "@/components/devices/psathyrella-details"
 import { DEVICES } from "@/lib/devices"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -90,6 +91,12 @@ export default function DevicePage({ params }: DevicePageProps) {
       return (
         <div className="min-h-screen flex flex-col">
           <AlarmDetails />
+        </div>
+      )
+    case "psathyrella":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <PsathyrellaDetails />
         </div>
       )
     default:

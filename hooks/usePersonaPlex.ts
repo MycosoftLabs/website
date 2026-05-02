@@ -9,6 +9,7 @@ import {
   MYCA_PERSONAPLEX_PROMPT 
 } from "@/lib/voice/personaplex-client"
 import { resolveDefaultPersonaPlexWsUrl } from "@/lib/voice/resolve-default-personaplex-ws"
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout"
 
 /**
  * PersonaPlex Hook v2.0 - Separation of Concerns Refactor
@@ -160,6 +161,10 @@ export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaP
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationRef = useRef<number | null>(null)
+  /** Mic preview stream — must be stopped on disconnect or the tab leaks CPU/GPU until reload */
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  /** Bumped on connect/disconnect so in-flight getUserMedia + rAF loops exit cleanly */
+  const micMonitorSessionRef = useRef(0)
   
   // Add console message
   const addConsoleMessage = useCallback((type: ConsoleMessage["type"], message: string) => {
@@ -253,37 +258,92 @@ export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaP
       throw error
     }
   }, [orchestratorUrl, conversationId, voicePrompt, voicePromptHash, addConsoleMessage, onResponse, onError])
-  
+
+  const releaseMicAndAnalyser = useCallback(() => {
+    if (animationRef.current != null) {
+      cancelAnimationFrame(animationRef.current)
+      animationRef.current = null
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop())
+      mediaStreamRef.current = null
+    }
+    if (audioContextRef.current) {
+      void audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+    analyserRef.current = null
+    setMicLevel(0)
+  }, [])
+
+  // Start microphone level monitoring (must be declared before connect — connect references it)
+  const startMicLevelMonitoring = useCallback(async () => {
+    releaseMicAndAnalyser()
+    const sessionAtStart = micMonitorSessionRef.current
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (sessionAtStart !== micMonitorSessionRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
+      mediaStreamRef.current = stream
+      audioContextRef.current = new AudioContext()
+      analyserRef.current = audioContextRef.current.createAnalyser()
+      analyserRef.current.fftSize = 256
+
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      source.connect(analyserRef.current)
+
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+
+      const updateLevel = () => {
+        if (sessionAtStart !== micMonitorSessionRef.current) return
+        if (analyserRef.current) {
+          analyserRef.current.getByteFrequencyData(dataArray)
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+          setMicLevel(avg / 255)
+        }
+        animationRef.current = requestAnimationFrame(updateLevel)
+      }
+
+      updateLevel()
+    } catch (error) {
+      addConsoleMessage("error", `Mic monitoring failed: ${error}`)
+    }
+  }, [addConsoleMessage, releaseMicAndAnalyser])
+
   // Connect to PersonaPlex
   const connect = useCallback(async () => {
+    micMonitorSessionRef.current += 1
+    releaseMicAndAnalyser()
     if (clientRef.current) {
       clientRef.current.disconnect()
     }
-    
+
     addConsoleMessage("info", "Initializing PersonaPlex connection...")
     addConsoleMessage("debug", `Conversation ID: ${conversationId}`)
-    
+
     clientRef.current = new PersonaPlexClient({
       serverUrl,
       voicePrompt,
       textPrompt,
-      
+
       onStatusChange: (newStatus) => {
         setStatus(newStatus)
         addConsoleMessage("info", `Status: ${newStatus}`)
       },
-      
+
       onAudioReceived: (audioData) => {
         // Update agent level based on audio data size
         const level = Math.min(1, audioData.byteLength / 1000)
         setAgentLevel(level)
         setTimeout(() => setAgentLevel(0), 100)
       },
-      
+
       onTextReceived: async (text) => {
-        setTranscript(prev => prev + " " + text)
+        setTranscript((prev) => prev + " " + text)
         onTranscript?.(text)
-        
+
         // Send to orchestrator if it looks like meaningful input
         // The orchestrator handles ALL business logic (memory, routing, workflows)
         if (text.trim().length > 3) {
@@ -294,80 +354,63 @@ export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaP
           }
         }
       },
-      
+
       onStatsUpdate: (newStats) => {
         setStats(newStats)
       },
-      
+
       onError: (error) => {
         addConsoleMessage("error", error)
         onError?.(error)
       },
-      
+
       onConsoleLog: addConsoleMessage,
     })
-    
+
     try {
       await clientRef.current.connect()
-      
+
       // Start mic level monitoring
       startMicLevelMonitoring()
-      
     } catch (error) {
       addConsoleMessage("error", `Connection failed: ${error}`)
+      if (clientRef.current) {
+        try {
+          clientRef.current.disconnect()
+        } catch {
+          /* noop */
+        }
+        clientRef.current = null
+      }
       throw error
     }
-  }, [serverUrl, voicePrompt, textPrompt, conversationId, addConsoleMessage, onTranscript, onError, sendToOrchestrator])
-  
-  // Start microphone level monitoring
-  const startMicLevelMonitoring = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      audioContextRef.current = new AudioContext()
-      analyserRef.current = audioContextRef.current.createAnalyser()
-      analyserRef.current.fftSize = 256
-      
-      const source = audioContextRef.current.createMediaStreamSource(stream)
-      source.connect(analyserRef.current)
-      
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-      
-      const updateLevel = () => {
-        if (analyserRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArray)
-          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
-          setMicLevel(avg / 255)
-        }
-        animationRef.current = requestAnimationFrame(updateLevel)
-      }
-      
-      updateLevel()
-    } catch (error) {
-      addConsoleMessage("error", `Mic monitoring failed: ${error}`)
-    }
-  }, [addConsoleMessage])
+  }, [
+    serverUrl,
+    voicePrompt,
+    textPrompt,
+    conversationId,
+    addConsoleMessage,
+    onTranscript,
+    onError,
+    sendToOrchestrator,
+    releaseMicAndAnalyser,
+    startMicLevelMonitoring,
+  ])
   
   // Disconnect
   const disconnect = useCallback(() => {
+    micMonitorSessionRef.current += 1
+    releaseMicAndAnalyser()
     if (clientRef.current) {
       clientRef.current.disconnect()
       clientRef.current = null
-    }
-    
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current)
-    }
-    
-    if (audioContextRef.current) {
-      audioContextRef.current.close()
-      audioContextRef.current = null
     }
     
     setStatus("disconnected")
     setMicLevel(0)
     setAgentLevel(0)
     addConsoleMessage("info", "Disconnected")
-  }, [addConsoleMessage])
+  }, [addConsoleMessage, releaseMicAndAnalyser])
   
   // Auto-connect
   useEffect(() => {

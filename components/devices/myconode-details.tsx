@@ -33,11 +33,14 @@ import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-source
 // Public URL: /assets/myconode/...
 // See docs/DEVICE_MEDIA_ASSETS_PIPELINE.md for details
 // ============================================================================
+/** Primary marketing still — devices grid, Mission section, video posters */
+const MYCONODE_PRIMARY_STILL = "/assets/myconode/myconode-main.png"
+
 const MYCONODE_ASSETS = {
   // Hero video — myconode hero1.mp4 exists on NAS
   heroVideo: "/assets/myconode/myconode hero1.mp4",
-  // Primary product image - main marketing image
-  mainImage: "/assets/myconode/myconode a.png",
+  // Primary product image (same file as Mission panel + posters below)
+  mainImage: MYCONODE_PRIMARY_STILL,
   // White version for probe visualization
   probeImage: "/assets/myconode/myconode white.jpg",
   // Mycelium background video for Applications section
@@ -112,6 +115,30 @@ const MYCONODE_ASSETS = {
   // Mushroom-shaped node variant
   mushroomNode: "/assets/myconode/myconode mushroom.jpg",
 }
+
+/** Deterministic 0..1 from index + salt — SSR-safe (no Math.random in render). */
+function heroParticleUnit(index: number, salt: number): number {
+  const x = Math.sin(index * 12.9898 + salt * 43758.5453) * 43758.5453123
+  return x - Math.floor(x)
+}
+
+const HERO_PARTICLE_COLORS = ["#a855f7", "#d946ef", "#06b6d4", "#22c55e", "#f59e0b"] as const
+
+function buildHeroParticles(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    width: heroParticleUnit(i, 1) * 4 + 2,
+    height: heroParticleUnit(i, 2) * 4 + 2,
+    backgroundColor: `${HERO_PARTICLE_COLORS[Math.floor(heroParticleUnit(i, 3) * HERO_PARTICLE_COLORS.length)]}40`,
+    initialX: heroParticleUnit(i, 4) * 1920,
+    initialY: heroParticleUnit(i, 5) * 1080,
+    driftY: heroParticleUnit(i, 6) * -200 - 100,
+    driftX: (heroParticleUnit(i, 7) - 0.5) * 100,
+    duration: 6 + heroParticleUnit(i, 8) * 6,
+    delay: heroParticleUnit(i, 9) * 5,
+  }))
+}
+
+const HERO_FLOATING_PARTICLES = buildHeroParticles(50)
 
 // Device Components
 interface DeviceComponent {
@@ -278,32 +305,32 @@ export function MycoNodeDetails() {
           <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
         
-        {/* Floating spore particles */}
+        {/* Floating spore particles (deterministic layout — avoids SSR/CSR hydration mismatch) */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {Array.from({ length: 50 }).map((_, i) => (
+          {HERO_FLOATING_PARTICLES.map((p, i) => (
             <motion.div
               key={i}
               className="absolute rounded-full"
               style={{
-                width: Math.random() * 4 + 2,
-                height: Math.random() * 4 + 2,
-                backgroundColor: ['#a855f7', '#d946ef', '#06b6d4', '#22c55e', '#f59e0b'][Math.floor(Math.random() * 5)] + '40',
+                width: p.width,
+                height: p.height,
+                backgroundColor: p.backgroundColor,
               }}
-              initial={{ 
-                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
-                y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1080),
-                opacity: 0
+              initial={{
+                x: p.initialX,
+                y: p.initialY,
+                opacity: 0,
               }}
-              animate={{ 
-                y: [null, Math.random() * -200 - 100],
-                x: [null, (Math.random() - 0.5) * 100],
+              animate={{
+                y: [null, p.driftY],
+                x: [null, p.driftX],
                 opacity: [0, 0.8, 0],
               }}
               transition={{
-                duration: 6 + Math.random() * 6,
+                duration: p.duration,
                 repeat: Infinity,
-                delay: Math.random() * 5,
-                ease: "linear"
+                delay: p.delay,
+                ease: "linear",
               }}
             />
           ))}
@@ -426,7 +453,7 @@ export function MycoNodeDetails() {
             <div className="relative">
               <div className="aspect-square rounded-3xl overflow-hidden border border-purple-500/20 bg-gradient-to-br from-purple-900/30 to-slate-950">
                 <Image
-                  src={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
+                  src={encodeAssetUrl(MYCONODE_PRIMARY_STILL)}
                   alt="MycoNode soil probe device"
                   fill
                   className="object-cover"
@@ -993,7 +1020,7 @@ export function MycoNodeDetails() {
                 controls
                 playsInline
                 className="w-full h-full object-cover"
-                poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
+                poster={encodeAssetUrl(MYCONODE_PRIMARY_STILL)}
               >
                 <source src={encodeAssetUrl(MYCONODE_ASSETS.labTestVideo)} type="video/mp4" />
               </video>
@@ -1013,7 +1040,7 @@ export function MycoNodeDetails() {
               <div className="myconode-behind-card text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
                 <Shield className="h-6 w-6 text-fuchsia-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-white">Production Ready</p>
-                <p className="text-xs text-white/50">Not a prototype</p>
+                <p className="text-xs text-white/50">Rapidly deployable</p>
               </div>
             </div>
           </div>

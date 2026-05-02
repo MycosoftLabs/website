@@ -56,7 +56,7 @@ const ASSET_CHECKS: AssetCheck[] = [
     tier: "warning",
   },
   {
-    path: path.join("myconode", "myconode a.png"),
+    path: path.join("myconode", "myconode-main.png"),
     minBytes: 1024,
     tier: "warning",
   },

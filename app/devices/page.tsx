@@ -2,8 +2,9 @@ import type { Metadata } from "next"
 import { DevicesPortal } from "@/components/devices/devices-portal"
 
 export const metadata: Metadata = {
-  title: "Devices | Environmental Sensing Hardware | Mycosoft",
-  description: "Sensing hardware that feeds MYCA and AVANI—MycoNode probes, SporeBase collectors, ALARM sensors, and Mushroom1 platforms for environmental intelligence.",
+  title: "Devices | Droids | Mycosoft",
+  description:
+    "We build droids, or robots with sensors, built to live outside continuously — each device shares the same MycoBrain core, so the fleet scales manufacturing, adds new sensors, and ships new devices without reinventing the nervous system.",
 }
 
 export default function DevicesPage() {
