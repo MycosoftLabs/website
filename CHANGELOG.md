@@ -478,6 +478,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -644,6 +645,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Add manual camera seed for SD region (surfline + hpwren + scripps + earthcam + skyline + cbp refs + nps)
 - *(natureos)* Cloud IA May 2026 — app routes, aerosol BFF, tools hub, ancestry move
 - *(natureos)* May03 MVP surfaces — ancestry, CREP waypoints, aerosol feeds, lab APIs
+- *(shell)* Hub silo hides marketing chrome; faster fluid search debounce; lighter CREP loader and idle canvas pause
 
 ### Fix
 
