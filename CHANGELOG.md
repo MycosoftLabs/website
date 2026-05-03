@@ -477,6 +477,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -712,6 +713,7 @@ All notable changes to this project will be documented in this file.
 - Autonomous sandbox cleanup before every deploy
 - Autonomous wedged-docker recovery in deploy cleanup
 - Free ~30GB before docker build to prevent 'No space left on device' (#135)
+- *(website)* Lint and production build on push/PR
 
 ### Performance
 
