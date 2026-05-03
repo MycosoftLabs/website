@@ -475,6 +475,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -648,6 +649,10 @@ All notable changes to this project will be documented in this file.
 - Use X-Forwarded-Host for OAuth callback origin, add NEXT_PUBLIC_SITE_URL
 - Header dropdown z-index, observation ID type errors, add deployment scripts
 - Hide test controls in production, defensive slice wrappers for ID fields
+
+### MAY02
+
+- Remove useDashboardVoice; CREP waypoints Supabase migration
 
 ### Miscellaneous
 
