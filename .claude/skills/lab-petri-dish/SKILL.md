@@ -1,94 +1,73 @@
 ---
-description: Navigate and interact with the Petri Dish Simulator at mycosoft.com for virtual culture growth simulation of mushrooms, mycelium, bacteria, and other organisms.
+description: Navigate Virtual Petri Dish v2 (May 02, 2026) — R3F + Rust engine via MAS BFF, species from MINDEX, optional SegFormer segment proxy; primary routes /natureos/virtual-petri-dish and /natureos/tools/petri-dish.
 ---
 
-# Petri Dish Simulator
+# Virtual Petri Dish v2 (lab-petri-dish)
 
 ## Identity
 - **Category**: lab-tools
-- **Access Tier**: AUTHENTICATED
+- **Access Tier**: AUTHENTICATED (NatureOS tools; public marketing may deep-link apps)
 - **Depends On**: platform-navigation, platform-natureos-dashboard
-- **Route**: /natureos/tools/petri-dish
-- **Key Components**: app/natureos/tools/petri-dish/page.tsx, components/natureos/tool-viewport.tsx, LazyPetriDishSimulator
+- **Primary routes**
+  - `/natureos/virtual-petri-dish` — full-page v2 (`PetriDishV2App`, R3F `PetriDishViewer`)
+  - `/natureos/tools/petri-dish` — tool shell + embed (`petri-dish-embed` → same v2 app when wired)
+- **Key components (website)**
+  - `components/petri-dish-v2/petri-dish-app.tsx` — health, step/reset/pause, compound preview, species search (`/api/search/unified`), ledger, recording, AI segment
+  - `components/petri-dish-v2/viewer.tsx` — Three.js dish, hyphae lines, instanced organisms; `?petriStats=1` for perf overlay
+  - `lib/petri-dish-v2/petri-api.ts`, `rest-engine-worker.ts`, `ai-tracker.ts`, `recording.ts`
+- **BFF (Next.js)** — browser calls same-origin; server forwards to MAS / seg:
+  - `/api/simulation/petri/v2/[[...path]]` → MAS `.../api/simulation/petri/v2/...`
+  - `/api/simulation/petri-seg/[[...path]]` → `PETRI_SEG_SERVICE_URL` (default Sandbox `http://192.168.0.187:8051`)
 
 ## Success Criteria (Eval)
-- [ ] Circular Petri dish renders with at least one organism culture visible (colored colony spots or filament networks)
-- [ ] Environmental parameters (temperature, humidity, pH) are adjusted and the simulation responds with changed growth patterns
-- [ ] Time slider is used to advance the simulation and visible growth changes are observed in the dish
+- [ ] 3D circular dish renders; hyphae / colony instances update after **Step** or auto-play
+- [ ] **Health** shows engine reachable (via MAS → `PETRI_ENGINE_V2_URL` on 187:8050) or clear error text
+- [ ] Species search returns **real** rows from unified search (empty state if MINDEX unavailable — no fake species cards)
+- [ ] Compound / environment sliders change preview state (client + optional engine sync)
+- [ ] **AI segment** returns tracks when seg service + ONNX configured; otherwise shows error, not mock masks
 
 ## Navigation Path (Computer Use)
-1. Navigate to mycosoft.com
-2. Log in if needed (see platform-authentication skill)
-3. Click "NatureOS" in header or navigate to /natureos
-4. In sidebar, expand "Apps" or "Tools" section
-5. Click "Petri Dish"
-6. Wait for tool viewport to load (you'll see a title bar reading "Petri Dish Simulator")
-7. A circular Petri dish visualization will appear in the center of the viewport â€” a round dish shape with a light agar-colored background
-8. Use the controls panel to add organisms and adjust environmental parameters
-9. Use the time slider to advance the simulation
+1. `mycosoft.com` → NatureOS (`/natureos`)
+2. Open **Virtual Petri Dish** (`/natureos/virtual-petri-dish`) or Tools → Petri Dish
+3. Wait for **Connecting…** / health to resolve
+4. Use **Step**, **Reset**, **Pause**; optional **Auto** for timed steps (worker + REST)
+5. Open **Tools** sheet (mobile) or left rail (desktop); pick tool / organism class
+6. **Species** — search uses live API; select a row to tag session context
+7. **Record** — WebM when supported; MP4 path optional per browser
+8. **Compare** — optional MyceliumSeg strip when dataset URLs configured in app
 
-## Screen Elements Map
-| What You'll See | Where On Screen | What To Do |
-|---|---|---|
-| Tool viewport title bar "Petri Dish Simulator" | Top of content area | Confirms tool is loaded |
-| Circular Petri dish (round dish with agar background) | Center of viewport | Main simulation area â€” organisms grow here |
-| Organism selector/palette | Left side or top toolbar | Click to choose organism type to add (mushroom, mycelium, virus, bacteria, mold, mildew) |
-| Growth controls panel | Right side or bottom panel | Adjust simulation speed, add organisms, reset |
-| Time slider bar | Bottom of viewport or below dish | Drag left/right to scrub through simulation time |
-| Temperature slider/input | In environmental parameters panel | Adjust temperature (affects growth rate and patterns) |
-| Humidity slider/input | In environmental parameters panel | Adjust humidity level |
-| pH slider/input | In environmental parameters panel | Adjust acidity/alkalinity of medium |
-| Organism colonies (colored spots/networks) | Inside the Petri dish circle | Growing cultures â€” click for details |
-| Play/Pause button | Near time slider | Start or pause the simulation |
-| Reset button | In controls panel | Clear the dish and start fresh |
+## API surface (for agents / tests)
+| Client path | Backend |
+|-------------|---------|
+| `GET /api/simulation/petri/v2/health` | MAS → Rust `petri_engine_service` |
+| `POST /api/simulation/petri/v2/step` | Forwarded JSON body |
+| `POST /api/simulation/petri/v2/reset` | Forwarded |
+| `POST /api/simulation/petri/v2/pause` | Body `{"paused": true}` safe default |
+| `POST /api/simulation/petri-seg/segment` | FastAPI seg service (ONNX optional) |
 
-## Core Actions
-### Action 1: Seed a culture and observe growth
-**Goal:** Place an organism in the Petri dish and watch it grow over simulated time
-1. Locate the organism selector â€” look for labeled buttons or a dropdown with organism types
-2. Click on "Mycelium" (or another organism type like "Bacteria" or "Mold")
-3. Click on a spot inside the circular Petri dish to place the organism â€” a small colored dot or filament will appear at the click location
-4. Click the Play button near the time slider to start the simulation
-5. Watch as the organism grows outward from the seeding point â€” mycelium will form branching white/gray networks, bacteria will form expanding colored colonies
-6. Use the time slider to fast-forward and see the full growth pattern
+## Env (website server)
+- `MAS_API_URL` — MAS orchestrator for BFF
+- `PETRI_SEG_SERVICE_URL` or `NEXT_PUBLIC_PETRI_SEG_SERVICE_URL` — seg proxy target
 
-### Action 2: Adjust environmental parameters
-**Goal:** Change temperature, humidity, or pH and observe the effect on culture growth
-1. Locate the environmental parameters panel (usually right side or a collapsible section)
-2. Find the Temperature slider â€” drag it to increase or decrease temperature (e.g., from 25C to 37C)
-3. Observe the simulation â€” higher temperatures may accelerate bacterial growth but slow mycelium
-4. Adjust the Humidity slider â€” drag it to change moisture levels
-5. Adjust the pH slider â€” acidic environments favor fungi, neutral favors bacteria
-6. The simulation should update in real-time or after a brief recalculation
+## MAS / infra
+- `PETRI_ENGINE_V2_URL` — e.g. `http://192.168.0.187:8050`
+- MINDEX migration `0016_petri_dish_v2.sql` — schema `petri_v2` for sessions/frames/tracks
 
-### Action 3: Simulate organism interactions
-**Goal:** Place multiple organisms to observe competition, symbiosis, or inhibition
-1. Select "Mycelium" from the organism palette and click to place it on the left side of the dish
-2. Select "Bacteria" and click to place it on the right side of the dish
-3. Click Play and advance the time slider
-4. Watch as both colonies grow toward each other â€” at the meeting zone, you may see inhibition zones (clear areas), overgrowth, or boundary formation
-5. Try adding "Mold" near the bacteria to see three-way interaction dynamics
-
-## Common Failure Modes
-| What You See | What Went Wrong | What To Do |
-|---|---|---|
-| Empty dish with no organisms appearing after clicking | Organism type not selected before clicking | Select an organism from the palette first, then click inside the dish |
-| Simulation not advancing despite Play being clicked | Time scale may be set to zero or paused | Check time slider position; ensure it is not at the end of the range |
-| Parameters panel is collapsed or not visible | Panel may be minimized by default | Look for a gear icon or "Parameters" tab to expand the panel |
-| Organisms placed but no growth occurs | Environmental parameters may be extreme (e.g., 0C temperature) | Reset parameters to defaults (25C, 70% humidity, pH 7) |
-| Dish appears but is completely dark or blank | Lazy-loaded component failed to render | Refresh the page and wait for LazyPetriDishSimulator to initialize |
+## Common failure modes
+| Symptom | Cause | Action |
+|---------|--------|--------|
+| 503 on `/api/simulation/petri/v2/*` | MAS missing `PETRI_ENGINE_V2_URL` or engine down | Set env on 188; start `petri_engine_service` on 187 |
+| Empty species list | MINDEX/search unreachable | Check `MINDEX_API_URL` / unified search |
+| AI segment 502 | Seg service not running | Start `services/petri_seg_service` on 187, set `MYCELIUMSEG_ONNX_PATH` if using ONNX |
 
 ## Composability
 - **Prerequisite skills**: platform-navigation, platform-natureos-dashboard
-- **Next skills**: lab-compound-simulator (analyze compounds produced by cultures), lab-lifecycle-simulator (model full lifecycle), lab-growth-analytics (track growth metrics)
+- **Next skills**: lab-compound-simulator, lab-lifecycle-simulator, lab-growth-analytics, workflow-research-pipeline
 
-## Computer Use Notes
-- Tool viewport shows loading state before content appears â€” wait for title bar
-- State persists via Supabase â€” organism placements and parameters survive page reload
-- Heavy components are lazy-loaded via LazyPetriDishSimulator â€” may take 2-5 seconds to render
-- The Petri dish is a 2D circular visualization â€” interactions happen via click events on the dish surface
-- Multiple organism types can coexist: mushroom, mycelium, virus, bacteria, mold, mildew
-- Time slider allows both forward and backward scrubbing through the simulation timeline
+## Docs (MAS repo)
+- `docs/PETRI_DISH_V2_ARCHITECTURE_MAY02_2026.md`
+- `docs/PETRI_DISH_V2_RUNBOOK_MAY02_2026.md`
+- `docs/PETRI_DISH_V2_COMPLETE_MAY02_2026.md`
 
 ## Iteration Log
 ### Attempt Log

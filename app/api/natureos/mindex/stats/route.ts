@@ -148,9 +148,9 @@ export async function GET() {
       error: error instanceof Error ? error.message : "MINDEX service unavailable",
       mindex_url: mindexUrl,
       troubleshooting: {
-        check_vm: "SSH to 192.168.0.187 and verify MINDEX container is running",
+        check_host: "On the MINDEX VM: verify the mindex-api process/container and path to MINDEX_API_URL",
         check_api: `curl ${mindexUrl}/api/mindex/health`,
-        restart: "docker-compose -f docker-compose.always-on.yml restart mindex-api",
+        restart: "On the MINDEX host: restart the mindex-api compose service or container",
       }
     }, { status: 503 })
   }

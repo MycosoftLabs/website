@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -9,28 +10,24 @@ import PhylogenyVisualization from "./3d-visualization"
 import { PhylogeneticTree } from "@/components/ancestry/phylogenetic-tree"
 
 export default function PhylogenyPage() {
+  const searchParams = useSearchParams()
+  const taxonId = searchParams.get("taxon") || undefined
   const [treeType, setTreeType] = useState<"cladogram" | "phylogram" | "radial" | "unrooted">("cladogram")
   const [taxonomicLevel, setTaxonomicLevel] = useState("order")
   const [dataSource, setDataSource] = useState("its")
   const [selectedTree, setSelectedTree] = useState("agaricales")
   const [visualizationMode, setVisualizationMode] = useState<"d3" | "3d">("d3")
 
-  // Map tree names to root species IDs (mock data)
-  const treeRootMap: Record<string, number> = {
-    agaricales: 1,
-    boletales: 2,
-    polyporales: 3,
-    russulales: 4,
-    medicinal: 5,
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Phylogenetic Trees</h1>
+          <h1 className="text-3xl font-bold text-foreground">Phylogenetic &amp; lineage</h1>
           <p className="text-lg text-foreground/70 mt-2">
-            Explore the evolutionary relationships between fungal species through interactive phylogenetic trees.
+            MINDEX-backed lineage for any kingdom. Pass{" "}
+            <code className="rounded bg-muted px-1 text-sm">?taxon=&lt;uuid&gt;</code> or use the link from a
+            species page. Open Tree / OTTL integration is a later phase; this view is the materialized
+            <code className="mx-1">lineage</code> path.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -45,11 +42,12 @@ export default function PhylogenyPage() {
 
       {/* D3 Phylogenetic Tree - Full Width */}
       <section className="mb-12">
-        <PhylogeneticTree 
+        <PhylogeneticTree
           height={650}
           showControls={true}
           showLegend={true}
           treeType="radial"
+          taxonId={taxonId}
         />
       </section>
 

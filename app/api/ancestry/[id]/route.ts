@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { mindexOpenGetJson } from "@/lib/mindex-open-fetch"
 import { getSpeciesByUUID, isMINDEXAvailable } from "@/lib/services/mindex-service"
 
 /**
@@ -31,10 +32,23 @@ export async function GET(
           if (isUUID) {
             const species = await getSpeciesByUUID(idParam)
             if (species) {
+              const [interactions, media, publications, tree, characteristics] = await Promise.allSettled([
+                mindexOpenGetJson<unknown>(`/api/mindex/all-life/taxa/${idParam}/interactions`),
+                mindexOpenGetJson<unknown>(`/api/mindex/all-life/taxa/${idParam}/media`),
+                mindexOpenGetJson<unknown>(`/api/mindex/all-life/taxa/${idParam}/publications`),
+                mindexOpenGetJson<unknown>(`/api/mindex/all-life/taxa/${idParam}/lineage-tree`),
+                mindexOpenGetJson<unknown>(`/api/mindex/all-life/taxa/${idParam}/characteristics`),
+              ])
               return NextResponse.json({
                 species,
+                all_life: {
+                  interactions: interactions.status === "fulfilled" ? interactions.value : null,
+                  media: media.status === "fulfilled" ? media.value : null,
+                  publications: publications.status === "fulfilled" ? publications.value : null,
+                  lineage: tree.status === "fulfilled" ? tree.value : null,
+                  characteristics: characteristics.status === "fulfilled" ? characteristics.value : null,
+                },
                 source: "mindex",
-                data_quality: species.metadata?.data_quality ?? null,
               })
             }
           }

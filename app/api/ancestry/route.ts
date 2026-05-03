@@ -11,6 +11,7 @@ interface MINDEXTaxon {
   common_name: string | null
   family?: string
   genus?: string
+  kingdom?: string | null
   rank: string
   source: string
   description?: string
@@ -59,6 +60,7 @@ function transformToSpecies(taxon: MINDEXTaxon, index: number) {
     uuid: taxon.id,
     scientific_name: taxon.scientific_name || taxon.canonical_name,
     common_name: taxon.common_name,
+    kingdom: taxon.kingdom || null,
     family,
     description: taxon.description || null,
     image_url: imageUrl,
@@ -78,6 +80,8 @@ export async function GET(request: Request) {
   const prefix = searchParams.get("prefix") || undefined
   const sourceParam = (searchParams.get("source") || "").trim().toLowerCase()
   const rankParam = (searchParams.get("rank") || "species").trim().toLowerCase()
+  const kingdomParam = (searchParams.get("kingdom") || "all").trim()
+  const lineageContains = searchParams.get("lineage_contains")?.trim()
   const filter = searchParams.get("filter")
   const category = searchParams.get("category")
   const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 10000)
@@ -103,12 +107,29 @@ export async function GET(request: Request) {
     if (rankParam && rankParam !== "all") urlParams.set("rank", rankParam)
     if (source) urlParams.set("source", source)
     if (prefix) urlParams.set("prefix", prefix)
+    if (kingdomParam && kingdomParam.toLowerCase() !== "all") {
+      urlParams.set("kingdom", kingdomParam)
+    }
+    if (lineageContains) {
+      urlParams.set("lineage_contains", lineageContains)
+    }
 
     let url = `${MINDEX_API_URL}/api/mindex/taxa?${urlParams.toString()}`
-    
+
     if (query) {
-      // Use search endpoint for queries
-      url = `${MINDEX_API_URL}/api/mindex/taxa?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
+      // Search: pass same filters (kingdom, lineage) as list endpoint
+      const sp = new URLSearchParams({
+        q: query,
+        limit: String(limit),
+        offset: String(offset),
+        order_by: orderBy,
+        order,
+      })
+      if (rankParam && rankParam !== "all") sp.set("rank", rankParam)
+      if (source) sp.set("source", source)
+      if (kingdomParam && kingdomParam.toLowerCase() !== "all") sp.set("kingdom", kingdomParam)
+      if (lineageContains) sp.set("lineage_contains", lineageContains)
+      url = `${MINDEX_API_URL}/api/mindex/taxa?${sp.toString()}`
     }
 
     const controller = new AbortController()
@@ -187,9 +208,9 @@ export async function GET(request: Request) {
     console.log("MINDEX connection error:", error instanceof Error ? error.message : "Unknown error")
   }
 
-  // Fallback: Query external APIs directly for real data
+  // Fallback: Query external APIs directly for real data (iNat + GBIF; no invented totals)
   try {
-    const externalData = await fetchFromExternalAPIs(query || "fungi", limit)
+    const externalData = await fetchFromExternalAPIs(query || "life", limit, kingdomParam)
     if (externalData.species.length > 0) {
       return NextResponse.json({
         species: externalData.species,
@@ -212,16 +233,26 @@ export async function GET(request: Request) {
   })
 }
 
-// Fetch from external APIs directly (iNaturalist, GBIF)
-async function fetchFromExternalAPIs(query: string, limit: number) {
+// Verified iNat iconic roots (others: omit taxon_id to avoid wrong subtree).
+const INAT_KINGDOM_TAXON: Partial<Record<string, string>> = {
+  fungi: "47170",
+  plantae: "47126",
+}
+
+// Fetch from external APIs directly (iNaturalist, GBIF) — no invented totals. Kingdom-aware (not fungi-locked).
+async function fetchFromExternalAPIs(query: string, limit: number, kingdom: string) {
   const species: any[] = []
-  let total = 2500000 // base total for fungi
+  let total = 0
+  const k = kingdom.trim().toLowerCase()
 
   try {
-    // Try iNaturalist
-    const inatResponse = await fetch(
-      `https://api.inaturalist.org/v1/taxa/autocomplete?q=${encodeURIComponent(query)}&per_page=${limit}&taxon_id=47170`,
-      {
+    // iNaturalist — only restrict to subtree for kingdoms with verified taxon_id
+    const inatUrl = new URL("https://api.inaturalist.org/v1/taxa/autocomplete")
+    inatUrl.searchParams.set("q", query)
+    inatUrl.searchParams.set("per_page", String(limit))
+    const inatRoot = k !== "all" ? INAT_KINGDOM_TAXON[k] : undefined
+    if (inatRoot) inatUrl.searchParams.set("taxon_id", inatRoot)
+    const inatResponse = await fetch(inatUrl.toString(), {
         headers: {
           "User-Agent": "MYCOSOFT-Ancestry/1.0 (https://mycosoft.io)",
           "Accept": "application/json",
@@ -231,15 +262,19 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
 
     if (inatResponse.ok) {
       const data = await inatResponse.json()
-      if (data.total_results) {
+      if (typeof data.total_results === "number") {
         total = data.total_results
+      } else {
+        total = (data.results || []).length
       }
       for (const taxon of data.results || []) {
+        const iconic = taxon.iconic_taxon_name || "Unknown"
         species.push({
           id: taxon.id,
           scientific_name: taxon.name,
           common_name: taxon.preferred_common_name || null,
-          family: taxon.family || "Unknown",
+          family: taxon.family || iconic,
+          kingdom: iconic,
           description: taxon.wikipedia_summary || null,
           image_url: taxon.default_photo?.medium_url || null,
           characteristics: [
@@ -256,12 +291,18 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
     console.error("iNaturalist fetch error:", error)
   }
 
-  // Try GBIF if iNaturalist didn't return enough
+  // GBIF — add kingdom when filter is a known GBIF kingdom
   if (species.length < limit) {
     try {
-      const gbifResponse = await fetch(
-        `https://api.gbif.org/v1/species/search?q=${encodeURIComponent(query)}&limit=${limit - species.length}&kingdom=Fungi`,
-        {
+      const gb = new URL("https://api.gbif.org/v1/species/search")
+      gb.searchParams.set("q", query)
+      gb.searchParams.set("limit", String(limit - species.length))
+      const gk = kingdom.toLowerCase()
+      if (gk && gk !== "all" && gk !== "protista" && gk !== "viruses") {
+        const cap = gk.charAt(0).toUpperCase() + gk.slice(1)
+        gb.searchParams.set("kingdom", cap)
+      }
+      const gbifResponse = await fetch(gb.toString(), {
           headers: {
             "Accept": "application/json",
           },
@@ -276,6 +317,7 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
             scientific_name: taxon.scientificName || taxon.canonicalName,
             common_name: taxon.vernacularName || null,
             family: taxon.family || "Unknown",
+            kingdom: taxon.kingdom || null,
             description: taxon.description || null,
             image_url: null,
             characteristics: [
@@ -293,5 +335,6 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
     }
   }
 
+  if (species.length && !total) total = species.length
   return { species, total }
 }

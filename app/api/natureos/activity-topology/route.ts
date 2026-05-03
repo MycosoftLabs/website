@@ -96,6 +96,7 @@ const SITEMAP_PATHS: string[] = [
 const API_ROUTES: { path: string; method: string; system: string; label: string }[] = [
   { path: "/api/mas/health", method: "GET", system: "MAS", label: "MAS Health" },
   { path: "/api/mas/agents", method: "GET", system: "MAS", label: "MAS Agents" },
+  { path: "/api/mas/agents-activity", method: "GET", system: "MAS", label: "Agent Activity Ledger" },
   { path: "/api/mas/topology", method: "GET", system: "MAS", label: "Agent Topology" },
   { path: "/api/mas/memory", method: "GET", system: "MAS", label: "MAS Memory" },
   { path: "/api/mas/chat", method: "POST", system: "MAS", label: "MAS Chat" },
@@ -357,11 +358,89 @@ export async function GET(request: NextRequest) {
     if (systemNodeIds.has(node.id) && node.status) summary[node.status] = (summary[node.status] as number) + 1
   }
 
+  // 9. MYCA Alive: MAS agent activity JSONL (last 24h) — same source as /api/agents/activity on MAS
+  const since24h = Math.floor(Date.now() / 1000) - 86400
+  let agentActivity: NonNullable<ActivityTopologyData["agentActivity"]> = {
+    count: 0,
+    events: [],
+    since: since24h,
+    source: MAS_API_URL,
+  }
+  let agentHeartbeat: NonNullable<ActivityTopologyData["agentHeartbeat"]> = {
+    staleAfterSeconds: 86400,
+    staleCount: 0,
+    totalRegistered: 0,
+  }
+  try {
+    const [ar, hb] = await Promise.allSettled([
+      fetch(
+        `${MAS_API_URL}/api/agents/activity?limit=500&since=${since24h}`,
+        { cache: "no-store", signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) }
+      ),
+      fetch(
+        `${MAS_API_URL}/api/agents/heartbeat/summary?stale_after_seconds=86400`,
+        { cache: "no-store", signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) }
+      ),
+    ])
+
+    if (ar.status === "fulfilled" && ar.value.ok) {
+      const j = (await ar.value.json()) as {
+        count?: number
+        events?: Array<Record<string, unknown>>
+        ledger?: string
+        since?: number
+      }
+      agentActivity = {
+        count: j.count ?? 0,
+        events: Array.isArray(j.events) ? j.events : [],
+        ledger: j.ledger,
+        since: j.since ?? since24h,
+        source: MAS_API_URL,
+      }
+    } else if (ar.status === "fulfilled") {
+      agentActivity = { ...agentActivity, error: `MAS activity HTTP ${ar.value.status}` }
+    } else {
+      agentActivity = {
+        ...agentActivity,
+        error: ar.reason instanceof Error ? ar.reason.message : "agent activity fetch failed",
+      }
+    }
+
+    if (hb.status === "fulfilled" && hb.value.ok) {
+      const h = (await hb.value.json()) as {
+        stale_after_seconds?: number
+        stale_count?: number
+        total_registered?: number
+        as_of?: string
+      }
+      agentHeartbeat = {
+        staleAfterSeconds: h.stale_after_seconds ?? 86400,
+        staleCount: h.stale_count ?? 0,
+        totalRegistered: h.total_registered ?? 0,
+        asOf: h.as_of,
+      }
+    } else if (hb.status === "fulfilled") {
+      agentHeartbeat = { ...agentHeartbeat, error: `MAS heartbeat HTTP ${hb.value.status}` }
+    } else {
+      agentHeartbeat = {
+        ...agentHeartbeat,
+        error: hb.reason instanceof Error ? hb.reason.message : "agent heartbeat fetch failed",
+      }
+    }
+  } catch (e) {
+    agentActivity = {
+      ...agentActivity,
+      error: e instanceof Error ? e.message : "agent activity fetch failed",
+    }
+  }
+
   const data: ActivityTopologyData = {
     nodes,
     connections,
     lastUpdated: new Date().toISOString(),
     summary,
+    agentActivity,
+    agentHeartbeat,
   }
   return NextResponse.json(data)
 }

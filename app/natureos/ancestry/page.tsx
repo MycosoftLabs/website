@@ -2,10 +2,11 @@ import Link from "next/link"
 import { Metadata } from "next"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { AncestryKingdomTiles } from "@/components/ancestry/ancestry-kingdom-tiles"
 
 export const metadata: Metadata = {
   title: "Ancestry | Mycosoft",
-  description: "Ancestry database for lineage tracking and species intelligence.",
+  description: "All-life ancestry — taxonomy, media, and research links from MINDEX.",
 }
 
 export default function AncestryPage() {
@@ -13,10 +14,10 @@ export default function AncestryPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Hero Section */}
       <section className="py-12 md:py-20 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">Explore Fungal Ancestry</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">All-Life Ancestry</h1>
         <p className="text-xl text-foreground/70 max-w-3xl mx-auto mb-8">
-          Discover the evolutionary relationships and genetic history of fungal species through our comprehensive
-          database and visualization tools.
+          Explore taxonomy across kingdoms with data from the Mycosoft Index: observations, media, genomes, and
+          literature, unified under one ancestry surface.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Link href="/natureos/ancestry/explorer">
@@ -36,18 +37,18 @@ export default function AncestryPage() {
       {/* Features Section */}
       <section className="py-12">
         <h2 className="text-3xl font-bold text-center mb-12 text-foreground">
-          Powerful Tools for Mycological Research
+          Tools for Taxonomic Research
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <Card>
             <CardHeader>
               <CardTitle>Species Explorer</CardTitle>
-              <CardDescription>Browse our comprehensive database of fungal species</CardDescription>
+              <CardDescription>Browse MINDEX taxa with kingdom-aware filters</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-foreground/70">
-                Access detailed information on thousands of fungal species, including taxonomic classification, habitat,
-                distribution, and more.
+                Search and filter species across all kingdoms where MINDEX has coverage; fungi retain legacy traits like
+                edibility when data exists.
               </p>
             </CardContent>
             <CardFooter>
@@ -64,8 +65,8 @@ export default function AncestryPage() {
             </CardHeader>
             <CardContent>
               <p className="text-foreground/70">
-                Explore interactive phylogenetic trees showing the evolutionary relationships between different fungal
-                species and families.
+                Lineage views are built from materialized taxonomy in MINDEX; pick a taxon to walk from kingdom to
+                species.
               </p>
             </CardContent>
             <CardFooter>
@@ -82,8 +83,7 @@ export default function AncestryPage() {
             </CardHeader>
             <CardContent>
               <p className="text-foreground/70">
-                Search our extensive database of fungal genetic information, including genome sequences, gene
-                annotations, and more.
+                Sequences and annotations when ingested for your taxon — not limited to fungi.
               </p>
             </CardContent>
             <CardFooter>
@@ -117,12 +117,11 @@ export default function AncestryPage() {
           <Card>
             <CardHeader>
               <CardTitle>Species Index</CardTitle>
-              <CardDescription>Global fungal species database</CardDescription>
+              <CardDescription>Cross-kingdom species graph</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-foreground/70">
-                Browse the Mycosoft Index (MIndex) - a comprehensive collection of fungal species with detailed 
-                information, images, and observations from around the world.
+                Browse the Mycosoft Index: unified taxa, media, and observations as pipelines sync GBIF, iNat, and more.
               </p>
             </CardContent>
             <CardFooter>
@@ -134,73 +133,55 @@ export default function AncestryPage() {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Live kingdom coverage (MINDEX) */}
       <section className="py-12 bg-muted rounded-lg my-12">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-foreground">Our Growing Database</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
-            {[
-              { value: "15,000+", label: "Species" },
-              { value: "8,500+", label: "Genomes" },
-              { value: "250,000+", label: "Genes" },
-              { value: "1,200+", label: "Research Papers" },
-            ].map((stat, i) => (
-              <div key={i}>
-                <p className="text-4xl font-bold text-green-600 mb-2">{stat.value}</p>
-                <p className="text-foreground/70">{stat.label}</p>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 text-foreground">
+            Taxon coverage by kingdom
+          </h2>
+          <p className="text-center text-foreground/70 text-sm sm:text-base mb-8 max-w-2xl mx-auto">
+            Counts from MINDEX <code className="text-xs sm:text-sm">bio.kingdom_stats</code>. Empty until the all-life
+            migration and sync jobs have populated data.
+          </p>
+          <AncestryKingdomTiles />
         </div>
       </section>
 
-      {/* Featured Research */}
+      {/* Research — no placeholder papers; use species detail publications when MINDEX has links */}
       <section className="py-12">
-        <h2 className="text-3xl font-bold text-center mb-12 text-foreground">Featured Research</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "Evolutionary History of Agaricales",
-              author: "Dr. Maria Chen",
-              excerpt:
-                "A comprehensive study of the evolutionary relationships within the Agaricales order, revealing new insights into fungal diversification patterns.",
-            },
-            {
-              title: "Genomic Analysis of Medicinal Fungi",
-              author: "Dr. James Wilson",
-              excerpt:
-                "Comparative genomic analysis of medicinal fungi species, identifying key genetic factors responsible for bioactive compound production.",
-            },
-            {
-              title: "Climate Change Effects on Fungal Distribution",
-              author: "Dr. Sarah Johnson",
-              excerpt:
-                "Long-term study examining how climate change is affecting the global distribution and genetic diversity of key fungal species.",
-            },
-          ].map((paper, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <CardTitle>{paper.title}</CardTitle>
-                <CardDescription>{paper.author}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground/70">{paper.excerpt}</p>
-              </CardContent>
-              <CardFooter>
-                <Link href="#" className="text-green-600 hover:underline">
-                  Read Paper →
-                </Link>
-              </CardFooter>
-            </Card>
-          ))}
+        <h2 className="text-3xl font-bold text-center mb-4 text-foreground">Research &amp; literature</h2>
+        <p className="text-center text-foreground/70 max-w-2xl mx-auto mb-8 text-sm sm:text-base">
+          Publication links are shown on individual species when <code>bio.publication_taxon</code> has data. This
+          section is intentionally free of sample papers — only real MINDEX-backed references appear in the app.
+        </p>
+        <div className="max-w-lg mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>Open a species</CardTitle>
+              <CardDescription>Taxonomy, genetics, and linked papers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground/70 text-sm sm:text-base">
+                Use the explorer to find a taxon, then open its profile for the Research tab.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Link
+                href="/natureos/ancestry/explorer"
+                className="min-h-[44px] inline-flex items-center text-emerald-600 hover:underline"
+              >
+                Go to Explorer →
+              </Link>
+            </CardFooter>
+          </Card>
         </div>
       </section>
 
       {/* CTA Section */}
       <section className="py-12 text-center">
-        <h2 className="text-3xl font-bold mb-6 text-foreground">Ready to Explore Fungal Ancestry?</h2>
+        <h2 className="text-3xl font-bold mb-6 text-foreground">Ready to explore the tree of life?</h2>
         <p className="text-xl text-foreground/70 max-w-3xl mx-auto mb-8">
-          Join researchers worldwide in exploring the fascinating world of fungal genetics and evolution.
+          Search MINDEX-backed taxa, then drill into media, genomes, and interactions as data is ingested.
         </p>
         <Link href="/natureos/ancestry/explorer">
           <Button className="bg-green-600 hover:bg-green-700">Get Started Now</Button>

@@ -22,6 +22,18 @@ import {
   ChevronRight,
   AlertCircle,
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const KINGDOMS = [
+  { value: "all", label: "All kingdoms" },
+  { value: "Fungi", label: "Fungi" },
+  { value: "Plantae", label: "Plantae" },
+  { value: "Animalia", label: "Animalia" },
+  { value: "Bacteria", label: "Bacteria" },
+  { value: "Archaea", label: "Archaea" },
+  { value: "Protista", label: "Protista" },
+  { value: "Viruses", label: "Viruses" },
+]
 
 interface Species {
   id: number
@@ -29,6 +41,7 @@ interface Species {
   scientific_name: string
   common_name: string | null
   family: string
+  kingdom?: string | null
   description: string | null
   image_url: string | null
   characteristics: string[]
@@ -49,14 +62,17 @@ export default function AncestryDatabasePage() {
   const [selectedLetter, setSelectedLetter] = useState("A")
   const [letterTotal, setLetterTotal] = useState<number>(0)
   const [letterOffset, setLetterOffset] = useState<number>(0)
+  const [kingdomFilter, setKingdomFilter] = useState("all")
 
   const fetchSpecies = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       // Fetch alphabetically sorted species (default) - more species for browsing
+      const k =
+        kingdomFilter && kingdomFilter !== "all" ? `&kingdom=${encodeURIComponent(kingdomFilter)}` : ""
       const response = await fetch(
-        `/api/ancestry?limit=500&sort=alphabetical&prefix=${encodeURIComponent(selectedLetter)}&page=${Math.floor(letterOffset / 500) + 1}`
+        `/api/ancestry?limit=500&sort=alphabetical&prefix=${encodeURIComponent(selectedLetter)}&page=${Math.floor(letterOffset / 500) + 1}${k}`
       )
       if (response.ok) {
         const data = await response.json()
@@ -82,7 +98,7 @@ export default function AncestryDatabasePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedLetter, letterOffset])
+  }, [selectedLetter, letterOffset, kingdomFilter])
 
   useEffect(() => {
     fetchSpecies()
@@ -114,10 +130,10 @@ export default function AncestryDatabasePage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Database className="h-8 w-8 text-green-600" />
-            Fungal Species Database
+            All-Life Taxon Index
           </h1>
           <p className="text-muted-foreground mt-1">
-            Browse and search our comprehensive genetic database
+            Browse MINDEX-backed taxa; filter by kingdom. Genetic tabs link to MINDEX when data is ingested.
           </p>
         </div>
         <div className="flex gap-2">
@@ -147,6 +163,27 @@ export default function AncestryDatabasePage() {
           {/* Alphabetical browsing */}
           <Card>
             <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <span className="text-sm text-muted-foreground">Kingdom filter</span>
+                <Select
+                  value={kingdomFilter}
+                  onValueChange={(v) => {
+                    setKingdomFilter(v)
+                    setLetterOffset(0)
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-[240px] min-h-[44px] text-base" aria-label="Kingdom filter">
+                    <SelectValue placeholder="Kingdom" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KINGDOMS.map((x) => (
+                      <SelectItem key={x.value} value={x.value}>
+                        {x.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-muted-foreground">
                   Browse by scientific name (A–Z). Current: <span className="font-medium text-foreground">{selectedLetter}</span>
@@ -220,11 +257,12 @@ export default function AncestryDatabasePage() {
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <Table>
-                  <TableCaption>Fungal species in the Mycosoft database</TableCaption>
+                  <TableCaption>Taxa from MINDEX or search fallbacks (kingdom from index when available)</TableCaption>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[200px]">Scientific Name</TableHead>
                       <TableHead>Common Name</TableHead>
+                      <TableHead className="min-w-[100px]">Kingdom</TableHead>
                       <TableHead>Family</TableHead>
                       <TableHead>Characteristics</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -242,6 +280,7 @@ export default function AncestryDatabasePage() {
                           </Link>
                         </TableCell>
                         <TableCell>{s.common_name || "—"}</TableCell>
+                        <TableCell>{s.kingdom || "—"}</TableCell>
                         <TableCell>{s.family}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">

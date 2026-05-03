@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { Metadata } from "next"
+import { Suspense } from "react"
 import { DNASequencingSearch } from "@/components/ancestry/dna-sequencing-search"
+import { AncestryLocusKingdomGuide } from "@/components/ancestry/ancestry-locus-kingdom-guide"
 import { BiologicalTools } from "@/components/ancestry/biological-tools"
 import { ITSLookupTool } from "@/components/ancestry/its-lookup"
 import { PhylogeneticTreeTool } from "@/components/ancestry/phylogenetic-tree-tool"
@@ -28,8 +30,13 @@ export default function AncestryToolsPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Ancestry Tools</h1>
       <p className="text-lg text-muted-foreground mb-8">
-        Explore our suite of tools for analyzing and visualizing fungal ancestry data.
+        All-life toolkit: locus choice depends on kingdom. Fungi default to ITS-style workflows; use the table below
+        for plants, animals, and microbes. Validate outputs against real references and MINDEX ingests — no invented sample data.
       </p>
+
+      <Suspense fallback={null}>
+        <AncestryLocusKingdomGuide />
+      </Suspense>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* DNA Analysis Tools */}
@@ -43,7 +50,10 @@ export default function AncestryToolsPage() {
         </ToolContainer>
 
         {/* ITS Lookup Tool */}
-        <ToolContainer title="ITS Lookup Tool" description="Find species by ITS code.">
+        <ToolContainer
+          title="ITS Lookup Tool"
+          description="Fungi-focused ITS; see kingdom guide above for rbcL/COI/16S analogues."
+        >
           <ITSLookupTool />
         </ToolContainer>
 

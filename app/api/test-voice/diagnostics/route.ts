@@ -7,12 +7,17 @@
  * NOTE: WebSocket connectivity to the bridge is still client-side (by design).
  *
  * Moshi status is derived from the PersonaPlex Bridge health response (moshi_available).
- * When using the GPU node architecture, Moshi runs on the node (e.g. 192.168.0.190:19198
- * internal); the bridge reports whether it can reach Moshi. No direct localhost:8998 check.
+ * On the split Legions, Moshi runs on the **Voice Legion** (192.168.0.241); the bridge
+ * reports `moshi_available` when it can reach Moshi. No direct 190/legacy node assumption.
  */
 
 import { NextResponse } from "next/server"
 import * as net from "net"
+import { MINDEX_ENDPOINTS, resolveEarth2ApiBaseUrl, GPU_LEGION_DEFAULTS } from "@/lib/config/api-urls"
+import {
+  resolveMoshiHostForProbe,
+  resolvePersonaplexBridgeBaseUrl,
+} from "@/lib/config/resolve-voice-bridge"
 
 interface CheckResult {
   ok: boolean
@@ -94,31 +99,26 @@ export async function GET() {
     process.env.NEXT_PUBLIC_MAS_API_URL ||
     "http://localhost:8001"
 
-  // When USE_LOCAL_GPU or USE_LOCAL_VOICE is true, always use localhost for Bridge
-  // (Moshi + Bridge run locally; env may still point to GPU node for remote use)
-  const useLocalVoice =
-    process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true" ||
-    process.env.USE_LOCAL_VOICE === "true" ||
-    process.env.USE_LOCAL_VOICE === "1"
-
-  const bridgeBaseUrl = useLocalVoice
-    ? "http://localhost:8999"
-    : process.env.PERSONAPLEX_BRIDGE_URL ||
-      process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
-      "http://localhost:8999"
-
-  const bridgeHealthUrl = `${bridgeBaseUrl.replace(/\/$/, "")}/health`
+  const bridgeBaseUrl = resolvePersonaplexBridgeBaseUrl()
+  const bridgeHealthUrl = `${bridgeBaseUrl}/health`
   // Fast liveness: avoids false OFFLINE when /api/myca/ping races or hits a slow router build.
   const masLiveUrl = `${masBaseUrl.replace(/\/$/, "")}/live`
   const masMemoryHealthUrl = `${masBaseUrl.replace(/\/$/, "")}/api/memory/health`
+  const mycaBrainStatusUrl = `${masBaseUrl.replace(/\/$/, "")}/voice/brain/status`
+  const voiceOllamaUrl = `http://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:11434/api/tags`
+  const earth2HealthUrl = `${resolveEarth2ApiBaseUrl()}/health`
 
   const BRIDGE_TIMEOUT_MS = 5000
   // MAS memory/health can exceed 5s on cold VM; align with voice path (bridge uses same host).
   const MAS_HTTP_TIMEOUT_MS = 12000
-  const [bridge, myca, memory] = await Promise.all([
+  const [bridge, myca, memory, mycaBrain, mindex, ollama, earth2] = await Promise.all([
     checkUrl(bridgeHealthUrl, true, BRIDGE_TIMEOUT_MS),
     checkUrl(masLiveUrl, false, MAS_HTTP_TIMEOUT_MS),
     checkUrl(masMemoryHealthUrl, false, MAS_HTTP_TIMEOUT_MS),
+    checkUrl(mycaBrainStatusUrl, false, MAS_HTTP_TIMEOUT_MS),
+    checkUrl(MINDEX_ENDPOINTS.HEALTH, false, MAS_HTTP_TIMEOUT_MS),
+    checkUrl(voiceOllamaUrl, false, 6000),
+    checkUrl(earth2HealthUrl, false, 6000),
   ])
 
   const bridgeData = bridge.data as { moshi_available?: boolean } | undefined
@@ -127,7 +127,7 @@ export async function GET() {
   let moshiOk = bridge.ok && bridgeData?.moshi_available === true
   if (bridgeOk && !moshiOk) {
     // Bridge healthy but moshi_available false (or no data) — verify Moshi port directly
-    const moshiHost = useLocalVoice ? "localhost" : (process.env.MOSHI_HOST || "localhost")
+    const moshiHost = resolveMoshiHostForProbe()
     const moshiPort = parseInt(process.env.MOSHI_PORT || "8998", 10)
     const moshiPortOpen = await tcpPing(moshiHost, moshiPort, 2000)
     if (moshiPortOpen) moshiOk = true
@@ -169,10 +169,44 @@ export async function GET() {
           status: memory.status,
           latencyMs: memory.latencyMs,
         },
+        {
+          key: "myca_brain",
+          name: "MYCA Brain (voice/status)",
+          target: mycaBrainStatusUrl,
+          ok: mycaBrain.ok,
+          status: mycaBrain.status,
+          latencyMs: mycaBrain.latencyMs,
+        },
+        {
+          key: "mindex",
+          name: "MINDEX API (health)",
+          target: MINDEX_ENDPOINTS.HEALTH,
+          ok: mindex.ok,
+          status: mindex.status,
+          latencyMs: mindex.latencyMs,
+        },
+        {
+          key: "ollama_voice_legion",
+          name: "Ollama (Voice Legion 11434)",
+          target: voiceOllamaUrl,
+          ok: ollama.ok,
+          status: ollama.status,
+          latencyMs: ollama.latencyMs,
+        },
+        {
+          key: "earth2_legion",
+          name: "Earth-2 API (Legion 8220)",
+          target: earth2HealthUrl,
+          ok: earth2.ok,
+          status: earth2.status,
+          latencyMs: earth2.latencyMs,
+        },
       ],
       config: {
         masBaseUrl,
         bridgeBaseUrl,
+        voiceOllamaHost: process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE,
+        earth2BaseUrl: resolveEarth2ApiBaseUrl(),
       },
     },
     { headers: { "Cache-Control": "no-store" } }

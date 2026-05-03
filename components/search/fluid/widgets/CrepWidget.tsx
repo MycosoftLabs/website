@@ -763,7 +763,7 @@ function normalizeToCrepResult(item: CrepObservation | CrepSearchResult): CrepSe
       qualityGrade: obs.verified ? "research" : undefined,
     },
     relevance: 0.5,
-    crepMapUrl: `/dashboard/crep?lat=${obs.latitude}&lng=${obs.longitude}&zoom=12&highlight=${obs.id}`,
+    crepMapUrl: `/natureos/earth-simulator?lat=${obs.latitude}&lng=${obs.longitude}&zoom=12&highlight=${obs.id}`,
   }
 }
 

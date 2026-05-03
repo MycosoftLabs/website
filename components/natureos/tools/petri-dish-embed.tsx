@@ -1,5 +1,5 @@
-import { PetriDishSimContent } from "@/components/apps/petri-dish-sim-content"
+import { PetriDishV2App } from "@/components/petri-dish-v2/petri-dish-app"
 
 export function PetriDishEmbed() {
-  return <PetriDishSimContent variant="natureos" showBackLink={false} />
+  return <PetriDishV2App />
 }

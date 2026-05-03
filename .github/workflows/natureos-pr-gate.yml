@@ -1,0 +1,43 @@
+# May 2, 2026 — Run Next.js lint + build on PRs that touch NatureOS shell or BFF.
+# (Full `website-ci.yml` still runs on all PRs; this documents explicit coverage for
+# `app/natureos` and `app/api/natureos` and fails fast on path-only failures.)
+
+name: NatureOS PR gate
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "app/natureos/**"
+      - "app/api/natureos/**"
+
+concurrency:
+  group: natureos-pr-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImNpLXBsYWNlaG9sZGVyIn0.ci-placeholder-signature"
+      NEXT_PUBLIC_SITE_URL: "https://mycosoft.com"
+      NEXT_PUBLIC_BASE_URL: "https://mycosoft.com"
+      NEXTAUTH_URL: "https://mycosoft.com"
+      NEXTAUTH_SECRET: "ci-build-placeholder-secret-min-32-chars-long"
+      MAS_API_URL: "http://127.0.0.1:8001"
+      NEXT_PUBLIC_MAS_API_URL: "http://127.0.0.1:8001"
+      MINDEX_API_URL: "http://127.0.0.1:8000"
+      MINDEX_API_BASE_URL: "http://127.0.0.1:8000"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

@@ -284,7 +284,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       const routes: Record<string, string> = {
         "home": "/",
         "ai studio": "/ai-studio",
-        "earth simulator": "/earth-simulator",
+        "earth simulator": "/natureos/earth-simulator",
         "nature os": "/natureos",
         "natureos": "/natureos",
         "devices": "/devices",

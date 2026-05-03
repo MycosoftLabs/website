@@ -75,6 +75,9 @@ import {
   Lightbulb
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { GPU_LEGION_DEFAULTS } from "@/lib/config/api-urls"
+import { resolvePersonaplexBridgeWsBaseDefault } from "@/lib/config/resolve-voice-bridge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 declare global {
   interface Window {
@@ -93,11 +96,16 @@ interface ServiceStatus {
 }
 
 /** Stable defs for diagnostics — do not depend on state to avoid re-run loops */
+/** Order must match /api/test-voice/diagnostics `services` array (0–7). */
 const SERVICE_DEFS: { name: string; url: string }[] = [
   { name: "Moshi (via Bridge)", url: "/api/test-voice/diagnostics" },
   { name: "PersonaPlex Bridge (8999)", url: "/api/test-voice/bridge/health" },
   { name: "MAS Consciousness", url: "/api/test-voice/mas/myca-status" },
   { name: "Memory Bridge", url: "/api/test-voice/mas/memory-health" },
+  { name: "MYCA Brain (voice)", url: "/api/test-voice/diagnostics" },
+  { name: "MINDEX API", url: "/api/test-voice/diagnostics" },
+  { name: "Ollama (Voice Legion)", url: "/api/test-voice/diagnostics" },
+  { name: "Earth-2 (Legion)", url: "/api/test-voice/diagnostics" },
 ]
 
 interface TestLog {
@@ -158,18 +166,8 @@ export default function VoiceTestPage() {
   useWebMCPProvider({ onNavigate: (path) => router.push(path) })
 
   // WebSocket base must be reachable from the *browser* (client-side).
-  // When NEXT_PUBLIC_USE_LOCAL_GPU is true, use localhost (Moshi + Bridge run locally).
-  const useLocalVoice = process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true"
-
-  const bridgeWsBaseUrl = useLocalVoice
-    ? "ws://localhost:8999"
-    : (
-        process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL ||
-        (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
-          ? process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws")
-          : null) ||
-        "ws://localhost:8999"
-      ).replace(/\/$/, "")
+  // When local voice env is set, use localhost; else Voice Legion (default 192.168.0.241:8999).
+  const bridgeWsBaseUrl = resolvePersonaplexBridgeWsBaseDefault().replace(/\/$/, "")
 
   // Service statuses — names match /api/test-voice/diagnostics response order
   const [services, setServices] = useState<ServiceStatus[]>(() =>
@@ -247,6 +245,8 @@ export default function VoiceTestPage() {
   // Protocol mode: legacy (voice/orchestrator) vs a2a (A2A gateway)
   const [protocolMode, setProtocolMode] = useState<"legacy" | "a2a">("legacy")
   const [lastProtocolMode, setLastProtocolMode] = useState<string | null>(null)
+  /** PersonaPlex / Moshi voice id for Bridge `POST /session` (see MAS `SessionCreate.voice`). */
+  const [bridgeVoiceId, setBridgeVoiceId] = useState<"myca" | "moshika">("myca")
   
   // v9 Diagnostics - unified session rail for voice v9 architecture
   const [useV9Diagnostics, setUseV9Diagnostics] = useState(false)
@@ -282,7 +282,8 @@ export default function VoiceTestPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const wsConnectedRef = useRef<boolean>(false)
   const warmupIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const masEventSourceRef = useRef<EventSource | null>(null)
+  /** Abort for optional POST /api/myca/brain/stream (SSE) probe — not GET EventSource. */
+  const brainStreamAbortRef = useRef<AbortController | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const outputAnalyserRef = useRef<AnalyserNode | null>(null)
   const micLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -333,6 +334,86 @@ export default function VoiceTestPage() {
     if (arr.length === 0) return 0
     return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
   }
+
+  /**
+   * Optional: consume MAS `POST /voice/brain/stream` (proxied) via fetch + ReadableStream.
+   * Verifies the SSE path alongside Bridge → /voice/brain/chat; uses current voice session id when set.
+   */
+  const runBrainSseProbe = useCallback(async () => {
+    brainStreamAbortRef.current?.abort()
+    const ac = new AbortController()
+    brainStreamAbortRef.current = ac
+    setBrainStatus("thinking")
+    setBrainResponse("")
+    setBrainProvider("stream")
+    addLog("info", "Brain SSE: connecting to /api/myca/brain/stream…")
+    try {
+      const sid = sessionIdRef.current || `sse_probe_${Date.now()}`
+      const res = await fetch("/api/myca/brain/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Reply in one short sentence: confirm the MYCA brain stream is working.",
+          user_id: "morgan",
+          session_id: sid,
+          conversation_id: sid,
+          provider: "auto",
+        }),
+        signal: ac.signal,
+      })
+      if (!res.ok || !res.body) {
+        const t = await res.text().catch(() => "")
+        addLog("error", `Brain SSE failed: ${res.status} ${t.slice(0, 120)}`)
+        setBrainStatus("idle")
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let acc = ""
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const blocks = buffer.split("\n\n")
+        buffer = blocks.pop() || ""
+        for (const block of blocks) {
+          for (const line of block.split("\n")) {
+            if (!line.startsWith("data: ")) continue
+            try {
+              const payload = JSON.parse(line.slice(6)) as {
+                token?: string
+                done?: boolean
+                error?: string
+                session_id?: string
+              }
+              if (payload.error) {
+                addLog("error", `Brain SSE: ${payload.error}`)
+              }
+              if (typeof payload.token === "string") {
+                acc += payload.token
+                setBrainResponse(acc)
+                setBrainStatus("responding")
+              }
+              if (payload.done) {
+                addLog("success", "Brain SSE stream complete")
+                setBrainStatus("idle")
+              }
+            } catch {
+              // ignore bad chunk
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        addLog("error", `Brain SSE: ${e}`)
+      }
+    } finally {
+      setBrainStatus("idle")
+      brainStreamAbortRef.current = null
+    }
+  }, [addLog])
   
   // Clone text to MAS (non-blocking background operation)
   const cloneTextToMAS = useCallback(async (text: string, sessionId: string) => {
@@ -601,15 +682,20 @@ export default function VoiceTestPage() {
       const bridgeRes = await fetch("/api/test-voice/bridge/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: "myca", voice: "myca", enable_mas_events: true })
+        body: JSON.stringify({
+          persona: "myca",
+          voice: bridgeVoiceId,
+          enable_mas_events: true,
+        })
       })
       
       if (!bridgeRes.ok) {
         const errText = await bridgeRes.text().catch(() => "")
         const bridgeHttp = bridgeWsBaseUrl.replace(/^ws/i, "http")
+        const voiceLegion = `ws://${GPU_LEGION_DEFAULTS.VOICE}:8999`
         throw new Error(
           `Bridge session failed (${bridgeRes.status}). Ensure PersonaPlex Bridge is running at ${bridgeHttp}. ` +
-          `GPU node: ws://192.168.0.190:8999 | Local: ws://localhost:8999. Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL in .env.local. ${errText ? errText.slice(0, 80) : ""}`
+          `Voice Legion: ${voiceLegion} | local: ws://localhost:8999. Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL or NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL in .env.local. ${errText ? errText.slice(0, 80) : ""}`
         )
       }
       
@@ -849,7 +935,7 @@ export default function VoiceTestPage() {
           warmupIntervalRef.current = null
         }
         wsConnectedRef.current = false
-        addLog("error", `WebSocket failed to ${bridgeWsUrl}. Is the bridge running? Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL in .env.local (ws://192.168.0.190:8999 or ws://localhost:8999)`)
+        addLog("error", `WebSocket failed to ${bridgeWsUrl}. Is the bridge running? Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL in .env.local (e.g. ws://${GPU_LEGION_DEFAULTS.VOICE}:8999 or ws://localhost:8999)`)
         setWsConnected(false)
       }
       
@@ -1324,9 +1410,9 @@ export default function VoiceTestPage() {
       wsRef.current.close()
       wsRef.current = null
     }
-    if (masEventSourceRef.current) {
-      masEventSourceRef.current.close()
-      masEventSourceRef.current = null
+    if (brainStreamAbortRef.current) {
+      brainStreamAbortRef.current.abort()
+      brainStreamAbortRef.current = null
     }
     setWsConnected(false)
     setTestPhase("ready")
@@ -1343,7 +1429,7 @@ export default function VoiceTestPage() {
       if (audioWorkletNodeRef.current) audioWorkletNodeRef.current.disconnect()
       if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
       if (warmupIntervalRef.current) clearInterval(warmupIntervalRef.current)
-      if (masEventSourceRef.current) masEventSourceRef.current.close()
+      if (brainStreamAbortRef.current) brainStreamAbortRef.current.abort()
     }
   }, [])
   
@@ -1441,7 +1527,7 @@ export default function VoiceTestPage() {
                 </p>
                 {services[1]?.status === "offline" && (
                   <div className="mt-2 p-2 bg-amber-900/30 border border-amber-700/40 rounded text-[10px] text-amber-200">
-                    <strong>Bridge offline.</strong> Start PersonaPlex Bridge: GPU node <code className="text-amber-400">192.168.0.190:8999</code> or locally <code className="text-amber-400">python services/personaplex-local/personaplex_bridge_nvidia.py</code> (MAS repo). Set <code className="text-amber-400">NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL</code> in website .env.local.
+                    <strong>Bridge offline.</strong> Start PersonaPlex Bridge on the Voice Legion <code className="text-amber-400">{GPU_LEGION_DEFAULTS.VOICE}:8999</code> or locally <code className="text-amber-400">python services/personaplex-local/personaplex_bridge_nvidia.py</code> (MAS repo). Set <code className="text-amber-400">NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL</code> in website .env.local.
                   </div>
                 )}
               </div>
@@ -1515,6 +1601,26 @@ export default function VoiceTestPage() {
                 <Mic className="w-4 h-4 text-cyan-400" />
                 Voice Control
               </h2>
+              <div className="mb-3 space-y-1">
+                <Label htmlFor="bridge-voice" className="text-xs text-zinc-400">
+                  PersonaPlex voice (Moshi)
+                </Label>
+                <Select
+                  value={bridgeVoiceId}
+                  onValueChange={(v) => setBridgeVoiceId(v as "myca" | "moshika")}
+                >
+                  <SelectTrigger id="bridge-voice" className="h-9 text-xs w-full min-h-[44px] text-base sm:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="myca" className="min-h-[44px]">MYCA (default)</SelectItem>
+                    <SelectItem value="moshika" className="min-h-[44px]">Moshika / Nat2 (female)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-zinc-500">
+                  Sent to Bridge <code className="text-cyan-600/90">POST /session</code> as <code>voice</code> before you start.
+                </p>
+              </div>
               
               {wsConnected ? (
                 <Button onClick={stopVoice} variant="destructive" className="w-full" size="sm">
@@ -1565,10 +1671,24 @@ export default function VoiceTestPage() {
             
             {/* MYCA Brain Status */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
-              <h2 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                <Brain className="w-4 h-4 text-purple-400" />
-                MYCA Brain
-              </h2>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h2 className="font-semibold text-sm flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-purple-400" />
+                  MYCA Brain
+                </h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs min-h-[44px]"
+                  onClick={runBrainSseProbe}
+                >
+                  Test SSE
+                </Button>
+              </div>
+              <p className="text-[10px] text-zinc-500 mb-2">
+                Probes <code className="text-zinc-400">POST /api/myca/brain/stream</code> (MAS <code className="text-zinc-400">/voice/brain/stream</code>). Live voice still uses Bridge → <code className="text-zinc-400">/voice/brain/chat</code>.
+              </p>
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs">

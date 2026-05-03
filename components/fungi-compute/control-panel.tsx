@@ -72,7 +72,7 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
       
       // Check Petri Dish health (via MAS)
       try {
-        const petriRes = await fetch("/api/simulation/petri-dish/health", { signal: AbortSignal.timeout(3000) })
+        const petriRes = await fetch("/api/simulation/petri/v2/health", { signal: AbortSignal.timeout(3000) })
         setIntegrations(prev => ({ ...prev, petriDish: petriRes.ok ? "synced" : "offline" }))
       } catch {
         setIntegrations(prev => ({ ...prev, petriDish: "offline" }))

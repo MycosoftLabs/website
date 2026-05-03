@@ -3,12 +3,10 @@
 /**
  * /ancestry/taxonomy/[rank]/[name]
  *
- * Internal Mycosoft taxonomy detail page.
- * Shows full info for any fungal taxonomic rank: Kingdom → Phylum → Class →
- * Order → Family → Genus, plus lists all children one level below.
+ * Cross-kingdom taxonomy detail: standard ranks (kingdom → species) via iNaturalist
+ * and our BFF. Data is not fungi-limited; iconic group follows the taxon returned.
  *
- * Data from MINDEX (cached) and iNaturalist via our own API — never links
- * the user out to iNaturalist as a primary destination.
+ * Data from MINDEX (when cached) and iNaturalist via our API — we keep users in-app.
  */
 
 import { useState, useEffect } from "react"
@@ -164,7 +162,9 @@ export default function TaxonomyRankPage() {
                 {data.imageUrl ? (
                   <Image src={data.imageUrl} alt={data.name} fill className="object-cover" sizes="144px" unoptimized />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-5xl">🍄</div>
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground" aria-hidden>
+                    <TreeDeciduous className="h-14 w-14 opacity-40" />
+                  </div>
                 )}
               </div>
 

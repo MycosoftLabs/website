@@ -68,4 +68,24 @@ export interface ActivityTopologyData {
   lastUpdated?: string
   /** Counts of system nodes by status (for UI/MAS) */
   summary?: { healthy: number; degraded: number; error: number }
+  /**
+   * MYCA Alive (May 2026): real agent activity from MAS JSONL ledger
+   * (`/api/agents/activity` on MAS), surfaced on topology for zero-activity visibility.
+   */
+  agentActivity?: {
+    count: number
+    events: Array<Record<string, unknown>>
+    ledger?: string
+    since?: number | null
+    source?: string
+    error?: string
+  }
+  /** MAS /agents/heartbeat/summary — stale = no registry heartbeat in window */
+  agentHeartbeat?: {
+    staleAfterSeconds: number
+    staleCount: number
+    totalRegistered: number
+    asOf?: string
+    error?: string
+  }
 }

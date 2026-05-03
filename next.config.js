@@ -205,6 +205,8 @@ const nextConfig = {
       // NatureOS cloud-style reorg — May 1, 2026 (canonical URLs under /natureos)
       { source: "/natureos/species", destination: "/natureos/nature-statistics", permanent: true },
       { source: "/natureos/tools/earth-simulator", destination: "/natureos/earth-simulator", permanent: true },
+      // Short path used by voice intents / bookmarks (CREP Earth Simulator, not 3D /apps/earth-simulator)
+      { source: "/earth-simulator", destination: "/natureos/earth-simulator", permanent: true },
       { source: "/natureos/tools/petri-dish", destination: "/natureos/virtual-petri-dish", permanent: true },
       { source: "/natureos/petri-sim", destination: "/natureos/virtual-petri-dish", permanent: true },
       { source: "/natureos/tools/mushroom-sim", destination: "/natureos/biology-simulator", permanent: true },

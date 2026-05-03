@@ -19,6 +19,7 @@ import {
   Dna,
   Info,
   Eye,
+  Loader2,
   ChevronRight,
   Microscope,
   Leaf,
@@ -40,8 +41,51 @@ interface PhyloNode {
   observations?: number
 }
 
+interface LineageTreeResponse {
+  taxon_id?: string
+  kingdom?: string | null
+  canonical_name?: string | null
+  nodes?: Array<{ name: string; taxon_id: string | null; depth: number }>
+  message?: string
+}
+
+function lineageToPhyloNode(res: LineageTreeResponse): PhyloNode | null {
+  const { nodes, kingdom, canonical_name } = res
+  if (!nodes?.length) {
+    if (res.message) {
+      return {
+        id: "info",
+        name: kingdom || canonical_name || "Taxon",
+        rank: "Kingdom",
+        children: [{ id: "msg", name: res.message, rank: "Clade" }],
+      }
+    }
+    return null
+  }
+  const last = nodes.length - 1
+  const tip: PhyloNode = {
+    id: nodes[last].taxon_id || `n-${last}`,
+    name: nodes[last].name,
+    rank: last === 0 ? "Species" : "Species",
+  }
+  let acc = tip
+  for (let i = last - 1; i >= 0; i--) {
+    const n = nodes[i]
+    const id = n.taxon_id || `n-${i}`
+    acc = {
+      id,
+      name: n.name,
+      rank: i === 0 ? "Kingdom" : "Clade",
+      children: [acc],
+    }
+  }
+  return acc
+}
+
 interface PhylogeneticTreeProps {
   data?: PhyloNode
+  /** MINDEX taxon UUID: loads lineage from `/api/ancestry/[id]/tree` (ignored when `data` is set) */
+  taxonId?: string
   height?: number
   onNodeSelect?: (node: PhyloNode) => void
   showControls?: boolean
@@ -49,281 +93,6 @@ interface PhylogeneticTreeProps {
   treeType?: "radial" | "dendrogram" | "cluster"
 }
 
-// Sample phylogenetic tree data for fungi
-const sampleTreeData: PhyloNode = {
-  id: "fungi",
-  name: "Fungi",
-  rank: "Kingdom",
-  children: [
-    {
-      id: "basidiomycota",
-      name: "Basidiomycota",
-      rank: "Phylum",
-      children: [
-        {
-          id: "agaricomycetes",
-          name: "Agaricomycetes",
-          rank: "Class",
-          children: [
-            {
-              id: "agaricales",
-              name: "Agaricales",
-              rank: "Order",
-              children: [
-                {
-                  id: "agaricaceae",
-                  name: "Agaricaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "agaricus",
-                      name: "Agaricus",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "agaricus-bisporus",
-                          name: "Agaricus bisporus",
-                          rank: "Species",
-                          commonName: "Button Mushroom",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.05,
-                          bootstrapValue: 99,
-                          compounds: ["Ergothioneine", "Selenium"],
-                          useCases: ["Culinary", "Nutritional"],
-                          observations: 15420
-                        },
-                        {
-                          id: "agaricus-campestris",
-                          name: "Agaricus campestris",
-                          rank: "Species",
-                          commonName: "Field Mushroom",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.03,
-                          bootstrapValue: 97,
-                          observations: 8230
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  id: "amanitaceae",
-                  name: "Amanitaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "amanita",
-                      name: "Amanita",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "amanita-muscaria",
-                          name: "Amanita muscaria",
-                          rank: "Species",
-                          commonName: "Fly Agaric",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.08,
-                          bootstrapValue: 100,
-                          compounds: ["Muscimol", "Ibotenic acid"],
-                          useCases: ["Ethnobotanical", "Research"],
-                          observations: 12500
-                        },
-                        {
-                          id: "amanita-phalloides",
-                          name: "Amanita phalloides",
-                          rank: "Species",
-                          commonName: "Death Cap",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.06,
-                          bootstrapValue: 100,
-                          compounds: ["α-amanitin", "Phalloidin"],
-                          useCases: ["Toxicology", "Research"],
-                          observations: 3200
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  id: "pleurotaceae",
-                  name: "Pleurotaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "pleurotus",
-                      name: "Pleurotus",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "pleurotus-ostreatus",
-                          name: "Pleurotus ostreatus",
-                          rank: "Species",
-                          commonName: "Oyster Mushroom",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.04,
-                          bootstrapValue: 98,
-                          compounds: ["Lovastatin", "Pleuran"],
-                          useCases: ["Culinary", "Medicinal", "Bioremediation"],
-                          observations: 22100
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              id: "polyporales",
-              name: "Polyporales",
-              rank: "Order",
-              children: [
-                {
-                  id: "ganodermataceae",
-                  name: "Ganodermataceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "ganoderma",
-                      name: "Ganoderma",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "ganoderma-lucidum",
-                          name: "Ganoderma lucidum",
-                          rank: "Species",
-                          commonName: "Reishi",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.12,
-                          bootstrapValue: 100,
-                          compounds: ["Ganoderic acids", "β-glucans", "Triterpenoids"],
-                          useCases: ["Medicinal", "Adaptogenic", "Immunomodulatory"],
-                          observations: 8900
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: "ascomycota",
-      name: "Ascomycota",
-      rank: "Phylum",
-      children: [
-        {
-          id: "pezizomycetes",
-          name: "Pezizomycetes",
-          rank: "Class",
-          children: [
-            {
-              id: "pezizales",
-              name: "Pezizales",
-              rank: "Order",
-              children: [
-                {
-                  id: "morchellaceae",
-                  name: "Morchellaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "morchella",
-                      name: "Morchella",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "morchella-esculenta",
-                          name: "Morchella esculenta",
-                          rank: "Species",
-                          commonName: "Morel",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.15,
-                          bootstrapValue: 96,
-                          compounds: ["Polysaccharides"],
-                          useCases: ["Culinary", "Gourmet"],
-                          observations: 5600
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  id: "tuberaceae",
-                  name: "Tuberaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "tuber",
-                      name: "Tuber",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "tuber-melanosporum",
-                          name: "Tuber melanosporum",
-                          rank: "Species",
-                          commonName: "Black Truffle",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.18,
-                          bootstrapValue: 99,
-                          compounds: ["Androstenol", "Dimethyl sulfide"],
-                          useCases: ["Culinary", "Gourmet", "Commercial"],
-                          observations: 2100
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "sordariomycetes",
-          name: "Sordariomycetes",
-          rank: "Class",
-          children: [
-            {
-              id: "hypocreales",
-              name: "Hypocreales",
-              rank: "Order",
-              children: [
-                {
-                  id: "cordycipitaceae",
-                  name: "Cordycipitaceae",
-                  rank: "Family",
-                  children: [
-                    {
-                      id: "cordyceps",
-                      name: "Cordyceps",
-                      rank: "Genus",
-                      children: [
-                        {
-                          id: "cordyceps-militaris",
-                          name: "Cordyceps militaris",
-                          rank: "Species",
-                          commonName: "Cordyceps",
-                          dnaBarcode: "ITS1-5.8S-ITS2",
-                          branchLength: 0.22,
-                          bootstrapValue: 100,
-                          compounds: ["Cordycepin", "Adenosine"],
-                          useCases: ["Medicinal", "Athletic Performance", "Adaptogenic"],
-                          observations: 4500
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
 
 // Rank colors for visualization
 const rankColors: Record<string, string> = {
@@ -333,11 +102,13 @@ const rankColors: Record<string, string> = {
   Order: "#0ea5e9",
   Family: "#14b8a6",
   Genus: "#22c55e",
-  Species: "#84cc16"
+  Species: "#84cc16",
+  Clade: "#64748b"
 }
 
 export function PhylogeneticTree({
-  data = sampleTreeData,
+  data: dataProp,
+  taxonId,
   height = 600,
   onNodeSelect,
   showControls = true,
@@ -351,17 +122,52 @@ export function PhylogeneticTree({
   const [currentTreeType, setCurrentTreeType] = useState(treeType)
   const [zoom, setZoom] = useState(1)
   const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set())
+  const [remoteTree, setRemoteTree] = useState<PhyloNode | null>(null)
+  const [treeLoading, setTreeLoading] = useState(false)
+  const [treeLoadError, setTreeLoadError] = useState<string | null>(null)
+
+  const data = dataProp ?? remoteTree
+
+  useEffect(() => {
+    if (dataProp) {
+      setRemoteTree(null)
+      return
+    }
+    if (!taxonId) {
+      setRemoteTree(null)
+      setTreeLoadError(null)
+      return
+    }
+    let cancelled = false
+    setTreeLoading(true)
+    setTreeLoadError(null)
+    void fetch(`/api/ancestry/${encodeURIComponent(taxonId)}/tree`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((j: LineageTreeResponse) => {
+        if (cancelled) return
+        setRemoteTree(lineageToPhyloNode(j))
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setTreeLoadError(e.message)
+      })
+      .finally(() => {
+        if (!cancelled) setTreeLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [dataProp, taxonId])
 
   // Search for nodes
   const searchNodes = useCallback((term: string) => {
-    if (!term.trim()) {
+    if (!term.trim() || !data) {
       setHighlightedNodes(new Set())
       return
     }
-    
+
     const matches = new Set<string>()
     const searchLower = term.toLowerCase()
-    
+
     function traverse(node: PhyloNode) {
       if (
         node.name.toLowerCase().includes(searchLower) ||
@@ -371,7 +177,7 @@ export function PhylogeneticTree({
       }
       node.children?.forEach(traverse)
     }
-    
+
     traverse(data)
     setHighlightedNodes(matches)
   }, [data])
@@ -383,7 +189,7 @@ export function PhylogeneticTree({
 
   // Render the D3 tree
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current) return
+    if (!svgRef.current || !containerRef.current || !data) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll("*").remove()
@@ -547,7 +353,7 @@ export function PhylogeneticTree({
 
   // Export tree as SVG
   const exportSVG = () => {
-    if (!svgRef.current) return
+    if (!data || !svgRef.current) return
     const svgData = new XMLSerializer().serializeToString(svgRef.current)
     const blob = new Blob([svgData], { type: "image/svg+xml" })
     const url = URL.createObjectURL(blob)
@@ -560,6 +366,7 @@ export function PhylogeneticTree({
 
   // Export as Newick format
   const exportNewick = () => {
+    if (!data) return
     function toNewick(node: PhyloNode): string {
       if (!node.children || node.children.length === 0) {
         return `${node.name.replace(/\s/g, "_")}:${node.branchLength || 0.01}`
@@ -586,7 +393,7 @@ export function PhylogeneticTree({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TreeDeciduous className="h-5 w-5 text-green-400" />
-                <CardTitle className="text-lg">Fungal Phylogenetic Tree</CardTitle>
+                <CardTitle className="text-lg">All-life lineage (MINDEX)</CardTitle>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
@@ -598,7 +405,8 @@ export function PhylogeneticTree({
               </div>
             </div>
             <CardDescription>
-              Interactive phylogenetic tree showing evolutionary relationships between fungal species
+              D3 view of the taxonomic chain materialized in MINDEX for the selected taxon. Not an Open Tree
+              topology — all-life expansion adds connectors later.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -660,18 +468,39 @@ export function PhylogeneticTree({
         <div className="lg:col-span-3">
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div 
-                ref={containerRef} 
-                className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-                style={{ height }}
-              >
-                <svg
-                  ref={svgRef}
-                  width="100%"
-                  height={height}
-                  style={{ cursor: "grab" }}
-                />
-              </div>
+              {treeLoadError && <p className="p-4 text-sm text-destructive">{treeLoadError}</p>}
+              {!data ? (
+                <div
+                  className="flex min-h-[400px] flex-col items-center justify-center gap-3 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-4 py-8 text-center text-muted-foreground"
+                  style={{ minHeight: height }}
+                >
+                  {treeLoading ? (
+                    <>
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <span className="text-base">Loading lineage from MINDEX…</span>
+                    </>
+                  ) : (
+                    <p className="max-w-lg text-base">
+                      To load a tree, add{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-foreground">?taxon=UUID</code> to the URL, or
+                      use <strong>View in Phylogenetic Tree</strong> on a taxon with a MINDEX ID.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  ref={containerRef}
+                  className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+                  style={{ height }}
+                >
+                  <svg
+                    ref={svgRef}
+                    width="100%"
+                    height={height}
+                    style={{ cursor: "grab" }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

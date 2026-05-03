@@ -260,10 +260,44 @@ export function PipelineTopology3D({
               <span className="text-xs text-muted-foreground hidden sm:inline">
                 {topologyData.stats.totalNodes} nodes · {topologyData.stats.activeConnections} connections · <Zap className="inline h-3 w-3" /> flow
               </span>
+              {activityData?.agentActivity != null && (
+                <Badge
+                  variant={activityData.agentActivity.count > 0 ? "default" : "destructive"}
+                  className="text-xs"
+                  title={
+                    activityData.agentActivity.error
+                      ? activityData.agentActivity.error
+                      : "Agent events from MAS /api/agents/activity (24h window)"
+                  }
+                >
+                  Agent log {activityData.agentActivity.count} / 24h
+                </Badge>
+              )}
+              {activityData?.agentHeartbeat != null && (activityData.agentHeartbeat.staleCount > 0 || activityData.agentHeartbeat.error) && (
+                <Badge
+                  variant="destructive"
+                  className="text-xs"
+                  title={
+                    activityData.agentHeartbeat.error
+                      ? activityData.agentHeartbeat.error
+                      : `${activityData.agentHeartbeat.staleCount} registered agents with no heartbeat in ${activityData.agentHeartbeat.staleAfterSeconds}s (registry)`
+                  }
+                >
+                  Stale agents {activityData.agentHeartbeat.staleCount}
+                  {activityData.agentHeartbeat.totalRegistered > 0
+                    ? ` / ${activityData.agentHeartbeat.totalRegistered}`
+                    : ""}
+                </Badge>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
             Frontend → APIs → Infrastructure. Drag to orbit, scroll to zoom. Click a node for details.
+            {activityData?.agentActivity?.error != null && (
+              <span className="block text-amber-600 text-xs mt-1">
+                Agent activity: {activityData.agentActivity.error}
+              </span>
+            )}
           </p>
           {/* Status legend */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -73,6 +74,7 @@ interface Species {
   scientific_name: string
   common_name: string | null
   family: string
+  kingdom?: string | null
   description: string | null
   image_url: string | null
   characteristics: string[]
@@ -87,14 +89,17 @@ export default function ExplorerPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const urlSearch = searchParams.get("search") || ""
+  const urlKingdom = searchParams.get("kingdom") || "all"
 
   const [species, setSpecies] = useState<Species[]>([])
   const [loading, setLoading] = useState(true)
   // Pre-fill from URL param (?search=Amanita+muscaria)
   const [searchQuery, setSearchQuery] = useState(urlSearch)
+  const [kingdom, setKingdom] = useState(urlKingdom)
   const [selectedFamily, setSelectedFamily] = useState("All Families")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [dataCompleteness, setDataCompleteness] = useState<"all" | "has_images" | "has_description">("all")
+  const [kingdomSheetOpen, setKingdomSheetOpen] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list" | "compact">("grid")
   const [sortBy, setSortBy] = useState("featured")
   const [showFilters, setShowFilters] = useState(false)
@@ -111,13 +116,37 @@ export default function ExplorerPage() {
     return { sort: "alphabetical", rank: "species" }
   }
 
-  // Fetch first page (reset) when dataset changes
+  function withKingdom(pathWithQuery: string) {
+    if (kingdom && kingdom !== "all") {
+      return `${pathWithQuery}&kingdom=${encodeURIComponent(kingdom)}`
+    }
+    return pathWithQuery
+  }
+
+  function applyKingdom(v: string) {
+    setKingdom(v)
+    const p = new URLSearchParams(searchParams.toString())
+    if (v === "all") p.delete("kingdom")
+    else p.set("kingdom", v)
+    const q = p.toString()
+    router.replace(q ? `/natureos/ancestry/explorer?${q}` : "/natureos/ancestry/explorer", { scroll: false })
+    setKingdomSheetOpen(false)
+  }
+
+  // Keep local kingdom in sync with ?kingdom= (back/forward, deep links)
+  useEffect(() => {
+    setKingdom(urlKingdom)
+  }, [urlKingdom])
+
+  // Fetch first page (reset) when dataset or kingdom changes
   useEffect(() => {
     async function fetchSpecies() {
       setLoading(true)
       try {
         const params = getDatasetParams(dataset)
-        const response = await fetch(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=1`)
+        const response = await fetch(
+          withKingdom(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=1`)
+        )
         if (response.ok) {
           const data = await response.json()
           if (data.species && data.species.length > 0) {
@@ -157,7 +186,7 @@ export default function ExplorerPage() {
       }
     }
     fetchSpecies()
-  }, [dataset])
+  }, [dataset, kingdom])
 
   async function loadMore() {
     if (isLoadingMore) return
@@ -168,7 +197,9 @@ export default function ExplorerPage() {
     try {
       const nextPage = page + 1
       const params = getDatasetParams(dataset)
-      const response = await fetch(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=${nextPage}`)
+      const response = await fetch(
+        withKingdom(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=${nextPage}`)
+      )
       if (!response.ok) return
 
       const data = await response.json()
@@ -313,6 +344,8 @@ export default function ExplorerPage() {
     setSelectedCategory("all")
     setDataCompleteness("all")
     setSortBy("featured")
+    setKingdom("all")
+    router.replace("/natureos/ancestry/explorer", { scroll: false })
   }
 
   const getEdibilityColor = (s: Species) => {
@@ -521,7 +554,7 @@ export default function ExplorerPage() {
                     setSearchQuery("")
                   }}
                 >
-                  <SelectTrigger className="w-[220px]">
+                  <SelectTrigger className="w-[220px] min-h-[44px] text-base">
                     <Globe className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Dataset" />
                   </SelectTrigger>
@@ -531,6 +564,75 @@ export default function ExplorerPage() {
                     <SelectItem value="all_taxa">All Taxa (All ranks)</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <div className="hidden md:block">
+                  <Select value={kingdom} onValueChange={applyKingdom}>
+                    <SelectTrigger className="w-[200px] min-h-[44px] text-base" aria-label="Kingdom filter">
+                      <TreeDeciduous className="h-4 w-4 mr-2 shrink-0" />
+                      <SelectValue placeholder="Kingdom" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All kingdoms</SelectItem>
+                      <SelectItem value="Fungi">Fungi</SelectItem>
+                      <SelectItem value="Plantae">Plantae</SelectItem>
+                      <SelectItem value="Animalia">Animalia</SelectItem>
+                      <SelectItem value="Bacteria">Bacteria</SelectItem>
+                      <SelectItem value="Archaea">Archaea</SelectItem>
+                      <SelectItem value="Protista">Protista</SelectItem>
+                      <SelectItem value="Viruses">Viruses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full md:hidden">
+                  <Sheet open={kingdomSheetOpen} onOpenChange={setKingdomSheetOpen}>
+                    <SheetTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full min-h-[44px] justify-between text-base"
+                        aria-label="Open kingdom filter"
+                      >
+                        <span className="flex items-center gap-2">
+                          <TreeDeciduous className="h-4 w-4 shrink-0" />
+                          {kingdom === "all" ? "All kingdoms" : kingdom}
+                        </span>
+                        <ChevronDown className="h-4 w-4 opacity-60" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent
+                      side="bottom"
+                      className="max-h-[90dvh] rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+                    >
+                      <SheetHeader>
+                        <SheetTitle>Kingdom</SheetTitle>
+                      </SheetHeader>
+                      <div className="grid gap-1 py-4" role="list">
+                        {(
+                          [
+                            "all",
+                            "Fungi",
+                            "Plantae",
+                            "Animalia",
+                            "Bacteria",
+                            "Archaea",
+                            "Protista",
+                            "Viruses",
+                          ] as const
+                        ).map((k) => (
+                          <Button
+                            key={k}
+                            type="button"
+                            variant={kingdom === (k === "all" ? "all" : k) ? "default" : "ghost"}
+                            className="min-h-[48px] justify-start text-base"
+                            onClick={() => applyKingdom(k === "all" ? "all" : k)}
+                          >
+                            {k === "all" ? "All kingdoms" : k}
+                          </Button>
+                        ))}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </div>
 
                 <Select value={selectedFamily} onValueChange={setSelectedFamily}>
                   <SelectTrigger className="w-[180px]">

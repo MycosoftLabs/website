@@ -70,6 +70,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/natureos/ancestry/tools`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/ancestry-db`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
 
+    // NatureOS hub + Earth Simulator (CREP) — May 1–2, 2026 IA
+    { url: `${baseUrl}/natureos`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
+    { url: `${baseUrl}/natureos/earth-simulator`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
+    { url: `${baseUrl}/dashboard/crep`, lastModified: now, changeFrequency: 'weekly', priority: 0.75 },
+
     // Search & Data
     { url: `${baseUrl}/search`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
     { url: `${baseUrl}/mindex`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },

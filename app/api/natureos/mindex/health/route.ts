@@ -172,8 +172,8 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       troubleshooting: {
         mindex_url: env.mindexApiBaseUrl,
-        check_vm: "ssh mycosoft@192.168.0.187",
-        restart_mindex: "docker-compose -f docker-compose.always-on.yml restart mindex-api",
+        check_vm: "On the MINDEX host: verify the mindex-api service/container and reachability to MINDEX_API_URL",
+        restart_mindex: "On the MINDEX host: restart the mindex-api container or compose service",
       }
     }, { status: 503 })
   }

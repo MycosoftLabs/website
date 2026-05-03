@@ -3,7 +3,8 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+const MYCOBRAIN_SERVICE_URL =
+  process.env.MYCOBRAIN_SERVICE_URL || process.env.MYCOBRAIN_API_URL || "http://localhost:8003"
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
 
 /**

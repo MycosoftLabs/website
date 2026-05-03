@@ -70,6 +70,10 @@ export interface MINDEXTaxon {
     value_unit?: string
     source?: string
   }>
+  kingdom?: string | null
+  lineage?: string[] | null
+  lineage_ids?: string[] | null
+  external_ids?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -112,6 +116,9 @@ export interface Species {
   rank?: string
   source?: string
   ancestry?: string
+  kingdom?: string | null
+  lineage?: string[] | null
+  external_ids?: Record<string, unknown>
   ancestors?: Array<{
     id: number
     name: string
@@ -229,7 +236,7 @@ function taxonToSpecies(taxon: MINDEXTaxon): Species {
     uuid: taxon.id,
     scientific_name: taxon.scientific_name || taxon.canonical_name,
     common_name: taxon.common_name,
-    family: taxon.family || extractFamily(metadata?.ancestry),
+    family: taxon.family || familyFromLineage(taxon.lineage) || extractFamily(metadata?.ancestry, taxon.kingdom),
     genus: taxon.genus,
     description: taxon.description,
     image_url: extractImageUrl(metadata),
@@ -243,15 +250,23 @@ function taxonToSpecies(taxon: MINDEXTaxon): Species {
     ancestry: metadata?.ancestry,
     photo_attribution: metadata?.default_photo?.attribution || null,
     photo_license: metadata?.default_photo?.license_code || null,
+    kingdom: taxon.kingdom || null,
+    lineage: taxon.lineage || null,
+    external_ids: taxon.external_ids,
   }
 }
 
-// Extract family from ancestry path
-function extractFamily(ancestry?: string): string {
-  if (!ancestry) return "Unknown"
-  // iNat ancestry format: 48460/47170/47169/...
-  // We'd need to look up the family from the ancestry chain
-  return "Fungi"
+function familyFromLineage(lineage?: string[] | null): string | null {
+  if (!lineage?.length) return null
+  for (const name of lineage) {
+    if (name && /aceae$/i.test(name)) return name
+  }
+  return null
+}
+
+// Extract family from ancestry path (iNat id chain) — use lineage for *aceae when available
+function extractFamily(_ancestry?: string, _kingdom?: string | null): string {
+  return "Unknown"
 }
 
 // Check MINDEX health
