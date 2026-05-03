@@ -613,6 +613,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
+   HUB SILO — NatureOS / defense / search / MYCA hubs (May 02 2026)
+   Hides marketing header+footer only; unlike dashboard-fullscreen, scroll stays normal.
+   ============================================ */
+body.hub-silo header,
+body.hub-silo footer {
+  display: none !important;
+}
+
+/* ============================================
    DASHBOARD LAYOUT - FULLSCREEN MODE
    ============================================ */
 

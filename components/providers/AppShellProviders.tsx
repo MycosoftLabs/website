@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { PresenceProvider } from "@/contexts/presence-context"
@@ -72,8 +72,25 @@ function hasNativeMycaInterface(pathname: string): boolean {
   return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
 }
 
+const HUB_SILO_PREFIXES = [
+  "/natureos",
+  "/defense",
+  "/search",
+  "/test-fluid-search",
+  "/scientific",
+  "/myca",
+]
+
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
+
+  useEffect(() => {
+    const isDashboard = pathname.startsWith("/dashboard")
+    const wantsSilo = !isDashboard && startsWithAny(pathname, HUB_SILO_PREFIXES)
+    if (wantsSilo) document.body.classList.add("hub-silo")
+    else document.body.classList.remove("hub-silo")
+    return () => document.body.classList.remove("hub-silo")
+  }, [pathname])
 
   const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)

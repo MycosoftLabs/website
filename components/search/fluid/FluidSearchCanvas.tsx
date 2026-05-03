@@ -134,9 +134,19 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    let tabVisible = typeof document !== "undefined" && document.visibilityState === "visible"
+    const onVisibility = () => {
+      tabVisible = document.visibilityState === "visible"
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
     const animate = () => {
+      if (!tabVisible) {
+        animationRef.current = requestAnimationFrame(animate)
+        return
+      }
       ctx.clearRect(0, 0, width, height)
-      
+
       // Update particles
       particlesRef.current = updateParticles(particlesRef.current, width, height)
       
@@ -167,6 +177,7 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
     
     animate()
     return () => {
+      document.removeEventListener("visibilitychange", onVisibility)
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
   }, [width, height])
@@ -573,6 +584,7 @@ export function FluidSearchCanvas({
     message,
     refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
+    debounceMs: 180,
     types: ["species", "compounds", "genetics", "research",
       "events", "aircraft", "vessels", "satellites", "weather",
       "emissions", "infrastructure", "devices", "space_weather", "cameras"],
@@ -603,7 +615,7 @@ export function FluidSearchCanvas({
   }, [ctx, searchRefresh])
 
   // Debounced query for additional endpoints
-  const debouncedQuery = useDebounce(localQuery, 300)
+  const debouncedQuery = useDebounce(localQuery, 180)
 
   const lastEmittedRouteQueryRef = useRef("")
   const prevSearchBusyRef = useRef(false)

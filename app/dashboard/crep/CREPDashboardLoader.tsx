@@ -38,7 +38,7 @@ function CrepLoadingGlobe() {
     <div className="min-h-dvh bg-gradient-to-br from-[#050a1a] via-[#0a0f1e] to-[#0a1628] flex flex-col items-center justify-center gap-6 px-6 text-center overflow-hidden relative">
       {/* Starfield backdrop — subtle twinkling dots */}
       <div className="absolute inset-0 pointer-events-none opacity-40">
-        {Array.from({ length: 60 }).map((_, i) => (
+        {Array.from({ length: 32 }).map((_, i) => (
           <span
             key={i}
             className="absolute block w-[2px] h-[2px] bg-cyan-300/80 rounded-full animate-[twinkle_3s_ease-in-out_infinite]"
