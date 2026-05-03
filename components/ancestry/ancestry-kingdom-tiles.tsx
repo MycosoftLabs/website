@@ -1,8 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
+
+/** Align MINDEX kingdom labels with explorer `?kingdom=` values */
+const CANONICAL_KINGDOMS = ["Fungi", "Plantae", "Animalia", "Bacteria", "Archaea", "Protista", "Viruses"] as const
+
+function toExplorerKingdomParam(raw: string): string {
+  const t = raw.trim()
+  const hit = CANONICAL_KINGDOMS.find((k) => k.toLowerCase() === t.toLowerCase())
+  return hit ?? t
+}
 
 interface Row {
   kingdom: string
@@ -51,17 +61,28 @@ export function AncestryKingdomTiles() {
   }
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-      {rows.map((r) => (
-        <Card key={r.kingdom} className="min-h-[44px]">
-          <CardHeader className="py-2 px-3">
-            <CardDescription className="text-xs sm:text-sm">{r.kingdom}</CardDescription>
-            <CardTitle className="text-lg sm:text-2xl text-emerald-600">
-              {r.taxon_count.toLocaleString()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-0 pb-3 text-xs text-foreground/60">taxa</CardContent>
-        </Card>
-      ))}
+      {rows.map((r) => {
+        const kingdomQ = toExplorerKingdomParam(r.kingdom)
+        const href = `/natureos/ancestry/explorer?kingdom=${encodeURIComponent(kingdomQ)}`
+        return (
+          <Link
+            key={r.kingdom}
+            href={href}
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 min-h-[44px]"
+            aria-label={`Open ancestry explorer filtered to ${kingdomQ}`}
+          >
+            <Card className="min-h-[44px] h-full transition-colors hover:border-emerald-500/50">
+              <CardHeader className="py-2 px-3">
+                <CardDescription className="text-xs sm:text-sm">{r.kingdom}</CardDescription>
+                <CardTitle className="text-lg sm:text-2xl text-emerald-600">
+                  {r.taxon_count.toLocaleString()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-0 pb-3 text-xs text-foreground/60">taxa · explorer</CardContent>
+            </Card>
+          </Link>
+        )
+      })}
     </div>
   )
 }

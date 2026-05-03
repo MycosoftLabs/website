@@ -26,7 +26,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { useSupabaseUser, useProfile } from "@/hooks/use-supabase-user"
 import { MYCAStateWidget } from "@/components/myca/MYCAStateWidget"
-import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 
 interface GroundingSummary {
   status?: { enabled: boolean; thought_count: number; last_ep_id: string | null }
@@ -251,7 +250,6 @@ export default function MorganOversightPage() {
           </CardContent>
         </Card>
       </main>
-      <MYCAFloatingButton title="MYCA" className="right-20" />
     </div>
   )
 }

@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useRef, startTransition } from "react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -51,10 +51,28 @@ interface HeroSuggestion {
   url: string
 }
 
+function clientAllowsHeavyHeroVideo(reduceMotion: boolean | null): boolean {
+  if (typeof window === "undefined") return false
+  if (reduceMotion === true) return false
+  const nav = navigator as Navigator & {
+    deviceMemory?: number
+    connection?: { saveData?: boolean; effectiveType?: string }
+  }
+  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4) return false
+  const c = nav.connection
+  if (c?.saveData === true) return false
+  const eff = c?.effectiveType
+  if (eff === "slow-2g" || eff === "2g") return false
+  return true
+}
+
 export function HeroSearch() {
   const router = useRouter()
   const { resolvedTheme } = useTheme()
+  const prefersReducedMotion = useReducedMotion()
   const [mounted, setMounted] = useState(false)
+  /** Defer mounting hero <video> until after first paint + idle — avoids decode/network fighting hydration (OOM / tab crash). */
+  const [idleHeroVideoReady, setIdleHeroVideoReady] = useState(false)
   const [query, setQuery] = useState("")
   const [isFocused, setIsFocused] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
@@ -95,6 +113,30 @@ export function HeroSearch() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    let idleId: number
+    let usedIdleCallback = false
+    if (typeof window.requestIdleCallback === "function") {
+      usedIdleCallback = true
+      idleId = window.requestIdleCallback(() => setIdleHeroVideoReady(true), {
+        timeout: 2800,
+      })
+    } else {
+      idleId = window.setTimeout(() => setIdleHeroVideoReady(true), 900) as unknown as number
+    }
+    return () => {
+      if (usedIdleCallback && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId)
+      } else {
+        window.clearTimeout(idleId)
+      }
+    }
+  }, [])
+
+  const showHeroBackgroundVideo =
+    idleHeroVideoReady && clientAllowsHeavyHeroVideo(prefersReducedMotion)
 
   // Rotate Try: suggestions on mount and every 30s for variety
   useEffect(() => {
@@ -283,23 +325,22 @@ export function HeroSearch() {
         className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
         style={{ contain: "paint", willChange: "transform" }}
       >
-        {/* preload="metadata" — Apr 23, 2026 — Morgan:
-            "running crep in browser literally lagging the typing massively
-            as crep loads". The `Mycosoft Background.mp4` on NAS is 474 MB
-            and `-web.mp4` returns 404 on prod. With the previous default
-            preload="auto" the browser eagerly streamed the full 474 MB
-            on homepage mount, saturating the browser's network queue and
-            intercepting the decoder thread, so every other tab (chat /
-            devtools) lagged during CREP load. metadata-only lets the
-            browser fetch just enough to start playback on visibility,
-            stops the full download, and frees the network queue. */}
-        <AutoplayVideo
-          src={HOME_HERO_SOURCES[0]}
-          sources={HOME_HERO_SOURCES}
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover"
-          encodeSrc
-        />
+        {/* May 03, 2026 — Homepage OOM / tab crash: mount video only after
+            requestIdleCallback + client policy (reduced motion, saveData,
+            deviceMemory ≤ 4, slow-2g/2g). Sources default to *-web.mp4 only
+            (see `homeHeroVideoSources`). preload="none" until element exists,
+            then play — avoids hero competing with first paint and blocks full
+            MP4 fallback unless NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4=true. */}
+        {showHeroBackgroundVideo ? (
+          <AutoplayVideo
+            src={HOME_HERO_SOURCES[0]}
+            sources={HOME_HERO_SOURCES}
+            preload="none"
+            stallTimeoutMs={18000}
+            className="absolute inset-0 w-full h-full object-cover"
+            encodeSrc
+          />
+        ) : null}
         {/* Light tint overlay — replaces the video-layer filter so the
             GPU doesn't pay filter cost on every frame. */}
         <div

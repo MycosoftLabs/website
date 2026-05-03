@@ -36,6 +36,11 @@ export function CompoundSimContent() {
   const [chemspiderResults, setChemspiderResults] = useState<any[]>([])
   const [searchingChemSpider, setSearchingChemSpider] = useState(false)
   const [enriching, setEnriching] = useState(false)
+  const [chemputerPlan, setChemputerPlan] = useState<Record<string, unknown> | null>(null)
+  const [chemputerLoading, setChemputerLoading] = useState(false)
+  const [chemputerErr, setChemputerErr] = useState<string | null>(null)
+
+  const canRunChemputer = Boolean(selected && !String(selected.id).startsWith("cs-"))
 
   const fetchMINDEXCompounds = useCallback(async () => {
     setLoadingMindex(true)
@@ -146,6 +151,34 @@ export function CompoundSimContent() {
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     c.source.toLowerCase().includes(search.toLowerCase())
   )
+
+  const runChemputerPlan = async () => {
+    if (!selected || !canRunChemputer) return
+    setChemputerLoading(true)
+    setChemputerErr(null)
+    try {
+      const res = await fetch("/api/natureos/lab/chemputer/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ compound_id: selected.id }),
+      })
+      const data = (await res.json()) as Record<string, unknown>
+      if (!res.ok) {
+        const detail = data.detail as Record<string, unknown> | string | undefined
+        setChemputerErr(typeof detail === "string" ? detail : JSON.stringify(detail ?? data))
+        setChemputerPlan(null)
+        return
+      }
+      const result = data.result as Record<string, unknown> | undefined
+      setChemputerPlan(result ?? data)
+    } catch (error) {
+      console.error("Chemputer plan failed:", error)
+      setChemputerErr(error instanceof Error ? error.message : "request_failed")
+      setChemputerPlan(null)
+    } finally {
+      setChemputerLoading(false)
+    }
+  }
 
   const runSimulation = async () => {
     if (!selected) return
@@ -355,15 +388,46 @@ export function CompoundSimContent() {
               </TabsList>
               
               <TabsContent value="structure" className="space-y-4">
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={runSimulation} disabled={simulating || !selected}>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button className="flex-1 min-h-[44px]" onClick={runSimulation} disabled={simulating || !selected}>
                     <Beaker className="h-4 w-4 mr-2" /> Simulate Binding
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={handleEnrichFromChemSpider} disabled={enriching || !selected}>
+                  <Button
+                    variant="secondary"
+                    className="flex-1 min-h-[44px]"
+                    onClick={runChemputerPlan}
+                    disabled={chemputerLoading || !canRunChemputer}
+                    title={
+                      !selected
+                        ? "Select a compound"
+                        : !canRunChemputer
+                          ? "Chemputer MVP accepts MINDEX compound IDs only (not ChemSpider-only rows)."
+                          : "MAS ChemputerAgent — MINDEX-grounded plan"
+                    }
+                  >
+                    {chemputerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Dna className="h-4 w-4 mr-2" />}
+                    Chemputer plan (MAS)
+                  </Button>
+                  <Button variant="outline" className="flex-1 min-h-[44px]" onClick={handleEnrichFromChemSpider} disabled={enriching || !selected}>
                     {enriching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
                     Enrich Data
                   </Button>
                 </div>
+                {chemputerErr ? (
+                  <div className="p-3 rounded-lg border border-destructive/40 text-sm text-destructive">{chemputerErr}</div>
+                ) : null}
+                {chemputerPlan?.experiment_plan ? (
+                  <div className="p-4 rounded-lg border bg-muted/40 space-y-2">
+                    <p className="text-sm font-medium">Experiment plan (MINDEX-backed)</p>
+                    <ul className="list-decimal pl-5 text-sm space-y-1">
+                      {((chemputerPlan.experiment_plan as { steps?: { step: number; action: string; detail: string }[] }).steps || []).map((s) => (
+                        <li key={s.step}>
+                          <span className="font-medium">{s.action}</span> — {s.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {selected?.smiles && (
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">SMILES Notation:</p>

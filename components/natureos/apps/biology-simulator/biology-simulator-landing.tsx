@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { BiologySimulatorUnrealPanel } from "@/components/natureos/apps/biology-simulator/biology-simulator-unreal-panel"
 
 export interface BiologyModuleProbe {
   label: string
@@ -37,6 +38,8 @@ export function BiologySimulatorLanding({ modules }: BiologySimulatorLandingProp
           </CardDescription>
         </CardHeader>
       </Card>
+
+      <BiologySimulatorUnrealPanel />
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">MINDEX modules (live probes)</h2>

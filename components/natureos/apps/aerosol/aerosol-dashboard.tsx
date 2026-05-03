@@ -21,7 +21,22 @@ function summarizeJson(layer: string, status: number, raw: unknown): string {
     return typeof raw === "string" ? raw.slice(0, 280) : "Non-JSON or empty response."
   }
   const o = raw as Record<string, unknown>
+  if (layer === "openaq") {
+    const src = o.source ? String(o.source) : "openaq"
+    const avail = o.available === true
+    const data = o.data as Record<string, unknown> | undefined
+    const results = data?.results
+    if (!avail) return `${src}: unavailable`
+    if (Array.isArray(results)) return `${src}: ${results.length} measurement row(s) returned.`
+    return `${src}: response received (see raw keys: ${Object.keys(o).join(", ")}).`
+  }
   if (layer === "virus" || layer === "radiation") {
+    const up = o.upstream as Record<string, unknown> | undefined
+    if (up) {
+      if (up.available === false) return String(up.message || "Upstream unavailable.")
+      if (typeof up.count === "number") return `samples=${up.count}`
+      return String(up.message || JSON.stringify(Object.keys(up)))
+    }
     return String(o.message || o.status || "Pending data source.")
   }
   if (layer === "chemicals") {
@@ -43,6 +58,7 @@ export function AerosolDashboard() {
   const [spores, setSpores] = useState<LayerState>(initial)
   const [dust, setDust] = useState<LayerState>(initial)
   const [virus, setVirus] = useState<LayerState>(initial)
+  const [openaq, setOpenaq] = useState<LayerState>(initial)
   const [chemicals, setChemicals] = useState<LayerState>(initial)
   const [radiation, setRadiation] = useState<LayerState>(initial)
 
@@ -81,6 +97,7 @@ export function AerosolDashboard() {
     void load("/api/natureos/aerosol/pollen", "pollen", setPollen)
     void load("/api/natureos/aerosol/spores", "spores", setSpores)
     void load("/api/natureos/aerosol/dust", "dust", setDust)
+    void load("/api/natureos/feeds/openaq/measurements?limit=20", "openaq", setOpenaq)
     void load("/api/natureos/aerosol/virus", "virus", setVirus)
     void load("/api/natureos/aerosol/chemicals", "chemicals", setChemicals)
     void load("/api/natureos/aerosol/radiation", "radiation", setRadiation)
@@ -106,10 +123,16 @@ export function AerosolDashboard() {
       badge: "CREP/MINDEX",
     },
     {
+      title: "Air quality (OpenAQ)",
+      description: "Real PM/species measurements via MAS EnvironmentalClient → OpenAQ v2 (BFF: `/api/natureos/feeds/openaq/measurements`).",
+      state: openaq,
+      badge: "OpenAQ",
+    },
+    {
       title: "Virus",
-      description: "Explicit pending source — no fabricated case data.",
+      description: "MAS explicit deferral — structured 503 until a curated public-health ingest exists.",
       state: virus,
-      badge: "Pending",
+      badge: "MAS",
     },
     {
       title: "Chemicals",
@@ -119,9 +142,9 @@ export function AerosolDashboard() {
     },
     {
       title: "Radiation",
-      description: "Explicit pending source — no simulated dose data.",
+      description: "Safecast probe via MAS — empty or 503 when Safecast/network rejects (no simulated µSv/h).",
       state: radiation,
-      badge: "Pending",
+      badge: "MAS/Safecast",
     },
   ]
 

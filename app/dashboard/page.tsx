@@ -20,7 +20,6 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { MemoryHealthWidget } from "@/components/memory"
-import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 import { MYCAStateWidget } from "@/components/myca/MYCAStateWidget"
 import { DashboardHero } from "@/components/dashboard/dashboard-hero"
 
@@ -496,7 +495,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </footer>
-      <MYCAFloatingButton title="MYCA Assistant" className="right-20" />
     </div>
   )
 }

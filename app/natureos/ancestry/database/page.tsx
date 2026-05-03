@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -53,7 +54,15 @@ function getSpeciesHref(s: Species) {
   return `/natureos/ancestry/species/${encodeURIComponent(stableId)}`
 }
 
+function normalizeKingdomFromUrl(raw: string | null): string {
+  if (!raw || raw.trim().toLowerCase() === "all") return "all"
+  const hit = KINGDOMS.find((x) => x.value.toLowerCase() === raw.trim().toLowerCase())
+  return hit?.value ?? "all"
+}
+
 export default function AncestryDatabasePage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [species, setSpecies] = useState<Species[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,6 +72,12 @@ export default function AncestryDatabasePage() {
   const [letterTotal, setLetterTotal] = useState<number>(0)
   const [letterOffset, setLetterOffset] = useState<number>(0)
   const [kingdomFilter, setKingdomFilter] = useState("all")
+
+  const urlKingdom = searchParams.get("kingdom")
+  useEffect(() => {
+    setKingdomFilter(normalizeKingdomFromUrl(urlKingdom))
+    setLetterOffset(0)
+  }, [urlKingdom])
 
   const fetchSpecies = useCallback(async () => {
     setLoading(true)
@@ -142,7 +157,13 @@ export default function AncestryDatabasePage() {
             Refresh
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/natureos/ancestry/explorer">
+            <Link
+              href={
+                kingdomFilter !== "all"
+                  ? `/natureos/ancestry/explorer?kingdom=${encodeURIComponent(kingdomFilter)}`
+                  : "/natureos/ancestry/explorer"
+              }
+            >
               <Search className="h-4 w-4 mr-2" />
               Explorer
             </Link>
@@ -170,6 +191,13 @@ export default function AncestryDatabasePage() {
                   onValueChange={(v) => {
                     setKingdomFilter(v)
                     setLetterOffset(0)
+                    const p = new URLSearchParams(searchParams.toString())
+                    if (v === "all") p.delete("kingdom")
+                    else p.set("kingdom", v)
+                    const q = p.toString()
+                    router.replace(q ? `/natureos/ancestry/database?${q}` : "/natureos/ancestry/database", {
+                      scroll: false,
+                    })
                   }}
                 >
                   <SelectTrigger className="w-full sm:w-[240px] min-h-[44px] text-base" aria-label="Kingdom filter">

@@ -72,9 +72,26 @@ function orderedHomeHeroCanonicalPaths(): string[] {
 /**
  * Homepage hero: `NEXT_PUBLIC_HOME_HERO_MP4` first (exact NAS filename), then common aliases.
  * NO mushroom/waterfall fallback — only the homepage's own video plays here.
+ *
+ * Default (May 03, 2026): **web variant only** (`*-web.mp4` per canonical path) — never fall
+ * through to the multi‑hundred‑MB full MP4, which saturated browser memory on live site.
+ * Set `NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4=true` only when the full file is intentionally
+ * served and devices are known to handle it.
  */
 export function homeHeroVideoSources(): string[] {
-  return mergeMp4SourceGroups(...orderedHomeHeroCanonicalPaths())
+  const paths = orderedHomeHeroCanonicalPaths()
+  if (process.env.NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4 === "true") {
+    return mergeMp4SourceGroups(...paths)
+  }
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const p of paths) {
+    const web = webVariantPath(p)
+    if (seen.has(web)) continue
+    seen.add(web)
+    out.push(web)
+  }
+  return out
 }
 
 interface DeviceHeroVideoOptions {

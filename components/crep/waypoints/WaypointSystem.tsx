@@ -12,13 +12,12 @@
  *   • Look up what's here (queries MINDEX + Eagle Eye + known layers)
  *   • Drop a quick pin (unnamed, for measurement)
  *
- * Saved waypoints persist in localStorage under crep.waypoints.v1 and
- * render on the map as diamond markers with their name. Clicking a
- * waypoint marker opens the same dialog (edit / delete / export).
+ * Saved waypoints: **Supabase (`crep_waypoints`) when signed in** (via
+ * `/api/crep/waypoints`), with **localStorage** (`crep.waypoints.v1`) as a
+ * cache and offline fallback when anonymous. One-time migration uploads
+ * legacy local rows (`crep.waypoints.migrated.v1`).
  *
- * Syncs to MINDEX at POST /api/mindex/waypoints when MINDEX is reachable
- * so waypoints survive across devices (best-effort; localStorage stays
- * authoritative for this user's session).
+ * Best-effort mirror to MINDEX at POST /api/mindex/waypoints when reachable.
  */
 
 import { useEffect, useRef, useState } from "react"
@@ -26,9 +25,13 @@ import type { Map as MapLibreMap } from "maplibre-gl"
 
 export type Waypoint = {
   id: string
+  /** Stable key for upserts (e.g. wp-* before server assigns uuid) */
+  client_legacy_id?: string
   name: string
   lat: number
   lng: number
+  zoom?: number | null
+  source?: string
   color?: string
   icon?: string
   notes?: string
@@ -37,6 +40,7 @@ export type Waypoint = {
 }
 
 const STORAGE_KEY = "crep.waypoints.v1"
+const MIGRATED_KEY = "crep.waypoints.migrated.v1"
 const COLORS = [
   { hex: "#fbbf24", name: "amber" },
   { hex: "#f43f5e", name: "rose" },
@@ -66,16 +70,72 @@ function loadWaypoints(): Waypoint[] {
   } catch { return [] }
 }
 
-function saveWaypoints(wps: Waypoint[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(wps)) } catch { /* quota exceeded */ }
-  // Fire-and-forget sync to MINDEX for cross-device durability
+function isServerWaypointId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+}
+
+function apiRowToWaypoint(a: Record<string, unknown>): Waypoint {
+  const rawCat = a.category as string | undefined
+  const allowed = ["general", "asset", "hazard", "infra", "myca", "intel"] as const
+  const category = (allowed as readonly string[]).includes(rawCat || "")
+    ? (rawCat as Waypoint["category"])
+    : "general"
+  const name = (a.name ?? a.label ?? "Waypoint") as string
+  return {
+    id: String(a.id),
+    client_legacy_id: a.client_legacy_id ? String(a.client_legacy_id) : undefined,
+    name,
+    lat: Number(a.lat),
+    lng: Number(a.lng),
+    zoom: a.zoom != null ? Number(a.zoom) : undefined,
+    source: a.source ? String(a.source) : "crep",
+    color: a.color ? String(a.color) : undefined,
+    icon: a.icon ? String(a.icon) : undefined,
+    notes: a.notes != null ? String(a.notes) : undefined,
+    category,
+    created_at: typeof a.created_at === "string" ? a.created_at : new Date().toISOString(),
+  }
+}
+
+function waypointToApiBody(w: Waypoint): Record<string, unknown> {
+  const legacy = w.client_legacy_id ?? (w.id.startsWith("wp-") ? w.id : String(w.id))
+  return {
+    id: w.id,
+    name: w.name,
+    lat: w.lat,
+    lng: w.lng,
+    zoom: w.zoom ?? null,
+    source: w.source ?? "crep",
+    client_legacy_id: legacy,
+    color: w.color,
+    icon: w.icon,
+    notes: w.notes,
+    category: w.category,
+    payload: {
+      color: w.color,
+      icon: w.icon,
+      notes: w.notes,
+      category: w.category,
+    },
+  }
+}
+
+/** Cache locally + best-effort MINDEX mirror (does not write Supabase). */
+function persistLocal(wps: Waypoint[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(wps))
+  } catch {
+    /* quota exceeded */
+  }
   try {
     fetch("/api/mindex/waypoints", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ waypoints: wps }),
     }).catch(() => undefined)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -117,11 +177,66 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; lngLat: [number, number] } | null>(null)
   const [editing, setEditing] = useState<Waypoint | null>(null)
   const hasInstalledRef = useRef(false)
-
-  // Load persisted waypoints on mount
+  const waypointsRef = useRef<Waypoint[]>([])
   useEffect(() => {
-    setWaypoints(loadWaypoints())
+    waypointsRef.current = waypoints
+  }, [waypoints])
+
+  /** Signed-in: Supabase via API + one-time localStorage migration; anonymous: local only */
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/crep/waypoints", { credentials: "same-origin" })
+        if (cancelled) return
+        if (res.ok) {
+          const j = (await res.json()) as { waypoints?: Record<string, unknown>[] }
+          let list = (j.waypoints || []).map(apiRowToWaypoint)
+          const migrated = localStorage.getItem(MIGRATED_KEY)
+          const localOnly = loadWaypoints()
+          if (!migrated && localOnly.length > 0) {
+            const post = await fetch("/api/crep/waypoints", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                waypoints: localOnly.map(waypointToApiBody),
+              }),
+            })
+            if (post.ok) {
+              const pj = (await post.json()) as { waypoints?: Record<string, unknown>[] }
+              list = (pj.waypoints || []).map(apiRowToWaypoint)
+            }
+            localStorage.setItem(MIGRATED_KEY, "1")
+          }
+          setWaypoints(list)
+          persistLocal(list)
+          return
+        }
+      } catch {
+        /* fall through */
+      }
+      if (!cancelled) setWaypoints(loadWaypoints())
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  // When server assigns uuid, keep edit dialog tied to the same logical waypoint
+  useEffect(() => {
+    if (!editing) return
+    const live = waypoints.find(
+      (w) =>
+        w.id === editing.id ||
+        (!!editing.client_legacy_id && w.client_legacy_id === editing.client_legacy_id),
+    )
+    if (live && live.id !== editing.id) {
+      setEditing((prev) =>
+        prev ? { ...prev, id: live.id, client_legacy_id: live.client_legacy_id ?? prev.client_legacy_id } : prev,
+      )
+    }
+  }, [waypoints, editing?.id, editing?.client_legacy_id])
 
   // Install right-click handler on the map
   useEffect(() => {
@@ -202,8 +317,8 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
           },
         })
         map.on("click", "crep-waypoints-core", (e: any) => {
-          const id = e.features?.[0]?.properties?.id
-          const wp = loadWaypoints().find((w) => w.id === id)
+          const id = e.features?.[0]?.properties?.id as string | undefined
+          const wp = id ? waypointsRef.current.find((w) => w.id === id) : undefined
           if (wp) setEditing(wp)
         })
         map.on("mouseenter", "crep-waypoints-core", () => { map.getCanvas().style.cursor = "pointer" })
@@ -227,8 +342,10 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
   }, [map, waypoints])
 
   const addWaypoint = (partial: Partial<Waypoint>) => {
+    const legacyId = `wp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const wp: Waypoint = {
-      id: `wp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: legacyId,
+      client_legacy_id: legacyId,
       name: partial.name || `Waypoint ${new Date().toLocaleTimeString()}`,
       lat: partial.lat ?? 0,
       lng: partial.lng ?? 0,
@@ -239,32 +356,111 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
     }
     const next = [...waypoints, wp]
     setWaypoints(next)
-    saveWaypoints(next)
-    // Apr 22, 2026 — Morgan: "a new navy base marker and perimeter
-    // should be added to it live almost instantly after confirmed
-    // automatically that is a backend agent automation etl system
-    // needed to be functional globally". Fire-and-forget verify so
-    // MYCA picks up the waypoint, cross-references OSM + Nominatim +
-    // MINDEX + known-bases, and (if confidence >= 0.85) auto-adds
-    // the verified entity to MINDEX + broadcasts via SSE.
+    persistLocal(next)
     triggerMycaVerify(wp)
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/crep/waypoints", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ waypoint: waypointToApiBody(wp) }),
+        })
+        if (!res.ok) return
+        const j = (await res.json()) as { waypoints?: Record<string, unknown>[] }
+        const row = j.waypoints?.[0]
+        if (!row) return
+        const merged = apiRowToWaypoint(row)
+        setWaypoints((prev) => {
+          const next = prev.map((x) =>
+            x.client_legacy_id === wp.client_legacy_id || x.id === wp.id ? merged : x,
+          )
+          persistLocal(next)
+          return next
+        })
+      } catch {
+        /* offline / unauthorized — local cache only */
+      }
+    })()
     return wp
   }
 
   const updateWaypoint = (id: string, patch: Partial<Waypoint>) => {
     const next = waypoints.map((w) => (w.id === id ? { ...w, ...patch } : w))
     setWaypoints(next)
-    saveWaypoints(next)
-    // Re-verify when the user names or recategorizes a waypoint —
-    // the extra metadata improves classification.
+    persistLocal(next)
     const updated = next.find((w) => w.id === id)
     if (updated) triggerMycaVerify(updated)
+
+    void (async () => {
+      try {
+        const target = updated
+        if (!target) return
+        if (isServerWaypointId(target.id)) {
+          const res = await fetch(`/api/crep/waypoints/${encodeURIComponent(target.id)}`, {
+            method: "PATCH",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: target.name,
+              lat: target.lat,
+              lng: target.lng,
+              zoom: target.zoom ?? null,
+              color: target.color,
+              icon: target.icon,
+              notes: target.notes,
+              category: target.category,
+            }),
+          })
+          if (!res.ok) return
+          const j = (await res.json()) as { waypoint?: Record<string, unknown> }
+          const row = j.waypoint
+          if (!row) return
+          const merged = apiRowToWaypoint(row)
+          setWaypoints((prev) => {
+            const next = prev.map((w) => (w.id === target.id ? merged : w))
+            persistLocal(next)
+            return next
+          })
+        } else {
+          const res = await fetch("/api/crep/waypoints", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ waypoint: waypointToApiBody(target) }),
+          })
+          if (!res.ok) return
+          const j = (await res.json()) as { waypoints?: Record<string, unknown>[] }
+          const row = j.waypoints?.[0]
+          if (!row) return
+          const merged = apiRowToWaypoint(row)
+          setWaypoints((prev) => {
+            const next = prev.map((w) =>
+              w.client_legacy_id === target.client_legacy_id ? merged : w,
+            )
+            persistLocal(next)
+            return next
+          })
+        }
+      } catch {
+        /* offline */
+      }
+    })()
   }
 
   const deleteWaypoint = (id: string) => {
+    const victim = waypoints.find((w) => w.id === id)
     const next = waypoints.filter((w) => w.id !== id)
     setWaypoints(next)
-    saveWaypoints(next)
+    persistLocal(next)
+
+    if (victim && isServerWaypointId(victim.id)) {
+      void fetch(`/api/crep/waypoints/${encodeURIComponent(victim.id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      }).catch(() => undefined)
+    }
   }
 
   return (

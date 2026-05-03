@@ -66,6 +66,7 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
         {/* Main section link - tapping navigates to the section page */}
         <Link
           href={href}
+          prefetch={false}
           onClick={closeMenu}
           className="flex items-center gap-2 text-lg font-medium hover:text-primary transition-colors flex-1"
         >
@@ -101,6 +102,7 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={closeMenu}
                     className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-1"
                   >
@@ -203,7 +205,7 @@ export function MobileNav() {
             className="fixed inset-y-0 right-0 z-[99999] bg-background w-80 border-l border-gray-800 shadow-2xl overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
-              <Link href="/" className="flex items-center gap-2 font-semibold" onClick={closeMenu}>
+              <Link href="/" prefetch={false} className="flex items-center gap-2 font-semibold" onClick={closeMenu}>
                 <div className="relative h-8 w-8">
                   <Image
                     src={
@@ -228,6 +230,7 @@ export function MobileNav() {
                 {/* Search - Next.js Link handles hash navigation + prefetch */}
                 <Link
                   href="/search"
+                  prefetch={false}
                   className="flex items-center gap-2 text-lg font-medium py-1 cursor-pointer"
                   onClick={closeMenu}
                 >
@@ -236,13 +239,13 @@ export function MobileNav() {
                 </Link>
                 
                 {/* About Us - Direct Link */}
-                <Link href="/about" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                <Link href="/about" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
                   <Users className="h-5 w-5" />
                   About Us
                 </Link>
 
                 {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
-                <Link href="/agent" className="flex items-center gap-2 text-lg font-medium py-1 min-h-[44px] items-center" onClick={closeMenu}>
+                <Link href="/agent" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1 min-h-[44px] items-center" onClick={closeMenu}>
                   <Key className="h-5 w-5" />
                   Agent Access
                 </Link>
@@ -304,7 +307,7 @@ export function MobileNav() {
                 
                 {/* Security - Direct Link (only for logged in users) */}
                 {user && (
-                  <Link href="/security" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                  <Link href="/security" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
                     <Lock className="h-5 w-5" />
                     Security
                   </Link>
@@ -332,7 +335,7 @@ export function MobileNav() {
                     </Button>
                   ) : (
                     <Button variant="default" asChild>
-                      <Link href="/login" onClick={closeMenu}>
+                      <Link href="/login" prefetch={false} onClick={closeMenu}>
                         <User2 className="h-4 w-4 mr-2" />
                         Sign In
                       </Link>

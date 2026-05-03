@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ToolsHubHealthStrip } from "@/components/natureos/apps/tools-hub/tools-hub-health-strip"
 
 interface HubItem {
   name: string
@@ -179,6 +180,7 @@ export function ToolsHubIndex() {
           Seven categories catalog real routes only — nothing listed here is mock data. Items marked pending require an
           upstream service or dataset before they surface live metrics.
         </p>
+        <ToolsHubHealthStrip />
       </header>
 
       <div className="space-y-10">

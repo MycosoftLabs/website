@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { PresenceProvider } from "@/contexts/presence-context"
@@ -18,26 +18,28 @@ const MYCAFloatingButton = dynamic(
   { ssr: false }
 )
 
-const LIGHT_PUBLIC_ROUTES = new Set([
-  "/",
-  "/about",
-  "/devices",
-  "/research",
-  "/science",
-  "/terms",
-  "/privacy",
-  "/contact",
-  "/support",
-])
+/** Routes that actually render MYCA-dependent UI. Keep this tight so NatureOS/Defense/CREP hubs do not mount MYCA + voice stubs until the user opens these surfaces. */
+const MYCA_PREFIXES = [
+  "/search",
+  "/myca",
+  "/test-voice",
+  "/test-fluid-search",
+  "/natureos/ai-studio",
+  "/scientific",
+  "/dashboard",
+  "/admin",
+]
 
-const LIGHT_PUBLIC_PREFIXES = ["/devices/", "/about/", "/research/", "/science/"]
-const MYCA_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/scientific", "/admin"]
-const APP_STATE_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/protocols", "/scientific", "/admin"]
+/**
+ * AppStateProvider syncs tool state to Supabase — currently unused by pages (no useToolState consumers).
+ * Keep empty to avoid extra client work on NatureOS/Defense/marketing paths. When a route uses useToolState,
+ * add its prefix here.
+ */
+const APP_STATE_PREFIXES: string[] = []
 const NATIVE_MYCA_INTERFACE_PREFIXES = [
   "/test-voice",
   "/search",
   "/dashboard/crep",
-  "/dashboard/morgan",
   "/myca",
   "/natureos/ai-studio",
 ]
@@ -66,40 +68,30 @@ function getPageContextForMYCA(pathname: string): string {
   return ""
 }
 
-function isLightPublicRoute(pathname: string): boolean {
-  return LIGHT_PUBLIC_ROUTES.has(pathname) || startsWithAny(pathname, LIGHT_PUBLIC_PREFIXES)
-}
-
 function hasNativeMycaInterface(pathname: string): boolean {
   return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
 }
 
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
-  const [hasUsedMyca, setHasUsedMyca] = useState(false)
-
-  useEffect(() => {
-    try {
-      setHasUsedMyca(window.localStorage.getItem("myca_has_used") === "1")
-    } catch {
-      setHasUsedMyca(false)
-    }
-  }, [])
 
   const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
-    const lightPublic = isLightPublicRoute(pathname)
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)
     const routeNeedsAppState = startsWithAny(pathname, APP_STATE_PREFIXES)
 
-    const mycaEnabled = routeWantsMyca || (!lightPublic && hasUsedMyca)
     const nativeMycaInterface = hasNativeMycaInterface(pathname)
     return {
-      enableMyca: mycaEnabled,
-      showFloating: mycaEnabled && !nativeMycaInterface,
+      enableMyca: routeWantsMyca,
+      showFloating: routeWantsMyca && !nativeMycaInterface,
       enableAppState: routeNeedsAppState,
-      mycaAlwaysActive: pathname.startsWith("/search") || pathname.startsWith("/myca") || pathname.startsWith("/test-voice"),
+      mycaAlwaysActive:
+        pathname.startsWith("/search") ||
+        pathname.startsWith("/myca") ||
+        pathname.startsWith("/test-voice") ||
+        pathname.startsWith("/test-fluid-search") ||
+        pathname.startsWith("/natureos/ai-studio"),
     }
-  }, [pathname, hasUsedMyca])
+  }, [pathname])
 
   let content: React.ReactNode = children
 

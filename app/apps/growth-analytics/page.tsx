@@ -94,6 +94,13 @@ export function GrowthAnalyticsContent() {
   const [mindexConnected, setMindexConnected] = useState(false)
   const [mindexSpeciesCount, setMindexSpeciesCount] = useState(0)
 
+  const [instrument, setInstrument] = useState<{
+    loading: boolean
+    narrative?: string
+    hasData?: boolean
+    error?: string
+  }>({ loading: true })
+
   const fetchSpecies = useCallback(async () => {
     try {
       const response = await fetch("/api/growth/predict")
@@ -128,6 +135,44 @@ export function GrowthAnalyticsContent() {
   useEffect(() => {
     checkMINDEX()
   }, [checkMINDEX])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/natureos/lab/growth/instrument-summary?limit=40", { cache: "no-store" })
+        const data = (await res.json()) as Record<string, unknown>
+        if (cancelled) return
+        if (!res.ok) {
+          setInstrument({
+            loading: false,
+            error: JSON.stringify(data.detail ?? data),
+          })
+          return
+        }
+        const r = data.result as Record<string, unknown> | undefined
+        if (r && typeof r.narrative === "string") {
+          setInstrument({
+            loading: false,
+            narrative: r.narrative,
+            hasData: Boolean(r.has_instrument_data),
+          })
+        } else {
+          setInstrument({ loading: false, error: "unexpected_mas_response" })
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setInstrument({
+            loading: false,
+            error: e instanceof Error ? e.message : "fetch_failed",
+          })
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Run prediction
   const runPrediction = useCallback(async () => {
@@ -197,7 +242,8 @@ export function GrowthAnalyticsContent() {
             Growth Analytics
           </h1>
           <p className="text-muted-foreground">
-            ML-powered mushroom growth prediction using Monod-Cardinal models
+            Literature-parameter growth curves from `/api/growth/predict` plus optional live instrument narrative from MAS
+            → MINDEX telemetry (see card below).
           </p>
         </div>
         <div className="flex gap-2">
@@ -230,6 +276,28 @@ export function GrowthAnalyticsContent() {
         </div>
       </div>
 
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle className="text-lg">Instrument-backed growth context</CardTitle>
+          <CardDescription>
+            From <code className="text-xs bg-muted px-1 rounded">GrowthAnalyticsAgent</code> via MAS → MINDEX latest
+            telemetry. Empty narrative means no rows — not a fabricated plateau.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {instrument.loading ? <p className="text-muted-foreground">Loading instrument summary…</p> : null}
+          {instrument.error ? <p className="text-destructive">{instrument.error}</p> : null}
+          {!instrument.loading && instrument.narrative ? (
+            <>
+              <Badge variant={instrument.hasData ? "default" : "secondary"}>
+                {instrument.hasData ? "Telemetry samples present" : "No telemetry samples"}
+              </Badge>
+              <p className="text-foreground pt-1">{instrument.narrative}</p>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
       {/* Algorithm Info */}
       {prediction && (
         <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 border-green-200 dark:border-green-800">
@@ -240,7 +308,8 @@ export function GrowthAnalyticsContent() {
                 <div>
                   <div className="font-semibold">{prediction.algorithm.model}</div>
                   <div className="text-sm text-muted-foreground">
-                    v{prediction.algorithm.version} • {prediction.algorithm.confidence}% confidence
+                    v{prediction.algorithm.version} • {prediction.algorithm.confidence}% confidence — model-only, not live
+                    biomass from instruments.
                   </div>
                 </div>
               </div>
