@@ -11,9 +11,6 @@ export type { VoiceChatMessage, UseVoiceChatOptions, UseVoiceChatReturn } from "
 export { useMapVoiceControl } from "./useMapVoiceControl"
 export type { MapVoiceControlOptions, UseMapVoiceControlReturn } from "./useMapVoiceControl"
 
-export { useDashboardVoice } from "./useDashboardVoice"
-export type { DashboardType, DashboardVoiceHandlers, UseDashboardVoiceOptions, UseDashboardVoiceReturn } from "./useDashboardVoice"
-
 // Memory Hooks
 export { useMemory } from "./use-memory"
 export type { MemoryRecord, MemoryStats, UserProfile, Episode, BrainStatus } from "./use-memory"
