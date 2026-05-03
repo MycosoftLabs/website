@@ -314,6 +314,7 @@ All notable changes to this project will be documented in this file.
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content) (#137)
 - *(voice)* Use fetchWithTimeout for orchestrator POST (120s) — completes PersonaPlex lag hardening
 - *(voice)* Use fetchWithTimeout 120s for MAS TTS and orchestrator in useVoiceChat (align with usePersonaPlex)
+- *(website)* Lazy-registry CREPDashboardLoader only (unblocks npm run build)
 
 ### CREP
 
@@ -447,6 +448,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -736,6 +738,7 @@ All notable changes to this project will be documented in this file.
 ### WIP
 
 - CREP, test-voice, MYCA components, OEI for cross-agent work
+- *(may02)* Full NatureOS/ancestry/petri/v2 batch (savepoint branch)
 
 ### Website
 
