@@ -72,10 +72,10 @@ function hasNativeMycaInterface(pathname: string): boolean {
   return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
 }
 
+/** App hubs that hide global marketing header/footer. `/search` keeps site nav (Fluid Search is not a full silo). */
 const HUB_SILO_PREFIXES = [
   "/natureos",
   "/defense",
-  "/search",
   "/test-fluid-search",
   "/scientific",
   "/myca",

@@ -613,7 +613,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
-   HUB SILO — NatureOS / defense / search / MYCA hubs (May 02 2026)
+   HUB SILO — NatureOS / defense / test-fluid-search / scientific / MYCA (May 02 2026)
+   Fluid Search (/search) keeps global nav — not in silo list in AppShellProviders.
    Hides marketing header+footer only; unlike dashboard-fullscreen, scroll stays normal.
    ============================================ */
 body.hub-silo header,
