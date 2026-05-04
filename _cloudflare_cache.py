@@ -31,6 +31,29 @@ def _load_dotenv_into_os(dir_path: Path, filenames: tuple[str, ...] = (".env.loc
             pass
 
 
+def _override_cloudflare_from_credentials(script_dir: Path, cwd: Path) -> None:
+    """Apply CLOUDFLARE_* from .credentials.local last — .env.local may hold stale tokens (401 on purge)."""
+    for base in (script_dir, cwd, script_dir.parent.parent / "MAS" / "mycosoft-mas"):
+        fpath = base / ".credentials.local"
+        if not fpath.is_file():
+            continue
+        try:
+            with open(fpath, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    if not key.startswith("CLOUDFLARE"):
+                        continue
+                    value = value.strip().strip('"').strip("'")
+                    if value:
+                        os.environ[key] = value
+        except OSError:
+            pass
+
+
 def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     # Try loading from .env in the same directory as this script (website repo root when run from website/)
     script_dir = Path(__file__).resolve().parent
@@ -42,6 +65,8 @@ def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str
     # Also try .credentials.local (MAS and website repos)
     for base in (script_dir, cwd, script_dir.parent.parent / "MAS" / "mycosoft-mas"):
         _load_dotenv_into_os(base, (".credentials.local",))
+
+    _override_cloudflare_from_credentials(script_dir, cwd)
 
     token = os.getenv("CLOUDFLARE_API_TOKEN")
     zone_id = os.getenv("CLOUDFLARE_ZONE_ID")
