@@ -315,6 +315,9 @@ All notable changes to this project will be documented in this file.
 - *(voice)* Use fetchWithTimeout for orchestrator POST (120s) — completes PersonaPlex lag hardening
 - *(voice)* Use fetchWithTimeout 120s for MAS TTS and orchestrator in useVoiceChat (align with usePersonaPlex)
 - *(website)* Lazy-registry CREPDashboardLoader only (unblocks npm run build)
+- *(deploy)* Prefer .credentials.local CLOUDFLARE_* over .env.local for cache purge
+- *(search)* Show global nav on /search by excluding route from hub-silo
+- *(shell)* Remove hub-silo so global site nav shows on NatureOS and all routes
 
 ### CREP
 
@@ -448,6 +451,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
