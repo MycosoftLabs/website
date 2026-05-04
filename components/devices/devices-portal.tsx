@@ -2,9 +2,11 @@
 
 import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { devicesPortalHeroYoutubeId, youtubeHeroThumbnailUrl } from "@/lib/hero-youtube"
 import { 
   Microscope, 
   Wind, 
@@ -28,6 +30,7 @@ import {
   Factory,
   RefreshCw,
   Puzzle,
+  Plane,
 } from "lucide-react"
 import {
   NeuButton,
@@ -206,6 +209,40 @@ const devices = [
     ],
   },
   {
+    id: "agaric",
+    name: "Agaric",
+    tagline: "Flying Myco Drone",
+    description:
+      "MycoBrain-powered flying hub that deploys, retrieves, and data-mules for every Mycosoft device. Three variants: Mini, Standard, Heavy-Lift.",
+    icon: Plane,
+    color: "violet-500",
+    image: "/assets/agaric/hero.jpg",
+    status: "Development",
+    price: "$799 / $1,299 / $2,999",
+    specs: [
+      { label: "Take-off weight", value: "<249 g / ~800 g / ~4.5 kg (variants)" },
+      { label: "Payload", value: "<100 g / ~500 g / up to ~2 kg" },
+      { label: "Flight time (target)", value: "34–40 / ~46 / ~50 min" },
+      { label: "Range class", value: "LoRa mesh + Wi‑Fi + optional sat" },
+      { label: "Payload interface", value: "MicoLatch + winch (Heavy-Lift)" },
+      { label: "Ingress", value: "IP55 airframe (Heavy-Lift target)" },
+    ],
+    features: [
+      "Flying Mycorrhizae / MDP gateway",
+      "Pixhawk + MycoBrain MAVLink bridge",
+      "Deploy & retrieve SporeBase, MycoNode, Mushroom 1",
+      "NDAA-oriented BOM path (program)",
+      "NatureOS + MAS mission agents",
+      "Open ArduPilot / PX4 compatible",
+    ],
+    applications: [
+      "Scientific field deployment",
+      "Agriculture & forestry mesh extension",
+      "Defense / SAR sensor lift",
+      "Ocean relay with Psathyrella-class buoys",
+    ],
+  },
+  {
     id: "alarm",
     name: "ALARM",
     tagline: "Biological Home Alarm",
@@ -279,6 +316,9 @@ const MYCOBRAIN_SHOWCASE_SOURCES = deviceHeroVideoSources("/assets/devices/mycob
   aliases: ["/assets/mycobrain/showcase.mp4"],
 })
 
+/** Optional @Mycosoft YouTube for /devices hero — https://www.youtube.com/@Mycosoft */
+const DEVICES_PORTAL_HERO_YT = devicesPortalHeroYoutubeId()
+
 /** Board photography served from NAS mount — upload to match these paths or swap filenames on NAS. */
 const MYCOBRAIN_BOARD_IMAGES = [
   { src: "/assets/devices/mycobrain-board-top.jpg", alt: "MycoBrain motherboard — assembly view" },
@@ -311,6 +351,7 @@ const mycobrainPillars = [
 export function DevicesPortal() {
   const [selectedDevice, setSelectedDevice] = useState(devices[0])
   const detailRef = useRef<HTMLElement>(null)
+  const prefersReducedMotion = useReducedMotion()
 
   const handleSelectDevice = useCallback((device: typeof devices[0]) => {
     setSelectedDevice(device)
@@ -335,7 +376,26 @@ export function DevicesPortal() {
           className="absolute inset-0 bg-gradient-to-br from-background via-muted/80 to-background"
           aria-hidden
         />
-        {DEVICES_PORTAL_HERO_SOURCES[0] ? (
+        {DEVICES_PORTAL_HERO_YT ? (
+          prefersReducedMotion ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={youtubeHeroThumbnailUrl(DEVICES_PORTAL_HERO_YT)}
+              alt=""
+              className="absolute inset-0 z-0 h-full w-full object-cover"
+              style={{ filter: "brightness(0.32)" }}
+              decoding="async"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 z-0 overflow-hidden"
+              style={{ filter: "brightness(0.32)" }}
+              aria-hidden
+            >
+              <YoutubeHeroBackground videoId={DEVICES_PORTAL_HERO_YT} />
+            </div>
+          )
+        ) : DEVICES_PORTAL_HERO_SOURCES[0] ? (
           <AutoplayVideo
             src={DEVICES_PORTAL_HERO_SOURCES[0]}
             sources={DEVICES_PORTAL_HERO_SOURCES}

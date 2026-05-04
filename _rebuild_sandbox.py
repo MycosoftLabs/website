@@ -221,9 +221,12 @@ else:
         #    avoids Docker Hub metadata calls that have been timing out.
         # 2) Fall back to BuildKit with retries in case classic builder still needs to pull.
         exports_cmd, docker_args = _build_supabase_args()
-        site_url_arg = f"--build-arg NEXT_PUBLIC_SITE_URL={base_url} "
-        build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
-        build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
+        public_site_args = (
+            f"--build-arg NEXT_PUBLIC_SITE_URL={base_url} "
+            f"--build-arg NEXT_PUBLIC_BASE_URL={base_url} "
+        )
+        build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{public_site_args}--network host --no-cache -t {image_tag} ."
+        build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{public_site_args}--network host --no-cache -t {image_tag} ."
 
         # Preserve last known-good image for rollback (Cloudflare 502 if new container dies on :3000)
         print("   Tagging current :latest as :previous (rollback target)...")

@@ -23,7 +23,9 @@ import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { homeHeroVideoSources } from "@/lib/asset-video-sources"
+import { homeHeroYoutubeId, youtubeHeroThumbnailUrl } from "@/lib/hero-youtube"
 import Link from "next/link"
 import {
   Search,
@@ -42,6 +44,10 @@ import {
  * hero behaves like the rest of the site's background videos.
  */
 const HOME_HERO_SOURCES = homeHeroVideoSources()
+/** Optional WebP/AVIF poster until first video frame (set on prod Docker env). */
+const HOME_HERO_POSTER = process.env.NEXT_PUBLIC_HOME_HERO_POSTER?.trim() || undefined
+/** Optional @Mycosoft YouTube hero — 11-char id or full URL; see https://www.youtube.com/@Mycosoft */
+const HOME_HERO_YOUTUBE_ID = homeHeroYoutubeId()
 
 interface HeroSuggestion {
   id: string
@@ -121,7 +127,7 @@ export function HeroSearch() {
     if (typeof window.requestIdleCallback === "function") {
       usedIdleCallback = true
       idleId = window.requestIdleCallback(() => setIdleHeroVideoReady(true), {
-        timeout: 2800,
+        timeout: 900,
       })
     } else {
       idleId = window.setTimeout(() => setIdleHeroVideoReady(true), 900) as unknown as number
@@ -137,6 +143,14 @@ export function HeroSearch() {
 
   const showHeroBackgroundVideo =
     idleHeroVideoReady && clientAllowsHeavyHeroVideo(prefersReducedMotion)
+
+  const canEmbedYoutubeHero =
+    idleHeroVideoReady &&
+    !!HOME_HERO_YOUTUBE_ID &&
+    clientAllowsHeavyHeroVideo(prefersReducedMotion)
+
+  const showYoutubeHeroPoster =
+    idleHeroVideoReady && !!HOME_HERO_YOUTUBE_ID && !canEmbedYoutubeHero
 
   // Rotate Try: suggestions on mount and every 30s for variety
   useEffect(() => {
@@ -331,11 +345,22 @@ export function HeroSearch() {
             (see `homeHeroVideoSources`). preload="none" until element exists,
             then play — avoids hero competing with first paint and blocks full
             MP4 fallback unless NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4=true. */}
-        {showHeroBackgroundVideo ? (
+        {canEmbedYoutubeHero && HOME_HERO_YOUTUBE_ID ? (
+          <YoutubeHeroBackground videoId={HOME_HERO_YOUTUBE_ID} className="z-0" />
+        ) : showYoutubeHeroPoster && HOME_HERO_YOUTUBE_ID ? (
+          // eslint-disable-next-line @next/next/no-img-element -- external i.ytimg.com; avoids optimizer config
+          <img
+            src={HOME_HERO_POSTER ?? youtubeHeroThumbnailUrl(HOME_HERO_YOUTUBE_ID)}
+            alt=""
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+            decoding="async"
+          />
+        ) : showHeroBackgroundVideo && !HOME_HERO_YOUTUBE_ID ? (
           <AutoplayVideo
             src={HOME_HERO_SOURCES[0]}
             sources={HOME_HERO_SOURCES}
-            preload="none"
+            poster={HOME_HERO_POSTER}
+            preload="auto"
             stallTimeoutMs={18000}
             className="absolute inset-0 w-full h-full object-cover"
             encodeSrc

@@ -70,6 +70,9 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 # Site URL for OAuth callbacks - MUST match deployed domain
 ARG NEXT_PUBLIC_SITE_URL=https://mycosoft.com
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+# Same-origin HTTPS graph proxy (`getMasGraphClientBase`) keys off this at build time — must not be localhost in prod images.
+ARG NEXT_PUBLIC_BASE_URL=https://mycosoft.com
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV SUPABASE_SERVICE_ROLE_KEY=placeholder
 # Stripe — publishable key must be inlined at build time; secret key is set at runtime via docker-compose
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
