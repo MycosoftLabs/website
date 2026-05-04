@@ -72,25 +72,12 @@ function hasNativeMycaInterface(pathname: string): boolean {
   return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
 }
 
-/** App hubs that hide global marketing header/footer. `/search` keeps site nav (Fluid Search is not a full silo). */
-const HUB_SILO_PREFIXES = [
-  "/natureos",
-  "/defense",
-  "/test-fluid-search",
-  "/scientific",
-  "/myca",
-]
-
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
 
   useEffect(() => {
-    const isDashboard = pathname.startsWith("/dashboard")
-    const wantsSilo = !isDashboard && startsWithAny(pathname, HUB_SILO_PREFIXES)
-    if (wantsSilo) document.body.classList.add("hub-silo")
-    else document.body.classList.remove("hub-silo")
-    return () => document.body.classList.remove("hub-silo")
-  }, [pathname])
+    document.body.classList.remove("hub-silo")
+  }, [])
 
   const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)
