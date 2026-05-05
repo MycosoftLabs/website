@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
-import { devicesPortalHeroYoutubeId, youtubeHeroThumbnailUrl } from "@/lib/hero-youtube"
+import { devicesPortalHeroYoutubeId } from "@/lib/hero-youtube"
 import { 
   Microscope, 
   Wind, 
@@ -376,26 +376,7 @@ export function DevicesPortal() {
           className="absolute inset-0 bg-gradient-to-br from-background via-muted/80 to-background"
           aria-hidden
         />
-        {DEVICES_PORTAL_HERO_YT ? (
-          prefersReducedMotion ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={youtubeHeroThumbnailUrl(DEVICES_PORTAL_HERO_YT)}
-              alt=""
-              className="absolute inset-0 z-0 h-full w-full object-cover"
-              style={{ filter: "brightness(0.32)" }}
-              decoding="async"
-            />
-          ) : (
-            <div
-              className="absolute inset-0 z-0 overflow-hidden"
-              style={{ filter: "brightness(0.32)" }}
-              aria-hidden
-            >
-              <YoutubeHeroBackground videoId={DEVICES_PORTAL_HERO_YT} />
-            </div>
-          )
-        ) : DEVICES_PORTAL_HERO_SOURCES[0] ? (
+        {DEVICES_PORTAL_HERO_SOURCES[0] ? (
           <AutoplayVideo
             src={DEVICES_PORTAL_HERO_SOURCES[0]}
             sources={DEVICES_PORTAL_HERO_SOURCES}
@@ -404,9 +385,18 @@ export function DevicesPortal() {
             encodeSrc
           />
         ) : null}
-        <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-background/55 via-background/75 to-background" />
-        <div className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_right,#8883_1px,transparent_1px),linear-gradient(to_bottom,#8883_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.07]" />
-        <div className="absolute top-1/4 left-1/2 z-[1] -translate-x-1/2 w-[min(90vw,640px)] h-[min(90vw,640px)] pointer-events-none bg-primary/10 rounded-full blur-3xl" />
+        {DEVICES_PORTAL_HERO_YT && !prefersReducedMotion ? (
+          <div
+            className="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
+            style={{ filter: "brightness(0.32)" }}
+            aria-hidden
+          >
+            <YoutubeHeroBackground videoId={DEVICES_PORTAL_HERO_YT} />
+          </div>
+        ) : null}
+        <div className="absolute inset-0 z-[2] pointer-events-none bg-gradient-to-b from-background/55 via-background/75 to-background" />
+        <div className="absolute inset-0 z-[2] pointer-events-none bg-[linear-gradient(to_right,#8883_1px,transparent_1px),linear-gradient(to_bottom,#8883_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.07]" />
+        <div className="absolute top-1/4 left-1/2 z-[2] -translate-x-1/2 w-[min(90vw,640px)] h-[min(90vw,640px)] pointer-events-none bg-primary/10 rounded-full blur-3xl" />
 
         <div className="container max-w-7xl mx-auto relative z-10 px-4">
           <motion.div

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth/api-auth"
+import { mapUnifiToNetworkDashboard } from "@/lib/unifi/network-dashboard-map"
 
 export const dynamic = "force-dynamic"
 
@@ -80,18 +81,32 @@ export async function GET(request: NextRequest) {
   try {
     switch (action) {
       case "dashboard": {
-        const [health, devices, clients, alarms] = await Promise.all([
+        const [health, devices, clients, alarms, wlans, dpi] = await Promise.all([
           unifiGet<Record<string, unknown>>("/stat/health"),
           unifiGet<Record<string, unknown>>("/stat/device"),
           unifiGet<Record<string, unknown>>("/stat/sta"),
           unifiGet<Record<string, unknown>>("/stat/alarm").catch(() => []),
+          unifiGet<Record<string, unknown>>("/rest/wlanconf").catch(() => []),
+          unifiGet<Record<string, unknown>>("/stat/dpi").catch(() => []),
         ])
+        return NextResponse.json(
+          mapUnifiToNetworkDashboard({ health, devices, clients, alarms, wlans, dpi }),
+        )
+      }
+      case "throughput": {
+        const clients = await unifiGet<Record<string, unknown>>("/stat/sta")
+        let txBps = 0
+        let rxBps = 0
+        for (const c of clients) {
+          txBps += Number(c["tx_bytes-r"] ?? c.tx_bytes_r ?? 0)
+          rxBps += Number(c["rx_bytes-r"] ?? c.rx_bytes_r ?? 0)
+        }
+        const toMbps = (bps: number) => (bps * 8) / 1_000_000
         return NextResponse.json({
           timestamp: new Date().toISOString(),
-          health,
-          devices,
-          clients,
-          alarms,
+          lan: { tx_mbps: toMbps(txBps), rx_mbps: toMbps(rxBps) },
+          wan: { tx_mbps: toMbps(txBps), rx_mbps: toMbps(rxBps) },
+          source: "unifi_stat_sta_bytes_r",
         })
       }
       case "health":

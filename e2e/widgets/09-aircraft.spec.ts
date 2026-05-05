@@ -75,7 +75,7 @@ test.describe("Aircraft Search Widgets", () => {
     test("aircraft query shows earth secondary widgets", async ({ page }) => {
       await searchAndWait(page, "planes over San Francisco")
       await expectWidgetExpanded(page, "aircraft")
-      await expectSecondaryWidgets(page, ["map", "weather", "events"])
+      await expectSecondaryWidgets(page, ["earth", "weather", "events"])
     })
   })
 })

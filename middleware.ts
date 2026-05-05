@@ -10,7 +10,21 @@ import type { NextRequest } from "next/server"
 import { pathRequiresAuth, pathRequiresCompanyEmail } from '@/lib/access/routes'
 import { isCompanyEmail } from '@/lib/access/types'
 
+/** Cloudflare / reverse proxies send x-forwarded-proto; force HTTPS on the public site. */
+function httpsUpgradeResponse(request: NextRequest): NextResponse | null {
+  const host = request.nextUrl.hostname
+  if (host === "localhost" || host === "127.0.0.1") return null
+  const forwarded = request.headers.get("x-forwarded-proto")
+  if (forwarded !== "http") return null
+  const url = request.nextUrl.clone()
+  url.protocol = "https:"
+  return NextResponse.redirect(url, 308)
+}
+
 export async function middleware(request: NextRequest) {
+  const httpsRedirect = httpsUpgradeResponse(request)
+  if (httpsRedirect) return httpsRedirect
+
   const pathname = request.nextUrl.pathname
   const response =
     pathname === "/MYCA"

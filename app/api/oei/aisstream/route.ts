@@ -103,8 +103,8 @@ function ensureAISStream(): void {
   )
 }
 
-// Kick off the stream immediately when this module is first loaded by Next.js
-ensureAISStream()
+// Top-level stream start removed to prevent WebSocket connections during Next.js static generation.
+// The stream will be kicked off lazily inside the GET handler.
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 

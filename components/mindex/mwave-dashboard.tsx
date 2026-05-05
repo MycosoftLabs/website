@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import useSWR from "swr"
-import { AlertTriangle, Activity, Copy, Gauge, Loader2, Pause, Play, Shield, Waves, MapPin, RefreshCw } from "lucide-react"
+import { AlertTriangle, Activity, Copy, Gauge, Loader2, Shield, Waves, MapPin, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
@@ -68,10 +67,6 @@ interface MWaveAPIResponse {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-function nowIso() {
-  return new Date().toISOString()
-}
-
 function copyToClipboard(text: string) {
   if (!text) return
   navigator.clipboard?.writeText(text).catch(() => {})
@@ -85,13 +80,10 @@ function riskColor(risk: Risk) {
 }
 
 export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { className?: string; channelId?: string }) {
-  const [publishKey, setPublishKey] = useState("")
-  const [isPublishing, setIsPublishing] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [events, setEvents] = useState<MWaveEvent[]>([])
 
-  const intervalRef = useRef<number | null>(null)
   const sourceRef = useRef<EventSource | null>(null)
 
   // Fetch real USGS earthquake data
@@ -101,29 +93,16 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
     { refreshInterval: 60000 } // Refresh every minute
   )
 
+  const { data: correlations } = useSWR<Record<string, unknown>>("/api/mindex/mwave/correlations", fetcher, {
+    refreshInterval: 120_000,
+  })
+
   const subscribeUrl = useMemo(() => {
     const qs = new URLSearchParams()
     qs.set("type", "computed")
     qs.set("id", channelId)
     return `/api/mindex/stream/subscribe?${qs.toString()}`
   }, [channelId])
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("mindex:publishKey")
-      if (stored) setPublishKey(stored)
-    } catch {
-      // ignore
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("mindex:publishKey", publishKey)
-    } catch {
-      // ignore
-    }
-  }, [publishKey])
 
   useEffect(() => {
     setError(null)
@@ -159,65 +138,8 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
     }
   }, [subscribeUrl])
 
-  async function publishPrediction(e: MWaveEvent) {
-    if (!publishKey.trim()) {
-      setError("Set MYCORRHIZAE_PUBLISH_KEY in env and paste it here to publish demo M-Wave predictions.")
-      return
-    }
-
-    const res = await fetch("/api/mindex/stream/publish", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-mycorrhizae-key": publishKey.trim(),
-      },
-      body: JSON.stringify({
-        channel: `computed:${channelId}`,
-        event: "mwave.prediction",
-        data: e,
-      }),
-    })
-    if (!res.ok) throw new Error(await res.text())
-  }
-
-  async function startDemo() {
-    setError(null)
-    setIsPublishing(true)
-
-    const emit = () => {
-      const score = Math.round(Math.random() * 100)
-      const risk: Risk = score >= 80 ? "critical" : score >= 50 ? "high" : score >= 20 ? "elevated" : "normal"
-      const prediction: MWavePrediction = {
-        timestamp: nowIso(),
-        risk_level: risk,
-        risk_score: score,
-        anomaly_count: Math.floor(score / 10),
-        network_coverage: 12,
-        confidence: 0.85,
-        prediction_horizon_hours: 6,
-      }
-      const ev: MWaveEvent = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        timestamp: nowIso(),
-        prediction,
-      }
-      publishPrediction(ev).catch((err) => setError(err instanceof Error ? err.message : String(err)))
-    }
-
-    emit()
-    intervalRef.current = window.setInterval(emit, 1700)
-  }
-
-  function stopDemo() {
-    setIsPublishing(false)
-    if (intervalRef.current) window.clearInterval(intervalRef.current)
-    intervalRef.current = null
-  }
-
   useEffect(() => {
     return () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current)
-      intervalRef.current = null
       sourceRef.current?.close()
       sourceRef.current = null
     }
@@ -250,26 +172,10 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-          <Input
-            value={publishKey}
-            onChange={(e) => setPublishKey(e.target.value)}
-            placeholder="MYCORRHIZAE_PUBLISH_KEY (for demo predictions)"
-            className="font-mono"
-          />
-
-          {!isPublishing ? (
-            <Button onClick={startDemo} className="bg-purple-600 hover:bg-purple-700">
-              <Play className="h-4 w-4 mr-2" />
-              Start demo
-            </Button>
-          ) : (
-            <Button onClick={stopDemo} variant="outline">
-              <Pause className="h-4 w-4 mr-2" />
-              Stop
-            </Button>
-          )}
-        </div>
+        <p className="text-xs text-gray-500">
+          Randomized demo predictions were removed (May 03, 2026). Streams show only events published by your
+          Mycorrhizae/MINDEX integrations.
+        </p>
 
         {error ? (
           <div className="text-xs text-yellow-200/80 border border-yellow-500/20 bg-yellow-500/10 rounded-md px-3 py-2 flex items-start gap-2">
@@ -324,6 +230,23 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-white/10 bg-black/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs text-muted-foreground">Correlation stats (MINDEX)</CardTitle>
+            <CardDescription className="text-xs">
+              From <span className="font-mono">/api/mindex/mwave/correlations</span> — USGS hour feed spacing; device pairs
+              populate when telemetry joins exist.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-32 rounded-md border border-white/10">
+              <pre className="text-xs font-mono p-2 text-gray-300 whitespace-pre-wrap break-all">
+                {JSON.stringify(correlations ?? {}, null, 2).slice(0, 4000)}
+              </pre>
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
         {/* Alerts */}
         {mwaveData?.alerts && mwaveData.alerts.length > 0 && (
@@ -446,7 +369,10 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
                 </motion.div>
               ))
             ) : (
-              <div className="text-sm text-muted-foreground p-2">Start demo to see predictions, or wait for real data from MycoBrain sensors.</div>
+              <div className="text-sm text-muted-foreground p-2">
+                No predictions in this session yet — connect the Mycorrhizae computed channel or wait for upstream
+                publishers.
+              </div>
             )}
           </div>
         </ScrollArea>

@@ -16,8 +16,16 @@ export type WidgetType =
   | "location"
   | "news"
   | "crep"
-  | "earth2"
-  | "map"
+  | "earth"
+  | "traffic"
+  | "food"
+  | "flights"
+  | "stocks"
+  | "sports"
+  | "people"
+  | "code"
+  | "shopping"
+  | "recipe"
   | "events"
   | "aircraft"
   | "vessels"
@@ -55,8 +63,16 @@ export const WIDGET_TYPE_IDS: WidgetType[] = [
   "location",
   "news",
   "crep",
-  "earth2",
-  "map",
+  "earth",
+  "traffic",
+  "food",
+  "flights",
+  "stocks",
+  "sports",
+  "people",
+  "code",
+  "shopping",
+  "recipe",
   "events",
   "aircraft",
   "vessels",
@@ -82,8 +98,8 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   news: "news",
   live_results: "location",
   crep: "crep",
-  earth2: "earth2",
-  map: "map",
+  earth2: "earth",
+  map: "earth",
   // Earth Intelligence buckets
   events: "events",
   aircraft: "aircraft",
@@ -96,6 +112,15 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   space_weather: "space_weather",
   cameras: "cameras",
   embeddings: "embedding_atlas",
+  traffic: "traffic",
+  food: "food",
+  flights: "flights",
+  stocks: "stocks",
+  sports: "sports",
+  people: "people",
+  code: "code",
+  shopping: "shopping",
+  recipe: "recipe",
 }
 
 export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
@@ -165,20 +190,76 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     emptyPolicy: "hide",
     autoExpand: true,
   },
-  earth2: {
-    id: "earth2",
-    label: "Earth2",
+  earth: {
+    id: "earth",
+    label: "Earth",
     resultKey: "earth2",
     size: { width: 2, height: 3 },
     emptyPolicy: "hide",
     autoExpand: true,
   },
-  map: {
-    id: "map",
-    label: "Map",
-    resultKey: "map",
+  traffic: {
+    id: "traffic",
+    label: "Traffic",
+    resultKey: "traffic",
     size: { width: 2, height: 2 },
-    emptyPolicy: "hide",
+    emptyPolicy: "show_empty",
+  },
+  food: {
+    id: "food",
+    label: "Food",
+    resultKey: "food",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  flights: {
+    id: "flights",
+    label: "Flights",
+    resultKey: "flights",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  stocks: {
+    id: "stocks",
+    label: "Markets",
+    resultKey: "stocks",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  sports: {
+    id: "sports",
+    label: "Sports",
+    resultKey: "sports",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  people: {
+    id: "people",
+    label: "People",
+    resultKey: "people",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  code: {
+    id: "code",
+    label: "Code",
+    resultKey: "code",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  shopping: {
+    id: "shopping",
+    label: "Shopping",
+    resultKey: "shopping",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  recipe: {
+    id: "recipe",
+    label: "Recipes",
+    resultKey: "recipe",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "show_empty",
   },
   // Earth Intelligence widgets
   events: {

@@ -34,6 +34,7 @@ import {
   Radio,
 } from "lucide-react"
 import { useSearchContext } from "../SearchContextProvider"
+import { SuggestionChipsPanel } from "./SuggestionChipsPanel"
 
 // =============================================================================
 // TYPES
@@ -469,6 +470,8 @@ export function ActivityStreamPanel() {
                     ))}
                   </div>
                 </div>
+
+                <SuggestionChipsPanel />
               </div>
             </ScrollArea>
           </motion.div>

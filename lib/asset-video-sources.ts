@@ -16,6 +16,13 @@
  * a missing homepage video must never render as a walking mushroom.
  */
 
+/** Optional HTTPS CDN origin for `/assets/*` media (R2, CloudFront, etc.). */
+function withMediaCdn(paths: string[]): string[] {
+  const origin = process.env.NEXT_PUBLIC_MEDIA_CDN_ORIGIN?.trim().replace(/\/$/, "")
+  if (!origin || !/^https:\/\//i.test(origin)) return paths
+  return paths.map((p) => (p.startsWith("/") ? `${origin}${p}` : p))
+}
+
 export function webVariantPath(canonicalMp4Path: string): string {
   if (!canonicalMp4Path.endsWith(".mp4")) return canonicalMp4Path
   if (canonicalMp4Path.endsWith("-web.mp4")) return canonicalMp4Path
@@ -81,7 +88,7 @@ function orderedHomeHeroCanonicalPaths(): string[] {
 export function homeHeroVideoSources(): string[] {
   const paths = orderedHomeHeroCanonicalPaths()
   if (process.env.NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4 === "true") {
-    return mergeMp4SourceGroups(...paths)
+    return withMediaCdn(mergeMp4SourceGroups(...paths))
   }
   const out: string[] = []
   const seen = new Set<string>()
@@ -91,7 +98,7 @@ export function homeHeroVideoSources(): string[] {
     seen.add(web)
     out.push(web)
   }
-  return out
+  return withMediaCdn(out)
 }
 
 interface DeviceHeroVideoOptions {
@@ -122,7 +129,7 @@ export function deviceHeroVideoSources(
   add(defaultCanonical)
   for (const alias of options.aliases || []) add(alias)
 
-  return mergeMp4SourceGroups(...paths)
+  return withMediaCdn(mergeMp4SourceGroups(...paths))
 }
 
 /**
@@ -143,7 +150,7 @@ export function hyphaeHeroVideoSources(defaultCanonical: string): string[] {
   add(defaultCanonical)
   add("/assets/hyphae1/Hyphae 1 Hero.mp4")
   add("/assets/hyphae1/hero.mp4")
-  return mergeMp4SourceGroups(...paths)
+  return withMediaCdn(mergeMp4SourceGroups(...paths))
 }
 
 /**

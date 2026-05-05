@@ -260,6 +260,12 @@ export function parseSearchIntent(query: string): SearchIntent {
     }
   }
 
+  // "Planes over LA", "ships near LA" — common abbreviation not matched by "los angeles" key
+  if (!filters.location && /\bla\b|\bover\s+la\b|\bnear\s+la\b|\bin\s+la\b|\baround\s+la\b/i.test(normalizedQuery)) {
+    const la = LOCATIONS["los angeles"]
+    if (la) filters.location = { ...la, radius: 100 }
+  }
+
   // Detect toxicity
   for (const [toxicity, toxicityKeywords] of Object.entries(TOXICITY_KEYWORDS)) {
     if (toxicityKeywords.some(kw => normalizedQuery.includes(kw))) {

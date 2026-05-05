@@ -167,6 +167,17 @@ function isConservationThematicQuery(query: string): boolean {
   return conservation && taxonGroup
 }
 
+function prioritizeWorldviewCrepSecondary(
+  worldview: { crep: boolean },
+  primary: WidgetType,
+  secondary: WidgetType[],
+): WidgetType[] {
+  if (worldview.crep && primary !== "crep" && !secondary.includes("crep")) {
+    secondary.push("crep")
+  }
+  return secondary
+}
+
 function determinePrimaryWidget(
   intent: SearchIntent,
   worldview: { crep: boolean; earth2: boolean; map: boolean },
@@ -176,7 +187,37 @@ function determinePrimaryWidget(
   primaryWidgetSize: { width: 1 | 2; height: 1 | 2 | 3 }
   secondaryWidgets: WidgetType[]
 } {
-  // Map-type queries: CREP/Earth2/Map take viewport priority
+  /**
+   * Flight / ship / orbit queries: domain widget must lead. `detectWorldviewIntent` also sets `crep`
+   * for these phrases; the old branch made CREP primary without putting `aircraft` in secondaries,
+   * so "Planes over LA" expanded CREP + earth/weather/events but never the aircraft tile → all empty.
+   */
+  if (intent.type === "aircraft") {
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "aircraft", getSecondaryWidgets(intent, "aircraft"))
+    return {
+      primaryWidget: "aircraft",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: secondary,
+    }
+  }
+  if (intent.type === "vessel") {
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "vessels", getSecondaryWidgets(intent, "vessels"))
+    return {
+      primaryWidget: "vessels",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: secondary,
+    }
+  }
+  if (intent.type === "satellite") {
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "satellites", getSecondaryWidgets(intent, "satellites"))
+    return {
+      primaryWidget: "satellites",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: secondary,
+    }
+  }
+
+  // Map-type queries: CREP/Earth2/Map take viewport priority (non–narrow-domain queries)
   if (worldview.crep) {
     return {
       primaryWidget: "crep",
@@ -186,16 +227,16 @@ function determinePrimaryWidget(
   }
   if (worldview.earth2) {
     return {
-      primaryWidget: "earth2",
+      primaryWidget: "earth",
       primaryWidgetSize: { width: 2, height: 3 },
-      secondaryWidgets: getSecondaryWidgets(intent, "earth2"),
+      secondaryWidgets: getSecondaryWidgets(intent, "earth"),
     }
   }
   if (worldview.map) {
     return {
-      primaryWidget: "map",
+      primaryWidget: "earth",
       primaryWidgetSize: { width: 2, height: 3 },
-      secondaryWidgets: getSecondaryWidgets(intent, "map"),
+      secondaryWidgets: getSecondaryWidgets(intent, "earth"),
     }
   }
 
@@ -221,7 +262,7 @@ function determinePrimaryWidget(
     compound: "chemistry",
     media: "media",
     research: "research",
-    location: "map",
+    location: "earth",
     crep: "crep",
     general: "answers",
     event: "events",
@@ -239,7 +280,7 @@ function determinePrimaryWidget(
   const primaryWidget = entityWidgetMap[intent.type] || "answers"
 
   // Size based on type - location/map/earth types get viewport priority
-  const largeWidgets: WidgetType[] = ["crep", "earth2", "map", "events", "aircraft", "vessels", "cameras"] // Added cameras
+  const largeWidgets: WidgetType[] = ["crep", "earth", "events", "aircraft", "vessels", "cameras"] // Added cameras
   const mediumWidgets: WidgetType[] = ["species", "answers", "weather"]
 
   let primaryWidgetSize: { width: 1 | 2; height: 1 | 2 | 3 }
@@ -274,7 +315,7 @@ function getSecondaryWidgets(intent: SearchIntent, primaryWidget: WidgetType): W
 
   // For earth intelligence, include related widgets
   if (["event", "aircraft", "vessel", "weather", "satellite"].includes(intent.type)) {
-    if (primaryWidget !== "map") secondary.push("map")
+    if (primaryWidget !== "earth") secondary.push("earth")
     if (primaryWidget !== "weather") secondary.push("weather")
     if (primaryWidget !== "events") secondary.push("events")
   }

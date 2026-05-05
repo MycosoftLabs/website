@@ -15,7 +15,7 @@
  * @date January 24, 2026
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
@@ -152,7 +152,8 @@ export function QueueStatsWidget({ className }: { className?: string }) {
     maxMemory: 100,
     incomingRate: 0,
   });
-  
+  const prevOpenRef = useRef<number | null>(null);
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -160,19 +161,25 @@ export function QueueStatsWidget({ className }: { className?: string }) {
         if (res.ok) {
           const data = await res.json();
           const incidents = data.incidents || [];
-          
+          const pending = incidents.length;
+          let incomingRate = 0;
+          if (prevOpenRef.current !== null) {
+            incomingRate = Math.max(0, pending - prevOpenRef.current);
+          }
+          prevOpenRef.current = pending;
+
           setStats({
-            pending: incidents.length,
-            memoryUsage: Math.min(incidents.length * 2, 100),
+            pending,
+            memoryUsage: Math.min(pending * 2, 100),
             maxMemory: 100,
-            incomingRate: Math.floor(Math.random() * 10) + 1, // Mock rate
+            incomingRate,
           });
         }
       } catch (error) {
         console.error('Failed to fetch queue stats:', error);
       }
     };
-    
+
     fetchStats();
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
@@ -228,42 +235,59 @@ export function QueueStatsWidget({ className }: { className?: string }) {
 // INCOMING INCIDENTS CHART (Like mempool's incoming transactions)
 // ═══════════════════════════════════════════════════════════════
 
+const CHART_BUCKETS = 24;
+const BUCKET_MS = 5 * 60 * 1000;
+
+function bucketIncidentCounts(
+  incidents: Array<{ created_at?: string }>,
+  bucketCount: number,
+  bucketMs: number,
+): { counts: number[]; labels: string[] } {
+  const now = Date.now();
+  const start = now - bucketCount * bucketMs;
+  const counts = new Array(bucketCount).fill(0);
+  const labels: string[] = [];
+  for (let i = 0; i < bucketCount; i++) {
+    const t = new Date(start + i * bucketMs);
+    labels.push(t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+  }
+  for (const inc of incidents) {
+    if (!inc.created_at) continue;
+    const ts = new Date(inc.created_at).getTime();
+    if (Number.isNaN(ts) || ts < start || ts > now) continue;
+    const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((ts - start) / bucketMs)));
+    counts[idx]++;
+  }
+  return { counts, labels };
+}
+
 export function IncomingIncidentsChart({ className }: { className?: string }) {
   const [data, setData] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
-  
+
   useEffect(() => {
-    // Generate mock historical data
-    const now = new Date();
-    const newData: number[] = [];
-    const newLabels: string[] = [];
-    
-    for (let i = 23; i >= 0; i--) {
-      const time = new Date(now.getTime() - i * 5 * 60000);
-      newData.push(Math.floor(Math.random() * 50) + 5);
-      newLabels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-    }
-    
-    setData(newData);
-    setLabels(newLabels);
-    
-    // Add new data point every 5 seconds
-    const interval = setInterval(() => {
-      setData(prev => {
-        const newValue = Math.floor(Math.random() * 50) + 5;
-        return [...prev.slice(1), newValue];
-      });
-      setLabels(prev => {
-        const now = new Date();
-        return [...prev.slice(1), now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })];
-      });
-    }, 5000);
-    
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/security/incidents?limit=500`);
+        if (!res.ok) return;
+        const body = await res.json();
+        const incidents = body.incidents || [];
+        const { counts, labels: lb } = bucketIncidentCounts(incidents, CHART_BUCKETS, BUCKET_MS);
+        setData(counts.length ? counts : new Array(CHART_BUCKETS).fill(0));
+        setLabels(lb);
+      } catch (e) {
+        console.error('IncomingIncidentsChart:', e);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, []);
   
   const maxValue = Math.max(...data, 1);
-  
+  const xDenom = Math.max(1, data.length - 1);
+
   return (
     <div className={cn('bg-slate-800/50 rounded-lg p-4', className)}>
       <div className="flex items-center justify-between mb-3">
@@ -292,7 +316,7 @@ export function IncomingIncidentsChart({ className }: { className?: string }) {
           <path
             d={`
               M 0 100
-              ${data.map((v, i) => `L ${(i / (data.length - 1)) * 100}% ${100 - (v / maxValue) * 100}%`).join(' ')}
+              ${data.map((v, i) => `L ${(i / xDenom) * 100}% ${100 - (v / maxValue) * 100}%`).join(' ')}
               L 100% 100
               Z
             `}
@@ -303,7 +327,7 @@ export function IncomingIncidentsChart({ className }: { className?: string }) {
           {/* Line */}
           <path
             d={data.map((v, i) => 
-              `${i === 0 ? 'M' : 'L'} ${(i / (data.length - 1)) * 100}% ${100 - (v / maxValue) * 100}%`
+              `${i === 0 ? 'M' : 'L'} ${(i / xDenom) * 100}% ${100 - (v / maxValue) * 100}%`
             ).join(' ')}
             fill="none"
             stroke="#22d3ee"
@@ -456,15 +480,62 @@ export function RecentReplacementsTable({
   limit?: number;
 }) {
   const [replacements, setReplacements] = useState<RecentReplacement[]>([]);
-  
+
   useEffect(() => {
-    // Mock replacements data (status changes, escalations)
-    setReplacements([
-      { id: '1', hash: 'abc123def456', previousStatus: 'investigating', newStatus: 'contained', type: 'resolved', timestamp: new Date().toISOString() },
-      { id: '2', hash: 'def456ghi789', previousStatus: 'open', newStatus: 'investigating', type: 'escalated', timestamp: new Date(Date.now() - 60000).toISOString() },
-      { id: '3', hash: 'ghi789jkl012', previousStatus: 'low', newStatus: 'high', type: 'escalated', timestamp: new Date(Date.now() - 120000).toISOString() },
-    ]);
-  }, []);
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/security/incidents?limit=${Math.max(limit, 40)}`);
+        if (!res.ok) {
+          setReplacements([]);
+          return;
+        }
+        const body = await res.json();
+        const incidents = (body.incidents || []) as Array<{
+          id: string;
+          chain_block_id?: string;
+          timeline?: unknown[];
+        }>;
+        const rows: RecentReplacement[] = [];
+        for (const inc of incidents) {
+          const tl = Array.isArray(inc.timeline) ? inc.timeline : [];
+          if (tl.length < 2) continue;
+          const prev = tl[tl.length - 2];
+          const last = tl[tl.length - 1];
+          const prevEvent =
+            prev && typeof prev === 'object' && 'event' in prev
+              ? String((prev as { event?: string }).event)
+              : '';
+          const lastEvent =
+            last && typeof last === 'object' && 'event' in last
+              ? String((last as { event?: string }).event)
+              : '';
+          if (!lastEvent || lastEvent === prevEvent) continue;
+          let type: RecentReplacement['type'] = 'escalated';
+          if (/resolve|closed|contained/i.test(lastEvent)) type = 'resolved';
+          else if (/assign|reassign|handoff/i.test(lastEvent)) type = 'reassigned';
+          const ts =
+            last && typeof last === 'object' && 'at' in last
+              ? String((last as { at?: string }).at || new Date().toISOString())
+              : new Date().toISOString();
+          rows.push({
+            id: `${inc.id}-${rows.length}`,
+            hash: String(inc.chain_block_id || inc.id).replace(/-/g, '').slice(0, 12),
+            previousStatus: (prevEvent || 'prior').slice(0, 32),
+            newStatus: lastEvent.slice(0, 32),
+            type,
+            timestamp: ts,
+          });
+        }
+        rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setReplacements(rows.slice(0, limit));
+      } catch {
+        setReplacements([]);
+      }
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [limit]);
   
   const typeColors: Record<string, { bg: string; text: string }> = {
     escalated: { bg: 'bg-orange-500/20', text: 'text-orange-400' },
@@ -541,21 +612,61 @@ export function RecentReplacementsTable({
 // ═══════════════════════════════════════════════════════════════
 
 export function ResolutionProgressWidget({ className }: { className?: string }) {
-  // Use placeholder initially to avoid hydration mismatch
   const [stats, setStats] = useState({
-    averageResolutionTime: '2.5h',
-    resolutionRate: 85,
-    previousRate: 82,
-    nextReview: '2 days',
-    reviewDate: '', // Will be set client-side
+    averageResolutionTime: '—',
+    resolutionRate: 0,
+    previousRate: 0,
+    nextReview: '—',
+    reviewDate: '',
   });
-  
-  // Set date client-side to avoid hydration mismatch
+  const lastRateRef = useRef<number | null>(null);
+
   useEffect(() => {
-    setStats(prev => ({
-      ...prev,
-      reviewDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    }));
+    const load = async () => {
+      try {
+        const res = await fetch('/api/security/incidents?limit=250');
+        if (!res.ok) return;
+        const body = await res.json();
+        const list = (body.incidents || []) as Array<{
+          status: string;
+          created_at: string;
+          resolved_at?: string | null;
+          updated_at?: string;
+        }>;
+        const terminal = list.filter((i) => i.status === 'resolved' || i.status === 'closed');
+        let totalHours = 0;
+        for (const r of terminal) {
+          if (r.resolved_at && r.created_at) {
+            totalHours +=
+              (new Date(r.resolved_at).getTime() - new Date(r.created_at).getTime()) / 3600000;
+          }
+        }
+        const avgH = terminal.length ? totalHours / terminal.length : 0;
+        const averageResolutionTime =
+          terminal.length === 0
+            ? '—'
+            : avgH < 1
+              ? `~${Math.max(1, Math.round(avgH * 60))}m`
+              : `~${avgH.toFixed(1)}h`;
+        const denom = list.length || 1;
+        const resolutionRate = Math.round((terminal.length / denom) * 100);
+        const previousRate = lastRateRef.current ?? resolutionRate;
+        lastRateRef.current = resolutionRate;
+        const next = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+        setStats({
+          averageResolutionTime,
+          resolutionRate,
+          previousRate,
+          nextReview: '48h',
+          reviewDate: next.toLocaleDateString(),
+        });
+      } catch (e) {
+        console.error('ResolutionProgressWidget:', e);
+      }
+    };
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
   }, []);
   
   const rateChange = stats.resolutionRate - stats.previousRate;

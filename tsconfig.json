@@ -24,7 +24,7 @@
     "typeRoots": ["./node_modules/@types"],
     "types": ["node", "react", "react-dom", "jest", "google.maps", "leaflet", "three", "webpack-env", "ws", "d3", "geojson"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "types/**/*.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": [
     "node_modules",
     "__tests__",

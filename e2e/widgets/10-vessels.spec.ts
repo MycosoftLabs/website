@@ -70,7 +70,7 @@ test.describe("Vessels & Maritime Search Widgets", () => {
     test("maritime query shows earth secondary widgets", async ({ page }) => {
       await searchAndWait(page, "maritime traffic San Diego")
       await expectWidgetExpanded(page, "vessels")
-      await expectSecondaryWidgets(page, ["map", "weather", "events"])
+      await expectSecondaryWidgets(page, ["earth", "weather", "events"])
     })
   })
 })

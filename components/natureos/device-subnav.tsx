@@ -10,6 +10,7 @@ import {
   Globe2,
   LineChart,
   MapIcon,
+  Network,
   Radio,
   Wrench,
 } from "lucide-react"
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/natureos/devices/insights", label: "Insights", icon: Brain },
   { href: "/natureos/devices/fleet", label: "Fleet", icon: Boxes },
   { href: "/natureos/devices/onsite-ai", label: "On-Site AI", icon: Radio },
+  { href: "/natureos/meshtastic", label: "Mesh", icon: Network },
   { href: "/natureos/earth-simulator", label: "Earth Sim", icon: Globe2 },
 ]
 

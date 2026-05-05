@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Bot, Users } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Bot, Users } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -61,6 +61,7 @@ const devicesItems = [
   { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Mesh Network Probe" },
   { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Biological Home Alarm" },
   { title: "Psathyrella", href: "/devices/psathyrella", icon: Waves, description: "Swimming Sensor Buoy" },
+  { title: "Agaric", href: "/devices/agaric", icon: Plane, description: "Flying Myco Drone" },
 ]
 
 const appsItems = [

@@ -691,12 +691,7 @@ export function IncidentChainVisualizer({
         }
       } catch (error) {
         console.error('Failed to fetch block events:', error);
-        // Mock data for demonstration
-        setBlockEvents([
-          { id: '1', type: 'detection', severity: 'high', size: 100, hash: 'abc123def456', timestamp: selectedBlock.created_at },
-          { id: '2', type: 'analysis', severity: 'medium', size: 80, hash: 'def456ghi789', timestamp: selectedBlock.created_at },
-          { id: '3', type: 'response', severity: 'low', size: 60, hash: 'ghi789jkl012', timestamp: selectedBlock.created_at },
-        ]);
+        setBlockEvents([]);
       }
     };
     

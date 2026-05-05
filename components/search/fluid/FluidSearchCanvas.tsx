@@ -17,8 +17,24 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
-import { useUnifiedSearch, type SpeciesResult, type CompoundResult, type GeneticsResult, type ResearchResult, type EventResult, type AircraftResult, type VesselResult, type SatelliteResult, type WeatherResult, type EmissionsResult, type InfrastructureResult, type DeviceResult, type SpaceWeatherResult } from "@/hooks/use-unified-search"
-import { usePackery } from "@/hooks/use-packery"
+import {
+  useStreamingSearch,
+  type SpeciesResult,
+  type CompoundResult,
+  type GeneticsResult,
+  type ResearchResult,
+  type EventResult,
+  type AircraftResult,
+  type VesselResult,
+  type SatelliteResult,
+  type WeatherResult,
+  type EmissionsResult,
+  type InfrastructureResult,
+  type DeviceResult,
+  type SpaceWeatherResult,
+} from "@/hooks/use-streaming-search"
+import { MagneticGrid, magneticGridItemStyle } from "@/components/search/fluid/MagneticGrid"
+import { FastActionRadial } from "@/components/search/fluid/FastActionRadial"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
@@ -30,7 +46,6 @@ import {
   Sparkles,
   MessageCircle,
   History,
-  Minimize2,
   X,
   MapPin,
   Film,
@@ -41,7 +56,6 @@ import {
 } from "lucide-react"
 import nextDynamic from "next/dynamic"
 import {
-  getWidgetFloatVariants,
   getParallaxDepth,
   widgetEnterAnimation,
   glowPulseAnimation,
@@ -64,6 +78,8 @@ import { useSearchMemory } from "@/hooks/use-search-memory"
 import { useVoice } from "@/components/voice/UnifiedVoiceProvider"
 import { useMYCA } from "@/contexts/myca-context"
 import { useAuth } from "@/contexts/auth-context"
+import type { WidgetType } from "@/lib/search/widget-registry"
+import { DEFAULT_WIDGET_SIZES, WIDGET_REGISTRY } from "@/lib/search/widget-registry"
 
 const SpeciesWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.SpeciesWidget })), { ssr: false })
 const ChemistryWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.ChemistryWidget })), { ssr: false })
@@ -93,10 +109,6 @@ function dedupeKeyForCrepMergedRow(r: Record<string, unknown>): string {
   const ts = String(r.timestamp ?? "").slice(0, 10)
   return `${t}|${lat}|${lng}|${title}|${ts}`
 }
-
-export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
-  | "crep" | "earth" | "fallback" | "embedding_atlas" | "cameras"
-  | "events" | "aircraft" | "vessels" | "satellites" | "weather" | "emissions" | "infrastructure" | "devices" | "space_weather"
 
 interface WidgetConfig {
   type: WidgetType
@@ -234,35 +246,6 @@ interface FluidSearchCanvasProps {
   className?: string
 }
 
-// Default widget sizes - aligned with lib/search/widget-registry.ts
-// Primary widgets (species, answers) start at 2x2.
-// Map/CREP/Earth2 start at 2x3 to fill viewport when relevant.
-// Earth Intelligence widgets (aircraft, vessels, events) start at 2x2 when data arrives.
-const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }> = {
-  species: { width: 2, height: 2 },
-  chemistry: { width: 1, height: 1 },
-  genetics: { width: 1, height: 1 },
-  research: { width: 1, height: 2 },
-  answers: { width: 2, height: 2 },
-  media: { width: 1, height: 1 },
-  location: { width: 1, height: 1 },
-  news: { width: 1, height: 1 },
-  crep: { width: 2, height: 3 },
-  earth: { width: 2, height: 3 },
-  fallback: { width: 1, height: 1 },
-  embedding_atlas: { width: 2, height: 2 },
-  events: { width: 2, height: 2 },
-  aircraft: { width: 2, height: 2 },
-  vessels: { width: 2, height: 2 },
-  satellites: { width: 1, height: 1 },
-  weather: { width: 2, height: 1 },
-  emissions: { width: 1, height: 1 },
-  infrastructure: { width: 1, height: 1 },
-  devices: { width: 1, height: 1 },
-  space_weather: { width: 1, height: 1 },
-  cameras: { width: 2, height: 2 },
-}
-
 export function FluidSearchCanvas({
   initialQuery = "",
   onNavigate,
@@ -281,7 +264,6 @@ export function FluidSearchCanvas({
   // Multi-widget grid: track multiple expanded widgets instead of single focused
   const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(() => new Set(["species", "answers"]))
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
-  const [minimizedTypes, setMinimizedTypes] = useState<Set<WidgetType>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showCrepDashboard, setShowCrepDashboard] = useState(false)
@@ -305,36 +287,8 @@ export function FluidSearchCanvas({
   // Responsive column count — tracked via ResizeObserver on the grid container
   const [containerWidth, setContainerWidth] = useState(800)
   const containerWidthRef = useRef(800)
-  const GUTTER = 12
 
-  // ── Packery MUST be declared before the effects and callbacks that use it ──
-  const { 
-    containerRef: packeryContainerRef, 
-    layout: packeryLayout, 
-    reloadItems, 
-    isReady: packeryReady,
-    updateWidgetSize,
-  } = usePackery({
-    columnWidth: ".grid-sizer", // Use a sizer element for responsive column width
-    gutter: 12,
-    itemSelector: ".packery-widget",
-    horizontalOrder: true,
-    transitionDuration: 500, // Slower transition for smoother animations
-    draggable: true,
-    dragHandle: ".widget-drag-handle",
-    percentPosition: true,
-    onLayoutComplete: (items) => {
-      // Persist widget order to sessionStorage
-      try {
-        const order = items.map((el) => el.dataset.widgetId || "").filter(Boolean)
-        if (order.length > 0) {
-          sessionStorage.setItem("search-widget-order", JSON.stringify(order))
-        }
-      } catch {
-        // Ignore storage errors (e.g., private browsing)
-      }
-    },
-  })
+  const gridContainerRef = useRef<HTMLDivElement>(null)
 
   // Breakpoints: how many Packery columns to use at each container width
   const columns = useMemo(() => {
@@ -346,7 +300,7 @@ export function FluidSearchCanvas({
 
   // Watch the grid container width with ResizeObserver
   useEffect(() => {
-    const el = packeryContainerRef.current
+    const el = gridContainerRef.current
     if (!el) return
     const obs = new ResizeObserver(([entry]) => {
       const w = Math.floor(entry.contentRect.width)
@@ -357,45 +311,22 @@ export function FluidSearchCanvas({
     })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [packeryContainerRef])
-
-  // Re-layout Packery whenever column count changes
-  useEffect(() => {
-    if (!packeryReady) return
-    requestAnimationFrame(() => {
-      reloadItems()
-      packeryLayout()
-    })
-  }, [columns, packeryReady, reloadItems, packeryLayout])
-
-  // Compute CSS width for a widget given its column span
-  const getWidgetWidth = useCallback((span: number): string => {
-    const s = Math.min(span, columns)
-    if (s >= columns) return "100%"
-    const pct = (100 * s / columns).toFixed(4)
-    const sub = (GUTTER * (1 - s / columns)).toFixed(2)
-    return `calc(${pct}% - ${sub}px)`
-  }, [columns])
-
-  // CSS width for the .grid-sizer element — tells Packery the base column unit
-  const gridSizerWidth = useMemo(() => getWidgetWidth(1), [getWidgetWidth])
+  }, [])
 
   // Cycle widget size: 1x1 → 1x2 → 1x3 → 2x1 → 2x2 → 2x3 → 1x1
-  // Width=1 = 1 column, Width=2 = 2 columns (adapts to whatever column count is active)
   const cycleWidgetSize = useCallback((type: WidgetType) => {
-    setWidgetSizes(prev => {
+    setWidgetSizes((prev) => {
       const cur = prev[type] || { width: 1, height: 1 }
       let next: { width: 1 | 2; height: 1 | 2 | 3 }
-      if      (cur.width === 1 && cur.height === 1) next = { width: 1, height: 2 }
+      if (cur.width === 1 && cur.height === 1) next = { width: 1, height: 2 }
       else if (cur.width === 1 && cur.height === 2) next = { width: 1, height: 3 }
       else if (cur.width === 1 && cur.height === 3) next = { width: 2, height: 1 }
       else if (cur.width === 2 && cur.height === 1) next = { width: 2, height: 2 }
       else if (cur.width === 2 && cur.height === 2) next = { width: 2, height: 3 }
-      else                                          next = { width: 1, height: 1 }
+      else next = { width: 1, height: 1 }
       return { ...prev, [type]: next }
     })
-    setTimeout(() => { reloadItems(); packeryLayout() }, 50)
-  }, [reloadItems, packeryLayout])
+  }, [])
   
   // Get CSS classes for widget size
   const getWidgetSizeClasses = useCallback((type: WidgetType) => {
@@ -438,7 +369,6 @@ export function FluidSearchCanvas({
     onFocusWidget: (widgetId) => {
       const widgetType = widgetId as WidgetType
       setExpandedWidgets((prev) => new Set(prev).add(widgetType))
-      setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(widgetType); return n })
     },
     onAIQuestion: (question) => {
       setLocalQuery(question)
@@ -583,16 +513,19 @@ export function FluidSearchCanvas({
     error,
     message,
     refresh: searchRefresh,
-  } = useUnifiedSearch(localQuery, {
-    debounceMs: 180,
+    intentPlan: streamingIntentPlan,
+  } = useStreamingSearch(localQuery, {
+    debounceMs: 250,
     types: ["species", "compounds", "genetics", "research",
       "events", "aircraft", "vessels", "satellites", "weather",
       "emissions", "infrastructure", "devices", "space_weather", "cameras"],
-    includeAI: true,
+    /** Keep false for SSE/unified — extra narrative LLM can exceed stream timeout and leave earth widgets empty (E2E + cameras). */
+    includeAI: false,
     limit: 20,
     lat: userLocation?.lat,
     lng: userLocation?.lng,
     fluidContext: fluidSearchContext,
+    sessionId: mycaSessionId || intentionSessionId || undefined,
   })
 
   // Timeout guard: if loading takes longer than 15s, stop showing skeleton
@@ -948,7 +881,6 @@ export function FluidSearchCanvas({
   const handleViewOnMap = useCallback((observation: MapObservation) => {
     // Expand the map widget and set focus
     setExpandedWidgets((prev) => new Set(prev).add("earth"))
-    setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("earth"); return n })
   }, [])
 
   // Track search to MYCA intention when results arrive
@@ -1161,7 +1093,6 @@ export function FluidSearchCanvas({
       const t = ctx.widgetFocusTarget.type as WidgetType
       // Add widget to expanded set instead of replacing
       setExpandedWidgets((prev) => new Set(prev).add(t))
-      setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(t); return n })
       // If a specific item ID was passed, set it so the widget pre-selects it
       if ("id" in ctx.widgetFocusTarget && ctx.widgetFocusTarget.id) {
         setFocusedItemId(ctx.widgetFocusTarget.id)
@@ -1243,6 +1174,15 @@ export function FluidSearchCanvas({
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
     { type: "cameras", label: "Cameras", icon: "📹", gradient: "from-slate-500/30 to-cyan-500/20", hasData: len(cameras) > 0, depth: getParallaxDepth("cameras") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
+    { type: "traffic", label: "Traffic", icon: "🚦", gradient: "from-slate-500/30 to-amber-500/20", hasData: false, depth: getParallaxDepth("traffic") },
+    { type: "food", label: "Food", icon: "🍽️", gradient: "from-orange-500/30 to-rose-500/20", hasData: false, depth: getParallaxDepth("food") },
+    { type: "flights", label: "Flights", icon: "✈️", gradient: "from-sky-500/30 to-violet-500/20", hasData: false, depth: getParallaxDepth("flights") },
+    { type: "stocks", label: "Markets", icon: "📈", gradient: "from-emerald-500/30 to-teal-500/20", hasData: false, depth: getParallaxDepth("stocks") },
+    { type: "sports", label: "Sports", icon: "🏀", gradient: "from-lime-500/30 to-green-500/20", hasData: false, depth: getParallaxDepth("sports") },
+    { type: "people", label: "People", icon: "👤", gradient: "from-zinc-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("people") },
+    { type: "code", label: "Code", icon: "💻", gradient: "from-violet-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("code") },
+    { type: "shopping", label: "Shopping", icon: "🛒", gradient: "from-fuchsia-500/30 to-pink-500/20", hasData: false, depth: getParallaxDepth("shopping") },
+    { type: "recipe", label: "Recipes", icon: "📖", gradient: "from-amber-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("recipe") },
   ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
@@ -1261,9 +1201,9 @@ export function FluidSearchCanvas({
   
   // Expanded widgets shown in the grid, sorted by saved order
   const gridWidgets = useMemo(() => {
-    const filtered = activeWidgets.filter((w) => expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
+    const filtered = activeWidgets.filter((w) => expandedWidgets.has(w.type))
     if (savedWidgetOrder.length === 0) return filtered
-    
+
     // Sort by saved order, putting unsaved widgets at the end
     return [...filtered].sort((a, b) => {
       const aIndex = savedWidgetOrder.indexOf(a.type)
@@ -1273,31 +1213,22 @@ export function FluidSearchCanvas({
       if (bIndex === -1) return -1
       return aIndex - bIndex
     })
-  }, [activeWidgets, expandedWidgets, minimizedTypes, savedWidgetOrder])
-  // Context widgets shown as clickable pills (not expanded and not minimized)
-  const contextWidgets = activeWidgets.filter((w) => !expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
-  // Minimized widgets shown as icon buttons
-  const minimizedWidgetConfigs = activeWidgets.filter((w) => minimizedTypes.has(w.type))
+  }, [activeWidgets, expandedWidgets, savedWidgetOrder])
 
-  // Trigger Packery relayout when widgets change or new data arrives that might resize them
-  useEffect(() => {
-    if (packeryReady) {
-      // Small delay to allow DOM to update
-      const timeoutId = setTimeout(() => {
-        reloadItems()
-        packeryLayout()
-      }, 100)
-      return () => clearTimeout(timeoutId)
+  /** Top-attract: primary route + data + larger tiles sort first for dense grid */
+  const sortedGridWidgets = useMemo(() => {
+    const route = streamingIntentPlan?.route ?? effectiveSearchRoute
+    const relScore = (w: (typeof gridWidgets)[number]) => {
+      let s = 0
+      if (route?.primaryWidget === w.type) s += 1000
+      if (route?.secondaryWidgets?.includes(w.type as (typeof route.secondaryWidgets)[number])) s += 120
+      if (w.hasData) s += 80
+      const sz = widgetSizes[w.type] || DEFAULT_WIDGET_SIZES[w.type] || { width: 1, height: 1 }
+      s += sz.width * 15 + sz.height * 5
+      return s
     }
-  }, [
-    gridWidgets.length, expandedWidgets.size, packeryReady, reloadItems, packeryLayout,
-    species.length, compounds.length, genetics.length, research.length,
-    mediaResults.length, locationResults.length, newsResults.length,
-    mergedCrepData.length, mapObservations.length,
-    events.length, aircraft.length, vessels.length, satellites.length, weather.length,
-    emissions.length, infrastructure.length, devices.length, spaceWeather.length,
-    aiAnswer
-  ])
+    return [...gridWidgets].sort((a, b) => relScore(b) - relScore(a))
+  }, [gridWidgets, effectiveSearchRoute, streamingIntentPlan?.route, widgetSizes])
 
   // Auto-expand Species and Answers on first load if nothing expanded (Answers is primary for conversational search)
   useEffect(() => {
@@ -1355,11 +1286,6 @@ export function FluidSearchCanvas({
         [route.primaryWidget!]: route.primaryWidgetSize,
       }))
     }
-    
-    // Trigger packery layout adjustment instantly
-    if (packeryReady) {
-      setTimeout(() => { reloadItems(); packeryLayout() }, 10)
-    }
 
     // Send to Myca LLM instantly
     if (route.useMycaLLM && route.classification !== "data_query") {
@@ -1381,12 +1307,13 @@ export function FluidSearchCanvas({
     })
     
     ctx.setQuery(localQuery)
-  }, [localQuery, species, compounds, sendMycaMessage, ctx, packeryReady, reloadItems, packeryLayout, suggestions.widgets])
+  }, [localQuery, species, compounds, sendMycaMessage, ctx, suggestions.widgets])
 
   // Smart auto-expand: uses intelligence router + data availability.
   // Primary widget gets resized to fill viewport; secondary widgets arranged around it.
+  // Do not gate on `isLoading`: URL deep links (e.g. ?q=Planes+over+LA) otherwise keep the
+  // default species+answers tiles until fetch completes — user sees empty wrong widgets first.
   useEffect(() => {
-    if (isLoading) return
     if (!localQuery || localQuery.length < 2) return
 
     const route = effectiveSearchRoute ?? classifyAndRoute(localQuery)
@@ -1437,6 +1364,16 @@ export function FluidSearchCanvas({
         next.delete("species" as WidgetType)
       }
 
+      // Drop empty default species when router chose a different primary (URL / flight / CREP queries)
+      if (
+        route.primaryWidget &&
+        route.primaryWidget !== "species" &&
+        !route.secondaryWidgets.includes("species") &&
+        next.has("species" as WidgetType)
+      ) {
+        next.delete("species" as WidgetType)
+      }
+
       // Expand primary widget from router
       if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
 
@@ -1462,20 +1399,7 @@ export function FluidSearchCanvas({
 
       return next
     })
-
-    // Remove newly expanded types from minimized
-    setMinimizedTypes((prev) => {
-      const next = new Set(prev)
-      if (route.primaryWidget) next.delete(route.primaryWidget as WidgetType)
-      for (const sw of route.secondaryWidgets) next.delete(sw as WidgetType)
-      for (const [wType, count] of Object.entries(dataMap)) {
-        if (count > 0) next.delete(wType as WidgetType)
-      }
-      if (route.worldview.crep) next.delete("crep" as WidgetType)
-      if (route.worldview.earth2 || route.worldview.map) next.delete("earth" as WidgetType)
-      return next
-    })
-  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
+  }, [localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1484,11 +1408,6 @@ export function FluidSearchCanvas({
     (target: { type: string; id?: string }) => {
       const t = target.type as WidgetType
       setExpandedWidgets((prev) => new Set(prev).add(t))
-      setMinimizedTypes((prev) => {
-        const n = new Set(prev)
-        n.delete(t)
-        return n
-      })
       if (target.id) setFocusedItemId(target.id)
       else setFocusedItemId(null)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SearchContext.focusWidget accepts a broader event payload
@@ -1507,37 +1426,22 @@ export function FluidSearchCanvas({
         const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | null
         if (!el || !container) return
 
-        // Extract Y from Packery's CSS transform: matrix(a,b,c,d,tx,ty)
-        const transform = window.getComputedStyle(el).transform
-        let packeryY = 0
-        if (transform && transform !== "none") {
-          const match = transform.match(/matrix.*\((.+)\)/)
-          if (match) {
-            const vals = match[1].split(", ")
-            packeryY = parseFloat(vals[5] ?? "0") // ty in matrix(a,b,c,d,tx,ty)
-          }
-        }
-
-        // Fallback: use offsetTop if transform gave 0
-        const targetY = packeryY > 0 ? packeryY : el.offsetTop
+        const targetY = el.offsetTop
         container.scrollTo({ top: targetY - 8, behavior: "smooth" })
       }
-      // Two passes: Packery first layout ~200ms, then after framer-motion animate ~500ms
-      setTimeout(scrollToWidget, 250)
-      setTimeout(scrollToWidget, 600)
+      setTimeout(scrollToWidget, 150)
+      setTimeout(scrollToWidget, 450)
     },
     [ctx, localQuery, recentSearches, trackWidgetFocus]
   )
 
-  const handleMinimize = useCallback((type: WidgetType) => {
-    // Remove from expanded and add to minimized
-    setExpandedWidgets((prev) => { const n = new Set(prev); n.delete(type); return n })
-    setMinimizedTypes((prev) => new Set(prev).add(type))
-  }, [])
-  
   const handleCollapseWidget = useCallback((type: WidgetType) => {
-    // Remove from expanded but don't minimize (goes back to context pills)
-    setExpandedWidgets((prev) => { const n = new Set(prev); n.delete(type); return n })
+    // Remove from expanded; user can restore via Fast-Action radial
+    setExpandedWidgets((prev) => {
+      const n = new Set(prev)
+      n.delete(type)
+      return n
+    })
   }, [])
 
   const handleAddToNotepad = useCallback(
@@ -1573,7 +1477,6 @@ export function FluidSearchCanvas({
       setPinnedSpeciesName(name)
       // Auto-expand species widget and scroll to it
       setExpandedWidgets((prev) => new Set(prev).add("species" as WidgetType))
-      setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("species" as WidgetType); return n })
       // Small delay to let Packery place the widget before scrolling
       setTimeout(() => {
         const el = widgetElRefs.current["species"]
@@ -1707,40 +1610,39 @@ export function FluidSearchCanvas({
       </div>
       {/* Voice mic is in the search bar above — no second floating button needed */}
 
-      {/* === MULTI-WIDGET GRID LAYOUT: grid -> context pills -> minimized bar === */}
-      <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
+      {/* === MULTI-WIDGET GRID LAYOUT: Packery grid only (no bottom icon bar / pills) === */}
+      <div className="relative flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
         {/* Grid scrolls inside viewport so widgets never sit below the fold */}
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom __scrollContainer property attached to ref map at runtime */}
         <div className="flex-1 min-h-0 overflow-auto" ref={(el) => { (widgetElRefs.current as any).__scrollContainer = el }}>
-          <div 
-            ref={packeryContainerRef}
-            className="packery-container relative w-full"
-            style={{ minHeight: 200 }}
-          >
-            {/* Grid sizer — width drives Packery's column unit, updates on resize */}
-            <div className="grid-sizer" style={{ width: gridSizerWidth }} />
-            
-            <AnimatePresence mode="popLayout" onExitComplete={() => packeryLayout()}>
-              {gridWidgets.map((config) => {
+          <div ref={gridContainerRef} className="relative w-full" style={{ minHeight: 200 }}>
+            <MagneticGrid columns={columns} gutter={12}>
+            <AnimatePresence mode="popLayout" onExitComplete={() => {}}>
+              {sortedGridWidgets.map((config) => {
                 const sizeClasses = getWidgetSizeClasses(config.type)
                 const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type as WidgetType] || { width: 1, height: 1 }
-                
+                const widthSpan = (columns <= 1 ? 1 : Math.min(currentSize.width, 2)) as 1 | 2
+
                 return (
                 <div
                   key={`expanded-${config.type}`}
                   data-widget-id={config.type}
+                  data-testid={`widget-${config.type}`}
                   ref={(el) => { widgetElRefs.current[config.type] = el }}
                   className={cn(
-                    "packery-widget z-20 mb-3",
+                    "search-magnetic-widget z-20 min-h-0",
                     sizeClasses,
                   )}
-                  style={{ 
-                    width: getWidgetWidth(currentSize.width),
-                    // hasData from SWR can differ on first client paint vs SSR — only apply after mount
+                  style={{
+                    ...magneticGridItemStyle({
+                      columns,
+                      widthSpan,
+                      heightSpan: currentSize.height,
+                    }),
                     order: (clientUiReady
                       ? (config.hasData || expandedWidgets.has(config.type))
-                      : expandedWidgets.has(config.type)) ? -1 : 0
+                      : expandedWidgets.has(config.type)) ? -1 : 0,
                   }}
                   draggable
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
@@ -1754,8 +1656,7 @@ export function FluidSearchCanvas({
                       location: "Location",
                       news: "News",
                       crep: "CREP Observations",
-                      earth2: "Earth2 Weather",
-                      map: "Map",
+                      earth: "Earth",
                     }
                     e.dataTransfer.setData("application/search-widget", JSON.stringify({
                       type: (config.type === "chemistry" ? "compound" : config.type) as any,
@@ -1777,7 +1678,6 @@ export function FluidSearchCanvas({
                   }}
                 >
                   <motion.div
-                    /* layout prop removed - Packery manages positioning */
                     initial={widgetEnterAnimation.initial}
                     animate={widgetEnterAnimation.animate}
                     exit={widgetEnterAnimation.exit}
@@ -1817,10 +1717,7 @@ export function FluidSearchCanvas({
                             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
                           </svg>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Collapse">
-                          <Minimize2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(config.type)} title="Minimize">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Close widget">
                           <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                         </Button>
                       </div>
@@ -1846,6 +1743,7 @@ export function FluidSearchCanvas({
                           ctx.setQuery(q)
                         }}
                         isLoading={isLoading}
+                        searchPipelineBusy={searchPipelineBusy}
                         isFocused={true}
                         focusedItemId={focusedItemId}
                         onFocusWidget={handleFocusWidget}
@@ -1863,104 +1761,9 @@ export function FluidSearchCanvas({
                 </div>
               )})}
             </AnimatePresence>
+            </MagneticGrid>
           </div>
         </div>
-
-        {/* Context widget pills with floating animations */}
-        {contextWidgets.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 shrink-0 py-1.5 sm:py-2">
-            {contextWidgets.map((config, i) => {
-              const floatVariants = getWidgetFloatVariants(config.type)
-              return (
-                <div
-                  key={config.type}
-                  draggable
-                  onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                    const labels: Record<string, string> = {
-                      species: species[0]?.commonName || species[0]?.scientificName || "Species",
-                      chemistry: compounds[0]?.name || "Compounds",
-                      genetics: "Genetics Data",
-                      research: research[0]?.title || "Research",
-                      answers: "Answers",
-                      media: "Media",
-                      location: "Location",
-                      news: "News",
-                      crep: "CREP Observations",
-                      earth2: "Earth2 Weather",
-                      map: "Map",
-                    }
-                    e.dataTransfer.setData("application/search-widget", JSON.stringify({
-                      type: (config.type === "chemistry" ? "compound" : config.type) as any,
-                      title: labels[config.type] || config.label,
-                      content: `${config.label} results from search "${localQuery}"`,
-                      source: "Search",
-                      searchQuery: localQuery,
-                    }))
-                    e.dataTransfer.effectAllowed = "copy"
-                    if (e.currentTarget instanceof HTMLElement) {
-                      e.currentTarget.style.opacity = "0.5"
-                    }
-                  }}
-                  onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
-                    if (e.currentTarget instanceof HTMLElement) {
-                      e.currentTarget.style.opacity = "1"
-                    }
-                  }}
-                  style={{ zIndex: 10 - i }}
-                  className="cursor-grab active:cursor-grabbing"
-                >
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      ...floatVariants,
-                    }}
-                    whileHover={{ 
-                      boxShadow: "0 15px 35px rgba(34, 197, 94, 0.35)",
-                    }}
-                    onClick={() => handleFocusWidget({ type: config.type })}
-                    className={cn(
-                      "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl cursor-pointer",
-                      "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
-                      "shadow-lg hover:shadow-xl active:shadow-md transition-all duration-300",
-                      `bg-gradient-to-br ${config.gradient}`
-                    )}
-                  >
-                    <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
-                    <span className="text-[10px] sm:text-xs font-medium text-foreground/80">{config.label}</span>
-                  </motion.button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Minimized widget icon bar */}
-        {minimizedWidgetConfigs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 shrink-0"
-          >
-            <span className="text-[9px] sm:text-[10px] text-muted-foreground hidden sm:inline">Minimized:</span>
-            {minimizedWidgetConfigs.map((w) => (
-              <motion.button
-                key={w.type}
-                whileHover={{ boxShadow: "0 8px 20px rgba(34, 197, 94, 0.3)" }}
-                onClick={() => handleFocusWidget({ type: w.type })}
-                className={cn(
-                  "w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center",
-                  "bg-gradient-to-br shadow-md hover:shadow-lg active:shadow-sm transition-shadow border border-white/10",
-                  w.gradient
-                )}
-                title={`Restore ${w.label}`}
-              >
-                <span className="text-base sm:text-sm">{typeof w.icon === 'string' ? w.icon : w.icon}</span>
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
 
         {/* Empty state */}
         {activeWidgets.length === 0 && !isLoading && localQuery.length >= 2 && (
@@ -1969,6 +1772,16 @@ export function FluidSearchCanvas({
           </div>
         )}
       </div>
+
+      {/* FAB outside flex-1 overflow-hidden so radial is not clipped (pairs with `fixed` in FastActionRadial). */}
+      <FastActionRadial
+        rankedWidgets={
+          streamingIntentPlan?.secondaryWidgets?.length
+            ? streamingIntentPlan.secondaryWidgets
+            : effectiveSearchRoute?.secondaryWidgets ?? []
+        }
+        onOpenWidget={(t) => handleFocusWidget({ type: t })}
+      />
 
       {/* CREP Widescreen Overlay */}
       <AnimatePresence>
@@ -2007,10 +1820,16 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
     events: "⚡", aircraft: "✈️", vessels: "🚢", satellites: "🛰️",
     weather: "🌦️", emissions: "🏭", infrastructure: "🏗️",
     devices: "📡", space_weather: "☀️",
+    cameras: "📹",
     embedding_atlas: "🔮",
+    traffic: "🚦", food: "🍽️", flights: "✈️", stocks: "📈",
+    sports: "🏀", people: "👤", code: "💻", shopping: "🛒", recipe: "📖",
   }
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">
+    <div
+      className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4"
+      data-testid={`widget-empty-${type}`}
+    >
       <span className="text-3xl mb-2">{icons[type] || "📦"}</span>
       <p className="text-sm font-medium">{label}</p>
       <p className="text-xs opacity-70">No data available yet</p>
@@ -2033,7 +1852,7 @@ function WidgetContent({
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
-  isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
+  isLoading, searchPipelineBusy, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
   openArticle, openPaper, pinnedSpeciesName, query: searchQuery,
 }: {
   type: WidgetType
@@ -2046,6 +1865,8 @@ function WidgetContent({
   onSelectSuggestionWidget: (widgetType: string) => void
   onSelectSuggestionQuery: (query: string) => void
   isLoading?: boolean
+  /** True while unified/SSE search is still running (includes isValidating); avoids empty cameras before results land */
+  searchPipelineBusy?: boolean
   isFocused: boolean
   query?: string
   focusedItemId?: string | null
@@ -2139,8 +1960,37 @@ function WidgetContent({
       if (!spaceWeather?.length) return <EmptyWidgetState type="space_weather" label="Space Weather" />
       return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} />
     case "cameras":
+      if (searchPipelineBusy && !cameras?.length) {
+        return (
+          <div
+            className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground gap-2"
+            data-testid="widget-loading-cameras"
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-cyan-400" aria-hidden />
+            <p className="text-xs">Loading cameras…</p>
+          </div>
+        )
+      }
       if (!cameras?.length) return <EmptyWidgetState type="cameras" label="Live Cameras" />
       return <CameraWidget data={cameras as any} />
+    case "traffic":
+      return <EmptyWidgetState type="traffic" label={WIDGET_REGISTRY.traffic.label} />
+    case "food":
+      return <EmptyWidgetState type="food" label={WIDGET_REGISTRY.food.label} />
+    case "flights":
+      return <EmptyWidgetState type="flights" label={WIDGET_REGISTRY.flights.label} />
+    case "stocks":
+      return <EmptyWidgetState type="stocks" label={WIDGET_REGISTRY.stocks.label} />
+    case "sports":
+      return <EmptyWidgetState type="sports" label={WIDGET_REGISTRY.sports.label} />
+    case "people":
+      return <EmptyWidgetState type="people" label={WIDGET_REGISTRY.people.label} />
+    case "code":
+      return <EmptyWidgetState type="code" label={WIDGET_REGISTRY.code.label} />
+    case "shopping":
+      return <EmptyWidgetState type="shopping" label={WIDGET_REGISTRY.shopping.label} />
+    case "recipe":
+      return <EmptyWidgetState type="recipe" label={WIDGET_REGISTRY.recipe.label} />
     case "fallback":
       return (
         <FallbackWidget
@@ -2154,5 +2004,7 @@ function WidgetContent({
       return <EmptyWidgetState type={type} label={type} />
   }
 }
+
+export type { WidgetType } from "@/lib/search/widget-registry"
 
 export default FluidSearchCanvas

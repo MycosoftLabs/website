@@ -14,7 +14,7 @@ export function CameraWidget({ data }: CameraWidgetProps) {
   const topCams = data.slice(0, 2)
 
   return (
-    <div className="flex flex-col gap-3 h-full overflow-hidden">
+    <div className="flex flex-col gap-3 h-full overflow-hidden" data-testid="widget-real-data">
       {topCams.map((cam, i) => (
         <div 
           key={cam.id || i}

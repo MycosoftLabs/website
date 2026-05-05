@@ -21,10 +21,10 @@ import HeroSearch from "./hero-search"
  */
 export default function ParallaxSearch() {
   return (
-    <div className="space-y-4">
+    <div className="relative z-10 space-y-4">
       <HeroSearch />
 
-      <div className="flex justify-center">
+      <div className="relative z-10 flex justify-center">
         <Link
           href="/agent"
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/20 dark:hover:bg-amber-500/30 transition-colors min-h-[44px] min-w-[44px]"

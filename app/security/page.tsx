@@ -73,6 +73,35 @@ interface SecurityAgent {
   lastHeartbeat?: string;
 }
 
+interface SocDashboardTiles {
+  network: {
+    total: number;
+    online: number;
+    offline: number;
+    stale: number;
+    unknown: number;
+    source: string;
+  };
+  compliance: {
+    implementation_percent?: number;
+    total_controls?: number;
+    implemented?: number;
+  } | null;
+  redteam: { active_simulations?: number; status?: string; service?: string } | null;
+}
+
+interface ThreatMapPoint {
+  ip: string;
+  lat: number;
+  lon: number;
+  country: string;
+  country_code: string;
+  city: string;
+  severity: string;
+  incident_hits: number;
+  last_seen: string;
+}
+
 export default function SecurityPage() {
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [users, setUsers] = useState<AuthorizedUser[]>([]);
@@ -84,14 +113,19 @@ export default function SecurityPage() {
   const [ipLookup, setIpLookup] = useState("");
   const [geoResult, setGeoResult] = useState<GeoIpResult | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [socTiles, setSocTiles] = useState<SocDashboardTiles | null>(null);
+  const [threatPoints, setThreatPoints] = useState<ThreatMapPoint[]>([]);
+  const [threatMapMeta, setThreatMapMeta] = useState<{ data_source?: string; error?: string }>({});
 
   const fetchData = async () => {
     try {
-      const [statusRes, usersRes, eventsRes, agentsRes] = await Promise.all([
+      const [statusRes, usersRes, eventsRes, agentsRes, tilesRes, mapRes] = await Promise.all([
         fetch("/api/security?action=status"),
         fetch("/api/security?action=users"),
         fetch("/api/security?action=events"),
         fetch("/api/security/agents?action=mas_agents"),
+        fetch("/api/security?action=soc-dashboard-tiles"),
+        fetch("/api/security?action=threat-map"),
       ]);
 
       if (!statusRes.ok || !usersRes.ok || !eventsRes.ok) {
@@ -108,6 +142,24 @@ export default function SecurityPage() {
       setEvents(eventsData.events || []);
       setSecurityAgents(agentsData.agents || []);
       setMasConnected(!agentsData.error && agentsData.agents?.length > 0);
+
+      if (tilesRes.ok) {
+        setSocTiles((await tilesRes.json()) as SocDashboardTiles);
+      } else {
+        setSocTiles(null);
+      }
+      if (mapRes.ok) {
+        const mapJson = (await mapRes.json()) as {
+          points?: ThreatMapPoint[];
+          data_source?: string;
+          error?: string;
+        };
+        setThreatPoints(Array.isArray(mapJson.points) ? mapJson.points : []);
+        setThreatMapMeta({ data_source: mapJson.data_source, error: mapJson.error });
+      } else {
+        setThreatPoints([]);
+        setThreatMapMeta({ error: "threat_map_fetch_failed" });
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -464,19 +516,103 @@ export default function SecurityPage() {
         </div>
       </div>
 
-      {/* Threat Map Placeholder */}
-      <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
-          <Globe className="text-blue-400" size={20} />
-          Global Threat Overview
-        </h2>
-        <div className="h-48 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-center">
-          <div className="text-center text-slate-500">
-            <Globe size={48} className="mx-auto mb-2 opacity-50" />
-            <p className="font-mono text-sm">Geographic threat visualization</p>
-            <p className="text-xs">Showing traffic patterns from {status?.unique_ips || 0} unique IPs</p>
+      {/* SOC summary — real MAS-backed tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+        <Link
+          href="/security/network"
+          className="min-h-[44px] p-4 rounded-xl border border-cyan-700/40 bg-cyan-950/20 hover:bg-cyan-950/40 transition touch-manipulation"
+        >
+          <div className="text-cyan-400 font-mono text-sm font-bold mb-1">Network inventory</div>
+          <div className="text-2xl font-mono text-white">
+            {socTiles?.network?.total ?? "—"}
           </div>
-        </div>
+          <div className="text-xs text-slate-400 font-mono mt-1">
+            {socTiles?.network
+              ? `${socTiles.network.online} online · ${socTiles.network.offline} offline · src ${socTiles.network.source}`
+              : "MAS inventory unavailable"}
+          </div>
+        </Link>
+        <Link
+          href="/security/redteam"
+          className="min-h-[44px] p-4 rounded-xl border border-red-700/40 bg-red-950/20 hover:bg-red-950/40 transition touch-manipulation"
+        >
+          <div className="text-red-400 font-mono text-sm font-bold mb-1">Red team</div>
+          <div className="text-2xl font-mono text-white">
+            {socTiles?.redteam?.active_simulations ?? "—"}
+          </div>
+          <div className="text-xs text-slate-400 font-mono mt-1">
+            {socTiles?.redteam?.status
+              ? `API ${socTiles.redteam.status}`
+              : "Health from MAS /api/redteam/health"}
+          </div>
+        </Link>
+        <Link
+          href="/security/compliance"
+          className="min-h-[44px] p-4 rounded-xl border border-purple-700/40 bg-purple-950/20 hover:bg-purple-950/40 transition touch-manipulation"
+        >
+          <div className="text-purple-400 font-mono text-sm font-bold mb-1">Compliance (NIST)</div>
+          <div className="text-2xl font-mono text-white">
+            {socTiles?.compliance?.implementation_percent != null
+              ? `${socTiles.compliance.implementation_percent}%`
+              : "—"}
+          </div>
+          <div className="text-xs text-slate-400 font-mono mt-1">
+            {socTiles?.compliance?.total_controls != null
+              ? `${socTiles.compliance.implemented ?? 0}/${socTiles.compliance.total_controls} implemented`
+              : "Score from MAS /api/compliance/score"}
+          </div>
+        </Link>
+      </div>
+
+      {/* Threat map — public incident IPs geolocated (no mock coordinates) */}
+      <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-bold text-white font-mono mb-2 flex items-center gap-2">
+          <Globe className="text-blue-400" size={20} />
+          Incident source geography
+        </h2>
+        <p className="text-xs text-slate-500 font-mono mb-4">
+          Data: {threatMapMeta.data_source || "—"}
+          {threatMapMeta.error ? ` · error: ${threatMapMeta.error}` : ""} · {threatPoints.length} point
+          {threatPoints.length === 1 ? "" : "s"}
+        </p>
+        {threatPoints.length === 0 ? (
+          <div className="h-48 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-center">
+            <div className="text-center text-slate-500 px-4">
+              <Globe size={48} className="mx-auto mb-2 opacity-50" />
+              <p className="font-mono text-sm">No public-routable incident IPs in the recent window</p>
+              <p className="text-xs mt-1">Only external IPs from MAS incidents are plotted (RFC1918 excluded).</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
+            <svg viewBox="0 0 360 170" className="w-full h-auto max-h-72" role="img" aria-label="Threat map by latitude and longitude">
+              <rect x="0" y="0" width="360" height="170" fill="#0f172a" />
+              {threatPoints.map((p, idx) => {
+                const x = ((p.lon + 180) / 360) * 360;
+                const y = ((90 - p.lat) / 180) * 170;
+                const fill =
+                  p.severity === "critical"
+                    ? "#ef4444"
+                    : p.severity === "high"
+                      ? "#f97316"
+                      : p.severity === "medium"
+                        ? "#eab308"
+                        : "#22c55e";
+                return <circle key={`${p.ip}-${idx}`} cx={x} cy={y} r={5} fill={fill} opacity={0.9} />;
+              })}
+            </svg>
+            <div className="max-h-40 overflow-y-auto border-t border-slate-800 p-3 space-y-1 text-xs font-mono text-slate-300">
+              {threatPoints.slice(0, 12).map((p) => (
+                <div key={p.ip} className="flex flex-wrap justify-between gap-2">
+                  <span className="text-white">{p.ip}</span>
+                  <span className="text-slate-500">
+                    {p.city}, {p.country_code} · {p.severity} · hits {p.incident_hits}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Last Update Info */}

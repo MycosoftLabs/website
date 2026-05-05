@@ -31,6 +31,6 @@ export async function GET() {
       service: "myca-orchestrator",
       message: "Unable to connect to MAS orchestrator",
       fallback: true,
-    })
+    }, { status: 503 })
   }
 }

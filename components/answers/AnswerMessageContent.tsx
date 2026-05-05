@@ -85,7 +85,7 @@ function inferEmbedsFromContent(content: string): AnswerEmbedPayload[] {
     embeds.push({ type: "crep", widgetType: "crep" })
   }
   if (lower.includes("earth2") || lower.includes("weather simulation")) {
-    embeds.push({ type: "earth2", widgetType: "earth2" })
+    embeds.push({ type: "earth2", widgetType: "earth" })
   }
   if (lower.includes("telemetry") || lower.includes("mycobrain")) {
     embeds.push({ type: "telemetry", widgetType: "location" })

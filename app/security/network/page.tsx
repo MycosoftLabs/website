@@ -6,124 +6,25 @@ import {
   AlertTriangle, Zap, Users, Router, Signal, 
   ArrowUp, ArrowDown, Clock, RefreshCw, Search,
   ChevronRight, Lock, Unlock, XCircle, CheckCircle,
-  HelpCircle
+  HelpCircle, LayoutGrid
 } from "lucide-react";
 import { SecurityTour, networkMonitorTour, TourTriggerButton } from "@/components/security/tour";
+import type { DashboardData, Device, Client, ThroughputPayload } from "@/lib/unifi/network-dashboard-map";
+import { useSecurityWebSocket } from "@/hooks/use-security-websocket";
 
-// ===== Types =====
+type Throughput = ThroughputPayload;
 
-interface WANStatus {
-  ip: string;
-  isp: string;
-  download_speed_mbps: number;
-  upload_speed_mbps: number;
-  latency_ms: number;
-  availability: number;
-  status: string;
-}
-
-interface LANStatus {
-  status: string;
-  num_user: number;
-  num_guest: number;
-  tx_bytes_rate: number;
-  rx_bytes_rate: number;
-}
-
-interface WifiStatus {
-  status: string;
-  num_ap: number;
-  num_user: number;
-  num_guest: number;
-  tx_bytes_rate: number;
-  rx_bytes_rate: number;
-}
-
-interface Device {
-  name: string;
-  model: string;
-  mac: string;
-  ip: string;
-  type: string;
-  state: string;
-  uptime: number;
-  version: string;
-  cpu?: number;
-  mem?: number;
-}
-
-interface Client {
-  name: string;
-  mac: string;
-  ip: string;
-  tx_bytes: number;
-  rx_bytes: number;
-  is_wired: boolean;
-  signal?: number;
-  satisfaction?: number;
-}
-
-interface TrafficCategory {
-  name: string;
-  tx_bytes: number;
-  rx_bytes: number;
-  total_bytes: number;
-  tx_formatted: string;
-  rx_formatted: string;
-  total_formatted: string;
-}
-
-interface Alarm {
+interface LanInventoryRow {
   id: string;
-  type: string;
-  message: string;
-  time: string;
-  subsystem: string;
-}
-
-interface WifiNetwork {
-  name: string;
-  enabled: boolean;
-  security: string;
-  is_guest: boolean;
-  num_sta: number;
-}
-
-interface DashboardData {
-  timestamp: string;
-  wan: WANStatus | null;
-  lan: LANStatus | null;
-  wifi: WifiStatus | null;
-  devices: {
-    total: number;
-    online: number;
-    offline: number;
-    list: Device[];
-  };
-  clients: {
-    total: number;
-    wired: number;
-    wireless: number;
-    guests: number;
-    top: Client[];
-  };
-  traffic: {
-    total_tx_bytes: number;
-    total_rx_bytes: number;
-    top_apps: TrafficCategory[];
-  };
-  alarms: {
-    total: number;
-    active: number;
-    list: Alarm[];
-  };
-  wifi_networks: WifiNetwork[];
-}
-
-interface Throughput {
-  timestamp: string;
-  lan: { tx_mbps: number; rx_mbps: number };
-  wan: { tx_mbps: number; rx_mbps: number };
+  ip: string;
+  mac: string | null;
+  hostname: string | null;
+  board_type: string | null;
+  source: string;
+  classified_as: string | null;
+  status: string;
+  last_seen: string | null;
+  device_id?: string | null;
 }
 
 // ===== Component =====
@@ -134,7 +35,17 @@ export default function NetworkSecurityPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [selectedView, setSelectedView] = useState<"overview" | "devices" | "clients" | "traffic" | "topology">("overview");
+  const [selectedView, setSelectedView] = useState<
+    "overview" | "devices" | "clients" | "traffic" | "topology" | "inventory"
+  >("overview");
+  const [inventoryRows, setInventoryRows] = useState<LanInventoryRow[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySource, setInventorySource] = useState("");
+
+  const { event: inventoryWsEvent } = useSecurityWebSocket({
+    eventTypes: ["device_inventory"],
+    debug: false,
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -143,15 +54,22 @@ export default function NetworkSecurityPage() {
         fetch("/api/unifi?action=throughput"),
       ]);
 
-      if (!dashboardRes.ok || !throughputRes.ok) {
-        throw new Error("Failed to fetch network data");
+      if (!dashboardRes.ok) {
+        throw new Error("Failed to fetch network dashboard");
       }
 
-      const dashboardData = await dashboardRes.json();
-      const throughputData = await throughputRes.json();
-
+      const dashboardData = (await dashboardRes.json()) as DashboardData;
       setData(dashboardData);
-      setThroughput(throughputData);
+
+      if (throughputRes.ok) {
+        setThroughput((await throughputRes.json()) as Throughput);
+      } else {
+        setThroughput({
+          timestamp: new Date().toISOString(),
+          lan: { tx_mbps: 0, rx_mbps: 0 },
+          wan: { tx_mbps: 0, rx_mbps: 0 },
+        });
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -160,15 +78,46 @@ export default function NetworkSecurityPage() {
     }
   }, []);
 
+  const fetchInventory = useCallback(async () => {
+    try {
+      setInventoryLoading(true);
+      const r = await fetch("/api/security?action=network-inventory&limit=5000");
+      const j = (await r.json()) as { items?: LanInventoryRow[]; source?: string };
+      setInventoryRows(Array.isArray(j.items) ? j.items : []);
+      setInventorySource(j.source || "");
+    } catch {
+      setInventoryRows([]);
+      setInventorySource("");
+    } finally {
+      setInventoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (selectedView === "inventory") void fetchInventory();
+  }, [selectedView, fetchInventory]);
+
+  useEffect(() => {
+    if (inventoryWsEvent?.event_type === "device_inventory" && selectedView === "inventory") {
+      void fetchInventory();
+    }
+  }, [inventoryWsEvent, fetchInventory, selectedView]);
 
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchData]);
+
+  useEffect(() => {
+    if (!autoRefresh || selectedView !== "inventory") return;
+    const interval = setInterval(() => void fetchInventory(), 60_000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, selectedView, fetchInventory]);
 
   const formatBytes = (bytes: number) => {
     if (!bytes) return "0 B";
@@ -250,6 +199,7 @@ export default function NetworkSecurityPage() {
           { id: "clients", label: "Clients", icon: Users, tourId: "network-tab-clients" },
           { id: "traffic", label: "Traffic", icon: Activity, tourId: "network-tab-traffic" },
           { id: "topology", label: "Topology", icon: Globe, tourId: "network-tab-topology" },
+          { id: "inventory", label: "LAN inventory", icon: LayoutGrid, tourId: "network-tab-inventory" },
         ].map(({ id, label, icon: Icon, tourId }) => (
           <button
             key={id}
@@ -293,11 +243,11 @@ export default function NetworkSecurityPage() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1 text-emerald-400">
                   <ArrowDown size={16} />
-                  <span className="font-mono font-bold">{throughput?.lan.rx_mbps.toFixed(1) || 0} Mbps</span>
+                  <span className="font-mono font-bold">{(throughput?.lan?.rx_mbps ?? 0).toFixed(1)} Mbps</span>
                 </div>
                 <div className="flex items-center gap-1 text-orange-400">
                   <ArrowUp size={16} />
-                  <span className="font-mono font-bold">{throughput?.lan.tx_mbps.toFixed(1) || 0} Mbps</span>
+                  <span className="font-mono font-bold">{(throughput?.lan?.tx_mbps ?? 0).toFixed(1)} Mbps</span>
                 </div>
               </div>
             </div>
@@ -536,6 +486,71 @@ export default function NetworkSecurityPage() {
       {selectedView === "topology" && (
         <div data-tour="topology-view">
           <TopologyView />
+        </div>
+      )}
+
+      {selectedView === "inventory" && (
+        <div className="space-y-4" data-tour="lan-inventory">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-slate-400 font-mono text-sm">
+              Source: <span className="text-cyan-300">{inventorySource || "—"}</span>
+              {" · "}
+              {inventoryRows.length} host{inventoryRows.length === 1 ? "" : "s"}
+            </p>
+            <button
+              type="button"
+              onClick={() => void fetchInventory()}
+              className="min-h-[44px] px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-mono text-sm flex items-center gap-2 touch-manipulation"
+            >
+              <RefreshCw size={16} className={inventoryLoading ? "animate-spin" : ""} />
+              Refresh inventory
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40">
+            <table className="min-w-[720px] w-full text-left text-sm font-mono">
+              <thead>
+                <tr className="border-b border-slate-700 text-slate-400">
+                  <th className="p-3">IP</th>
+                  <th className="p-3">MAC</th>
+                  <th className="p-3">Hostname</th>
+                  <th className="p-3">Class</th>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryLoading && inventoryRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                      Loading MAS device inventory…
+                    </td>
+                  </tr>
+                ) : inventoryRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                      No inventory rows yet. Ensure MAS network discovery and Postgres `soc_ops.device_inventory`
+                      are configured.
+                    </td>
+                  </tr>
+                ) : (
+                  inventoryRows.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-800 hover:bg-slate-800/40">
+                      <td className="p-3 text-white">{row.ip}</td>
+                      <td className="p-3 text-slate-300">{row.mac || "—"}</td>
+                      <td className="p-3 text-slate-300">{row.hostname || "—"}</td>
+                      <td className="p-3 text-slate-300">{row.classified_as || row.board_type || "—"}</td>
+                      <td className="p-3 text-cyan-300/90">{row.source}</td>
+                      <td className="p-3 text-slate-200">{row.status}</td>
+                      <td className="p-3 text-slate-400 text-xs">
+                        {row.last_seen ? new Date(row.last_seen).toLocaleString() : "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

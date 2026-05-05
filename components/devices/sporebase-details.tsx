@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo } from "react"
 import Image from "next/image"
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform, useReducedMotion } from "framer-motion"
 import {
   NeuCard,
   NeuCardContent,
@@ -16,7 +16,9 @@ import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
 import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { sporebaseHeroYoutubeId } from "@/lib/hero-youtube"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -45,11 +47,14 @@ const SPOREBASE_ASSETS = {
   ],
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",
-  // Hero — NAS filename is lowercase (Sporebase1publish.mp4 404s on CDN)
+  // Hero MP4 on NAS — same path as historical hero; YouTube is an optional overlay
   heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
 
 const SPOREBASE_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SPOREBASE_ASSETS.heroVideo))
+
+/** @Mycosoft SporeBase device hero — https://www.youtube.com/watch?v=Gc3FUxi6Q1k */
+const SPOREBASE_HERO_YOUTUBE_ID = sporebaseHeroYoutubeId()
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 interface DeviceComponent {
@@ -213,6 +218,7 @@ export function SporeBaseDetails() {
   const [selectedCase, setSelectedCase] = useState(0)
   const [currentImage, setCurrentImage] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
   const floatingPixels = useMemo(() => buildFloatingPixels(20, 42, 0, 100), [])
   const floatingParticles = useMemo(() => buildFloatingPixels(8, 1337, 10, 90), [])
   
@@ -229,18 +235,25 @@ export function SporeBaseDetails() {
     <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
       {/* Hero Section — data-over-video for dark background text consistency */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
-        {/* Background video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
+        {/* NAS MP4 base + optional YouTube overlay (@Mycosoft) */}
         <motion.div 
           style={{ scale: heroScale }}
           className="absolute inset-0"
         >
-          <AutoplayVideo
-            src={SPOREBASE_HERO_SOURCES[0]}
-            sources={SPOREBASE_HERO_SOURCES}
-            encodeSrc
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-slate-950/70" />
+          {SPOREBASE_HERO_SOURCES[0] ? (
+            <AutoplayVideo
+              src={SPOREBASE_HERO_SOURCES[0]}
+              sources={SPOREBASE_HERO_SOURCES}
+              encodeSrc
+              className="absolute inset-0 z-0 h-full w-full object-cover"
+            />
+          ) : null}
+          {!prefersReducedMotion ? (
+            <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+              <YoutubeHeroBackground videoId={SPOREBASE_HERO_YOUTUBE_ID} />
+            </div>
+          ) : null}
+          <div className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-b from-black/50 via-black/30 to-slate-950/70" />
         </motion.div>
         
         <motion.div 

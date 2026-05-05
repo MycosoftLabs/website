@@ -101,6 +101,8 @@ interface AutoplayVideoProps {
   hideUntilPlaying?: boolean
   /** Video preload strategy. "auto" for hero videos (faster start), "metadata" for below-fold. Default "auto" */
   preload?: "auto" | "metadata" | "none"
+  /** Still image until first frame decodes (faster perceived hero load). */
+  poster?: string
   /**
    * When true (default), the video does not receive pointer events so full-bleed heroes
    * do not sit above the footer/header stack and eat the first tap/click.
@@ -119,6 +121,7 @@ export function AutoplayVideo({
   hideUntilPlaying = false,
   preload = "auto",
   pointerEventsNone = true,
+  poster,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const isDev = process.env.NODE_ENV === "development"
@@ -262,6 +265,13 @@ export function AutoplayVideo({
     hideUntilPlaying && !playing ? "opacity-0" : hideUntilPlaying ? "opacity-100 transition-opacity duration-500" : ""
   const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
 
+  const posterAttr =
+    typeof poster === "string" && poster
+      ? encodeSrc
+        ? encodeAssetUrl(poster)
+        : poster
+      : undefined
+
   return (
     <video
       key={activeSrc}
@@ -270,6 +280,7 @@ export function AutoplayVideo({
       muted
       loop
       playsInline
+      poster={posterAttr}
       preload={preload}
       className={[className, visibilityClass, pointerClass].filter(Boolean).join(" ")}
       style={style}

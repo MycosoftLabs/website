@@ -25,7 +25,7 @@ import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/wor
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { homeHeroVideoSources } from "@/lib/asset-video-sources"
-import { homeHeroYoutubeId, youtubeHeroThumbnailUrl } from "@/lib/hero-youtube"
+import { homeHeroYoutubeId } from "@/lib/hero-youtube"
 import Link from "next/link"
 import {
   Search,
@@ -43,10 +43,9 @@ import {
  * Homepage hero video only. Keep this on the canonical homepage media path so the
  * hero behaves like the rest of the site's background videos.
  */
-const HOME_HERO_SOURCES = homeHeroVideoSources()
-/** Optional WebP/AVIF poster until first video frame (set on prod Docker env). */
+/** Optional WebP/AVIF poster when not embedding iframe (set on prod Docker env). */
 const HOME_HERO_POSTER = process.env.NEXT_PUBLIC_HOME_HERO_POSTER?.trim() || undefined
-/** Optional @Mycosoft YouTube hero — 11-char id or full URL; see https://www.youtube.com/@Mycosoft */
+/** @Mycosoft homepage hero — https://www.youtube.com/watch?v=6lrvQIfRazs (override with NEXT_PUBLIC_HOME_HERO_YOUTUBE_ID). */
 const HOME_HERO_YOUTUBE_ID = homeHeroYoutubeId()
 
 interface HeroSuggestion {
@@ -141,16 +140,10 @@ export function HeroSearch() {
     }
   }, [])
 
-  const showHeroBackgroundVideo =
+  const canEmbedYoutubeHero =
     idleHeroVideoReady && clientAllowsHeavyHeroVideo(prefersReducedMotion)
 
-  const canEmbedYoutubeHero =
-    idleHeroVideoReady &&
-    !!HOME_HERO_YOUTUBE_ID &&
-    clientAllowsHeavyHeroVideo(prefersReducedMotion)
-
-  const showYoutubeHeroPoster =
-    idleHeroVideoReady && !!HOME_HERO_YOUTUBE_ID && !canEmbedYoutubeHero
+  const homeNasHeroSources = homeHeroVideoSources()
 
   // Rotate Try: suggestions on mount and every 30s for variety
   useEffect(() => {
@@ -339,32 +332,23 @@ export function HeroSearch() {
         className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
         style={{ contain: "paint", willChange: "transform" }}
       >
-        {/* May 03, 2026 — Homepage OOM / tab crash: mount video only after
-            requestIdleCallback + client policy (reduced motion, saveData,
-            deviceMemory ≤ 4, slow-2g/2g). Sources default to *-web.mp4 only
-            (see `homeHeroVideoSources`). preload="none" until element exists,
-            then play — avoids hero competing with first paint and blocks full
-            MP4 fallback unless NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4=true. */}
-        {canEmbedYoutubeHero && HOME_HERO_YOUTUBE_ID ? (
-          <YoutubeHeroBackground videoId={HOME_HERO_YOUTUBE_ID} className="z-0" />
-        ) : showYoutubeHeroPoster && HOME_HERO_YOUTUBE_ID ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external i.ytimg.com; avoids optimizer config
-          <img
-            src={HOME_HERO_POSTER ?? youtubeHeroThumbnailUrl(HOME_HERO_YOUTUBE_ID)}
-            alt=""
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            decoding="async"
-          />
-        ) : showHeroBackgroundVideo && !HOME_HERO_YOUTUBE_ID ? (
+        {/* NAS MP4 always plays after idle (mount path → Docker NAS). Optional YouTube overlay
+            when policy allows — if YouTube is blocked or slow, the NAS stream remains underneath. */}
+        {idleHeroVideoReady && homeNasHeroSources[0] ? (
           <AutoplayVideo
-            src={HOME_HERO_SOURCES[0]}
-            sources={HOME_HERO_SOURCES}
+            src={homeNasHeroSources[0]}
+            sources={homeNasHeroSources}
             poster={HOME_HERO_POSTER}
             preload="auto"
             stallTimeoutMs={18000}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 z-0 h-full w-full object-cover"
             encodeSrc
           />
+        ) : null}
+        {idleHeroVideoReady && canEmbedYoutubeHero ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+            <YoutubeHeroBackground videoId={HOME_HERO_YOUTUBE_ID} className="z-0" />
+          </div>
         ) : null}
         {/* Light tint overlay — replaces the video-layer filter so the
             GPU doesn't pay filter cost on every frame. */}

@@ -432,8 +432,42 @@ interface SimulationResult {
   completed_at?: string;
 }
 
+/** Postgres-backed SOC red team runs (L1/L2/L3) from MAS */
+interface SocRun {
+  id: string;
+  layer?: number | string;
+  scope?: string;
+  tool?: string;
+  params?: Record<string, unknown>;
+  status?: string;
+  started_at?: string;
+  ended_at?: string | null;
+  summary?: string | null;
+}
+
+interface SocFinding {
+  id: string;
+  run_id: string;
+  severity?: string;
+  control_id?: string | null;
+  title?: string;
+  evidence?: Record<string, unknown>;
+  status?: string;
+  created_at?: string | null;
+}
+
+const REDTEAM_TAB_ORDER = ['topology', 'vulnerabilities', 'scans', 'soc', 'schedule'] as const;
+type RedTeamTab = (typeof REDTEAM_TAB_ORDER)[number];
+const REDTEAM_TAB_LABEL: Record<RedTeamTab, string> = {
+  topology: 'Topology',
+  vulnerabilities: 'Vulnerabilities',
+  scans: 'Scans',
+  soc: 'SOC (L1–L3)',
+  schedule: 'Schedule',
+};
+
 export default function RedTeamDashboard() {
-  const [activeTab, setActiveTab] = useState<'topology' | 'vulnerabilities' | 'scans' | 'schedule'>('topology');
+  const [activeTab, setActiveTab] = useState<RedTeamTab>('topology');
   const [hosts, setHosts] = useState<Host[]>([]);
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [scans, setScans] = useState<ScanResult[]>([]);
@@ -455,17 +489,31 @@ export default function RedTeamDashboard() {
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   const [simError, setSimError] = useState<string | null>(null);
   const [showSimModal, setShowSimModal] = useState(false);
+  const [socRuns, setSocRuns] = useState<SocRun[]>([]);
+  const [socFindings, setSocFindings] = useState<SocFinding[]>([]);
+  const [socRunFilter, setSocRunFilter] = useState<string>('all');
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [hostsRes, vulnsRes, scansRes, devicesRes, clientsRes, topoRes] = await Promise.all([
+      const [
+        hostsRes,
+        vulnsRes,
+        scansRes,
+        devicesRes,
+        clientsRes,
+        topoRes,
+        socRunsRes,
+        socFindingsRes,
+      ] = await Promise.all([
         fetch('/api/pentest?action=hosts'),
         fetch('/api/pentest?action=vulnerabilities'),
         fetch('/api/pentest?action=scan-history'),
         fetch('/api/unifi?action=devices'),
         fetch('/api/unifi?action=clients'),
         fetch('/api/unifi?action=topology'),
+        fetch('/api/security/redteam?action=soc-runs&limit=50'),
+        fetch('/api/security/redteam?action=soc-findings&limit=200'),
       ]);
 
       if (hostsRes.ok) {
@@ -491,6 +539,26 @@ export default function RedTeamDashboard() {
       if (topoRes.ok) {
         const data = await topoRes.json();
         setTopology(data);
+      }
+      if (socRunsRes.ok) {
+        try {
+          const data = await socRunsRes.json();
+          setSocRuns(Array.isArray(data.runs) ? data.runs : []);
+        } catch {
+          setSocRuns([]);
+        }
+      } else {
+        setSocRuns([]);
+      }
+      if (socFindingsRes.ok) {
+        try {
+          const data = await socFindingsRes.json();
+          setSocFindings(Array.isArray(data.findings) ? data.findings : []);
+        } catch {
+          setSocFindings([]);
+        }
+      } else {
+        setSocFindings([]);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -743,18 +811,19 @@ export default function RedTeamDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(['topology', 'vulnerabilities', 'scans', 'schedule'] as const).map((tab) => (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {REDTEAM_TAB_ORDER.map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
+              className={`min-h-[44px] px-4 py-2 rounded-lg font-medium transition touch-manipulation ${
                 activeTab === tab
                   ? 'bg-red-600 text-white'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {REDTEAM_TAB_LABEL[tab]}
             </button>
           ))}
         </div>
@@ -1247,6 +1316,159 @@ export default function RedTeamDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'soc' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Eye className="text-red-400 shrink-0" size={20} />
+                  SOC red team runs & findings
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => void fetchData()}
+                  className="min-h-[44px] px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition flex items-center gap-2 self-start sm:self-auto touch-manipulation"
+                >
+                  <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+              </div>
+              <p className="text-sm text-slate-400">
+                Live data from MAS <code className="text-xs bg-slate-900 px-1 rounded">/api/redteam/soc-runs</code> and{' '}
+                <code className="text-xs bg-slate-900 px-1 rounded">soc-findings</code> (Postgres{' '}
+                <code className="text-xs bg-slate-900 px-1 rounded">soc_ops</code>). Empty tables mean no runs yet, MINDEX DB URL
+                unset on MAS, or MAS unreachable.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 rounded bg-slate-700 text-slate-200">Runs: {socRuns.length}</span>
+                <span className="px-2 py-1 rounded bg-slate-700 text-slate-200">Findings: {socFindings.length}</span>
+                <span className="px-2 py-1 rounded bg-slate-700 text-slate-200">
+                  Critical/high:{' '}
+                  {socFindings.filter((f) => f.severity === 'critical' || f.severity === 'high').length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-300 mb-2">Recent runs</h4>
+                  <div className="overflow-x-auto rounded-lg border border-slate-700">
+                    <table className="min-w-[640px] w-full text-sm">
+                      <thead className="bg-slate-900/80 text-left text-slate-400">
+                        <tr>
+                          <th className="p-2">Layer</th>
+                          <th className="p-2">Tool</th>
+                          <th className="p-2">Status</th>
+                          <th className="p-2">Started</th>
+                          <th className="p-2 w-24">Filter</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {socRuns.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="p-6 text-center text-slate-500">
+                              No SOC runs recorded.
+                            </td>
+                          </tr>
+                        ) : (
+                          socRuns.map((r) => (
+                            <tr key={r.id} className="border-t border-slate-700/80 hover:bg-slate-700/20">
+                              <td className="p-2 font-mono text-slate-200">{String(r.layer ?? '—')}</td>
+                              <td className="p-2 font-mono text-slate-300">{r.tool || '—'}</td>
+                              <td className="p-2">
+                                <span className="text-xs px-2 py-0.5 rounded bg-slate-700">{r.status || '—'}</span>
+                              </td>
+                              <td className="p-2 text-slate-400 text-xs whitespace-nowrap">
+                                {r.started_at ? new Date(r.started_at).toLocaleString() : '—'}
+                              </td>
+                              <td className="p-2">
+                                <button
+                                  type="button"
+                                  className="text-xs text-purple-300 hover:underline min-h-[44px] px-1 touch-manipulation"
+                                  onClick={() => setSocRunFilter(r.id)}
+                                >
+                                  Findings
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-slate-300">Findings triage</h4>
+                    <button
+                      type="button"
+                      className="text-xs text-slate-400 hover:text-white min-h-[44px] px-2 touch-manipulation"
+                      onClick={() => setSocRunFilter('all')}
+                    >
+                      Show all findings
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-slate-700 max-h-[480px] overflow-y-auto">
+                    <table className="min-w-[720px] w-full text-sm">
+                      <thead className="bg-slate-900/80 text-left text-slate-400 sticky top-0 z-10">
+                        <tr>
+                          <th className="p-2">Sev</th>
+                          <th className="p-2">Title</th>
+                          <th className="p-2">Run</th>
+                          <th className="p-2">When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {socFindings.filter((f) => socRunFilter === 'all' || f.run_id === socRunFilter).length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-6 text-center text-slate-500">
+                              No findings for this filter.
+                            </td>
+                          </tr>
+                        ) : (
+                          socFindings
+                            .filter((f) => socRunFilter === 'all' || f.run_id === socRunFilter)
+                            .map((f) => (
+                              <tr key={f.id} className="border-t border-slate-700/80 align-top hover:bg-slate-700/20">
+                                <td className="p-2 whitespace-nowrap">
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded ${
+                                      f.severity === 'critical'
+                                        ? 'bg-red-500/25 text-red-300'
+                                        : f.severity === 'high'
+                                          ? 'bg-orange-500/20 text-orange-300'
+                                          : f.severity === 'medium'
+                                            ? 'bg-amber-500/20 text-amber-200'
+                                            : 'bg-slate-600/40 text-slate-300'
+                                    }`}
+                                  >
+                                    {f.severity || 'info'}
+                                  </span>
+                                </td>
+                                <td className="p-2 text-slate-200">
+                                  <div className="font-medium">{f.title || '—'}</div>
+                                  {f.control_id ? (
+                                    <div className="text-xs text-slate-500 mt-0.5">Control {f.control_id}</div>
+                                  ) : null}
+                                  {f.evidence && Object.keys(f.evidence).length > 0 ? (
+                                    <pre className="mt-2 text-[10px] text-slate-500 whitespace-pre-wrap break-all max-h-28 overflow-y-auto bg-slate-950/50 p-2 rounded">
+                                      {JSON.stringify(f.evidence).slice(0, 1200)}
+                                      {JSON.stringify(f.evidence).length > 1200 ? '…' : ''}
+                                    </pre>
+                                  ) : null}
+                                </td>
+                                <td className="p-2 font-mono text-xs text-slate-400 break-all">{f.run_id.slice(0, 8)}…</td>
+                                <td className="p-2 text-xs text-slate-500 whitespace-nowrap">
+                                  {f.created_at ? new Date(f.created_at).toLocaleString() : '—'}
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

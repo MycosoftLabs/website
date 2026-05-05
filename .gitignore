@@ -31,6 +31,11 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
+# Playwright (May 03 2026)
+playwright-report/
+test-results/
+e2e/widgets/_artifacts/*.png
+
 # Misc
 coverage/
 tmp/

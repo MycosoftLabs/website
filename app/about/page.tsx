@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useReducedMotion } from "framer-motion"
 import {
   NeuCard,
   NeuCardContent,
@@ -10,7 +11,9 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { aboutHeroYoutubeId } from "@/lib/hero-youtube"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
@@ -42,9 +45,13 @@ import {
   Database,
 } from "lucide-react"
 
-// NAS video — mounted at /assets/ in the production Docker container
-const HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
-const HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(HERO_VIDEO_SRC))
+/** @Mycosoft About hero — https://www.youtube.com/watch?v=Z5pC9lEceKM */
+const ABOUT_HERO_YOUTUBE_ID = aboutHeroYoutubeId()
+
+const ABOUT_HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
+const ABOUT_HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(ABOUT_HERO_VIDEO_SRC))
+
+// NAS closing section video — mounted at /assets/ in the production Docker container
 const CLOSING_VIDEO_SRC = "/assets/about us/10343918-hd_1920_1080_24fps.mp4"
 const CLOSING_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(CLOSING_VIDEO_SRC))
 
@@ -244,22 +251,31 @@ const applicationCategories = [
 ]
 
 export default function AboutPage() {
+  const prefersReducedMotion = useReducedMotion()
+
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh">
-      {/* Hero Section — no poster, instant start, no image flash */}
+      {/* Hero — NAS MP4 base + optional YouTube overlay (@Mycosoft) */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
-        <AutoplayVideo
-          src={HERO_VIDEO_SOURCES[0]}
-          sources={HERO_VIDEO_SOURCES}
-          className="absolute inset-0 w-full h-full object-cover"
-          encodeSrc
-        />
+        {ABOUT_HERO_VIDEO_SOURCES[0] ? (
+          <AutoplayVideo
+            src={ABOUT_HERO_VIDEO_SOURCES[0]}
+            sources={ABOUT_HERO_VIDEO_SOURCES}
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+            encodeSrc
+          />
+        ) : null}
+        {!prefersReducedMotion ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+            <YoutubeHeroBackground videoId={ABOUT_HERO_YOUTUBE_ID} />
+          </div>
+        ) : null}
 
         {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="pointer-events-none absolute inset-0 z-[2] bg-black/60" />
         {/* Grid texture */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
+        <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
 
         {/* Content */}
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">

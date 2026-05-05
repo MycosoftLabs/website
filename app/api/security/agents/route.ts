@@ -171,46 +171,19 @@ export async function GET(request: NextRequest) {
         }
         
         // Combine MAS agents with Supabase run data
-        const combinedAgents = masAgents.length > 0 ? masAgents.map(agent => ({
-          ...agent,
-          lastRun: runs?.find(r => r.agent_id === agent.id)?.started_at,
-          runsToday: runs?.filter(r => 
-            r.agent_id === agent.id && 
-            new Date(r.started_at).toDateString() === new Date().toDateString()
-          ).length || 0,
-        })) : [
-          // Fallback to known agents if MAS is unavailable
-          {
-            id: 'cascade-prediction-agent',
-            name: 'CascadePredictionAgent',
-            status: 'active',
-            lastRun: runs?.find(r => r.agent_id === 'cascade-prediction-agent')?.started_at,
-            runsToday: runs?.filter(r => 
-              r.agent_id === 'cascade-prediction-agent' && 
-              new Date(r.started_at).toDateString() === new Date().toDateString()
-            ).length || 0,
-          },
-          {
-            id: 'resolution-agent',
-            name: 'IncidentResolutionAgent',
-            status: 'active',
-            lastRun: runs?.find(r => r.agent_id === 'resolution-agent')?.started_at,
-            runsToday: runs?.filter(r => 
-              r.agent_id === 'resolution-agent' && 
-              new Date(r.started_at).toDateString() === new Date().toDateString()
-            ).length || 0,
-          },
-          {
-            id: 'watchdog-agent',
-            name: 'WatchdogAgent',
-            status: 'active',
-            lastRun: runs?.find(r => r.agent_id === 'watchdog-agent')?.started_at,
-            runsToday: runs?.filter(r => 
-              r.agent_id === 'watchdog-agent' && 
-              new Date(r.started_at).toDateString() === new Date().toDateString()
-            ).length || 0,
-          },
-        ];
+        const combinedAgents =
+          masAgents.length > 0
+            ? masAgents.map((agent) => ({
+                ...agent,
+                lastRun: runs?.find((r) => r.agent_id === agent.id)?.started_at,
+                runsToday:
+                  runs?.filter(
+                    (r) =>
+                      r.agent_id === agent.id &&
+                      new Date(r.started_at).toDateString() === new Date().toDateString(),
+                  ).length || 0,
+              }))
+            : [];
         
         const stats = {
           totalRuns: runs?.length || 0,
@@ -448,11 +421,12 @@ export async function POST(request: NextRequest) {
         const activities = [];
         
         for (let i = 0; i < count; i++) {
-          const agent = agents[Math.floor(Math.random() * agents.length)];
-          const actionType = actionTypes[Math.floor(Math.random() * actionTypes.length)];
-          
+          const agent = agents[i % agents.length];
+          const actionType = actionTypes[i % actionTypes.length];
+          const skew = (i * 7919) % 97;
+
           activities.push({
-            id: `aia-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: `aia-${startTime.getTime()}-${i}-${skew}`,
             incident_id: null,
             agent_id: agent.id,
             agent_name: agent.name,
@@ -460,33 +434,31 @@ export async function POST(request: NextRequest) {
             action_data: {
               description: `${agent.name} performed ${actionType.replace(/_/g, ' ')}`,
               automated: true,
-              success: Math.random() > 0.1,
+              success: skew % 10 !== 0,
               metrics: {
-                itemsProcessed: Math.floor(Math.random() * 100) + 1,
-                durationMs: Math.floor(Math.random() * 5000) + 100,
+                itemsProcessed: (skew % 100) + 1,
+                durationMs: (skew % 5000) + 100,
               },
             },
-            created_at: new Date(Date.now() - Math.random() * 60000).toISOString(),
+            created_at: new Date(Date.now() - (i % 60) * 1000).toISOString(),
           });
         }
         
         await supabase.from('agent_incident_activity').insert(activities);
         
         // Also log agent runs
-        for (const agent of agents) {
-          await logAgentRun(
-            agent.id,
-            agent.name,
-            {
-              incidentsAnalyzed: Math.floor(Math.random() * 20),
-              predictionsGenerated: Math.floor(Math.random() * 10),
-              incidentsResolved: Math.floor(Math.random() * 5),
-              cascadesPrevented: Math.floor(Math.random() * 3),
-              runType: 'continuous',
-              status: 'completed',
-              startedAt: startTime,
-            }
-          );
+        for (let ai = 0; ai < agents.length; ai++) {
+          const agent = agents[ai];
+          const base = (count + ai) % 20;
+          await logAgentRun(agent.id, agent.name, {
+            incidentsAnalyzed: base + 1,
+            predictionsGenerated: (base % 10) + 1,
+            incidentsResolved: Math.min(5, base % 6),
+            cascadesPrevented: ai % 4,
+            runType: 'continuous',
+            status: 'completed',
+            startedAt: startTime,
+          });
         }
         
         return NextResponse.json({

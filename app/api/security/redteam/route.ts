@@ -1,34 +1,30 @@
 /**
- * Red Team Attack Simulation API
- * 
- * Proxies to MAS /api/redteam endpoints for controlled attack simulations.
- * 
- * Features:
- * - Authorization token management
- * - Credential testing
- * - Phishing simulation
- * - Network pivot testing
- * - Data exfiltration testing
- * 
- * @version 1.0.0
- * @date February 12, 2026
+ * Red Team API — proxies to MAS `/api/redteam/*` (no local mocks or nmap from Next).
+ *
+ * @date May 03, 2026
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from "@/lib/auth/api-auth";
-import { incidentLedger, IncidentPayload } from '@/lib/security/ledger';
+import { requireAdmin } from '@/lib/auth/api-auth';
+
+export const dynamic = 'force-dynamic';
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
-const MAS_API_KEY = process.env.MAS_API_KEY;
+const MAS_API_KEY = process.env.MAS_API_KEY || '';
+
+function masHeaders(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (MAS_API_KEY) h['X-API-Key'] = MAS_API_KEY;
+  return h;
+}
+
+async function masFetch(path: string, init?: RequestInit): Promise<Response> {
+  const url = `${MAS_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+  return fetch(url, { ...init, headers: { ...masHeaders(), ...(init?.headers as Record<string, string>) }, cache: 'no-store' });
+}
 
 /**
- * GET /api/security/redteam
- * 
- * Query parameters:
- * - action: health | simulations | simulation | attack-vectors
- * - id: simulation ID (for action=simulation)
- * - status: filter by status
- * - type: filter by simulation type
+ * GET ?action=health|simulations|simulation|attack-vectors|soc-runs|soc-findings
  */
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin();
@@ -39,54 +35,59 @@ export async function GET(request: NextRequest) {
 
   try {
     switch (action) {
-      case 'health':
-        return NextResponse.json({ status: 'healthy', integration: 'Native Container Execution' });
-
+      case 'health': {
+        const res = await masFetch('/api/redteam/health');
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
+      }
+      case 'soc-runs': {
+        const lim = searchParams.get('limit') || '40';
+        const res = await masFetch(`/api/redteam/soc-runs?limit=${encodeURIComponent(lim)}`);
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
+      }
+      case 'soc-findings': {
+        const lim = searchParams.get('limit') || '100';
+        const runId = searchParams.get('run_id');
+        const q = new URLSearchParams({ limit: lim });
+        if (runId) q.set('run_id', runId);
+        const res = await masFetch(`/api/redteam/soc-findings?${q.toString()}`);
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
+      }
       case 'simulations': {
-        // Here we could parse real simulation histories or state files on disk, but returning standard active state will do
-        return NextResponse.json({
-          simulations: [
-            { id: 'sim_1', status: 'completed', type: 'credential-test', target: 'localhost', started_at: new Date().toISOString() },
-          ],
-          total: 1
-        });
+        const res = await masFetch('/api/redteam/simulations');
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
       }
-
       case 'simulation': {
-        const simId = searchParams.get('id');
-        if (!simId) return NextResponse.json({ error: 'Simulation ID required' }, { status: 400 });
-        return NextResponse.json({
-          id: simId,
-          status: 'completed',
-          findings: ['Validated no cleartext credentials accepted on port 80/22 via raw execution']
-        });
+        const id = searchParams.get('id');
+        if (!id) {
+          return NextResponse.json({ error: 'Simulation ID required' }, { status: 400 });
+        }
+        const res = await masFetch(`/api/redteam/simulation/${encodeURIComponent(id)}`);
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
       }
-
-      case 'attack-vectors':
-        return NextResponse.json({
-          vectors: ['credential-test', 'pivot-test', 'exfil-test', 'phishing-sim'],
-          supported_tools: ['nmap', 'traceroute', 'dig', 'bind-tools']
-        });
-
+      case 'attack-vectors': {
+        const res = await masFetch('/api/redteam/attack-vectors');
+        const body = await res.json().catch(() => ({}));
+        return NextResponse.json(body, { status: res.status });
+      }
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Red team API error:', error);
+  } catch (e) {
+    console.error('[redteam proxy GET]', e);
     return NextResponse.json(
-      { error: 'Failed to connect to local host executor', details: String(error) },
-      { status: 503 }
+      { error: 'mas_unreachable', detail: e instanceof Error ? e.message : String(e) },
+      { status: 503 },
     );
   }
 }
 
 /**
- * POST /api/security/redteam
- * 
- * Body parameters:
- * - action: authorize | credential-test | phishing-sim | pivot-test | exfil-test | cancel
- * - authorization_code: required for simulation actions
- * - ... action-specific parameters
+ * POST body: { action, authorization_code?, ... }
  */
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin();
@@ -94,139 +95,116 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { action, ...data } = body;
+    const { action, authorization_code: authCode, ...data } = body as Record<string, unknown> & {
+      action?: string;
+      authorization_code?: string;
+    };
 
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
+    const q = (code: string) =>
+      `?authorization_code=${encodeURIComponent(code)}`;
 
     switch (action) {
-      case 'authorize':
-        return NextResponse.json({
-          status: 'authorized',
-          authorization_code: `AUTH-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          timestamp: new Date().toISOString()
-        });
-
-      case 'credential-test': {
-        if (!data.authorization_code) return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
-        
-        // Execute a real brute-force scan via nmap against common web ports or SSH using standard small scripts
-        try {
-          // Warning: In production, strictly validate target_system formats to prevent command injection!
-          const target = data.target_system?.replace(/[^a-zA-Z0-9.-]/g, '') || 'localhost';
-          const { stdout } = await execAsync(`nmap -p 22,80,443 --script http-brute,ssh-brute ${target} --host-timeout 10s`);
-          
-          incidentLedger.addIncident({
-            incident_id: `RT-CRED-${Date.now()}`,
-            title: 'Red Team: Credential Test',
-            description: `Executed brute-force test against ${target}.`,
-            severity: 'medium',
-            status: 'completed',
-            action: 'credential-test',
-            actor: 'system',
-            timestamp: new Date().toISOString(),
-            related_events: [{ raw_output: stdout }]
-          });
-
-          return NextResponse.json({
-            status: 'completed',
-            target,
-            findings: stdout,
-            timestamp: new Date().toISOString()
-          });
-        } catch (e) {
-          return NextResponse.json({ status: 'failed', error: String(e) }, { status: 500 });
-        }
+      case 'authorize': {
+        const res = await masFetch('/api/redteam/authorize', { method: 'POST' });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
       }
 
-      case 'phishing-sim':
-        if (!data.authorization_code) return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
-        // Simulating the scheduling of a phishing payload delivery
-        return NextResponse.json({
-          status: 'active',
-          campaign: `PHISH-${Date.now()}`,
-          message: 'Real emails dispatched to target_group via internal SMTP router',
-          timestamp: new Date().toISOString()
+      case 'credential-test': {
+        if (!authCode) {
+          return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
+        }
+        const payload = {
+          target_system: (data.target_system as string) || 'localhost',
+          test_type: (data.test_type as string) || 'policy',
+          wordlist: data.wordlist as string | undefined,
+          max_attempts: typeof data.max_attempts === 'number' ? data.max_attempts : 10,
+          delay_seconds: typeof data.delay_seconds === 'number' ? data.delay_seconds : 1.0,
+        };
+        const res = await masFetch(`/api/redteam/credential-test${q(authCode)}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
         });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
+      }
+
+      case 'phishing-sim': {
+        if (!authCode) {
+          return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
+        }
+        const payload = {
+          target_group: (data.target_group as string) || 'internal-test',
+          template: (data.template as string) || 'generic',
+          landing_page: (data.landing_page as string) || 'default',
+          track_credentials: Boolean(data.track_credentials),
+          duration_hours: typeof data.duration_hours === 'number' ? data.duration_hours : 24,
+        };
+        const res = await masFetch(`/api/redteam/phishing-sim${q(authCode)}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
+      }
 
       case 'pivot-test': {
-        if (!data.authorization_code) return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
-        
-        try {
-          const target = data.target_network?.replace(/[^a-zA-Z0-9.\/]/g, '') || '127.0.0.1';
-          // Perform an actual traceroute to check network pivot viability
-          const { stdout } = await execAsync(`traceroute ${target.split('/')[0]} -m 10`);
-          
-          incidentLedger.addIncident({
-            incident_id: `RT-PIVOT-${Date.now()}`,
-            title: 'Red Team: Pivot Test',
-            description: `Executed pivot test via traceroute targeting ${target}.`,
-            severity: 'low',
-            status: 'completed',
-            action: 'pivot-test',
-            actor: 'system',
-            timestamp: new Date().toISOString(),
-            related_events: [{ raw_output: stdout }]
-          });
-
-          return NextResponse.json({
-            status: 'completed',
-            target,
-            route_findings: stdout,
-            timestamp: new Date().toISOString()
-          });
-        } catch (e) {
-          return NextResponse.json({ status: 'failed', error: String(e) }, { status: 500 });
+        if (!authCode) {
+          return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
         }
+        const payload = {
+          source_network: (data.source_network as string) || '192.168.0.0/24',
+          target_network: (data.target_network as string) || '192.168.0.187',
+          protocols: Array.isArray(data.protocols) ? data.protocols : ['icmp', 'tcp'],
+          ports: Array.isArray(data.ports) ? data.ports : undefined,
+          test_depth: (data.test_depth as string) || 'shallow',
+        };
+        const res = await masFetch(`/api/redteam/pivot-test${q(authCode)}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
       }
 
       case 'exfil-test': {
-        if (!data.authorization_code) return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
-        
-        try {
-          // Perform a real DNS exfil test utilizing bind-tools dig to a controlled external domain or the target
-          const { stdout } = await execAsync(`dig +short exfil-test-dns-query.mycosoft.com @8.8.8.8`);
-          
-          incidentLedger.addIncident({
-            incident_id: `RT-EXFIL-${Date.now()}`,
-            title: 'Red Team: Data Exfil Test',
-            description: `Executed DNS exfiltration bounds testing via dig.`,
-            severity: 'high',
-            status: 'completed',
-            action: 'exfil-test',
-            actor: 'system',
-            timestamp: new Date().toISOString(),
-            related_events: [{ raw_output: stdout }]
-          });
-
-          return NextResponse.json({
-            status: 'completed',
-            exfil_method: 'DNS',
-            result: stdout || 'Blocked',
-            timestamp: new Date().toISOString()
-          });
-        } catch (e) {
-          return NextResponse.json({ status: 'failed', error: String(e) }, { status: 500 });
+        if (!authCode) {
+          return NextResponse.json({ error: 'Authorization code required' }, { status: 403 });
         }
+        const payload = {
+          data_type: (data.data_type as string) || 'synthetic',
+          exfil_method: (data.exfil_method as string) || 'http',
+          data_size_kb: typeof data.data_size_kb === 'number' ? data.data_size_kb : 100,
+          target_endpoint: data.target_endpoint as string | undefined,
+        };
+        const res = await masFetch(`/api/redteam/exfil-test${q(authCode)}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
       }
 
-      case 'cancel':
-        return NextResponse.json({
-          status: 'cancelled',
-          simulation_id: data.simulation_id,
-          timestamp: new Date().toISOString()
+      case 'cancel': {
+        const simulationId = data.simulation_id as string | undefined;
+        if (!simulationId) {
+          return NextResponse.json({ error: 'simulation_id required' }, { status: 400 });
+        }
+        const res = await masFetch(`/api/redteam/simulation/${encodeURIComponent(simulationId)}/cancel`, {
+          method: 'POST',
         });
+        const out = await res.json().catch(() => ({}));
+        return NextResponse.json(out, { status: res.status });
+      }
 
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-
-  } catch (error) {
-    console.error('Red team API POST error:', error);
+  } catch (e) {
+    console.error('[redteam proxy POST]', e);
     return NextResponse.json(
-      { error: 'Failed to execute real simulation', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { error: 'mas_unreachable', detail: e instanceof Error ? e.message : String(e) },
+      { status: 503 },
     );
   }
 }

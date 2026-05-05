@@ -1469,6 +1469,8 @@ export async function GET(request: NextRequest) {
   const earthDomainsObj = detectEarthDomains(baseQuery)
   const isEarthIntent = Object.values(earthDomainsObj).some(Boolean)
   const skipBio = isEarthIntent && !hasLifeScienceIntent(baseQuery)
+  /** Cameras/vessels/weather-only queries: skip MAS + research fan-out so unified returns before dev-client timeouts. */
+  const skipHeavyStackForEarthOnly = skipBio && isEarthIntent
 
   try {
     const mindexStart = performance.now()
@@ -1504,7 +1506,9 @@ export async function GET(request: NextRequest) {
       masPayload,              // Canonical MAS Orchestrator
     ] = await Promise.all([
       (!skipBio) ? searchMindexUnified(baseQuery, limit).catch(() => ({ taxa: [], compounds: [], genetics: [] })) : Promise.resolve({ taxa: [], compounds: [], genetics: [] }),
-      types.includes("research") ? searchMindexResearch(baseQuery, limit, origin).catch(() => []) : Promise.resolve([]),
+      types.includes("research") && !skipHeavyStackForEarthOnly
+        ? searchMindexResearch(baseQuery, limit, origin).catch(() => [])
+        : Promise.resolve([]),
       (types.includes("species") && !skipBio)
         ? searchINaturalist(bioOrganismLabel, Math.min(limit, 10), lifeScope).catch(() => [])
         : Promise.resolve([]),
@@ -1513,9 +1517,15 @@ export async function GET(request: NextRequest) {
             () => ({ rows: [], speciesFromTaxa: [] as SpeciesResult[] })
           )
         : Promise.resolve({ rows: [], speciesFromTaxa: [] as SpeciesResult[] }),
-      types.includes("research") ? searchCrossRefResearch(baseQuery, limit, lifeScope).catch(() => []) : Promise.resolve([]),
-      types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), lifeScope).catch(() => []) : Promise.resolve([]),
-      types.includes("research") && includeWeb ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => []) : Promise.resolve([]),
+      types.includes("research") && !skipHeavyStackForEarthOnly
+        ? searchCrossRefResearch(baseQuery, limit, lifeScope).catch(() => [])
+        : Promise.resolve([]),
+      types.includes("research") && !skipHeavyStackForEarthOnly
+        ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), lifeScope).catch(() => [])
+        : Promise.resolve([]),
+      types.includes("research") && includeWeb && !skipHeavyStackForEarthOnly
+        ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => [])
+        : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
       (types.includes("genetics") && !skipBio)
         ? searchNCBIGenetics(bioOrganismLabel, Math.min(limit, 8), lifeScope).catch(() => [])
@@ -1535,7 +1545,7 @@ export async function GET(request: NextRequest) {
       // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
       // infrastructure, devices, space weather — all searched in parallel internally
       searchEarthIntelligence(baseQuery, origin, limit).catch(() => null),
-      USE_MAS_SEARCH
+      USE_MAS_SEARCH && !skipHeavyStackForEarthOnly
         ? callMASSearchExecute(
             {
               query: baseQuery,
@@ -1749,12 +1759,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    await recordUsageFromRequest({
+    // Do not block JSON on Supabase/Stripe metering — can exceed client timeouts when auth is slow.
+    void recordUsageFromRequest({
       request,
       usageType: "SPECIES_IDENTIFICATION",
       quantity: 1,
       metadata: { query },
-    })
+    }).catch(() => {})
 
     return NextResponse.json(
       {

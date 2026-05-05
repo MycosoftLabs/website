@@ -71,7 +71,7 @@ test.describe("Weather & Climate Search Widgets", () => {
     }) => {
       await searchAndWait(page, "temperature Seattle today")
       await expectWidgetExpanded(page, "weather")
-      await expectSecondaryWidgets(page, ["map", "events"])
+      await expectSecondaryWidgets(page, ["earth", "events"])
     })
 
     test("hurricane query triggers weather with event context", async ({

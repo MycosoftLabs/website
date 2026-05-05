@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef, useMemo } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform, useReducedMotion } from "framer-motion"
 import {
   NeuCard,
   NeuCardContent,
@@ -22,7 +22,9 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
+import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
+import { hyphae1HeroYoutubeId } from "@/lib/hero-youtube"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -37,13 +39,11 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 //   npm run assets:sync-cursor-image -- -Preset hyphae-why
 //   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
-// Hero MP4 on NAS / repo: public/assets/hyphae1/hero.mp4 (must match filename on disk).
-// Optional: set NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL to an absolute MP4 URL instead.
+// Hero: NAS MP4 always (`hyphaeHeroVideoSources`); optional YouTube overlay — NEXT_PUBLIC_HYPHAE1_HERO_YOUTUBE_ID.
+
+const HYPHAE1_HERO_MP4_SOURCES = hyphaeHeroVideoSources("/assets/hyphae1/hero.mp4")
 
 const HYPHAE1_ASSETS = {
-  // Product stills used while the hero video is warming up.
-  // These must point at files that actually exist locally/NAS so the hero never flashes
-  // a broken-image icon before the MP4 starts playing.
   compact: "/assets/hyphae1/why-outdoor-install.png",
   standard: "/assets/hyphae1/hyphae1-lab-prototype.png",
   industrial: "/assets/hyphae1/why-outdoor-install.png",
@@ -55,20 +55,13 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background — same file as lib/devices.ts video slug (hero.mp4)
-  heroVideo: "/assets/hyphae1/hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
   labPrototype: "/assets/hyphae1/hyphae1-lab-prototype.png",
 }
 
-/** Hero still — Hyphae 1 product imagery per size (no cross-product fallbacks). */
-const HYPHAE_VARIANT_HERO_STILL: Record<string, string> = {
-  compact: HYPHAE1_ASSETS.compact,
-  standard: HYPHAE1_ASSETS.standard,
-  industrial: HYPHAE1_ASSETS.industrial,
-}
+const HYPHAE1_HERO_YOUTUBE_ID = hyphae1HeroYoutubeId()
 
 interface HyphaeVariant {
   id: string
@@ -442,13 +435,7 @@ export function Hyphae1Details() {
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
-
-  const heroVideoSources = useMemo(() => {
-    return deviceHeroVideoSources(HYPHAE1_ASSETS.heroVideo, {
-      envUrl: process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL,
-      aliases: ["/assets/hyphae1/Hyphae 1 Hero.mp4"],
-    })
-  }, [])
+  const prefersReducedMotion = useReducedMotion()
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -467,13 +454,21 @@ export function Hyphae1Details() {
       >
         <div className="absolute inset-x-0 bottom-0 -top-12 md:-top-14 z-0 pointer-events-none">
           <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900" />
-          <AutoplayVideo
-            sources={heroVideoSources}
-            hideUntilPlaying
-            encodeSrc
-            className="absolute inset-0 z-[1] h-full w-full object-cover object-top pointer-events-none"
-          />
-          <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
+          {HYPHAE1_HERO_MP4_SOURCES[0] ? (
+            <AutoplayVideo
+              src={HYPHAE1_HERO_MP4_SOURCES[0]}
+              sources={HYPHAE1_HERO_MP4_SOURCES}
+              hideUntilPlaying
+              encodeSrc
+              className="absolute inset-0 z-[1] h-full w-full object-cover object-top pointer-events-none"
+            />
+          ) : null}
+          {!prefersReducedMotion ? (
+            <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden">
+              <YoutubeHeroBackground videoId={HYPHAE1_HERO_YOUTUBE_ID} className="object-top" />
+            </div>
+          ) : null}
+          <div className="absolute inset-0 z-[3] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
         </div>
 
         <motion.div 

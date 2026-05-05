@@ -5,6 +5,20 @@ import { describe, it, expect } from "@jest/globals"
 import { classifyAndRoute } from "../search-intelligence-router"
 import { buildFluidContextForMas, searchRouteToFluidSnapshot } from "../fluid-search-context"
 import { mergeSearchRouteWithMasSuggestions } from "../merge-intention-route"
+import { parseSearchIntent } from "../intent-parser"
+
+describe("classifyAndRoute — aircraft + LA (May 03, 2026)", () => {
+  it("Planes over LA: aircraft primary, LA coords, CREP secondary not stealing primary", () => {
+    const intent = parseSearchIntent("Planes over LA")
+    expect(intent.type).toBe("aircraft")
+    expect(intent.filters.location?.city).toBe("Los Angeles")
+
+    const route = classifyAndRoute("Planes over LA")
+    expect(route.primaryWidget).toBe("aircraft")
+    expect(route.secondaryWidgets).toContain("crep")
+    expect(route.worldview.crep).toBe(true)
+  })
+})
 
 describe("buildFluidContextForMas", () => {
   it("maps route + threading into MAS search_context", () => {

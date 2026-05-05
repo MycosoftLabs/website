@@ -45,7 +45,7 @@ const SIZE_2x1 = { width: 2 as const, height: 1 as const }
 
 // Reusable secondary widget sets
 const BIO_SECONDARY: WidgetType[] = ["chemistry", "research"]
-const EARTH_SECONDARY: WidgetType[] = ["map", "weather", "events"]
+const EARTH_SECONDARY: WidgetType[] = ["earth", "weather", "events"]
 const ANSWER_SECONDARY: WidgetType[] = ["answers"]
 
 // ============================================================================
@@ -354,7 +354,7 @@ export const MAP_LOCATION_SCENARIOS: SearchScenario[] = [
     BIO_SECONDARY, "species", "species"),
   s(105, "observation map Pacific Northwest", "map-location", "crep", SIZE_2x2,
     ANSWER_SECONDARY, "crep", "crep", { hasMap: true }),
-  s(106, "earth2 weather forecast", "map-location", "earth2", SIZE_2x3,
+  s(106, "earth2 weather forecast", "map-location", "earth", SIZE_2x3,
     ANSWER_SECONDARY, "earth2", "general", { hasMap: true }),
   s(107, "CREP monitoring dashboard", "map-location", "crep", SIZE_2x2,
     ANSWER_SECONDARY, "crep", "crep"),

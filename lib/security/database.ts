@@ -411,13 +411,100 @@ export async function createIncident(incident: Omit<Incident, 'id' | 'created_at
   return fullIncident;
 }
 
+const INCIDENT_STATUS_SET = new Set(['open', 'investigating', 'contained', 'resolved', 'closed']);
+
+function normalizeIncidentStatusForUi(raw: string | undefined): Incident['status'] {
+  if (!raw) return 'open';
+  if (raw === 'acknowledged') return 'investigating';
+  if (INCIDENT_STATUS_SET.has(raw)) return raw as Incident['status'];
+  return 'investigating';
+}
+
+function mapMasIncidentRowToIncident(row: Record<string, unknown>): Incident {
+  const timelineRaw = Array.isArray(row.timeline) ? (row.timeline as unknown[]) : [];
+  const timeline: IncidentTimelineEntry[] = timelineRaw.map((t) => {
+    if (t && typeof t === 'object') {
+      const o = t as { at?: string; event?: string; actor?: string; details?: string };
+      return {
+        timestamp: o.at || new Date().toISOString(),
+        action: String(o.event ?? 'event'),
+        actor: String(o.actor ?? 'system'),
+        details: String(o.details ?? ''),
+      };
+    }
+    return {
+      timestamp: new Date().toISOString(),
+      action: 'entry',
+      actor: 'system',
+      details: typeof t === 'string' ? t : JSON.stringify(t),
+    };
+  });
+  const sev = String(row.severity || 'medium');
+  const severity = (['info', 'low', 'medium', 'high', 'critical'].includes(sev)
+    ? sev
+    : 'medium') as Incident['severity'];
+  const created = String(row.created_at || new Date().toISOString());
+  return {
+    id: String(row.id),
+    title: String(row.title || 'Incident'),
+    description: String(row.description || ''),
+    severity,
+    status: normalizeIncidentStatusForUi(String(row.status)),
+    assigned_to: row.assigned_to != null ? String(row.assigned_to) : null,
+    created_at: created,
+    updated_at: String(row.updated_at || created),
+    resolved_at: row.resolved_at != null ? String(row.resolved_at) : null,
+    events: [],
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    timeline,
+  };
+}
+
+/** Prefer MAS `/api/incidents` (soc_ops.security_incidents) when MAS_API_URL is configured. */
+async function fetchIncidentsFromMas(options: {
+  status?: string;
+  severity?: string;
+  limit: number;
+}): Promise<Incident[] | null> {
+  const base = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+  if (!base) return null;
+  const key = process.env.MAS_API_KEY;
+  const params = new URLSearchParams();
+  params.set('limit', String(options.limit));
+  if (options.status) params.set('status', options.status);
+  if (options.severity) params.set('severity', options.severity);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (key) headers['X-API-Key'] = key;
+  try {
+    const res = await fetch(`${base}/api/incidents?${params.toString()}`, {
+      cache: 'no-store',
+      headers,
+    });
+    if (!res.ok) {
+      console.warn('[SecurityDB] MAS /api/incidents returned', res.status);
+      return null;
+    }
+    const data = (await res.json()) as { incidents?: Record<string, unknown>[] };
+    const rows = data.incidents || [];
+    return rows.map(mapMasIncidentRowToIncident);
+  } catch (e) {
+    console.warn('[SecurityDB] MAS /api/incidents fetch failed:', e);
+    return null;
+  }
+}
+
 export async function getIncidents(options: {
   status?: string;
   severity?: string;
   limit?: number;
 }): Promise<Incident[]> {
   const { status, severity, limit = 50 } = options;
-  
+
+  const fromMas = await fetchIncidentsFromMas({ status, severity, limit });
+  if (fromMas !== null) {
+    return fromMas;
+  }
+
   const supabase = await getSupabaseClient();
   
   if (supabase) {
@@ -1382,31 +1469,170 @@ function ensureDefaultControls() {
   }
 }
 
+function mapMasImplementationStateToUiStatus(
+  s: string
+): ComplianceControl['status'] {
+  switch (s) {
+    case 'implemented':
+      return 'compliant';
+    case 'partial':
+      return 'partial';
+    case 'not_applicable':
+      return 'not_applicable';
+    case 'planned':
+    case 'unknown':
+    default:
+      return 'non_compliant';
+  }
+}
+
+function mapMasFrameworkToComplianceFramework(fw: string): ComplianceFramework {
+  const key = (fw || '').replace(/\s+/g, '_').replace(/-/g, '_').toUpperCase();
+  const map: Record<string, ComplianceFramework> = {
+    NIST_800_171: 'NIST-800-171',
+    NIST800171: 'NIST-800-171',
+    NIST_800_53: 'NIST-800-53',
+    NIST80053: 'NIST-800-53',
+    CMMC_L1: 'CMMC-L1',
+    CMMC_L2: 'CMMC-L2',
+    CMMC_L3: 'CMMC-L3',
+  };
+  if (map[key]) return map[key];
+  const hyphen = fw as ComplianceFramework;
+  const allowed: ComplianceFramework[] = [
+    'NIST-800-53',
+    'NIST-800-171',
+    'CMMC-L1',
+    'CMMC-L2',
+    'CMMC-L3',
+    'NISPOM',
+    'FOCI',
+    'SBIR-STTR',
+    'ITAR',
+    'EAR',
+    'ICD-503',
+    'CNSSI-1253',
+    'FEDRAMP-HIGH',
+  ];
+  if (allowed.includes(hyphen)) return hyphen;
+  return 'NIST-800-171';
+}
+
+function mapMasComplianceRowToControl(row: Record<string, unknown>): ComplianceControl {
+  const controlId = String(row.control_id ?? '');
+  const evidenceUri = row.evidence_uri != null ? String(row.evidence_uri) : '';
+  const lastVerified = row.last_verified_at != null ? String(row.last_verified_at) : '';
+  const impl = String(row.implementation_state ?? 'unknown');
+  const status = mapMasImplementationStateToUiStatus(impl);
+  const family = row.family != null ? String(row.family) : '—';
+  const title = row.title != null ? String(row.title) : controlId;
+  const snap = row.state_snapshot && typeof row.state_snapshot === 'object'
+    ? (row.state_snapshot as Record<string, unknown>)
+    : {};
+  const desc =
+    typeof snap.summary === 'string'
+      ? snap.summary
+      : typeof snap.notes === 'string'
+        ? snap.notes
+        : '';
+
+  return {
+    id: controlId,
+    framework: mapMasFrameworkToComplianceFramework(String(row.framework ?? 'NIST_800_171')),
+    family,
+    name: title,
+    description: desc || `Control ${controlId} — state from MAS/MINDEX soc_ops.`,
+    status,
+    evidence: evidenceUri ? [evidenceUri] : [],
+    lastAudit: lastVerified ? lastVerified.split('T')[0] : '',
+    lastAuditBy: 'soc_ops',
+    priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+    notes: JSON.stringify(snap).length > 2 ? JSON.stringify(snap) : '',
+  };
+}
+
+/** Prefer MAS `/api/compliance/controls` (soc_ops.compliance_controls) when MAS_API_URL is set. */
+async function fetchComplianceControlsFromMas(): Promise<ComplianceControl[] | null> {
+  const base = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+  if (!base) return null;
+  const key = process.env.MAS_API_KEY;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (key) headers['X-API-Key'] = key;
+  try {
+    const res = await fetch(`${base}/api/compliance/controls`, { cache: 'no-store', headers });
+    if (!res.ok) {
+      console.warn('[SecurityDB] MAS /api/compliance/controls returned', res.status);
+      return null;
+    }
+    const data = (await res.json()) as { controls?: Record<string, unknown>[] };
+    const rows = data.controls || [];
+    return rows.map(mapMasComplianceRowToControl);
+  } catch (e) {
+    console.warn('[SecurityDB] MAS /api/compliance/controls fetch failed:', e);
+    return null;
+  }
+}
+
+async function fetchComplianceScoreFromMas(): Promise<{
+  total_controls: number;
+  implemented: number;
+  partial: number;
+  implementation_percent: number;
+} | null> {
+  const base = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+  if (!base) return null;
+  const key = process.env.MAS_API_KEY;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (key) headers['X-API-Key'] = key;
+  try {
+    const res = await fetch(`${base}/api/compliance/score`, { cache: 'no-store', headers });
+    if (!res.ok) {
+      console.warn('[SecurityDB] MAS /api/compliance/score returned', res.status);
+      return null;
+    }
+    return (await res.json()) as {
+      total_controls: number;
+      implemented: number;
+      partial: number;
+      implementation_percent: number;
+    };
+  } catch (e) {
+    console.warn('[SecurityDB] MAS /api/compliance/score fetch failed:', e);
+    return null;
+  }
+}
+
 export async function getComplianceControls(options?: {
   framework?: ComplianceFramework;
   family?: string;
   status?: 'compliant' | 'partial' | 'non_compliant' | 'not_applicable';
 }): Promise<ComplianceControl[]> {
-  ensureDefaultControls();
-  let controls = Array.from(complianceStore.values());
-  
+  const fromMas = await fetchComplianceControlsFromMas();
+  let controls: ComplianceControl[];
+
+  if (fromMas !== null) {
+    controls = fromMas;
+  } else {
+    ensureDefaultControls();
+    controls = Array.from(complianceStore.values());
+  }
+
   if (options?.framework) {
-    controls = controls.filter(c => c.framework === options.framework);
+    controls = controls.filter((c) => c.framework === options.framework);
   }
   if (options?.family) {
-    controls = controls.filter(c => c.family === options.family);
+    controls = controls.filter((c) => c.family === options.family);
   }
   if (options?.status) {
-    controls = controls.filter(c => c.status === options.status);
+    controls = controls.filter((c) => c.status === options.status);
   }
-  
+
   return controls;
 }
 
 // Get compliance controls by framework
 export async function getControlsByFramework(framework: ComplianceFramework): Promise<ComplianceControl[]> {
-  ensureDefaultControls();
-  return Array.from(complianceStore.values()).filter(c => c.framework === framework);
+  return getComplianceControls({ framework });
 }
 
 // Get framework summary statistics
@@ -1520,6 +1746,23 @@ export async function getComplianceStats(): Promise<{
   lastAudit: string;
   auditLogsToday: number;
 }> {
+  const masScore = await fetchComplianceScoreFromMas();
+  if (masScore) {
+    const total = masScore.total_controls || 0;
+    const compliant = masScore.implemented || 0;
+    const partial = masScore.partial || 0;
+    const nonCompliant = Math.max(0, total - compliant - partial);
+    return {
+      totalControls: total,
+      compliant,
+      partial,
+      nonCompliant,
+      score: Math.round(masScore.implementation_percent ?? 0),
+      lastAudit: '',
+      auditLogsToday: 0,
+    };
+  }
+
   ensureDefaultControls();
   const controls = Array.from(complianceStore.values());
   const today = new Date().toISOString().split('T')[0];
@@ -1542,7 +1785,7 @@ export async function getComplianceStats(): Promise<{
     compliant,
     partial,
     nonCompliant,
-    score: Math.round(((compliant + partial * 0.5) / controls.length) * 100),
+    score: controls.length ? Math.round(((compliant + partial * 0.5) / controls.length) * 100) : 100,
     lastAudit,
     auditLogsToday,
   };

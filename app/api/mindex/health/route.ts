@@ -17,6 +17,6 @@ export async function GET() {
     return NextResponse.json(data, { status: response.status })
   } catch (error) {
     console.error("[API] MINDEX health proxy error:", error)
-    return NextResponse.json({ error: "MINDEX health check failed" }, { status: 503 })
+    return NextResponse.json({ status: "degraded", error: "MINDEX health check failed" }, { status: 503 })
   }
 }

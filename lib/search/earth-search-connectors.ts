@@ -31,6 +31,22 @@ import type {
   CameraResult,
 } from "./unified-search-sdk"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
+
+/** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
+function asEarthBucket<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : []
+}
+
+/** One bad live connector must not reject the whole `Promise.all` (unified treats null earth as all-empty). */
+async function safeEarthSlice<T>(p: Promise<T[]>): Promise<T[]> {
+  try {
+    const v = await p
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
 
 /** Collapse duplicate EONET rows (different id strings) or same lat/lng/title/time from multiple sources. */
 function deduplicateEarthEvents(events: EventResult[]): EventResult[] {
@@ -58,7 +74,10 @@ async function safeFetch(url: string, timeoutMs = 8000): Promise<Response | null
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "MycosoftFluidSearch/1.0 (+https://mycosoft.com/search)",
+      },
     })
     if (!res.ok) return null
     return res
@@ -451,9 +470,9 @@ export async function searchInfrastructure(query: string, origin: string, limit 
 // ---------------------------------------------------------------------------
 
 const DEVICE_KEYWORDS = [
-  "device", "sensor", "mycobrain", "sporebase", "telemetry",
+  "device", "devices", "sensor", "mycobrain", "sporebase", "telemetry",
   "iot", "mycoboard", "brain board", "spore count",
-  "myco", "trufflebot", "myconode", "hyphae",
+  "myco", "trufflebot", "myconode", "hyphae", "network",
 ]
 
 export function isDeviceQuery(query: string): boolean {
@@ -461,27 +480,68 @@ export function isDeviceQuery(query: string): boolean {
   return DEVICE_KEYWORDS.some(kw => q.includes(kw))
 }
 
+function mapLocalMycobrainRow(d: Record<string, unknown>): DeviceResult {
+  return {
+    id: `device-${d.id || d.device_id}`,
+    deviceType: (d.type as string) || (d.device_type as string) || "mycobrain",
+    name: (d.name as string) || (d.label as string) || "MycoBrain",
+    lat: (d.lat as number) || (d.latitude as number) || undefined,
+    lng: (d.lng as number) || (d.longitude as number) || undefined,
+    temperature: (d.temperature as number) || undefined,
+    humidity: (d.humidity as number) || undefined,
+    airQuality: (d.air_quality as number) || undefined,
+    sporeCount: (d.spore_count as number) || undefined,
+    lastSeen: (d.last_seen as string) || new Date().toISOString(),
+    status: (d.status as string) || "online",
+    source: "MycoBrain",
+  }
+}
+
+function mapMasRegistryRow(d: Record<string, unknown>): DeviceResult {
+  const id = String(d.device_id || d.id || "").trim() || `unknown-${Date.now()}`
+  const display =
+    (d.display_name as string) ||
+    (d.device_display_name as string) ||
+    (d.device_name as string) ||
+    (d.name as string) ||
+    id
+  const statusRaw = String(d.status || "offline").toLowerCase()
+  const lastSeen = (d.last_seen as string) || (d.registered_at as string) || new Date().toISOString()
+  return {
+    id: `device-${id}`,
+    deviceType: (d.board_type as string) || (d.type as string) || "mycobrain",
+    name: display,
+    lat: undefined,
+    lng: undefined,
+    temperature: undefined,
+    humidity: undefined,
+    airQuality: undefined,
+    sporeCount: undefined,
+    lastSeen,
+    status: statusRaw.includes("online") || statusRaw === "stale" ? "online" : "offline",
+    source: "MAS-Registry",
+  }
+}
+
 export async function searchDevices(query: string, origin: string, limit = 20): Promise<DeviceResult[]> {
   try {
     const res = await safeFetch(`${origin}/api/natureos/devices/mycobrain`)
-    if (!res) return []
-    const data = await res.json()
-    const devices = data.devices || data.data || data || []
+    const data = res ? await res.json() : {}
+    const devices = (data.devices || data.data || data || []) as Record<string, unknown>[]
 
-    return (devices as Record<string, unknown>[]).slice(0, limit).map((d) => ({
-      id: `device-${d.id || d.device_id}`,
-      deviceType: (d.type as string) || (d.device_type as string) || "mycobrain",
-      name: (d.name as string) || (d.label as string) || "MycoBrain",
-      lat: (d.lat as number) || (d.latitude as number) || undefined,
-      lng: (d.lng as number) || (d.longitude as number) || undefined,
-      temperature: (d.temperature as number) || undefined,
-      humidity: (d.humidity as number) || undefined,
-      airQuality: (d.air_quality as number) || undefined,
-      sporeCount: (d.spore_count as number) || undefined,
-      lastSeen: (d.last_seen as string) || new Date().toISOString(),
-      status: (d.status as string) || "online",
-      source: "MycoBrain",
-    }))
+    let rows = devices.slice(0, limit).map(mapLocalMycobrainRow)
+
+    /** MAS device registry (LAN / VM) — real rows when local MycoBrain serial service has none */
+    if (rows.length === 0) {
+      const net = await safeFetch(`${origin}/api/devices/network?include_offline=true`, 12_000)
+      if (net) {
+        const jd = (await net.json()) as { devices?: Record<string, unknown>[] }
+        const list = jd.devices || []
+        rows = list.slice(0, limit).map(mapMasRegistryRow)
+      }
+    }
+
+    return rows
   } catch {
     return []
   }
@@ -560,10 +620,29 @@ export async function searchSpaceWeather(query: string, origin: string, _limit =
 // ---------------------------------------------------------------------------
 
 const CAMERA_KEYWORDS = [
-  "camera", "cctv", "webcam", "livestream", "live stream", "traffic cam"
+  "camera",
+  "cctv",
+  "webcam",
+  "livestream",
+  "live stream",
+  "traffic cam",
+  "traffic cameras",
+  "surveillance",
 ]
 
-const MINDEX_BASE = resolveMindexServerBaseUrl()
+/** MINDEX may return placeholder objects — treat as empty so OSM / live fallback can run. */
+function isRenderableCamera(c: unknown): c is CameraResult {
+  if (!c || typeof c !== "object") return false
+  const o = c as CameraResult
+  if (!Number.isFinite(Number(o.lat)) || !Number.isFinite(Number(o.lng))) return false
+  const title = String(o.title ?? "").trim()
+  const id = String(o.id ?? "").trim()
+  return title.length > 0 || id.length > 0
+}
+
+function filterRenderableCameras(rows: CameraResult[]): CameraResult[] {
+  return rows.filter((c) => isRenderableCamera(c))
+}
 
 const MINDEX_INTERNAL_TOKEN =
   process.env.MINDEX_INTERNAL_TOKEN ||
@@ -581,6 +660,151 @@ function mindexAuthHeaders(): Record<string, string> {
 export function isCamerasQuery(query: string): boolean {
   const q = query.toLowerCase()
   return CAMERA_KEYWORDS.some(kw => q.includes(kw))
+}
+
+/** When Nominatim is down or rate-limited, still query Overpass with real coords (not mock rows). */
+function fallbackCoordsForKnownPlace(place: string): { lat: number; lon: number; label: string } | null {
+  const p = place.trim().toLowerCase()
+  if (!p) return null
+  const table: Array<{ m: RegExp; lat: number; lon: number; label: string }> = [
+    { m: /paris/, lat: 48.8566, lon: 2.3522, label: "Paris, France" },
+    { m: /tokyo/, lat: 35.6762, lon: 139.6503, label: "Tokyo, Japan" },
+    { m: /london/, lat: 51.5074, lon: -0.1278, label: "London, UK" },
+    { m: /(san francisco|sf\b)/, lat: 37.7749, lon: -122.4194, label: "San Francisco, CA" },
+    { m: /los angeles|la\b/, lat: 34.0522, lon: -118.2437, label: "Los Angeles, CA" },
+    { m: /new york|nyc/, lat: 40.7128, lon: -74.006, label: "New York, NY" },
+    { m: /berlin/, lat: 52.52, lon: 13.405, label: "Berlin, Germany" },
+  ]
+  for (const row of table) {
+    if (row.m.test(p)) return { lat: row.lat, lon: row.lon, label: row.label }
+  }
+  return null
+}
+
+/** City / area hint for OSM fallback (no MINDEX Eagle rows). */
+function extractPlaceHintForCameras(query: string): string | null {
+  const q = query.trim()
+  const inMatch = q.match(/\bin\s+([^,;]+)$/i)
+  if (inMatch?.[1]) return inMatch[1].trim()
+  const near = q.match(/\bnear\s+([^,;]+)$/i)
+  if (near?.[1]) return near[1].trim()
+  const cam = q.match(/(?:traffic\s+)?(?:cctv|webcams?|cameras?)\s+([^,;]+)$/i)
+  if (cam?.[1]) return cam[1].trim()
+  return null
+}
+
+/**
+ * Public surveillance nodes from OpenStreetMap (Nominatim + Overpass).
+ * Used when MINDEX eagle_video is empty — real geo data, no mock payloads.
+ */
+async function searchCamerasOsmAroundPlace(place: string, limit: number): Promise<CameraResult[]> {
+  try {
+    let lat: number | undefined
+    let lon: number | undefined
+    let labelBase = place
+
+    /** Known cities first — avoids waiting on Nominatim (often 10s+) before Overpass. */
+    const fb = fallbackCoordsForKnownPlace(place)
+    if (fb) {
+      lat = fb.lat
+      lon = fb.lon
+      labelBase = fb.label
+    }
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(place)}`
+      const nomRes = await fetch(nomUrl, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "MycosoftFluidSearch/1.0 (+https://mycosoft.com/search)",
+        },
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (nomRes.ok) {
+        const nom = (await nomRes.json()) as Array<{ lat: string; lon: string; display_name?: string }>
+        if (nom?.[0]) {
+          lat = parseFloat(nom[0].lat)
+          lon = parseFloat(nom[0].lon)
+          labelBase = nom[0].display_name?.split(",").slice(0, 2).join(", ") || place
+        }
+      }
+    }
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return []
+
+    const cap = Math.min(Math.max(limit, 1), 25)
+    /** Surveillance + speed cameras — 12 km radius keeps Overpass fast; cap applied in JS after `out body`. */
+    const overpassQ = `
+[out:json][timeout:12];
+(
+  node["man_made"="surveillance"](around:12000,${lat},${lon});
+  node["highway"="speed_camera"](around:12000,${lat},${lon});
+);
+out body;
+`
+    const overpassEndpoints = [
+      "https://lz4.overpass-api.de/api/interpreter",
+      "https://overpass.openstreetmap.fr/api/interpreter",
+      "https://overpass-api.de/api/interpreter",
+      "https://z.overpass-api.de/api/interpreter",
+    ]
+
+    function elementsToCameras(
+      els: Array<{ type: string; id: number; lat?: number; lon?: number; tags?: Record<string, string> }>
+    ): CameraResult[] {
+      const rows: CameraResult[] = []
+      for (const el of els) {
+        if (el.type !== "node" || typeof el.lat !== "number" || typeof el.lon !== "number") continue
+        const tags = el.tags || {}
+        const isSpeed = tags.highway === "speed_camera"
+        const title =
+          tags.name ||
+          tags.ref ||
+          tags.operator ||
+          (isSpeed ? `Speed camera ${el.id}` : `Surveillance ${el.id}`)
+        rows.push({
+          id: isSpeed ? `osm-speedcam-${el.id}` : `osm-surveillance-${el.id}`,
+          title,
+          location: labelBase,
+          lat: el.lat,
+          lng: el.lon,
+          type: isSpeed ? "traffic" : "cctv",
+          status: "live",
+          source: isSpeed ? "OpenStreetMap (speed_camera)" : "OpenStreetMap (surveillance)",
+        })
+        if (rows.length >= cap) break
+      }
+      return rows
+    }
+
+    async function fetchOneMirror(endpoint: string): Promise<CameraResult[]> {
+      const opRes = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "MycosoftFluidSearch/1.0 (+https://mycosoft.com/search)",
+        },
+        body: `data=${encodeURIComponent(overpassQ)}`,
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!opRes.ok) throw new Error(`overpass HTTP ${opRes.status}`)
+      const op = (await opRes.json()) as {
+        elements?: Array<{ type: string; id: number; lat?: number; lon?: number; tags?: Record<string, string> }>
+      }
+      const rows = elementsToCameras(op.elements || [])
+      if (rows.length === 0) throw new Error("overpass empty")
+      return rows
+    }
+
+    /** Race mirrors: public Overpass is often slow or times out sequentially — first non-empty wins. */
+    try {
+      return await Promise.any(overpassEndpoints.map((endpoint) => fetchOneMirror(endpoint)))
+    } catch {
+      return []
+    }
+  } catch {
+    return []
+  }
 }
 
 function mapEagleUnifiedRowToCamera(row: Record<string, unknown>): CameraResult | null {
@@ -608,33 +832,47 @@ function mapEagleUnifiedRowToCamera(row: Record<string, unknown>): CameraResult 
 
 /** Fluid Search / earth intelligence: real Eagle rows from MINDEX unified-search (types=eagle_video). */
 export async function searchCameras(query: string, limit = 10): Promise<CameraResult[]> {
-  try {
-    if (!MINDEX_INTERNAL_TOKEN && !MINDEX_API_KEY) return []
-    const qRaw = query.trim()
-    const q = qRaw.length >= 2 ? qRaw : "camera"
-    const cap = Math.min(Math.max(limit, 1), 100)
-    const qp = new URLSearchParams({
-      q,
-      types: "eagle_video",
-      limit: String(cap),
-    })
-    const res = await fetch(`${MINDEX_BASE}/api/mindex/unified-search?${qp}`, {
-      signal: AbortSignal.timeout(15_000),
-      headers: { Accept: "application/json", ...mindexAuthHeaders() },
-    })
-    if (!res.ok) return []
-    const j = (await res.json()) as { results?: Record<string, unknown[]> }
-    const rows = j?.results?.eagle_video || []
-    const out: CameraResult[] = []
-    for (const row of rows) {
-      const c = mapEagleUnifiedRowToCamera(row as Record<string, unknown>)
-      if (c) out.push(c)
-      if (out.length >= cap) break
+  const qRaw = query.trim()
+  const q = qRaw.length >= 2 ? qRaw : "camera"
+  const cap = Math.min(Math.max(limit, 1), 100)
+  let mindexOut: CameraResult[] = []
+
+  if (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY) {
+    try {
+      const qp = new URLSearchParams({
+        q,
+        types: "eagle_video",
+        limit: String(cap),
+      })
+      const mindexBase = resolveMindexServerBaseUrl().replace(/\/$/, "")
+      const res = await fetch(`${mindexBase}/api/mindex/unified-search?${qp}`, {
+        signal: AbortSignal.timeout(8_000),
+        headers: { Accept: "application/json", ...mindexAuthHeaders() },
+      })
+      if (res.ok) {
+        const j = (await res.json()) as { results?: Record<string, unknown> }
+        const rowsRaw = j?.results?.eagle_video
+        const rows = Array.isArray(rowsRaw) ? rowsRaw : []
+        for (const row of rows) {
+          const c = mapEagleUnifiedRowToCamera(row as Record<string, unknown>)
+          if (c) mindexOut.push(c)
+          if (mindexOut.length >= cap) break
+        }
+      }
+    } catch {
+      mindexOut = []
     }
-    return out
-  } catch {
-    return []
   }
+
+  if (mindexOut.length > 0) return mindexOut
+
+  const place = extractPlaceHintForCameras(qRaw)
+  if (place) {
+    const osm = await searchCamerasOsmAroundPlace(place, cap)
+    if (osm.length > 0) return osm
+  }
+
+  return []
 }
 
 // ---------------------------------------------------------------------------
@@ -691,6 +929,19 @@ async function searchMindexEarth(query: string, limit: number): Promise<Record<s
   }
 }
 
+/** MINDEX-first earth bundle — used by `searchEarthIntelligence` and `/api/search/stream` extensions. */
+export const earthMindexFirstConnector = defineConnector({
+  widgetType: "earth",
+  sources: [
+    {
+      name: "mindex-earth",
+      fetch: async (ctx: ConnectorRunContext) => searchMindexEarth(ctx.query, ctx.limit),
+      transform: (raw) =>
+        raw && typeof raw === "object" && !Array.isArray(raw) ? [raw as Record<string, unknown[]>] : [],
+    },
+  ],
+})
+
 /**
  * Run all Earth Intelligence searches in parallel based on detected domains.
  * MINDEX-first: tries local DB, then falls back to external APIs.
@@ -712,61 +963,127 @@ export async function searchEarthIntelligence(
   space_weather: SpaceWeatherResult[]
   cameras: CameraResult[]
 }> {
-  // MINDEX-first: try local database (instant, already scraped + stored)
-  const mindexEarth = await searchMindexEarth(query, limit)
-  if (mindexEarth) {
-    // Map MINDEX results to our typed format — MINDEX returns domain-keyed arrays
-    return {
-      events: deduplicateEarthEvents((mindexEarth.events as EventResult[]) || []),
-      aircraft: (mindexEarth.aircraft as AircraftResult[]) || [],
-      vessels: (mindexEarth.vessels as VesselResult[]) || [],
-      satellites: (mindexEarth.satellites as SatelliteResult[]) || [],
-      weather: (mindexEarth.weather as WeatherResult[]) || [],
-      emissions: (mindexEarth.emissions as EmissionsResult[]) || [],
-      infrastructure: (mindexEarth.infrastructure as InfrastructureResult[]) || [],
-      devices: (mindexEarth.devices as DeviceResult[]) || [],
-      space_weather: (mindexEarth.space_weather as SpaceWeatherResult[]) || [],
-      cameras: (mindexEarth.cameras as CameraResult[]) || [],
-    }
-  }
-
-  // Fallback: query external APIs directly
   const domains = detectEarthDomains(query)
   const isGeneral = !Object.values(domains).some(Boolean)
 
-  // For general queries, search events + weather as baseline context
-  const promises = {
-    events: (domains.events || isGeneral) ? searchEvents(query, limit) : Promise.resolve([]),
-    aircraft: domains.aircraft ? searchAircraft(query, limit) : Promise.resolve([]),
-    vessels: domains.vessels ? searchVessels(query, origin, limit) : Promise.resolve([]),
-    satellites: domains.satellites ? searchSatellites(query, origin, limit) : Promise.resolve([]),
-    weather: (domains.weather || isGeneral) ? searchWeather(query, origin, limit) : Promise.resolve([]),
-    emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([]),
-    infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([]),
-    devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([]),
-    spaceWeather: domains.spaceWeather ? searchSpaceWeather(query, origin, limit) : Promise.resolve([]),
-    cameras: domains.cameras ? searchCameras(query, limit) : Promise.resolve([]),
+  /** Live connectors — run in parallel with MINDEX so camera/geo queries are not serialized (MINDEX + OSM). */
+  const livePromises = {
+    events: (domains.events || isGeneral) ? searchEvents(query, limit) : Promise.resolve([] as EventResult[]),
+    aircraft: domains.aircraft ? searchAircraft(query, limit) : Promise.resolve([] as AircraftResult[]),
+    vessels: domains.vessels ? searchVessels(query, origin, limit) : Promise.resolve([] as VesselResult[]),
+    satellites: domains.satellites ? searchSatellites(query, origin, limit) : Promise.resolve([] as SatelliteResult[]),
+    weather: (domains.weather || isGeneral) ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
+    emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([] as EmissionsResult[]),
+    infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([] as InfrastructureResult[]),
+    devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([] as DeviceResult[]),
+    spaceWeather: domains.spaceWeather ? searchSpaceWeather(query, origin, limit) : Promise.resolve([] as SpaceWeatherResult[]),
+    cameras: domains.cameras ? searchCameras(query, limit) : Promise.resolve([] as CameraResult[]),
   }
 
-  const [events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras] =
-    await Promise.all([
-      promises.events,
-      promises.aircraft,
-      promises.vessels,
-      promises.satellites,
-      promises.weather,
-      promises.emissions,
-      promises.infrastructure,
-      promises.devices,
-      promises.spaceWeather,
-      promises.cameras,
-    ])
+  const livePromise = Promise.all([
+    safeEarthSlice(livePromises.events),
+    safeEarthSlice(livePromises.aircraft),
+    safeEarthSlice(livePromises.vessels),
+    safeEarthSlice(livePromises.satellites),
+    safeEarthSlice(livePromises.weather),
+    safeEarthSlice(livePromises.emissions),
+    safeEarthSlice(livePromises.infrastructure),
+    safeEarthSlice(livePromises.devices),
+    safeEarthSlice(livePromises.spaceWeather),
+    safeEarthSlice(livePromises.cameras),
+  ])
+
+  const mindexPromise = earthMindexFirstConnector
+    .run({
+      query,
+      signal: AbortSignal.timeout(6_000),
+      limit,
+      origin,
+    })
+    .catch((e) => {
+      console.warn("[searchEarthIntelligence] mindex-earth connector failed:", e)
+      return [] as Awaited<ReturnType<typeof earthMindexFirstConnector.run>>
+    })
+
+  const [mindexChunks, liveTuple] = await Promise.all([mindexPromise, livePromise])
+
+  const mindexEarth = mindexChunks[0]?.items[0] as Record<string, unknown[]> | undefined
+
+  const [
+    liveEvents,
+    liveAircraft,
+    liveVessels,
+    liveSatellites,
+    liveWeather,
+    liveEmissions,
+    liveInfrastructure,
+    liveDevices,
+    liveSpaceWeather,
+    liveCameras,
+  ] = liveTuple
+
+  if (mindexEarth && typeof mindexEarth === "object") {
+    const hasAny = Object.values(mindexEarth).some((v) => Array.isArray(v) && v.length > 0)
+    if (hasAny) {
+      let events = deduplicateEarthEvents(asEarthBucket<EventResult>(mindexEarth.events))
+      let aircraft = asEarthBucket<AircraftResult>(mindexEarth.aircraft)
+      let vessels = asEarthBucket<VesselResult>(mindexEarth.vessels)
+      let satellites = asEarthBucket<SatelliteResult>(mindexEarth.satellites)
+      let weather = asEarthBucket<WeatherResult>(mindexEarth.weather)
+      let emissions = asEarthBucket<EmissionsResult>(mindexEarth.emissions)
+      let infrastructure = asEarthBucket<InfrastructureResult>(mindexEarth.infrastructure)
+      let devices = asEarthBucket<DeviceResult>(mindexEarth.devices)
+      let space_weather = asEarthBucket<SpaceWeatherResult>(mindexEarth.space_weather)
+      let cameras = filterRenderableCameras(asEarthBucket<CameraResult>(mindexEarth.cameras))
+
+      /** Prefer MINDEX rows; fill empty buckets from live results (already awaited in parallel). */
+      if ((domains.events || isGeneral) && events.length === 0) events = deduplicateEarthEvents(liveEvents)
+      if (domains.aircraft && aircraft.length === 0) aircraft = liveAircraft
+      if (domains.vessels && vessels.length === 0) vessels = liveVessels
+      if (domains.satellites && satellites.length === 0) satellites = liveSatellites
+      if ((domains.weather || isGeneral) && weather.length === 0) weather = liveWeather
+      if (domains.emissions && emissions.length === 0) emissions = liveEmissions
+      if (domains.infrastructure && infrastructure.length === 0) infrastructure = liveInfrastructure
+      if (domains.devices && devices.length === 0) devices = liveDevices
+      if (domains.spaceWeather && space_weather.length === 0) space_weather = liveSpaceWeather
+      if (domains.cameras && cameras.length === 0) cameras = filterRenderableCameras(liveCameras)
+
+      return {
+        events,
+        aircraft,
+        vessels,
+        satellites,
+        weather,
+        emissions,
+        infrastructure,
+        devices,
+        space_weather,
+        cameras,
+      }
+    }
+  }
+
+  const [events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, rawCameras] =
+    liveTuple
+  const cameras = filterRenderableCameras(rawCameras)
 
   const mindexIngestBase = resolveMindexServerBaseUrl()
   // Background ingestion: "scrape that live data and put it in MINDEX"
-  if (!mindexEarth && Object.keys(domains).some(d => domains[d as keyof EarthSearchDomains])) {
-    const payload: Record<string, any> = {
-      events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras
+  const mindexEmpty =
+    !mindexEarth ||
+    !Object.values(mindexEarth).some((v) => Array.isArray(v) && v.length > 0)
+  if (mindexEmpty && Object.keys(domains).some((d) => domains[d as keyof EarthSearchDomains])) {
+    const payload: Record<string, unknown[]> = {
+      events,
+      aircraft,
+      vessels,
+      satellites,
+      weather,
+      emissions,
+      infrastructure,
+      devices,
+      space_weather,
+      cameras,
     }
     // Only send non-empty arrays
     const validPayload = Object.fromEntries(Object.entries(payload).filter(([_, v]) => v && v.length > 0))

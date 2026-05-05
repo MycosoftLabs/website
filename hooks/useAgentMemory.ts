@@ -6,8 +6,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import useSWR from 'swr';
-
-const MAS_API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001";
+import { getMasGraphClientBase } from '@/lib/mas-graph-client-base';
 
 // ============================================
 // TYPES
@@ -102,7 +101,7 @@ export function useSemanticSearch() {
     setError(null);
 
     try {
-      const res = await fetch(`${MAS_API_BASE}/api/graph/memory/search`, {
+      const res = await fetch(`${getMasGraphClientBase()}/api/graph/memory/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +147,7 @@ export function useMemoryStore() {
     setError(null);
 
     try {
-      const res = await fetch(`${MAS_API_BASE}/api/graph/memory/store`, {
+      const res = await fetch(`${getMasGraphClientBase()}/api/graph/memory/store`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +178,7 @@ export function useMemoryStore() {
 
 export function useGraphLookup(nodeId?: string) {
   const { data, error, isLoading, mutate } = useSWR(
-    nodeId ? `${MAS_API_BASE}/api/graph/node/${nodeId}` : null,
+    nodeId ? `${getMasGraphClientBase()}/api/graph/node/${nodeId}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -218,7 +217,7 @@ export function useGraphTraversal() {
         params.set('edge_type', options.edgeType);
       }
 
-      const res = await fetch(`${MAS_API_BASE}/api/graph/traverse?${params}`);
+      const res = await fetch(`${getMasGraphClientBase()}/api/graph/traverse?${params}`);
       if (!res.ok) throw new Error('Traversal failed');
 
       const data = await res.json();
@@ -241,7 +240,7 @@ export function useGraphTraversal() {
 
 export function useUserContext(userId?: string) {
   const { data, error, isLoading, mutate } = useSWR(
-    userId ? `${MAS_API_BASE}/api/graph/context/user/${userId}` : null,
+    userId ? `${getMasGraphClientBase()}/api/graph/context/user/${userId}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -250,7 +249,7 @@ export function useUserContext(userId?: string) {
     if (!userId) return;
 
     try {
-      const res = await fetch(`${MAS_API_BASE}/api/graph/context/user/${userId}`, {
+      const res = await fetch(`${getMasGraphClientBase()}/api/graph/context/user/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -279,7 +278,7 @@ export function useUserContext(userId?: string) {
 
 export function useSessionContext(sessionId?: string) {
   const { data, error, isLoading, mutate } = useSWR(
-    sessionId ? `${MAS_API_BASE}/api/graph/context/session/${sessionId}` : null,
+    sessionId ? `${getMasGraphClientBase()}/api/graph/context/session/${sessionId}` : null,
     fetcher,
     { revalidateOnFocus: false }
   );

@@ -4410,6 +4410,7 @@ export default function CREPDashboardPage() {
       alerts: criticalCount,
       progress,
     } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fungalObservations.length, globalEvents.length, aircraft.length, vessels.length, satellites.length, criticalCount]);
 
   // ===========================================================================
@@ -4512,6 +4513,7 @@ export default function CREPDashboardPage() {
     }
     filtered = applyLODToMovers(filtered, "vessels", mapZoom);
     return filtered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vessels, vesselFilter, mapZoom]);
 
   // ===========================================================================

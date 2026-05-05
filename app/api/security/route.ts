@@ -195,175 +195,78 @@ interface TrustedService {
   outbound_only: boolean;
 }
 
-// In-memory event store for real-time updates
+/** Ephemeral events only when MAS is unavailable (no baseline/mock seeding). */
 const eventStore: SecurityEvent[] = [];
 const MAX_EVENTS = 1000;
-let eventsInitialized = false;
 
-// Initialize events with realistic security data
-function initializeEventStore() {
-  if (eventsInitialized) return;
-  eventsInitialized = true;
+function getMasApiBase(): string {
+  return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+}
 
-  console.log('[Security] Initializing event store with baseline security events...');
+function masRequestHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json', ...extra };
+  const key = process.env.MAS_API_KEY || process.env.MAS_INTERNAL_API_KEY;
+  if (key) h['X-API-Key'] = key;
+  return h;
+}
 
-  // Add realistic baseline security events
-  const now = Date.now();
-  const baselineEvents: SecurityEvent[] = [
-    {
-      id: `evt-baseline-001`,
-      timestamp: new Date(now - 10 * 60 * 1000).toISOString(),
-      event_type: 'login_attempt',
-      severity: 'info',
-      source_ip: '192.168.0.105',
-      description: 'Successful login: admin dashboard accessed',
-      metadata: { user: 'Morgan', method: 'oauth', service: 'mycosoft-admin' },
-    },
-    {
-      id: `evt-baseline-002`,
-      timestamp: new Date(now - 25 * 60 * 1000).toISOString(),
-      event_type: 'api_access',
-      severity: 'info',
-      source_ip: '52.88.123.45',
-      description: 'External API access: Anthropic Claude API',
-      geo_location: {
-        ip: '52.88.123.45',
-        country: 'United States',
-        country_code: 'US',
-        region: 'Oregon',
-        city: 'Portland',
-        latitude: 45.5152,
-        longitude: -122.6784,
-        isp: 'Amazon Web Services',
-        is_vpn: false,
-        is_tor: false,
-      },
-      metadata: { service: 'anthropic', endpoint: '/v1/messages' },
-    },
-    {
-      id: `evt-baseline-003`,
-      timestamp: new Date(now - 45 * 60 * 1000).toISOString(),
-      event_type: 'firewall_block',
-      severity: 'medium',
-      source_ip: '185.220.101.42',
-      destination_ip: '192.168.0.1',
-      description: 'Blocked: Known Tor exit node attempting connection',
-      geo_location: {
-        ip: '185.220.101.42',
-        country: 'Germany',
-        country_code: 'DE',
-        region: 'Berlin',
-        city: 'Berlin',
-        latitude: 52.52,
-        longitude: 13.405,
-        isp: 'Tor Exit',
-        is_vpn: false,
-        is_tor: true,
-      },
-      action_taken: 'block_and_alert',
-      metadata: { reason: 'tor_exit_node', blocked_automatically: true },
-    },
-    {
-      id: `evt-baseline-004`,
-      timestamp: new Date(now - 60 * 60 * 1000).toISOString(),
-      event_type: 'port_scan_detected',
-      severity: 'high',
-      source_ip: '103.224.182.251',
-      destination_ip: '192.168.0.1',
-      description: 'Port scan detected: Multiple ports probed from foreign IP',
-      geo_location: {
-        ip: '103.224.182.251',
-        country: 'China',
-        country_code: 'CN',
-        region: 'Guangdong',
-        city: 'Shenzhen',
-        latitude: 22.5431,
-        longitude: 114.0579,
-        isp: 'China Telecom',
-        is_vpn: false,
-        is_tor: false,
-      },
-      action_taken: 'block_and_alert',
-      rule_matched: 'GEO_BLOCK_HIGH_RISK',
-      metadata: { ports_scanned: [22, 80, 443, 3389, 8080], blocked: true },
-    },
-    {
-      id: `evt-baseline-005`,
-      timestamp: new Date(now - 90 * 60 * 1000).toISOString(),
-      event_type: 'ssl_certificate_check',
-      severity: 'info',
-      source_ip: '172.217.14.99',
-      description: 'SSL certificate verified: Google APIs endpoint',
-      metadata: { service: 'google_apis', certificate_valid: true },
-    },
-    {
-      id: `evt-baseline-006`,
-      timestamp: new Date(now - 120 * 60 * 1000).toISOString(),
-      event_type: 'database_connection',
-      severity: 'info',
-      source_ip: '54.175.42.88',
-      description: 'Database connection established: Supabase',
-      geo_location: {
-        ip: '54.175.42.88',
-        country: 'United States',
-        country_code: 'US',
-        region: 'Virginia',
-        city: 'Ashburn',
-        latitude: 39.0438,
-        longitude: -77.4874,
-        isp: 'Amazon Web Services',
-        is_vpn: false,
-        is_tor: false,
-      },
-      metadata: { service: 'supabase', database: 'mycosoft-prod', connection_pool: 5 },
-    },
-    {
-      id: `evt-baseline-007`,
-      timestamp: new Date(now - 180 * 60 * 1000).toISOString(),
-      event_type: 'vpn_connection',
-      severity: 'info',
-      source_ip: '98.147.204.112',
-      description: 'VPN connection: Chris connected from Portland',
-      geo_location: {
-        ip: '98.147.204.112',
-        country: 'United States',
-        country_code: 'US',
-        region: 'Oregon',
-        city: 'Portland',
-        latitude: 45.5152,
-        longitude: -122.6784,
-        isp: 'Comcast Cable',
-        is_vpn: true,
-        is_tor: false,
-      },
-      metadata: { user: 'Chris', vpn_type: 'WireGuard', location: 'Portland, OR' },
-    },
-    {
-      id: `evt-baseline-008`,
-      timestamp: new Date(now - 240 * 60 * 1000).toISOString(),
-      event_type: 'failed_login',
-      severity: 'medium',
-      source_ip: '45.155.205.233',
-      description: 'Failed login attempt: Invalid credentials',
-      geo_location: {
-        ip: '45.155.205.233',
-        country: 'Russia',
-        country_code: 'RU',
-        region: 'Moscow',
-        city: 'Moscow',
-        latitude: 55.7558,
-        longitude: 37.6173,
-        isp: 'Private Layer',
-        is_vpn: true,
-        is_tor: false,
-      },
-      action_taken: 'log_and_alert',
-      metadata: { username_attempted: 'admin', blocked_after: 3 },
-    },
-  ];
+async function masGet(path: string): Promise<{ ok: boolean; data: unknown; status: number }> {
+  const base = getMasApiBase();
+  if (!base) return { ok: false, data: null, status: 0 };
+  const p = path.startsWith('/') ? path : `/${path}`;
+  try {
+    const res = await fetch(`${base}${p}`, {
+      cache: 'no-store',
+      headers: masRequestHeaders(),
+    });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, data, status: res.status };
+  } catch {
+    return { ok: false, data: null, status: 0 };
+  }
+}
 
-  eventStore.push(...baselineEvents);
-  console.log(`[Security] Event store initialized with ${eventStore.length} total events`);
+function normalizeSeverity(s: string | undefined): SecurityEvent['severity'] {
+  const v = (s || 'medium').toLowerCase();
+  if (v === 'info' || v === 'low' || v === 'medium' || v === 'high' || v === 'critical') return v;
+  return 'medium';
+}
+
+function incidentRowToSecurityEvent(inc: Record<string, unknown>): SecurityEvent {
+  const ts = typeof inc.created_at === 'string' ? inc.created_at : new Date().toISOString();
+  return {
+    id: String(inc.id || ''),
+    timestamp: ts,
+    event_type: String(inc.kind || 'incident'),
+    severity: normalizeSeverity(inc.severity as string | undefined),
+    source_ip: String(inc.source_ip || inc.host || inc.ip || '0.0.0.0'),
+    description: String(inc.title || inc.description || ''),
+    metadata: {
+      incident: true,
+      status: inc.status,
+      source: inc.source,
+      host: inc.host,
+      details: inc.details,
+    },
+  };
+}
+
+async function fetchMasIncidentsAsEvents(limit: number, severity?: string | null): Promise<SecurityEvent[]> {
+  const base = getMasApiBase();
+  if (!base) return [];
+  try {
+    let q = `/api/incidents?limit=${encodeURIComponent(String(limit))}`;
+    if (severity) q += `&severity=${encodeURIComponent(severity)}`;
+    const { ok, data } = await masGet(q);
+    if (!ok || !data) return [];
+    const rows = Array.isArray((data as { incidents?: Record<string, unknown>[] }).incidents)
+      ? (data as { incidents: Record<string, unknown>[] }).incidents
+      : [];
+    return rows.map(incidentRowToSecurityEvent);
+  } catch (e) {
+    console.warn('[Security] MAS /api/incidents fetch failed:', e);
+    return [];
+  }
 }
 
 // Load configuration
@@ -403,7 +306,7 @@ export async function GET(request: NextRequest) {
   try {
     switch (action) {
       case 'status':
-        return getSecurityStatus();
+        return await getSecurityStatus();
       
       case 'users':
         return getAuthorizedUsers();
@@ -411,10 +314,10 @@ export async function GET(request: NextRequest) {
       case 'events':
         const limit = parseInt(searchParams.get('limit') || '100');
         const severity = searchParams.get('severity');
-        return getSecurityEvents(limit, severity);
+        return await getSecurityEvents(limit, severity);
       
       case 'threats':
-        return getThreatSummaryData();
+        return await getThreatSummaryData();
       
       case 'config':
         return getSecurityConfig();
@@ -425,6 +328,10 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'IP address required' }, { status: 400 });
         }
         return geoLookup(ip);
+
+      /** Geo plot for SOC dashboard — unique incident source IPs from MAS, geolocated via ip-api batch. */
+      case 'threat-map':
+        return getThreatMapFromIncidents();
       
       // ===== NEW ENDPOINTS =====
       
@@ -643,10 +550,106 @@ export async function GET(request: NextRequest) {
       case 'fcl-training':
         const training = await getTrainingRecords();
         return NextResponse.json({ training });
+
+      /** Reconciled LAN inventory from MAS Postgres (`soc_ops.device_inventory`). */
+      case 'network-inventory': {
+        const base = getMasApiBase();
+        if (!base) {
+          return NextResponse.json({ items: [], count: 0, source: 'mas_unconfigured' });
+        }
+        const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '2000', 10) || 2000, 1), 5000);
+        const { ok, data, status } = await masGet(`/api/devices/inventory?limit=${limit}`);
+        if (!ok) {
+          return NextResponse.json({ items: [], count: 0, source: 'mas_error', httpStatus: status });
+        }
+        const obj = data as { items?: unknown[]; count?: number; source?: string };
+        const items = Array.isArray(obj?.items) ? obj.items : [];
+        return NextResponse.json({
+          items,
+          count: items.length,
+          source: obj?.source || 'mas',
+        });
+      }
+
+      /** MAS NIST 800-171 live bundle: score + latest SSP/POAM pointers + control rows for heatmap. */
+      case 'mas-compliance-bundle': {
+        const base = getMasApiBase();
+        if (!base) {
+          return NextResponse.json({
+            score: null,
+            docs: null,
+            controls: [],
+            error: 'mas_unconfigured',
+          });
+        }
+        const [score, docs, controls] = await Promise.all([
+          masGet('/api/compliance/score'),
+          masGet('/api/compliance/docs'),
+          masGet('/api/compliance/controls'),
+        ]);
+        const ctrlArr =
+          controls.ok &&
+          Array.isArray((controls.data as { controls?: unknown[] })?.controls)
+            ? (controls.data as { controls: unknown[] }).controls
+            : [];
+        return NextResponse.json({
+          score: score.ok ? score.data : null,
+          docs: docs.ok ? docs.data : null,
+          controls: ctrlArr,
+          errors: {
+            score: score.ok ? null : score.status,
+            docs: docs.ok ? null : docs.status,
+            controls: controls.ok ? null : controls.status,
+          },
+        });
+      }
+
+      /** Summary tiles for `/security` dashboard (inventory + compliance score + red team health). */
+      case 'soc-dashboard-tiles': {
+        const base = getMasApiBase();
+        if (!base) {
+          return NextResponse.json({
+            network: { total: 0, online: 0, offline: 0, stale: 0, unknown: 0, source: 'mas_unconfigured' },
+            compliance: null,
+            redteam: null,
+          });
+        }
+        const [inv, score, rt] = await Promise.all([
+          masGet('/api/devices/inventory?limit=5000'),
+          masGet('/api/compliance/score'),
+          masGet('/api/redteam/health'),
+        ]);
+        const items = Array.isArray((inv.data as { items?: unknown[] })?.items)
+          ? (inv.data as { items: unknown[] }).items
+          : [];
+        let online = 0;
+        let offline = 0;
+        let stale = 0;
+        let unknown = 0;
+        for (const row of items) {
+          const st = String((row as Record<string, unknown>).status || 'unknown').toLowerCase();
+          if (st === 'online') online += 1;
+          else if (st === 'offline') offline += 1;
+          else if (st === 'stale') stale += 1;
+          else unknown += 1;
+        }
+        return NextResponse.json({
+          network: {
+            total: items.length,
+            online,
+            offline,
+            stale,
+            unknown,
+            source: (inv.data as { source?: string })?.source || 'inventory',
+          },
+          compliance: score.ok ? score.data : null,
+          redteam: rt.ok ? rt.data : null,
+        });
+      }
       
       default:
         // Return dashboard overview
-        return getDashboardOverview();
+        return await getDashboardOverview();
     }
   } catch (error) {
     console.error('Security API error:', error);
@@ -985,6 +988,24 @@ export async function POST(request: NextRequest) {
           status: data.status || 'complete',
         });
         return NextResponse.json({ success: true, training: newTraining });
+
+      /** Proxy to MAS multi-model SSP/POA&M regeneration (Guardian / keys on MAS). */
+      case 'mas_compliance_regenerate': {
+        const base = getMasApiBase();
+        if (!base) {
+          return NextResponse.json({ error: 'MAS not configured' }, { status: 503 });
+        }
+        const res = await fetch(`${base}/api/compliance/regenerate`, {
+          method: 'POST',
+          headers: masRequestHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            doc_type: data.doc_type || 'SSP',
+            title: data.title || 'Regenerated document',
+          }),
+        });
+        const jd = await res.json().catch(() => ({}));
+        return NextResponse.json(jd, { status: res.status });
+      }
       
       default:
         return NextResponse.json(
@@ -1003,16 +1024,14 @@ export async function POST(request: NextRequest) {
 
 // Handler functions
 
-function getSecurityStatus() {
-  // Initialize events if not already done
-  initializeEventStore();
-
+async function getSecurityStatus() {
+  const masEvents = await fetchMasIncidentsAsEvents(300);
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const eventsLastHour = eventStore.filter(e => new Date(e.timestamp) > hourAgo);
-  const eventsLastDay = eventStore.filter(e => new Date(e.timestamp) > dayAgo);
+  const eventsLastHour = masEvents.filter(e => new Date(e.timestamp) > hourAgo);
+  const eventsLastDay = masEvents.filter(e => new Date(e.timestamp) > dayAgo);
 
   // Calculate threat level based on events
   let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
@@ -1037,7 +1056,8 @@ function getSecurityStatus() {
     critical_events: criticalCount,
     high_events: highCount,
     unique_ips: new Set(eventsLastDay.map(e => e.source_ip)).size,
-    uptime_seconds: Math.floor(process.uptime())
+    uptime_seconds: Math.floor(process.uptime()),
+    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
   });
 }
 
@@ -1066,35 +1086,117 @@ function getAuthorizedUsers() {
   return NextResponse.json({ users });
 }
 
-function getSecurityEvents(limit: number, severity?: string | null) {
-  // Initialize events if not already done
-  initializeEventStore();
-
-  let events = [...eventStore].reverse(); // Most recent first
-
+async function getSecurityEvents(limit: number, severity?: string | null) {
+  const masEvents = await fetchMasIncidentsAsEvents(Math.max(limit, 200), severity || undefined);
+  let events = [...masEvents].reverse();
   if (severity) {
     events = events.filter(e => e.severity === severity);
   }
-
   events = events.slice(0, limit);
 
   return NextResponse.json({
     events,
-    total: eventStore.length,
-    returned: events.length
+    total: masEvents.length,
+    returned: events.length,
+    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
   });
 }
 
-function getThreatSummaryData() {
-  // Initialize events if not already done
-  initializeEventStore();
+function isPublicRoutableIp(ip: string): boolean {
+  if (!ip || ip === '0.0.0.0') return false;
+  if (ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.')) return false;
+  if (ip.startsWith('172.')) {
+    const p = ip.split('.');
+    const second = parseInt(p[1] || '0', 10);
+    if (second >= 16 && second <= 31) return false;
+  }
+  return true;
+}
 
+async function getThreatMapFromIncidents() {
+  const events = await fetchMasIncidentsAsEvents(200);
+  const byIp = new Map<string, { severity: string; count: number; last: string }>();
+  for (const e of events) {
+    const ip = e.source_ip?.trim() || '';
+    if (!isPublicRoutableIp(ip)) continue;
+    const prev = byIp.get(ip);
+    const sev = e.severity || 'low';
+    const rank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 } as const;
+    const curRank = rank[sev as keyof typeof rank] ?? 1;
+    if (!prev) {
+      byIp.set(ip, { severity: sev, count: 1, last: e.timestamp });
+    } else {
+      const prevRank = rank[prev.severity as keyof typeof rank] ?? 1;
+      byIp.set(ip, {
+        severity: curRank > prevRank ? sev : prev.severity,
+        count: prev.count + 1,
+        last: e.timestamp > prev.last ? e.timestamp : prev.last,
+      });
+    }
+  }
+  const ips = [...byIp.keys()].slice(0, 45);
+  if (!ips.length) {
+    return NextResponse.json({
+      points: [],
+      data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
+    });
+  }
+  try {
+    const batchUrl =
+      'http://ip-api.com/batch?fields=status,query,country,countryCode,city,lat,lon';
+    const res = await fetch(batchUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ips),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      return NextResponse.json({ points: [], error: 'geo_batch_failed' }, { status: 502 });
+    }
+    const rows = (await res.json()) as Array<{
+      status?: string;
+      query?: string;
+      country?: string;
+      countryCode?: string;
+      city?: string;
+      lat?: number;
+      lon?: number;
+    }>;
+    const points = rows
+      .filter((r) => r.status === 'success' && typeof r.lat === 'number' && typeof r.lon === 'number')
+      .map((r) => {
+        const q = String(r.query || '');
+        const meta = byIp.get(q);
+        return {
+          ip: q,
+          lat: r.lat as number,
+          lon: r.lon as number,
+          country: r.country || '',
+          country_code: r.countryCode || '',
+          city: r.city || '',
+          severity: meta?.severity || 'low',
+          incident_hits: meta?.count || 1,
+          last_seen: meta?.last || '',
+        };
+      });
+    return NextResponse.json({
+      points,
+      data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
+    });
+  } catch (e) {
+    console.error('[Security] threat-map geo batch:', e);
+    return NextResponse.json({ points: [], error: 'geo_batch_exception' }, { status: 500 });
+  }
+}
+
+async function getThreatSummaryData() {
+  const masEvents = await fetchMasIncidentsAsEvents(500);
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const eventsLastHour = eventStore.filter(e => new Date(e.timestamp) > hourAgo);
-  const eventsLastDay = eventStore.filter(e => new Date(e.timestamp) > dayAgo);
+  const eventsLastHour = masEvents.filter(e => new Date(e.timestamp) > hourAgo);
+  const eventsLastDay = masEvents.filter(e => new Date(e.timestamp) > dayAgo);
 
   const summary: ThreatSummary = {
     total_events_hour: eventsLastHour.length,
@@ -1138,7 +1240,8 @@ function getThreatSummaryData() {
     summary,
     events_by_type: eventsByType,
     top_source_ips: topIPs,
-    country_distribution: countryCounts
+    country_distribution: countryCounts,
+    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
   });
 }
 
@@ -1208,15 +1311,13 @@ async function geoLookup(ip: string) {
   }
 }
 
-function getDashboardOverview() {
-  // Initialize events if not already done
-  initializeEventStore();
-
+async function getDashboardOverview() {
+  const masEvents = await fetchMasIncidentsAsEvents(200);
   const config = loadSecurityConfig();
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   
-  const recentEvents = eventStore.filter(e => new Date(e.timestamp) > hourAgo);
+  const recentEvents = masEvents.filter(e => new Date(e.timestamp) > hourAgo);
   const criticalCount = recentEvents.filter(e => e.severity === 'critical').length;
   
   let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
@@ -1244,11 +1345,63 @@ function getDashboardOverview() {
       critical: criticalCount,
       recent: recentEvents.slice(-5).reverse()
     },
-    last_updated: now.toISOString()
+    last_updated: now.toISOString(),
+    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
   });
 }
 
 async function reportSecurityEvent(data: Partial<SecurityEvent>) {
+  const base = getMasApiBase();
+  const title = (data.description || data.event_type || 'Security event').slice(0, 500);
+  const description = (data.description || '').slice(0, 8000);
+  const severity = normalizeSeverity(data.severity as string | undefined);
+  const kind = (data.event_type || 'anomaly').slice(0, 120);
+
+  if (base) {
+    try {
+      const res = await fetch(`${base}/api/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          severity,
+          status: 'open',
+          source: 'website_security_api',
+          kind,
+          source_ip: data.source_ip || undefined,
+          host: data.destination_ip || undefined,
+          details: {
+            metadata: data.metadata,
+            rule_matched: data.rule_matched,
+            action_taken: data.action_taken,
+            source_mac: data.source_mac,
+          },
+          tags: ['website-api'],
+          timeline: [{ event: 'reported', at: new Date().toISOString() }],
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return NextResponse.json(
+          { success: false, error: 'mas_incident_create_failed', detail: body },
+          { status: res.status >= 400 ? res.status : 503 }
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        incident_id: (body as { id?: string }).id,
+        data_source: 'mas_api_incidents',
+      });
+    } catch (e) {
+      console.error('reportSecurityEvent MAS error:', e);
+      return NextResponse.json(
+        { success: false, error: 'mas_unreachable', detail: String(e) },
+        { status: 503 }
+      );
+    }
+  }
+
   const event: SecurityEvent = {
     id: `evt-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     timestamp: new Date().toISOString(),
@@ -1261,22 +1414,16 @@ async function reportSecurityEvent(data: Partial<SecurityEvent>) {
     rule_matched: data.rule_matched,
     action_taken: data.action_taken,
     description: data.description || 'Security event reported',
-    metadata: data.metadata
+    metadata: { ...data.metadata, mas_unconfigured: true },
   };
-
-  // Add to event store
   eventStore.push(event);
-  
-  // Trim if over limit
   if (eventStore.length > MAX_EVENTS) {
     eventStore.splice(0, eventStore.length - MAX_EVENTS);
   }
-
-  console.log(`Security event reported: ${event.severity} - ${event.event_type}`);
-
   return NextResponse.json({
     success: true,
-    event_id: event.id
+    event_id: event.id,
+    data_source: 'local_ephemeral_mas_unconfigured',
   });
 }
 
@@ -1339,21 +1486,43 @@ async function updateAuthorizedUser(data: Partial<AuthorizedUser>) {
 }
 
 async function acknowledgeEvent(eventId: string) {
+  const base = getMasApiBase();
+  if (base) {
+    try {
+      const res = await fetch(`${base}/api/incidents/${encodeURIComponent(eventId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'acknowledged' }),
+      });
+      if (res.status === 404) {
+        return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+      }
+      if (!res.ok) {
+        const detail = await res.text();
+        return NextResponse.json(
+          { error: 'mas_ack_failed', detail },
+          { status: res.status >= 400 ? res.status : 503 }
+        );
+      }
+      return NextResponse.json({ success: true, event_id: eventId, data_source: 'mas_api_incidents' });
+    } catch (e) {
+      return NextResponse.json({ error: 'mas_unreachable', detail: String(e) }, { status: 503 });
+    }
+  }
+
   const event = eventStore.find(e => e.id === eventId);
   if (!event) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   }
-
-  // Mark as acknowledged in metadata
   event.metadata = {
     ...event.metadata,
     acknowledged: true,
-    acknowledged_at: new Date().toISOString()
+    acknowledged_at: new Date().toISOString(),
   };
-
   return NextResponse.json({
     success: true,
-    event_id: eventId
+    event_id: eventId,
+    data_source: 'local_ephemeral_mas_unconfigured',
   });
 }
 

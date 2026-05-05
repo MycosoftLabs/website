@@ -6,7 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 // useRouter removed — no longer needed; all navigation uses <Link> directly
 import { AnimatePresence, motion } from "framer-motion"
-import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Users, Key } from "lucide-react"
+import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Users, Key } from "lucide-react"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -38,6 +38,8 @@ const devicesItems = [
   { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box },
   { title: "MycoNode", href: "/devices/myconode", icon: Radio },
   { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle },
+  { title: "Psathyrella", href: "/devices/psathyrella", icon: Waves },
+  { title: "Agaric", href: "/devices/agaric", icon: Plane },
 ]
 
 const appsItems = [

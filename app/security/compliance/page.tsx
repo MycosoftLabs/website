@@ -12,11 +12,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 import { 
   Download, FileText, FileSpreadsheet, Loader2, 
   Shield, Lock, Building2, Link2, CheckCircle2, 
   AlertTriangle, XCircle, ChevronRight, ExternalLink,
-  Settings, RefreshCw, HelpCircle
+  Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
 
@@ -65,6 +66,20 @@ interface AuditLog {
   resource: string;
   result: 'success' | 'failure';
   ip: string;
+}
+
+interface MasComplianceDocMeta {
+  body_md?: string;
+  version?: number;
+  title?: string;
+  generated_at?: string;
+}
+
+interface MasComplianceBundle {
+  score: Record<string, unknown> | null;
+  docs: { SSP?: MasComplianceDocMeta | null; POAM?: MasComplianceDocMeta | null } | null;
+  controls: Array<Record<string, unknown>>;
+  errors?: Record<string, unknown | null>;
 }
 
 interface FrameworkInfo {
@@ -482,7 +497,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -506,6 +521,9 @@ export default function CompliancePage() {
   }>>([]);
   const [exostarSaving, setExostarSaving] = useState(false);
   const [exostarMessage, setExostarMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [masBundle, setMasBundle] = useState<MasComplianceBundle | null>(null);
+  const [masRegenBusy, setMasRegenBusy] = useState<string | null>(null);
 
   // Fetch compliance data
   useEffect(() => {
@@ -581,6 +599,47 @@ export default function CompliancePage() {
     
     fetchExostarStatus();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMasBundle() {
+      try {
+        const res = await fetch('/api/security?action=mas-compliance-bundle');
+        if (!res.ok || cancelled) return;
+        const j = (await res.json()) as MasComplianceBundle;
+        if (!cancelled) setMasBundle(j);
+      } catch {
+        if (!cancelled) setMasBundle(null);
+      }
+    }
+    loadMasBundle();
+    const t = setInterval(loadMasBundle, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  async function handleMasRegenerate(docType: 'SSP' | 'POAM') {
+    setMasRegenBusy(docType);
+    try {
+      const res = await fetch('/api/security', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mas_compliance_regenerate',
+          doc_type: docType,
+          title: `Regenerated ${docType}`,
+        }),
+      });
+      if (res.ok) {
+        const b = await fetch('/api/security?action=mas-compliance-bundle');
+        if (b.ok) setMasBundle((await b.json()) as MasComplianceBundle);
+      }
+    } finally {
+      setMasRegenBusy(null);
+    }
+  }
 
   // Filter controls by framework
   const filteredControls = controls.filter(c => {
@@ -825,6 +884,7 @@ export default function CompliancePage() {
           { id: 'controls', label: 'Controls', icon: Shield, tourId: 'controls-tab' },
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
+          { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
           { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
@@ -1284,6 +1344,116 @@ export default function CompliancePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAS live NIST 800-171: score, heatmap, versioned SSP/POA&M */}
+      {activeTab === 'mas-live' && (
+        <div className="space-y-6" data-tour="mas-compliance-live">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-slate-400 text-sm max-w-3xl">
+              Live data from MAS <code className="text-purple-300">/api/compliance/*</code> (Postgres <code className="text-purple-300">soc_ops</code>).
+              Regeneration runs on MAS with model keys configured there.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleMasRegenerate('SSP')}
+                disabled={masRegenBusy !== null}
+                className="min-h-[44px] px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-base font-medium flex items-center gap-2 disabled:opacity-50"
+              >
+                {masRegenBusy === 'SSP' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Regenerate SSP
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMasRegenerate('POAM')}
+                disabled={masRegenBusy !== null}
+                className="min-h-[44px] px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-base font-medium flex items-center gap-2 disabled:opacity-50"
+              >
+                {masRegenBusy === 'POAM' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Regenerate POA&amp;M
+              </button>
+            </div>
+          </div>
+
+          {masBundle?.errors && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+              Partial MAS response: score={String(masBundle.errors.score ?? 'ok')} docs={String(masBundle.errors.docs ?? 'ok')} controls=
+              {String(masBundle.errors.controls ?? 'ok')}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+              <div className="text-slate-400 text-sm">Implementation</div>
+              <div className="text-3xl font-bold text-emerald-400">
+                {masBundle?.score && typeof masBundle.score.implementation_percent === 'number'
+                  ? `${masBundle.score.implementation_percent}%`
+                  : '—'}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {masBundle?.score
+                  ? `${String(masBundle.score.implemented ?? '0')}/${String(masBundle.score.total_controls ?? '0')} implemented`
+                  : 'No score from MAS'}
+              </div>
+            </div>
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 md:col-span-2">
+              <div className="text-slate-400 text-sm mb-2">NIST 800-171 control heatmap ({masBundle?.controls?.length ?? 0} rows)</div>
+              <div className="max-h-48 overflow-y-auto flex flex-wrap gap-1">
+                {(masBundle?.controls || []).map((c, idx) => {
+                  const id = String(c.control_id ?? c.id ?? `row-${idx}`);
+                  const st = String(c.implementation_state ?? 'unknown');
+                  const bg =
+                    st === 'implemented'
+                      ? 'bg-emerald-600/40 border-emerald-500/50'
+                      : st === 'partial'
+                        ? 'bg-amber-600/40 border-amber-500/50'
+                        : st === 'planned'
+                          ? 'bg-blue-600/30 border-blue-500/40'
+                          : st === 'not_applicable'
+                            ? 'bg-slate-600/40 border-slate-500/40'
+                            : 'bg-slate-700/60 border-slate-600/50';
+                  return (
+                    <span
+                      key={`${id}-${idx}`}
+                      title={`${id} — ${st}`}
+                      className={`text-[10px] sm:text-xs px-1.5 py-1 rounded border ${bg} text-white`}
+                    >
+                      {id.slice(0, 12)}
+                    </span>
+                  );
+                })}
+                {(!masBundle?.controls || masBundle.controls.length === 0) && (
+                  <span className="text-slate-500 text-sm">No control rows yet — run control collector / migrations on MINDEX.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {(['SSP', 'POAM'] as const).map((key) => {
+              const doc = masBundle?.docs?.[key];
+              const md = doc?.body_md || '';
+              return (
+                <div key={key} className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 flex flex-col min-h-[280px]">
+                  <div className="flex items-center justify-between mb-3 gap-2">
+                    <h3 className="font-semibold text-lg">{key}</h3>
+                    <span className="text-xs text-slate-500">
+                      v{doc?.version ?? '—'} {doc?.generated_at ? `· ${new Date(doc.generated_at).toLocaleString()}` : ''}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-200 leading-relaxed flex-1 overflow-y-auto max-h-[70vh] pr-1 space-y-2 [&_a]:text-purple-300 [&_code]:text-emerald-300">
+                    {md ? (
+                      <ReactMarkdown>{md}</ReactMarkdown>
+                    ) : (
+                      <p className="text-slate-500 text-sm">No document body in Postgres yet. Use Regenerate (requires MAS keys).</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
