@@ -51,7 +51,8 @@ const AGARIC_ASSETS = {
   connectivityImage: "/assets/agaric/connectivity-forest.png",
   sizesImage: "/assets/agaric/sizes.jpg",
   videos: {
-    hero: "/assets/agaric/agaric-hero.mp4",
+    hero: "/assets/agaric/agaric-hero-web.mp4",
+    heroFallback: "/assets/agaric/agaric-hero.mp4",
     background: "/assets/agaric/hero.mp4",
     deploy: "/assets/agaric/deploy-retrieve.mp4",
     waterfall: "/assets/agaric/hero.mp4",
@@ -341,7 +342,7 @@ export function AgaricDetails() {
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <AutoplayVideo
             src={AGARIC_ASSETS.videos.hero}
-            sources={[AGARIC_ASSETS.videos.hero]}
+            sources={[AGARIC_ASSETS.videos.hero, AGARIC_ASSETS.videos.heroFallback]}
             poster={AGARIC_ASSETS.heroImage}
             encodeSrc
             preload="auto"
