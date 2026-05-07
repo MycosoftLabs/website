@@ -7,7 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MAS_API_URL =
+  process.env.NEXT_PUBLIC_MAS_API_URL ||
+  process.env.MAS_API_URL ||
+  "http://localhost:8001"
 
 export async function GET(request: NextRequest) {
   try {

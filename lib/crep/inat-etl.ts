@@ -320,6 +320,7 @@ export function getSyncStatus() {
     lastResult,
     totalObservationsAllTime,
     mindexApi: MINDEX_API,
-    hasApiKey: !!process.env.MINDEX_API_KEY,
+    hasApiKey: !!MINDEX_API_KEY,
+    configuredApiKey: !!process.env.MINDEX_API_KEY,
   }
 }
