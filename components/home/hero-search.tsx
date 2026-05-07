@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useRef, startTransition } from "react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -23,9 +23,7 @@ import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
-import { homeHeroVideoSources } from "@/lib/asset-video-sources"
-import { homeHeroYoutubeId } from "@/lib/hero-youtube"
+import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
 import Link from "next/link"
 import {
   Search,
@@ -43,11 +41,8 @@ import {
  * Homepage hero video only. Keep this on the canonical homepage media path so the
  * hero behaves like the rest of the site's background videos.
  */
-/** Optional WebP/AVIF poster when not embedding iframe (set on prod Docker env). */
-const HOME_HERO_POSTER = process.env.NEXT_PUBLIC_HOME_HERO_POSTER?.trim() || undefined
-/** @Mycosoft homepage hero — https://www.youtube.com/watch?v=6lrvQIfRazs (override with NEXT_PUBLIC_HOME_HERO_YOUTUBE_ID). */
-const HOME_HERO_YOUTUBE_ID = homeHeroYoutubeId()
-
+/** Poster served from the same NAS-backed asset path as the homepage hero video. */
+const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
 interface HeroSuggestion {
   id: string
   title: string
@@ -56,25 +51,9 @@ interface HeroSuggestion {
   url: string
 }
 
-function clientAllowsHeavyHeroVideo(reduceMotion: boolean | null): boolean {
-  if (typeof window === "undefined") return false
-  if (reduceMotion === true) return false
-  const nav = navigator as Navigator & {
-    deviceMemory?: number
-    connection?: { saveData?: boolean; effectiveType?: string }
-  }
-  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 4) return false
-  const c = nav.connection
-  if (c?.saveData === true) return false
-  const eff = c?.effectiveType
-  if (eff === "slow-2g" || eff === "2g") return false
-  return true
-}
-
 export function HeroSearch() {
   const router = useRouter()
   const { resolvedTheme } = useTheme()
-  const prefersReducedMotion = useReducedMotion()
   const [mounted, setMounted] = useState(false)
   /** Defer mounting hero <video> until after first paint + idle — avoids decode/network fighting hydration (OOM / tab crash). */
   const [idleHeroVideoReady, setIdleHeroVideoReady] = useState(false)
@@ -87,7 +66,7 @@ export function HeroSearch() {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debouncedQuery = useDebounce(query, 250)
-  
+
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
   const isConnected = personaplex?.isConnected ?? false
@@ -109,12 +88,12 @@ export function HeroSearch() {
         ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
     )
   }, [])
-  
+
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
     enabled: !query && !isFocused, // Only animate when input is empty and not focused
   })
-  
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -126,10 +105,10 @@ export function HeroSearch() {
     if (typeof window.requestIdleCallback === "function") {
       usedIdleCallback = true
       idleId = window.requestIdleCallback(() => setIdleHeroVideoReady(true), {
-        timeout: 900,
+        timeout: 300,
       })
     } else {
-      idleId = window.setTimeout(() => setIdleHeroVideoReady(true), 900) as unknown as number
+      idleId = window.setTimeout(() => setIdleHeroVideoReady(true), 300) as unknown as number
     }
     return () => {
       if (usedIdleCallback && typeof window.cancelIdleCallback === "function") {
@@ -139,9 +118,6 @@ export function HeroSearch() {
       }
     }
   }, [])
-
-  const canEmbedYoutubeHero =
-    idleHeroVideoReady && clientAllowsHeavyHeroVideo(prefersReducedMotion)
 
   const homeNasHeroSources = homeHeroVideoSources()
 
@@ -320,7 +296,7 @@ export function HeroSearch() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
+    <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8 pointer-events-none">
       {/* Full-screen video — pointer-events-none so header/footer/page links receive the first click (not blocked by this layer).
           Apr 23, 2026 — Morgan: "on live home page video is lagging studdering".
           Adds `contain: paint` + `will-change: transform` so the browser
@@ -332,8 +308,7 @@ export function HeroSearch() {
         className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
         style={{ contain: "paint", willChange: "transform" }}
       >
-        {/* NAS MP4 always plays after idle (mount path → Docker NAS). Optional YouTube overlay
-            when policy allows — if YouTube is blocked or slow, the NAS stream remains underneath. */}
+        {/* Locked NAS MP4 hero background after idle. */}
         {idleHeroVideoReady && homeNasHeroSources[0] ? (
           <AutoplayVideo
             src={homeNasHeroSources[0]}
@@ -344,11 +319,6 @@ export function HeroSearch() {
             className="absolute inset-0 z-0 h-full w-full object-cover"
             encodeSrc
           />
-        ) : null}
-        {idleHeroVideoReady && canEmbedYoutubeHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
-            <YoutubeHeroBackground videoId={HOME_HERO_YOUTUBE_ID} className="z-0" />
-          </div>
         ) : null}
         {/* Light tint overlay — replaces the video-layer filter so the
             GPU doesn't pay filter cost on every frame. */}
@@ -362,7 +332,7 @@ export function HeroSearch() {
         />
       </div>
 
-      <div 
+      <div
         ref={containerRef}
         className="w-full max-w-3xl relative z-10 pointer-events-auto"
       >
@@ -385,7 +355,7 @@ export function HeroSearch() {
           <div className="relative z-10 px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16">
             {/* Logo & Title */}
             <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-              <motion.div 
+              <motion.div
                 className="flex items-center gap-2 sm:gap-3"
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -404,8 +374,8 @@ export function HeroSearch() {
                   Mycosoft
                 </h1>
               </motion.div>
-              
-              <motion.p 
+
+              <motion.p
                 className="text-base sm:text-lg md:text-xl text-foreground/80 text-center flex items-center gap-2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -436,7 +406,7 @@ export function HeroSearch() {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="relative"
             >
-              <div 
+              <div
                 className={cn(
                   "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
                   "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20",
@@ -447,7 +417,7 @@ export function HeroSearch() {
               >
                 {/* Search Icon */}
                 <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground shrink-0" />
-                
+
                 {/* Input */}
                 <input
                   ref={inputRef}
@@ -479,7 +449,7 @@ export function HeroSearch() {
                   )}
                   aria-label="Search"
                 />
-                
+
                 {/* Clear Button */}
                 <AnimatePresence>
                   {query && (
@@ -495,7 +465,7 @@ export function HeroSearch() {
                     </motion.button>
                   )}
                 </AnimatePresence>
-                
+
                 {/* Voice Button */}
                 <motion.button
                   type="button"
@@ -575,7 +545,7 @@ export function HeroSearch() {
                   )}
                 </motion.button>
               </div>
-              
+
               {/* Voice Feedback */}
               <AnimatePresence>
                 {isListening && (

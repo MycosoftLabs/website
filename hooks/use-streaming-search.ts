@@ -269,6 +269,41 @@ export function useStreamingSearch(
 
     const es = new EventSource(`/api/search/stream?${params.toString()}`)
     esRef.current = es
+    const fallbackController = new AbortController()
+
+    async function fetchUnifiedFallback(reason: string) {
+      if (seqRef.current !== mySeq || fallbackController.signal.aborted) return
+
+      const fallbackParams = new URLSearchParams()
+      fallbackParams.set("q", debounced)
+      fallbackParams.set("types", types.join(","))
+      fallbackParams.set("limit", String(limit))
+      if (includeAI) fallbackParams.set("ai", "true")
+      if (typeof lat === "number" && !Number.isNaN(lat) && typeof lng === "number" && !Number.isNaN(lng)) {
+        fallbackParams.set("lat", String(lat))
+        fallbackParams.set("lng", String(lng))
+      }
+
+      try {
+        const response = await fetch(`/api/search/unified?${fallbackParams.toString()}`, {
+          headers: fluidB64 ? { "x-fluid-search-context": fluidB64 } : undefined,
+          signal: fallbackController.signal,
+        })
+        if (!response.ok) throw new Error(`Unified search failed (${response.status})`)
+
+        const payload = await response.json()
+        if (seqRef.current !== mySeq || fallbackController.signal.aborted) return
+
+        setData(normalizeUnifiedPayload(payload))
+        setError(null)
+      } catch (error) {
+        if (fallbackController.signal.aborted || seqRef.current !== mySeq) return
+        const message = error instanceof Error ? error.message : reason
+        setError(message)
+      } finally {
+        if (seqRef.current === mySeq && !fallbackController.signal.aborted) setIsLoading(false)
+      }
+    }
 
     es.addEventListener("route", (ev) => {
       if (seqRef.current !== mySeq) return
@@ -298,9 +333,9 @@ export function useStreamingSearch(
       if (seqRef.current !== mySeq) return
       try {
         const msg = JSON.parse((ev as MessageEvent).data) as { message?: string }
-        if (msg?.message) setError(msg.message)
+        void fetchUnifiedFallback(msg?.message || "stream error")
       } catch {
-        setError("stream error")
+        void fetchUnifiedFallback("stream error")
       }
     })
 
@@ -313,13 +348,13 @@ export function useStreamingSearch(
 
     es.onerror = () => {
       if (seqRef.current !== mySeq) return
-      setIsLoading(false)
-      setError((e) => e || "EventSource connection error")
       es.close()
       if (esRef.current === es) esRef.current = null
+      void fetchUnifiedFallback("EventSource connection error")
     }
 
     return () => {
+      fallbackController.abort()
       es.close()
       if (esRef.current === es) esRef.current = null
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { LayoutGrid, X } from "lucide-react"
@@ -73,8 +73,13 @@ export interface FastActionRadialProps {
  */
 export function FastActionRadial({ rankedWidgets, onOpenWidget, className }: FastActionRadialProps) {
   const [open, setOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   /** 16 slots: intent `secondaryWidgets` can list 10+ types; truncating at 12 hid chemistry/genetics on compound queries (E2E matrix). */
   const slots = useMemo(() => mergeRankedWidgets(rankedWidgets, 16), [rankedWidgets])
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const pick = useCallback(
     (t: WidgetType) => {
@@ -153,7 +158,7 @@ export function FastActionRadial({ rankedWidgets, onOpenWidget, className }: Fas
     </div>
   )
 
-  if (typeof document === "undefined") return null
+  if (!isMounted || typeof document === "undefined") return null
   return createPortal(shell, document.body)
 }
 

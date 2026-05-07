@@ -240,17 +240,20 @@ export function detectLifeScienceScope(query: string): LifeScienceScope {
 export function detectWorldviewIntent(query: string): { crep: boolean; earth2: boolean; map: boolean } {
   if (!query || query.length < 2) return { crep: false, earth2: false, map: false }
   const q = query.toLowerCase()
+  const biodiversity =
+    detectBiodiversitySearchIntent(query) &&
+    !/\b(crep|observation\s+map|live\s+data|real[\s-]?time|tracking|monitor|radar|near\s+me)\b/.test(q)
   const crep =
     /\b(flights?|planes?|ships?|vessels?|satellites?|aircraft|aviation|maritime|orbit|iss|port|crep)\b/.test(q) ||
     /\b(planes?\s+over|flights?\s+over|ships?\s+in\s+port|vessels?\s+near)\b/.test(q) ||
     /\b(earthquake|volcano|wildfire|lightning|tsunami|emission|methane|co2|air\s+quality)\b/.test(q) ||
     /\b(power\s+plant|factory|dam|mine|antenna|cell\s+tower|military|infrastructure)\b/.test(q) ||
     /\b(mycobrain|sensor|device)\b/.test(q) ||
-    /\b(species|fungal|fungi|mushroom|observation|biodiversity|inaturalist|coral|marine\s+life)\b/.test(q) ||
     /\b(live\s+data|real[\s-]?time|tracking|monitor|radar)\b/.test(q)
   const earth2 =
+    !biodiversity &&
     /\b(earth2|climate\s+forecast|weather\s+forecast|temperature\s+anomaly)\b/.test(q) ||
-    /\b(weather|climate|forecast|storm|hurricane|drought|modis|landsat)\b/.test(q)
+    (!biodiversity && /\b(weather|climate|forecast|storm|hurricane|drought|modis|landsat)\b/.test(q))
   const map =
     /\b(map|location|where|near\s+me|river\s+levels?|dam|wildfire|flood)\b/.test(q) ||
     /\b(airport|seaport|spaceport|railway|cable|antenna|buoy|webcam)\b/.test(q) ||

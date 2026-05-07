@@ -2,15 +2,13 @@
 
 import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
-import { motion, useReducedMotion } from "framer-motion"
+import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
-import { devicesPortalHeroYoutubeId } from "@/lib/hero-youtube"
-import { 
-  Microscope, 
-  Wind, 
-  AlertTriangle, 
+import {
+  Microscope,
+  Wind,
+  AlertTriangle,
   Radar,
   Cpu,
   Radio,
@@ -278,26 +276,26 @@ const devices = [
 ]
 
 const accessories = [
-  { 
-    name: "Deployment Kit", 
+  {
+    name: "Deployment Kit",
     description: "Complete tools and supplies for professional field installation. Includes mounting hardware, calibration tools, and quick-start guide.",
     icon: Package,
     image: "/assets/devices/deployment-kit.jpg"
   },
-  { 
-    name: "LoRa Gateway", 
+  {
+    name: "LoRa Gateway",
     description: "Long-range mesh network gateway supporting up to 50 connected nodes. Weather-resistant with solar power option.",
     icon: Radio,
     image: "/assets/devices/lora-gateway.jpg"
   },
-  { 
-    name: "Solar Power Unit", 
+  {
+    name: "Solar Power Unit",
     description: "Off-grid power solution for remote deployments. 20W panel with 72-hour battery backup for continuous operation.",
     icon: Zap,
     image: "/assets/devices/solar-unit.jpg"
   },
-  { 
-    name: "Ruggedized Case", 
+  {
+    name: "Ruggedized Case",
     description: "MIL-STD-810G certified transport and storage case. Foam-lined interior protects devices during deployment.",
     icon: Shield,
     image: "/assets/devices/ruggedized-case.jpg"
@@ -315,9 +313,6 @@ const MYCOBRAIN_SHOWCASE_SOURCES = deviceHeroVideoSources("/assets/devices/mycob
   envUrl: process.env.NEXT_PUBLIC_MYCOBRAIN_SHOWCASE_MP4,
   aliases: ["/assets/mycobrain/showcase.mp4"],
 })
-
-/** Optional @Mycosoft YouTube for /devices hero — https://www.youtube.com/@Mycosoft */
-const DEVICES_PORTAL_HERO_YT = devicesPortalHeroYoutubeId()
 
 /** Board photography served from NAS mount — upload to match these paths or swap filenames on NAS. */
 const MYCOBRAIN_BOARD_IMAGES = [
@@ -351,7 +346,6 @@ const mycobrainPillars = [
 export function DevicesPortal() {
   const [selectedDevice, setSelectedDevice] = useState(devices[0])
   const detailRef = useRef<HTMLElement>(null)
-  const prefersReducedMotion = useReducedMotion()
 
   const handleSelectDevice = useCallback((device: typeof devices[0]) => {
     setSelectedDevice(device)
@@ -384,15 +378,6 @@ export function DevicesPortal() {
             style={{ filter: "brightness(0.32)" }}
             encodeSrc
           />
-        ) : null}
-        {DEVICES_PORTAL_HERO_YT && !prefersReducedMotion ? (
-          <div
-            className="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
-            style={{ filter: "brightness(0.32)" }}
-            aria-hidden
-          >
-            <YoutubeHeroBackground videoId={DEVICES_PORTAL_HERO_YT} />
-          </div>
         ) : null}
         <div className="absolute inset-0 z-[2] pointer-events-none bg-gradient-to-b from-background/55 via-background/75 to-background" />
         <div className="absolute inset-0 z-[2] pointer-events-none bg-[linear-gradient(to_right,#8883_1px,transparent_1px),linear-gradient(to_bottom,#8883_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.07]" />
@@ -712,7 +697,7 @@ export function DevicesPortal() {
               Giving Nature a Voice
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Our devices put technology in nature 24/7, collecting live data 
+              Our devices put technology in nature 24/7, collecting live data
               and providing early warning detection capabilities to everyone on the planet.
             </p>
           </div>
@@ -900,10 +885,10 @@ export function DevicesPortal() {
               Start Monitoring Today
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Whether you&apos;re a researcher, conservationist, farmer, or technologist - 
+              Whether you&apos;re a researcher, conservationist, farmer, or technologist -
               our devices help you understand the environment like never before.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/devices/mushroom-1">
                 <NeuButton variant="primary" className="text-lg px-8 gap-2">
@@ -941,7 +926,6 @@ export function DevicesPortal() {
     </NeuromorphicProvider>
   )
 }
-
 
 
 

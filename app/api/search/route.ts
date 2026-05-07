@@ -59,6 +59,12 @@ interface ElsevierArticle {
   journal: { name: string }
 }
 
+function toSearchString(value: unknown, fallback = "") {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return fallback
+}
+
 // Helper functions
 function getLocalSearchResults(query: string) {
   try {
@@ -81,20 +87,28 @@ function matchesSearch(species: SpeciesMappingEntry, query: string) {
 }
 
 function formatSpeciesResult(species: SpeciesMappingEntry) {
+  const slug = toSearchString(
+    species.iNaturalistId,
+    `local-${species.scientificName.toLowerCase().replace(/\s+/g, "-")}`,
+  )
+
   return {
-    id: species.iNaturalistId,
+    id: slug,
     title: species.commonNames[0],
     description: species.description || "",
-    type: "fungi",
-    url: `/species/${species.iNaturalistId}`,
-    source: "iNaturalist",
+    type: "fungi" as const,
+    url: `/species/${slug}`,
+    source: "iNaturalist" as const,
   }
 }
 
 // Add function to format expanded mushroom results
 function formatExpandedMushroomResults(mushrooms: ExpandedMushroom[]) {
   return mushrooms.map((mushroom) => ({
-    id: mushroom.iNaturalistId || `expanded-${mushroom.scientificName.toLowerCase().replace(/\s+/g, "-")}`,
+    id: toSearchString(
+      mushroom.iNaturalistId,
+      `expanded-${mushroom.scientificName.toLowerCase().replace(/\s+/g, "-")}`,
+    ),
     title: mushroom.commonNames[0],
     description: mushroom.description || `${mushroom.scientificName} - ${mushroom.category} mushroom`,
     type: "fungi" as const,
@@ -197,13 +211,13 @@ export async function GET(request: NextRequest) {
         if (wvRes.ok) {
           const wvData = await wvRes.json()
           const wvResults: SearchResult[] = (wvData.results || []).map(
-            (r: { id?: string; title?: string; description?: string; type?: string; url?: string; source?: string }) => ({
-              id: r.id || "",
+            (r: { id?: string; title?: string; description?: string; type?: string; url?: string }) => ({
+              id: r.id || `worldview-${query.toLowerCase().replace(/\s+/g, "-")}`,
               title: r.title || "",
               description: r.description || "",
-              type: r.type || "fungi",
+              type: r.type === "research" ? "research" : "fungi",
               url: r.url || "",
-              source: r.source || "Worldview",
+              source: "Mycosoft",
             })
           )
           if (wvResults.length > 0) {
@@ -237,7 +251,7 @@ export async function GET(request: NextRequest) {
 
     // Add successful results
     if (iNaturalistResults.status === "fulfilled" && iNaturalistResults.value?.results) {
-      results.push(...formatFungiResults(iNaturalistResults.value.results))
+      results.push(...formatFungiResults(iNaturalistResults.value.results as INaturalistResult[]))
     }
 
     if (elsevierResults.status === "fulfilled") {

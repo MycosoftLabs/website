@@ -2,7 +2,6 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useReducedMotion } from "framer-motion"
 import {
   NeuCard,
   NeuCardContent,
@@ -11,9 +10,7 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
-import { aboutHeroYoutubeId } from "@/lib/hero-youtube"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
@@ -44,9 +41,6 @@ import {
   Network,
   Database,
 } from "lucide-react"
-
-/** @Mycosoft About hero — https://www.youtube.com/watch?v=Z5pC9lEceKM */
-const ABOUT_HERO_YOUTUBE_ID = aboutHeroYoutubeId()
 
 const ABOUT_HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
 const ABOUT_HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(ABOUT_HERO_VIDEO_SRC))
@@ -251,12 +245,10 @@ const applicationCategories = [
 ]
 
 export default function AboutPage() {
-  const prefersReducedMotion = useReducedMotion()
-
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh">
-      {/* Hero — NAS MP4 base + optional YouTube overlay (@Mycosoft) */}
+      {/* Hero — locked NAS MP4 background */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
         {ABOUT_HERO_VIDEO_SOURCES[0] ? (
           <AutoplayVideo
@@ -266,12 +258,6 @@ export default function AboutPage() {
             encodeSrc
           />
         ) : null}
-        {!prefersReducedMotion ? (
-          <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
-            <YoutubeHeroBackground videoId={ABOUT_HERO_YOUTUBE_ID} />
-          </div>
-        ) : null}
-
         {/* Dark overlay */}
         <div className="pointer-events-none absolute inset-0 z-[2] bg-black/60" />
         {/* Grid texture */}

@@ -80,20 +80,38 @@ import { useMYCA } from "@/contexts/myca-context"
 import { useAuth } from "@/contexts/auth-context"
 import type { WidgetType } from "@/lib/search/widget-registry"
 import { DEFAULT_WIDGET_SIZES, WIDGET_REGISTRY } from "@/lib/search/widget-registry"
+import type { ResultBucketKey } from "@/lib/search/unified-search-sdk"
+import { AnswersWidget } from "./widgets/AnswersWidget"
+import { CameraWidget } from "./widgets/CameraWidget"
+import { ChemistryWidget } from "./widgets/ChemistryWidget"
+import { CrepWidget } from "./widgets/CrepWidget"
+import { EarthWidget } from "./widgets/EarthWidget"
+import { EmbeddingAtlasWidget } from "./widgets/EmbeddingAtlasWidget"
+import { FallbackWidget } from "./widgets/FallbackWidget"
+import { GeneticsWidget } from "./widgets/GeneticsWidget"
+import { LocationWidget } from "./widgets/LocationWidget"
+import { MediaWidget } from "./widgets/MediaWidget"
+import { NewsWidget } from "./widgets/NewsWidget"
+import { ResearchWidget } from "./widgets/ResearchWidget"
+import { SpeciesWidget } from "./widgets/SpeciesWidget"
 
-const SpeciesWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.SpeciesWidget })), { ssr: false })
-const ChemistryWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.ChemistryWidget })), { ssr: false })
-const GeneticsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.GeneticsWidget })), { ssr: false })
-const ResearchWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.ResearchWidget })), { ssr: false })
-const AnswersWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.AnswersWidget })), { ssr: false })
-const MediaWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MediaWidget })), { ssr: false })
-const LocationWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.LocationWidget })), { ssr: false })
-const NewsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.NewsWidget })), { ssr: false })
-const EarthWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EarthWidget })), { ssr: false })
-const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
-const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.FallbackWidget })), { ssr: false })
-const EmbeddingAtlasWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EmbeddingAtlasWidget })), { ssr: false })
-const CameraWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CameraWidget })), { ssr: false })
+const STREAMING_SEARCH_TYPES = [
+  "species",
+  "compounds",
+  "genetics",
+  "research",
+  "events",
+  "aircraft",
+  "vessels",
+  "satellites",
+  "weather",
+  "emissions",
+  "infrastructure",
+  "devices",
+  "space_weather",
+  "cameras",
+] satisfies ResultBucketKey[]
+
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
 
 /** CREP search + unified Earth intelligence can return the same EONET item with different id strings. */
@@ -161,12 +179,12 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
 
       // Update particles
       particlesRef.current = updateParticles(particlesRef.current, width, height)
-      
+
       // Draw connections
       const connections = findParticleConnections(particlesRef.current)
       ctx.strokeStyle = "rgba(34, 197, 94, 0.15)"
       ctx.lineWidth = 1
-      
+
       for (const [i, j, opacity] of connections) {
         ctx.globalAlpha = opacity * 0.3
         ctx.beginPath()
@@ -174,7 +192,7 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
         ctx.lineTo(particlesRef.current[j].x, particlesRef.current[j].y)
         ctx.stroke()
       }
-      
+
       // Draw particles
       ctx.fillStyle = "rgba(34, 197, 94, 0.4)"
       for (const p of particlesRef.current) {
@@ -183,10 +201,10 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
         ctx.fill()
       }
-      
+
       animationRef.current = requestAnimationFrame(animate)
     }
-    
+
     animate()
     return () => {
       document.removeEventListener("visibilitychange", onVisibility)
@@ -255,6 +273,7 @@ export function FluidSearchCanvas({
   const ctx = useSearchContext()
   const { user } = useAuth()
   const canvasRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const prevLiveCountRef = useRef(0)
   // Stable ref for setLiveObservations to avoid infinite re-renders
   const setLiveObservationsRef = useRef(ctx.setLiveObservations)
@@ -276,11 +295,11 @@ export function FluidSearchCanvas({
   }, [])
 
   // MYCA Memory integration — only when logged in; no persistence for anonymous
-  const searchMemory = useSearchMemory({ 
+  const searchMemory = useSearchMemory({
     userId: user?.id ?? "",
     autoStart: !!user?.id,
   })
-  
+
   // Widget sizes state - user can resize widgets
   const [widgetSizes, setWidgetSizes] = useState<Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }>>({ ...DEFAULT_WIDGET_SIZES })
 
@@ -327,13 +346,13 @@ export function FluidSearchCanvas({
       return { ...prev, [type]: next }
     })
   }, [])
-  
+
   // Get CSS classes for widget size
   const getWidgetSizeClasses = useCallback((type: WidgetType) => {
     const size = widgetSizes[type] || DEFAULT_WIDGET_SIZES[type] || { width: 1, height: 1 }
     return `widget-w-${size.width} widget-h-${size.height}`
   }, [widgetSizes])
-  
+
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
     enabled: !localQuery && !isInputFocused,
@@ -478,17 +497,12 @@ export function FluidSearchCanvas({
     const q = localQuery.trim()
     if (q.length < 2) return undefined
     const route = effectiveSearchRoute ?? classifyAndRoute(q)
-    const hist = mycaMessages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .slice(-24)
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
     return {
       sessionId: mycaSessionId || intentionSessionId || undefined,
       userId: user?.id,
       conversationId: mycaConversationId ?? undefined,
       route: searchRouteToFluidSnapshot(route),
       recentQueries: recentSearches.slice(0, 12),
-      ...(hist.length ? { history: hist } : {}),
     }
   }, [
     localQuery,
@@ -497,13 +511,12 @@ export function FluidSearchCanvas({
     intentionSessionId,
     user?.id,
     mycaConversationId,
-    mycaMessages,
     recentSearches,
   ])
 
   // Search hook - fetch ALL data types across all Earth Intelligence domains
   const {
-    species, compounds, genetics, research, aiAnswer,
+    species, compounds, genetics, research: streamingResearch, aiAnswer,
     liveResults,
     events, aircraft, vessels, satellites, weather,
     emissions, infrastructure, devices, spaceWeather, cameras,
@@ -516,9 +529,7 @@ export function FluidSearchCanvas({
     intentPlan: streamingIntentPlan,
   } = useStreamingSearch(localQuery, {
     debounceMs: 250,
-    types: ["species", "compounds", "genetics", "research",
-      "events", "aircraft", "vessels", "satellites", "weather",
-      "emissions", "infrastructure", "devices", "space_weather", "cameras"],
+    types: STREAMING_SEARCH_TYPES,
     /** Keep false for SSE/unified — extra narrative LLM can exceed stream timeout and leave earth widgets empty (E2E + cameras). */
     includeAI: false,
     limit: 20,
@@ -549,6 +560,45 @@ export function FluidSearchCanvas({
 
   // Debounced query for additional endpoints
   const debouncedQuery = useDebounce(localQuery, 180)
+  const debouncedRoute = useMemo(() => {
+    const q = debouncedQuery?.trim()
+    return q && q.length >= 2 ? classifyAndRoute(q) : null
+  }, [debouncedQuery])
+  const shouldFetchCrep =
+    !!debouncedRoute &&
+    (debouncedRoute.worldview.crep ||
+      debouncedRoute.primaryWidget === "crep" ||
+      debouncedRoute.secondaryWidgets.includes("crep") ||
+      ["event", "aircraft", "vessel", "satellite", "emissions", "infrastructure", "device", "space_weather"].includes(debouncedRoute.intent.type))
+  const shouldFetchEarth2 =
+    !!debouncedRoute &&
+    (debouncedRoute.worldview.earth2 ||
+      debouncedRoute.primaryWidget === "earth" ||
+      debouncedRoute.secondaryWidgets.includes("earth") ||
+      ["event", "weather", "emissions", "infrastructure"].includes(debouncedRoute.intent.type))
+  const shouldFetchResearchFallback =
+    !!debouncedRoute &&
+    !!debouncedQuery &&
+    debouncedQuery.length >= 2 &&
+    (debouncedRoute.primaryWidget === "research" ||
+      debouncedRoute.secondaryWidgets.includes("research") ||
+      debouncedRoute.primaryWidget === "answers")
+
+  const { data: researchFallbackData } = useSWR(
+    shouldFetchResearchFallback
+      ? `/api/search/unified?q=${encodeURIComponent(debouncedQuery)}&types=research&limit=8`
+      : null,
+    async (url) => {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Research fallback failed (${res.status})`)
+      return res.json()
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30000 },
+  )
+  const researchFallback = Array.isArray(researchFallbackData?.results?.research)
+    ? (researchFallbackData.results.research as ResearchResult[])
+    : []
+  const research = streamingResearch.length > 0 ? streamingResearch : researchFallback
 
   const lastEmittedRouteQueryRef = useRef("")
   const prevSearchBusyRef = useRef(false)
@@ -663,43 +713,43 @@ export function FluidSearchCanvas({
 
     return finalTerms.length > 0 ? finalTerms.join(" OR ") : ""
   }, [debouncedQuery, species, compounds, genetics, research, recentSearches])
-  
+
   // Media widget data fetcher
   const { data: mediaData } = useSWR(
     debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/media?q=${encodeURIComponent(debouncedQuery)}&limit=10` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   )
-  
+
   // Location widget data fetcher
   const { data: locationData } = useSWR(
     debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/location?q=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   )
-  
+
   // News widget data fetcher — uses context-aware query (species + compounds + genetics + recent searches)
   const { data: newsData } = useSWR(
     newsQuery ? `/api/search/news?q=${encodeURIComponent(newsQuery)}&limit=15` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
-  
+
   // CREP data fetcher - uses CREP search API with live auto-refresh (30s)
   const { data: crepData } = useSWR(
-    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=50` : null,
+    shouldFetchCrep && debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=50` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 10000, refreshInterval: 30000 }
   )
-  
+
   // Earth2 weather/spore data fetcher - use user location or default to San Francisco
   const earth2Coords = userLocation || { lat: 37.7749, lng: -122.4194 }
   const { data: earth2RawData } = useSWR(
-    debouncedQuery && debouncedQuery.length >= 2 ? `/api/earth2/forecast?lat=${earth2Coords.lat}&lon=${earth2Coords.lng}` : null,
+    shouldFetchEarth2 && debouncedQuery && debouncedQuery.length >= 2 ? `/api/earth2/forecast?lat=${earth2Coords.lat}&lon=${earth2Coords.lng}` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
-  
+
   // Extract results from new endpoints — ensure arrays are always defined
   const mediaResults = Array.isArray(mediaData?.results) ? mediaData.results : []
   const mediaError = mediaData?.error
@@ -826,7 +876,7 @@ export function FluidSearchCanvas({
   }, [crepResults, aircraft, vessels, events, satellites, devices, spaceWeather])
 
   const earth2Data = earth2RawData?.available ? earth2RawData : null
-  
+
   // Map observations from location and CREP data
   interface LocationResult {
     id?: string; lat: number; lng: number; species?: string; commonName?: string;
@@ -876,7 +926,7 @@ export function FluidSearchCanvas({
       magnitude: ev.magnitude ? Number(ev.magnitude) : undefined,
     }))
   }, [events])
-  
+
   // Handler to view an observation on the map
   const handleViewOnMap = useCallback((observation: MapObservation) => {
     // Expand the map widget and set focus
@@ -923,7 +973,7 @@ export function FluidSearchCanvas({
       const resultsKey = `${localQuery}-${species.length}-${compounds.length}-${genetics.length}-${research.length}-${aiAnswer ? "ai" : ""}`
       if (resultsKey === prevResultsKeyRef.current) return
       prevResultsKeyRef.current = resultsKey
-      
+
       ctx.setResults({
         query: localQuery,
         results: { species, compounds, genetics, research } as unknown as any,
@@ -1076,7 +1126,7 @@ export function FluidSearchCanvas({
       setLiveObservationsRef.current([])
     }
   }, [liveResults, locationResults, events, aircraft, vessels, newsResults])
-  
+
   // Track history
   useEffect(() => {
     if (localQuery && totalCount > 0 && !isLoading) {
@@ -1187,7 +1237,7 @@ export function FluidSearchCanvas({
 
   // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
   const activeWidgets = widgetConfigs
-  
+
   /** Empty until after mount — reading sessionStorage during first client render breaks SSR/client HTML parity. */
   const [savedWidgetOrder, setSavedWidgetOrder] = useState<string[]>([])
   useEffect(() => {
@@ -1198,7 +1248,7 @@ export function FluidSearchCanvas({
       setSavedWidgetOrder([])
     }
   }, [])
-  
+
   // Expanded widgets shown in the grid, sorted by saved order
   const gridWidgets = useMemo(() => {
     const filtered = activeWidgets.filter((w) => expandedWidgets.has(w.type))
@@ -1253,18 +1303,17 @@ export function FluidSearchCanvas({
     setSearchRoute(route)
   }, [localQuery])
 
-  // Handle explicit search submit (Enter key)
-  const handleSubmitSearch = useCallback((e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!localQuery || localQuery.length < 2) return
+  const executeLocalSearch = useCallback((rawQuery?: string) => {
+    const query = (rawQuery ?? searchInputRef.current?.value ?? "").trim()
+    if (query.length < 2) return
 
     setIsInputFocused(false)
     const route = mergeSearchRouteWithMasSuggestions(
-      classifyAndRoute(localQuery),
+      classifyAndRoute(query),
       suggestions.widgets
     )
     setSearchRoute(route)
-    
+
     // Instantly layout widgets based on the predicted route before data even arrives
     setExpandedWidgets((prev) => {
       const next = new Set<WidgetType>()
@@ -1292,22 +1341,29 @@ export function FluidSearchCanvas({
       const contextParts: string[] = []
       if (species.length) contextParts.push(`species: ${species.slice(0, 3).map(s => s.scientificName).join(", ")}`)
       if (compounds.length) contextParts.push(`compounds: ${compounds.slice(0, 3).map(c => c.name).join(", ")}`)
-      sendMycaMessage(localQuery, {
+      sendMycaMessage(query, {
         contextText: contextParts.length ? `Context: ${contextParts.join("; ")}` : undefined,
       })
     }
 
     ctx.emit("search:route", {
-      query: localQuery,
+      query,
       classification: route.classification,
       primaryWidget: route.primaryWidget,
       intent: route.intent.type,
       useMycaLLM: route.useMycaLLM,
       liveResultTypes: route.liveResultTypes,
     })
-    
-    ctx.setQuery(localQuery)
-  }, [localQuery, species, compounds, sendMycaMessage, ctx, suggestions.widgets])
+
+    setLocalQuery(query)
+    ctx.setQuery(query)
+  }, [species, compounds, sendMycaMessage, ctx, suggestions.widgets])
+
+  // Handle explicit search submit (Enter key or search button)
+  const handleSubmitSearch = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    executeLocalSearch(localQuery || searchInputRef.current?.value)
+  }, [executeLocalSearch, localQuery])
 
   // Smart auto-expand: uses intelligence router + data availability.
   // Primary widget gets resized to fill viewport; secondary widgets arranged around it.
@@ -1508,7 +1564,7 @@ export function FluidSearchCanvas({
   const handleWidgetDragStart = useCallback((e: DragEvent | { dataTransfer?: DataTransfer | null }, config: WidgetConfig) => {
     // Framer Motion drag events don't have dataTransfer - only native HTML5 drag does
     if (!e?.dataTransfer) return
-    
+
     const labels: Record<string, string> = {
       species: species[0]?.commonName || species[0]?.scientificName || "Species",
       chemistry: compounds[0]?.name || "Compounds",
@@ -1548,14 +1604,37 @@ export function FluidSearchCanvas({
         <form onSubmit={handleSubmitSearch} className="flex-1 relative">
           <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           <Input
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
+            ref={searchInputRef}
+            value={localQuery ?? ""}
+            onChange={(e) => setLocalQuery(e.currentTarget.value)}
+            onInput={(e) => setLocalQuery(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                executeLocalSearch(e.currentTarget.value)
+              }
+            }}
             onFocus={() => { setIsInputFocused(true); pause() }}
             onBlur={() => { setIsInputFocused(false); if (!localQuery) resume() }}
             placeholder={animatedPlaceholder || "Search species, weather, flights..."}
-            className="pl-8 sm:pl-9 pr-16 sm:pr-20 h-10 sm:h-9 text-base sm:text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
+            className="pl-8 sm:pl-9 pr-24 sm:pr-28 h-10 sm:h-9 text-base sm:text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
           />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:gap-1">
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon"
+              title="Run search"
+              aria-label="Run search"
+              className={cn(
+                "h-8 w-8 sm:h-7 sm:w-7 rounded-full",
+                localQuery.trim().length >= 2
+                  ? "bg-blue-600 text-white hover:bg-blue-500"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -1601,7 +1680,7 @@ export function FluidSearchCanvas({
               className="absolute top-full left-2 right-2 sm:left-4 sm:right-auto sm:max-w-xl sm:w-full mt-1 bg-card/95 backdrop-blur-md border rounded-xl shadow-2xl z-50 p-1.5 sm:p-2"
             >
               {recentSearches.map((q, i) => (
-                <button key={i} onClick={() => { setLocalQuery(q); setShowHistory(false) }}
+                <button key={i} onClick={() => { executeLocalSearch(q); setShowHistory(false) }}
                   className="w-full text-left px-2.5 sm:px-3 py-2 sm:py-1.5 text-sm sm:text-xs rounded-lg hover:bg-muted active:bg-muted/80 transition-colors">{q}</button>
               ))}
             </motion.div>
@@ -1681,7 +1760,7 @@ export function FluidSearchCanvas({
                     initial={widgetEnterAnimation.initial}
                     animate={widgetEnterAnimation.animate}
                     exit={widgetEnterAnimation.exit}
-                    whileHover={{ 
+                    whileHover={{
                       boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
                     }}
                     transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.9 }}
@@ -1706,11 +1785,11 @@ export function FluidSearchCanvas({
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1">
                         {/* Resize button - cycles through sizes */}
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" 
-                          onClick={() => cycleWidgetSize(config.type)} 
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 sm:h-6 sm:w-6 rounded-full"
+                          onClick={() => cycleWidgetSize(config.type)}
                           title={`Resize (current: ${currentSize.width}x${currentSize.height})`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 sm:h-3 sm:w-3">
@@ -1739,8 +1818,7 @@ export function FluidSearchCanvas({
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {
-                          setLocalQuery(q)
-                          ctx.setQuery(q)
+                          executeLocalSearch(q)
                         }}
                         isLoading={isLoading}
                         searchPipelineBusy={searchPipelineBusy}
@@ -1754,7 +1832,7 @@ export function FluidSearchCanvas({
                         openArticle={config.type === "news" ? notepadOpenArticle : undefined}
                         openPaper={config.type === "research" ? notepadOpenPaper : undefined}
                         pinnedSpeciesName={config.type === "species" ? pinnedSpeciesName : undefined}
-                        query={debouncedQuery}
+                        query={localQuery}
                       />
                     </div>
                   </motion.div>
@@ -1896,6 +1974,8 @@ function WidgetContent({
           }}
           searchContext={searchContext}
           suggestions={mycaSuggestions}
+          activeQuery={searchQuery}
+          aiAnswer={aiAnswer}
           onSelectWidget={onSelectSuggestionWidget}
           onSelectQuery={onSelectSuggestionQuery}
           onAddToNotepad={onAddToNotepad}

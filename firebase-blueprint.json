@@ -1,0 +1,293 @@
+{
+  "entities": {
+    "Model": {
+      "title": "NLM Model",
+      "description": "A Nature Learning Model instance.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["idle", "training", "mutating", "evaluating"] },
+        "architectureId": { "type": "string", "description": "Reference to ArchitectureVariant" },
+        "config": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "status", "ownerId"]
+    },
+    "RootedNatureFrame": {
+      "title": "Rooted Nature Frame",
+      "description": "The irreducible unit of NLM cognition.",
+      "type": "object",
+      "properties": {
+        "modelId": { "type": "string", "description": "Reference to the NLM model" },
+        "frame_root": { "type": "string", "description": "Merkle root of the frame" },
+        "parent_frame_root": { "type": "string" },
+        "self_root": { "type": "string" },
+        "world_root": { "type": "string" },
+        "event_root": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "source_device": { "type": "string" },
+        "ground_truth": { "type": "object" },
+        "observation": { "type": "object" },
+        "uncertainty": { "type": "number" }
+      },
+      "required": ["frame_root", "timestamp"]
+    },
+    "Fingerprint": {
+      "title": "Sensory Fingerprint",
+      "description": "Deterministic scientific transform output.",
+      "type": "object",
+      "properties": {
+        "frame_root": { "type": "string" },
+        "type": { "type": "string", "enum": ["spectral", "acoustic", "bioelectric", "chemical", "thermal", "mechanical"] },
+        "data": { "type": "object" },
+        "provenance": { "type": "string" }
+      },
+      "required": ["frame_root", "type", "data"]
+    },
+    "ArchitectureVariant": {
+      "title": "Architecture Variant",
+      "description": "A specific NLM architecture configuration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "parentVariantId": { "type": "string" },
+        "streams": { "type": "object", "description": "Config for the 6 learned streams" },
+        "core": { "type": "object", "description": "SSM/Mamba/Graph config" },
+        "preconditioners": { "type": "array", "items": { "type": "string" } },
+        "metrics": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "streams", "core"]
+    },
+    "TrainingRun": {
+      "title": "Training Run",
+      "description": "A training session for a model variant.",
+      "type": "object",
+      "properties": {
+        "modelId": { "type": "string" },
+        "pipelineId": { "type": "string" },
+        "architectureId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["running", "completed", "failed"] },
+        "hyperparameters": { "type": "object" },
+        "metrics": { "type": "object" },
+        "lossHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "step": { "type": "integer" },
+              "loss": { "type": "number" }
+            }
+          }
+        },
+        "utilization": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": { "type": "string", "format": "date-time" },
+              "gpu": { "type": "number" },
+              "cpu": { "type": "number" }
+            }
+          }
+        },
+        "avaniScore": { "type": "number" }
+      },
+      "required": ["modelId", "status"]
+    },
+    "AvaniJudgment": {
+      "title": "AVANI Judgment",
+      "description": "Ecological and grounding verification.",
+      "type": "object",
+      "properties": {
+        "targetId": { "type": "string", "description": "Ref to Frame, Run, or Variant" },
+        "groundingScore": { "type": "number" },
+        "ecologicalImpact": { "type": "number" },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "verdict": { "type": "string", "enum": ["pass", "warn", "veto"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetId", "verdict"]
+    },
+    "CognitiveGraph": {
+      "title": "Cognitive Graph",
+      "description": "A graph representation of world, self, and action states.",
+      "type": "object",
+      "properties": {
+        "modelId": { "type": "string" },
+        "frameId": { "type": "string" },
+        "type": { "type": "string", "enum": ["world", "self", "action"] },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "type": { "type": "string" },
+              "metadata": { "type": "object" },
+              "lineage": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": { "type": "string" },
+              "target": { "type": "string" },
+              "type": { "type": "string", "enum": ["causal", "associative", "hierarchical", "temporal"] },
+              "weight": { "type": "number" },
+              "provenance": { "type": "string" },
+              "metadata": { "type": "object" }
+            }
+          }
+        },
+        "hyperedges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "nodes": { "type": "array", "items": { "type": "string" } },
+              "type": { "type": "string" },
+              "metadata": { "type": "object" }
+            }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["modelId", "type", "nodes", "edges"]
+    },
+    "MutationRecipe": {
+      "title": "Mutation Recipe",
+      "description": "A reusable mutation strategy configuration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["crossover", "pruning", "noise_injection", "hybrid"] },
+        "targetLayers": { "type": "array", "items": { "type": "string" } },
+        "mutationRate": { "type": "number" },
+        "streamModifications": { "type": "object" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "mutationRate", "ownerId"]
+    },
+    "Pipeline": {
+      "title": "Training Pipeline",
+      "description": "Automated training workflow configuration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "modelId": { "type": "string" },
+        "dataSource": { "type": "string" },
+        "preprocessing": { "type": "array", "items": { "type": "string" } },
+        "hyperparameters": { "type": "object" },
+        "status": { "type": "string", "enum": ["idle", "queued", "running", "completed", "failed"] },
+        "ownerId": { "type": "string" },
+        "lastRun": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "modelId", "ownerId"]
+    },
+    "Checkpoint": {
+      "title": "Model Checkpoint",
+      "description": "Saved state of a model during training.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "metrics": { "type": "object" },
+        "step": { "type": "integer" },
+        "path": { "type": "string" }
+      },
+      "required": ["timestamp", "step"]
+    },
+    "ModelVersion": {
+      "title": "Model Version",
+      "description": "A snapshot of a model's configuration and state.",
+      "type": "object",
+      "properties": {
+        "modelId": { "type": "string" },
+        "versionNumber": { "type": "integer" },
+        "description": { "type": "string" },
+        "config": { "type": "object" },
+        "architectureId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["modelId", "versionNumber", "config", "ownerId"]
+    },
+    "Agent": {
+      "title": "Autonomous Agent",
+      "description": "A multi-agent system entity that interacts with the NLM.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["trainer", "evaluator", "mutator", "observer"] },
+        "status": { "type": "string", "enum": ["idle", "active", "offline", "error"] },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" },
+        "config": { "type": "object" }
+      },
+      "required": ["name", "type", "status", "ownerId"]
+    },
+    "AgentTask": {
+      "title": "Agent Task",
+      "description": "A task assigned to or picked up by an autonomous agent.",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "type": { "type": "string", "enum": ["TRAIN", "MUTATE", "EVALUATE", "INGEST", "VALIDATE"] },
+        "status": { "type": "string", "enum": ["queued", "in_progress", "completed", "failed", "cancelled"] },
+        "params": { "type": "object" },
+        "result": { "type": "object" },
+        "error": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["type", "status", "ownerId", "createdAt"]
+    },
+    "AutomationPolicy": {
+      "title": "Automation Policy",
+      "description": "Rules for autonomous agents to trigger tasks.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["performance", "schedule", "event"] },
+        "trigger": { "type": "object" },
+        "action": { "type": "object" },
+        "enabled": { "type": "boolean" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "trigger", "action", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/models/{modelId}": { "schema": "Model", "description": "NLM models" },
+    "/frames/{frameId}": { "schema": "RootedNatureFrame", "description": "Rooted cognition units" },
+    "/fingerprints/{fpId}": { "schema": "Fingerprint", "description": "Sensory fingerprints" },
+    "/variants/{variantId}": { "schema": "ArchitectureVariant", "description": "Architecture mutations" },
+    "/training_runs/{runId}": { "schema": "TrainingRun", "description": "Training history" },
+    "/mutations/{mutationId}": { "schema": "object", "description": "Model mutation logs" },
+    "/mutation_recipes/{recipeId}": { "schema": "MutationRecipe", "description": "Saved mutation strategies" },
+    "/judgments/{jId}": { "schema": "AvaniJudgment", "description": "AVANI oversight" },
+    "/graphs/{graphId}": { "schema": "CognitiveGraph", "description": "World/Self/Action state graphs" },
+    "/pipelines/{pipelineId}": { "schema": "Pipeline", "description": "Training pipelines" },
+    "/models/{modelId}/checkpoints/{checkpointId}": { "schema": "Checkpoint", "description": "Model weights checkpoints" },
+    "/models/{modelId}/versions/{versionId}": { "schema": "ModelVersion", "description": "Version history for a model" },
+    "/agents/{agentId}": { "schema": "Agent", "description": "Autonomous agents registry" },
+    "/agent_tasks/{taskId}": { "schema": "AgentTask", "description": "Tasks for autonomous agents" },
+    "/automation_policies/{policyId}": { "schema": "AutomationPolicy", "description": "Rules for autonomous orchestration" }
+  }
+}

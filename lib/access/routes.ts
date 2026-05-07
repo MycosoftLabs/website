@@ -3,11 +3,11 @@
  * Defines access gates for all website routes
  */
 
-import { 
-  AccessGate, 
-  UserRole, 
+import {
+  AccessGate,
+  UserRole,
   SubscriptionTier,
-  type RouteAccess 
+  type RouteAccess
 } from './types'
 
 // Public routes - open to everyone
@@ -31,91 +31,94 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
+  { path: '/natureos/fusarium', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM' },
   { path: '/natureos/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator (NatureOS)' },
   { path: '/dashboard/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard (public)' },
+  { path: '/natureos/model-training', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Model Training' },
+  { path: '/defense', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Defense' },
 ]
 
 // Freemium routes - public with limits
 export const FREEMIUM_ROUTES: RouteAccess[] = [
-  { 
-    path: '/search', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/search',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 10, maxResults: 20 }
-    }, 
-    description: 'Search' 
+    },
+    description: 'Search'
   },
-  { 
-    path: '/species', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/species',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 50 }
-    }, 
-    description: 'Species database' 
+    },
+    description: 'Species database'
   },
-  { 
-    path: '/mushrooms', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/mushrooms',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { maxResults: 50 }
-    }, 
-    description: 'Mushroom catalog' 
+    },
+    description: 'Mushroom catalog'
   },
-  { 
-    path: '/natureos/nature-statistics', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/natureos/nature-statistics',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 50 }
-    }, 
-    description: 'Nature statistics' 
+    },
+    description: 'Nature statistics'
   },
-  { 
-    path: '/compounds', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/compounds',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 20, features: { simulate: false } }
-    }, 
-    description: 'Compounds' 
+    },
+    description: 'Compounds'
   },
-  { 
-    path: '/natureos/compounds', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/natureos/compounds',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { dailyLimit: 20, features: { simulate: false } }
-    }, 
-    description: 'Compounds' 
+    },
+    description: 'Compounds'
   },
-  { 
-    path: '/science', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/science',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { features: { fullPaper: false, abstract: true } }
-    }, 
-    description: 'Science papers' 
+    },
+    description: 'Science papers'
   },
-  { 
-    path: '/natureos/ancestry', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
+  {
+    path: '/natureos/ancestry',
+    gate: AccessGate.FREEMIUM,
+    config: {
+      gate: AccessGate.FREEMIUM,
       minimumRole: UserRole.ANONYMOUS,
       freemiumLimits: { features: { basicTree: true, explorer: false } }
-    }, 
-    description: 'Ancestry' 
+    },
+    description: 'Ancestry'
   },
   // MINDEX moved to COMPANY_ROUTES (infrastructure gate)
 ]
@@ -136,7 +139,6 @@ export const COMPANY_ROUTES: RouteAccess[] = [
   { path: '/natureos/mycobrain', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MycoBrain Console' },
   { path: '/natureos/sporebase', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'SporeBase Monitor' },
   { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
-  { path: '/natureos/fusarium', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FUSARIUM' },
   { path: '/natureos/mindex', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MINDEX' },
   { path: '/natureos/storage', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Storage' },
   { path: '/natureos/containers', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Containers' },
@@ -145,26 +147,26 @@ export const COMPANY_ROUTES: RouteAccess[] = [
 
 // Premium routes - require subscription
 export const PREMIUM_ROUTES: RouteAccess[] = [
-  { 
-    path: '/myca-ai', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
+  {
+    path: '/myca-ai',
+    gate: AccessGate.PREMIUM,
+    config: {
+      gate: AccessGate.PREMIUM,
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'MYCA AI' 
+    },
+    description: 'MYCA AI'
   },
 
-  { 
-    path: '/natureos/ancestry/tools', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
+  {
+    path: '/natureos/ancestry/tools',
+    gate: AccessGate.PREMIUM,
+    config: {
+      gate: AccessGate.PREMIUM,
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'Ancestry Tools' 
+    },
+    description: 'Ancestry Tools'
   },
   {
     path: '/natureos/ai-studio',
@@ -176,35 +178,35 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
     },
     description: 'AI Studio (Internal - Mycosoft employees only)'
   },
-  { 
-    path: '/natureos/live-map', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
+  {
+    path: '/natureos/live-map',
+    gate: AccessGate.PREMIUM,
+    config: {
+      gate: AccessGate.PREMIUM,
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'Live Map' 
+    },
+    description: 'Live Map'
   },
-  { 
-    path: '/natureos/sdk', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
+  {
+    path: '/natureos/sdk',
+    gate: AccessGate.PREMIUM,
+    config: {
+      gate: AccessGate.PREMIUM,
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'Developer SDK' 
+    },
+    description: 'Developer SDK'
   },
-  { 
-    path: '/natureos/api', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
+  {
+    path: '/natureos/api',
+    gate: AccessGate.PREMIUM,
+    config: {
+      gate: AccessGate.PREMIUM,
       minimumRole: UserRole.PREMIUM,
       subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'API Explorer' 
+    },
+    description: 'API Explorer'
   },
 ]
 
@@ -238,7 +240,6 @@ export const ADMIN_ROUTES: RouteAccess[] = [
   { path: '/security/compliance', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Compliance' },
   { path: '/security/fcl', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'FCL Tracking' },
   { path: '/security/forms', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Forms' },
-  { path: '/defense', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Defense' },
   { path: '/natureos/devices/network', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Network' },
   { path: '/natureos/mas', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'MAS' },
   { path: '/natureos/workflows', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Workflows' },
@@ -250,7 +251,8 @@ export const ADMIN_ROUTES: RouteAccess[] = [
 // Super Admin routes (Morgan only)
 export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
   { path: '/natureos/settings', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Settings' },
-  { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
+  // model-training moved to PUBLIC_ROUTES to disable gating for integration
+  // { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
   // containers and monitoring moved to COMPANY_ROUTES (infrastructure gate)
   { path: '/natureos/drone', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Drone Control' },
   { path: '/natureos/shell', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Shell' },
@@ -282,7 +284,7 @@ export function getRouteAccess(path: string): RouteAccess | undefined {
   // Exact match first
   let route = ALL_ROUTES.find(r => r.path === path)
   if (route) return route
-  
+
   // Dynamic route matching
   for (const r of ALL_ROUTES) {
     if (r.path.includes('[')) {
@@ -291,7 +293,7 @@ export function getRouteAccess(path: string): RouteAccess | undefined {
       if (regex.test(path)) return r
     }
   }
-  
+
   // Parent route matching (for nested routes)
   const segments = path.split('/').filter(Boolean)
   while (segments.length > 0) {
@@ -300,7 +302,7 @@ export function getRouteAccess(path: string): RouteAccess | undefined {
     if (route) return route
     segments.pop()
   }
-  
+
   return undefined
 }
 
@@ -349,7 +351,8 @@ const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/natureos/ancestry/explorer',
   '/apps/earth-simulator',
   '/apps/petri-dish-sim',
-  '/apps/compound-sim'
+  '/apps/compound-sim',
+  '/natureos/model-training'
 ]
 
 /** True if path requires any authenticated user (middleware use). */

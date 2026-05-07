@@ -17,7 +17,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import {
   Radar,
@@ -510,19 +510,11 @@ function DomainCompartment({
 
       {/* Live data cards */}
       <div className="px-2 pb-2 space-y-1.5">
-        <AnimatePresence mode="popLayout">
-          {visibleItems.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ delay: i * 0.02 }}
-            >
-              <CardRenderer item={item} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {visibleItems.map((item) => (
+          <div key={item.id}>
+            <CardRenderer item={item} />
+          </div>
+        ))}
 
         {/* Show more / less */}
         {hasMore && (
@@ -575,7 +567,7 @@ export function CrepWidget({
       const normalized = normalizeToCrepResult(item)
       const t = normalized.type
       const cDom = (item as any)?.domain
-      
+
       if (t === "aircraft") g.aircraft.push(normalized)
       else if (t === "vessel") g.vessels.push(normalized)
       else if (t === "satellite") g.satellites.push(normalized)

@@ -1,12 +1,12 @@
 /**
- * Build ordered MP4 URL lists for NAS-mounted assets.
+ * Build ordered MP4 URL lists for first-party hero/device assets.
  *
  * Prefer `-web` first when present for faster start-to-play; fall back to the
  * full file if the smaller variant is missing on NAS.
  *
  * Asset policy:
  * - Large hero/device videos should resolve from `/assets/...` so production
- *   can serve them from the NAS bind mount.
+ *   can serve them from the NAS bind mount or a first-party CDN origin.
  * - Small UI images can remain local repo assets or remote CDN images.
  * - Helper functions here should keep route URLs stable while allowing NAS
  *   filename aliases.
@@ -16,7 +16,7 @@
  * a missing homepage video must never render as a walking mushroom.
  */
 
-/** Optional HTTPS CDN origin for `/assets/*` media (R2, CloudFront, etc.). */
+/** Optional HTTPS first-party CDN origin for `/assets/*` media (R2, CloudFront, etc.). */
 function withMediaCdn(paths: string[]): string[] {
   const origin = process.env.NEXT_PUBLIC_MEDIA_CDN_ORIGIN?.trim().replace(/\/$/, "")
   if (!origin || !/^https:\/\//i.test(origin)) return paths
@@ -80,25 +80,34 @@ function orderedHomeHeroCanonicalPaths(): string[] {
  * Homepage hero: `NEXT_PUBLIC_HOME_HERO_MP4` first (exact NAS filename), then common aliases.
  * NO mushroom/waterfall fallback — only the homepage's own video plays here.
  *
- * Default (May 03, 2026): **web variant only** (`*-web.mp4` per canonical path) — never fall
- * through to the multi‑hundred‑MB full MP4, which saturated browser memory on live site.
- * Set `NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4=true` only when the full file is intentionally
- * served and devices are known to handle it.
+ * Default: web variants first for fast start-to-play, then canonical homepage
+ * files only as an emergency fallback. The full file should rarely load in
+ * production because the NAS should provide `Mycosoft Background-web.mp4`.
  */
 export function homeHeroVideoSources(): string[] {
   const paths = orderedHomeHeroCanonicalPaths()
   if (process.env.NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4 === "true") {
     return withMediaCdn(mergeMp4SourceGroups(...paths))
   }
-  const out: string[] = []
+  const webOut: string[] = []
+  const fullOut: string[] = []
   const seen = new Set<string>()
-  for (const p of paths) {
-    const web = webVariantPath(p)
-    if (seen.has(web)) continue
-    seen.add(web)
-    out.push(web)
+  const add = (target: string[], p: string) => {
+    if (seen.has(p)) return
+    seen.add(p)
+    target.push(p)
   }
-  return withMediaCdn(out)
+  for (const p of paths) {
+    add(webOut, webVariantPath(p))
+  }
+  for (const p of paths) {
+    add(fullOut, p)
+  }
+  return withMediaCdn([...webOut, ...fullOut])
+}
+
+export function primaryHomeHeroPosterPath(): string {
+  return process.env.NEXT_PUBLIC_HOME_HERO_POSTER?.trim() || "/assets/homepage/Mycosoft Background-poster.jpg"
 }
 
 interface DeviceHeroVideoOptions {

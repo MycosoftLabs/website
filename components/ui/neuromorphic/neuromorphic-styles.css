@@ -438,7 +438,7 @@
 }
 
 /* Hyphae1 Why section: ensure dark mode background + readable text */
-.neuromorphic-page.neuromorphic-dark .hyphae1-why {
+.neuromorphic-page.neuromorphic-dark .hyphae1-why:not(.hyphae1-why-network) {
   background-color: #0f172a !important;
 }
 .neuromorphic-page.neuromorphic-dark .hyphae1-why h2,
@@ -447,9 +447,12 @@
 .neuromorphic-page.neuromorphic-dark .hyphae1-why li {
   color: #e2e8f0 !important;
 }
-.neuromorphic-page.neuromorphic-dark .hyphae1-why [class*="bg-"] {
+.neuromorphic-page.neuromorphic-dark .hyphae1-why:not(.hyphae1-why-network) [class*="bg-"] {
   background-color: #334155 !important;
   border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-why.hyphae1-why-network {
+  background-color: #010203 !important;
 }
 .neuromorphic-page.neuromorphic-dark .hyphae1-why [class*="text-slate-"] {
   color: #cbd5e1 !important;

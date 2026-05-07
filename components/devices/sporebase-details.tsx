@@ -15,12 +15,11 @@ import { SporeUniverse } from "@/components/effects/star-universe"
 import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
 import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
+import { SporeBaseParticleTitle } from "@/components/devices/sporebase-particle-title"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
-import { sporebaseHeroYoutubeId } from "@/lib/hero-youtube"
-import { 
-  ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
+import {
+  ShoppingCart, Download, Share2, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
   Activity, MapPin, Globe, Trees, Microscope, Database,
   Cpu, Battery, Signal, Lock, Cloud, Leaf, AlertTriangle, Check,
@@ -47,14 +46,11 @@ const SPOREBASE_ASSETS = {
   ],
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",
-  // Hero MP4 on NAS — same path as historical hero; YouTube is an optional overlay
+  // Hero MP4 on NAS/CDN. No YouTube hero iframe: users must never see YouTube chrome.
   heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
 
 const SPOREBASE_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SPOREBASE_ASSETS.heroVideo))
-
-/** @Mycosoft SporeBase device hero — https://www.youtube.com/watch?v=Gc3FUxi6Q1k */
-const SPOREBASE_HERO_YOUTUBE_ID = sporebaseHeroYoutubeId()
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 interface DeviceComponent {
@@ -67,67 +63,67 @@ interface DeviceComponent {
 }
 
 const DEVICE_COMPONENTS: DeviceComponent[] = [
-  { 
-    id: "intake", 
-    name: "Air Intake", 
+  {
+    id: "intake",
+    name: "Air Intake",
     icon: Wind,
-    position: { top: "10%", left: "40%" }, 
+    position: { top: "10%", left: "40%" },
     description: "Protected sampling inlet",
     details: "The air intake uses a controlled fan to pull ambient air across a protected sampling path. The inlet guard prevents rain and debris ingress while allowing biological particles to deposit onto the adhesive tape collection surface."
   },
-  { 
-    id: "cassette", 
-    name: "Tape Cassette", 
+  {
+    id: "cassette",
+    name: "Tape Cassette",
     icon: Timer,
-    position: { top: "25%", left: "55%" }, 
+    position: { top: "25%", left: "55%" },
     description: "Sealed time-indexed collection",
     details: "The sealed tape cassette advances every 15 minutes (configurable) creating 2,880 timestamped collection intervals over 30 days. Each tape segment captures particles via adhesive deposition and is preserved for lab analysis including microscopy, qPCR, and sequencing."
   },
-  { 
-    id: "fan", 
-    name: "Sampling Fan", 
+  {
+    id: "fan",
+    name: "Sampling Fan",
     icon: Activity,
-    position: { top: "40%", left: "35%" }, 
+    position: { top: "40%", left: "35%" },
     description: "Fan-driven active sampling",
     details: "A precision fan drives airflow across the sampling head where particles deposit onto the adhesive tape. PWM control with tachometer feedback ensures consistent, repeatable collection rates across varying environmental conditions."
   },
-  { 
-    id: "drive", 
-    name: "Tape Drive", 
+  {
+    id: "drive",
+    name: "Tape Drive",
     icon: Timer,
-    position: { top: "50%", left: "60%" }, 
+    position: { top: "50%", left: "60%" },
     description: "Stepper motor tape advance",
     details: "The precision stepper motor advances the adhesive tape at fixed intervals, creating a continuous chronological timeline. Each advance distance (ΔL) is precisely controlled, enabling exact correlation between tape position and collection timestamp."
   },
-  { 
-    id: "sensors", 
-    name: "Environmental Sensors", 
+  {
+    id: "sensors",
+    name: "Environmental Sensors",
     icon: Thermometer,
-    position: { top: "55%", left: "30%" }, 
+    position: { top: "55%", left: "30%" },
     description: "BME688/BME690 + BMV080",
     details: "Modular sensor payload includes Bosch BME69x for temperature, humidity, pressure, and VOC sensing. Optional BMV080 provides particulate correlation. All telemetry is timestamped and stored with sample metadata via Mycorrhizae Protocol."
   },
-  { 
-    id: "mycobrain", 
-    name: "MycoBrain Controller", 
+  {
+    id: "mycobrain",
+    name: "MycoBrain Controller",
     icon: Cpu,
-    position: { top: "65%", left: "50%" }, 
+    position: { top: "65%", left: "50%" },
     description: "Dual ESP32-S3 + LoRa",
     details: "MycoBrain embedded controller features dual ESP32-S3 modules, LoRa radio for mesh networking, MPPT solar charging, actuator outputs for fan/motor control, and I2C expansion. Data is normalized via Mycorrhizae Protocol and stored with MINDEX chain-of-custody."
   },
-  { 
-    id: "solar", 
-    name: "Solar + Battery", 
+  {
+    id: "solar",
+    name: "Solar + Battery",
     icon: Sun,
-    position: { top: "75%", left: "40%" }, 
+    position: { top: "75%", left: "40%" },
     description: "MPPT solar charging",
     details: "MPPT solar charging via CN3903 enables field deployments with solar panels. Combined with Li-ion battery pack, enables autonomous 30-day operation. Battery voltage and charge state are monitored as device health telemetry."
   },
-  { 
-    id: "mount", 
-    name: "Universal Mount", 
+  {
+    id: "mount",
+    name: "Universal Mount",
     icon: Building,
-    position: { top: "85%", left: "55%" }, 
+    position: { top: "85%", left: "55%" },
     description: "IP65 weatherproof enclosure",
     details: "IP65-rated enclosure with gasket sealing and hydrophobic vent membrane. Universal mounting system includes adapters for buildings, poles, vehicles, and tripods. Sealed cable glands for external power connections."
   },
@@ -221,12 +217,12 @@ export function SporeBaseDetails() {
   const prefersReducedMotion = useReducedMotion()
   const floatingPixels = useMemo(() => buildFloatingPixels(20, 42, 0, 100), [])
   const floatingParticles = useMemo(() => buildFloatingPixels(8, 1337, 10, 90), [])
-  
+
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"]
   })
-  
+
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
 
@@ -235,8 +231,8 @@ export function SporeBaseDetails() {
     <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
       {/* Hero Section — data-over-video for dark background text consistency */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
-        {/* NAS MP4 base + optional YouTube overlay (@Mycosoft) */}
-        <motion.div 
+        {/* Locked NAS MP4 hero background */}
+        <motion.div
           style={{ scale: heroScale }}
           className="absolute inset-0"
         >
@@ -248,34 +244,35 @@ export function SporeBaseDetails() {
               className="absolute inset-0 z-0 h-full w-full object-cover"
             />
           ) : null}
-          {!prefersReducedMotion ? (
-            <div className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
-              <YoutubeHeroBackground videoId={SPOREBASE_HERO_YOUTUBE_ID} />
-            </div>
-          ) : null}
           <div className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-b from-black/50 via-black/30 to-slate-950/70" />
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           style={{ opacity: heroOpacity }}
-          className="relative z-10 text-center px-4 max-w-5xl mx-auto"
+          className="absolute inset-0 z-[3]"
+          aria-hidden="true"
+        >
+          <SporeBaseParticleTitle />
+        </motion.div>
+
+        <motion.div
+          style={{ opacity: heroOpacity }}
+          className="pointer-events-none relative z-10 mt-[220px] text-center px-4 max-w-5xl mx-auto sm:mt-[250px] lg:mt-[300px]"
         >
           <NeuBadge variant="default" className="device-hero-badge mb-4 bg-orange-500/20 text-orange-400 border-orange-500/50 text-sm px-4 py-1">
             Bioaerosol Collection
           </NeuBadge>
-          
-          <motion.h1 
-            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+
+          <motion.h1
+            className="device-hero-title sr-only"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="sporebase-hero-title bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-orange-400">
-              SporeBase
-            </span>
+            SporeBase
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -285,32 +282,34 @@ export function SporeBaseDetails() {
             <br />
             <span className="text-orange-400">Capturing the invisible. Making it measurable.</span>
           </motion.p>
-          
+
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton className="device-cta-over-video min-h-[44px] px-8 bg-orange-500 hover:bg-orange-600 !text-black font-semibold">
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Pre-Order Now
-            </NeuButton>
-            <NeuButton variant="default" className="device-cta-over-video-outline min-h-[44px] px-8 border border-orange-500/50 hover:bg-orange-500/10">
-              <Play className="mr-2 h-5 w-5" />
-              Watch Demo
-            </NeuButton>
+            <a
+              href="https://www.youtube.com/@mycosoft"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Learn more on the Mycosoft YouTube channel"
+              className="device-cta-over-video pointer-events-auto inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-orange-500 px-8 py-3 text-sm font-semibold !text-black transition-all duration-200 hover:bg-orange-600"
+            >
+              <Youtube className="h-5 w-5" />
+              Learn More
+            </a>
           </motion.div>
         </motion.div>
-        
+
         {/* Scroll indicator */}
-        <motion.div 
+        <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2"
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
           <div className="w-6 h-10 rounded-full border-2 border-orange-500/30 flex justify-center pt-2">
-            <motion.div 
+            <motion.div
               className="w-1.5 h-3 bg-orange-500 rounded-full"
               animate={{ y: [0, 8, 0], opacity: [1, 0.5, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -332,23 +331,23 @@ export function SporeBaseDetails() {
               </h2>
               <div className="space-y-4 text-lg text-slate-600 dark:text-white/70">
                 <p>
-                  The air around us carries billions of microscopic particles—spores, pollen, 
-                  dust, and other biological material. Understanding what&apos;s in the air we breathe 
+                  The air around us carries billions of microscopic particles—spores, pollen,
+                  dust, and other biological material. Understanding what&apos;s in the air we breathe
                   has never been more important.
                 </p>
                 <p>
-                  SporeBase creates <strong className="text-orange-400">time-indexed physical samples</strong> for 
-                  lab analysis while logging environmental context. Unlike snapshot sampling that loses temporal 
-                  context, SporeBase advances a sealed adhesive-tape cassette every 15 minutes, creating a 
+                  SporeBase creates <strong className="text-orange-400">time-indexed physical samples</strong> for
+                  lab analysis while logging environmental context. Unlike snapshot sampling that loses temporal
+                  context, SporeBase advances a sealed adhesive-tape cassette every 15 minutes, creating a
                   chronological record spanning <strong className="text-orange-400">30 days (2,880 intervals)</strong>.
                 </p>
                 <p>
-                  Deploy on buildings, vehicles, or research stations. SporeBase works standalone 
-                  or as part of the Mycosoft Environmental Intelligence network via <strong className="text-slate-900 dark:text-white">Mycorrhizae 
+                  Deploy on buildings, vehicles, or research stations. SporeBase works standalone
+                  or as part of the Mycosoft Environmental Intelligence network via <strong className="text-slate-900 dark:text-white">Mycorrhizae
                   Protocol + MINDEX</strong>, visualized through <strong className="text-slate-900 dark:text-white">NatureOS</strong>.
                 </p>
               </div>
-              
+
               <div className="grid grid-cols-4 gap-4 mt-8">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-orange-400">2,880</div>
@@ -368,7 +367,7 @@ export function SporeBaseDetails() {
                 </div>
               </div>
             </div>
-            
+
             <div className="relative">
               {/* Background with floating pixels effect */}
               <div className="absolute inset-0 rounded-3xl overflow-hidden">
@@ -415,12 +414,12 @@ export function SporeBaseDetails() {
                   />
                 ))}
               </div>
-              
+
               {/* Shadow layer behind the image */}
               <div className="absolute inset-4 rounded-3xl bg-orange-500/20 blur-2xl" />
-              
+
               {/* Main image with depth effect - floating above */}
-              <motion.div 
+              <motion.div
                 className="relative aspect-square rounded-3xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-slate-900 shadow-2xl shadow-orange-500/20"
                 initial={{ y: 0 }}
                 animate={{ y: [-4, 4, -4] }}
@@ -435,7 +434,7 @@ export function SporeBaseDetails() {
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-t from-orange-500/10 via-transparent to-transparent pointer-events-none" />
               </motion.div>
-              
+
               <div className="absolute -bottom-6 -right-6 p-4 bg-orange-500/20 backdrop-blur-xl rounded-2xl border border-orange-500/30 shadow-lg shadow-orange-500/10">
                 <Wind className="h-8 w-8 text-orange-400" />
                 <p className="text-sm font-medium mt-2 text-orange-400">Bioaerosol Capture</p>
@@ -463,7 +462,7 @@ export function SporeBaseDetails() {
               Fan-driven active sampling deposits particles onto adhesive tape, creating 2,880 time-indexed samples per cassette.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { icon: Wind, title: "Fan-Driven Sampling", desc: "Controlled fan pulls ambient air across the sampling head where particles deposit onto adhesive tape" },
@@ -489,7 +488,7 @@ export function SporeBaseDetails() {
       <section className="sporebase-applications relative py-24 bg-white text-slate-900 dark:bg-slate-900 dark:text-white overflow-hidden">
         {/* Interactive particle gravity effect - mouse/touch responsive */}
         <SporeGravity className="opacity-70" />
-        
+
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
@@ -502,7 +501,7 @@ export function SporeBaseDetails() {
               From research labs to public health agencies, SporeBase provides critical bioaerosol data.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
@@ -565,7 +564,7 @@ export function SporeBaseDetails() {
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     <span className="text-xs font-mono text-orange-400/70 uppercase tracking-wider">Component Selector</span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2">
                     {DEVICE_COMPONENTS.map((component) => {
                       const IconComponent = component.icon
@@ -578,8 +577,8 @@ export function SporeBaseDetails() {
                           onMouseEnter={() => setHoveredComponent(component.id)}
                           onMouseLeave={() => setHoveredComponent(null)}
                           className={`p-3 rounded-xl border-2 transition-all text-left ${
-                            isSelected 
-                              ? 'bg-orange-500/20 border-orange-400 shadow-lg shadow-orange-500/30' 
+                            isSelected
+                              ? 'bg-orange-500/20 border-orange-400 shadow-lg shadow-orange-500/30'
                               : isHovered
                                 ? 'bg-orange-500/10 border-orange-500/50'
                                 : 'bg-slate-900/50 border-slate-700 hover:border-orange-500/40'
@@ -607,7 +606,7 @@ export function SporeBaseDetails() {
                     <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                     <span className="text-xs font-mono text-orange-400/70 uppercase tracking-wider">Component Details</span>
                   </div>
-                  
+
                   <AnimatePresence mode="wait">
                     {DEVICE_COMPONENTS.filter(c => c.id === selectedComponent).map((component) => (
                       <motion.div
@@ -644,7 +643,7 @@ export function SporeBaseDetails() {
                     `,
                     backgroundSize: '30px 30px'
                   }} />
-                  
+
                   {/* Panel Header */}
                   <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
                     <div className="flex items-center gap-2">
@@ -654,7 +653,7 @@ export function SporeBaseDetails() {
                       <span className="text-xs font-mono text-white/30">SPOREBASE // REV 1.0</span>
                     </div>
                   </div>
-                  
+
                   {/* Device Image */}
                   <div className="absolute inset-0 flex items-center justify-center pt-10">
                     <div className="relative h-[85%] aspect-[2/3] max-w-full">
@@ -666,7 +665,7 @@ export function SporeBaseDetails() {
                       />
                     </div>
                   </div>
-                  
+
                   {/* Status bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
                     <div className="flex items-center justify-between text-xs font-mono text-white/30">
@@ -695,7 +694,7 @@ export function SporeBaseDetails() {
               Technical Details
             </h2>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="sporebase-spec-card bg-slate-50 dark:bg-white rounded-2xl border border-slate-200 dark:border-orange-500/20 p-6">
               <div className="flex items-center gap-2 mb-6">
@@ -711,7 +710,7 @@ export function SporeBaseDetails() {
                 ))}
               </div>
             </div>
-            
+
             <div className="sporebase-spec-card bg-slate-50 dark:bg-white rounded-2xl border border-slate-200 dark:border-orange-500/20 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Cpu className="h-5 w-5 text-orange-400" />
@@ -727,7 +726,7 @@ export function SporeBaseDetails() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-center gap-4 mt-12">
             <NeuButton variant="outline" className="border-orange-500/40 text-orange-500 hover:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/10">
               <Download className="mr-2 h-4 w-4" />
@@ -746,19 +745,19 @@ export function SporeBaseDetails() {
         {/* Background with CodePen gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#00223e] to-[#ffa17f] opacity-40" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 to-orange-950/30" />
-        
+
         {/* Flowing particle wave effect - sinusoidal animation */}
         <SporeWave className="opacity-70" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
             Ready to map the invisible world?
           </h2>
           <p className="text-xl text-white/60 mb-8">
-            Join researchers, health agencies, and environmental monitors using SporeBase 
+            Join researchers, health agencies, and environmental monitors using SporeBase
             to understand what&apos;s really in the air we breathe.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <NeuButton size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
@@ -769,7 +768,7 @@ export function SporeBaseDetails() {
               Download Brochure
             </NeuButton>
           </div>
-          
+
           <p className="text-sm text-white/40 mt-8">
             In Stock • Free worldwide shipping • 30-day money-back guarantee
           </p>
@@ -779,4 +778,3 @@ export function SporeBaseDetails() {
     </NeuromorphicProvider>
   )
 }
-

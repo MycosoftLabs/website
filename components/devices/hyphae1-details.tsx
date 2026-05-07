@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import Image from "next/image"
-import { motion, AnimatePresence, useScroll, useTransform, useReducedMotion } from "framer-motion"
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
   NeuCard,
   NeuCardContent,
@@ -11,7 +11,7 @@ import {
   NeuBadge,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
-import { 
+import {
   Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Box, Network, Shield, Zap, Eye, Thermometer, HardDrive,
   Droplets, Activity, MapPin, Globe, Microscope, Package,
@@ -22,12 +22,12 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
-import { hyphae1HeroYoutubeId } from "@/lib/hero-youtube"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
+import { HyphaeRootNetworkBackground } from "@/components/devices/hyphae-root-network-background"
+import { HyphaeShuffledTitle } from "@/components/devices/hyphae-shuffled-title"
 
 // ============================================================================
 // HYPHAE 1 MEDIA ASSETS
@@ -39,7 +39,7 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 //   npm run assets:sync-cursor-image -- -Preset hyphae-why
 //   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
-// Hero: NAS MP4 always (`hyphaeHeroVideoSources`); optional YouTube overlay — NEXT_PUBLIC_HYPHAE1_HERO_YOUTUBE_ID.
+// Hero: locked NAS MP4 background (`hyphaeHeroVideoSources`).
 
 const HYPHAE1_HERO_MP4_SOURCES = hyphaeHeroVideoSources("/assets/hyphae1/hero.mp4")
 
@@ -60,8 +60,6 @@ const HYPHAE1_ASSETS = {
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
   labPrototype: "/assets/hyphae1/hyphae1-lab-prototype.png",
 }
-
-const HYPHAE1_HERO_YOUTUBE_ID = hyphae1HeroYoutubeId()
 
 interface HyphaeVariant {
   id: string
@@ -435,8 +433,6 @@ export function Hyphae1Details() {
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"]
@@ -463,34 +459,28 @@ export function Hyphae1Details() {
               className="absolute inset-0 z-[1] h-full w-full object-cover object-top pointer-events-none"
             />
           ) : null}
-          {!prefersReducedMotion ? (
-            <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden">
-              <YoutubeHeroBackground videoId={HYPHAE1_HERO_YOUTUBE_ID} className="object-top" />
-            </div>
-          ) : null}
           <div className="absolute inset-0 z-[3] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
         </div>
 
-        <motion.div 
+        <motion.div
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto pt-12 md:pt-14"
         >
           <NeuBadge variant="default" className="mb-4 bg-slate-800 text-white border-0 text-sm px-4 py-1">
             Edge Datacenter
           </NeuBadge>
-          
-          <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-4 antialiased"
+
+          <motion.h1
+            className="mb-2 flex justify-center"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.95),0_3px_20px_rgba(0,0,0,0.75),0_0_48px_rgba(0,0,0,0.45)]">
-              Hyphae 1
-            </span>
+            <span className="sr-only">Hyphae 1</span>
+            <HyphaeShuffledTitle />
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             className="text-xl md:text-2xl lg:text-3xl mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -504,7 +494,7 @@ export function Hyphae1Details() {
               Terrestrial Datacenters At The Edge Of Nature
             </span>
           </motion.p>
-          
+
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center"
             initial={{ opacity: 0, y: 50 }}
@@ -523,7 +513,7 @@ export function Hyphae1Details() {
       <section className="hyphae1-product-line relative py-24 bg-white dark:bg-slate-950 overflow-hidden">
         {/* Connected dots background animation - light in both modes for contrast with dark widgets */}
         <ProductShowcaseDots className="opacity-100" />
-        
+
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
@@ -536,7 +526,7 @@ export function Hyphae1Details() {
               Hyphae 1 is a family of mobile, exterior datacenter nodes on Mycosoft protocols—advanced TPU and GPU data systems, continuous sensing of the surroundings, and mesh-native growth so every unit enlarges your network. The proposition for investors, defense, government, and any organization that already buys cloud or colocation is simple: own live intelligence outside the building across military bases, agriculture, laboratories, factories, and technology campuses—without surrendering the field to blind infrastructure.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {HYPHAE_VARIANTS.map((variant, index) => (
               <motion.div
@@ -566,12 +556,12 @@ export function Hyphae1Details() {
                     }`}
                   />
                 </div>
-                
+
                 <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">{variant.name}</h3>
                 <p className="text-slate-700 dark:text-slate-300 mb-4 text-sm sm:text-base leading-relaxed">
                   {variant.description}
                 </p>
-                
+
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between gap-4 text-sm">
                     <span className="text-slate-600 dark:text-slate-400 shrink-0">
@@ -604,18 +594,20 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Mission Section — light: white + dark copy; images: soft neuromorphic elevation */}
-      <section className="hyphae1-why py-24 bg-white dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4">
+      {/* Mission Section — animated root-network field */}
+      <section className="hyphae1-why hyphae1-why-network relative overflow-hidden py-24 bg-[#010203] text-white">
+        <HyphaeRootNetworkBackground className="absolute inset-0 z-0 opacity-95" />
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-[#010203]/40 via-[#010203]/5 to-[#010203]/65" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <NeuBadge variant="default" className="mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
+              <NeuBadge variant="default" className="mb-4 bg-cyan-400/10 text-cyan-200 border-cyan-300/30">
                 Why Hyphae 1
               </NeuBadge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-slate-100">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
                 Datacenter capacity, outside the building
               </h2>
-              <div className="space-y-4 text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
+              <div className="space-y-4 text-lg text-slate-200 leading-relaxed">
                 <p>
                   Most consequential failures do not start in a climate-controlled rack—they start
                   where weather, chemistry, motion, and radio spectrum meet your mission, and where
@@ -636,12 +628,12 @@ export function Hyphae1Details() {
                   industrial yards, research campuses, and forward technology programs.
                 </p>
                 <div className="space-y-2">
-                  <p className="font-semibold text-slate-900 dark:text-slate-200">
+                  <p className="font-semibold text-white">
                     What Hyphae 1 does in one enclosure
                   </p>
-                  <ul className="list-disc pl-5 space-y-2 marker:text-slate-500 dark:marker:text-slate-400 text-base text-slate-800 dark:text-slate-300">
+                  <ul className="list-disc pl-5 space-y-2 marker:text-cyan-300 text-base text-slate-200">
                     <li>
-                      <span className="font-medium text-slate-900 dark:text-slate-200">
+                      <span className="font-medium text-white">
                         Targeted radar economics:
                       </span>{" "}
                       fused radar, LiDAR, and cooperative RF reduce the need to buy, site, and
@@ -649,7 +641,7 @@ export function Hyphae1Details() {
                       yard—while staying upgradeable when doctrine requires a dedicated emitter.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-900 dark:text-slate-200">
+                      <span className="font-medium text-white">
                         Sense, process, and command together:
                       </span>{" "}
                       not a dumb sensor pack—ingest, TPU/GPU and MycoBrain–Jetson analytics,
@@ -657,7 +649,7 @@ export function Hyphae1Details() {
                       bounce through multiple silos before they matter.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-900 dark:text-slate-200">
+                      <span className="font-medium text-white">
                         A real exterior datacenter:
                       </span>{" "}
                       rack-class throughput at the pole or pad—fast correlation, model scoring,
@@ -665,7 +657,7 @@ export function Hyphae1Details() {
                       bolted to a camera.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-900 dark:text-slate-200">
+                      <span className="font-medium text-white">
                         Collective live worldview:
                       </span>{" "}
                       visual, acoustic, gas, particle, EM, radiation, motion, and RF modalities
@@ -673,7 +665,7 @@ export function Hyphae1Details() {
                       mesh so command sees one evolving story, not twenty stale charts.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-900 dark:text-slate-200">
+                      <span className="font-medium text-white">
                         Mesh instead of micro-datacenter sprawl:
                       </span>{" "}
                       add Hyphae nodes to grow exterior compute and sensing capacity instead of
@@ -683,7 +675,7 @@ export function Hyphae1Details() {
                   </ul>
                 </div>
               </div>
-              
+
               <div
                 className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8"
                 role="list"
@@ -695,13 +687,13 @@ export function Hyphae1Details() {
                     <div
                       key={cap.title}
                       role="listitem"
-                      className="flex flex-col items-center gap-2 text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-[6px_8px_18px_rgba(15,23,42,0.08),-5px_-5px_14px_rgba(255,255,255,0.92)] dark:shadow-none"
+                      className="flex flex-col items-center gap-2 text-center p-4 rounded-xl border border-cyan-300/20 bg-white/[0.06] shadow-[0_18px_44px_rgba(0,0,0,0.32)] backdrop-blur-md"
                     >
                       <Icon
-                        className="h-9 w-9 text-slate-900 dark:text-slate-100 shrink-0"
+                        className="h-9 w-9 text-cyan-200 shrink-0"
                         aria-hidden
                       />
-                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">
+                      <div className="text-sm font-semibold text-white leading-tight">
                         {cap.title}
                       </div>
                     </div>
@@ -709,9 +701,9 @@ export function Hyphae1Details() {
                 })}
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-6">
-              <div className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="relative aspect-square rounded-3xl overflow-hidden border border-cyan-300/20 bg-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <HyphaeFillImage
                   src={HYPHAE1_ASSETS.whyOutdoorInstall}
                   alt="Hyphae 1 white outdoor enclosure with mushroom logo and antenna on grass, hedge and palm trees in the background"
@@ -719,7 +711,7 @@ export function Hyphae1Details() {
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
               </div>
-              <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-cyan-300/20 bg-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <HyphaeFillImage
                   src={HYPHAE1_ASSETS.labPrototype}
                   alt="Hyphae 1 physical unit on a stainless lab workbench: white chamfered enclosure with Mycosoft mushroom logo, top-mounted antennas, and side sensor housings"
@@ -727,7 +719,7 @@ export function Hyphae1Details() {
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 text-center lg:text-left leading-relaxed">
+              <p className="text-sm text-slate-300 text-center lg:text-left leading-relaxed">
                 Field form factor, lab proven—integrated antennas and sensor apertures on a single
                 exterior-grade chassis.
               </p>
@@ -752,7 +744,7 @@ export function Hyphae1Details() {
               sensor contracts.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {HYPHAE_FEATURE_CAPABILITIES.map((item) => (
               <NeuCard
@@ -775,7 +767,7 @@ export function Hyphae1Details() {
       {/* Applications — white field + dark scrolling grid in light mode */}
       <section className="hyphae1-applications relative py-24 bg-white dark:bg-slate-950 overflow-hidden">
         <InfrastructureGrid className="opacity-100" />
-        
+
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 bg-white/95 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600 shadow-sm backdrop-blur-sm">
@@ -790,7 +782,7 @@ export function Hyphae1Details() {
               factory yard, or cover critical agriculture.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
@@ -863,7 +855,7 @@ export function Hyphae1Details() {
                       Component Selector
                     </span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2">
                     {DEVICE_COMPONENTS.map((component) => {
                       const IconComponent = component.icon
@@ -912,7 +904,7 @@ export function Hyphae1Details() {
                       Component Details
                     </span>
                   </div>
-                  
+
                   <AnimatePresence mode="wait">
                     {DEVICE_COMPONENTS.filter(c => c.id === selectedComponent).map((component) => (
                       <motion.div
@@ -961,7 +953,7 @@ export function Hyphae1Details() {
                       backgroundSize: "30px 30px",
                     }}
                   />
-                  
+
                   {/* Panel Header */}
                   <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-100/95 to-transparent dark:from-slate-900 z-10">
                     <div className="flex items-center gap-2">
@@ -975,7 +967,7 @@ export function Hyphae1Details() {
                       </span>
                     </div>
                   </div>
-                  
+
                   {/* Device Visual */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="relative w-3/4 h-3/4 border border-slate-400 rounded-lg bg-white/60 dark:border-slate-600 dark:bg-slate-800/50">
@@ -985,7 +977,7 @@ export function Hyphae1Details() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Status bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-100/95 to-transparent dark:from-slate-900">
                     <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-white/30">
@@ -1032,7 +1024,7 @@ export function Hyphae1Details() {
               SKU and region.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             <div className="hyphae1-spec-card bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6 shadow-[8px_10px_26px_rgba(15,23,42,0.07)] dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
@@ -1053,7 +1045,7 @@ export function Hyphae1Details() {
                 ))}
               </div>
             </div>
-            
+
             <div className="hyphae1-spec-card bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6 shadow-[8px_10px_26px_rgba(15,23,42,0.07)] dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
                 <Cpu className="h-5 w-5 text-slate-600 dark:text-slate-400 shrink-0" />
@@ -1080,7 +1072,7 @@ export function Hyphae1Details() {
             (power budgets, environmental limits, agency marks, and interface control documents) after
             configuration sign-off—marketing pages stay accurate to the architecture, not to every draft BOM.
           </p>
-          
+
           <div className="flex justify-center gap-4 mt-12">
             <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-4 w-4" />
@@ -1097,7 +1089,7 @@ export function Hyphae1Details() {
       {/* CTA — light: white page band + light card + dark type; dot grid stays visible */}
       <section className="relative py-24 bg-white dark:bg-slate-900 text-slate-900 dark:text-white overflow-hidden">
         <InfrastructureDotGrid className="opacity-100" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto px-4">
           <div className="bg-slate-50 dark:bg-slate-800/90 backdrop-blur-sm rounded-3xl border border-slate-200 dark:border-slate-700/50 p-10 md:p-14 shadow-[12px_16px_40px_rgba(15,23,42,0.08)] dark:shadow-2xl">
             <div className="text-center">
@@ -1109,7 +1101,7 @@ export function Hyphae1Details() {
                 edge inference, and command on the pole, not only in the climate-controlled row. Talk with
                 Mycosoft to map modalities, mesh, and compliance for your perimeter, campus, or estate.
               </p>
-              
+
               <div className="flex justify-center">
                 <NeuButton
                   size="lg"
@@ -1119,7 +1111,7 @@ export function Hyphae1Details() {
                   Contact sales
                 </NeuButton>
               </div>
-              
+
               <p className="text-sm text-slate-500 dark:text-white/50 mt-8 max-w-xl mx-auto leading-relaxed">
                 Configuration-specific datasheets and drawings after sign-off • Mycosoft fabric, MAS registry,
                 and field integration support
@@ -1132,4 +1124,3 @@ export function Hyphae1Details() {
     </NeuromorphicProvider>
   )
 }
-

@@ -9,7 +9,7 @@
 "use client"
 
 import { useMemo, useRef, useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -38,6 +38,8 @@ interface AnswersWidgetProps {
   getContextText?: () => string
   searchContext?: AnswersSearchContext
   suggestions?: AnswersSuggestions
+  activeQuery?: string
+  aiAnswer?: string
   onSelectWidget?: (widgetType: string) => void
   onSelectQuery?: (query: string) => void
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
@@ -49,6 +51,8 @@ export function AnswersWidget({
   isFocused,
   getContextText,
   suggestions = { widgets: [], queries: [] },
+  activeQuery,
+  aiAnswer,
   onSelectWidget,
   onSelectQuery,
   onAddToNotepad,
@@ -66,17 +70,36 @@ export function AnswersWidget({
     confirmAction,
     consciousness,
   } = useMYCA()
-  
+
   const { user } = useAuth()
 
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
+  const mountedAtRef = useRef(Date.now())
 
-  const visibleMessages = useMemo(
-    () => messages.filter((m) => m.role !== "system"),
-    [messages]
-  )
+  const visibleMessages = useMemo(() => {
+    const allVisible = messages.filter((message) => {
+      if (message.role === "system") return false
+      const createdAt = Date.parse(message.timestamp)
+      if (Number.isNaN(createdAt)) return false
+      return createdAt >= mountedAtRef.current - 5000
+    })
+    const normalizedQuery = activeQuery?.trim().toLowerCase()
+    if (!normalizedQuery || normalizedQuery.length < 2) return allVisible.slice(-6)
+
+    const currentQueryIndex = (() => {
+      for (let i = allVisible.length - 1; i >= 0; i -= 1) {
+        const message = allVisible[i]
+        if (message.role !== "user") continue
+        const content = message.content.trim().toLowerCase()
+        if (content.includes(normalizedQuery) || normalizedQuery.includes(content)) return i
+      }
+      return -1
+    })()
+
+    return currentQueryIndex >= 0 ? allVisible.slice(currentQueryIndex, currentQueryIndex + 6) : []
+  }, [activeQuery, messages])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -164,7 +187,11 @@ export function AnswersWidget({
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-xs text-muted-foreground text-center py-6">
-              Ask a question. Answers uses MYCA to converse and show related search results.
+              {aiAnswer ? (
+                <AnswerMessageContent content={aiAnswer} className="text-foreground text-left" onFocusWidget={(widgetType) => onFocusWidget?.({ type: widgetType })} />
+              ) : (
+                "Ask a question. Answers uses MYCA to converse and show related search results."
+              )}
             </div>
           )}
 

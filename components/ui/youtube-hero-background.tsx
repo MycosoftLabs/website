@@ -1,36 +1,19 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { youtubeHeroEmbedSrc } from "@/lib/hero-youtube"
-
 interface YoutubeHeroBackgroundProps {
   videoId: string
   className?: string
 }
 
 /**
- * Full-viewport muted looping YouTube embed (Privacy Enhanced / nocookie).
- * Parent should add gradient overlays; keep pointer-events-none on wrapper.
+ * Disabled for hero sections.
+ *
+ * A YouTube iframe can still expose YouTube UI/branding from inside the
+ * cross-origin player, even when controls are requested off. Hero videos must
+ * render from first-party MP4/CDN sources so there is no visible YouTube chrome.
  */
 export function YoutubeHeroBackground({ videoId, className }: YoutubeHeroBackgroundProps) {
-  const src = youtubeHeroEmbedSrc(videoId, true)
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-      aria-hidden
-    >
-      <iframe
-        title="Background video"
-        src={src}
-        allow="autoplay; encrypted-media"
-        referrerPolicy="strict-origin-when-cross-origin"
-        loading="eager"
-        className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 border-0",
-          "h-[56.25vw] min-h-full w-[177.78vh] min-w-full -translate-x-1/2 -translate-y-1/2",
-          className
-        )}
-      />
-    </div>
-  )
+  void videoId
+  void className
+  return null
 }

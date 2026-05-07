@@ -174,6 +174,70 @@ interface UnifiedSearchResponse {
   }
 }
 
+function toStringValue(value: unknown, fallback = "") {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return fallback
+}
+
+function toOptionalString(value: unknown) {
+  const normalized = toStringValue(value)
+  return normalized || undefined
+}
+
+function toOptionalNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+function toStringArray(value: unknown) {
+  if (!Array.isArray(value)) return undefined
+  const strings = value.map((item) => toStringValue(item)).filter(Boolean)
+  return strings.length > 0 ? strings : undefined
+}
+
+function mapRecordToTaxonResult(item: Record<string, unknown>): TaxonResult {
+  const id = toStringValue(item.id ?? item.uuid, "unknown-taxon")
+  const canonicalName = toStringValue(item.canonical_name ?? item.scientificName ?? item.name, "Unknown taxon")
+
+  return {
+    id,
+    canonical_name: canonicalName,
+    common_name: toOptionalString(item.common_name ?? item.commonName),
+    rank: toStringValue(item.rank, "species"),
+    description: toOptionalString(item.description),
+    image_url: toOptionalString(item.image_url ?? item.imageUrl),
+    toxicity: toOptionalString(item.toxicity),
+    edibility: toOptionalString(item.edibility),
+  }
+}
+
+function mapRecordToCompoundResult(item: Record<string, unknown>): CompoundResult {
+  return {
+    id: toStringValue(item.id ?? item.uuid, "unknown-compound"),
+    name: toStringValue(item.name ?? item.compound_name, "Unknown compound"),
+    formula: toOptionalString(item.formula ?? item.molecular_formula),
+    molecular_weight: toOptionalNumber(item.molecular_weight),
+    fungal_sources: toStringArray(item.fungal_sources ?? item.source_species),
+  }
+}
+
+function mapRecordToResearchResult(item: Record<string, unknown>): ResearchResult {
+  return {
+    id: toStringValue(item.id ?? item.doi ?? item.uuid, `research-${toStringValue(item.title, "untitled")}`),
+    title: toStringValue(item.title, "Untitled research result"),
+    authors: toOptionalString(item.authors),
+    journal: toOptionalString(item.journal),
+    year: toOptionalNumber(item.year),
+    doi: toOptionalString(item.doi),
+    abstract: toOptionalString(item.abstract),
+  }
+}
+
 // =============================================================================
 // RETRY UTILITY WITH EXPONENTIAL BACKOFF
 // =============================================================================
@@ -192,9 +256,9 @@ async function fetchWithRetry<T>(
   const initialDelayMs = config?.initialDelayMs ?? 500
   const maxDelayMs = config?.maxDelayMs ?? 8000
   const retryOnStatuses = config?.retryOnStatuses ?? [429, 500, 502, 503, 504]
-  
+
   let lastError: Error | null = null
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const res = await fetch(url, {
@@ -202,7 +266,7 @@ async function fetchWithRetry<T>(
         // Add timeout via AbortController
         signal: options?.signal || AbortSignal.timeout(15000),
       })
-      
+
       // Retry on specific status codes
       if (retryOnStatuses.includes(res.status) && attempt < maxRetries - 1) {
         const delay = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs)
@@ -210,16 +274,16 @@ async function fetchWithRetry<T>(
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
-      
+
       return res
     } catch (error) {
       lastError = error as Error
-      
+
       // Don't retry on abort
       if (error instanceof DOMException && error.name === "AbortError") {
         throw error
       }
-      
+
       // Exponential backoff
       if (attempt < maxRetries - 1) {
         const delay = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs)
@@ -228,7 +292,7 @@ async function fetchWithRetry<T>(
       }
     }
   }
-  
+
   throw lastError || new Error(`Failed after ${maxRetries} attempts`)
 }
 
@@ -238,13 +302,13 @@ async function fetchWithRetry<T>(
 
 function parseIntent(query: string): SearchIntent {
   const q = query.toLowerCase()
-  
+
   // Detect entity type - includes environmental/CREP types (Feb 12, 2026)
   let type: SearchIntent["type"] = "general"
-  
+
   // Environmental/CREP queries
   const isEnvironmental = /\b(weather|temperature|humidity|wind|rain|storm|fire|wildfire|lightning|air quality|iaq|pressure|forecast|climate|sensor|device|mycobrain)\b/.test(q)
-  
+
   if (/\b(species|mushroom|fungus|fungi|amanita|psilocybin|agaricus|boletus)\b/.test(q)) {
     type = "species"
   } else if (/\b(compound|chemical|molecule|psilocybin|psilocin|muscimol|amatoxin)\b/.test(q)) {
@@ -256,7 +320,7 @@ function parseIntent(query: string): SearchIntent {
   } else if (/\b(in|near|around|from)\s+([\w\s]+)(?:$|,)/.test(q)) {
     type = "location"
   }
-  
+
   // Mark environmental queries for CREP integration
   const includeEnvironmental = isEnvironmental || type === "location"
 
@@ -271,7 +335,7 @@ function parseIntent(query: string): SearchIntent {
 
   // Extract filters
   const filters: SearchIntent["filters"] = {}
-  
+
   // Toxicity
   if (/\bpoison(ous)?\b|\btoxic\b|\bdeadly\b/.test(q)) {
     filters.toxicity = "poisonous"
@@ -347,18 +411,9 @@ async function searchMindexTaxa(query: string, filters: SearchIntent["filters"],
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
-    
+
     const data = await res.json()
-    return (data.taxa || data.data || []).map((t: Record<string, unknown>) => ({
-      id: t.id || t.uuid,
-      canonical_name: t.canonical_name || t.scientificName,
-      common_name: t.common_name || t.commonName,
-      rank: t.rank || "species",
-      description: t.description,
-      image_url: t.image_url || t.imageUrl,
-      toxicity: t.toxicity,
-      edibility: t.edibility,
-    }))
+    return (data.taxa || data.data || []).map((t: Record<string, unknown>) => mapRecordToTaxonResult(t))
   } catch {
     return []
   }
@@ -370,15 +425,9 @@ async function searchMindexCompounds(query: string, limit: number = 10): Promise
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
-    
+
     const data = await res.json()
-    return (data.data || []).map((c: Record<string, unknown>) => ({
-      id: c.id || c.uuid,
-      name: c.name,
-      formula: c.formula,
-      molecular_weight: c.molecular_weight,
-      fungal_sources: c.fungal_sources,
-    }))
+    return (data.data || []).map((c: Record<string, unknown>) => mapRecordToCompoundResult(c))
   } catch {
     return []
   }
@@ -390,17 +439,9 @@ async function searchMindexResearch(query: string, limit: number = 10): Promise<
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
-    
+
     const data = await res.json()
-    return (data.papers || data.results || []).map((p: Record<string, unknown>) => ({
-      id: p.id || p.doi,
-      title: p.title,
-      authors: p.authors,
-      journal: p.journal,
-      year: p.year,
-      doi: p.doi,
-      abstract: p.abstract,
-    }))
+    return (data.papers || data.results || []).map((p: Record<string, unknown>) => mapRecordToResearchResult(p))
   } catch {
     return []
   }
@@ -497,8 +538,8 @@ If asked about location-specific fungi, provide relevant species for that area.
 Always note toxicity warnings for dangerous species.
 Be concise but thorough.`
 
-  const userPrompt = context 
-    ? `User context: ${context}\n\nQuestion: ${query}` 
+  const userPrompt = context
+    ? `User context: ${context}\n\nQuestion: ${query}`
     : query
 
   // Try MAS Brain first
@@ -685,7 +726,7 @@ async function searchExa(query: string, limit: number = 5): Promise<ExaResult[]>
     console.log("[Exa] API key not configured, skipping")
     return []
   }
-  
+
   try {
     const res = await fetchWithRetry(
       "https://api.exa.ai/search",
@@ -707,9 +748,9 @@ async function searchExa(query: string, limit: number = 5): Promise<ExaResult[]>
       },
       { maxRetries: 2, initialDelayMs: 500, maxDelayMs: 4000 }
     )
-    
+
     if (!res.ok) return []
-    
+
     const data = await res.json()
     return (data.results || []).map((r: Record<string, unknown>) => ({
       id: r.id as string,
@@ -734,22 +775,22 @@ async function fetchCREPEnvironmentalData(
   location?: { lat: number; lng: number }
 ): Promise<CREPEnvironmentalData> {
   const result: CREPEnvironmentalData = {}
-  
+
   // Only fetch environmental data for relevant queries
   const q = intent.originalQuery.toLowerCase()
   const isWeatherQuery = /\b(weather|temperature|humidity|wind|rain|storm|forecast|climate)\b/.test(q)
   const isEventQuery = /\b(fire|wildfire|lightning|earthquake|volcano|hurricane|tornado)\b/.test(q)
   const isDeviceQuery = /\b(sensor|device|mycobrain|iaq|air quality)\b/.test(q)
   const isAlertQuery = /\b(alert|warning|danger|hazard)\b/.test(q)
-  
+
   // If no environmental relevance, skip
   if (!isWeatherQuery && !isEventQuery && !isDeviceQuery && !isAlertQuery && intent.type !== "location") {
     return result
   }
-  
+
   const lat = location?.lat || intent.filters.location?.lat || 32.7157 // Default San Diego
   const lng = location?.lng || intent.filters.location?.lng || -117.1611
-  
+
   try {
     // Fetch weather data (try Earth-2 first, fallback to Open-Meteo)
     if (isWeatherQuery || intent.type === "location") {
@@ -776,7 +817,7 @@ async function fetchCREPEnvironmentalData(
         console.warn("[CREP] Weather fetch failed:", e)
       }
     }
-    
+
     // Fetch global events
     if (isEventQuery || isAlertQuery) {
       try {
@@ -799,7 +840,7 @@ async function fetchCREPEnvironmentalData(
         console.warn("[CREP] Events fetch failed:", e)
       }
     }
-    
+
     // Fetch MycoBrain device data
     if (isDeviceQuery) {
       try {
@@ -822,7 +863,7 @@ async function fetchCREPEnvironmentalData(
         console.warn("[CREP] Devices fetch failed:", e)
       }
     }
-    
+
     // Fetch active alerts
     if (isAlertQuery) {
       try {
@@ -847,7 +888,7 @@ async function fetchCREPEnvironmentalData(
   } catch (err) {
     console.error("[CREP] Environmental data fetch failed:", err)
   }
-  
+
   return result
 }
 
@@ -954,32 +995,9 @@ export async function GET(request: NextRequest) {
     if (masPayload) {
       const intent = parseIntent(query)
       const { results, totalCount } = mapMASResponseToUnified(masPayload)
-      const taxa = (results.species || []).map((s) => ({
-        id: s.id ?? s.uuid,
-        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
-        common_name: s.common_name ?? s.commonName,
-        rank: s.rank ?? "species",
-        description: s.description,
-        image_url: s.image_url ?? s.imageUrl,
-        toxicity: s.toxicity,
-        edibility: s.edibility,
-      }))
-      const compounds = (results.compounds || []).map((c) => ({
-        id: c.id ?? c.uuid,
-        name: c.name ?? c.compound_name,
-        formula: c.formula ?? c.molecular_formula,
-        molecular_weight: c.molecular_weight,
-        fungal_sources: c.fungal_sources ?? c.source_species,
-      }))
-      const research = (results.research || []).map((r) => ({
-        id: r.id ?? r.doi ?? r.uuid,
-        title: r.title,
-        authors: r.authors,
-        journal: r.journal,
-        year: r.year,
-        doi: r.doi,
-        abstract: r.abstract,
-      }))
+      const taxa = (results.species || []).map((s) => mapRecordToTaxonResult(s))
+      const compounds = (results.compounds || []).map((c) => mapRecordToCompoundResult(c))
+      const research = (results.research || []).map((r) => mapRecordToResearchResult(r))
       await recordUsageFromRequest({
         request,
         usageType: "SPECIES_IDENTIFICATION",
@@ -1121,32 +1139,9 @@ export async function POST(request: NextRequest) {
         intent.filters.location = { lat: location.lat, lng: location.lng, radius: 100 }
       }
       const { results } = mapMASResponseToUnified(masPayload)
-      const taxa = (results.species || []).map((s) => ({
-        id: s.id ?? s.uuid,
-        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
-        common_name: s.common_name ?? s.commonName,
-        rank: s.rank ?? "species",
-        description: s.description,
-        image_url: s.image_url ?? s.imageUrl,
-        toxicity: s.toxicity,
-        edibility: s.edibility,
-      }))
-      const compounds = (results.compounds || []).map((c) => ({
-        id: c.id ?? c.uuid,
-        name: c.name ?? c.compound_name,
-        formula: c.formula ?? c.molecular_formula,
-        molecular_weight: c.molecular_weight,
-        fungal_sources: c.fungal_sources ?? c.source_species,
-      }))
-      const research = (results.research || []).map((r) => ({
-        id: r.id ?? r.doi ?? r.uuid,
-        title: r.title,
-        authors: r.authors,
-        journal: r.journal,
-        year: r.year,
-        doi: r.doi,
-        abstract: r.abstract,
-      }))
+      const taxa = (results.species || []).map((s) => mapRecordToTaxonResult(s))
+      const compounds = (results.compounds || []).map((c) => mapRecordToCompoundResult(c))
+      const research = (results.research || []).map((r) => mapRecordToResearchResult(r))
       await recordUsageFromRequest({ request, usageType: "SPECIES_IDENTIFICATION", quantity: 1, metadata: { query, source: "mas" } })
       return NextResponse.json({
         query,

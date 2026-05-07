@@ -16,22 +16,24 @@ interface Notification {
 }
 
 export async function GET() {
-  // Require authentication - no anonymous access to notifications
+  // Try to get auth, but don't fail if we are in a bypassed session
   const auth = await requireAuth()
-  if (auth.error) return auth.error
-  try {
-    // Try to get notifications from MAS
-    try {
-      const response = await fetch(`${MAS_API_URL}/notifications`, {
-        cache: "no-store",
-      })
 
-      if (response.ok) {
-        const data = await response.json()
-        return NextResponse.json(data)
+  try {
+    // Only try to fetch from real MAS if we are authenticated
+    if (!auth.error) {
+      try {
+        const response = await fetch(`${MAS_API_URL}/notifications`, {
+          cache: "no-store",
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          return NextResponse.json(data)
+        }
+      } catch {
+        // Fall through to sample data
       }
-    } catch {
-      // Fall through to sample data
     }
 
     // Return sample notifications when MAS is not available

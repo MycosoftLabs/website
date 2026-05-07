@@ -8,7 +8,7 @@
 
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { SearchContextProvider } from "@/components/search/SearchContextProvider"
 import { SearchLayout } from "@/components/search/SearchLayout"
@@ -27,57 +27,73 @@ export default function SearchPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const query = searchParams.get("q") || ""
+  const [isPhone, setIsPhone] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)")
+    const sync = () => setIsPhone(media.matches)
+    sync()
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
+  }, [])
 
   const handleNavigate = (url: string) => {
     if (url.startsWith("/")) router.push(url)
     else window.location.href = url
   }
 
-  return (
-    <>
-      {/* ── Phone (< 640px): ChatGPT-like MYCA interface ── */}
-      <div className="sm:hidden">
-        <SearchContextProvider>
-          <Suspense
-            fallback={
-              <div className="flex flex-col items-center justify-center min-h-dvh bg-background">
-                <div className="text-center space-y-3">
-                  <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-violet-500/10">
-                    <Brain className="h-8 w-8 text-violet-500 animate-pulse" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Loading MYCA...</p>
-                </div>
-              </div>
-            }
-          >
-            <MobileSearchChat initialQuery={query} />
-          </Suspense>
-        </SearchContextProvider>
+  if (isPhone === null) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Initializing search...</p>
+        </div>
       </div>
+    )
+  }
 
-      {/* ── Tablet + Desktop (≥ 640px): full canvas + panels ── */}
-      <div className="hidden sm:block">
-        <SearchContextProvider>
-          <SearchLayout>
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center py-20">
-                  <div className="text-center space-y-3">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-                    <p className="text-sm text-muted-foreground">Initializing search...</p>
-                  </div>
+  if (isPhone) {
+    return (
+      <SearchContextProvider>
+        <Suspense
+          fallback={
+            <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
+              <div className="text-center space-y-3">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/10">
+                  <Brain className="h-8 w-8 text-violet-500 animate-pulse" />
                 </div>
-              }
-            >
-              <FluidSearchCanvas
-                initialQuery={query}
-                voiceEnabled={false}
-                onNavigate={handleNavigate}
-              />
-            </Suspense>
-          </SearchLayout>
-        </SearchContextProvider>
-      </div>
-    </>
+                <p className="text-sm text-muted-foreground">Loading MYCA...</p>
+              </div>
+            </div>
+          }
+        >
+          <MobileSearchChat initialQuery={query} />
+        </Suspense>
+      </SearchContextProvider>
+    )
+  }
+
+  return (
+    <SearchContextProvider>
+      <SearchLayout>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center px-4 py-20">
+              <div className="text-center space-y-3">
+                <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+                <p className="text-sm text-muted-foreground">Initializing search...</p>
+              </div>
+            </div>
+          }
+        >
+          <FluidSearchCanvas
+            initialQuery={query}
+            voiceEnabled={false}
+            onNavigate={handleNavigate}
+          />
+        </Suspense>
+      </SearchLayout>
+    </SearchContextProvider>
   )
 }

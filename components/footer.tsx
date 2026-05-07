@@ -13,7 +13,7 @@ import { Twitter, Youtube, Github } from "lucide-react"
 
 export function Footer() {
   return (
-    <footer className="relative z-[70] border-t pointer-events-auto" suppressHydrationWarning>
+    <footer className="relative z-[210] border-t bg-background pointer-events-auto" suppressHydrationWarning>
       <div className="container max-w-7xl mx-auto flex flex-col gap-8 py-8 px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 px-4">
           {/* Company */}
@@ -21,22 +21,22 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="/about" className="hover:text-foreground transition-colors">
+                <a href="/about" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   About Us
                 </a>
               </li>
               <li>
-                <a href="/science" className="hover:text-foreground transition-colors">
+                <a href="/science" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Research
                 </a>
               </li>
               <li>
-                <a href="/devices" className="hover:text-foreground transition-colors">
+                <a href="/devices" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Devices
                 </a>
               </li>
               <li>
-                <a href="/apps" className="hover:text-foreground transition-colors">
+                <a href="/apps" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Applications
                 </a>
               </li>
@@ -48,27 +48,27 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">AI</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="/ai" className="hover:text-foreground transition-colors">
+                <a href="/ai" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   AI Overview
                 </a>
               </li>
               <li>
-                <a href="/myca" className="hover:text-foreground transition-colors">
+                <a href="/myca" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   MYCA
                 </a>
               </li>
               <li>
-                <a href="/ai/avani" className="hover:text-foreground transition-colors">
+                <a href="/ai/avani" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   AVANI
                 </a>
               </li>
               <li>
-                <a href="/docs" className="hover:text-foreground transition-colors">
+                <a href="/docs" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Documentation
                 </a>
               </li>
               <li>
-                <a href="/natureos" className="hover:text-foreground transition-colors">
+                <a href="/natureos" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   NatureOS
                 </a>
               </li>
@@ -80,12 +80,12 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Legal</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="/privacy" className="hover:text-foreground transition-colors">
+                <a href="/privacy" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="/terms" className="hover:text-foreground transition-colors">
+                <a href="/terms" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Terms of Service
                 </a>
               </li>
@@ -102,6 +102,7 @@ export function Footer() {
                 aria-label="Twitter"
                 target="_blank"
                 rel="noopener noreferrer"
+                suppressHydrationWarning
               >
                 <Twitter className="h-5 w-5" />
               </a>
@@ -111,6 +112,7 @@ export function Footer() {
                 aria-label="YouTube"
                 target="_blank"
                 rel="noopener noreferrer"
+                suppressHydrationWarning
               >
                 <Youtube className="h-5 w-5" />
               </a>
@@ -120,6 +122,7 @@ export function Footer() {
                 aria-label="GitHub"
                 target="_blank"
                 rel="noopener noreferrer"
+                suppressHydrationWarning
               >
                 <Github className="h-5 w-5" />
               </a>
@@ -128,10 +131,10 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-t pt-8">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             © {new Date().getFullYear()} Mycosoft – Building The Earth Intelligence. All rights reserved.
           </p>
-          <p className="text-sm text-muted-foreground">Made with 🍄 by the fungal intelligence community</p>
+          <p className="text-sm text-muted-foreground" suppressHydrationWarning>Made with Nature</p>
         </div>
       </div>
     </footer>

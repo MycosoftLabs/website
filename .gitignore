@@ -60,4 +60,7 @@ Sporebase/
 
 # NAS-backed media (handled on sandbox via mount)
 public/assets/
+agaric/**/*.mp4
+agaric/**/*.mov
+agaric/**/*.webm
 credentials.local

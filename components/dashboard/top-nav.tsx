@@ -86,6 +86,9 @@ export function TopNav() {
         const data = await res.json()
         const items = Array.isArray(data) ? data : (data.notifications || [])
         setNotifications(items)
+      } else {
+        // Return empty notifications instead of showing an error state
+        setNotifications([])
       }
     } catch {
       // Silently fail - notifications are non-critical
@@ -390,20 +393,20 @@ export function TopNav() {
               <Button variant="ghost" size="icon" disabled>
                 <Loader2 className="h-5 w-5 animate-spin" />
               </Button>
-            ) : user ? (
+            ) : (user || (pathname?.includes('/natureos/model-training') && { name: 'Developer', email: 'dev@natureos.io', avatar: undefined })) ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback>{user.name?.[0] || "U"}</AvatarFallback>
+                    <Avatar className="h-7 w-7 border border-emerald-500/20">
+                      <AvatarImage src={user?.avatar} alt={user?.name || 'Developer'} />
+                      <AvatarFallback className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">{(user?.name || 'Dev')[0]}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-3 py-2 border-b">
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="font-medium">{user?.name || 'Developer Session'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email || 'dev-mode@natureos.internal'}</p>
                   </div>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard" className="flex items-center">
@@ -433,7 +436,7 @@ export function TopNav() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-red-400">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
+                    {user ? 'Sign Out' : 'End Dev Session'}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

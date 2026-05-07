@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
@@ -13,54 +13,20 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
+import {
+  Download,
   Antenna, Radio, Wifi, Network, Shield, Zap, Eye, Thermometer,
   Droplets, Wind, Activity, MapPin, Globe, Trees, Microscope, Database,
   Cpu, Battery, Lock, Leaf, AlertTriangle, Check,
-  ExternalLink, Youtube, Home, Flashlight, CircuitBoard, Cable,
+  ExternalLink, Home, Flashlight, CircuitBoard, Cable,
   Plane, Navigation, Satellite,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
-import { SensorNeuralWeb } from "@/components/effects/neural-web"
-import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
 import { NetworkCanvas } from "@/components/effects/network-canvas"
-interface SelectedVideo {
-  kind: "youtube" | "mp4"
-  src: string
-  title: string
-}
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === "undefined") return false
-    return window.matchMedia("(max-width: 768px)").matches
-  })
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 768px)")
-
-    function handleChange() {
-      setIsMobile(mediaQuery.matches)
-    }
-
-    handleChange()
-
-    if ("addEventListener" in mediaQuery) {
-      mediaQuery.addEventListener("change", handleChange)
-      return () => mediaQuery.removeEventListener("change", handleChange)
-    }
-
-    // Safari < 14 fallback
-    mediaQuery.addListener(handleChange)
-    return () => mediaQuery.removeListener(handleChange)
-  }, [])
-
-  return isMobile
-}
+import { AgaricShardTitle } from "@/components/devices/agaric-shard-title"
+import { AgaricTechnologyShaderBackground } from "@/components/devices/agaric-technology-shader-background"
 
 // ============================================================================
 // AGARIC MEDIA ASSETS
@@ -77,13 +43,22 @@ const AGARIC_ASSETS = {
     { src: "/assets/agaric/4.jpg", alt: "Agaric — research", location: "Research" },
     { src: "/assets/agaric/5.jpg", alt: "Agaric — heavy lift", location: "Heavy-Lift" },
   ],
-  mainImage: "/assets/agaric/Main A.jpg",
+  heroImage: "/assets/agaric/hero2.jpg",
+  missionImage: "/assets/agaric/main.jpg",
+  fieldImage: "/assets/agaric/desertfly.jpg",
+  footerImage: "/assets/agaric/forest1.jpg",
+  mainImage: "/assets/agaric/topboard.jpg",
+  connectivityImage: "/assets/agaric/connectivity-forest.png",
+  sizesImage: "/assets/agaric/sizes.jpg",
   videos: {
+    hero: "/assets/agaric/agaric-hero.mp4",
     background: "/assets/agaric/hero.mp4",
     deploy: "/assets/agaric/deploy-retrieve.mp4",
     waterfall: "/assets/agaric/hero.mp4",
     demo: "/assets/agaric/deploy-retrieve.mp4",
     promo: "/assets/agaric/promo.mp4",
+    capabilities: "/assets/agaric/agaric-background1.mp4",
+    footer: "/assets/agaric/forestfly.mp4",
   },
   useCaseVideos: [
     "/assets/agaric/a.mp4",
@@ -91,7 +66,6 @@ const AGARIC_ASSETS = {
     "/assets/agaric/c.mp4",
     "/assets/agaric/d.mp4",
   ],
-  youtubeVideos: [] as { id: string; title: string }[],
 }
 
 // Component architecture data for blueprint
@@ -107,51 +81,51 @@ interface DeviceComponent {
 const DEVICE_COMPONENTS: DeviceComponent[] = [
   {
     id: "arms",
-    name: "Carbon-fibre arms",
+    name: "Composite arms",
     icon: Activity,
     position: { top: "12%", left: "22%" },
-    description: "Foldable quad / hex frame",
-    details: "Lightweight carbon-fibre tubes with a 600–650 mm wheelbase (per MycoDRONE spec). Foldable arms for transport; high stiffness for stable hover and payload ops.",
+    description: "Size-scaled flying droid frame",
+    details: "Foldable composite members give AGARIC-S, AGARIC-M, and AGARIC-L the same platform identity at different lift envelopes. The frame is built for hover, maneuver, payload work, and field transport.",
   },
   {
     id: "motors",
-    name: "Brushless motors",
+    name: "12-rotor lift system",
     icon: Zap,
     position: { top: "18%", left: "72%" },
-    description: "620–700 W class (variant)",
-    details: "Four or six high-thrust motors with 15–17 inch props target thrust-to-weight ≥2 for heavy-lift missions and safe margin under payload.",
+    description: "Six-point coaxial propulsion",
+    details: "AGARIC uses a six-point dual-propeller layout with 12 total rotors in paired top-and-bottom configurations, giving the platform full directional control authority instead of behaving like a commodity quadcopter.",
   },
   {
     id: "pixhawk",
-    name: "Pixhawk autopilot",
+    name: "Flight controller",
     icon: Navigation,
     position: { top: "28%", left: "48%" },
-    description: "ArduPilot / PX4 + MAVLink",
-    details: "Pixhawk 6X or Cube Orange class FC runs low-level stabilization, GPS/RTK waypoints, precision landing, and autonomous route execution through a MAVLink bridge.",
+    description: "Tangential flight control",
+    details: "Unlike conventional drones that tilt to translate, AGARIC can hold a level orientation while moving forward, backward, lateral, or vertical through complex field environments.",
   },
   {
     id: "avionics",
-    name: "Central avionics board",
+    name: "Mission interface layer",
     icon: Cpu,
     position: { top: "42%", left: "38%" },
-    description: "LoRa · Wi‑Fi · BLE · payload IO",
-    details: "The onboard control board coordinates mesh telemetry, payload control, environmental sensing, and mission logic while publishing telemetry to MINDEX when connected.",
+    description: "Device identity + telemetry",
+    details: "The central mission board handles Mycosoft device discovery, payload handshakes, telemetry packet assembly, radio messaging, and protocol translation into MYCA, NatureOS, and MINDEX when online.",
   },
   {
     id: "battery",
     name: "Swappable Li pack",
     icon: Battery,
     position: { top: "52%", left: "68%" },
-    description: "6S 15–20 Ah (variant)",
-    details: "High-capacity Li-ion or LiPo pack in a weather-sealed bay; hot-swappable. DC-DC feeds avionics, sensors, and payloads. Targets 34–55 min flight depending on variant.",
+    description: "Size-scaled power bay",
+    details: "Battery capacity scales by size and mission load. Power is routed to flight electronics, radios, sensors, and payload interfaces while keeping service access practical for field teams.",
   },
   {
     id: "micolatch",
-    name: "MicoLatch payload",
+    name: "Payload interface",
     icon: Lock,
     position: { top: "68%", left: "28%" },
     description: "Deploy / retrieve Mycosoft devices",
-    details: "Underside MicoLatch rated for safe deploy/retrieve of MycoNode, ALARM, SporeBase, Mushroom 1, and Hyphae-class payloads. Heavy-Lift adds winch for canopy and water retrieval.",
+    details: "The AGARIC payload interface supports retention, status detection, safe release, safe recovery, optional power, and telemetry handshakes for size-appropriate Mycosoft field hardware.",
   },
   {
     id: "gnss",
@@ -163,11 +137,11 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
   },
   {
     id: "vision",
-    name: "360° sensing",
+    name: "Inspection sensors",
     icon: Eye,
     position: { top: "58%", left: "52%" },
-    description: "Stereo + lidar obstacle avoidance",
-    details: "Forward 4K gimbal camera, downward camera for precision landing and fiducial detection; optional thermal for SAR and night ops.",
+    description: "Vision, depth, range, and thermal options",
+    details: "Cameras are inspection and navigation sensors inside the broader Flying Sensor Droid platform. Sensor payloads can include RGB, downward inspection, thermal, LiDAR, depth, or radar/range sensing.",
   },
   {
     id: "comms",
@@ -175,23 +149,23 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
     icon: Antenna,
     position: { top: "22%", left: "58%" },
     description: "LoRa · Wi‑Fi · BLE · sat",
-    details: "Separate LoRa whip, Wi‑Fi/BLE patches on arms, optional Iridium/Swarm puck. Flying gateway extends Mycorrhizae mesh to field and coastal nodes.",
+    details: "AGARIC can relay LoRa, Wi-Fi, BLE, LTE, satellite, Mycorrhizae Protocol, MDP, MMP, and device-status traffic between field systems and Mycosoft command layers.",
   },
   {
     id: "bme690",
-    name: "BME690 air sensing",
+    name: "BME688/BME690 air sensing",
     icon: Thermometer,
     position: { top: "75%", left: "58%" },
     description: "Gas + weather telemetry",
-    details: "Temperature, humidity, pressure, and VOC index / gas resistance for air-quality sampling in flight — aligned with the Agaric environmental sensor plan.",
+    details: "Environmental sensing can include temperature, humidity, pressure, VOC/gas trends, and particulate payloads where size and mission power allow.",
   },
   {
     id: "shell",
-    name: "IP55 fuselage",
+    name: "U.S.-made shell",
     icon: Shield,
     position: { top: "82%", left: "42%" },
-    description: "PA‑CF + sealed electronics",
-    details: "3D-printed PA‑CF housings with conformal-coated PCBs; −20 °C to 45 °C operating band for rain, dust, and marine-adjacent missions.",
+    description: "United States manufacturing",
+    details: "AGARIC is fully made in the United States as a purpose-built flying sensor droid, not an imported FPV or camera quadcopter repackaged for field work.",
   },
   {
     id: "sat",
@@ -203,151 +177,146 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
   },
 ]
 
-// Use cases - now with video backgrounds
+// Four AGARIC capability scenarios.
 const USE_CASES = [
   {
-    title: "Scientific Research",
-    icon: Microscope,
-    color: "from-blue-500 to-cyan-500",
-    colorDark: "dark:from-blue-800 dark:to-cyan-800",
-    description: "Agaric carries MycoNode and Hyphae-class payloads to remote plots, hovers for air sampling with BME690, and relays mesh telemetry back to MINDEX.",
-    applications: ["Aerial spore & air sampling", "Rapid field instrument placement", "Mesh extension over canopy", "Multi-site data mule flights"],
-    video: "/assets/agaric/a.mp4"
+    title: "Lift + Deploy",
+    icon: Plane,
+    color: "from-red-700 to-black",
+    colorDark: "dark:from-red-800 dark:to-black",
+    description: "Move and place Mycosoft devices, probes, samplers, and sensor payloads into target environments with mission context intact.",
+    applications: ["Device placement", "Sampler transport", "Field station drops", "Sensor package lift"],
+    image: "/assets/agaric/forest2.jpg"
   },
   {
-    title: "Agriculture & Forestry",
-    icon: Trees,
-    color: "from-green-500 to-violet-500",
-    colorDark: "dark:from-green-800 dark:to-violet-800",
-    description: "Deploy and retrieve SporeBase and MycoNode across rows and stands; extend LoRa coverage where ground nodes cannot reach.",
-    applications: ["Bioaerosol collector placement", "Canopy-edge mesh relay", "Irrigation / stress scouting", "Post-storm rapid redeploy"],
-    video: "/assets/agaric/b.mp4"
+    title: "Retrieve + Recover",
+    icon: Download,
+    color: "from-red-600 to-red-950",
+    colorDark: "dark:from-red-700 dark:to-black",
+    description: "Recover samples, payloads, probes, and field devices after exposure, collection, inspection, or mission completion.",
+    applications: ["Sampler recovery", "Payload pickup", "Probe return", "Winch / latch support"],
+    image: "/assets/agaric/close1.jpg"
   },
   {
-    title: "Defense & SAR",
-    icon: Shield,
-    color: "from-slate-600 to-slate-800",
-    colorDark: "dark:from-slate-700 dark:to-slate-900",
-    description: "Heavy-Lift variant supports larger sensors, thermal imaging, public-sector field programs, and rugged long-duration missions.",
-    applications: ["Search patterns with thermal", "Perimeter mesh extension", "Rapid kit delivery", "Contamination corridor mapping"],
-    video: "/assets/agaric/c.mp4"
+    title: "Relay + Translate",
+    icon: Antenna,
+    color: "from-black to-red-800",
+    colorDark: "dark:from-black dark:to-red-900",
+    description: "Bridge field communications and turn telemetry, protocol messages, sensor frames, and observations into Mycosoft intelligence.",
+    applications: ["LoRa bridge", "Wi-Fi / BLE offload", "MINDEX traces", "NatureOS state"],
+    image: "/assets/agaric/topboard.jpg"
   },
   {
-    title: "Ocean & Coastal Relay",
-    icon: Globe,
-    color: "from-sky-500 to-indigo-500",
-    colorDark: "dark:from-sky-800 dark:to-indigo-800",
-    description: "Hover over Psathyrella-class buoys and shore nodes to bridge LoRa and Wi‑Fi backhaul across water and littoral mesh gaps.",
-    applications: ["Maritime sensor relay", "Harbor and estuary coverage", "Storm-window data mule", "Cross-domain CREP handoff"],
-    video: "/assets/agaric/d.mp4"
+    title: "Inspect + Maneuver",
+    icon: Navigation,
+    color: "from-slate-950 to-red-900",
+    colorDark: "dark:from-black dark:to-red-950",
+    description: "Use tangential flight to translate without tilting, hold orientation, and move through difficult terrain while sensing devices, canopy, water, infrastructure, and access routes.",
+    applications: ["Level translation", "Tangential passes", "Level hover", "Infrastructure scans"],
+    image: "/assets/agaric/close3.jpg"
   },
 ]
 
 // Sensor specifications
 const SENSORS = [
-  { name: "BME690 environmental", icon: Thermometer, specs: ["Temperature / humidity / pressure", "VOC index and gas trends", "Air-column sampling in flight", "MINDEX-logged telemetry when online"] },
-  { name: "360° LiDAR + radar", icon: Activity, specs: ["Obstacle detection and mapping", "Radar altitude hold over terrain/water", "SLAM-assisted route awareness", "Precision hover support"] },
-  { name: "GNSS + optional RTK", icon: MapPin, specs: ["GPS / Galileo / BeiDou", "RTK for precision landing", "Waypoint + RTL", "Mission handoff to Pixhawk"] },
-  { name: "Vision + thermal", icon: Eye, specs: ["20 MP 1-inch CMOS target", "4K/60 recording and 1080p/60 live feed", "Downward fiducial landing camera", "Optional thermal on Heavy-Lift"] },
-  { name: "Radiation + RF", icon: Radio, specs: ["Geiger-Muller radiation monitoring", "HackRF / Flipper-class SDR module", "Spectrum analysis and mesh diagnostics", "Field anomaly capture"] },
-  { name: "Mesh radios", icon: Antenna, specs: ["LoRa SX1262 / Meshtastic mesh", "Wi‑Fi 6 / Bluetooth 5 offload", "Optional Swarm / Iridium satellite", "Optional 4G/5G telemetry"] },
+  { name: "Environmental sensing", icon: Thermometer, specs: ["BME688 / BME690 temperature, humidity, pressure", "VOC, gas resistance, IAQ, and air-column trend capture", "Particulate, smoke, spores, and aerosol payloads where equipped", "Rain, dust, marine spray, and field-condition context"] },
+  { name: "Gas detection", icon: Wind, specs: ["VOC and gas anomaly detection", "CO2 / oxidizing / reducing gas payload support", "Smoke, contamination, and industrial-site air checks", "MINDEX-ready timestamped gas events when online"] },
+  { name: "Radar + LiDAR sensing", icon: Activity, specs: ["LiDAR / depth mapping and obstacle detection", "Radar range sensing over terrain, canopy, and water", "Altitude hold, SLAM awareness, and close hover support", "Route safety around structures, devices, and field obstacles"] },
+  { name: "Thermal + visual sensing", icon: Eye, specs: ["RGB inspection and downward fiducial camera", "Thermal payload for heat, night, and device-health inspection", "Canopy, water-surface, infrastructure, and payload checks", "Navigation sensor, not camera-first positioning"] },
+  { name: "Acoustic sensing", icon: Wifi, specs: ["Microphone / acoustic payload support", "Rotor, infrastructure, wildlife, and site-sound anomaly checks", "Audio event timestamping with mission context", "Hover-based close listening when payload allows"] },
+  { name: "Electromagnetic sensing", icon: Radio, specs: ["RF / spectrum payload where mission requires it", "LoRa, Wi-Fi, BLE, LTE, and satellite link diagnostics", "Magnetometer / EM field payload support", "Radiation / Geiger payload option for field anomaly capture"] },
+  { name: "Tangential flight", icon: Navigation, specs: ["Level translation without camera-drone tilt", "Six-point coaxial layout with 12 paired top-and-bottom rotors", "Side-on passes around devices, towers, canopy edges, and structures", "Forward, backward, lateral, and vertical motion while maintaining orientation"] },
+  { name: "Lifting capabilities", icon: Plane, specs: ["AGARIC-S light payload movement up to 100 g class", "AGARIC-M routine deployment / retrieval up to 500 g class", "AGARIC-L heavy recovery and support up to 2 kg class", "Lift, deploy, retrieve, hover, winch, sling, and latch-ready workflows"] },
 ]
 
 // Network / flight hub capabilities (flying mesh node)
 const NETWORK_FEATURES = [
-  { icon: Plane, title: "Flying gateway", description: "Bridges canopy, littoral, and incident gaps where fixed towers cannot reach." },
-  { icon: Satellite, title: "Beyond-LOS option", description: "Optional Swarm or Iridium messaging keeps mission telemetry moving outside cellular range." },
-  { icon: Lock, title: "MicoLatch ops", description: "Deploy and retrieve MycoNode, ALARM, SporeBase, Mushroom 1, Hyphae-class payloads." },
-  { icon: Cpu, title: "MAVLink + MDP", description: "Flight control, payload actions, and mesh behavior stay coordinated through command-level mission automation." },
+  { icon: Plane, title: "Tangential flight droid", description: "A coaxial flight architecture built for level translation, stable orientation, and precise field movement." },
+  { icon: Lock, title: "Deploy + recover", description: "Move Mycosoft devices, samplers, probes, and mission payloads into and out of the field." },
+  { icon: Antenna, title: "Relay the network", description: "Bridge LoRa, Wi-Fi, BLE, LTE, satellite, Mycorrhizae Protocol, and device-status traffic." },
+  { icon: Cpu, title: "Translate reality", description: "Convert telemetry, observations, radio messages, and sensor data into structured Mycosoft intelligence." },
 ]
 
 const PAYLOAD_INTEGRATION: { payload: string; weight: string; notes: string }[] = [
-  { payload: "MycoNode", weight: "Mini payload class", notes: "Mini can carry a small node; Standard can place multiple nodes per sortie." },
-  { payload: "ALARM", weight: "<100 g class", notes: "Fast site delivery or airborne smoke-sensing placement." },
-  { payload: "SporeBase", weight: "~500 g class", notes: "Standard payload target for sampler deployment and retrieval." },
-  { payload: "Mushroom One", weight: "Heavy-Lift mission", notes: "Heavy-Lift + winch for tower moves, recovery, and redeployment." },
-  { payload: "Hyphae 1 sensor array", weight: "Top harness", notes: "Top-mounted harness carries additional live-scanning or lab-class payloads." },
+  { payload: "MycoNode", weight: "AGARIC-S / M", notes: "Place or recover lightweight field probes, markers, and node packages with mission context intact." },
+  { payload: "ALARM", weight: "AGARIC-S / M", notes: "Stage smoke, alert, or field-monitoring units where hand placement is slow or unsafe." },
+  { payload: "SporeBase", weight: "AGARIC-M class", notes: "Deploy or retrieve bioaerosol samplers, cassettes, sample capsules, and collection payloads." },
+  { payload: "Mushroom 1", weight: "AGARIC-L class", notes: "Support larger Mycosoft hardware, recovery operations, tower moves, and field redeployment." },
+  { payload: "Psathyrella", weight: "AGARIC-M / L", notes: "Inspect, relay for, and support water-deployed systems from above the surface." },
+  { payload: "Future Mycosoft payloads", weight: "Size-scaled", notes: "Common retention, status detection, power option, and telemetry handshake philosophy across the platform." },
 ]
 
-const COMPETITIVE_DRONES: { model: string; weight: string; flight: string; payload: string; notes: string }[] = [
-  { model: "DJI Mavic 3 Pro", weight: "~958 g", flight: "43 min", payload: "Triple-camera focus", notes: "Agaric shifts the story from camera drone to sensor hub" },
-  { model: "DJI Mini 4 Pro", weight: "<249 g", flight: "34–45 min", payload: "~consumer cam", notes: "No LoRa mesh / payload deployment system" },
-  { model: "DJI Air 3", weight: "~720 g", flight: "~46 min", payload: "~100–200 g class", notes: "No MicoLatch / multi-sensor field stack" },
-  { model: "DJI Matrice 350 RTK", weight: "Enterprise", flight: "~55 min", payload: "~2.7 kg", notes: ">$10k; closed ecosystem" },
+const ECOSYSTEM_CONNECTIONS: { system: string; role: string; connection: string; intelligence: string }[] = [
+  { system: "MYCA + NatureOS", role: "Mission tasking", connection: "High-level commands, field workflows, and fleet coordination", intelligence: "Turns field intent into safe mission actions." },
+  { system: "MINDEX", role: "Mission memory", connection: "Telemetry, payload events, sensor frames, and chain-of-custody records", intelligence: "Stores what happened when the fleet is online." },
+  { system: "Mycorrhizae Protocol", role: "Field messaging", connection: "LoRa, Wi-Fi, BLE, LTE, satellite, MDP, MMP, and device-status traffic", intelligence: "Keeps remote systems speaking the same field language." },
+  { system: "SporeBase", role: "Bioaerosol collection", connection: "Deployment, cassette/sample recovery, and site inspection", intelligence: "Brings sample collection into aerial workflows." },
+  { system: "MycoNode + ALARM", role: "Field device movement", connection: "Placement, retrieval, health checks, and relay support", intelligence: "Extends device networks into hard-to-reach terrain." },
+  { system: "Mushroom 1 + Psathyrella", role: "Large field assets", connection: "Inspection, relay, staging support, and recovery assistance", intelligence: "Adds an airborne layer to tower and water deployments." },
+  { system: "Hyphae 1", role: "Sensor-array support", connection: "Inspection, staging, relay, and payload movement where applicable", intelligence: "Connects live sensing missions back into Mycosoft systems." },
+  { system: "FUSARIUM", role: "Defense field support", connection: "Environmental intelligence, device staging, inspection, relay, and payload movement", intelligence: "Supports constrained-access field missions through inspection, relay, and payload movement." },
 ]
 
 const VARIANT_SPEC_ROWS: Record<"mini" | "standard" | "heavy", { label: string; value: string }[]> = {
   mini: [
-    { label: "Target mission", value: "Consumer / research" },
-    { label: "Frame", value: "Foldable quad; ~300 mm wheelbase" },
-    { label: "Take-off weight", value: "<249 g (FAA registration-exempt target)" },
-    { label: "Payload", value: "Small MycoNode or ALARM (<100 g)" },
-    { label: "Battery / props", value: "4S 3,200 mAh Li-ion; 5-inch folding props" },
-    { label: "Flight time", value: "30–40 min" },
-    { label: "Sensors", value: "LiDAR, BME690, SDR, LoRa mesh" },
-    { label: "Environmental rating", value: "IP43; -10 °C to 40 °C" },
-    { label: "Indicative price", value: "~USD $799" },
+    { label: "Size", value: "AGARIC-S" },
+    { label: "Role", value: "Compact field scout and light payload mover" },
+    { label: "Flight architecture", value: "Coaxial tangential-flight platform" },
+    { label: "Propulsion", value: "Six-point dual-propeller layout, 12 total rotors" },
+    { label: "Payload envelope", value: "Up to 100 g class" },
+    { label: "Optimized for", value: "Fast inspection, small device movement, short-hop relay, and rapid field checks" },
+    { label: "Baseline", value: "Small foldable airframe, compact battery, light sensor package" },
+    { label: "Core functions", value: "Lift, deploy, retrieve, relay, inspect, translate, hover, maneuver" },
   ],
   standard: [
-    { label: "Target mission", value: "Prosumer / enterprise" },
-    { label: "Frame", value: "Foldable quad; 600 mm wheelbase" },
-    { label: "Take-off weight", value: "~800–900 g" },
-    { label: "Payload", value: "Up to 500 g — SporeBase or multiple MycoNodes" },
-    { label: "Battery / props", value: "6S 6,000 mAh Li-ion; 12-inch folding props" },
-    { label: "Flight time", value: "~46 min" },
-    { label: "Comms", value: "LoRa + Wi‑Fi 6 + Bluetooth 5; optional 4G/5G or satellite" },
-    { label: "Deploy / retrieve", value: "MicoLatch missions for field devices" },
-    { label: "Indicative price", value: "~USD $1,299" },
+    { label: "Size", value: "AGARIC-M" },
+    { label: "Role", value: "General field deployment and retrieval droid" },
+    { label: "Flight architecture", value: "Coaxial tangential-flight platform" },
+    { label: "Propulsion", value: "Six-point dual-propeller layout, 12 total rotors" },
+    { label: "Payload envelope", value: "Up to 500 g class" },
+    { label: "Optimized for", value: "Routine Mycosoft payload deployment, retrieval, inspection, and relay" },
+    { label: "Baseline", value: "Medium foldable airframe and stronger payload retention" },
+    { label: "Core functions", value: "Lift, deploy, retrieve, relay, inspect, translate, hover, maneuver" },
   ],
   heavy: [
-    { label: "Target mission", value: "Industrial / SAR / defense programs" },
-    { label: "Frame", value: "Foldable hex; 650–700 mm wheelbase" },
-    { label: "Take-off weight", value: "~4.5 kg including battery" },
-    { label: "Payload", value: "Up to 2 kg — Mushroom One or multiple payloads" },
-    { label: "Battery / props", value: "6S 20,000 mAh hot-swappable Li-ion; 17-inch folding props" },
-    { label: "Flight time", value: "~50 min (config dependent)" },
-    { label: "Weather", value: "IP55 sealing; -20 °C to 45 °C target" },
-    { label: "Winch", value: "Precision retrieve under canopy / littoral" },
-    { label: "Indicative price", value: "From ~USD $2,999" },
+    { label: "Size", value: "AGARIC-L" },
+    { label: "Role", value: "Heavy field deployment, recovery, and relay droid" },
+    { label: "Flight architecture", value: "Coaxial tangential-flight platform" },
+    { label: "Propulsion", value: "Six-point dual-propeller layout, 12 total rotors" },
+    { label: "Payload envelope", value: "Up to 2 kg class" },
+    { label: "Optimized for", value: "Heavier payloads, stronger recovery operations, longer relay windows, and field support" },
+    { label: "Baseline", value: "Large high-stability airframe, high-capacity battery, reinforced payload structure" },
+    { label: "Core functions", value: "Lift, deploy, retrieve, relay, inspect, translate, hover, maneuver" },
   ],
 }
 
 const PRICING_TIERS = [
   {
-    name: "Agaric Mini",
-    price: "~$799",
-    audience: "Hobbyists, researchers, quick deployments",
-    includes: "Lightweight drone with LiDAR, BME690, SDR, LoRa mesh, and 30–40 min flight.",
+    name: "AGARIC-S",
+    price: "Small",
+    audience: "Compact field scout and light payload mover",
+    includes: "Built for light payloads, fast inspection, short-hop relay, and small Mycosoft device movement.",
   },
   {
-    name: "Agaric Standard",
-    price: "~$1,299",
-    audience: "Field teams and enterprise pilots",
-    includes: "46 min class endurance, 500 g payload, advanced obstacle sensing, and optional 4K/60 camera.",
+    name: "AGARIC-M",
+    price: "Medium",
+    audience: "General field deployment and retrieval droid",
+    includes: "Built for routine payload deployment, SporeBase-class recovery, inspection, relay, and field translation.",
   },
   {
-    name: "Agaric Heavy-Lift",
-    price: "From ~$2,999",
-    audience: "Industrial, SAR, defense, custom programs",
-    includes: "Hex-copter platform with 2 kg payload, 50 min class flight, winch retrieval, thermal and satellite options.",
+    name: "AGARIC-L",
+    price: "Large",
+    audience: "Heavy field deployment, recovery, and relay droid",
+    includes: "Built for larger Mycosoft payloads, buoy support, multi-device retrieval, longer relay windows, and recovery hardware where required.",
   },
 ]
 
 export function AgaricDetails() {
-  const [currentSlide, setCurrentSlide] = useState(0)
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [activeUseCase, setActiveUseCase] = useState(0)
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedComponent, setSelectedComponent] = useState<string>("avionics")
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
-  const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
-  const isMobile = useIsMobile()
   const router = useRouter()
-
-  // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
-  const heroVideoSrc = isMobile ? AGARIC_ASSETS.videos.waterfall : AGARIC_ASSETS.videos.background
-  const heroSources = mergeWithNasFallbacks(assetMp4Sources(heroVideoSrc))
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -358,116 +327,90 @@ export function AgaricDetails() {
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, 100])
 
-  // Auto-advance carousel
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % AGARIC_ASSETS.images.length)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % AGARIC_ASSETS.images.length)
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + AGARIC_ASSETS.images.length) % AGARIC_ASSETS.images.length)
-
-  const openVideoModal = (videoId: string) => {
-    setSelectedVideo({ kind: "youtube", src: videoId, title: "Agaric Video" })
-    setIsVideoModalOpen(true)
-  }
-
-  const openMp4Modal = (videoSrc: string, title: string) => {
-    setSelectedVideo({ kind: "mp4", src: videoSrc, title })
-    setIsVideoModalOpen(true)
-  }
-
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh bg-background text-foreground overflow-x-hidden">
-      {/* Hero Section - Fullscreen Video — data-over-video for neuromorphic theme consistency */}
-      <motion.section 
+      {/* Hero Section - locked first-party Agaric video with data-over-video for neuromorphic theme consistency */}
+      <motion.section
         ref={heroRef}
         className="relative h-screen w-full overflow-hidden"
         style={{ opacity: heroOpacity }}
         data-over-video
       >
-        {/* Background Video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
+        {/* Background Video */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <AutoplayVideo
-            src={heroSources[0]}
-            sources={heroSources}
+            src={AGARIC_ASSETS.videos.hero}
+            sources={[AGARIC_ASSETS.videos.hero]}
+            poster={AGARIC_ASSETS.heroImage}
             encodeSrc
-            className="absolute inset-0 w-full h-full object-cover"
+            preload="auto"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black" />
         </motion.div>
 
         {/* Hero Content */}
-        <motion.div 
-          className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center"
+        <motion.div
+          className="relative z-10 h-full flex flex-col items-center justify-start px-4 pt-0 text-center"
           style={{ y: textY }}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
+          <motion.h1
+            className="relative z-20 mb-2 flex w-full items-center justify-center leading-none"
+            initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
           >
-            <NeuBadge variant="default" className="device-hero-badge mb-4 bg-violet-500/20 text-violet-400 border-violet-500/50 text-sm px-4 py-1">
-              Flying Sensor Droid
-            </NeuBadge>
-          </motion.div>
-          
-          <motion.h1 
-            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
-            initial={{ opacity: 0, y: 50 }}
+            <span className="sr-only">Agaric</span>
+            <AgaricShardTitle />
+          </motion.h1>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-violet-200 to-violet-400">
-              Agaric
-            </span>
-          </motion.h1>
-          
-          <motion.p 
+            <NeuBadge variant="default" className="device-hero-badge mb-4 bg-red-500/20 text-red-400 border-red-500/50 text-sm px-4 py-1">
+              Flying Sensor Droid
+            </NeuBadge>
+          </motion.div>
+
+          <motion.p
             className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            The flying sensor hub — deploy, retrieve, connect, and sense.
+            A flying sensor droid built to deploy, retrieve, connect, and sense the world.
             <br />
-            <span className="text-violet-400">Autonomous environmental missions beyond the camera drone.</span>
+            <br />
+            <span className="text-red-400">Designed from the ground up to do what traditional drones can't:</span>
           </motion.p>
 
-          <motion.div 
-            className="flex flex-wrap gap-4 justify-center"
+          <motion.div
+            className="mt-8 flex flex-wrap gap-4 justify-center"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton 
-              className="device-cta-over-video min-h-[44px] px-8 bg-violet-500 hover:bg-violet-600 !text-black font-semibold"
-              onClick={() => openMp4Modal(AGARIC_ASSETS.videos.promo, "Agaric — Watch Film")}
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Watch Film
-            </NeuButton>
             <NeuButton
               variant="default"
               className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
-              onClick={() => router.push("/contact?topic=agaric-demo")}
+              onClick={() => document.querySelector(".agaric-mission")?.scrollIntoView({ behavior: "smooth" })}
             >
-              <Share2 className="mr-2 h-5 w-5" />
-              Request Demo
+              <ExternalLink className="mr-2 h-5 w-5" />
+              Learn More
             </NeuButton>
           </motion.div>
 
           {/* Scroll indicator */}
-          <motion.div 
+          <motion.div
             className="absolute bottom-8 left-1/2 -translate-x-1/2"
             animate={{ y: [0, 10, 0] }}
             transition={{ repeat: Infinity, duration: 2 }}
           >
             <div className="w-6 h-10 border-2 border-white/30 rounded-full flex items-start justify-center p-2">
-              <motion.div 
+              <motion.div
                 className="w-1 h-2 bg-white/60 rounded-full"
                 animate={{ y: [0, 12, 0] }}
                 transition={{ repeat: Infinity, duration: 2 }}
@@ -487,9 +430,9 @@ export function AgaricDetails() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">Our Mission</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">Our Mission</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
-              Why <span className="text-violet-600 dark:text-violet-400">Agaric</span> Exists
+              Why <span className="text-red-600 dark:text-red-400">Agaric</span> Exists
             </h2>
           </motion.div>
 
@@ -502,34 +445,34 @@ export function AgaricDetails() {
               className="space-y-6"
             >
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                <span className="text-violet-600 dark:text-violet-400 font-semibold">Agaric</span> turns the drone from a flying
-                camera into a distributed sensor platform. It extends Mycosoft's environmental intelligence network into the air,
-                bridging canopy gaps, coastal water, and incident zones with autonomous mission control and Pixhawk-class MAVLink flight handling.
+                <span className="text-red-600 dark:text-red-400 font-semibold">AGARIC</span> is not a commodity FPV quadcopter
+                or imported flying camera. It is a fully U.S.-made autonomous flying sensor droid built around a 6-degree-of-freedom
+                propulsion architecture and a coaxial lynchpin design.
               </p>
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                Three variants (Mini, Standard, Heavy-Lift) cover sub-249&nbsp;g research flights through 2&nbsp;kg payload
-                deploy/retrieve for SporeBase, stacked MycoNodes, and enterprise sensors, while Heavy-Lift adds winch recovery for Mushroom One and coastal buoy operations.
+                AGARIC autonomously deploys, retrieves, inspects, relays, and connects Mycosoft field devices across real terrain.
+                It links Mushroom 1, SporeBase, MycoNode, Hyphae 1, Psathyrella, NatureOS, MINDEX, MYCA, and FUSARIUM into a mobile aerial layer.
               </p>
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                Missions run through <span className="text-violet-600 dark:text-violet-400 font-semibold">NatureOS + MAS</span> agents
-                using MDP commands for start mission, deploy payload, and retrieve payload, then log sensor frames to MINDEX when the fleet is online.
+                Missions are fully automated and operated by AI instead of handheld controllers. MYCA and the MAS at MYCOSOFT plan,
+                deploy, monitor, maintain, and adapt AGARIC missions as part of the broader Mycosoft intelligence network.
               </p>
 
               <div className="flex flex-wrap gap-6 pt-4 justify-start">
                 <div className="text-center min-w-[4.5rem]">
-                  <div className="text-3xl md:text-4xl font-bold text-violet-600 dark:text-violet-400">55m</div>
+                  <div className="text-3xl md:text-4xl font-bold text-red-600 dark:text-red-400">55m</div>
                   <div className="text-sm text-slate-500 dark:text-white/60">Max flight target</div>
                 </div>
                 <div className="text-center min-w-[4.5rem]">
-                  <div className="text-3xl md:text-4xl font-bold text-violet-600 dark:text-violet-400">10km</div>
+                  <div className="text-3xl md:text-4xl font-bold text-red-600 dark:text-red-400">10km</div>
                   <div className="text-sm text-slate-500 dark:text-white/60">LoRa LOS class</div>
                 </div>
                 <div className="text-center min-w-[4.5rem]">
-                  <div className="text-3xl md:text-4xl font-bold text-violet-600 dark:text-violet-400">2kg</div>
+                  <div className="text-3xl md:text-4xl font-bold text-red-600 dark:text-red-400">2kg</div>
                   <div className="text-sm text-slate-500 dark:text-white/60">Payload target</div>
                 </div>
                 <div className="text-center min-w-[4.5rem]">
-                  <div className="text-3xl md:text-4xl font-bold text-violet-600 dark:text-violet-400">IP55</div>
+                  <div className="text-3xl md:text-4xl font-bold text-red-600 dark:text-red-400">IP55</div>
                   <div className="text-sm text-slate-500 dark:text-white/60">Airframe seal</div>
                 </div>
               </div>
@@ -542,34 +485,34 @@ export function AgaricDetails() {
               transition={{ duration: 0.8 }}
               className="relative"
             >
-              <div className="relative aspect-square rounded-2xl overflow-hidden border border-violet-500/20">
-                <AutoplayVideo
-                  src={AGARIC_ASSETS.videos.waterfall}
-                  sources={assetMp4Sources(AGARIC_ASSETS.videos.waterfall)}
+              <div className="relative aspect-[16/9] min-h-[360px] overflow-hidden rounded-2xl border border-red-500/20">
+                <Image
+                  src={encodeAssetUrl(AGARIC_ASSETS.missionImage)}
+                  alt="Agaric main product view in a clean lab bay"
+                  fill
+                  sizes="(min-width: 1024px) 50vw, 100vw"
                   className="absolute inset-0 w-full h-full object-cover object-center"
-                  preload="metadata"
-                  encodeSrc
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
               </div>
               {/* Floating feature badges */}
-              <motion.div 
-                className="absolute -top-4 -right-4 bg-violet-500/20 backdrop-blur-sm border border-violet-500/30 rounded-lg px-4 py-2"
+              <motion.div
+                className="absolute -top-4 -right-4 bg-red-500/20 backdrop-blur-sm border border-red-500/30 rounded-lg px-4 py-2"
                 animate={{ y: [0, -5, 0] }}
                 transition={{ repeat: Infinity, duration: 3 }}
               >
                 <div className="flex items-center gap-2">
-                  <Battery className="h-4 w-4 text-violet-400" />
+                  <Battery className="h-4 w-4 text-red-400" />
                   <span className="text-sm">Hot-swappable Li pack</span>
                 </div>
               </motion.div>
-              <motion.div 
-                className="absolute -bottom-4 -left-4 bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 rounded-lg px-4 py-2"
+              <motion.div
+                className="absolute -bottom-4 -left-4 bg-red-500/20 backdrop-blur-sm border border-red-500/30 rounded-lg px-4 py-2"
                 animate={{ y: [0, 5, 0] }}
                 transition={{ repeat: Infinity, duration: 3, delay: 1 }}
               >
                 <div className="flex items-center gap-2">
-                  <Network className="h-4 w-4 text-blue-400" />
+                  <Network className="h-4 w-4 text-red-400" />
                   <span className="text-sm">Mesh Network</span>
                 </div>
               </motion.div>
@@ -579,10 +522,9 @@ export function AgaricDetails() {
       </section>
 
       {/* Sensor Capabilities */}
-      <section className="agaric-technology relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
-        {/* Neural web sensor visualization background */}
-        <SensorNeuralWeb className="opacity-60 dark:opacity-50" />
-        
+      <section className="agaric-technology relative py-24 bg-black overflow-hidden">
+        <AgaricTechnologyShaderBackground />
+
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -590,12 +532,13 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30">Technology</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Multi-Sensor <span className="text-cyan-600 dark:text-cyan-400">Array</span>
+            <NeuBadge variant="default" className="mb-4 bg-black/45 text-white border-white/20 backdrop-blur-md">Technology</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
+              Sensor + Payload <span className="text-red-300">Equipment</span>
             </h2>
-            <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
-              LiDAR, radar, environmental gas sensing, radiation monitoring, SDR, vision, and mesh radios in one autonomous aircraft family.
+            <p className="text-xl text-white/75 max-w-3xl mx-auto">
+              Cameras are navigation and inspection sensors inside a broader field droid: environmental sensing, range sensing, RF payloads,
+              relay radios, and payload equipment all scale by mission and size.
             </p>
           </motion.div>
 
@@ -608,20 +551,20 @@ export function AgaricDetails() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
               >
-                <NeuCard className="agaric-sensor-card bg-slate-50 dark:!bg-gray-700 border-slate-200 dark:border-white/10 hover:border-cyan-500/50 transition-colors h-full">
+                <NeuCard className="agaric-sensor-card bg-black/45 dark:!bg-black/45 border-white/15 hover:border-red-400/60 backdrop-blur-md transition-colors h-full">
                   <NeuCardHeader>
                     <div className="flex items-center gap-3">
-                      <div className="p-3 rounded-lg bg-cyan-500/20 dark:bg-cyan-500/10">
-                        <sensor.icon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                      <div className="p-3 rounded-lg bg-red-500/20">
+                        <sensor.icon className="h-6 w-6 text-red-300" />
                       </div>
-                      <h3 className="text-slate-900 dark:text-white font-semibold">{sensor.name}</h3>
+                      <h3 className="text-white font-semibold">{sensor.name}</h3>
                     </div>
                   </NeuCardHeader>
                   <NeuCardContent>
                     <ul className="space-y-2">
                       {sensor.specs.map((spec, j) => (
-                        <li key={j} className="flex items-center gap-2 text-slate-600 dark:text-white/70 text-sm">
-                          <Check className="h-4 w-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+                        <li key={j} className="flex items-center gap-2 text-white/75 text-sm">
+                          <Check className="h-4 w-4 text-red-300 flex-shrink-0" />
                           {spec}
                         </li>
                       ))}
@@ -641,110 +584,75 @@ export function AgaricDetails() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="agaric-network-card text-center p-6 rounded-xl bg-slate-50 dark:!bg-gray-700 border border-slate-200 dark:border-white/10"
+                className="agaric-network-card text-center p-6 rounded-xl bg-black/45 backdrop-blur-md border border-white/15"
               >
-                <div className="inline-flex p-4 rounded-full bg-violet-500/20 dark:bg-violet-500/10 mb-4">
-                  <feature.icon className="h-8 w-8 text-violet-600 dark:text-violet-400" />
+                <div className="inline-flex p-4 rounded-full bg-red-500/20 mb-4">
+                  <feature.icon className="h-8 w-8 text-red-300" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">{feature.title}</h3>
-                <p className="text-slate-600 dark:text-white/60 mt-2">{feature.description}</p>
+                <h3 className="text-xl font-bold text-white">{feature.title}</h3>
+                <p className="text-white/70 mt-2">{feature.description}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Photo Gallery Carousel */}
+      {/* Field deployment image */}
       <section className="agaric-field-deployments py-24 bg-white dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="w-full px-0">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
+            className="text-center mb-12 px-4"
           >
-            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-violet-600/80 text-white border-violet-700/40 dark:!bg-violet-500/20 dark:!text-violet-300 dark:!border-violet-500/40">Field Deployments</NeuBadge>
+            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-red-600/80 text-white border-red-700/40 dark:!bg-red-500/20 dark:!text-red-300 dark:!border-red-500/40">Field Deployments</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white">
-              In the <span className="text-violet-600 dark:text-violet-400">Wild</span>
+              Wide-area <span className="text-red-600 dark:text-red-400">field flight</span>
             </h2>
           </motion.div>
 
-          {/* Main Carousel */}
-          <div className="relative">
-            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-white/10">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentSlide}
-                  initial={{ opacity: 0, scale: 1.1 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.5 }}
-                  className="absolute inset-0"
-                >
-                  <Image
-                    src={encodeAssetUrl(AGARIC_ASSETS.images[currentSlide].src)}
-                    alt={AGARIC_ASSETS.images[currentSlide].alt}
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                  <div className="absolute bottom-6 left-6">
-                    <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-2 text-white">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {AGARIC_ASSETS.images[currentSlide].location}
-                    </NeuBadge>
-                    <p className="text-white/80">{AGARIC_ASSETS.images[currentSlide].alt}</p>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Navigation */}
-              <button
-                onClick={prevSlide}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-700/80 hover:bg-gray-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                onClick={nextSlide}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-700/80 hover:bg-gray-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="relative aspect-[24/9] min-h-[340px] w-full overflow-hidden border-y border-slate-200 dark:border-white/10"
+          >
+            <Image
+              src={encodeAssetUrl(AGARIC_ASSETS.fieldImage)}
+              alt="Agaric flying over a desert canyon field deployment zone"
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+            <div className="absolute bottom-8 left-4 right-4 md:left-10 md:right-10">
+              <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-3 text-white">
+                <MapPin className="h-3 w-3 mr-1" />
+                Remote terrain operations
+              </NeuBadge>
+              <p className="max-w-4xl text-xl md:text-2xl text-white/85">
+                AGARIC lifts, deploys, retrieves, relays, inspects, translates, hovers, and maneuvers across hard-to-reach landscapes.
+              </p>
             </div>
-
-            {/* Thumbnails */}
-            <div className="flex gap-2 mt-4 justify-center">
-              {AGARIC_ASSETS.images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentSlide(i)}
-                  className={`relative w-20 h-14 rounded-lg overflow-hidden transition-all ${
-                    currentSlide === i ? 'ring-2 ring-violet-500 scale-105' : 'opacity-50 hover:opacity-80'
-                  }`}
-                >
-                  <Image src={encodeAssetUrl(img.src)} alt={img.alt} fill className="object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Payload integration — real device classes from MycoDRONE / marketing spec */}
+      {/* Payload integration */}
       <section className="agaric-payload py-24 px-4 bg-slate-50 dark:bg-slate-950 border-y border-slate-200/80 dark:border-white/10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">
-              MicoLatch
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">
+              Payload Interface
             </NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">
-              Payload <span className="text-violet-600 dark:text-violet-400">integration</span>
+              Payload <span className="text-red-600 dark:text-red-400">integration</span>
             </h2>
             <p className="mt-4 text-lg text-slate-600 dark:text-white/70 max-w-3xl mx-auto">
-              Mass and latch compatibility follow the MycoDRONE capability spec. Actual flight envelopes depend on firmware,
-              weather, and regulatory limits — data below is design intent, not a guarantee until units are certified.
+              Every size uses the same AGARIC payload interface philosophy: mechanical retention, status detection,
+              safe release, safe recovery, optional power, and telemetry handshake where available.
             </p>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
@@ -752,14 +660,14 @@ export function AgaricDetails() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-left">
                   <th className="p-4 font-semibold text-slate-900 dark:text-white">Payload</th>
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Approx. weight</th>
+                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Size envelope</th>
                   <th className="p-4 font-semibold text-slate-900 dark:text-white">Integration notes</th>
                 </tr>
               </thead>
               <tbody>
                 {PAYLOAD_INTEGRATION.map((row) => (
                   <tr key={row.payload} className="border-b border-slate-100 dark:border-white/5 last:border-0">
-                    <td className="p-4 font-medium text-violet-700 dark:text-violet-300">{row.payload}</td>
+                    <td className="p-4 font-medium text-red-700 dark:text-red-300">{row.payload}</td>
                     <td className="p-4 text-slate-700 dark:text-white/80">{row.weight}</td>
                     <td className="p-4 text-slate-600 dark:text-white/70">{row.notes}</td>
                   </tr>
@@ -771,9 +679,21 @@ export function AgaricDetails() {
       </section>
 
       {/* Use Cases Section */}
-      <section className="agaric-applications relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
-        {/* Mycelium animation background */}
-        <MyceliumCanvas className="opacity-70 dark:opacity-60" />
+      <section className="agaric-applications relative py-24 bg-black overflow-hidden">
+        <video
+          aria-hidden="true"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          controlsList="nodownload nofullscreen noremoteplayback"
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source src={encodeAssetUrl(AGARIC_ASSETS.videos.capabilities)} type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-black/60" />
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -781,16 +701,16 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">Applications</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Who Uses <span className="text-violet-600 dark:text-violet-400">Agaric</span>?
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-300 border-red-500/30 backdrop-blur-md">Capabilities</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
+              What <span className="text-red-300">Agaric</span> Can Do
             </h2>
-            <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
-              Research flights, precision agriculture, defense/SAR, and ocean relay — one airframe family with mesh connectivity and MINDEX-backed telemetry when online.
+            <p className="text-xl text-white/75 max-w-3xl mx-auto">
+              Four mission scenarios combine the same AGARIC functions across every size. AGARIC-S, AGARIC-M, and AGARIC-L change the lift envelope, not the mission identity.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.75fr_1.25fr] gap-8">
             {/* Use case selector */}
             <div className="space-y-4">
               {USE_CASES.map((useCase, i) => (
@@ -802,19 +722,19 @@ export function AgaricDetails() {
                   transition={{ delay: i * 0.1 }}
                   onClick={() => setActiveUseCase(i)}
                   className={`agaric-usecase-card cursor-pointer p-6 rounded-xl border transition-all ${
-                    activeUseCase === i 
-                      ? 'bg-gradient-to-r ' + useCase.color + ' ' + useCase.colorDark + ' border-white/20 text-white' 
-                      : 'bg-white/80 dark:!bg-gray-800 border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-700/90'
+                    activeUseCase === i
+                      ? 'bg-gradient-to-r ' + useCase.color + ' ' + useCase.colorDark + ' border-white/20 text-white'
+                      : 'bg-black/45 backdrop-blur-md border-white/15 hover:bg-black/60'
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-lg ${activeUseCase === i ? 'bg-white/20' : 'bg-slate-100 dark:bg-gray-600'}`}>
-                      <useCase.icon className={`h-6 w-6 ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`} />
+                    <div className={`p-3 rounded-lg ${activeUseCase === i ? 'bg-white/20' : 'bg-white/10'}`}>
+                      <useCase.icon className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className={`text-xl font-semibold ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{useCase.title}</h3>
+                      <h3 className="text-xl font-semibold text-white">{useCase.title}</h3>
                       {activeUseCase === i && (
-                        <motion.p 
+                        <motion.p
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           className="text-white/80 mt-2"
@@ -825,7 +745,7 @@ export function AgaricDetails() {
                     </div>
                   </div>
                   {activeUseCase === i && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="mt-4 flex flex-wrap gap-2"
@@ -845,21 +765,21 @@ export function AgaricDetails() {
               ))}
             </div>
 
-            {/* Active use case video */}
+            {/* Active capability image */}
             <motion.div
               key={activeUseCase}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10"
+              className="relative aspect-[16/9] min-h-[360px] rounded-2xl overflow-hidden border border-white/10"
             >
-              <AutoplayVideo
-                key={USE_CASES[activeUseCase].video}
-                src={USE_CASES[activeUseCase].video}
-                sources={assetMp4Sources(USE_CASES[activeUseCase].video)}
+              <Image
+                key={USE_CASES[activeUseCase].image}
+                src={encodeAssetUrl(USE_CASES[activeUseCase].image)}
+                alt={`${USE_CASES[activeUseCase].title} close-up`}
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
                 className="absolute inset-0 w-full h-full object-cover"
-                preload="metadata"
-                encodeSrc
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
@@ -868,71 +788,6 @@ export function AgaricDetails() {
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
-
-      {/* YouTube Videos Section */}
-      <section className="agaric-watch py-24 bg-[#C5CFC6] dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">
-              <Youtube className="h-4 w-4 mr-1" />
-              Watch
-            </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Official <span className="text-violet-600 dark:text-violet-400">Videos</span>
-            </h2>
-            <p className="text-xl text-slate-600 dark:text-white/60">
-              See Agaric in action through our official commercials and demos.
-            </p>
-          </motion.div>
-
-          {AGARIC_ASSETS.youtubeVideos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {AGARIC_ASSETS.youtubeVideos.map((video, i) => (
-                <motion.div
-                  key={video.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="group relative aspect-video rounded-xl overflow-hidden border border-white/10 cursor-pointer"
-                  onClick={() => openVideoModal(video.id)}
-                >
-                  <Image
-                    src={`https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`}
-                    alt={video.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-gray-700/90 dark:bg-gray-700 rounded-full p-4 group-hover:scale-110 transition-transform border border-violet-500/30">
-                      <Play className="h-8 w-8 fill-white text-violet-400" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <h3 className="font-semibold">{video.title}</h3>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <NeuCard className="max-w-2xl mx-auto border-violet-500/20 bg-white/90 dark:bg-slate-800/90">
-              <NeuCardContent className="p-8 text-center text-slate-700 dark:text-white/80">
-                <Youtube className="h-10 w-10 mx-auto mb-4 text-violet-600 dark:text-violet-400" />
-                <p className="text-lg font-medium text-slate-900 dark:text-white">No public YouTube IDs wired yet</p>
-                <p className="mt-2 text-sm">
-                  Use the hero and use-case MP4s above, or add real video IDs in code when marketing publishes — no placeholder fake channels.
-                </p>
-              </NeuCardContent>
-            </NeuCard>
-          )}
         </div>
       </section>
 
@@ -945,34 +800,35 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">Engineering</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">Engineering</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Inside <span className="text-violet-600 dark:text-violet-400">Agaric</span>
+              Inside <span className="text-red-600 dark:text-red-400">AGARIC</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
-              Explore the internal components and signal pathways of our fungal intelligence station.
+              Explore the component layers that let AGARIC lift, deploy, retrieve, relay, inspect, translate, hover, and maneuver:
+              MycoBrain central board coordination, Jetson edge compute, and a 12-rotor coaxial platform rather than a traditional tilt-to-move quadcopter.
             </p>
           </motion.div>
 
           {/* Control Device Layout - Industrial Control Panel Aesthetic */}
-          <div className="relative bg-slate-100 dark:bg-slate-900/50 rounded-3xl border-2 border-violet-500/30 p-6 shadow-2xl shadow-violet-500/5">
+          <div className="relative bg-slate-100 dark:bg-slate-900/50 rounded-3xl border-2 border-red-500/30 p-6 shadow-2xl shadow-red-500/5">
             {/* Control Panel Frame */}
             <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel - Component Selectors */}
-                <div className="bg-slate-950 rounded-2xl border border-violet-500/40 p-4 shadow-inner">
+                <div className="bg-slate-950 rounded-2xl border border-red-500/40 p-4 shadow-inner">
                   {/* Panel Header */}
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-violet-500/20">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-violet-400/70 uppercase tracking-wider">Component Selector</span>
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-500/20">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Component Selector</span>
                   </div>
-                  
+
                   {/* Component Buttons Grid */}
                   <div className="grid grid-cols-2 gap-2">
                     {DEVICE_COMPONENTS.map((component) => {
@@ -986,27 +842,27 @@ export function AgaricDetails() {
                   onMouseEnter={() => setHoveredComponent(component.id)}
                   onMouseLeave={() => setHoveredComponent(null)}
                           className={`p-3 rounded-xl border-2 transition-all text-left ${
-                            isSelected 
-                              ? 'bg-violet-500/20 border-violet-400 shadow-lg shadow-violet-500/30' 
+                            isSelected
+                              ? 'bg-red-500/20 border-red-400 shadow-lg shadow-red-500/30'
                               : isHovered
-                                ? 'bg-violet-500/10 border-violet-500/50'
-                                : 'bg-slate-900/50 border-slate-700 hover:border-violet-500/40'
+                                ? 'bg-red-500/10 border-red-500/50'
+                                : 'bg-slate-900/50 border-slate-700 hover:border-red-500/40'
                   }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-violet-500/30' : 'bg-slate-800'}`}>
-                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-violet-400' : 'text-white/50'}`} />
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-red-500/30' : 'bg-slate-800'}`}>
+                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-white/50'}`} />
                     </div>
-                            <span className={`text-sm font-medium ${isSelected ? 'text-violet-400' : 'text-white/70'}`}>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-red-400' : 'text-white/70'}`}>
                               {component.name}
                             </span>
                           </div>
                           {isSelected && (
-                            <motion.div 
+                            <motion.div
                               layoutId="selector-indicator"
-                              className="mt-2 h-0.5 bg-gradient-to-r from-violet-400 to-violet-600 rounded-full"
+                              className="mt-2 h-0.5 bg-gradient-to-r from-red-400 to-red-600 rounded-full"
                             />
                           )}
                         </motion.button>
@@ -1016,13 +872,13 @@ export function AgaricDetails() {
                 </div>
 
                 {/* Description Widget - Below Controller */}
-                <div className="bg-slate-950 rounded-2xl border border-violet-500/40 p-4 shadow-inner flex-1">
+                <div className="bg-slate-950 rounded-2xl border border-red-500/40 p-4 shadow-inner flex-1">
                   {/* Panel Header */}
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-violet-500/20">
-                    <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                    <span className="text-xs font-mono text-violet-400/70 uppercase tracking-wider">Component Details</span>
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/20">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Component Details</span>
                   </div>
-                  
+
                   <AnimatePresence mode="wait">
                     {DEVICE_COMPONENTS.filter(c => c.id === selectedComponent).map((component) => (
                       <motion.div
@@ -1033,11 +889,11 @@ export function AgaricDetails() {
                         transition={{ duration: 0.2 }}
                       >
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 rounded-xl bg-violet-500/20 border border-violet-500/30">
-                            <component.icon className="h-6 w-6 text-violet-400" />
+                          <div className="p-2 rounded-xl bg-red-500/20 border border-red-500/30">
+                            <component.icon className="h-6 w-6 text-red-400" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-violet-400">{component.name}</h3>
+                            <h3 className="text-lg font-bold text-red-400">{component.name}</h3>
                             <p className="text-xs text-white/50 font-mono">{component.description}</p>
                           </div>
                         </div>
@@ -1050,42 +906,42 @@ export function AgaricDetails() {
 
               {/* RIGHT SIDE: Tall Vertical Blueprint */}
               <div className="flex-1 min-w-0 flex">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-violet-500/40 overflow-hidden shadow-inner">
+                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-red-500/40 overflow-hidden shadow-inner">
                 {/* Grid pattern */}
                   <div className="absolute inset-0 opacity-15" style={{
                   backgroundImage: `
-                      linear-gradient(rgba(139,92,246,0.35) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(139,92,246,0.35) 1px, transparent 1px)
+                      linear-gradient(rgba(239,68,68,0.35) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(239,68,68,0.35) 1px, transparent 1px)
                   `,
                     backgroundSize: '30px 30px'
                 }} />
-                
+
                   {/* Panel Header */}
                   <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-cyan-400/70 uppercase tracking-wider">Interactive Blueprint</span>
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Interactive Blueprint</span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-white/30">AGARIC // MYCO-DRONE</span>
+                      <span className="text-xs font-mono text-white/30">AGARIC // FLYING SENSOR DROID</span>
                     </div>
                   </div>
-                  
+
                   {/* Device Blueprint - Vertical orientation */}
-                  <div className="absolute inset-0 flex items-center justify-center pt-10">
-                    <div className="relative h-[90%] aspect-[3/5] max-w-full">
+                  <div className="absolute inset-0 flex items-center justify-center p-4 pt-12">
+                    <div className="relative h-full w-full">
                     <Image
                       src={encodeAssetUrl(AGARIC_ASSETS.mainImage)}
                       alt="Agaric Blueprint"
                         fill
-                        className="opacity-40 filter grayscale object-contain"
+                        className="opacity-75 object-contain"
                     />
-                    
+
                     {/* Interactive component markers */}
                       {DEVICE_COMPONENTS.map((component) => {
                         const isSelected = selectedComponent === component.id
                         const isHovered = hoveredComponent === component.id
                         const isActive = isSelected || isHovered
-                        
+
                         return (
                       <motion.div
                         key={component.id}
@@ -1103,16 +959,16 @@ export function AgaricDetails() {
                                 className="absolute top-1/2 right-full -translate-y-1/2 w-16 h-px origin-right"
                                 style={{ marginRight: '12px' }}
                               >
-                                <div className="w-full h-full border-t-2 border-dashed border-violet-400" />
+                                <div className="w-full h-full border-t-2 border-dashed border-red-400" />
                               </motion.div>
                             )}
-                            
+
                             {/* Marker */}
                             <motion.div
                               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                isActive 
-                                  ? 'bg-violet-400 border-white shadow-lg shadow-violet-400/50' 
-                                  : 'bg-violet-500/40 border-violet-500/50'
+                                isActive
+                                  ? 'bg-red-400 border-white shadow-lg shadow-red-400/50'
+                                  : 'bg-red-500/40 border-red-500/50'
                           }`}
                           animate={{
                                 scale: isActive ? 1.3 : 1,
@@ -1120,14 +976,14 @@ export function AgaricDetails() {
                               transition={{ duration: 0.2 }}
                             >
                               {isActive && (
-                                <motion.div 
+                                <motion.div
                                   className="w-2 h-2 rounded-full bg-white"
                                   animate={{ scale: [1, 0.8, 1] }}
                                   transition={{ duration: 1, repeat: Infinity }}
                         />
                               )}
                       </motion.div>
-                            
+
                             {/* Label on hover */}
                             <AnimatePresence>
                               {isHovered && (
@@ -1135,9 +991,9 @@ export function AgaricDetails() {
                                   initial={{ opacity: 0, x: 10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 10 }}
-                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-violet-500/30 z-30"
+                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-red-500/30 z-30"
                                 >
-                                  <span className="text-sm font-medium text-violet-400 whitespace-nowrap">{component.name}</span>
+                                  <span className="text-sm font-medium text-red-400 whitespace-nowrap">{component.name}</span>
                                 </motion.div>
                               )}
                             </AnimatePresence>
@@ -1146,13 +1002,13 @@ export function AgaricDetails() {
                       })}
                     </div>
                   </div>
-                  
+
                   {/* Bottom status bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
                     <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-violet-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                      <span>COMPONENT: <span className="text-red-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                         SYSTEM READY
                       </span>
                     </div>
@@ -1164,52 +1020,54 @@ export function AgaricDetails() {
         </div>
       </section>
 
-      {/* Mesh Network Visualization */}
-      <section className="agaric-connectivity relative py-24 bg-[#C5CFC6] dark:bg-slate-900 overflow-hidden">
+      {/* Relay network visualization */}
+      <section className="agaric-connectivity relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
         {/* Network animation background */}
         <NetworkCanvas className="opacity-80" />
-        <div className="relative z-10 max-w-7xl mx-auto px-4">
+        <div className="relative z-10 w-full px-0">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-16 px-4"
           >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">Connectivity</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">Connectivity</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              <span className="text-violet-600 dark:text-violet-400">Mesh Network</span> Intelligence
+              <span className="text-red-600 dark:text-red-400">Relay</span> the Network
             </h2>
             <p className="text-xl text-slate-700 dark:text-white/60 max-w-3xl mx-auto">
-              One Agaric can extend LoRa and Wi‑Fi coverage from Mushroom 1 towers, SporeBase transects, and Psathyrella buoys — bridging field telemetry into NatureOS and MAS when the fleet is connected.
+              AGARIC acts as a flying communications node, bridging field devices, gateways, MYCA, NatureOS, MINDEX,
+              and Mycosoft command layers when terrain, water, distance, or infrastructure breaks normal communications.
             </p>
           </motion.div>
 
-          <div className="relative aspect-video rounded-2xl overflow-hidden border border-violet-500/20">
+          <div className="relative aspect-[21/9] min-h-[360px] w-full overflow-hidden border-y border-red-500/20">
             <Image
-              src={encodeAssetUrl("/assets/agaric/hill 1.jpg")}
-              alt="Agaric Mesh Network Deployment"
+              src={encodeAssetUrl(AGARIC_ASSETS.connectivityImage)}
+              alt="Agaric forest connectivity deployment"
               fill
+              sizes="100vw"
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-            
+
             {/* Overlay content */}
-            <div className="absolute bottom-0 left-0 right-0 p-8">
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-violet-500/20 dark:border-violet-500/30">
-                  <Globe className="h-8 w-8 text-violet-600 dark:text-violet-400 mb-4" />
-                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Aerial coverage</h3>
-                  <p className="text-slate-600 dark:!text-white/90">Hover patterns extend RF footprint over canopy, ridges, and littoral cells where ground-only mesh would need many more fixed nodes.</p>
+                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-red-500/20 dark:border-red-500/30">
+                  <Globe className="h-8 w-8 text-red-600 dark:text-red-400 mb-4" />
+                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Field bridge</h3>
+                  <p className="text-slate-600 dark:!text-white/90">Hover windows can carry traffic over canopy, ridges, coastlines, water surfaces, and incident zones that block fixed ground nodes.</p>
                 </div>
-                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-violet-500/20 dark:border-violet-500/30">
-                  <Network className="h-8 w-8 text-violet-600 dark:text-violet-400 mb-4" />
-                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">MAVLink + MDP</h3>
-                  <p className="text-slate-600 dark:!text-white/90">Pixhawk handles flight laws while command automation coordinates payload actions, mesh behavior, and logged telemetry when gateways are up.</p>
+                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-red-500/20 dark:border-red-500/30">
+                  <Network className="h-8 w-8 text-red-600 dark:text-red-400 mb-4" />
+                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Protocol translation</h3>
+                  <p className="text-slate-600 dark:!text-white/90">Radio traffic, telemetry, MDP, MMP, and Mycorrhizae envelopes can become structured MYCA and NatureOS-readable state.</p>
                 </div>
-                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-violet-500/20 dark:border-violet-500/30">
-                  <Database className="h-8 w-8 text-violet-600 dark:text-violet-400 mb-4" />
+                <div className="agaric-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-red-500/20 dark:border-red-500/30">
+                  <Database className="h-8 w-8 text-red-600 dark:text-red-400 mb-4" />
                   <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">MINDEX handoff</h3>
-                  <p className="text-slate-600 dark:!text-white/90">When online, mission traces and sensor frames route through NatureOS into MINDEX — empty dashboards mean the service path is down, not fabricated data.</p>
+                  <p className="text-slate-600 dark:!text-white/90">When online, mission traces, telemetry, payload events, and sensor frames can route into MINDEX for mission memory and records.</p>
                 </div>
               </div>
             </div>
@@ -1217,40 +1075,38 @@ export function AgaricDetails() {
         </div>
       </section>
 
-      {/* Competitive landscape — public OEM specs cited in marketing plan */}
-      <section className="agaric-competitive py-24 px-4 bg-white dark:bg-slate-900">
+      {/* Ecosystem integration */}
+      <section className="agaric-ecosystem py-24 px-4 bg-white dark:bg-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">
-              Market context
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">
+              Ecosystem
             </NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">
-              How Agaric <span className="text-violet-600 dark:text-violet-400">stacks up</span>
+              Connected to <span className="text-red-600 dark:text-red-400">Mycosoft field systems</span>
             </h2>
             <p className="mt-4 text-lg text-slate-600 dark:text-white/70 max-w-3xl mx-auto">
-              Reference drones for buyers comparing flight time and payload. Agaric differentiation is mesh connectivity, MicoLatch ops,
-              open flight stack, and field-device integration — not a clone spec sheet.
+              AGARIC connects Mushroom 1, SporeBase, MycoNode, Hyphae 1, Psathyrella, NatureOS, MINDEX, MYCA, and FUSARIUM
+              into a mobile aerial layer for real-world environmental intelligence missions.
             </p>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
             <table className="min-w-[720px] w-full text-sm md:text-base">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-left bg-slate-50 dark:bg-slate-800/80">
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Platform</th>
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Weight class</th>
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Flight (vendor)</th>
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Payload notes</th>
-                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Mycosoft angle</th>
+                  <th className="p-4 font-semibold text-slate-900 dark:text-white">System</th>
+                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Role</th>
+                  <th className="p-4 font-semibold text-slate-900 dark:text-white">AGARIC connection</th>
+                  <th className="p-4 font-semibold text-slate-900 dark:text-white">Intelligence value</th>
                 </tr>
               </thead>
               <tbody>
-                {COMPETITIVE_DRONES.map((row) => (
-                  <tr key={row.model} className="border-b border-slate-100 dark:border-white/5 last:border-0">
-                    <td className="p-4 font-medium text-slate-900 dark:text-white">{row.model}</td>
-                    <td className="p-4 text-slate-700 dark:text-white/80">{row.weight}</td>
-                    <td className="p-4 text-slate-700 dark:text-white/80">{row.flight}</td>
-                    <td className="p-4 text-slate-700 dark:text-white/80">{row.payload}</td>
-                    <td className="p-4 text-slate-600 dark:text-white/70">{row.notes}</td>
+                {ECOSYSTEM_CONNECTIONS.map((row) => (
+                  <tr key={row.system} className="border-b border-slate-100 dark:border-white/5 last:border-0">
+                    <td className="p-4 font-medium text-slate-900 dark:text-white">{row.system}</td>
+                    <td className="p-4 text-slate-700 dark:text-white/80">{row.role}</td>
+                    <td className="p-4 text-slate-700 dark:text-white/80">{row.connection}</td>
+                    <td className="p-4 text-slate-600 dark:text-white/70">{row.intelligence}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1259,7 +1115,7 @@ export function AgaricDetails() {
         </div>
       </section>
 
-      {/* Technical Specifications — per-variant tabs */}
+      {/* Technical specifications — size architecture */}
       <section className="agaric-specifications py-24 bg-slate-100 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
@@ -1268,25 +1124,25 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30">Specifications</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">Specifications</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Technical <span className="text-violet-600 dark:text-violet-400">Details</span>
+              Size <span className="text-red-600 dark:text-red-400">Architecture</span>
             </h2>
             <p className="text-lg text-slate-600 dark:text-white/70 max-w-3xl mx-auto">
-              Three variants share the same flight, sensing, and connectivity spine. Numbers are design targets from the May 2026 product plan — verify against released BOM and flight logs.
+              AGARIC is one Flying Sensor Droid platform in three physical sizes. Compare the lift, payload, and mission support envelope for each version.
             </p>
           </motion.div>
 
           <Tabs defaultValue="mini" className="w-full">
             <TabsList className="grid w-full max-w-xl mx-auto grid-cols-3 mb-10 h-auto p-1 bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-white/10">
               <TabsTrigger value="mini" className="min-h-[44px] text-sm md:text-base">
-                Mini
+                AGARIC-S
               </TabsTrigger>
               <TabsTrigger value="standard" className="min-h-[44px] text-sm md:text-base">
-                Standard
+                AGARIC-M
               </TabsTrigger>
               <TabsTrigger value="heavy" className="min-h-[44px] text-sm md:text-base">
-                Heavy-Lift
+                AGARIC-L
               </TabsTrigger>
             </TabsList>
             {(["mini", "standard", "heavy"] as const).map((key) => (
@@ -1294,8 +1150,8 @@ export function AgaricDetails() {
                 <NeuCard className="agaric-spec-card bg-white dark:!bg-gray-700 border-slate-200 dark:border-white/10">
                   <NeuCardHeader>
                     <h3 className="text-slate-900 dark:!text-white flex items-center gap-2 font-semibold">
-                      <Plane className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                      {key === "mini" ? "Agaric Mini" : key === "standard" ? "Agaric Standard" : "Agaric Heavy-Lift"}
+                      <Plane className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      {key === "mini" ? "AGARIC-S" : key === "standard" ? "AGARIC-M" : "AGARIC-L"}
                     </h3>
                   </NeuCardHeader>
                   <NeuCardContent className="space-y-0">
@@ -1305,7 +1161,7 @@ export function AgaricDetails() {
                         className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-3 border-b border-slate-200 dark:border-white/10 last:border-0"
                       >
                         <span className="text-slate-500 dark:!text-white/80">{spec.label}</span>
-                        <span className="text-slate-900 dark:!text-violet-300 font-medium text-right sm:text-left">{spec.value}</span>
+                        <span className="text-slate-900 dark:!text-red-300 font-medium text-right sm:text-left">{spec.value}</span>
                       </div>
                     ))}
                   </NeuCardContent>
@@ -1314,97 +1170,49 @@ export function AgaricDetails() {
             ))}
           </Tabs>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-10">
-            <NeuCard className="agaric-spec-card bg-white dark:!bg-gray-700 border-slate-200 dark:border-white/10">
-              <NeuCardHeader>
-                <h3 className="text-slate-900 dark:!text-white flex items-center gap-2 font-semibold">
-                  <Cpu className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                  Avionics + autonomy
-                </h3>
-              </NeuCardHeader>
-              <NeuCardContent className="space-y-4">
-                {[
-                  { label: "Flight controller", value: "Pixhawk 6X / Cube Orange class (ArduPilot or PX4)" },
-                  { label: "Control board", value: "Central onboard board for LoRa, Wi‑Fi, BLE, sensors, and payload IO" },
-                  { label: "Link to FC", value: "UART MAVLink bridge to the flight controller" },
-                  { label: "Software path", value: "NatureOS + MAS agents + MINDEX when online" },
-                ].map((spec, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-slate-200 dark:border-white/10 last:border-0">
-                    <span className="text-slate-500 dark:!text-white">{spec.label}</span>
-                    <span className="text-slate-900 dark:!text-violet-400 font-medium">{spec.value}</span>
-                  </div>
-                ))}
-              </NeuCardContent>
-            </NeuCard>
-
-            <NeuCard className="agaric-spec-card bg-white dark:!bg-gray-700 border-slate-200 dark:border-white/10">
-              <NeuCardHeader>
-                <h3 className="text-slate-900 dark:!text-white flex items-center gap-2 font-semibold">
-                  <Shield className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                  Environmental
-                </h3>
-              </NeuCardHeader>
-              <NeuCardContent className="space-y-4">
-                {[
-                  { label: "IP rating (airframe)", value: "IP55 target (Heavy-Lift sealing)" },
-                  { label: "Operating temp", value: "−20 °C to 45 °C target" },
-                  { label: "Humidity", value: "Rain / dust / marine spray class (design)" },
-                  { label: "Compliance path", value: "FAA Part 107 + Remote ID; NDAA-ready BOM review available for qualifying programs" },
-                  { label: "Radio regions", value: "915 MHz LoRa (regulatory profile TBD)" },
-                  { label: "Data policy", value: "No fabricated telemetry — live APIs only" },
-                ].map((spec, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-slate-200 dark:border-white/10 last:border-0">
-                    <span className="text-slate-500 dark:!text-white">{spec.label}</span>
-                    <span className="text-slate-900 dark:!text-violet-400 font-medium">{spec.value}</span>
-                  </div>
-                ))}
-              </NeuCardContent>
-            </NeuCard>
-          </div>
-
-          <div className="mt-8 flex justify-center gap-4">
-            <NeuButton 
-              variant="outline" 
-              className="min-h-[44px] border-violet-500/30 dark:border-violet-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-violet-500/10 dark:hover:bg-gray-600"
-              onClick={() => {
-                window.location.href = "/assets/agaric/Agaric-development-plan2.docx"
-              }}
-            >
-              <Download className="mr-2 h-5 w-5" />
-              Download Full Specifications
-            </NeuButton>
-            <NeuButton 
-              variant="outline" 
-              className="min-h-[44px] border-violet-500/30 dark:border-violet-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-violet-500/10 dark:hover:bg-gray-600"
-              onClick={() => {
-                alert("3D CAD model viewer will be available soon. CAD files pending upload.")
-              }}
+          <div className="mt-8 flex justify-center">
+            <NeuButton
+              variant="outline"
+              className="min-h-[44px] border-red-500/30 dark:border-red-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-red-500/10 dark:hover:bg-gray-600"
+              onClick={() => document.querySelector(".agaric-ecosystem")?.scrollIntoView({ behavior: "smooth" })}
             >
               <ExternalLink className="mr-2 h-5 w-5" />
-              View CAD Models
+              View Ecosystem Links
             </NeuButton>
           </div>
         </div>
       </section>
 
-      {/* Pricing & Versions */}
-      <section className="agaric-pricing py-24 px-4 bg-white dark:bg-slate-950 border-y border-slate-200/80 dark:border-white/10">
-        <div className="max-w-7xl mx-auto">
+      {/* Size family */}
+      <section className="agaric-pricing relative overflow-hidden py-24 px-4 bg-white dark:bg-slate-950 border-y border-slate-200/80 dark:border-white/10">
+        <div className="absolute inset-0">
+          <Image
+            src={encodeAssetUrl(AGARIC_ASSETS.sizesImage)}
+            alt="Agaric size comparison in a clean lab bay"
+            fill
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-white/70 dark:bg-black/68" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-white/45 to-white/85 dark:from-black/85 dark:via-black/50 dark:to-black/88" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center mb-14"
           >
-            <NeuBadge variant="default" className="mb-4 bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
-              Versions
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30">
+              Three Sizes
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
-              Choose the <span className="text-violet-600 dark:text-violet-400">Agaric</span> for the mission
+              One droid. <span className="text-red-600 dark:text-red-400">Three sizes.</span>
             </h2>
             <p className="text-lg text-slate-600 dark:text-white/70 max-w-3xl mx-auto">
-              The product plan keeps the entry model approachable while reserving payload, winch, thermal, satellite,
-              and custom integrations for programs that need heavier field work.
+              Every size performs the same AGARIC functions. The only difference is scale: payload envelope, endurance,
+              recovery hardware, and mission support capacity. The distinctive flight form stays the same: 12 rotors,
+              paired coaxially for level translation and stable orientation.
             </p>
           </motion.div>
 
@@ -1424,7 +1232,7 @@ export function AgaricDetails() {
                         <h3 className="text-2xl font-bold text-slate-900 dark:!text-white">{tier.name}</h3>
                         <p className="mt-1 text-sm text-slate-500 dark:text-white/60">{tier.audience}</p>
                       </div>
-                      <NeuBadge variant="default" className="shrink-0 bg-violet-500/20 text-violet-700 dark:text-violet-300 border-violet-500/30">
+                      <NeuBadge variant="default" className="shrink-0 bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30">
                         {tier.price}
                       </NeuBadge>
                     </div>
@@ -1432,10 +1240,10 @@ export function AgaricDetails() {
                   <NeuCardContent>
                     <p className="text-slate-700 dark:text-white/75 leading-relaxed">{tier.includes}</p>
                     <NeuButton
-                      className="mt-6 w-full min-h-[44px] bg-violet-600 hover:bg-violet-700 !text-white"
+                      className="mt-6 w-full min-h-[44px] bg-red-600 hover:bg-red-700 !text-white"
                       onClick={() => router.push(`/contact?topic=${encodeURIComponent(tier.name)}`)}
                     >
-                      Request {tier.name.replace("Agaric ", "")}
+                      Discuss {tier.name}
                     </NeuButton>
                   </NeuCardContent>
                 </NeuCard>
@@ -1445,21 +1253,28 @@ export function AgaricDetails() {
         </div>
       </section>
 
-      {/* CTA Section with Walking Video Background - Much taller to show more video (square-ish) */}
+      {/* Footer CTA with wide forest flight video */}
       <section className="relative py-40 md:py-56 min-h-[800px] md:min-h-[900px] overflow-hidden">
         {/* Background Video */}
         <div className="absolute inset-0">
-          <AutoplayVideo
-            src={AGARIC_ASSETS.videos.deploy}
-            sources={assetMp4Sources(AGARIC_ASSETS.videos.deploy)}
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            disablePictureInPicture
+            controls={false}
+            controlsList="nodownload noplaybackrate nofullscreen"
+            aria-label="Agaric flying through a forest canopy"
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
-            preload="metadata"
-            encodeSrc
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/20" />
+          >
+            <source src={encodeAssetUrl(AGARIC_ASSETS.videos.footer)} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/15" />
         </div>
-        
+
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center flex flex-col justify-center min-h-[600px] md:min-h-[700px]">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -1467,74 +1282,24 @@ export function AgaricDetails() {
             viewport={{ once: true }}
           >
             <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
-              Ready to fly the mesh?
+              Ready to connect the field?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
-              Agaric connects aerial mobility, sensing, and NatureOS mission workflows for real field operations — availability, pricing, and regulatory bundles ship with program gates, not mock checkout flows.
+              AGARIC extends Mycosoft intelligence into the air: one flying droid in three sizes for lift,
+              deploy, retrieve, relay, inspect, translate, hover, and maneuver missions.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <NeuButton 
-                className="min-h-[44px] px-8 py-6 text-lg bg-violet-600 hover:bg-violet-700 !text-white font-semibold"
-                onClick={() => openMp4Modal(AGARIC_ASSETS.videos.promo, "Agaric — Watch Film")}
-              >
-                <Play className="mr-2 h-6 w-6" />
-                Watch Film
-              </NeuButton>
               <NeuButton
-                variant="outline"
-                className="min-h-[44px] px-8 py-6 text-lg border-white/30 !text-white hover:!text-white hover:bg-white/10"
-                onClick={() => {
-                  window.location.href = "/assets/agaric/Agaric-development-plan2.docx"
-                }}
+                className="min-h-[44px] px-8 py-6 text-lg bg-red-600 hover:bg-red-700 !text-white font-semibold"
+                onClick={() => document.querySelector(".agaric-specifications")?.scrollIntoView({ behavior: "smooth" })}
               >
-                <Download className="mr-2 h-6 w-6" />
-                Download Specs
+                <Plane className="mr-2 h-6 w-6" />
+                View Size Architecture
               </NeuButton>
             </div>
           </motion.div>
         </div>
       </section>
-
-      {/* Video Modal */}
-      <AnimatePresence>
-        {isVideoModalOpen && selectedVideo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-            onClick={() => setIsVideoModalOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="relative w-full max-w-5xl aspect-video"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {selectedVideo.kind === "youtube" ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/${selectedVideo.src}?autoplay=1`}
-                  title={selectedVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full rounded-xl"
-                />
-              ) : (
-                <video autoPlay muted controls playsInline className="w-full h-full rounded-xl bg-black">
-                  <source src={encodeAssetUrl(selectedVideo.src)} type="video/mp4" />
-                </video>
-              )}
-              <button
-                onClick={() => setIsVideoModalOpen(false)}
-                className="absolute -top-12 right-0 text-white/60 hover:text-white"
-              >
-                Press ESC or click outside to close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
     </NeuromorphicProvider>

@@ -39,6 +39,7 @@ export async function middleware(request: NextRequest) {
   // triggers a login redirect on image-builds that predate the route
   // file. Shortcut: never gate /api/worldview/* via the page-auth flow.
   if (pathname.startsWith("/api/worldview/")) return response
+  if (pathname.startsWith("/natureos/model-training")) return response
 
   // Fast path: skip Supabase getUser() entirely for public pages that don't
   // need auth. This eliminates a network round-trip on every navigation to

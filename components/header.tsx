@@ -27,7 +27,7 @@ import { useGateAccess } from "@/components/access/gate-wrapper"
 import { AccessGate } from "@/lib/access/types"
 
 // Import motion only what we need (tree-shaken by bundler)
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 
 // Navigation dropdown items configuration
 const defenseItems = [
@@ -116,14 +116,14 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
     }
     onOpen()
   }, [onOpen, globalTimeoutRef])
-  
+
   const handleMouseLeave = useCallback(() => {
     // Delay before closing to allow moving to dropdown content or another menu item
     globalTimeoutRef.current = setTimeout(() => {
       onClose()
     }, 200)
   }, [onClose, globalTimeoutRef])
-  
+
   const handleDropdownMouseEnter = useCallback(() => {
     // Clear timeout when entering the dropdown content
     if (globalTimeoutRef.current) {
@@ -131,7 +131,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
       globalTimeoutRef.current = null
     }
   }, [globalTimeoutRef])
-  
+
   const handleDropdownMouseLeave = useCallback(() => {
     globalTimeoutRef.current = setTimeout(() => {
       onClose()
@@ -186,7 +186,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
     "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     isOpen && buttonActiveColor[accentColor],
   )
-  
+
   const buttonContent = (
     <>
       <Icon className={cn(
@@ -205,7 +205,11 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
   )
 
   return (
-    <div className="relative">
+    <div
+      className="group relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         type="button"
         aria-expanded={isOpen}
@@ -219,28 +223,28 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
         {buttonContent}
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <div
-              className="absolute top-full left-0 z-[60] h-3 w-full bg-transparent"
-              onMouseEnter={handleDropdownMouseEnter}
-              aria-hidden
-            />
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
-              onMouseEnter={handleDropdownMouseEnter}
-              onMouseLeave={handleDropdownMouseLeave}
-              className={cn(
-                "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-[60]",
-                "bg-background/95 backdrop-blur-xl border shadow-2xl",
-                colorVariants[accentColor],
-                glowVariants[accentColor],
-              )}
-            >
+      <div
+        className={cn(
+          "absolute top-full left-0 z-[60] h-3 w-full bg-transparent",
+          "invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto group-focus-within:visible group-focus-within:pointer-events-auto",
+          isOpen && "visible pointer-events-auto",
+        )}
+        onMouseEnter={handleDropdownMouseEnter}
+        aria-hidden
+      />
+      <div
+        onMouseEnter={handleDropdownMouseEnter}
+        onMouseLeave={handleDropdownMouseLeave}
+        className={cn(
+          "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-[60]",
+          "bg-background/95 backdrop-blur-xl border shadow-2xl transition-all duration-150 ease-out -translate-y-1",
+          "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0",
+          "group-focus-within:visible group-focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0",
+          isOpen && "visible opacity-100 pointer-events-auto translate-y-0",
+          colorVariants[accentColor],
+          glowVariants[accentColor],
+        )}
+      >
               <div
                 className={cn(
                   "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-30",
@@ -295,10 +299,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
                   )
                 })}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -312,20 +313,20 @@ export function Header() {
   const navRef = useRef<HTMLElement>(null)
   const globalDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
-  
+
   // Filter lists based on authorization
   const visibleNatureOSItems = natureOSItems.filter(item => !item.companyOnly || isCompanyUser)
   const visibleAppsItems = appsItems.filter(item => !item.companyOnly || isCompanyUser)
-  
+
   // Transform supabase user to the expected format
   const user = supabaseUser ? {
     id: supabaseUser.id,
-    name: supabaseUser.user_metadata?.full_name || 
+    name: supabaseUser.user_metadata?.full_name ||
           supabaseUser.user_metadata?.name ||
-          supabaseUser.email?.split("@")[0] || 
+          supabaseUser.email?.split("@")[0] ||
           "User",
     email: supabaseUser.email ?? null,
-    avatar: supabaseUser.user_metadata?.avatar_url || 
+    avatar: supabaseUser.user_metadata?.avatar_url ||
             supabaseUser.user_metadata?.picture ||
             "/placeholder.svg",
   } : null
@@ -334,7 +335,7 @@ export function Header() {
   useEffect(() => {
     setMounted(true)
   }, [])
-  
+
   // Close dropdown when clicking outside. Use `click` instead of `mousedown`
   // so page navigation is not pre-empted on the first press.
   useEffect(() => {
@@ -343,7 +344,7 @@ export function Header() {
         setOpenDropdown(null)
       }
     }
-    
+
     document.addEventListener("click", handleClickOutside)
     return () => document.removeEventListener("click", handleClickOutside)
   }, [])
@@ -359,12 +360,12 @@ export function Header() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50" suppressHydrationWarning>
+    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-[200]" suppressHydrationWarning>
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
           <a href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
-            <motion.div 
+            <motion.div
               className="relative h-7 w-7 pointer-events-none md:h-8 md:w-8"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}

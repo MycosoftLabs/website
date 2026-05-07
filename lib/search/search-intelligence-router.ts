@@ -157,7 +157,7 @@ function isConservationThematicQuery(query: string): boolean {
   const q = query.trim().toLowerCase()
   if (q.length < 4) return false
   const conservation =
-    /\b(endangered|threatened|vulnerable|critically\s+endangered|extinction|conservation|recover(y|ies)|iucn|red\s*list|protected\s+species|biodiversity|habitat\s+loss)\b/i.test(
+    /\b(status|declin(e|ing)|bleach(ed|ing)?|endangered|threatened|vulnerable|critically\s+endangered|extinction|conservation|recover(y|ies)|restoration|iucn|red\s*list|protected\s+species|biodiversity|habitat\s+loss)\b/i.test(
       q
     )
   const taxonGroup =
