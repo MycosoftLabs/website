@@ -10,6 +10,7 @@ export function ModeToggle() {
     <Button
       variant="ghost"
       size="icon"
+      suppressHydrationWarning
       onClick={() =>
         setTheme((resolvedTheme ?? "dark") === "dark" ? "light" : "dark")
       }

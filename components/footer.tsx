@@ -18,7 +18,9 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 px-4">
           {/* Company */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Company</h3>
+            <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
+              Company
+            </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
                 <a href="/about" className="hover:text-foreground transition-colors" suppressHydrationWarning>
@@ -45,7 +47,9 @@ export function Footer() {
 
           {/* Resources */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">AI</h3>
+            <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
+              AI
+            </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
                 <a href="/ai" className="hover:text-foreground transition-colors" suppressHydrationWarning>
@@ -77,7 +81,9 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Legal</h3>
+            <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
+              Legal
+            </h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
                 <a href="/privacy" className="hover:text-foreground transition-colors" suppressHydrationWarning>
@@ -94,7 +100,9 @@ export function Footer() {
 
           {/* Connect */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Connect</h3>
+            <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
+              Connect
+            </h3>
             <div className="flex gap-2">
               <a
                 href="https://twitter.com/mycosoftorg"

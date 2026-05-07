@@ -209,6 +209,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
       className="group relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      suppressHydrationWarning
     >
       <button
         type="button"
@@ -219,6 +220,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={buttonClasses}
+        suppressHydrationWarning
       >
         {buttonContent}
       </button>
