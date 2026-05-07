@@ -25,6 +25,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const MINDEX_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
+const INATURALIST_API = "https://api.inaturalist.org/v1"
 
 function mindexHeaders(): HeadersInit {
   const h: Record<string, string> = { Accept: "application/json" }
@@ -92,6 +93,114 @@ const FALLBACK_ROUTES: Record<string, string> = {
   "internet-cables": "/api/oei/submarine-cables",
 }
 
+function entityCount(data: any): number {
+  if (Array.isArray(data?.entities)) return data.entities.length
+  if (Array.isArray(data?.observations)) return data.observations.length
+  if (Array.isArray(data?.features)) return data.features.length
+  if (typeof data?.total === "number") return data.total
+  return 0
+}
+
+function normalizeSpeciesFallback(data: any, bounds: { lat_min: string; lat_max: string; lng_min: string; lng_max: string }) {
+  const observations = Array.isArray(data?.observations) ? data.observations : []
+  return {
+    layer: "species",
+    entities: observations.map((obs: any) => ({
+      ...obs,
+      lat: obs.lat ?? obs.latitude,
+      lng: obs.lng ?? obs.longitude,
+      name: obs.species || obs.commonName || obs.scientificName || "Unknown",
+      source: obs.source || "iNaturalist",
+    })),
+    observations,
+    total: observations.length,
+    bounds: {
+      lat_min: Number(bounds.lat_min),
+      lat_max: Number(bounds.lat_max),
+      lng_min: Number(bounds.lng_min),
+      lng_max: Number(bounds.lng_max),
+    },
+    source: "live_api_fallback",
+    upstream: data?.meta || null,
+  }
+}
+
+async function fetchLiveSpeciesFallback(bounds: { lat_min: string; lat_max: string; lng_min: string; lng_max: string }, limit: string) {
+  const requested = Math.min(Math.max(Number(limit) || 200, 1), 1000)
+  const pages = Math.max(1, Math.ceil(requested / 200))
+  const observations: any[] = []
+
+  for (let page = 1; page <= pages && observations.length < requested; page++) {
+    const params = new URLSearchParams({
+      quality_grade: "research,needs_id",
+      per_page: String(Math.min(200, requested - observations.length)),
+      page: String(page),
+      order: "desc",
+      order_by: "observed_on",
+      geo: "true",
+      photos: "true",
+      swlat: bounds.lat_min,
+      nelat: bounds.lat_max,
+      swlng: bounds.lng_min,
+      nelng: bounds.lng_max,
+    })
+
+    const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    })
+    if (!res.ok) break
+
+    const data = await res.json()
+    const results = Array.isArray(data?.results) ? data.results : []
+    for (const obs of results) {
+      const coords = obs.geojson?.coordinates
+      const lng = Number(coords?.[0] ?? obs.location?.split(",")?.[1])
+      const lat = Number(coords?.[1] ?? obs.location?.split(",")?.[0])
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      observations.push({
+        id: `inat-${obs.id}`,
+        externalId: String(obs.id),
+        species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
+        scientificName: obs.taxon?.name || "Unknown",
+        commonName: obs.taxon?.preferred_common_name,
+        latitude: lat,
+        longitude: lng,
+        timestamp: obs.observed_on || obs.created_at,
+        source: "iNaturalist",
+        verified: obs.quality_grade === "research",
+        observer: obs.user?.login || "Anonymous",
+        imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
+        thumbnailUrl: obs.photos?.[0]?.url,
+        location: obs.place_guess,
+        hasGps: true,
+        geocodeStatus: "complete",
+        kingdom: obs.taxon?.iconic_taxon_name || "Unknown",
+        iconicTaxon: obs.taxon?.iconic_taxon_name || "Unknown",
+        taxonId: obs.taxon?.id,
+        sourceUrl: obs.uri || `https://www.inaturalist.org/observations/${obs.id}`,
+      })
+    }
+    if (results.length < 200) break
+  }
+
+  return normalizeSpeciesFallback(
+    {
+      observations: observations.slice(0, requested),
+      meta: {
+        total: observations.length,
+        sources: { mindex: 0, iNaturalist: observations.length, gbif: 0 },
+        dataSource: "live_inaturalist_proxy_fallback",
+      },
+    },
+    bounds,
+  )
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ source: string }> }
@@ -126,6 +235,9 @@ export async function GET(
 
     if (res.ok) {
       const data = await res.json()
+      if (mindexLayer === "species" && entityCount(data) === 0) {
+        console.warn(`[MINDEX/Proxy] MINDEX species layer returned 0 entities for bbox; using live fallback`)
+      } else {
       return NextResponse.json(data, {
         headers: {
           "X-MINDEX-Source": "live",
@@ -133,6 +245,7 @@ export async function GET(
           "Cache-Control": "public, max-age=10",
         },
       })
+      }
     }
 
     console.warn(`[MINDEX/Proxy] MINDEX returned ${res.status} for layer=${mindexLayer}`)
@@ -144,28 +257,47 @@ export async function GET(
   const fallbackRoute = FALLBACK_ROUTES[source]
   if (fallbackRoute) {
     try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+      if (mindexLayer === "species") {
+        const body = await fetchLiveSpeciesFallback({ lat_min, lat_max, lng_min, lng_max }, limit)
+        if (body.total > 0) {
+          return NextResponse.json(body, {
+            status: 200,
+            headers: {
+              "X-MINDEX-Source": "fallback",
+              "X-MINDEX-Layer": mindexLayer,
+              "X-MINDEX-Warning": "mindex-empty-using-live-inaturalist",
+            },
+          })
+        }
+      }
+
+      const baseUrl = new URL(request.url).origin
 
       const fallbackUrl = new URL(fallbackRoute, baseUrl)
       // Forward bbox params
-      if (searchParams.get("lat_min")) {
-        fallbackUrl.searchParams.set("lat_min", lat_min)
-        fallbackUrl.searchParams.set("lat_max", lat_max)
-        fallbackUrl.searchParams.set("lng_min", lng_min)
-        fallbackUrl.searchParams.set("lng_max", lng_max)
-      }
+      fallbackUrl.searchParams.set("lat_min", lat_min)
+      fallbackUrl.searchParams.set("lat_max", lat_max)
+      fallbackUrl.searchParams.set("lng_min", lng_min)
+      fallbackUrl.searchParams.set("lng_max", lng_max)
+      fallbackUrl.searchParams.set("south", lat_min)
+      fallbackUrl.searchParams.set("north", lat_max)
+      fallbackUrl.searchParams.set("west", lng_min)
+      fallbackUrl.searchParams.set("east", lng_max)
       fallbackUrl.searchParams.set("limit", limit)
+      if (mindexLayer === "species") fallbackUrl.searchParams.set("nocache", "true")
 
       const fallbackRes = await fetch(fallbackUrl.toString(), {
         cache: "no-store",
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
       })
 
       if (fallbackRes.ok) {
         const data = await fallbackRes.json()
-        return NextResponse.json(data, {
+        const body = mindexLayer === "species"
+          ? normalizeSpeciesFallback(data, { lat_min, lat_max, lng_min, lng_max })
+          : data
+        return NextResponse.json(body, {
+          status: 200,
           headers: {
             "X-MINDEX-Source": "fallback",
             "X-MINDEX-Layer": mindexLayer,

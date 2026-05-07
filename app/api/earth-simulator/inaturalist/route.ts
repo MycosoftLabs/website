@@ -8,6 +8,59 @@ import { inaturalistClient } from "@/lib/inaturalist-client";
  * Focuses on fungal/mushroom observations for mycelium mapping.
  */
 
+function observationCoordinates(obs: any): { latitude: number | null; longitude: number | null } {
+  const geo = obs.geojson?.coordinates;
+  if (Array.isArray(geo) && geo.length >= 2) {
+    const longitude = Number(geo[0]);
+    const latitude = Number(geo[1]);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return { latitude, longitude };
+    }
+  }
+
+  if (typeof obs.location === "string") {
+    const [latRaw, lngRaw] = obs.location.split(",");
+    const latitude = Number(latRaw);
+    const longitude = Number(lngRaw);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return { latitude, longitude };
+    }
+  }
+
+  const latitude = Number(obs.latitude ?? obs.lat);
+  const longitude = Number(obs.longitude ?? obs.lng);
+  return {
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+  };
+}
+
+function serializeObservation(obs: any) {
+  const { latitude, longitude } = observationCoordinates(obs);
+  const taxonName = obs.taxon?.name || obs.species_guess || "Unknown";
+  const commonName = obs.species_guess || obs.taxon?.preferred_common_name || taxonName;
+
+  return {
+    id: obs.id,
+    observed_on: obs.observed_on,
+    latitude,
+    longitude,
+    species: commonName,
+    scientificName: taxonName,
+    taxon_id: obs.taxon_id || obs.taxon?.id,
+    taxon: obs.taxon,
+    photos: obs.photos?.map((p: any) => ({
+      id: p.id,
+      url: p.medium_url || p.url,
+      license: p.license_code,
+    })),
+    quality_grade: obs.quality_grade,
+    user: obs.user?.login,
+    source: "iNaturalist",
+    sourceUrl: obs.uri || (obs.id ? `https://www.inaturalist.org/observations/${obs.id}` : undefined),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
@@ -70,22 +123,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       action,
-      observations: observations.map((obs) => ({
-        id: obs.id,
-        observed_on: obs.observed_on,
-        latitude: obs.latitude,
-        longitude: obs.longitude,
-        species: obs.species_guess || obs.taxon?.name,
-        taxon_id: obs.taxon_id || obs.taxon?.id,
-        taxon: obs.taxon,
-        photos: obs.photos?.map((p) => ({
-          id: p.id,
-          url: p.medium_url || p.url,
-          license: p.license_code,
-        })),
-        quality_grade: obs.quality_grade,
-        user: obs.user?.login,
-      })),
+      observations: observations.map(serializeObservation),
       count: observations.length,
     });
   } catch (error) {
@@ -140,18 +178,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       action,
-      observations: observations.map((obs) => ({
-        id: obs.id,
-        observed_on: obs.observed_on,
-        latitude: obs.latitude,
-        longitude: obs.longitude,
-        species: obs.species_guess || obs.taxon?.name,
-        taxon_id: obs.taxon_id || obs.taxon?.id,
-        photos: obs.photos?.map((p) => ({
-          id: p.id,
-          url: p.medium_url || p.url,
-        })),
-      })),
+      observations: observations.map(serializeObservation),
       count: observations.length,
     });
   } catch (error) {

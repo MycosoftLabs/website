@@ -16,8 +16,8 @@ export async function GET() {
   const masUrl = resolveMasServerBaseUrl()
 
   const [mindex, mas] = await Promise.all([
-    headReachable(`${mindexUrl}/health`),
-    headReachable(`${masUrl}/health`),
+    serviceReachable(mindexUrl, ["/api/mindex/health", "/health"]),
+    serviceReachable(masUrl, ["/api/myca/status", "/health"]),
   ])
 
   return NextResponse.json({
@@ -28,8 +28,8 @@ export async function GET() {
     generated_at: new Date().toISOString(),
     latency_ms: Date.now() - started,
     upstream: {
-      mindex: { url: mindexUrl, reachable: mindex.ok, latency_ms: mindex.ms },
-      mas:    { url: masUrl,    reachable: mas.ok,    latency_ms: mas.ms },
+      mindex: { url: mindexUrl, reachable: mindex.ok, latency_ms: mindex.ms, probe: mindex.path },
+      mas:    { url: masUrl,    reachable: mas.ok,    latency_ms: mas.ms,    probe: mas.path },
     },
     docs: {
       catalog: "/api/worldview/v1/catalog",
@@ -42,12 +42,18 @@ export async function GET() {
   })
 }
 
-async function headReachable(url: string): Promise<{ ok: boolean; ms: number }> {
+async function serviceReachable(baseUrl: string, paths: string[]): Promise<{ ok: boolean; ms: number; path: string | null }> {
   const t0 = Date.now()
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(3000) })
-    return { ok: r.ok, ms: Date.now() - t0 }
-  } catch {
-    return { ok: false, ms: Date.now() - t0 }
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${baseUrl}${path}`, {
+        signal: AbortSignal.timeout(6000),
+        cache: "no-store",
+      })
+      if (r.ok) return { ok: true, ms: Date.now() - t0, path }
+    } catch {
+      // Try the next service-specific health probe.
+    }
   }
+  return { ok: false, ms: Date.now() - t0, path: null }
 }

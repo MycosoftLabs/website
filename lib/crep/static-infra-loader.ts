@@ -120,11 +120,12 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
  * every Cloudflare edge POP — pulling tiles from there is ~10 ms instead
  * of ~500 ms through our origin `/api/crep/tiles/*` route.
  *
- * Set `NEXT_PUBLIC_TILES_CDN=https://tiles.mycosoft.com` (or a preview CDN)
- * and we rewrite the PMTiles URLs to the CDN. If the env is unset, we fall
- * back to the existing app-served path, which in turn falls back to GeoJSON
- * when the pmtiles archive isn't published yet. No behavioural change until
- * the CDN is live.
+ * Set `NEXT_PUBLIC_TILES_CDN_ENABLED=true` plus
+ * `NEXT_PUBLIC_TILES_CDN=https://tiles.mycosoft.com` (or a preview CDN) and
+ * we rewrite the PMTiles URLs to the CDN. If CDN use is not explicitly enabled,
+ * we use the existing app-served path, which in turn falls back to GeoJSON when
+ * the pmtiles archive isn't published yet. This avoids broken CDN probes from
+ * adding 404 noise to the live Earth Simulator.
  *
  * Naming convention on the CDN (matches scripts/bake_mvt_tiles.sh output):
  *   substations.pmtiles
@@ -136,6 +137,10 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
  *   cell-towers-us-tw.pmtiles     (instant bundle)
  */
 function resolvePmtilesUrl(appPath: string): string {
+  const cdnEnabled =
+    (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_TILES_CDN_ENABLED)?.trim().toLowerCase() === "true"
+  if (!cdnEnabled) return appPath
+
   const cdn = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_TILES_CDN)?.trim()
   if (!cdn) return appPath
   // Pull the filename off the app path and serve it from the CDN root.

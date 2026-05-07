@@ -3163,7 +3163,7 @@ export default function CREPDashboardPage() {
     // Apr 23, 2026 — Morgan (Vegas demo): "naturedata live in las vegas".
     // Baked Vegas iNat geojson added to BAKED_REGIONS; flows through the
     // same fungalObservations state as NYC/DC and live SSE.
-    const BAKED_REGIONS = ["nyc", "dc", "vegas"] as const;
+    const BAKED_REGIONS = ["nyc", "dc", "vegas", "sdtj", "la", "sf"] as const;
     let cancelled = false;
     (async () => {
       for (const region of BAKED_REGIONS) {

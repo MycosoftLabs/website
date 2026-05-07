@@ -47,6 +47,22 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ error: `Unknown hardware type: ${type}` }, { status: 400 })
   } catch (error) {
+    if (String(error).includes("No DATABASE_URL") || String(error).includes("No POSTGRES_URL")) {
+      const emptyHardware = {
+        sdrs: [],
+        rotators: [],
+        rigs: [],
+        cameras: [],
+      }
+
+      return NextResponse.json(type === "all" ? emptyHardware : [], {
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Ground-Station-Source": "unconfigured",
+        },
+      })
+    }
+
     console.error("Ground Station hardware error:", error)
     return NextResponse.json(
       { error: "Ground Station hardware error", details: String(error) },

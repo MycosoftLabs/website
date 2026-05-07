@@ -38,6 +38,15 @@ export async function GET() {
       }))
     )
   } catch (error) {
+    if (String(error).includes("No DATABASE_URL") || String(error).includes("No POSTGRES_URL")) {
+      return NextResponse.json([], {
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Ground-Station-Source": "unconfigured",
+        },
+      })
+    }
+
     console.error("Ground Station groups error:", error)
     return NextResponse.json(
       { error: "Ground Station groups error", details: String(error) },

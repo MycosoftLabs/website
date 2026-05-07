@@ -54,12 +54,20 @@ async function safeJson(url: string, timeoutMs = 8000): Promise<any | null> {
   } catch { return null }
 }
 
-async function headReachable(url: string, timeoutMs = 3000): Promise<{ ok: boolean; ms: number }> {
+async function serviceReachable(baseUrl: string, paths: string[], timeoutMs = 6000): Promise<{ ok: boolean; ms: number; path: string | null }> {
   const t0 = Date.now()
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
-    return { ok: r.ok, ms: Date.now() - t0 }
-  } catch { return { ok: false, ms: Date.now() - t0 } }
+  for (const path of paths) {
+    try {
+      const r = await fetch(`${baseUrl}${path}`, {
+        signal: AbortSignal.timeout(timeoutMs),
+        cache: "no-store",
+      })
+      if (r.ok) return { ok: true, ms: Date.now() - t0, path }
+    } catch {
+      // Try the next endpoint for this service.
+    }
+  }
+  return { ok: false, ms: Date.now() - t0, path: null }
 }
 
 export async function GET(req: NextRequest) {
@@ -83,9 +91,9 @@ export async function GET(req: NextRequest) {
     (project === "goffs"  || project === "global") ? safeJson(`${origin}/api/crep/mojave`, 15_000) : Promise.resolve(null),
     safeJson(`${origin}/api/eagle/sources?limit=5000`, 15_000),
     safeJson(`${origin}/api/crep/sdapcd/h2s`, 10_000),
-    headReachable(`${MINDEX_URL}/health`),
-    headReachable(`${MAS_URL}/health`),
-    headReachable(`${EARTH2_BASE}/health`),
+    serviceReachable(MINDEX_URL, ["/api/mindex/health", "/health"]),
+    serviceReachable(MAS_URL, ["/api/myca/status", "/health"]),
+    serviceReachable(EARTH2_BASE, ["/health"]),
   ])
 
   // Normalize entity counts — different connectors return different shapes
@@ -176,16 +184,19 @@ export async function GET(req: NextRequest) {
         url: MINDEX_URL,
         reachable: mindexHealth.ok,
         latency_ms: mindexHealth.ms,
+        probe: mindexHealth.path,
       },
       mas: {
         url: MAS_URL,
         reachable: masHealth.ok,
         latency_ms: masHealth.ms,
+        probe: masHealth.path,
       },
       earth2_api: {
         url: EARTH2_BASE,
         reachable: earth2Health.ok,
         latency_ms: earth2Health.ms,
+        probe: earth2Health.path,
         note: "Override with EARTH2_API_URL; Earth-2 legion defaults GPU_EARTH2_IP:8220.",
       },
       personaplex_voice: {

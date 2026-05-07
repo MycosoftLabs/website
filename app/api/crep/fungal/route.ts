@@ -436,6 +436,8 @@ const FUNGAL_HOTSPOT_REGIONS = [
   // ═══════════════════════════════════════════════════════════════════════════
   { name: "San Diego County", north: 33.5, south: 32.5, east: -116.0, west: -117.6 },
   { name: "Southern California", north: 35.0, south: 32.0, east: -114.0, west: -121.0 },
+  { name: "Los Angeles Basin", north: 34.35, south: 33.65, east: -117.85, west: -118.70 },
+  { name: "San Francisco Bay Area", north: 37.95, south: 37.60, east: -122.25, west: -122.60 },
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIORITY 2 - Major fungal hotspots
   // ═══════════════════════════════════════════════════════════════════════════

@@ -18,6 +18,11 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
+interface OverpassError {
+  type: string;
+  message: string;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -205,14 +210,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch sequentially to respect rate limits
+    // Fetch sequentially to respect rate limits. Overpass is external and
+    // frequently throttles large world-view bboxes, so keep the map alive with
+    // partial data instead of turning the whole infrastructure layer into a 500.
     const allFeatures: Record<string, unknown>[] = [];
     let anyCached = false;
+    const upstreamErrors: OverpassError[] = [];
 
     for (const t of types) {
-      const result = await fetchOverpass(t, bbox);
-      allFeatures.push(...result.features);
-      if (result.cached) anyCached = true;
+      try {
+        const result = await fetchOverpass(t, bbox);
+        allFeatures.push(...result.features);
+        if (result.cached) anyCached = true;
+      } catch (error) {
+        upstreamErrors.push({
+          type: t,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     // Infrastructure locations don't change frequently. Cache at every
@@ -233,6 +248,7 @@ export async function GET(request: NextRequest) {
           features: allFeatures,
           total: allFeatures.length,
           cached: anyCached,
+          upstreamErrors,
           bbox,
         },
         { headers: cacheHeaders },
@@ -246,6 +262,7 @@ export async function GET(request: NextRequest) {
         features: allFeatures,
         total: allFeatures.length,
         cached: anyCached,
+        upstreamErrors,
         bbox,
       },
       { headers: cacheHeaders },
