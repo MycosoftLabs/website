@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFingerprints, useAllFrames } from '@/lib/nlm/firebase-hooks';
 import { useMycoBrainData } from '@/lib/nlm/supabase-hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fingerprint, Search, Filter, Activity, Zap, Thermometer, Wind, LayoutGrid, Maximize2, Database, ChevronDown, Cpu } from 'lucide-react';
 import { SensoryFingerprintViz } from './SensoryFingerprintViz';
 
+function flattenNumericValues(value: any): number[] {
+  if (typeof value === 'number' && Number.isFinite(value)) return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenNumericValues);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(flattenNumericValues);
+  return [];
+}
 
 export function FingerprintStudio({ userId, isAdmin }: { userId?: string, isAdmin?: boolean }) {
   const { frames, loading: framesLoading } = useAllFrames(userId, isAdmin);
@@ -14,6 +20,15 @@ export function FingerprintStudio({ userId, isAdmin }: { userId?: string, isAdmi
   const { fingerprints } = useFingerprints(selectedFrameRoot);
   const { data: mycoBrainData } = useMycoBrainData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFrameList, setShowFrameList] = useState(false);
+  const [viewMode, setViewMode] = useState<'single' | 'comparison'>('single');
+  const [selectedType, setSelectedType] = useState('spectral');
+
+  useEffect(() => {
+    if (!selectedFrameRoot && frames[0]?.frame_root) {
+      setSelectedFrameRoot(frames[0].frame_root);
+    }
+  }, [frames, selectedFrameRoot]);
 
   const filteredMycoBrainData = useMemo(() => {
     if (!selectedFrameRoot) return mycoBrainData;
@@ -31,8 +46,7 @@ export function FingerprintStudio({ userId, isAdmin }: { userId?: string, isAdmi
   const fingerprintMetrics = useMemo(() => {
     const activeFingerprint = fingerprints.find(fp => fp.type === selectedType);
     if (!activeFingerprint?.data) return null;
-    // Compute entropy from data distribution
-    const values: number[] = Object.values(activeFingerprint.data).filter(v => typeof v === 'number') as number[];
+    const values = flattenNumericValues(activeFingerprint.data);
     if (values.length === 0) return null;
     const sum = values.reduce((a, b) => a + b, 0);
     const avg = sum / values.length;
@@ -264,7 +278,9 @@ export function FingerprintStudio({ userId, isAdmin }: { userId?: string, isAdmi
                        </div>
                       <div className="p-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl">
                         <p className="text-xs text-zinc-400 leading-relaxed italic">
-                          &quot;Fingerprint shows high correlation with baseline nature patterns. No anomalous artifacts detected in the spectral domain.&quot;
+                          {fingerprintMetrics
+                            ? `Fingerprint metrics are derived from ${selectedType} data for the selected rooted frame.`
+                            : 'No verified fingerprint metrics are available for this selection yet.'}
                         </p>
                       </div>
                     </div>

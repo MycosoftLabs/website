@@ -30,6 +30,63 @@ export interface SystemStatusEntry {
   last_sync: string;
 }
 
+function normalizeStatus(status: any, connected: boolean): SystemStatusEntry['status'] {
+  if (!connected) return 'offline';
+
+  const value = String(status || '').toLowerCase();
+  if (value === 'healthy' || value === 'online' || value === 'ok') return 'online';
+  if (value === 'degraded' || value === 'warning') return 'degraded';
+  return connected ? 'online' : 'offline';
+}
+
+function normalizeSystemStatusPayload(payload: any): SystemStatusEntry[] {
+  if (Array.isArray(payload)) return payload;
+
+  const timestamp = payload?.timestamp || new Date().toISOString();
+  const masConnected = Boolean(payload?.connections?.mas);
+  const mindexConnected = Boolean(payload?.connections?.mindex);
+  const mycobrainConnected = Boolean(payload?.connections?.mycobrain);
+  const middlewareConnected = masConnected && mindexConnected;
+
+  return [
+    {
+      id: 'mindex',
+      system_name: 'Mindex',
+      status: normalizeStatus(payload?.mindexStatus?.status, mindexConnected),
+      latency: payload?.mindexStatus?.latency ?? 0,
+      last_sync: timestamp,
+    },
+    {
+      id: 'mycobrain',
+      system_name: 'MycoBrain',
+      status: normalizeStatus(payload?.mycobrainStatus?.status || payload?.masStatus?.status, mycobrainConnected),
+      latency: payload?.mycobrainStatus?.latency ?? payload?.masStatus?.latency ?? 0,
+      last_sync: timestamp,
+    },
+    {
+      id: 'mycosoft',
+      system_name: 'Mycosoft',
+      status: 'online',
+      latency: 0,
+      last_sync: timestamp,
+    },
+    {
+      id: 'mas',
+      system_name: 'MAS',
+      status: normalizeStatus(payload?.masStatus?.status, masConnected),
+      latency: payload?.masStatus?.latency ?? 0,
+      last_sync: timestamp,
+    },
+    {
+      id: 'network-middleware',
+      system_name: 'Network Middleware',
+      status: middlewareConnected ? 'online' : masConnected || mindexConnected ? 'degraded' : 'offline',
+      latency: Math.max(payload?.masStatus?.latency ?? 0, payload?.mindexStatus?.latency ?? 0),
+      last_sync: timestamp,
+    },
+  ];
+}
+
 export function useMindexData() {
   const [data, setData] = useState<MindexEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +207,7 @@ export function useSystemStatus() {
           const contentType = res.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const data = await res.json();
-            setStatus(Array.isArray(data) ? data : []);
+            setStatus(normalizeSystemStatusPayload(data));
             setError(null);
             return;
           } else {

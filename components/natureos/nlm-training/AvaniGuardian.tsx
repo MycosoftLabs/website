@@ -8,95 +8,98 @@ import { motion } from 'framer-motion';
 import {
   Shield,
   CheckCircle,
-  AlertTriangle,
   XCircle,
   Clock,
   Info,
   Activity,
   Zap,
-  Thermometer,
   Wind,
-  Brain,
   GitBranch,
-  Cpu,
-  MessageSquare,
   Loader2,
-  Settings
+  Settings,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from './ui/button';
 
 export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: boolean }) {
   const { judgments, loading } = useJudgments(undefined, userId, isAdmin);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditMessage, setAuditMessage] = useState<string | null>(null);
 
   const latestJudgment = judgments[0];
+  const hasLatestMetrics = typeof latestJudgment?.groundingScore === 'number';
 
   const triggerAudit = async () => {
     if (!userId) return;
+
     setIsAuditing(true);
+    setAuditError(null);
+    setAuditMessage(null);
 
     try {
-      // Try to trigger a real evaluation via MAS agents endpoint
-      const masRes = await fetch('/api/mas/agents', {
+      const masRes = await fetch('/api/mas/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'trigger_audit',
-          userId,
           type: 'avani_grounding_check',
-          timestamp: new Date().toISOString(),
+          source: 'nlm-dashboard',
+          ownerId: userId,
+          priority: 'normal',
+          payload: {
+            userId,
+            requestedAt: new Date().toISOString(),
+          },
         }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(15000),
       });
 
-      if (masRes.ok) {
-        const result = await masRes.json();
-        // Write result to Firebase
+      const result = await masRes.json().catch(() => null);
+
+      if (!masRes.ok) {
+        throw new Error(result?.error || result?.detail || `MAS returned HTTP ${masRes.status}`);
+      }
+
+      const judgment = result?.judgment || result?.data?.judgment || result?.result?.judgment || {};
+      const targetId = result?.taskId || result?.id || result?.task_id || judgment.targetId || `MAS-${Date.now().toString(36).toUpperCase()}`;
+      const hasJudgmentMetrics = typeof judgment.groundingScore === 'number'
+        && typeof judgment.ecologicalImpact === 'number'
+        && typeof judgment.riskLevel === 'string'
+        && typeof judgment.verdict === 'string';
+
+      if (hasJudgmentMetrics) {
         await addDoc(collection(db, 'judgments'), {
-          targetId: result.taskId || `MAS-${Date.now().toString(36).toUpperCase()}`,
-          groundingScore: result.groundingScore ?? (0.85 + Math.random() * 0.14),
-          ecologicalImpact: result.ecologicalImpact ?? parseFloat((Math.random() * 0.5).toFixed(2)),
-          riskLevel: result.riskLevel ?? (Math.random() > 0.8 ? 'medium' : 'low'),
-          verdict: result.verdict ?? (Math.random() > 0.9 ? 'warn' : 'pass'),
+          targetId,
+          groundingScore: judgment.groundingScore,
+          ecologicalImpact: judgment.ecologicalImpact,
+          riskLevel: judgment.riskLevel,
+          verdict: judgment.verdict,
           source: 'MAS',
           ownerId: userId,
           timestamp: serverTimestamp(),
         });
+        setAuditMessage('MAS returned a verified AVANI judgment.');
       } else {
-        // MAS unavailable — generate local audit result and write to Firebase
         await addDoc(collection(db, 'judgments'), {
-          targetId: `LOCAL-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          groundingScore: 0.85 + Math.random() * 0.14,
-          ecologicalImpact: parseFloat((Math.random() * 0.5).toFixed(2)),
-          riskLevel: Math.random() > 0.8 ? 'medium' : 'low',
-          verdict: Math.random() > 0.9 ? 'warn' : 'pass',
-          source: 'local',
+          targetId,
+          groundingScore: null,
+          ecologicalImpact: null,
+          riskLevel: 'pending',
+          verdict: 'queued',
+          status: 'queued',
+          source: 'MAS',
           ownerId: userId,
           timestamp: serverTimestamp(),
         });
+        setAuditMessage('MAS accepted the AVANI audit. Waiting for judgment telemetry.');
       }
-    } catch (error) {
-      // Network error — write fallback audit to Firebase
-      console.warn('[AVANI] MAS audit failed, using local fallback:', error);
-      try {
-        await addDoc(collection(db, 'judgments'), {
-          targetId: `RUN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          groundingScore: 0.85 + Math.random() * 0.14,
-          ecologicalImpact: parseFloat((Math.random() * 0.5).toFixed(2)),
-          riskLevel: Math.random() > 0.8 ? 'medium' : 'low',
-          verdict: Math.random() > 0.9 ? 'warn' : 'pass',
-          source: 'fallback',
-          ownerId: userId,
-          timestamp: serverTimestamp(),
-        });
-      } catch (fbErr) {
-        console.error('[AVANI] Firebase write also failed:', fbErr);
-      }
+    } catch (error: any) {
+      console.error('[AVANI] MAS audit failed:', error);
+      setAuditError(error?.message || 'MAS audit failed');
     } finally {
       setIsAuditing(false);
     }
   };
-
 
   return (
     <div className="space-y-8">
@@ -111,7 +114,7 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
             <Shield className="w-5 h-5 text-emerald-500" />
             <div className="flex flex-col">
               <span className="text-xs text-emerald-500 uppercase font-bold tracking-widest">System Status</span>
-              <span className="text-white font-semibold">Active & Grounded</span>
+              <span className="text-white font-semibold">MAS Required</span>
             </div>
           </div>
 
@@ -135,8 +138,17 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
         </div>
       </div>
 
+      {(auditError || auditMessage) && (
+        <div className={`p-4 rounded-2xl border text-sm ${
+          auditError
+            ? 'bg-rose-950/20 border-rose-900/40 text-rose-300'
+            : 'bg-emerald-950/20 border-emerald-900/40 text-emerald-300'
+        }`}>
+          {auditError || auditMessage}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* AVANI Metrics */}
         <div className="lg:col-span-1 space-y-6">
           <div className="p-8 bg-zinc-900/40 border border-zinc-800 rounded-[32px] space-y-8 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -154,15 +166,17 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
                   <div className="space-y-1">
                     <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Grounding Score</span>
                     <p className="text-2xl font-bold text-white">
-                      {latestJudgment ? `${(latestJudgment.groundingScore * 100).toFixed(1)}%` : '---'}
+                      {hasLatestMetrics ? `${(latestJudgment.groundingScore * 100).toFixed(1)}%` : '---'}
                     </p>
                   </div>
-                  <span className="text-emerald-500 text-[10px] font-mono mb-1">OPTIMAL</span>
+                  <span className="text-emerald-500 text-[10px] font-mono mb-1">
+                    {latestJudgment?.verdict === 'queued' ? 'QUEUED' : hasLatestMetrics ? 'VERIFIED' : 'WAITING'}
+                  </span>
                 </div>
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: latestJudgment ? `${latestJudgment.groundingScore * 100}%` : '0%' }}
+                    animate={{ width: hasLatestMetrics ? `${latestJudgment.groundingScore * 100}%` : '0%' }}
                     className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                   />
                 </div>
@@ -173,15 +187,17 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
                   <div className="space-y-1">
                     <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Ecological Impact</span>
                     <p className="text-2xl font-bold text-white">
-                      {latestJudgment ? latestJudgment.ecologicalImpact : '---'}
+                      {typeof latestJudgment?.ecologicalImpact === 'number' ? latestJudgment.ecologicalImpact : '---'}
                     </p>
                   </div>
-                  <span className="text-sky-500 text-[10px] font-mono mb-1">NOMINAL</span>
+                  <span className="text-sky-500 text-[10px] font-mono mb-1">
+                    {typeof latestJudgment?.ecologicalImpact === 'number' ? 'REPORTED' : 'NO DATA'}
+                  </span>
                 </div>
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: latestJudgment ? `${Math.min(latestJudgment.ecologicalImpact * 100, 100)}%` : '0%' }}
+                    animate={{ width: typeof latestJudgment?.ecologicalImpact === 'number' ? `${Math.min(latestJudgment.ecologicalImpact * 100, 100)}%` : '0%' }}
                     className="h-full bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]"
                   />
                 </div>
@@ -195,14 +211,13 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
                       latestJudgment?.riskLevel === 'critical' ? 'text-rose-500' :
                       latestJudgment?.riskLevel === 'high' ? 'text-orange-500' :
                       latestJudgment?.riskLevel === 'medium' ? 'text-yellow-500' :
+                      latestJudgment?.riskLevel === 'pending' ? 'text-zinc-500' :
                       'text-emerald-500'
                     }`}>
                       {latestJudgment?.riskLevel || '---'}
                     </p>
                   </div>
-                  <Shield className={`w-5 h-5 ${
-                    latestJudgment?.riskLevel === 'low' ? 'text-emerald-500' : 'text-zinc-700'
-                  }`} />
+                  <Shield className={`w-5 h-5 ${latestJudgment?.riskLevel === 'low' ? 'text-emerald-500' : 'text-zinc-700'}`} />
                 </div>
               </div>
             </div>
@@ -215,10 +230,10 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
             </h3>
             <div className="space-y-3">
               {[
-                { name: 'Grounding Verification', status: 'active', icon: CheckCircle },
-                { name: 'Harm Detection', status: 'active', icon: Shield },
-                { name: 'Ecological Guardrails', status: 'active', icon: Wind },
-                { name: 'Provenance Audit', status: 'active', icon: GitBranch },
+                { name: 'Grounding Verification', icon: CheckCircle },
+                { name: 'Harm Detection', icon: Shield },
+                { name: 'Ecological Guardrails', icon: Wind },
+                { name: 'Provenance Audit', icon: GitBranch },
               ].map((policy) => (
                 <div key={policy.name} className="flex items-center justify-between p-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl hover:border-zinc-700 transition-all group">
                   <div className="flex items-center gap-3">
@@ -235,7 +250,6 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
           </div>
         </div>
 
-        {/* Recent Judgments */}
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Recent AVANI Judgments</h3>
           <div className="space-y-3">
@@ -248,45 +262,54 @@ export function AvaniGuardian({ userId, isAdmin }: { userId?: string, isAdmin?: 
                 <Shield className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-zinc-300">No judgments recorded</h3>
                 <p className="text-zinc-500 mt-2 max-w-sm mx-auto">
-                  AVANI continuously monitors NLM operations and records judgments on grounding and ecological impact.
+                  AVANI records verified MAS judgments on grounding and ecological impact.
                 </p>
               </div>
             ) : (
-              judgments.map((judgment) => (
-                <motion.div
-                  key={judgment.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-5 bg-zinc-900/40 border border-zinc-800 rounded-2xl flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-5">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${judgment.verdict === 'pass' ? 'bg-emerald-900/20 text-emerald-500' : 'bg-rose-900/20 text-rose-500'}`}>
-                      {judgment.verdict === 'pass' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-white font-medium">Judgment: {judgment.targetId}</h4>
-                        <span className={`px-2 py-0.5 text-[10px] rounded uppercase tracking-wider font-bold ${judgment.verdict === 'pass' ? 'bg-emerald-900/40 text-emerald-500' : 'bg-rose-900/40 text-rose-500'}`}>
-                          {judgment.verdict}
-                        </span>
+              judgments.map((judgment) => {
+                const queued = judgment.verdict === 'queued';
+                const passed = judgment.verdict === 'pass';
+
+                return (
+                  <motion.div
+                    key={judgment.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-5 bg-zinc-900/40 border border-zinc-800 rounded-2xl flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        queued ? 'bg-zinc-800 text-zinc-400' : passed ? 'bg-emerald-900/20 text-emerald-500' : 'bg-rose-900/20 text-rose-500'
+                      }`}>
+                        {queued ? <ShieldAlert className="w-5 h-5" /> : passed ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-zinc-500">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3" />
-                          {new Date(judgment.timestamp?.seconds * 1000).toLocaleString()}
-                        </span>
-                        <span>•</span>
-                        <span>Grounding: {(judgment.groundingScore * 100).toFixed(1)}%</span>
-                        <span>•</span>
-                        <span>Impact: {judgment.ecologicalImpact}</span>
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h4 className="text-white font-medium">Judgment: {judgment.targetId}</h4>
+                          <span className={`px-2 py-0.5 text-[10px] rounded uppercase tracking-wider font-bold ${
+                            queued ? 'bg-zinc-800 text-zinc-400' : passed ? 'bg-emerald-900/40 text-emerald-500' : 'bg-rose-900/40 text-rose-500'
+                          }`}>
+                            {judgment.verdict}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-zinc-500">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3 h-3" />
+                            {judgment.timestamp?.seconds ? new Date(judgment.timestamp.seconds * 1000).toLocaleString() : 'Pending timestamp'}
+                          </span>
+                          <span>|</span>
+                          <span>Grounding: {typeof judgment.groundingScore === 'number' ? `${(judgment.groundingScore * 100).toFixed(1)}%` : 'pending'}</span>
+                          <span>|</span>
+                          <span>Impact: {typeof judgment.ecologicalImpact === 'number' ? judgment.ecologicalImpact : 'pending'}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <button className="p-2 text-zinc-700 hover:text-white transition-colors">
-                    <Info className="w-5 h-5" />
-                  </button>
-                </motion.div>
-              ))
+                    <button className="p-2 text-zinc-700 hover:text-white transition-colors">
+                      <Info className="w-5 h-5" />
+                    </button>
+                  </motion.div>
+                );
+              })
             )}
           </div>
         </div>

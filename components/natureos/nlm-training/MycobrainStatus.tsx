@@ -6,6 +6,14 @@ import { Cpu, Thermometer, Zap, Activity, Shield, HardDrive, RefreshCw, AlertCir
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useSystemStatus, useMycoBrainData } from '@/lib/nlm/supabase-hooks';
 
+function average(values?: number[]) {
+  if (!values?.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function clamp(value: number, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, value));
+}
 
 export function MycobrainStatus() {
   const { status: systemStatus } = useSystemStatus();
@@ -36,23 +44,26 @@ export function MycobrainStatus() {
     // Drive telemetry from real system status and mycobrain data
     const interval = setInterval(() => {
       const latestEntry = mycoBrainData[0];
-      const latency = mycobrainSystem?.latency || 45;
+      const latency = mycobrainSystem?.latency ?? 0;
+      const hasTelemetry = Boolean(latestEntry);
+      const pointCount = hasTelemetry
+        ? (latestEntry.spectral_density || []).length + (latestEntry.acoustic_signature || []).length + (latestEntry.thermal_gradient || []).length
+        : 0;
+      const reportedVoltage = average((latestEntry as any)?.voltage || (latestEntry as any)?.voltage_bus || (latestEntry as any)?.bus_voltage);
 
       const newPoint = {
         time: new Date().toLocaleTimeString(),
-        cpu: Math.min(100, (latency / 2) + Math.random() * 20),
-        gpu: Math.min(100, (latency / 1.5) + Math.random() * 30),
-        temp: latestEntry?.thermal_gradient?.length
-          ? (latestEntry.thermal_gradient.reduce((a, b) => a + b, 0) / latestEntry.thermal_gradient.length)
-          : 45 + Math.random() * 5,
-        voltage: 12.0 + (latency / 1000) + Math.random() * 0.1,
-        memory: 12 + (latency / 100),
+        cpu: hasTelemetry ? clamp(average(latestEntry.spectral_density) * 100) : clamp(latency / 2),
+        gpu: hasTelemetry ? clamp(average(latestEntry.acoustic_signature) * 100) : clamp(latency / 1.5),
+        temp: hasTelemetry ? average(latestEntry.thermal_gradient) : 0,
+        voltage: reportedVoltage || (hasTelemetry ? 12.0 + (latency / 1000) : 0),
+        memory: hasTelemetry ? clamp(pointCount / 3) : 0,
       };
 
       setTelemetry(prev => [...prev.slice(-29), newPoint]);
 
-      if (newPoint.temp > 55 || latency > 200) setStatus('warning');
-      else if (newPoint.temp > 65 || latency > 500) setStatus('critical');
+      if (mycobrainSystem?.status === 'offline' || newPoint.temp > 65 || latency > 500) setStatus('critical');
+      else if (mycobrainSystem?.status === 'degraded' || newPoint.temp > 55 || latency > 200) setStatus('warning');
       else setStatus('optimal');
     }, 2000);
 
@@ -60,6 +71,8 @@ export function MycobrainStatus() {
   }, [mycoBrainData, mycobrainSystem]);
 
   const latest = telemetry[telemetry.length - 1] || { cpu: 0, gpu: 0, temp: 0, voltage: 0, memory: 0 };
+  const voltageStable = latest.voltage > 0 && latest.voltage >= 11.5 && latest.voltage <= 12.8;
+  const eccErrors = (mycobrainSystem as any)?.ecc_errors ?? (mycobrainSystem as any)?.eccErrors;
 
   return (
     <div className="space-y-8">
@@ -195,8 +208,16 @@ export function MycobrainStatus() {
                   status: latest.temp > 55 ? 'Active' : 'Inactive',
                   color: latest.temp > 55 ? 'text-amber-500' : 'text-emerald-500',
                 },
-                { label: 'Voltage Regulation', status: 'Active', color: 'text-emerald-500' },
-                { label: 'ECC Memory Error', status: 'None', color: 'text-emerald-500' },
+                {
+                  label: 'Voltage Regulation',
+                  status: latest.voltage > 0 ? (voltageStable ? 'Stable' : 'Out of Range') : 'No Telemetry',
+                  color: latest.voltage > 0 ? (voltageStable ? 'text-emerald-500' : 'text-rose-500') : 'text-zinc-500',
+                },
+                {
+                  label: 'ECC Memory Error',
+                  status: typeof eccErrors === 'number' ? `${eccErrors}` : 'No Report',
+                  color: eccErrors ? 'text-rose-500' : 'text-zinc-500',
+                },
                 {
                   label: 'MINDEX Connectivity',
                   status: mindexLoading ? 'Checking...' : mindexHealth?.status === 'healthy' ? 'Connected' : mindexHealth?.status?.toUpperCase() ?? 'Disconnected',
@@ -215,9 +236,15 @@ export function MycobrainStatus() {
             <div className="w-12 h-12 bg-emerald-900/20 rounded-2xl flex items-center justify-center">
               <RefreshCw className="w-6 h-6 text-emerald-500" />
             </div>
-            <div>
-              <h4 className="text-white font-bold">System Optimized</h4>
-              <p className="text-xs text-emerald-500/70">Mycobrain is running at peak efficiency for NLM workloads.</p>
+          <div>
+              <h4 className="text-white font-bold">
+                {status === 'optimal' ? 'System Optimized' : status === 'warning' ? 'Telemetry Warning' : 'Telemetry Offline'}
+              </h4>
+              <p className="text-xs text-emerald-500/70">
+                {status === 'optimal'
+                  ? 'Mycobrain telemetry is inside the expected NLM workload envelope.'
+                  : 'Connect live MycoBrain telemetry to restore verified hardware health.'}
+              </p>
             </div>
           </div>
         </div>

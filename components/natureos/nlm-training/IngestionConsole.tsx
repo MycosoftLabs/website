@@ -48,6 +48,19 @@ interface MindexHealthData {
   error?: string;
 }
 
+function flattenNumbers(value: any): number[] {
+  if (typeof value === 'number' && Number.isFinite(value)) return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenNumbers);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(flattenNumbers);
+  return [];
+}
+
+function signalScore(values: number[], base: number, scale: number) {
+  if (values.length === 0) return 0;
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Math.min(99.9, Math.max(0, base + avg * scale));
+}
+
 export function IngestionConsole() {
   const { data: mycoBrainData } = useMycoBrainData();
   const { frames } = useAllFrames();
@@ -82,6 +95,22 @@ export function IngestionConsole() {
     return null;
   }, [frames, mycoBrainData]);
 
+  const computeTransformLatencies = useCallback(() => {
+    const latest = mycoBrainData[0];
+    const pointCount = latest
+      ? (latest.spectral_density || []).length + (latest.acoustic_signature || []).length + (latest.thermal_gradient || []).length
+      : 0;
+    const densityFactor = Math.min(pointCount / 300, 1);
+    const frameFactor = Math.min(frames.length / 50, 1);
+
+    return {
+      fft: 1.2 + densityFactor * 0.6,
+      wavelet: 2.4 + densityFactor * 0.8,
+      pca: 3.5 + frameFactor * 1.0,
+      norm: 4.8 + frameFactor * 0.7,
+    };
+  }, [frames.length, mycoBrainData]);
+
   // Fetch real MINDEX health for signal integrity
   const fetchMindexHealth = useCallback(async () => {
     setMindexLoading(true);
@@ -112,51 +141,38 @@ export function IngestionConsole() {
   useEffect(() => {
     if (mycoBrainData.length > 0) {
       const latest = mycoBrainData[0];
-      const spectralScore = latest.spectral_density?.length > 0
-        ? Math.min(99.9, 90 + (latest.spectral_density.reduce((a: number, b: number) => a + b, 0) / latest.spectral_density.length) * 20)
-        : 95.0;
-      const acousticScore = latest.acoustic_signature?.length > 0
-        ? Math.min(99.9, 88 + (latest.acoustic_signature.reduce((a: number, b: number) => a + b, 0) / latest.acoustic_signature.length) * 15)
-        : 96.0;
-      const thermalScore = latest.thermal_gradient?.length > 0
-        ? Math.min(99.9, 92 + (latest.thermal_gradient.reduce((a: number, b: number) => a + b, 0) / latest.thermal_gradient.length) * 10)
-        : 94.0;
+      const bioelectricValues = flattenNumbers((latest as any).bioelectric_signal || (latest as any).bioelectric || (latest as any).voltage);
+      const chemicalValues = flattenNumbers((latest as any).chemical_signature || (latest as any).gas_concentration || (latest as any).chemical);
+
       setSignalIntegrity(prev => ({
         ...prev,
-        spectral: spectralScore,
-        acoustic: acousticScore,
-        thermal: thermalScore,
-        bioelectric: 93.5,
-        chemical: 91.2,
+        spectral: signalScore(latest.spectral_density || [], 90, 20),
+        acoustic: signalScore(latest.acoustic_signature || [], 88, 15),
+        bioelectric: signalScore(bioelectricValues, 88, 15),
+        chemical: signalScore(chemicalValues, 88, 15),
+        thermal: signalScore(latest.thermal_gradient || [], 92, 10),
       }));
     } else {
-      // Default graceful degradation when no mycobrain data
       setSignalIntegrity(prev => ({
         ...prev,
-        spectral: frames.length > 0 ? 95.0 : 0,
-        acoustic: frames.length > 0 ? 96.2 : 0,
-        bioelectric: frames.length > 0 ? 93.5 : 0,
-        chemical: frames.length > 0 ? 91.2 : 0,
-        thermal: frames.length > 0 ? 94.8 : 0,
+        spectral: 0,
+        acoustic: 0,
+        bioelectric: 0,
+        chemical: 0,
+        thermal: 0,
       }));
     }
-  }, [mycoBrainData, frames.length]);
+  }, [mycoBrainData]);
 
   // Drive pipeline animation and transform latencies
   useEffect(() => {
     if (!isIngesting) return;
     const interval = setInterval(() => {
       setActiveStep(prev => (prev + 1) % 5);
-      // Slightly vary latencies to reflect real processing
-      setTransformLatencies({
-        fft: 1.2 + Math.random() * 0.6,
-        wavelet: 2.4 + Math.random() * 0.8,
-        pca: 3.5 + Math.random() * 1.0,
-        norm: 4.8 + Math.random() * 0.7,
-      });
+      setTransformLatencies(computeTransformLatencies());
     }, 2000);
     return () => clearInterval(interval);
-  }, [isIngesting]);
+  }, [computeTransformLatencies, isIngesting]);
 
   const merkleProofsValid = frames.length > 0 || mycoBrainData.length > 0;
   const totalFrames = frames.length;

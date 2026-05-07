@@ -9,7 +9,7 @@ import { PipelineDashboard } from './PipelineDashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Filter, Grid, List as ListIcon, Database, Layers, Lock, User as UserIcon } from 'lucide-react';
 import { Button } from './ui/button';
-import { collection, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, setDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/nlm/firebase';
 import { UserProfile } from '@/lib/nlm/supabase-auth-hooks';
 
@@ -25,18 +25,34 @@ import AgentControlCenter from './AgentControlCenter';
 
 import { SystemStatus } from './SystemStatus';
 
+type DashboardPreferences = {
+  autoRefresh: boolean;
+  advancedMetrics: boolean;
+  mindexLive: boolean;
+};
+
+const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = {
+  autoRefresh: true,
+  advancedMetrics: false,
+  mindexLive: true,
+};
+
 export function Dashboard({ activeTab, user, profile }: { activeTab: string, user: any, profile: UserProfile | null }) {
   const role = profile?.role?.toLowerCase().trim();
   const isAdminUser = role === 'admin' || role === 'super_admin';
+  const userId = user?.id;
   const { models, loading } = useModels(user?.id, isAdminUser);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isSeeding, setIsSeeding] = useState(false);
   const [isSeedingVariant, setIsSeedingVariant] = useState(false);
+  const [preferences, setPreferences] = useState<DashboardPreferences>(DEFAULT_DASHBOARD_PREFERENCES);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState<any>(null);
 
   const seedArchitectureVariant = useCallback(async () => {
-    if (!user?.id) return;
+    if (!userId) return;
     setIsSeedingVariant(true);
 
     const baseVariant = {
@@ -70,7 +86,7 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     try {
       await setDoc(doc(db, 'variants', 'v1-standard'), {
         ...baseVariant,
-        ownerId: user.id,
+        ownerId: userId,
         createdAt: serverTimestamp()
       });
       alert('Architecture Variant "Base-NLM-v1" seeded successfully!');
@@ -80,12 +96,12 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     } finally {
       setIsSeedingVariant(false);
     }
-  }, [user]);
+  }, [userId]);
 
   // Automatically seed the base variant if it doesn't exist
   useEffect(() => {
     const checkAndSeed = async () => {
-      if (!user?.id) return;
+      if (!userId) return;
 
       // We'll just check if we've already seeded it in this session to avoid spamming
       // In a real app, we'd query Firestore to see if it exists
@@ -97,7 +113,63 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     };
 
     checkAndSeed();
-  }, [user, seedArchitectureVariant]);
+  }, [userId, seedArchitectureVariant]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      try {
+        const preferencesSnap = await getDoc(doc(db, 'nlm_dashboard_preferences', userId));
+        if (!cancelled && preferencesSnap.exists()) {
+          setPreferences({
+            ...DEFAULT_DASHBOARD_PREFERENCES,
+            ...preferencesSnap.data(),
+          });
+        }
+      } catch (error) {
+        console.error('Error loading dashboard preferences:', error);
+      }
+
+      try {
+        const res = await fetch('/api/natureos/nlm-training/status', { cache: 'no-store' });
+        if (!cancelled && res.ok) {
+          setSettingsStatus(await res.json());
+        }
+      } catch (error) {
+        console.error('Error loading NLM settings status:', error);
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const saveDashboardPreferences = useCallback(async (nextPreferences: DashboardPreferences) => {
+    if (!userId) return;
+
+    setIsSavingPreferences(true);
+    try {
+      await setDoc(
+        doc(db, 'nlm_dashboard_preferences', userId),
+        {
+          ...nextPreferences,
+          ownerId: userId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (error) {
+      console.error('Error saving dashboard preferences:', error);
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  }, [userId]);
 
   const seedBaseModels = async () => {
     if (!user?.id) return;
@@ -148,6 +220,9 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
   };
 
   const selectedModel = models.find(m => m.id === selectedModelId);
+  const settingsSystems = Array.isArray(settingsStatus) ? settingsStatus : [];
+  const mindexApiStatus = settingsStatus?.mindexStatus?.status || settingsSystems.find((system: any) => system.system_name === 'Mindex')?.status;
+  const masApiStatus = settingsStatus?.masStatus?.status || settingsSystems.find((system: any) => system.system_name === 'MAS')?.status;
 
   // Route based on activeTab
   switch (activeTab) {
@@ -183,11 +258,11 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                   <label className="text-sm text-zinc-500">Gemini API Key</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="password"
+                      type="text"
                       value={process.env.NEXT_PUBLIC_GEMINI_API_KEY ? '•'.repeat(32) : ''}
                       placeholder={process.env.NEXT_PUBLIC_GEMINI_API_KEY ? undefined : 'Not configured'}
                       readOnly
-                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-white placeholder:text-zinc-600"
+                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
                     />
                     <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-600 border border-zinc-700'}`}>
                       {process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'SET' : 'NOT SET'}
@@ -208,11 +283,20 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      value={process.env.NEXT_PUBLIC_MINDEX_API_URL || process.env.MINDEX_API_URL || 'Not configured'}
+                      value={mindexApiStatus ? `status: ${mindexApiStatus}` : 'Not configured / offline'}
                       readOnly
                       className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-zinc-500">MAS API</label>
+                  <input
+                    type="text"
+                    value={masApiStatus ? `status: ${masApiStatus}` : 'Not configured / offline'}
+                    readOnly
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-zinc-400 font-mono text-sm"
+                  />
                 </div>
               </div>
             </div>
@@ -245,20 +329,36 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
               <h3 className="text-lg font-semibold text-white">Dashboard Preferences</h3>
               <div className="space-y-3">
                 {[
-                  { label: 'Auto-refresh system status', key: 'autoRefresh', defaultValue: true },
-                  { label: 'Show advanced metrics', key: 'advancedMetrics', defaultValue: false },
-                  { label: 'Enable MINDEX live observations', key: 'mindexLive', defaultValue: true },
-                ].map(pref => (
-                  <div key={pref.key} className="flex items-center justify-between p-3 bg-zinc-950/50 border border-zinc-800 rounded-xl">
-                    <span className="text-sm text-zinc-300">{pref.label}</span>
-                    <button
-                      className="w-10 h-5 bg-emerald-500 rounded-full relative transition-colors"
-                      aria-label={pref.label}
-                    >
-                      <span className="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow" />
-                    </button>
-                  </div>
-                ))}
+                  { label: 'Auto-refresh system status', key: 'autoRefresh' },
+                  { label: 'Show advanced metrics', key: 'advancedMetrics' },
+                  { label: 'Enable MINDEX live observations', key: 'mindexLive' },
+                ].map(pref => {
+                  const key = pref.key as keyof DashboardPreferences;
+                  const enabled = preferences[key];
+
+                  return (
+                    <div key={pref.key} className="flex items-center justify-between p-3 bg-zinc-950/50 border border-zinc-800 rounded-xl">
+                      <span className="text-sm text-zinc-300">{pref.label}</span>
+                      <button
+                        disabled={isSavingPreferences}
+                        onClick={() => {
+                          const nextPreferences = { ...preferences, [key]: !enabled };
+                          setPreferences(nextPreferences);
+                          saveDashboardPreferences(nextPreferences);
+                        }}
+                        className={`w-10 h-5 rounded-full relative transition-colors disabled:opacity-60 ${
+                          enabled ? 'bg-emerald-500' : 'bg-zinc-700'
+                        }`}
+                        aria-label={pref.label}
+                        aria-pressed={enabled}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                          enabled ? 'right-0.5' : 'left-0.5'
+                        }`} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

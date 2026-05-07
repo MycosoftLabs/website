@@ -5,10 +5,22 @@ const MAS_BASE_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_
 
 export const revalidate = 0;
 
+const TRAINING_ACTIONS = new Set(['start', 'stop', 'pause', 'resume']);
+
+async function readServiceResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
 export async function GET() {
   const now = new Date().toISOString();
 
-  // Probe MINDEX and MAS in parallel for real compute data
   const [mindexHealth, masHealth] = await Promise.allSettled([
     MINDEX_BASE_URL
       ? fetch(`${MINDEX_BASE_URL}/health`, { signal: AbortSignal.timeout(3000), cache: 'no-store' }).then(r => r.json())
@@ -60,9 +72,9 @@ export async function GET() {
     },
     gpu: {
       name: mas?.gpu?.name || 'NLM Compute Cluster',
-      memoryUsed: mas?.gpu?.memoryUsed ?? 2048,
-      memoryTotal: mas?.gpu?.memoryTotal ?? 24576,
-      memoryPercent: mas?.gpu?.memoryPercent ?? 8.3,
+      memoryUsed: mas?.gpu?.memoryUsed ?? 0,
+      memoryTotal: mas?.gpu?.memoryTotal ?? 0,
+      memoryPercent: mas?.gpu?.memoryPercent ?? 0,
       utilization: mas?.gpu?.utilization ?? 0,
       temperature: mas?.gpu?.temperature ?? 0,
       powerDraw: mas?.gpu?.powerDraw ?? 0,
@@ -100,28 +112,37 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action } = body;
 
-    // If MAS is configured, forward control actions
-    if (MAS_BASE_URL && (action === 'start' || action === 'stop' || action === 'pause' || action === 'resume')) {
-      try {
-        const masRes = await fetch(`${MAS_BASE_URL}/training/${action}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(5000),
-        });
-        if (masRes.ok) {
-          const data = await masRes.json();
-          return NextResponse.json({ success: true, action, data });
-        }
-      } catch {
-        // MAS unavailable — log and continue
-        console.warn(`[NLM Training API] MAS unreachable for action: ${action}`);
-      }
+    if (!TRAINING_ACTIONS.has(action)) {
+      return NextResponse.json({ success: false, error: 'Unsupported training action' }, { status: 400 });
     }
 
-    console.log(`[NLM Training API] Action received: ${action}`, body);
-    return NextResponse.json({ success: true, action });
+    if (!MAS_BASE_URL) {
+      return NextResponse.json({ success: false, error: 'MAS_API_URL is not configured' }, { status: 503 });
+    }
+
+    const masRes = await fetch(`${MAS_BASE_URL}/training/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    const data = await readServiceResponse(masRes);
+
+    if (!masRes.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          action,
+          error: data?.error || data?.message || `MAS rejected ${action}`,
+          data,
+        },
+        { status: masRes.status },
+      );
+    }
+
+    return NextResponse.json({ success: true, action, data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }
 }

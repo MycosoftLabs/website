@@ -92,100 +92,80 @@ export function PipelineDashboard({ userId, isAdmin }: { userId: string, isAdmin
         lastRun: serverTimestamp()
       });
 
-      // Create a new training run document
       const runRef = await addDoc(collection(db, 'training_runs'), {
         modelId: pipeline.modelId,
         pipelineId: pipeline.id,
         ownerId: userId,
         startTime: serverTimestamp(),
-        status: 'running',
+        status: 'queued',
         hyperparameters: pipeline.hyperparameters,
         lossHistory: [],
         utilization: [],
-        metrics: {
-          accuracy: 0.1,
-          finalLoss: 0.9
-        }
+        checkpoints: [],
+        metrics: null,
+        logs: [
+          'INFO: Training request prepared for MAS.',
+          `INFO: Dataset source '${pipeline.dataSource}' queued.`,
+          `INFO: Calibration chain '${pipeline.calibrationChain}' selected.`,
+        ],
+        source: 'MAS',
       });
 
-      // Simulate pipeline execution
-      setTimeout(async () => {
-        await updateDoc(pipelineRef, { status: 'running' });
+      const response = await fetch('/api/natureos/nlm-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'start',
+          runId: runRef.id,
+          pipelineId: pipeline.id,
+          modelId: pipeline.modelId,
+          ownerId: userId,
+          dataSource: pipeline.dataSource,
+          preprocessing: pipeline.preprocessing,
+          hyperparameters: pipeline.hyperparameters,
+          preconditioners: pipeline.preconditioners,
+          calibrationChain: pipeline.calibrationChain,
+        }),
+      });
 
-        let currentLossHistory: any[] = [];
-        let currentUtilization: any[] = [];
-        let currentLogs: string[] = [
-          "INFO: Initializing NLM-CORE-01 environment...",
-          `INFO: Loading dataset '${pipeline.dataSource}'...`,
-          "SUCCESS: Dataset loaded (4.2GB)",
-          `INFO: Calibration Chain set to '${pipeline.calibrationChain}'`,
-          ...(pipeline.preconditioners?.physics?.enabled ? [`INFO: Physics Preconditioner active (strength: ${pipeline.preconditioners.physics.strength})`] : []),
-          ...(pipeline.preconditioners?.chemistry?.enabled ? [`INFO: Chemistry Preconditioner active (sensitivity: ${pipeline.preconditioners.chemistry.sensitivity})`] : []),
-          ...(pipeline.preconditioners?.biology?.enabled ? [`INFO: Biology Preconditioner active (growthRate: ${pipeline.preconditioners.biology.growthRate})`] : []),
-          "INFO: Building architecture variant 'NLM-V4-Mutation'...",
-          "INFO: Starting training loop..."
-        ];
-        let currentCheckpoints: any[] = [];
+      const result = await response.json().catch(() => null);
 
-        // Update run with initial logs
-        await updateDoc(runRef, { logs: currentLogs });
+      if (!response.ok || !result?.success) {
+        const errorMessage = result?.error || `MAS returned HTTP ${response.status}`;
+        await updateDoc(pipelineRef, { status: 'failed' });
+        await updateDoc(runRef, {
+          status: 'failed',
+          endTime: serverTimestamp(),
+          logs: [
+            'INFO: Training request prepared for MAS.',
+            `ERROR: ${errorMessage}`,
+          ],
+        });
+        return;
+      }
 
-        const totalSteps = 10;
-        for (let i = 0; i < totalSteps; i++) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+      const masData = result.data || {};
+      const runUpdate: Record<string, any> = {
+        status: masData.status || 'queued',
+        acceptedAt: serverTimestamp(),
+        logs: [
+          'INFO: Training request prepared for MAS.',
+          'SUCCESS: MAS accepted training request.',
+          masData.taskId ? `INFO: MAS task ${masData.taskId}` : 'INFO: Waiting for live run telemetry.',
+        ],
+        masResponse: masData,
+      };
 
-          const step = i * 100;
-          const loss = 0.9 * Math.pow(0.85, i) + (Math.random() * 0.05);
+      if (masData.taskId || masData.runId) {
+        runUpdate.masTaskId = masData.taskId || masData.runId;
+      }
+      if (masData.metrics) runUpdate.metrics = masData.metrics;
+      if (Array.isArray(masData.lossHistory)) runUpdate.lossHistory = masData.lossHistory;
+      if (Array.isArray(masData.utilization)) runUpdate.utilization = masData.utilization;
+      if (Array.isArray(masData.checkpoints)) runUpdate.checkpoints = masData.checkpoints;
 
-          currentLossHistory.push({ step, loss });
-          currentUtilization.push({
-            timestamp: new Date().toISOString(),
-            gpu: 60 + Math.random() * 30,
-            cpu: 30 + Math.random() * 20,
-            memory: 45 + Math.random() * 10
-          });
-
-          currentLogs.push(`STEP ${step}: loss=${loss.toFixed(6)} accuracy=${(0.1 + (i * 0.08)).toFixed(4)}`);
-
-          if (i % 3 === 0) {
-            const cp = { step, loss, timestamp: new Date().toISOString() };
-            currentCheckpoints.push(cp);
-            currentLogs.push(`SUCCESS: Checkpoint saved at step ${step}`);
-          }
-
-          if (i === totalSteps - 1) {
-            currentLogs.push("INFO: Training complete. Starting final validation...");
-          }
-
-          await updateDoc(runRef, {
-            lossHistory: currentLossHistory,
-            utilization: currentUtilization,
-            logs: currentLogs,
-            checkpoints: currentCheckpoints,
-            metrics: {
-              accuracy: 0.85 + (i * 0.01),
-              finalLoss: loss,
-              throughput: Math.floor(12000 + Math.random() * 3000),
-              precision: 0.882,
-              recall: 0.845,
-              f1Score: 0.863,
-              valLoss: 0.0452,
-              perplexity: 1.12
-            }
-          });
-        }
-
-        setTimeout(async () => {
-          await updateDoc(pipelineRef, { status: 'completed' });
-          currentLogs.push("SUCCESS: Pipeline execution finished successfully.");
-          await updateDoc(runRef, {
-            status: 'completed',
-            endTime: serverTimestamp(),
-            avaniScore: 0.88 + Math.random() * 0.08,
-            logs: currentLogs
-          });
-        }, 2000);
-      }, 1000);
+      await updateDoc(runRef, runUpdate);
+      await updateDoc(pipelineRef, { status: masData.status === 'running' ? 'running' : 'queued' });
     } catch (error) {
       console.error("Error triggering pipeline:", error);
     }
