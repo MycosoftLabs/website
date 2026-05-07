@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export const dynamic = "force-dynamic"
 
-const MAS_API_URL =
-  process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
+const MAS_API_URL = resolveMasServerBaseUrl()
 
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams

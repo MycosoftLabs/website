@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { resolveMasServerBaseUrl } from '@/lib/mas-server-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,7 @@ const SERVICE_BASES = [
   process.env.MYCOBRAIN_API_URL,
   process.env.MAS_API_URL,
   process.env.NEXT_PUBLIC_MAS_API_URL,
+  resolveMasServerBaseUrl(),
 ].filter(Boolean).map(base => base!.replace(/\/$/, ''));
 
 const TELEMETRY_PATHS = [
@@ -14,6 +16,7 @@ const TELEMETRY_PATHS = [
   '/mycobrain/telemetry?limit=50',
   '/api/mycobrain/data?limit=50',
   '/mycobrain/data?limit=50',
+  '/api/myca/status',
 ];
 
 function normalizeRows(payload: any): unknown[] {
@@ -22,6 +25,7 @@ function normalizeRows(payload: any): unknown[] {
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.rows)) return payload.rows;
   if (Array.isArray(payload?.telemetry)) return payload.telemetry;
+  if (payload?.identity || payload?.state || payload?.status) return [payload];
   return [];
 }
 

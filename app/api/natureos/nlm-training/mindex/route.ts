@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
+import { resolveMindexServerBaseUrl } from '@/lib/mindex-base-url';
 
 export const dynamic = 'force-dynamic';
 
-const MINDEX_BASE_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL;
+const MINDEX_BASE_URL = resolveMindexServerBaseUrl();
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || 'local-dev-key';
 
 let pool: Pool | null = null;
 
@@ -35,6 +37,9 @@ function normalizeRows(payload: any): unknown[] {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.taxa)) return payload.taxa;
+  if (Array.isArray(payload?.observations)) return payload.observations;
   return [];
 }
 
@@ -42,13 +47,24 @@ async function fetchMindexService() {
   if (!MINDEX_BASE_URL) return [];
 
   const base = MINDEX_BASE_URL.replace(/\/$/, '');
-  const paths = ['/api/mindex/data?limit=50', '/mindex/data?limit=50', '/data?limit=50'];
+  const paths = [
+    '/api/mindex/data?limit=50',
+    '/api/mindex/taxa?limit=50',
+    '/api/mindex/observations?limit=50',
+    '/api/mindex/unified-search?q=nature&limit=50',
+    '/mindex/data?limit=50',
+    '/data?limit=50',
+  ];
 
   for (const path of paths) {
     try {
       const response = await fetch(`${base}${path}`, {
+        headers: {
+          'X-API-Key': MINDEX_API_KEY,
+          Accept: 'application/json',
+        },
         cache: 'no-store',
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) continue;

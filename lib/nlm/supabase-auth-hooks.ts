@@ -11,6 +11,7 @@ export interface UserProfile {
   avatar_url?: string;
   role: 'admin' | 'engineer' | 'observer' | 'client' | 'super_admin';
   access_level: number;
+  created_at?: string;
 }
 
 export function useSupabaseAuth() {
