@@ -318,6 +318,10 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Prefer .credentials.local CLOUDFLARE_* over .env.local for cache purge
 - *(search)* Show global nav on /search by excluding route from hub-silo
 - *(shell)* Remove hub-silo so global site nav shows on NatureOS and all routes
+- *(ssl)* Bake NEXT_PUBLIC_BASE_URL in Docker build; add YouTube hero env for home and devices
+- *(search)* Client-only search entry and reduce hydration noise
+- Use optimized Agaric hero video [fast]
+- Wire NLM dashboard to live services [fast]
 
 ### CREP
 
@@ -451,6 +455,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -650,6 +655,9 @@ All notable changes to this project will be documented in this file.
 - *(natureos)* Cloud IA May 2026 — app routes, aerosol BFF, tools hub, ancestry move
 - *(natureos)* May03 MVP surfaces — ancestry, CREP waypoints, aerosol feeds, lab APIs
 - *(shell)* Hub silo hides marketing chrome; faster fluid search debounce; lighter CREP loader and idle canvas pause
+- *(website)* MINDEX BFF catch-all, dashboard tabs, meshtastic, fluid search, mas tasks, species routes
+- *(meshtastic)* TennMesh-style map with packet stream, position decode, activity overlay
+- Update device pages and NAS media routing [fast]
 
 ### Fix
 
