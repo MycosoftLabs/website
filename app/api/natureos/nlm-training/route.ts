@@ -220,10 +220,18 @@ export async function POST(req: Request) {
     const requestBody = action === 'start'
       ? {
           ...body,
-          learning_rate: body.learning_rate ?? body.hyperparameters?.learningRate,
-          batch_size: body.batch_size ?? body.hyperparameters?.batchSize,
-          epochs: body.epochs ?? body.hyperparameters?.epochs,
-          categories: body.categories ?? [body.dataSource].filter(Boolean),
+          learning_rate:
+            body.learning_rate ??
+            body.config?.learning_rate ??
+            body.config?.learningRate ??
+            body.hyperparameters?.learningRate,
+          batch_size:
+            body.batch_size ??
+            body.config?.batch_size ??
+            body.config?.batchSize ??
+            body.hyperparameters?.batchSize,
+          epochs: body.epochs ?? body.config?.epochs ?? body.hyperparameters?.epochs,
+          categories: body.categories ?? body.config?.categories ?? [body.dataSource].filter(Boolean),
         }
       : {
           run_id: body.run_id || body.masRunId || body.runId || null,
