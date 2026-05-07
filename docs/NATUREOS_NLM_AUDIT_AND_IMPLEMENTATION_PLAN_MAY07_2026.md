@@ -179,3 +179,48 @@ References:
 - NLM training POST: accepted by MAS and returned run id.
 - NLM training backend before deploy of the path fix: failed on `/models` permission.
 - Local MAS trainer smoke after the path fix: initializes and writes under `~/.mycosoft/nlm`.
+
+## May 7 Closeout And Publish State
+
+### GitHub Deployment
+
+Website commits pushed to `MycosoftLabs/website`:
+
+- `7f4f0e7a` - `Wire NatureOS NLM training to MAS`
+- `b4a977b5` - `Stabilize NLM training status polling`
+- `6e836467` - `Accept nested NLM training config`
+- `c349280c` - `Show latest NLM training run`
+
+MAS commits pushed to `MycosoftLabs/mycosoft-mas`:
+
+- `219ae8b43` - `Use writable defaults for NLM training paths`
+- `9e66bda74` - `Correct NLM training metadata and config`
+
+GitHub Actions production deployment completed successfully for the website route updates. MAS VM `192.168.0.188` was restarted and reported `git_sha=9e66bda74db896f04e19d303ff0d811333cd1e15`.
+
+### Production Smoke Results
+
+- `https://mycosoft.com/api/natureos/nlm-training` returns the latest MAS-backed run, not a synthetic idle response.
+- Latest verified production run: `nlm_train_20260507_105611_26d6cf`.
+- Nested config passthrough works: the route accepted `learning_rate=0.001`, `batch_size=2`, `epochs=1`, and `categories=["production-nested-config-smoke"]`.
+- MAS now reports `base_model="nlm-sensory-world-model"` instead of `llama3`.
+- MAS marks the current control-plane run as `data_prepared` and `awaiting_nlm_engine_worker`, which is honest while the actual NLM engine worker is not yet loaded.
+- `https://mycosoft.com/api/natureos/nlm-training/status` reports Mindex, MycoBrain, Mycosoft, and MAS online; NLM Engine is correctly degraded because no model is loaded.
+
+### Related NatureOS Health
+
+- WorldView API is operational and reaches both MINDEX and MAS.
+- Unified search returns species data for San Diego and Los Angeles.
+- Unified search for San Francisco currently returns zero species results.
+- Ancestry kingdoms endpoint is online but returns an empty MINDEX dataset.
+- OpenAQ measurements endpoint still returns upstream 503 from MAS.
+
+### Not Pushed Intentionally
+
+The working trees are not clean, but the remaining dirty files were not part of this NLM/NatureOS publish scope and were not staged:
+
+- Website generated/local files: `tsconfig.tsbuildinfo`, `screenshots/*`, `public/vendor/*`, `agaric/images/*`, local patch helper scripts, and an untracked Agaric background component.
+- MAS operational/local files: deployment probes, Mindex VM scripts, Meshtastic scripts, API catalog edits, device registry edits, and search training sink data.
+- NLM repo: untracked `NLM Training/` dashboard copy.
+
+These should be reviewed as separate scopes before pushing because they include generated artifacts, local operational scripts, and unrelated device/site work.
