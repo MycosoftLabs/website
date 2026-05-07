@@ -51,11 +51,19 @@ function normalizeRunId(value: any) {
   return value?.run_id || value?.runId || value?.id || null;
 }
 
+function runTimestamp(run: any) {
+  const value = run?.updated_at || run?.completed_at || run?.started_at || run?.created_at || 0;
+  const parsed = typeof value === 'number' ? value : Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeTrainingStatus(trainingRuns: any, standaloneTraining: any) {
   const activeRunId = trainingRuns?.active_run_id || null;
-  const activeRun = Array.isArray(trainingRuns?.runs)
-    ? trainingRuns.runs.find((run: any) => normalizeRunId(run) === activeRunId) || trainingRuns.runs[0]
-    : null;
+  const runs = Array.isArray(trainingRuns?.runs) ? trainingRuns.runs : [];
+  const latestRun = [...runs].sort((a: any, b: any) => runTimestamp(b) - runTimestamp(a))[0] || null;
+  const activeRun = activeRunId
+    ? runs.find((run: any) => normalizeRunId(run) === activeRunId) || latestRun
+    : latestRun;
   const latest = standaloneTraining?.latest || null;
 
   if (activeRun) {
