@@ -115,28 +115,38 @@ function normalizeTrainingStatus(trainingRuns: any, standaloneTraining: any) {
 export async function GET() {
   const now = new Date().toISOString();
 
-  const [mindex, masHealth, nlmHealth, nlmModelStatus, trainingRuns, checkpoints, standaloneTraining] = await Promise.all([
+  const [mindex, standaloneTraining] = await Promise.all([
     getJson(MINDEX_BASE_URL, ['/api/mindex/health', '/health'], 5000, {
       'X-API-Key': MINDEX_API_KEY,
       Accept: 'application/json',
     }),
-    getJson(MAS_BASE_URL, ['/api/myca/status', '/health'], 6000),
-    getJson(MAS_BASE_URL, ['/api/nlm/health'], 6000),
-    getJson(MAS_BASE_URL, ['/api/nlm/model/status', '/api/nlm/model/info'], 6000),
-    getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 6000),
-    getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 6000),
     getJson(NLM_BASE_URL, ['/api/training/status'], 3000),
   ]);
 
+  // MAS can be single-worker or temporarily slow after restarts, so avoid
+  // fanning out several long-running probes at once.
+  const trainingRuns = await getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 15000);
+  const checkpoints = await getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 15000);
+  const nlmHealth = await getJson(MAS_BASE_URL, ['/api/nlm/health'], 15000);
+  const nlmModelStatus = await getJson(MAS_BASE_URL, ['/api/nlm/model/status', '/api/nlm/model/info'], 15000);
+  const masHealth = await getJson(MAS_BASE_URL, ['/api/myca/status', '/health'], 15000);
+
   const training = normalizeTrainingStatus(trainingRuns, standaloneTraining);
   const masOnline = Boolean(masHealth);
-  const nlmOnline = Boolean(nlmHealth);
+  const nlmOnline = Boolean(nlmHealth || nlmModelStatus);
+  const rawNlmStatus = String(nlmHealth?.status || nlmModelStatus?.status || '').toLowerCase();
+  const nlmStatus =
+    rawNlmStatus === 'degraded' || rawNlmStatus === 'unhealthy' || rawNlmStatus === 'not_loaded'
+      ? 'degraded'
+      : nlmOnline
+        ? 'online'
+        : 'offline';
 
   return NextResponse.json({
     training,
     model: {
       health: {
-        status: nlmHealth?.status || (nlmOnline ? 'online' : 'offline'),
+        status: nlmStatus,
         model_loaded: Boolean(nlmHealth?.model_loaded),
         model_name: nlmHealth?.model_name || nlmModelStatus?.model_name || 'NLM',
         model_version: nlmHealth?.model_version || nlmModelStatus?.model_version || '0.1.0',
