@@ -21,7 +21,9 @@ import {
   Map,
   Activity,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Plane,
+  Waves
 } from "lucide-react"
 import {
   NeuButton,
@@ -34,45 +36,60 @@ import {
 
 const fusariumComponents = [
   {
-    name: "CREP Dashboard",
-    description: "Common Relevant Environmental Picture - tactical situational awareness for environmental threats.",
-    icon: Map,
-    features: ["Real-time threat map", "Alert prioritization", "Mission planning integration", "Multi-echelon access"]
+    name: "Earth Simulator",
+    description: "Live 3D environmental context for assets, observations, forecast layers, and risk review.",
+    icon: Globe,
+    features: ["3D globe", "Device overlays", "Forecast context", "Risk layers"]
   },
   {
-    name: "Eagle Eye (CREP layers)",
+    name: "Agaric",
+    description: "Flying Sensor Droid for aerial deployment, retrieval, relay, inspection, and sensor passes.",
+    icon: Plane,
+    features: ["Aerial relay", "Payload movement", "Level hover", "Multi-sensor flight"]
+  },
+  {
+    name: "Psathyrella",
+    description: "Autonomous buoy layer for passive acoustics, water context, and littoral environmental intelligence.",
+    icon: Waves,
+    features: ["Passive acoustics", "Water context", "Mesh handoff", "Coastal awareness"]
+  },
+  {
+    name: "SporeBase",
+    description: "Time-indexed bioaerosol collection for atmospheric sampling, baseline building, and lab-ready analysis.",
+    icon: Wind,
+    features: ["15-min cadence", "Sealed cassette", "Lab-ready samples", "Bioaerosol baselines"]
+  },
+  {
+    name: "FUSARIUM + CREP",
+    description: "Defense command surface for Operational Environmental Intelligence, alerts, layers, and field-device context.",
+    icon: Shield,
+    features: ["Threat picture", "Eagle Eye layers", "Mission review", "Decision support"]
+  },
+  {
+    name: "Eagle Eye",
     description:
       "Dual-plane video intelligence inside CREP: registry-backed cameras plus connector-sourced feeds. Enable Eagle Eye in the CREP layer panel. Coverage depends on MINDEX seeding and public connectors—not every map marker guarantees a playable live stream.",
     icon: Eye,
     features: ["MINDEX-backed sources when seeded", "Live connector fan-out when cache is cold", "Honest UX: stream availability varies by source"]
   },
   {
-    name: "Mushroom1-D",
-    description: "Defense-variant platform with enhanced comms, encrypted telemetry, and tactical integration. $10,000",
+    name: "Mushroom 1",
+    description: "Ground mobility for field deployment, mapping, local inspection, and sensor placement.",
     icon: Radar,
-    features: ["SATCOM capable", "Encrypted C2", "Extended endurance", "Tactical mesh"]
+    features: ["Field mobility", "Sensor deployment", "Terrain mapping", "Tactical mesh"]
   },
   {
-    name: "Hyphae One",
-    description: "Edge computing boxes with sensing capabilities - the neural network of field intelligence.",
+    name: "Hyphae 1",
+    description: "Exterior edge datacenter that fuses sensing, compute, backhaul, and local command at the mission edge.",
     icon: Server,
-    features: ["Edge AI processing", "Multi-sensor fusion", "Gateway functionality", "Ruggedized design"]
+    features: ["Edge AI", "Sensor fusion", "Mesh gateway", "Rugged deployment"]
   },
   {
-    name: "Defense AI",
-    description: "Military-tuned NLM with threat prioritization and tactical reporting capabilities.",
+    name: "MYCA + MINDEX",
+    description: "AI orchestration and tamper-evident mission memory for device events, sensor frames, and intelligence products.",
     icon: Cpu,
-    features: ["Threat classification", "Pattern of life", "Anomaly detection", "Automated reporting"]
+    features: ["Mission planning", "Anomaly detection", "Chain of custody", "Automated reporting"]
   },
-]
-
-const hyphaOneSpecs = [
-  { label: "Processing", value: "Edge AI with 8 TOPS" },
-  { label: "Sensors", value: "Environmental suite" },
-  { label: "Comms", value: "LoRa, WiFi, Cellular, SATCOM" },
-  { label: "Power", value: "Solar + 72hr battery" },
-  { label: "Enclosure", value: "IP67 / MIL-STD-810" },
-  { label: "Networking", value: "Mesh gateway + 50 nodes" },
 ]
 
 const crepFeatures = [
@@ -82,6 +99,37 @@ const crepFeatures = [
   { title: "Alert Management", description: "Prioritized alerts with acknowledgment tracking" },
   { title: "Mission Integration", description: "Overlay environmental data on operational plans" },
   { title: "Historical Analysis", description: "Trend analysis and pattern detection over time" },
+]
+
+const fieldHardware = [
+  {
+    name: "Agaric",
+    role: "Aerial deployment, retrieval, relay, and inspection",
+    href: "/devices/agaric",
+    icon: Plane,
+    points: ["Flying Sensor Droid", "Multi-sensor payloads", "Hard-to-reach terrain", "Mycosoft device support"]
+  },
+  {
+    name: "SporeBase",
+    role: "Time-indexed bioaerosol collection",
+    href: "/devices/sporebase",
+    icon: Wind,
+    points: ["Sealed cassette", "15-minute cadence", "Physical samples", "Bioaerosol baselines"]
+  },
+  {
+    name: "Hyphae 1",
+    role: "Exterior edge datacenter and sensor fusion node",
+    href: "/devices/hyphae-1",
+    icon: Server,
+    points: ["MycoBrain + Jetson", "Radar / LiDAR / RF", "Mesh gateway", "Local AI"]
+  },
+  {
+    name: "Psathyrella",
+    role: "Autonomous maritime and littoral sensing buoy",
+    href: "/devices/psathyrella",
+    icon: Waves,
+    points: ["Passive acoustics", "Water context", "Coastal mesh", "CREP integration"]
+  },
 ]
 
 export default function FusariumPage() {
@@ -218,42 +266,47 @@ export default function FusariumPage() {
         </div>
       </section>
 
-      {/* Hyphae One */}
+      {/* Field Hardware */}
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <NeuBadge variant="default" className="mb-4 text-green-500">NEW HARDWARE</NeuBadge>
-              <h2 className="text-4xl font-bold mb-6">Hyphae One</h2>
-              <p className="text-xl text-muted-foreground mb-8">
-                Named after the branching filaments that form the structure of fungi - 
-                Hyphae One boxes are the neural network connecting all field sensors to command.
-              </p>
-              
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                {hyphaOneSpecs.map((spec) => (
-                  <div key={spec.label} className="neu-raised p-4 rounded-xl">
-                    <div className="text-sm text-muted-foreground">{spec.label}</div>
-                    <div className="font-semibold">{spec.value}</div>
-                  </div>
-                ))}
-              </div>
+          <div className="text-center mb-16">
+            <NeuBadge variant="default" className="mb-4 text-green-500">Field Hardware</NeuBadge>
+            <h2 className="text-4xl font-bold mb-4">Current Mycosoft Defense Devices</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Fusarium is the defense layer that brings aerial, atmospheric, terrestrial, and maritime devices into one operational picture.
+            </p>
+          </div>
 
-              <p className="text-muted-foreground mb-6">
-                Hyphae One serves triple duty: edge processing for local AI, gateway for mesh networks, 
-                and environmental sensing with its own sensor suite. Deploy them as the backbone of your 
-                OEI network.
-              </p>
-            </div>
-            <div className="relative">
-              <NeuCard className="aspect-square p-8 flex items-center justify-center">
-                <div className="text-center">
-                  <Server className="h-20 w-20 text-green-500/30 mx-auto mb-4" />
-                  <p className="text-lg font-semibold">Edge Computing + Sensing</p>
-                  <p className="text-sm text-muted-foreground">The network backbone</p>
-                </div>
+          <div className="grid md:grid-cols-2 gap-8">
+            {fieldHardware.map((device) => (
+              <NeuCard key={device.name} className="transition-all hover:scale-[1.01]">
+                <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <device.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">{device.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{device.role}</p>
+                  </div>
+                </NeuCardHeader>
+                <NeuCardContent>
+                  <div className="grid grid-cols-2 gap-2 mb-5">
+                    {device.points.map((point) => (
+                      <div key={point} className="flex items-center gap-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                        <span>{point}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href={device.href}>
+                    <NeuButton variant="default" className="text-sm px-4 py-2">
+                      View Device
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </NeuButton>
+                  </Link>
+                </NeuCardContent>
               </NeuCard>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -265,7 +318,7 @@ export default function FusariumPage() {
             <NeuBadge variant="default" className="mb-4">Command Interface</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">CREP Dashboard</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Common Relevant Environmental Picture - the tactical interface for environmental intelligence.
+              Common Relevant Environmental Picture - the tactical interface for environmental intelligence, Earth Simulator context, and device-layer operations.
             </p>
             <p className="text-base text-muted-foreground max-w-2xl mx-auto mt-4">
               Eagle Eye video layers run in the same CREP dashboard: open CREP and use the layer panel to toggle Eagle Eye. Feeds are sourced from the Eagle registry and public connectors where available—availability is data-dependent, not universal live video everywhere.

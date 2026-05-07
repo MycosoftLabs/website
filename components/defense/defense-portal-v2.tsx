@@ -60,7 +60,6 @@ import {
 import { ChallengeCanvas } from "@/components/defense/challenge-canvas"
 import { DefenseParticles } from "@/components/defense/defense-particles"
 import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
-import { CtaSnakeCanvas } from "@/components/defense/cta-snake-canvas"
 
 function DefenseHeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -116,6 +115,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Hardware Platforms",
         items: [
           { name: "Mushroom 1", description: "Autonomous deployment for perimeter and installation monitoring", link: "/devices/mushroom-1" },
+          { name: "Hyphae 1", description: "Exterior edge datacenter for fused sensing and local decision support", link: "/devices/hyphae-1" },
           { name: "MycoNode", description: "Subsurface bioelectric probes for detecting contamination signatures", link: "/devices/myconode" },
           { name: "ALARM", description: "Interior sensors for facility environmental monitoring", link: "/devices/alarm" }
         ]
@@ -124,6 +124,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & Analytics",
         items: [
           { name: "NatureOS", description: "Unified command center for real-time visualization and alerts", link: "/natureos" },
+          { name: "Earth Simulator", description: "Live global environment and asset context for planning and review", link: "/natureos/earth-simulator" },
           { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/defense/crep" },
           { name: "Nature Learning Model", description: "AI-powered anomaly detection and pattern recognition" }
         ]
@@ -150,6 +151,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Hardware Platforms",
         items: [
           { name: "Mushroom 1", description: "Autonomous mapping of contaminated zones and UXO-affected areas", link: "/devices/mushroom-1" },
+          { name: "Agaric", description: "Flying Sensor Droid for aerial sensing, relay, deployment, and recovery", link: "/devices/agaric" },
           { name: "MycoNode Grid", description: "Distributed sensing network for wide-area coverage", link: "/devices/myconode" },
           { name: "SporeBase", description: "Atmospheric sampling for airborne hazard monitoring", link: "/devices/sporebase" }
         ]
@@ -158,6 +160,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & Analytics",
         items: [
           { name: "NatureOS Mapping", description: "GIS-integrated visualization of environmental anomalies", link: "/natureos" },
+          { name: "Earth Simulator", description: "3D environmental context, forecast layers, and deployed asset overlays", link: "/natureos/earth-simulator" },
           { name: "Trend Analytics", description: "Historical pattern analysis for remediation planning" },
           { name: "Fusarium Defense", description: "Defense-specific dashboard with tactical overlays", link: "/defense/fusarium" }
         ]
@@ -184,6 +187,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Hardware Platforms",
         items: [
           { name: "Mushroom 1 Maritime", description: "Corrosion-resistant variant for coastal deployment", link: "/devices/mushroom-1" },
+          { name: "Psathyrella", description: "Autonomous buoy for passive acoustics, water context, and littoral sensing", link: "/devices/psathyrella" },
           { name: "MycoNode Aquatic", description: "Submersible probes for marine environment monitoring", link: "/devices/myconode" },
           { name: "SporeBase Coastal", description: "Salt-spray resistant atmospheric sampling", link: "/devices/sporebase" }
         ]
@@ -218,6 +222,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Hardware Platforms",
         items: [
           { name: "SporeBase Network", description: "Time-indexed bioaerosol collection for atmospheric biosurveillance", link: "/devices/sporebase" },
+          { name: "Agaric", description: "Aerial deployment, retrieval, relay, and inspection layer for difficult terrain", link: "/devices/agaric" },
           { name: "MycoNode Sentinels", description: "Soil microbiome baseline monitoring", link: "/devices/myconode" },
           { name: "ALARM Indoor", description: "Facility-level biological environment monitoring", link: "/devices/alarm" }
         ]
@@ -226,6 +231,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & AI",
         items: [
           { name: "Nature Learning Model", description: "AI trained on normal microbial dynamics to detect anomalies" },
+          { name: "Earth Simulator", description: "Environmental simulation, field overlays, and risk visualization", link: "/natureos/earth-simulator" },
           { name: "Fusarium Biodefense", description: "Specialized dashboard for biothreat monitoring", link: "/defense/fusarium" },
           { name: "EEW System", description: "Environmental Early Warning automated alerting" }
         ]
@@ -483,6 +489,10 @@ const productTabs = [
   { id: "sporebase", label: "SporeBase" },
   { id: "alarm", label: "ALARM" },
   { id: "natureos", label: "NatureOS" },
+  { id: "agaric", label: "Agaric" },
+  { id: "hyphae1", label: "Hyphae 1" },
+  { id: "psathyrella", label: "Psathyrella" },
+  { id: "earthsim", label: "Earth Sim" },
 ]
 
 export function DefensePortalV2() {
@@ -935,21 +945,21 @@ export function DefensePortalV2() {
 
                   {/* Device Layer - Bottom */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    <div className="w-14 h-12 rounded-lg bg-orange-500/20 border border-orange-500/50 flex flex-col items-center justify-center">
-                      <Radar className="h-3 w-3 text-orange-500" />
-                      <span className="text-[5px] font-medium mt-0.5">M1</span>
+                    <div className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center">
+                      <Plane className="h-3 w-3 text-red-500" />
+                      <span className="text-[5px] font-medium mt-0.5">AGARIC</span>
                     </div>
-                    <div className="w-14 h-12 rounded-lg bg-primary/20 border border-primary/50 flex flex-col items-center justify-center">
-                      <Microscope className="h-3 w-3 text-primary" />
-                      <span className="text-[5px] font-medium mt-0.5">NODE</span>
+                    <div className="w-14 h-12 rounded-lg bg-cyan-500/20 border border-cyan-500/50 flex flex-col items-center justify-center">
+                      <Server className="h-3 w-3 text-cyan-500" />
+                      <span className="text-[5px] font-medium mt-0.5">HYPHAE</span>
                     </div>
                     <div className="w-14 h-12 rounded-lg bg-blue-500/20 border border-blue-500/50 flex flex-col items-center justify-center">
                       <Wind className="h-3 w-3 text-blue-500" />
                       <span className="text-[5px] font-medium mt-0.5">SPORE</span>
                     </div>
-                    <div className="w-14 h-12 rounded-lg bg-destructive/20 border border-destructive/50 flex flex-col items-center justify-center">
-                      <AlertTriangle className="h-3 w-3 text-destructive" />
-                      <span className="text-[5px] font-medium mt-0.5">ALARM</span>
+                    <div className="w-14 h-12 rounded-lg bg-sky-500/20 border border-sky-500/50 flex flex-col items-center justify-center">
+                      <Waves className="h-3 w-3 text-sky-500" />
+                      <span className="text-[5px] font-medium mt-0.5">PSATH</span>
                     </div>
                   </div>
 
@@ -1187,6 +1197,158 @@ export function DefensePortalV2() {
                 </div>
                 <div className="aspect-video bg-gradient-to-br from-green-500/20 to-muted rounded-xl flex items-center justify-center border">
                   <Eye className="h-32 w-32 text-green-500/50" />
+                </div>
+              </div>
+            </NeuTabsContent>
+
+            <NeuTabsContent id="panel-agaric" tabId="agaric" isActive={productTabIndex === 5}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-red-500">
+                    <Plane className="h-6 w-6" />
+                    <span className="font-semibold">Flying Sensor Droid</span>
+                  </div>
+                  <h3 className="text-3xl font-bold">Agaric Aerial Layer</h3>
+                  <p className="text-muted-foreground text-lg">
+                    U.S.-built aerial sensing, relay, deployment, and recovery for missions where terrain,
+                    water, height, or access prevents normal field placement.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Flight Role", value: "Level translate / hover" },
+                      { label: "Mission", value: "Deploy / retrieve" },
+                      { label: "Links", value: "LoRa / LTE / satellite" },
+                      { label: "Sensors", value: "Radar / LiDAR / gas / EM" }
+                    ].map((spec) => (
+                      <div key={spec.label} className="neu-raised p-4 rounded-xl">
+                        <div className="text-sm text-muted-foreground">{spec.label}</div>
+                        <div className="font-semibold">{spec.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/devices/agaric">
+                    <NeuButton variant="primary">
+                      View Agaric Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </NeuButton>
+                  </Link>
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-red-500/20 to-muted rounded-xl flex items-center justify-center border">
+                  <Plane className="h-32 w-32 text-red-500/50" />
+                </div>
+              </div>
+            </NeuTabsContent>
+
+            <NeuTabsContent id="panel-hyphae1" tabId="hyphae1" isActive={productTabIndex === 6}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-cyan-500">
+                    <Server className="h-6 w-6" />
+                    <span className="font-semibold">Exterior Edge Datacenter</span>
+                  </div>
+                  <h3 className="text-3xl font-bold">Hyphae 1 Field Compute</h3>
+                  <p className="text-muted-foreground text-lg">
+                    Rugged exterior compute and sensing node that fuses radar, LiDAR, RF, gas,
+                    acoustic, motion, and environmental streams close to the mission.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Compute", value: "MycoBrain + Jetson" },
+                      { label: "Sensing", value: "Multi-modal fusion" },
+                      { label: "Deployment", value: "Pole / pad / field" },
+                      { label: "Network", value: "Mesh edge gateway" }
+                    ].map((spec) => (
+                      <div key={spec.label} className="neu-raised p-4 rounded-xl">
+                        <div className="text-sm text-muted-foreground">{spec.label}</div>
+                        <div className="font-semibold">{spec.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/devices/hyphae-1">
+                    <NeuButton variant="primary">
+                      View Hyphae 1 Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </NeuButton>
+                  </Link>
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-cyan-500/20 to-muted rounded-xl flex items-center justify-center border">
+                  <Server className="h-32 w-32 text-cyan-500/50" />
+                </div>
+              </div>
+            </NeuTabsContent>
+
+            <NeuTabsContent id="panel-psathyrella" tabId="psathyrella" isActive={productTabIndex === 7}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-sky-500">
+                    <Waves className="h-6 w-6" />
+                    <span className="font-semibold">Swimming Sensor Buoy</span>
+                  </div>
+                  <h3 className="text-3xl font-bold">Psathyrella Littoral Layer</h3>
+                  <p className="text-muted-foreground text-lg">
+                    Autonomous buoy platform for passive acoustics, coastal water context, mesh handoff,
+                    and maritime environmental intelligence.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Primary Sense", value: "Passive acoustics" },
+                      { label: "Environment", value: "Water + air context" },
+                      { label: "AI", value: "Edge classification" },
+                      { label: "Mission", value: "Littoral awareness" }
+                    ].map((spec) => (
+                      <div key={spec.label} className="neu-raised p-4 rounded-xl">
+                        <div className="text-sm text-muted-foreground">{spec.label}</div>
+                        <div className="font-semibold">{spec.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/devices/psathyrella">
+                    <NeuButton variant="primary">
+                      View Psathyrella Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </NeuButton>
+                  </Link>
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-sky-500/20 to-muted rounded-xl flex items-center justify-center border">
+                  <Waves className="h-32 w-32 text-sky-500/50" />
+                </div>
+              </div>
+            </NeuTabsContent>
+
+            <NeuTabsContent id="panel-earthsim" tabId="earthsim" isActive={productTabIndex === 8}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-emerald-500">
+                    <Globe className="h-6 w-6" />
+                    <span className="font-semibold">Planetary Mission Context</span>
+                  </div>
+                  <h3 className="text-3xl font-bold">Earth Simulator</h3>
+                  <p className="text-muted-foreground text-lg">
+                    Live 3D environmental context for devices, observations, forecasts, risk layers,
+                    and CREP-style mission review across the real world.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "View", value: "3D Earth / CREP" },
+                      { label: "Layers", value: "Weather / assets / risk" },
+                      { label: "Use", value: "Plan and review" },
+                      { label: "Output", value: "Shared operating picture" }
+                    ].map((spec) => (
+                      <div key={spec.label} className="neu-raised p-4 rounded-xl">
+                        <div className="text-sm text-muted-foreground">{spec.label}</div>
+                        <div className="font-semibold">{spec.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/natureos/earth-simulator">
+                    <NeuButton variant="primary">
+                      Open Earth Simulator
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </NeuButton>
+                  </Link>
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-emerald-500/20 to-muted rounded-xl flex items-center justify-center border">
+                  <Globe className="h-32 w-32 text-emerald-500/50" />
                 </div>
               </div>
             </NeuTabsContent>
@@ -1485,8 +1647,7 @@ export function DefensePortalV2() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 relative overflow-hidden">
-        <CtaSnakeCanvas className="z-0" />
+      <section className="py-24 relative overflow-hidden bg-gradient-to-b from-muted/20 to-background">
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
             <NeuBadge variant="default" className="mb-4">Get Started</NeuBadge>
@@ -1537,4 +1698,3 @@ export function DefensePortalV2() {
     </NeuromorphicProvider>
   )
 }
-

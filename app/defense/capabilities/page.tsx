@@ -18,7 +18,10 @@ import {
   Zap,
   Lock,
   CheckCircle2,
-  Play
+  Play,
+  Plane,
+  Server,
+  Waves
 } from "lucide-react"
 import {
   NeuButton,
@@ -44,6 +47,7 @@ const acronyms = [
 const hardware = [
   {
     name: "Mushroom1",
+    href: "/devices/mushroom-1",
     description: "Autonomous quadruped platform for sensor deployment, environmental mapping, and contaminated zone reconnaissance.",
     icon: Radar,
     color: "orange-500",
@@ -51,6 +55,7 @@ const hardware = [
   },
   {
     name: "MycoNode",
+    href: "/devices/myconode",
     description: "Subsurface bioelectric probe for soil microbiome monitoring and infrastructure risk detection.",
     icon: Microscope,
     color: "primary",
@@ -58,13 +63,39 @@ const hardware = [
   },
   {
     name: "SporeBase",
-    description: "Time-indexed bioaerosol collection for atmospheric biological sampling with lab integration.",
+    href: "/devices/sporebase",
+    description: "Time-indexed bioaerosol collection for atmospheric biological sampling, baselines, and lab integration.",
     icon: Wind,
     color: "blue-500",
     specs: ["15-60 min segments", "PCR ready", "Solar powered", "100m coverage"]
   },
   {
+    name: "Agaric",
+    href: "/devices/agaric",
+    description: "Flying Sensor Droid for aerial deployment, retrieval, relay, inspection, and multi-sensor field passes.",
+    icon: Plane,
+    color: "destructive",
+    specs: ["Aerial relay", "Deploy/retrieve", "Radar/LiDAR/gas/EM", "U.S.-built"]
+  },
+  {
+    name: "Hyphae 1",
+    href: "/devices/hyphae-1",
+    description: "Exterior edge datacenter that fuses sensing, compute, backhaul, and local command at the mission edge.",
+    icon: Server,
+    color: "primary",
+    specs: ["MycoBrain + Jetson", "Radar/LiDAR/RF", "Mesh gateway", "Edge AI"]
+  },
+  {
+    name: "Psathyrella",
+    href: "/devices/psathyrella",
+    description: "Autonomous buoy for passive acoustics, water context, coastal mesh handoff, and littoral awareness.",
+    icon: Waves,
+    color: "blue-500",
+    specs: ["Passive acoustics", "Water context", "Edge classify", "CREP integration"]
+  },
+  {
     name: "ALARM",
+    href: "/devices/alarm",
     description: "Advanced interior environmental monitor for facility protection and microbial growth detection.",
     icon: AlertTriangle,
     color: "destructive",
@@ -78,6 +109,12 @@ const software = [
     description: "Unified operating environment with real-time visualization, alerting, and API access.",
     icon: Eye,
     features: ["Map visualization", "Live telemetry", "Alert management", "REST/gRPC APIs"]
+  },
+  {
+    name: "Earth Simulator",
+    description: "Live 3D environmental context for deployed assets, observations, forecasts, and risk layers.",
+    icon: Globe,
+    features: ["3D Earth view", "Device overlays", "Forecast context", "CREP-style review"]
   },
   {
     name: "MINDEX Console",
@@ -217,7 +254,7 @@ export default function CapabilitiesPage() {
                         <NeuBadge key={spec} variant="default" className="text-xs">{spec}</NeuBadge>
                       ))}
                     </div>
-                    <Link href={`/devices/${device.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <Link href={device.href}>
                       <NeuButton variant="default" className="text-sm px-4 py-2">
                         View Details
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -337,9 +374,9 @@ export default function CapabilitiesPage() {
                   <Play className="h-12 w-12 text-green-500/30" />
                 </div>
                 <div className="pt-4">
-                  <h3 className="text-lg font-semibold mb-2">Analytics Studio</h3>
+                  <h3 className="text-lg font-semibold mb-2">Earth Simulator</h3>
                   <p className="text-sm text-muted-foreground">
-                    Advanced analysis tools for environmental data exploration and pattern discovery.
+                    3D environmental operating picture for forecasts, risk layers, deployed devices, and mission review.
                   </p>
                 </div>
               </NeuCard>
