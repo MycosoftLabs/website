@@ -30,10 +30,7 @@ const TILES: HomeTile[] = [
     href: "/devices/agaric",
     description: "Autonomous aerial sensing, deployment, retrieval, and relay.",
     video: "/assets/agaric/agaric-hero2.mp4",
-    sources: [
-      "/assets/agaric/agaric-hero2.mp4",
-      "/assets/agaric/agaric-hero-web.mp4",
-    ],
+    sources: ["/assets/agaric/agaric-hero2.mp4"],
     poster: "/assets/agaric/hero2.jpg",
     icon: Radar,
   },

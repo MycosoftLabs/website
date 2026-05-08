@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { NetworkCanvas } from "@/components/effects/network-canvas"
 import { AgaricShardTitle } from "@/components/devices/agaric-shard-title"
@@ -52,8 +53,6 @@ const AGARIC_ASSETS = {
   sizesImage: "/images/agaric/threesizes.jpg",
   videos: {
     hero: "/assets/agaric/agaric-hero2.mp4",
-    heroFallback: "/assets/agaric/agaric-hero-web.mp4",
-    heroLegacy: "/assets/agaric/agaric-hero.mp4",
     background: "/assets/agaric/hero.mp4",
     deploy: "/assets/agaric/deploy-retrieve.mp4",
     waterfall: "/assets/agaric/hero.mp4",
@@ -61,6 +60,9 @@ const AGARIC_ASSETS = {
     promo: "/assets/agaric/promo.mp4",
     capabilities: "/assets/agaric/agaric-background1.mp4",
     footer: "/assets/agaric/forestfly.mp4",
+  },
+  youtube: {
+    hero: "fk2rCM9hnpQ",
   },
   useCaseVideos: [
     "/assets/agaric/a.mp4",
@@ -341,17 +343,13 @@ export function AgaricDetails() {
       >
         {/* Background Video */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
-          <AutoplayVideo
-            src={AGARIC_ASSETS.videos.hero}
-            sources={[
-              AGARIC_ASSETS.videos.hero,
-              AGARIC_ASSETS.videos.heroFallback,
-              AGARIC_ASSETS.videos.heroLegacy,
-            ]}
+          <InstantHeroVideo
+            mp4Src={AGARIC_ASSETS.videos.hero}
+            youtubeId={AGARIC_ASSETS.youtube.hero}
             poster={AGARIC_ASSETS.heroImage}
-            encodeSrc
-            preload="auto"
-            className="absolute inset-0 h-full w-full object-cover"
+            mp4StartTimeoutMs={1200}
+            nasProbeTimeoutMs={700}
+            videoClassName="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black" />
         </motion.div>
