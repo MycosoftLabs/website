@@ -493,6 +493,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -663,6 +664,7 @@ All notable changes to this project will be documented in this file.
 - *(website)* MINDEX BFF catch-all, dashboard tabs, meshtastic, fluid search, mas tasks, species routes
 - *(meshtastic)* TennMesh-style map with packet stream, position decode, activity overlay
 - Update device pages and NAS media routing [fast]
+- *(home)* Hero search, Agaric detail polish, home command page shell
 
 ### Fix
 
