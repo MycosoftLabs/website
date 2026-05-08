@@ -6,12 +6,9 @@ import { Package, CheckCircle, Truck, Mail, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import confetti from 'canvas-confetti'
 
 export default function OrderSuccessPage() {
-  const searchParams = useSearchParams()
-  const sessionId = searchParams.get('session_id')
   const [verified, setVerified] = useState(false)
   
   useEffect(() => {
@@ -27,7 +24,7 @@ export default function OrderSuccessPage() {
     }, 500)
     
     return () => clearTimeout(timer)
-  }, [sessionId])
+  }, [])
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-teal-950/20 to-slate-950 flex items-center justify-center p-4">

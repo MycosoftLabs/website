@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { Suspense, useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -90,6 +90,14 @@ interface Blob {
 }
 
 export default function SmellTrainingPage() {
+  return (
+    <Suspense fallback={null}>
+      <SmellTrainingContent />
+    </Suspense>
+  )
+}
+
+function SmellTrainingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const initialTab = searchParams.get("tab") || "wizard"

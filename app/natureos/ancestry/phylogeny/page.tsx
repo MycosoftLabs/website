@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +10,14 @@ import PhylogenyVisualization from "./3d-visualization"
 import { PhylogeneticTree } from "@/components/ancestry/phylogenetic-tree"
 
 export default function PhylogenyPage() {
+  return (
+    <Suspense fallback={null}>
+      <PhylogenyPageContent />
+    </Suspense>
+  )
+}
+
+function PhylogenyPageContent() {
   const searchParams = useSearchParams()
   const taxonId = searchParams.get("taxon") || undefined
   const [treeType, setTreeType] = useState<"cladogram" | "phylogram" | "radial" | "unrooted">("cladogram")

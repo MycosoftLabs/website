@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, useEffect, useCallback } from "react"
+import { Suspense, useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -61,6 +61,14 @@ function normalizeKingdomFromUrl(raw: string | null): string {
 }
 
 export default function AncestryDatabasePage() {
+  return (
+    <Suspense fallback={null}>
+      <AncestryDatabaseContent />
+    </Suspense>
+  )
+}
+
+function AncestryDatabaseContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [species, setSpecies] = useState<Species[]>([])

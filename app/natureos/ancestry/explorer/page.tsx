@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { Suspense, useState, useEffect, useMemo } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -86,6 +86,14 @@ interface Species {
 }
 
 export default function ExplorerPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExplorerPageContent />
+    </Suspense>
+  )
+}
+
+function ExplorerPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const urlSearch = searchParams.get("search") || ""
