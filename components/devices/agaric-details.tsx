@@ -49,10 +49,11 @@ const AGARIC_ASSETS = {
   footerImage: "/assets/agaric/forest1.jpg",
   mainImage: "/assets/agaric/topboard.jpg",
   connectivityImage: "/assets/agaric/connectivity-forest.png",
-  sizesImage: "/assets/agaric/sizes.jpg",
+  sizesImage: "/assets/agaric/threesizes.jpg",
   videos: {
-    hero: "/assets/agaric/agaric-hero-web.mp4",
-    heroFallback: "/assets/agaric/agaric-hero.mp4",
+    hero: "/assets/agaric/agaric-hero2.mp4",
+    heroFallback: "/assets/agaric/agaric-hero-web.mp4",
+    heroLegacy: "/assets/agaric/agaric-hero.mp4",
     background: "/assets/agaric/hero.mp4",
     deploy: "/assets/agaric/deploy-retrieve.mp4",
     waterfall: "/assets/agaric/hero.mp4",
@@ -342,7 +343,11 @@ export function AgaricDetails() {
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <AutoplayVideo
             src={AGARIC_ASSETS.videos.hero}
-            sources={[AGARIC_ASSETS.videos.hero, AGARIC_ASSETS.videos.heroFallback]}
+            sources={[
+              AGARIC_ASSETS.videos.hero,
+              AGARIC_ASSETS.videos.heroFallback,
+              AGARIC_ASSETS.videos.heroLegacy,
+            ]}
             poster={AGARIC_ASSETS.heroImage}
             encodeSrc
             preload="auto"
@@ -1173,7 +1178,7 @@ export function AgaricDetails() {
 
           <div className="mt-8 flex justify-center">
             <NeuButton
-              variant="outline"
+              variant="default"
               className="min-h-[44px] border-red-500/30 dark:border-red-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-red-500/10 dark:hover:bg-gray-600"
               onClick={() => document.querySelector(".agaric-ecosystem")?.scrollIntoView({ behavior: "smooth" })}
             >
@@ -1194,8 +1199,8 @@ export function AgaricDetails() {
             sizes="100vw"
             className="object-cover object-center"
           />
-          <div className="absolute inset-0 bg-white/70 dark:bg-black/68" />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/85 via-white/45 to-white/85 dark:from-black/85 dark:via-black/50 dark:to-black/88" />
+          <div className="absolute inset-0 bg-white/28 dark:bg-black/18" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/58 via-white/12 to-white/62 dark:from-black/48 dark:via-black/8 dark:to-black/56" />
         </div>
         <div className="relative z-10 max-w-7xl mx-auto">
           <motion.div

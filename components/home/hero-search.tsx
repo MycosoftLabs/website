@@ -12,7 +12,7 @@
  * - Session memory integration
  */
 
-import { useState, useEffect, useRef, startTransition } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
@@ -24,7 +24,6 @@ import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
-import Link from "next/link"
 import {
   Search,
   Mic,
@@ -51,7 +50,17 @@ interface HeroSuggestion {
   url: string
 }
 
-export function HeroSearch() {
+interface HeroSearchProps {
+  showBackground?: boolean
+  embedded?: boolean
+  className?: string
+}
+
+export function HeroSearch({
+  showBackground = true,
+  embedded = false,
+  className,
+}: HeroSearchProps) {
   const router = useRouter()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -90,8 +99,8 @@ export function HeroSearch() {
   }, [])
 
   // Animated typing placeholder
-  const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
-    enabled: !query && !isFocused, // Only animate when input is empty and not focused
+  const { placeholder: animatedPlaceholder } = useTypingPlaceholder({
+    enabled: !query, // Keep suggested searches typing even when the empty input is focused.
   })
 
   useEffect(() => {
@@ -176,9 +185,9 @@ export function HeroSearch() {
         setWebSpeechListening(false)
         // Auto-navigate to search after a brief pause
         setTimeout(() => {
-          if (finalTranscript.trim()) {
-            router.push(`/search?q=${encodeURIComponent(finalTranscript.trim())}`)
-          }
+          const voiceQuery = finalTranscript.trim()
+          if (!voiceQuery) return
+          window.location.assign(`/search?q=${encodeURIComponent(voiceQuery)}`)
         }, 500)
       }
     }
@@ -247,17 +256,30 @@ export function HeroSearch() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     const submittedQuery = String(formData.get("q") || query).trim()
-    if (submittedQuery) {
-      setIsSearching(true)
-      router.push(`/search?q=${encodeURIComponent(submittedQuery)}`)
-    }
+    navigateToSearch(submittedQuery)
   }
 
   const navigateToSearch = (rawQuery: string) => {
     const submittedQuery = rawQuery.trim()
     if (!submittedQuery) return
+    setQuery(submittedQuery)
     setIsSearching(true)
-    router.push(`/search?q=${encodeURIComponent(submittedQuery)}`)
+    const href = `/search?q=${encodeURIComponent(submittedQuery)}`
+    if (typeof window !== "undefined") {
+      window.location.assign(href)
+      return
+    }
+    router.push(href)
+  }
+
+  const searchHref = (rawQuery: string) => `/search?q=${encodeURIComponent(rawQuery.trim())}`
+
+  const suggestionSearchText = (suggestion: HeroSuggestion) =>
+    (suggestion.scientificName || suggestion.title || "").trim()
+
+  const startVoiceFallback = () => {
+    inputRef.current?.focus()
+    setIsFocused(true)
   }
 
   const toggleVoice = () => {
@@ -289,6 +311,8 @@ export function HeroSearch() {
       }
       return
     }
+
+    startVoiceFallback()
   }
 
   const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
@@ -296,7 +320,15 @@ export function HeroSearch() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8 pointer-events-none">
+    <section
+      className={cn(
+        "relative flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8 pointer-events-none",
+        embedded
+          ? "min-h-0 px-0 py-0"
+          : "min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6",
+        className
+      )}
+    >
       {/* Full-screen video — pointer-events-none so header/footer/page links receive the first click (not blocked by this layer).
           Apr 23, 2026 — Morgan: "on live home page video is lagging studdering".
           Adds `contain: paint` + `will-change: transform` so the browser
@@ -304,33 +336,35 @@ export function HeroSearch() {
           repaint critical path. Moves the saturate/brightness filter off
           the <video> element and onto a sibling overlay <div> so the GPU
           isn't re-running a shader on every decoded frame. */}
-      <div
-        className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
-        style={{ contain: "paint", willChange: "transform" }}
-      >
-        {/* Locked NAS MP4 hero background after idle. */}
-        {idleHeroVideoReady && homeNasHeroSources[0] ? (
-          <AutoplayVideo
-            src={homeNasHeroSources[0]}
-            sources={homeNasHeroSources}
-            poster={HOME_HERO_POSTER}
-            preload="auto"
-            stallTimeoutMs={18000}
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            encodeSrc
+      {showBackground ? (
+        <div
+          className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
+          style={{ contain: "paint", willChange: "transform" }}
+        >
+          {/* Locked NAS MP4 hero background after idle. */}
+          {idleHeroVideoReady && homeNasHeroSources[0] ? (
+            <AutoplayVideo
+              src={homeNasHeroSources[0]}
+              sources={homeNasHeroSources}
+              poster={HOME_HERO_POSTER}
+              preload="auto"
+              stallTimeoutMs={18000}
+              className="absolute inset-0 z-0 h-full w-full object-cover"
+              encodeSrc
+            />
+          ) : null}
+          {/* Light tint overlay — replaces the video-layer filter so the
+              GPU doesn't pay filter cost on every frame. */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-black/[0.04] mix-blend-multiply"
+            aria-hidden
           />
-        ) : null}
-        {/* Light tint overlay — replaces the video-layer filter so the
-            GPU doesn't pay filter cost on every frame. */}
-        <div
-          className="pointer-events-none absolute inset-0 bg-black/[0.04] mix-blend-multiply"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10"
-          aria-hidden
-        />
-      </div>
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10"
+            aria-hidden
+          />
+        </div>
+      ) : null}
 
       <div
         ref={containerRef}
@@ -434,13 +468,15 @@ export function HeroSearch() {
                   }}
                   onFocus={() => {
                     setIsFocused(true)
-                    pause()
                   }}
                   onBlur={() => {
                     setTimeout(() => setIsFocused(false), 150)
-                    if (!query) resume()
                   }}
-                  placeholder={animatedPlaceholder || "Search nature, environment, live data..."}
+                  placeholder={
+                    animatedPlaceholder
+                      ? `Suggested search: ${animatedPlaceholder}`
+                      : "Suggested search: Search all species, weather, flights, ships..."
+                  }
                   className={cn(
                     "flex-1 bg-transparent text-base sm:text-lg md:text-xl",
                     "text-foreground placeholder:text-muted-foreground placeholder:text-sm sm:placeholder:text-base",
@@ -469,8 +505,8 @@ export function HeroSearch() {
                 {/* Voice Button */}
                 <motion.button
                   type="button"
+                  aria-label={isListening ? "Stop voice search" : "Start voice search"}
                   onClick={toggleVoice}
-                  disabled={connectionState === "connecting" && !hasWebSpeech}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
@@ -504,9 +540,8 @@ export function HeroSearch() {
                 </motion.button>
 
                 {/* Earth Simulator — public NatureOS tool route (same CREP loader as /dashboard/crep). */}
-                <Link
+                <a
                   href="/natureos/earth-simulator"
-                  prefetch={false}
                   aria-label="Earth Simulator"
                   title="Earth Simulator — live 3D globe"
                   className={cn(
@@ -523,12 +558,12 @@ export function HeroSearch() {
                     className="pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl bg-cyan-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
                   />
                   <Globe2 className="relative z-[1] h-4 w-4 sm:h-5 sm:w-5 animate-[spin_24s_linear_infinite] group-hover:text-cyan-400" />
-                </Link>
+                </a>
 
                 {/* Submit Button — onClick via form submit (handleSearch), no onMouseDown race */}
                 <motion.button
                   type="submit"
-                  disabled={isSearching || !query.trim()}
+                  aria-label="Search Mycosoft"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
@@ -581,11 +616,12 @@ export function HeroSearch() {
                     <ul className="max-h-80 overflow-auto py-2">
                       {suggestions.map((suggestion) => (
                         <li key={suggestion.id}>
-                          <button
-                            type="button"
+                          <a
+                            href={searchHref(suggestionSearchText(suggestion))}
                             onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              router.push(suggestion.url)
+                            onClick={(event) => {
+                              event.preventDefault()
+                              navigateToSearch(suggestionSearchText(suggestion))
                             }}
                             className="flex w-full flex-col px-4 py-3 text-left hover:bg-muted/70"
                           >
@@ -593,7 +629,7 @@ export function HeroSearch() {
                             {suggestion.scientificName ? (
                               <span className="text-xs italic text-muted-foreground">{suggestion.scientificName}</span>
                             ) : null}
-                          </button>
+                          </a>
                         </li>
                       ))}
                     </ul>
@@ -614,12 +650,12 @@ export function HeroSearch() {
         >
           <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">Try:</span>
           {trySuggestions.map(({ term, phoneVisible }) => (
-            <button
+            <a
               key={term}
-              type="button"
-              onClick={() => {
-                setQuery(term)
-                router.push(`/search?q=${encodeURIComponent(term)}`)
+              href={searchHref(term)}
+              onClick={(event) => {
+                event.preventDefault()
+                navigateToSearch(term)
               }}
               className={cn(
                 "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
@@ -630,7 +666,7 @@ export function HeroSearch() {
               )}
             >
               {term}
-            </button>
+            </a>
           ))}
           <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0 whitespace-nowrap">
             <Command className="h-3 w-3" />
