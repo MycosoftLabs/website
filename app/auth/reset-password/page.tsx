@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -26,8 +26,7 @@ interface PasswordStrength {
 
 export default function ResetPasswordPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -60,7 +59,7 @@ export default function ResetPasswordPage() {
     }
 
     checkToken()
-  }, [supabase.auth])
+  }, [supabase])
 
   // Password strength calculation
   const passwordStrength = useMemo((): PasswordStrength => {
