@@ -387,48 +387,49 @@ export function HeroSearch({
 
           {/* Content */}
           <div className="relative z-10 px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16">
-            {/* Logo & Title */}
-            <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-              <motion.div
-                className="flex items-center gap-2 sm:gap-3"
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.5 }}
-              >
-                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 relative shrink-0">
-                  <Image
-                    src={logoSrc}
-                    alt="Mycosoft Logo"
-                    fill
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
-                  Mycosoft
-                </h1>
-              </motion.div>
+            {!embedded ? (
+              <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <motion.div
+                  className="flex items-center gap-2 sm:gap-3"
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.5 }}
+                >
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 relative shrink-0">
+                    <Image
+                      src={logoSrc}
+                      alt="Mycosoft Logo"
+                      fill
+                      className="object-contain"
+                      priority
+                    />
+                  </div>
+                  <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
+                    Mycosoft
+                  </h1>
+                </motion.div>
 
-              <motion.p
-                className="text-base sm:text-lg md:text-xl text-foreground/80 text-center flex items-center gap-2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-                <span>The AI That Sees the World — All of It</span>
-              </motion.p>
-              <motion.p
-                className="text-xs sm:text-sm italic text-foreground/60 text-center max-w-2xl"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.25, duration: 0.5 }}
-              >
-                All species, all signals, all machines, all environments
-                <br />
-                — indexed and searchable in real time
-              </motion.p>
-            </div>
+                <motion.p
+                  className="text-base sm:text-lg md:text-xl text-foreground/80 text-center flex items-center gap-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                  <span>The AI That Sees the World — All of It</span>
+                </motion.p>
+                <motion.p
+                  className="text-xs sm:text-sm italic text-foreground/60 text-center max-w-2xl"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.25, duration: 0.5 }}
+                >
+                  All species, all signals, all machines, all environments
+                  <br />
+                  — indexed and searchable in real time
+                </motion.p>
+              </div>
+            ) : null}
 
             {/* Search Bar */}
             <motion.form
