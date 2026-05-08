@@ -49,7 +49,7 @@ const AGARIC_ASSETS = {
   footerImage: "/assets/agaric/forest1.jpg",
   mainImage: "/assets/agaric/topboard.jpg",
   connectivityImage: "/assets/agaric/connectivity-forest.png",
-  sizesImage: "/assets/agaric/threesizes.jpg",
+  sizesImage: "/images/agaric/threesizes.jpg",
   videos: {
     hero: "/assets/agaric/agaric-hero2.mp4",
     heroFallback: "/assets/agaric/agaric-hero-web.mp4",
