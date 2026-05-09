@@ -271,8 +271,8 @@ export function PsathyrellaDetails() {
             youtubeId={PSATHYRELLA_HERO_YOUTUBE}
             poster={PSATHYRELLA_DEVICE.image}
             className="absolute inset-0"
-            videoClassName="!inset-[5%] !h-[90%] !w-[90%] !object-contain"
-            posterClassName="!inset-[5%] !h-[90%] !w-[90%] !object-contain"
+            videoClassName="!inset-0 !h-full !w-full !object-cover"
+            posterClassName="!inset-0 !h-full !w-full !object-cover"
             mp4StartTimeoutMs={8000}
             nasProbeTimeoutMs={700}
           />
