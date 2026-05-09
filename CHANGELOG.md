@@ -322,6 +322,11 @@ All notable changes to this project will be documented in this file.
 - *(search)* Client-only search entry and reduce hydration noise
 - Use optimized Agaric hero video [fast]
 - Wire NLM dashboard to live services [fast]
+- *(agaric)* Publish three sizes image [fast]
+- *(home)* Remove duplicate hero search title [fast]
+- *(media)* Make Agaric hero instant and remove device loading screen [fast]
+- *(home)* Restore search identity and unblock build [fast]
+- *(build)* Wrap search-param routes for production [fast]
 
 ### CREP
 
@@ -455,6 +460,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
