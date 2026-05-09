@@ -157,10 +157,10 @@ export default function FusariumPage() {
           sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
           preload="auto"
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ filter: "brightness(0.34)" }}
+          style={{ filter: "brightness(0.72) contrast(1.08) saturate(1.06)" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/45 to-background" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-black/20 to-background/82" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
