@@ -71,7 +71,9 @@ export function HeroSearch({
   const [isSearching, setIsSearching] = useState(false)
   const [suggestions, setSuggestions] = useState<HeroSuggestion[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [trySuggestions, setTrySuggestions] = useState<{ term: string; phoneVisible?: boolean }[]>(DEFAULT_TRY_SUGGESTIONS)
+  const [trySuggestions, setTrySuggestions] = useState<{ term: string; phoneVisible?: boolean }[]>(
+    DEFAULT_TRY_SUGGESTIONS.slice(0, 4)
+  )
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debouncedQuery = useDebounce(query, 250)
@@ -132,7 +134,7 @@ export function HeroSearch({
 
   // Rotate Try: suggestions on mount and every 30s for variety
   useEffect(() => {
-    const refresh = () => setTrySuggestions(getRotatedSuggestions(6, 3))
+    const refresh = () => setTrySuggestions(getRotatedSuggestions(4, 2))
     refresh()
     const id = setInterval(refresh, 30000)
     return () => clearInterval(id)
@@ -240,7 +242,7 @@ export function HeroSearch({
         return response.json()
       })
       .then((data) => {
-        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : [])
+        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions.slice(0, 5) : [])
       })
       .catch(() => {
         setSuggestions([])
@@ -612,8 +614,8 @@ export function HeroSearch({
                       Loading suggestions...
                     </div>
                   ) : (
-                    <ul className="max-h-80 overflow-auto py-2">
-                      {suggestions.map((suggestion) => (
+                    <ul className="max-h-72 overflow-auto py-2">
+                      {suggestions.slice(0, 5).map((suggestion) => (
                         <li key={suggestion.id}>
                           <a
                             href={searchHref(suggestionSearchText(suggestion))}
@@ -644,11 +646,10 @@ export function HeroSearch({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.5 }}
-          className="w-full flex flex-nowrap items-center gap-2 sm:gap-3 mt-3 sm:mt-4 min-h-[44px] overflow-x-auto overflow-y-visible scrollbar-hide py-1 px-1"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-3 sm:mt-4 min-h-[44px] overflow-hidden py-1 px-1"
         >
           <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">Try:</span>
-          {trySuggestions.map(({ term, phoneVisible }) => (
+          {trySuggestions.slice(0, 4).map(({ term, phoneVisible }) => (
             <a
               key={term}
               href={searchHref(term)}

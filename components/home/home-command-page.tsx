@@ -30,8 +30,8 @@ const TILES: HomeTile[] = [
     eyebrow: "Field Robotics",
     href: "/devices/mushroom-1",
     description: "Ground mobility for ecological sensing and autonomous patrol.",
-    video: "/assets/mushroom1/mushroom1-hero-2026.mp4",
-    sources: ["/assets/mushroom1/mushroom1-hero-2026.mp4"],
+    video: "/assets/homepage/tiles/mushroom1-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/mushroom1-tile-1080-2026.mp4"],
     poster: "/assets/mushroom1/Mushroom 1.jpg",
     icon: Layers3,
   },
@@ -40,7 +40,7 @@ const TILES: HomeTile[] = [
     eyebrow: "Bioaerosol Collection",
     href: "/devices/sporebase",
     description: "Time-indexed airborne biology collection for field networks.",
-    video: "/assets/sporebase/sporebase1publish.mp4",
+    video: "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
     poster: "/assets/sporebase/sporebase%20main.jpg",
     icon: Sparkles,
   },
@@ -49,7 +49,7 @@ const TILES: HomeTile[] = [
     eyebrow: "Living Network Node",
     href: "/devices/hyphae-1",
     description: "Mycelial sensing, environmental edge telemetry, and signal routing.",
-    video: "/assets/hyphae1/hero.mp4",
+    video: "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
     poster: "/assets/hyphae1/hyphae1-lab-prototype.png",
     icon: Layers3,
   },
@@ -58,8 +58,8 @@ const TILES: HomeTile[] = [
     eyebrow: "Waterline Acoustic Node",
     href: "/devices/psathyrella",
     description: "Surface, shoreline, and amphibious intelligence collection.",
-    video: "/assets/psathyrella/psathyrella-hero-2026.mp4",
-    sources: ["/assets/psathyrella/psathyrella-hero-2026.mp4"],
+    video: "/assets/homepage/tiles/psathyrella-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/psathyrella-tile-1080-2026.mp4"],
     poster: "/assets/psathyrella/hero.png",
     icon: Radar,
   },
@@ -68,8 +68,8 @@ const TILES: HomeTile[] = [
     eyebrow: "Flying Sensor Droid",
     href: "/devices/agaric",
     description: "Autonomous aerial sensing, deployment, retrieval, and relay.",
-    video: "/assets/agaric/agaric-hero2.mp4",
-    sources: ["/assets/agaric/agaric-hero2.mp4"],
+    video: "/assets/homepage/tiles/agaric-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/agaric-tile-1080-2026.mp4"],
     poster: "/assets/agaric/hero2.jpg",
     icon: Radar,
   },
@@ -78,7 +78,7 @@ const TILES: HomeTile[] = [
     eyebrow: "Sensor Mesh",
     href: "/devices/myconode",
     description: "Distributed node hardware for local sensing and resilient comms.",
-    video: "/assets/myconode/myconode hero1.mp4",
+    video: "/assets/homepage/tiles/myconode-tile-1080-2026.mp4",
     poster: "/assets/myconode/myconode-main.png",
     icon: Database,
   },
@@ -87,8 +87,8 @@ const TILES: HomeTile[] = [
     eyebrow: "Defense OS",
     href: "/defense/fusarium",
     description: "Manned, unmanned, and CREP mission intelligence around MYCA and MINDEX.",
-    video: "/assets/fusarium/fusarium-hero-web.mp4",
-    sources: ["/assets/fusarium/fusarium-hero-web.mp4"],
+    video: "/assets/homepage/tiles/fusarium-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/fusarium-tile-1080-2026.mp4"],
     icon: Shield,
     span: 2,
   },
@@ -97,7 +97,7 @@ const TILES: HomeTile[] = [
     eyebrow: "CREP Core",
     href: "/natureos/earth-simulator",
     description: "Worldview, species, sensors, missions, and live planetary context.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
+    video: "/assets/homepage/tiles/earth-simulator-tile-1080-2026.mp4",
     poster: HOME_HERO_POSTER,
     icon: Globe2,
   },
@@ -106,7 +106,7 @@ const TILES: HomeTile[] = [
     eyebrow: "Mission AI",
     href: "/myca",
     description: "The AI interface for planning, querying, and coordinating Mycosoft systems.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
+    video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
     poster: HOME_HERO_POSTER,
     icon: Sparkles,
   },
@@ -115,7 +115,7 @@ const TILES: HomeTile[] = [
     eyebrow: "Earth Intelligence",
     href: "/natureos",
     description: "Workflows, live environmental data, ecological operations, and Earth-scale intelligence.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
+    video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
     poster: HOME_HERO_POSTER,
     icon: Globe2,
     span: 2,
@@ -140,7 +140,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         setShouldLoadVideo(true)
         observer.disconnect()
       },
-      { rootMargin: "420px" }
+      { rootMargin: "900px" }
     )
 
     observer.observe(node)
@@ -153,7 +153,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         <AutoplayVideo
           src={tile.video}
           sources={tile.sources}
-          preload="metadata"
+          preload="auto"
           stallTimeoutMs={9000}
           className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
           encodeSrc

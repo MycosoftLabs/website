@@ -82,10 +82,10 @@ export const ALL_SUGGESTIONS: string[] = Object.values(WORLD_VIEW_SUGGESTIONS).f
 /**
  * Get a random subset of suggestions for Try: buttons.
  * Ensures diversity by picking from multiple categories when possible.
- * @param count Total number to return (e.g. 6 for desktop)
+ * @param count Total number to return
  * @param mobileCount Number visible on mobile (first N)
  */
-export function getRotatedSuggestions(count = 6, mobileCount = 3): SuggestionItem[] {
+export function getRotatedSuggestions(count = 4, mobileCount = 2): SuggestionItem[] {
   const categories = Object.keys(WORLD_VIEW_SUGGESTIONS)
   const result: SuggestionItem[] = []
   const used = new Set<string>()
@@ -125,10 +125,8 @@ export function getRotatedSuggestions(count = 6, mobileCount = 3): SuggestionIte
 export const DEFAULT_TRY_SUGGESTIONS: { term: string; phoneVisible?: boolean }[] = [
   { term: "Planes over LA", phoneVisible: true },
   { term: "Ships in port", phoneVisible: true },
-  { term: "Active earthquakes", phoneVisible: true },
+  { term: "Active earthquakes", phoneVisible: false },
   { term: "Bird migration 2026", phoneVisible: false },
-  { term: "Air quality index", phoneVisible: false },
-  { term: "Species near me", phoneVisible: false },
 ]
 
 /**

@@ -64,8 +64,8 @@ import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
 function DefenseHeroVideo() {
   return (
     <AutoplayVideo
-      src="/assets/fusarium/fusarium-hero-web.mp4"
-      sources={["/assets/fusarium/fusarium-hero-web.mp4"]}
+      src="/assets/fusarium/fusarium-hero-2026-web.mp4"
+      sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
       preload="auto"
       className="absolute inset-0 w-full h-full object-cover"
       style={{ filter: "brightness(0.3)" }}
