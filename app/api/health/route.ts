@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
@@ -73,7 +74,7 @@ export async function GET() {
   // Check MAS API connectivity
   try {
     const masStart = Date.now()
-    const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
+    const masUrl = resolveMasServerBaseUrl()
     const masResponse = await fetch(`${masUrl}/health`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)
@@ -104,7 +105,7 @@ export async function GET() {
   try {
     const mindexStart = Date.now()
     const mindexUrl = resolveMindexServerBaseUrl()
-    const mindexResponse = await fetch(`${mindexUrl}/api/v1/taxon/stats`, { 
+    const mindexResponse = await fetch(`${mindexUrl}/api/mindex/health`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)
     
