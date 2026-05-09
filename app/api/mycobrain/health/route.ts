@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
+import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
 
 export const dynamic = "force-dynamic"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
-
 export async function GET() {
+  const MYCOBRAIN_SERVICE_URL = resolveMycoBrainServiceUrl()
   try {
     const res = await fetch(`${MYCOBRAIN_SERVICE_URL}/health`, {
       signal: AbortSignal.timeout(3000),
