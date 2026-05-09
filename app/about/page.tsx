@@ -42,7 +42,7 @@ import {
   Database,
 } from "lucide-react"
 
-const ABOUT_HERO_VIDEO_SRC = "/assets/about us/10343918-hd_1920_1080_24fps.mp4"
+const ABOUT_HERO_VIDEO_SRC = "/assets/about us/mycosoft-commercial-hero-2026.mp4"
 const ABOUT_HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(ABOUT_HERO_VIDEO_SRC))
 
 // NAS closing section video — mounted at /assets/ in the production Docker container
