@@ -5,7 +5,9 @@
 import { CrepResourceHints } from "@/components/crep/crep-resource-hints"
 import { LazyCREPDashboard } from "@/components/performance/lazy-registry"
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-static"
+export const revalidate = 3600
+export const fetchCache = "default-cache"
 
 export default function NatureOSEarthSimulatorPage() {
   return (

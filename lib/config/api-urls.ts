@@ -43,10 +43,10 @@ export function resolveEarth2ApiBaseUrl(): string {
  */
 export const API_URLS = {
   // MAS Orchestrator (VM 188, port 8001)
-  MAS: process.env.MAS_API_URL || `http://${MAS_VM_IP}:${MAS_PORT}`,
+  MAS: process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || `http://${MAS_VM_IP}:${MAS_PORT}`,
   
   // MINDEX Database API (VM 189, port 8000)
-  MINDEX: process.env.MINDEX_API_URL || `http://${MINDEX_VM_IP}:${MINDEX_PORT}`,
+  MINDEX: process.env.MINDEX_API_URL || process.env.NEXT_PUBLIC_MINDEX_URL || `http://${MINDEX_VM_IP}:${MINDEX_PORT}`,
   
   // Mycorrhizae Protocol API (VM 187, port 8002)
   MYCORRHIZAE: process.env.MYCORRHIZAE_API_URL || `http://${SANDBOX_VM_IP}:8002`,

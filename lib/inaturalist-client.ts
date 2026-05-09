@@ -70,7 +70,10 @@ export class iNaturalistClient {
     url.searchParams.set("order_by", "observed_on");
 
     try {
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        signal: AbortSignal.timeout(8_000),
+        next: { revalidate: 300 },
+      });
       if (!response.ok) {
         throw new Error(`iNaturalist API error: ${response.status} ${response.statusText}`);
       }
@@ -124,7 +127,10 @@ export class iNaturalistClient {
     url.searchParams.set("order_by", "observed_on");
 
     try {
-      const response = await fetch(url.toString());
+      const response = await fetch(url.toString(), {
+        signal: AbortSignal.timeout(8_000),
+        next: { revalidate: 300 },
+      });
       if (!response.ok) {
         throw new Error(`iNaturalist API error: ${response.status}`);
       }
@@ -141,7 +147,10 @@ export class iNaturalistClient {
    */
   async getObservation(id: number): Promise<iNaturalistObservation | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/observations/${id}`);
+      const response = await fetch(`${this.baseUrl}/observations/${id}`, {
+        signal: AbortSignal.timeout(8_000),
+        next: { revalidate: 600 },
+      });
       if (!response.ok) {
         return null;
       }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { inaturalistClient } from "@/lib/inaturalist-client";
+import { TtlCache, roundedNumber } from "@/lib/server/ttl-cache";
 
 /**
  * iNaturalist API Proxy
@@ -7,6 +8,22 @@ import { inaturalistClient } from "@/lib/inaturalist-client";
  * Fetches organism observations from iNaturalist API.
  * Focuses on fungal/mushroom observations for mycelium mapping.
  */
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const CACHE_TTL_MS = 5 * 60_000;
+const RESPONSE_HEADERS = {
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+};
+const cache = new TtlCache<unknown>(512, CACHE_TTL_MS);
+
+function cacheKey(parts: Record<string, unknown>) {
+  return Object.entries(parts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}:${typeof value === "number" ? roundedNumber(value, 3) : String(value ?? "")}`)
+    .join("|");
+}
 
 function observationCoordinates(obs: any): { latitude: number | null; longitude: number | null } {
   const geo = obs.geojson?.coordinates;
@@ -75,6 +92,13 @@ export async function GET(request: NextRequest) {
   const taxonId = searchParams.get("taxon_id") ? parseInt(searchParams.get("taxon_id")!) : undefined;
   const observedOn = searchParams.get("observed_on") || undefined;
   const perPage = parseInt(searchParams.get("per_page") || "200");
+  const key = cacheKey({ action, lat, lng, radius, nelat, nelng, swlat, swlng, taxonId, observedOn, perPage });
+  const cached = cache.get(key);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "hit" },
+    });
+  }
 
   try {
     let observations;
@@ -120,11 +144,15 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       action,
       observations: observations.map(serializeObservation),
       count: observations.length,
+    };
+    cache.set(key, payload);
+    return NextResponse.json(payload, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "miss" },
     });
   } catch (error) {
     console.error("iNaturalist API error:", error);
@@ -144,6 +172,13 @@ export async function POST(request: NextRequest) {
     const { action, params } = body;
 
     let observations;
+    const key = cacheKey({ method: "POST", action, params: JSON.stringify(params ?? {}) });
+    const cached = cache.get(key);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "hit" },
+      });
+    }
 
     switch (action) {
       case "fungi":
@@ -175,11 +210,15 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       action,
       observations: observations.map(serializeObservation),
       count: observations.length,
+    };
+    cache.set(key, payload);
+    return NextResponse.json(payload, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "miss" },
     });
   } catch (error) {
     console.error("iNaturalist API error:", error);

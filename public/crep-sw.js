@@ -42,8 +42,9 @@
 // big geojson / icon / asset payloads.
 // Bumping to v3 also forces the activate event to purge v2 on next
 // load, so everyone gets fresh `_next/static/` fetches.
-const CACHE_VERSION = "crep-v3"
+const CACHE_VERSION = "crep-v4"
 const CACHE_NAME = `mycosoft-${CACHE_VERSION}`
+const API_CACHE_NAME = `${CACHE_NAME}-api`
 
 // URL patterns eligible for cache-first strategy. Next.js bundles
 // intentionally NOT in this list — they're hash-versioned and the SW
@@ -54,6 +55,19 @@ const STATIC_PREFIXES = [
   "/assets/",
 ]
 
+// Map API GETs are network-first with stale fallback. This keeps live data
+// fresh when MINDEX/MYCA/website routes are healthy, while avoiding blank
+// panels or long stalls during transient network/VM latency.
+const API_PREFIXES = [
+  "/api/earth-simulator/",
+  "/api/earth2",
+  "/api/crep/unified",
+  "/api/crep/fungal",
+  "/api/crep/nature/preloaded",
+  "/api/crep/mycosoft-devices",
+  "/api/natureos/global-events",
+]
+
 function isCacheable(url) {
   try {
     const u = new URL(url)
@@ -61,6 +75,37 @@ function isCacheable(url) {
     return STATIC_PREFIXES.some((p) => u.pathname.startsWith(p))
   } catch {
     return false
+  }
+}
+
+function isMapApiCacheable(req) {
+  try {
+    const u = new URL(req.url)
+    if (u.origin !== self.location.origin) return false
+    if (req.headers.has("authorization")) return false
+    if (u.pathname.includes("stream")) return false
+    return API_PREFIXES.some((p) => u.pathname === p || u.pathname.startsWith(p))
+  } catch {
+    return false
+  }
+}
+
+async function networkFirstWithStaleFallback(req) {
+  const cache = await caches.open(API_CACHE_NAME)
+  const controller = new AbortController()
+  const path = new URL(req.url).pathname
+  const timeoutMs = path === "/api/natureos/global-events" ? 15000 : 3500
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(req, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (res && res.ok) cache.put(req, res.clone()).catch(() => {})
+    return res
+  } catch (err) {
+    clearTimeout(timeout)
+    const cached = await cache.match(req)
+    if (cached) return cached
+    throw err
   }
 }
 
@@ -114,6 +159,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request
   if (req.method !== "GET") return
+  if (isMapApiCacheable(req)) {
+    event.respondWith(networkFirstWithStaleFallback(req))
+    return
+  }
   if (!isCacheable(req.url)) return
 
   event.respondWith(

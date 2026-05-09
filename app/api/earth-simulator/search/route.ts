@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TtlCache } from "@/lib/server/ttl-cache";
 
 /**
  * Search API
@@ -6,11 +7,20 @@ import { NextRequest, NextResponse } from "next/server";
  * Search for locations, species, or observations.
  */
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const searchCache = new TtlCache<unknown>(256, 5 * 60_000);
+const RESPONSE_HEADERS = {
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+};
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
   const query = searchParams.get("q") || "";
   const type = searchParams.get("type") || "all"; // all, location, species, observation
+  const key = `${type}:${query.trim().toLowerCase()}`;
 
   try {
     if (!query) {
@@ -18,6 +28,13 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Query parameter 'q' is required" },
         { status: 400 }
       );
+    }
+
+    const cached = searchCache.get(key);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "hit" },
+      });
     }
 
     const results: any = {
@@ -30,7 +47,11 @@ export async function GET(request: NextRequest) {
     if (type === "all" || type === "species" || type === "observation") {
       try {
         const response = await fetch(
-          `https://api.inaturalist.org/v1/observations?q=${encodeURIComponent(query)}&per_page=50`
+          `https://api.inaturalist.org/v1/observations?q=${encodeURIComponent(query)}&per_page=50`,
+          {
+            signal: AbortSignal.timeout(8_000),
+            next: { revalidate: 300 },
+          }
         );
         const data = await response.json();
         
@@ -61,7 +82,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       query,
       type,
@@ -71,6 +92,10 @@ export async function GET(request: NextRequest) {
         species: results.species.length,
         observations: results.observations.length,
       },
+    };
+    searchCache.set(key, payload);
+    return NextResponse.json(payload, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "miss" },
     });
   } catch (error) {
     console.error("Search error:", error);

@@ -11,7 +11,7 @@
  * This powers the Situational Awareness widget for "watching the world"
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ingestEvents } from "@/lib/oei/mindex-ingest";
 
 export interface GlobalEvent {
@@ -78,6 +78,9 @@ export interface GlobalEvent {
 let cachedEvents: GlobalEvent[] = [];
 let lastFetchTime = 0;
 const CACHE_TTL = 60000; // 1 minute cache
+const RESPONSE_HEADERS = {
+  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+};
 
 async function fetchUSGSEarthquakes(): Promise<GlobalEvent[]> {
   try {
@@ -264,20 +267,25 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const now = Date.now();
+  const limit = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("limit") || 10000), 10000));
   
   // Return cached data if still valid
   if (cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
-    return NextResponse.json({
-      events: cachedEvents.slice(0, 10000), // Full global coverage — no artificial cap
-      lastUpdated: new Date().toISOString(),
-      sources: {
-        usgs: "online",
-        noaa: "online",
-        nasa_eonet: "online",
+    return NextResponse.json(
+      {
+        events: cachedEvents.slice(0, limit),
+        lastUpdated: new Date(lastFetchTime).toISOString(),
+        cached: true,
+        sources: {
+          usgs: "online",
+          noaa: "online",
+          nasa_eonet: "online",
+        },
       },
-    });
+      { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "hit" } }
+    );
   }
   
   // Fetch from all sources in parallel
@@ -312,13 +320,17 @@ export async function GET() {
     ingestEvents("global-events", realEvents);
   }
   
-  return NextResponse.json({
-    events: allEvents.slice(0, 10000), // Full active global set
-    lastUpdated: new Date().toISOString(),
-    sources: {
-      usgs: earthquakes.length > 0 ? "online" : "offline",
-      noaa: spaceWeather.length > 0 ? "online" : "degraded",
-      nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
+  return NextResponse.json(
+    {
+      events: allEvents.slice(0, limit),
+      lastUpdated: new Date().toISOString(),
+      cached: false,
+      sources: {
+        usgs: earthquakes.length > 0 ? "online" : "offline",
+        noaa: spaceWeather.length > 0 ? "online" : "degraded",
+        nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
+      },
     },
-  });
+    { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "miss" } }
+  );
 }

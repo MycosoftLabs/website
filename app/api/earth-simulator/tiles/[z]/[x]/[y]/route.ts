@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
  * Used for efficient tile-based loading.
  */
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { z: string; x: string; y: string } }
@@ -31,15 +34,22 @@ export async function GET(
     // 3. Aggregate probability data
     // 4. Return tile data
 
-    return NextResponse.json({
-      success: true,
-      tile: { z: zoom, x: tileX, y: tileY },
-      bounds: { north, south, east, west },
-      gridCells: [], // Would contain grid cell data
-      probabilities: [], // Would contain mycelium probabilities
-      observations: [], // Would contain iNaturalist observations
-      timestamp: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        tile: { z: zoom, x: tileX, y: tileY },
+        bounds: { north, south, east, west },
+        gridCells: [], // Would contain grid cell data
+        probabilities: [], // Would contain mycelium probabilities
+        observations: [], // Would contain iNaturalist observations
+        timestamp: new Date().toISOString(),
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
+        },
+      }
+    );
   } catch (error) {
     console.error("Tile data error:", error);
     return NextResponse.json(

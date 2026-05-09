@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { inaturalistClient } from "@/lib/inaturalist-client";
 import { calculateMyceliumProbability } from "@/lib/earth-simulator/mycelium-model";
 import { calculateGridCells, getViewportFromCenter } from "@/lib/earth-simulator/grid-calculator";
+import { TtlCache, roundedNumber } from "@/lib/server/ttl-cache";
 
 /**
  * Data Aggregation API
@@ -9,10 +10,45 @@ import { calculateGridCells, getViewportFromCenter } from "@/lib/earth-simulator
  * Aggregates data from all sources for a viewport and calculates probabilities.
  */
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const aggregateCache = new TtlCache<unknown>(256, 2 * 60_000);
+const RESPONSE_HEADERS = {
+  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+};
+
+function aggregateCacheKey(input: {
+  viewport?: { north?: number; south?: number; east?: number; west?: number } | null;
+  zoomLevel?: number;
+  centerLat?: number;
+  centerLon?: number;
+  width?: number;
+  height?: number;
+}) {
+  const viewport = input.viewport;
+  return [
+    "aggregate",
+    `z:${Math.round(Number(input.zoomLevel || 15) * 10) / 10}`,
+    `n:${roundedNumber(viewport?.north ?? input.centerLat, 3)}`,
+    `s:${roundedNumber(viewport?.south ?? input.centerLat, 3)}`,
+    `e:${roundedNumber(viewport?.east ?? input.centerLon, 3)}`,
+    `w:${roundedNumber(viewport?.west ?? input.centerLon, 3)}`,
+    `size:${Math.round(Number(input.width || 1920) / 160)}x${Math.round(Number(input.height || 1080) / 160)}`,
+  ].join("|");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { viewport, zoomLevel, centerLat, centerLon, width, height } = body;
+    const key = aggregateCacheKey({ viewport, zoomLevel, centerLat, centerLon, width, height });
+    const cached = aggregateCache.get(key);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "hit" },
+      });
+    }
 
     let actualViewport = viewport;
     if (!actualViewport && centerLat && centerLon && zoomLevel) {
@@ -85,7 +121,7 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       viewport: actualViewport,
       zoomLevel: zoomLevel || 15,
@@ -93,6 +129,10 @@ export async function POST(request: NextRequest) {
       observations: observations.length,
       cellProbabilities,
       timestamp: new Date().toISOString(),
+    };
+    aggregateCache.set(key, payload);
+    return NextResponse.json(payload, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "miss" },
     });
   } catch (error) {
     console.error("Aggregation error:", error);

@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TtlCache, roundedNumber } from "@/lib/server/ttl-cache";
 
 /**
  * Layer Data Aggregation API
  * 
  * Aggregates data from all sources for layer visualization.
  */
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const layerCache = new TtlCache<unknown>(256, 2 * 60_000);
+const RESPONSE_HEADERS = {
+  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+};
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -16,6 +25,20 @@ export async function GET(request: NextRequest) {
     west: parseFloat(searchParams.get("west") || "0"),
   };
   const layers = searchParams.get("layers")?.split(",") || ["mycelium"];
+  const key = [
+    "layers",
+    layers.slice().sort().join(","),
+    roundedNumber(bounds.north, 3),
+    roundedNumber(bounds.south, 3),
+    roundedNumber(bounds.east, 3),
+    roundedNumber(bounds.west, 3),
+  ].join("|");
+  const cached = layerCache.get(key);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "hit" },
+    });
+  }
 
   try {
     const layerData: Record<string, any> = {};
@@ -44,7 +67,11 @@ export async function GET(request: NextRequest) {
           // Fetch organism observations from iNaturalist
           try {
             const obsResponse = await fetch(
-              `${request.nextUrl.origin}/api/earth-simulator/inaturalist?action=bounds&nelat=${bounds.north}&nelng=${bounds.east}&swlat=${bounds.south}&swlng=${bounds.west}&per_page=100`
+              `${request.nextUrl.origin}/api/earth-simulator/inaturalist?action=bounds&nelat=${bounds.north}&nelng=${bounds.east}&swlat=${bounds.south}&swlng=${bounds.west}&per_page=100`,
+              {
+                signal: AbortSignal.timeout(8_000),
+                next: { revalidate: 120 },
+              }
             );
             const obsData = await obsResponse.json();
             layerData.organisms = {
@@ -70,11 +97,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       bounds,
       layers: layerData,
       timestamp: new Date().toISOString(),
+    };
+    layerCache.set(key, payload);
+    return NextResponse.json(payload, {
+      headers: { ...RESPONSE_HEADERS, "X-Earth-Simulator-Cache": "miss" },
     });
   } catch (error) {
     console.error("Layer aggregation error:", error);
