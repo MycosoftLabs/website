@@ -153,8 +153,8 @@ export default function FusariumPage() {
       {/* Hero */}
       <section className="relative min-h-[82vh] overflow-hidden py-24 flex items-center" data-over-video>
         <AutoplayVideo
-          src="/assets/fusarium/fusarium-hero.mp4"
-          sources={["/assets/fusarium/fusarium-hero.mp4"]}
+          src="/assets/fusarium/fusarium-hero-web.mp4"
+          sources={["/assets/fusarium/fusarium-hero-web.mp4"]}
           preload="auto"
           className="absolute inset-0 h-full w-full object-cover"
           style={{ filter: "brightness(0.34)" }}
