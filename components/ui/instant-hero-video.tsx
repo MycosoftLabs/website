@@ -14,6 +14,8 @@ interface InstantHeroVideoProps {
   videoClassName?: string
   posterClassName?: string
   style?: CSSProperties
+  youtubeIframeStyle?: CSSProperties
+  showPoster?: boolean
   nasProbeTimeoutMs?: number
   mp4StartTimeoutMs?: number
 }
@@ -43,6 +45,8 @@ export function InstantHeroVideo({
   videoClassName,
   posterClassName,
   style,
+  youtubeIframeStyle,
+  showPoster: shouldShowPoster = true,
   nasProbeTimeoutMs = 850,
   mp4StartTimeoutMs = 1400,
 }: InstantHeroVideoProps) {
@@ -105,7 +109,9 @@ export function InstantHeroVideo({
     return () => document.removeEventListener("touchstart", onTouch)
   }, [renderer, encodedMp4])
 
-  const showPoster = renderer === "mp4" ? !mp4Ready : !youtubeReady
+  const showPoster = shouldShowPoster && (renderer === "mp4" ? !mp4Ready : !youtubeReady)
+  const mp4Visible = !shouldShowPoster || mp4Ready
+  const youtubeVisible = !shouldShowPoster || youtubeReady
 
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-black", className)} style={style}>
@@ -143,7 +149,7 @@ export function InstantHeroVideo({
           }}
           className={cn(
             "absolute inset-0 z-10 h-full w-full object-cover pointer-events-none transition-opacity duration-500",
-            mp4Ready ? "opacity-100" : "opacity-0",
+            mp4Visible ? "opacity-100" : "opacity-0",
             videoClassName
           )}
         >
@@ -153,9 +159,10 @@ export function InstantHeroVideo({
         <YoutubeHeroBackground
           videoId={youtubeId}
           onLoad={() => setYoutubeReady(true)}
+          iframeStyle={youtubeIframeStyle}
           className={cn(
             "z-10 transition-opacity duration-500",
-            youtubeReady ? "opacity-100" : "opacity-0",
+            youtubeVisible ? "opacity-100" : "opacity-0",
             videoClassName
           )}
         />

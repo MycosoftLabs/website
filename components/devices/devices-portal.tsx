@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import {
   Microscope,
@@ -12,13 +13,11 @@ import {
   Radar,
   Cpu,
   Radio,
-  Wifi,
   Shield,
   Zap,
   ArrowRight,
   ChevronRight,
   CheckCircle2,
-  Package,
   Truck,
   Settings,
   Play,
@@ -275,50 +274,36 @@ const devices = [
   }
 ]
 
-const accessories = [
-  {
-    name: "Deployment Kit",
-    description: "Complete tools and supplies for professional field installation. Includes mounting hardware, calibration tools, and quick-start guide.",
-    icon: Package,
-    image: "/assets/devices/deployment-kit.jpg"
-  },
-  {
-    name: "LoRa Gateway",
-    description: "Long-range mesh network gateway supporting up to 50 connected nodes. Weather-resistant with solar power option.",
-    icon: Radio,
-    image: "/assets/devices/lora-gateway.jpg"
-  },
-  {
-    name: "Solar Power Unit",
-    description: "Off-grid power solution for remote deployments. 20W panel with 72-hour battery backup for continuous operation.",
-    icon: Zap,
-    image: "/assets/devices/solar-unit.jpg"
-  },
-  {
-    name: "Ruggedized Case",
-    description: "MIL-STD-810G certified transport and storage case. Foam-lined interior protects devices during deployment.",
-    icon: Shield,
-    image: "/assets/devices/ruggedized-case.jpg"
-  }
-]
-
 /** Full-bleed /devices hero — NAS: `/assets/devices/droids-hero.mp4` (optional `-web`). Override: `NEXT_PUBLIC_DEVICES_HERO_MP4`. */
 const DEVICES_PORTAL_HERO_SOURCES = deviceHeroVideoSources("/assets/devices/droids-hero.mp4", {
   envUrl: process.env.NEXT_PUBLIC_DEVICES_HERO_MP4,
   aliases: ["/assets/devices/droids-hero-collage.mp4"],
 })
 
-/** MycoBrain section spotlight — NAS: `/assets/devices/mycobrain-showcase.mp4`. Override: `NEXT_PUBLIC_MYCOBRAIN_SHOWCASE_MP4`. */
-const MYCOBRAIN_SHOWCASE_SOURCES = deviceHeroVideoSources("/assets/devices/mycobrain-showcase.mp4", {
-  envUrl: process.env.NEXT_PUBLIC_MYCOBRAIN_SHOWCASE_MP4,
-  aliases: ["/assets/mycobrain/showcase.mp4"],
-})
+const MYCOBRAIN_SECTION_BACKGROUNDS = {
+  dark: "/assets/devices/mycobrainjetson-black.jpg",
+  light: "/assets/devices/mycobrainjetson-white.jpg",
+} as const
 
-/** Board photography served from NAS mount — upload to match these paths or swap filenames on NAS. */
-const MYCOBRAIN_BOARD_IMAGES = [
-  { src: "/assets/devices/mycobrain-board-top.jpg", alt: "MycoBrain motherboard — assembly view" },
-  { src: "/assets/devices/mycobrain-board-detail.jpg", alt: "MycoBrain motherboard — connector and sensor detail" },
-] as const
+const MYCOBRAIN_ACTION_VIDEO = {
+  mp4: "/assets/devices/mycobrain-hero.mp4",
+  poster: MYCOBRAIN_SECTION_BACKGROUNDS.dark,
+  youtube: "3WDneg9OHtU",
+} as const
+
+const MYCOSOFT_YOUTUBE_CHANNEL = "https://www.youtube.com/@mycosoft"
+const DEVICE_YOUTUBE_URLS: Record<string, string> = {
+  "mushroom-1": "https://www.youtube.com/watch?v=jpQrYCCACm4",
+  sporebase: "https://www.youtube.com/watch?v=Gc3FUxi6Q1k",
+  "hyphae-1": "https://www.youtube.com/watch?v=SUcga8cMXbw",
+  psathyrella: "https://www.youtube.com/watch?v=RYelhYjPNts",
+  agaric: "https://www.youtube.com/watch?v=fk2rCM9hnpQ",
+  mycobrain: `https://www.youtube.com/watch?v=${MYCOBRAIN_ACTION_VIDEO.youtube}`,
+}
+
+function deviceYoutubeUrl(deviceId: string) {
+  return DEVICE_YOUTUBE_URLS[deviceId] ?? MYCOSOFT_YOUTUBE_CHANNEL
+}
 
 const mycobrainPillars = [
   {
@@ -404,7 +389,7 @@ export function DevicesPortal() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+              <a href={DEVICE_YOUTUBE_URLS.mycobrain} target="_blank" rel="noopener noreferrer">
                 <NeuButton variant="primary" className="w-full sm:w-auto gap-2 min-h-[44px]">
                   <Play className="h-5 w-5" />
                   Watch videos
@@ -584,7 +569,7 @@ export function DevicesPortal() {
 
               {/* CTA */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                <a href={deviceYoutubeUrl(selectedDevice.id)} target="_blank" rel="noopener noreferrer">
                   <NeuButton variant="primary" className="w-full sm:w-auto gap-2">
                     <Play className="h-5 w-5" />
                     Learn More
@@ -678,7 +663,7 @@ export function DevicesPortal() {
                 <ChevronRight className="h-5 w-5" />
               </NeuButton>
             </Link>
-            <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+            <a href={deviceYoutubeUrl(selectedDevice.id)} target="_blank" rel="noopener noreferrer">
               <NeuButton variant="default" className="w-full gap-2">
                 <Play className="h-5 w-5" />
                 Watch Demo
@@ -740,8 +725,28 @@ export function DevicesPortal() {
       </section>
 
       {/* MycoBrain — shared motherboard across all droids */}
-      <section className="py-20 md:py-28 bg-background border-y border-border/60">
-        <div className="container max-w-7xl mx-auto px-4">
+      <section className="relative overflow-hidden py-20 md:py-28 bg-background border-y border-border/60">
+        <img
+          src={MYCOBRAIN_SECTION_BACKGROUNDS.light}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.42] dark:hidden"
+          loading="lazy"
+          decoding="async"
+        />
+        <img
+          src={MYCOBRAIN_SECTION_BACKGROUNDS.dark}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover opacity-[0.58] dark:block"
+          loading="lazy"
+          decoding="async"
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-background/42 dark:bg-background/36"
+          aria-hidden="true"
+        />
+        <div className="container relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-12 md:mb-16 max-w-3xl mx-auto">
             <NeuBadge variant="default" className="mb-4">
               MycoBrain
@@ -758,7 +763,7 @@ export function DevicesPortal() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 md:mb-14 max-w-6xl mx-auto">
             {mycobrainPillars.map((pillar) => (
-              <NeuCard key={pillar.title} className="h-full">
+              <NeuCard key={pillar.title} className="h-full bg-background/70 dark:bg-background/55 backdrop-blur-sm">
                 <NeuCardContent className="pt-6 pb-6">
                   <div className="inline-flex p-3 rounded-xl bg-primary/10 mb-3">
                     <pillar.icon className="h-6 w-6 text-primary" aria-hidden />
@@ -767,37 +772,6 @@ export function DevicesPortal() {
                   <p className="text-sm text-muted-foreground leading-relaxed">{pillar.description}</p>
                 </NeuCardContent>
               </NeuCard>
-            ))}
-          </div>
-
-          <div className="relative rounded-2xl overflow-hidden border border-border/80 bg-muted max-w-5xl mx-auto mb-10 md:mb-12 aspect-video shadow-lg">
-            {MYCOBRAIN_SHOWCASE_SOURCES[0] ? (
-              <AutoplayVideo
-                src={MYCOBRAIN_SHOWCASE_SOURCES[0]}
-                sources={MYCOBRAIN_SHOWCASE_SOURCES}
-                className="absolute inset-0 h-full w-full object-cover"
-                style={{ filter: "brightness(0.85)" }}
-                encodeSrc
-                preload="metadata"
-              />
-            ) : null}
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/30 to-transparent" />
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 md:gap-6 max-w-5xl mx-auto mb-10">
-            {MYCOBRAIN_BOARD_IMAGES.map((photo) => (
-              <div
-                key={photo.src}
-                className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-border/80 bg-muted"
-              >
-                <img
-                  src={photo.src}
-                  alt={photo.alt}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
             ))}
           </div>
 
@@ -818,26 +792,49 @@ export function DevicesPortal() {
         </div>
       </section>
 
-      {/* Accessories Section */}
-      <section className="py-24 bg-muted/30">
-        <div className="container max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Accessories</NeuBadge>
-            <h2 className="text-4xl font-bold mb-6">
-              Complete Your Deployment
+      <section className="relative min-h-[72vh] overflow-hidden border-b border-border/60 bg-black text-white">
+        <InstantHeroVideo
+          mp4Src={MYCOBRAIN_ACTION_VIDEO.mp4}
+          youtubeId={MYCOBRAIN_ACTION_VIDEO.youtube}
+          poster={MYCOBRAIN_ACTION_VIDEO.poster}
+          className="absolute inset-0"
+          videoClassName="object-contain"
+          posterClassName="object-cover"
+          youtubeIframeStyle={{
+            width: "calc(100% + 170px)",
+            height: "calc(100% + 96px)",
+          }}
+          showPoster={false}
+          nasProbeTimeoutMs={700}
+          mp4StartTimeoutMs={8000}
+        />
+        <div className="absolute inset-0 z-20 bg-gradient-to-r from-black/82 via-black/48 to-black/18" aria-hidden />
+        <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/80 via-transparent to-black/25" aria-hidden />
+        <div className="container relative z-30 max-w-7xl mx-auto px-4 py-20 md:py-28">
+          <div className="max-w-2xl">
+            <NeuBadge variant="default" className="mb-4 bg-white/10 text-white border-white/20">
+              MycoBrain In Action
+            </NeuBadge>
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight mb-5">
+              Edge control for every sensing droid
             </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {accessories.map((item) => (
-              <NeuCard key={item.name} className="transition-colors">
-                <NeuCardContent className="pt-6">
-                  <item.icon className="h-8 w-8 text-primary mb-4" />
-                  <h3 className="font-semibold mb-1">{item.name}</h3>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </NeuCardContent>
-              </NeuCard>
-            ))}
+            <p className="text-base sm:text-lg leading-relaxed text-white/82 mb-6">
+              MycoBrain coordinates sensor input, camera lanes, power, telemetry, and acquisition timing across the
+              device fleet. Paired with Jetson compute, it turns raw environmental signals into onboard intelligence
+              that can buffer, classify, relay, and synchronize data before it reaches NatureOS.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3 max-w-xl">
+              {[
+                "Sensor and camera acquisition",
+                "Edge AI and Jetson coordination",
+                "Mesh telemetry and field sync",
+                "Shared board architecture across devices",
+              ].map((item) => (
+                <div key={item} className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-medium backdrop-blur-md">
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -926,18 +923,6 @@ export function DevicesPortal() {
     </NeuromorphicProvider>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

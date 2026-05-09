@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
-  Antenna, Radio, Wifi, Network, Shield, Zap, Sun, Eye, Thermometer,
+  Antenna, Radio, Wifi, Network, Shield, Zap, Sun, Eye, Radar, Thermometer,
   Droplets, Wind, Activity, MapPin, Globe, Trees, Microscope, Database,
   Cpu, Battery, Signal, Lock, Cloud, Leaf, AlertTriangle, Check,
   ExternalLink, Youtube, Home, Flashlight, CircuitBoard, Cable, FileText
@@ -31,34 +31,6 @@ interface SelectedVideo {
   kind: "youtube" | "mp4"
   src: string
   title: string
-}
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === "undefined") return false
-    return window.matchMedia("(max-width: 768px)").matches
-  })
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 768px)")
-
-    function handleChange() {
-      setIsMobile(mediaQuery.matches)
-    }
-
-    handleChange()
-
-    if ("addEventListener" in mediaQuery) {
-      mediaQuery.addEventListener("change", handleChange)
-      return () => mediaQuery.removeEventListener("change", handleChange)
-    }
-
-    // Safari < 14 fallback
-    mediaQuery.addListener(handleChange)
-    return () => mediaQuery.removeListener(handleChange)
-  }, [])
-
-  return isMobile
 }
 
 // ============================================================================
@@ -77,7 +49,10 @@ const MUSHROOM1_ASSETS = {
     { src: "/assets/mushroom1/6.jpg", alt: "Mushroom 1 Field Deployment 5", location: "Ecosystem Study" },
   ],
   mainImage: "/assets/mushroom1/Main A.jpg",
+  blueprintImage: "/assets/mushroom1/mushroom1-blueprint-large.png",
+  systemsBackground: "/assets/mushroom1/systems-background.jpg",
   videos: {
+    hero: "/assets/mushroom1/mushroom1-hero-2026.mp4",
     background: "/assets/mushroom1/PXL_20250404_210633484.VB-02.MAIN.mp4",
     walking: "/assets/mushroom1/mushroom 1 walking.mp4",
     waterfall: "/assets/mushroom1/waterfall 1.mp4",
@@ -91,11 +66,25 @@ const MUSHROOM1_ASSETS = {
     "/assets/mushroom1/d.mp4",
   ],
   youtubeVideos: [
-    { id: "jpQrYCCACm4", title: "Mushroom 1 - Commercial Teaser" },
-    { id: "F7txuDmpSa4", title: "Mushroom 1 - Product Overview" },
-    { id: "Z5pC9lEceKM", title: "Mushroom 1 - Technology Deep Dive" },
+    {
+      id: "SgihKV7EaMI",
+      title: "Mushroom 1 - Hero Film",
+      thumbnail: "/assets/mushroom1/watch-hero-film.jpg",
+    },
+    {
+      id: "F7txuDmpSa4",
+      title: "Mushroom 1 - Product Overview",
+      thumbnail: "/assets/mushroom1/watch-product-overview.jpg",
+    },
+    {
+      id: "Z5pC9lEceKM",
+      title: "Mushroom 1 - Technology Deep Dive",
+      thumbnail: "/assets/mushroom1/watch-technology-deep-dive.jpg",
+    },
   ]
 }
+
+const MUSHROOM1_HERO_YOUTUBE_URL = `https://www.youtube.com/watch?v=${MUSHROOM1_ASSETS.youtubeVideos[0].id}`
 
 // Component architecture data for blueprint
 interface DeviceComponent {
@@ -199,7 +188,7 @@ const USE_CASES = [
     colorDark: "dark:from-blue-800 dark:to-cyan-800",
     description: "Universities and research institutions use Mushroom 1 to study mycelial network communication, forest health, and ecosystem dynamics.",
     applications: ["Mycology research", "Forest ecology studies", "Climate change monitoring", "Biodiversity assessment"],
-    video: "/assets/mushroom1/a.mp4"
+    video: "/assets/mushroom1/scientific-research.mp4"
   },
   {
     title: "Conservation & Wildlife",
@@ -208,7 +197,7 @@ const USE_CASES = [
     colorDark: "dark:from-green-800 dark:to-emerald-800",
     description: "National parks and conservation areas deploy Mushroom 1 networks to monitor ecosystem health and detect environmental threats early.",
     applications: ["Park ecosystem monitoring", "Wildlife habitat tracking", "Fire risk assessment", "Pollution detection"],
-    video: "/assets/mushroom1/b.mp4"
+    video: "/assets/mushroom1/conservation-wildlife.mp4"
   },
   {
     title: "Agriculture & Farming",
@@ -226,16 +215,20 @@ const USE_CASES = [
     colorDark: "dark:from-slate-700 dark:to-slate-900",
     description: "Military and security operations leverage Mushroom 1 for persistent environmental awareness and operational intelligence.",
     applications: ["Base perimeter monitoring", "Contamination detection", "Early warning systems", "Threat assessment"],
-    video: "/assets/mushroom1/d.mp4"
+    video: "/assets/mushroom1/defense-security.mp4"
   },
 ]
 
 // Sensor specifications
 const SENSORS = [
-  { name: "BME688 (Ambient)", icon: Thermometer, specs: ["Temperature: -40°C to 85°C", "Humidity: 0-100% RH", "Pressure: 300-1100 hPa", "Gas: VOCs, CO2 equivalent"] },
-  { name: "BME688 (Environmental)", icon: Wind, specs: ["Air quality index", "Spore density estimation", "Pollution detection", "Pathogen indicators"] },
-  { name: "Soil Probe Array", icon: Droplets, specs: ["Moisture: 0-100%", "Temperature: 2m depth", "pH estimation", "Mycelial activity detection"] },
-  { name: "Light Sensor", icon: Sun, specs: ["Ambient light level", "UV index", "Day/night cycle", "Canopy coverage"] },
+  { name: "4K Vision + Mapping", icon: Eye, specs: ["4K vision systems", "Radar and LiDAR mapping", "Infrared scene sensing", "Terrain and obstacle awareness"] },
+  { name: "Autonomous Navigation", icon: Radar, specs: ["Walking gait control", "Pressure and tactile sensing", "Material contact detection", "Terrain adaptation"] },
+  { name: "Acoustic Intelligence", icon: Activity, specs: ["Bird, drone, and human sound detection", "Biological activity classification", "Multi-channel microphones", "Acoustic communication and signaling"] },
+  { name: "Chemical + Climate", icon: Wind, specs: ["BME690 VOC and VSC gas sensing", "Humidity and temperature", "Pressure and air quality", "Environmental telemetry arrays"] },
+  { name: "FCI Bioelectric Probe", icon: Cable, specs: ["Ground-actuated Fungal Computer Interface", "Soil and mycelium network contact", "Bioelectric signal capture", "Subsurface interaction layer"] },
+  { name: "Signal Intelligence", icon: Radio, specs: ["Software-defined radio", "Mesh spectrum awareness", "Field telemetry relay", "Remote environmental signals"] },
+  { name: "Edge AI + Onsite Inference", icon: Cpu, specs: ["MycoBrain controller platform", "NVIDIA Blackwell edge compute", "M5Stack LLM8850 accelerator", "Future PCIe TPU/GPU/SSD expansion", "Nature Learning Model host"] },
+  { name: "Indefinite Field Power", icon: Battery, specs: ["Solar charging skin", "Battery-backed operation", "Low-power duty cycling", "Designed for indefinite outdoor use"] },
 ]
 
 // Network capabilities
@@ -255,11 +248,9 @@ export function Mushroom1Details() {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
-  const isMobile = useIsMobile()
   const router = useRouter()
 
-  // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
-  const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
+  const heroVideoSrc = MUSHROOM1_ASSETS.videos.hero
   const heroSources = mergeWithNasFallbacks(assetMp4Sources(heroVideoSrc))
 
   const { scrollYProgress } = useScroll({
@@ -298,7 +289,7 @@ export function Mushroom1Details() {
       {/* Hero Section - Fullscreen Video — data-over-video for neuromorphic theme consistency */}
       <motion.section 
         ref={heroRef}
-        className="relative h-screen w-full overflow-hidden"
+        className="mushroom1-hero relative h-screen w-full overflow-hidden"
         style={{ opacity: heroOpacity }}
         data-over-video
       >
@@ -329,7 +320,7 @@ export function Mushroom1Details() {
           </motion.div>
           
           <motion.h1 
-            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="device-hero-title mushroom1-hero-title-clean text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -356,13 +347,19 @@ export function Mushroom1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
+            <a
+              href={MUSHROOM1_HERO_YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch the Mushroom 1 hero video on YouTube"
+            >
             <NeuButton 
               className="device-cta-over-video min-h-[44px] px-8 bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
-              onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}
             >
-              <Play className="mr-2 h-5 w-5" />
+              <Youtube className="mr-2 h-5 w-5" />
               Watch Film
             </NeuButton>
+            </a>
             <NeuButton
               variant="default"
               className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
@@ -415,20 +412,26 @@ export function Mushroom1Details() {
               className="space-y-6"
             >
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                For billions of years, fungi have been the Earth&apos;s oldest and most sophisticated communication network. 
-                Beneath every forest floor, meadow, and ecosystem, mycelial networks exchange information, nutrients, 
+                For billions of years, fungi have been the Earth&apos;s oldest and most sophisticated communication network.
+                Beneath every forest floor, meadow, and ecosystem, mycelial networks exchange information, nutrients,
                 and warnings at scales we&apos;re only beginning to understand.
               </p>
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Mushroom 1</span> is humanity&apos;s first attempt to listen. 
-                By deploying persistent, solar-powered sensor stations that tap into environmental signals—from soil bioelectrics 
-                to atmospheric conditions—we can finally give nature a voice.
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Mushroom 1</span> is humanity&apos;s first attempt to listen.
+                By deploying persistent, solar-powered sensor stations that tap into environmental signals from soil bioelectrics
+                to atmospheric conditions, we can finally give nature a voice.
               </p>
               <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
-                This isn&apos;t just monitoring. It&apos;s <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Environmental Intelligence</span>—a 
-                new paradigm where the natural world becomes an active participant in our decision-making, 
-                warning us of fires before they ignite, detecting contamination before it spreads, and 
-                revealing the hidden health of ecosystems in real-time.
+                This isn&apos;t just monitoring. It&apos;s <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Environmental Intelligence</span>.
+                It is Mycosoft&apos;s first non-human computer made to interact with nature directly, including the mycelium networks
+                of Earth through its ground-actuated Fungal Computer Interface probe. Mushroom 1 brings live biospheric,
+                acoustic, thermal, chemical, mechanical, and bioelectric signals into the Mycosoft stack from the place where
+                any signal is created in Nature.
+              </p>
+              <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Environmental Intelligence</span> is a new paradigm where the natural world
+                becomes an active participant in our decision-making, warning us of fires before they ignite, detecting
+                contamination before it spreads, and revealing the hidden health of ecosystems in real-time.
               </p>
               
               <div className="flex gap-4 pt-4">
@@ -456,7 +459,7 @@ export function Mushroom1Details() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="relative"
+              className="relative lg:scale-110 lg:origin-center"
             >
               <div className="relative aspect-square rounded-2xl overflow-hidden border border-emerald-500/20">
                 <AutoplayVideo
@@ -566,6 +569,95 @@ export function Mushroom1Details() {
                 <p className="text-slate-600 dark:text-white/60 mt-2">{feature.description}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Mycosoft Systems Layer */}
+      <section className="mushroom1-systems relative min-h-screen overflow-hidden py-24 md:py-32">
+        <Image
+          src={encodeAssetUrl(MUSHROOM1_ASSETS.systemsBackground)}
+          alt=""
+          aria-hidden="true"
+          fill
+          className="object-cover object-center"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-white/44 dark:bg-black/62" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/72 via-white/28 to-white/78 dark:from-black/80 dark:via-black/36 dark:to-black/88" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.14),transparent_34%),radial-gradient(circle_at_78%_70%,rgba(6,182,212,0.10),transparent_34%)]" />
+
+        <div className="relative z-10 mx-auto max-w-7xl px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mx-auto mb-12 max-w-3xl text-center"
+          >
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+              Mycosoft Systems
+            </NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-950 dark:text-white">
+              Mushroom 1 is a walking host for environmental intelligence.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-slate-700 dark:text-white/70">
+              It integrates with FCI, MYCA, NatureOS, MINDEX, and the Mycorrhizae Protocol so field hardware,
+              biological interfaces, and autonomous AI operations work as one connected system.
+            </p>
+          </motion.div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.05 }}
+              className="rounded-2xl border border-slate-900/10 bg-white/58 p-6 shadow-2xl shadow-emerald-950/10 backdrop-blur-xl dark:border-white/15 dark:bg-white/10"
+            >
+              <div className="mb-5 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                FCI first
+              </div>
+              <h3 className="text-2xl font-bold text-slate-950 dark:text-white">
+                The Fungal Computer Interface connects Mushroom 1 to living substrate.
+              </h3>
+              <p className="mt-4 text-base leading-7 text-slate-700 dark:text-white/72">
+                FCI is the deployable ground-actuated probe that gives Mushroom 1 a direct interface into soil,
+                roots, fungal networks, moisture gradients, gas exchange, and bioelectric activity. It turns the
+                droid from a camera robot into a physical bridge between Mycosoft systems and the mycelium networks
+                of Earth.
+              </p>
+              <p className="mt-4 text-base leading-7 text-slate-700 dark:text-white/72">
+                Data from FCI is structured through the Mycorrhizae Protocol, indexed by MINDEX, and surfaced inside
+                NatureOS so each field interaction becomes governed environmental intelligence instead of isolated
+                sensor output.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.15 }}
+              className="rounded-2xl border border-slate-900/10 bg-white/58 p-6 shadow-2xl shadow-cyan-950/10 backdrop-blur-xl dark:border-white/15 dark:bg-white/10"
+            >
+              <div className="mb-5 inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
+                MYCA + NLM
+              </div>
+              <h3 className="text-2xl font-bold text-slate-950 dark:text-white">
+                MYCA operates Mushroom 1 autonomously with a Nature Learning Model.
+              </h3>
+              <p className="mt-4 text-base leading-7 text-slate-700 dark:text-white/72">
+                MYCA monitors Mushroom 1, controls missions, deploys it into field tasks, maintains network links,
+                and coordinates fleets through Mycosoft&apos;s mesh. The operator is no longer a joystick driver; MYCA
+                is the system layer that plans, supervises, and adapts the droid&apos;s work.
+              </p>
+              <p className="mt-4 text-base leading-7 text-slate-700 dark:text-white/72">
+                Mushroom 1 is the first Mycosoft device designed to host a Nature Learning Model, or NLM. Unlike an
+                LLM trained primarily on human text, an NLM learns from environmental signals: bioelectric patterns,
+                acoustic activity, thermal states, gases, movement, climate, soil, and FCI interactions with living
+                systems.
+              </p>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -782,12 +874,13 @@ export function Mushroom1Details() {
                 onClick={() => openVideoModal(video.id)}
               >
                 <Image
-                  src={`https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`}
+                  src={video.thumbnail}
                   alt={video.title}
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, 33vw"
                 />
-                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
+                <div className="absolute inset-0 bg-black/15 group-hover:bg-black/5 transition-colors" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-gray-700/90 dark:bg-gray-700 rounded-full p-4 group-hover:scale-110 transition-transform border border-emerald-500/30">
                     <Play className="h-8 w-8 fill-white text-emerald-400" />
@@ -940,10 +1033,10 @@ export function Mushroom1Details() {
                   <div className="absolute inset-0 flex items-center justify-center pt-10">
                     <div className="relative h-[90%] aspect-[3/5] max-w-full">
                     <Image
-                      src={encodeAssetUrl(MUSHROOM1_ASSETS.mainImage)}
+                      src={encodeAssetUrl(MUSHROOM1_ASSETS.blueprintImage)}
                       alt="Mushroom 1 Blueprint"
                         fill
-                        className="opacity-40 filter grayscale object-contain"
+                        className="opacity-75 object-contain"
                     />
                     
                     {/* Interactive component markers */}
@@ -1264,4 +1357,3 @@ export function Mushroom1Details() {
     </NeuromorphicProvider>
   )
 }
-

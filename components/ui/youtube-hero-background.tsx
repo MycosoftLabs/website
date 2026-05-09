@@ -1,11 +1,13 @@
 "use client"
 
+import type { CSSProperties } from "react"
 import { youtubeHeroEmbedSrc } from "@/lib/hero-youtube"
 import { cn } from "@/lib/utils"
 
 interface YoutubeHeroBackgroundProps {
   videoId: string
   className?: string
+  iframeStyle?: CSSProperties
   onLoad?: () => void
 }
 
@@ -17,6 +19,7 @@ interface YoutubeHeroBackgroundProps {
 export function YoutubeHeroBackground({
   videoId,
   className,
+  iframeStyle,
   onLoad,
 }: YoutubeHeroBackgroundProps) {
   if (!videoId) return null
@@ -37,6 +40,7 @@ export function YoutubeHeroBackground({
           width: "max(142vw, 252vh)",
           height: "max(80vw, 142vh)",
           transform: "translate3d(-50%, -50%, 0)",
+          ...iframeStyle,
         }}
       />
     </div>

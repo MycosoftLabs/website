@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowUpRight, Database, Globe2, Layers3, Radar, Search, Shield, Sparkles } from "lucide-react"
+import { ArrowUpRight, Database, Globe2, Layers3, Radar, Shield, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { HeroSearch } from "@/components/home/hero-search"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
@@ -21,18 +21,19 @@ type HomeTile = {
   sources?: string[]
   poster?: string
   icon: LucideIcon
+  span?: 1 | 2
 }
 
 const TILES: HomeTile[] = [
   {
-    title: "Agaric",
-    eyebrow: "Flying Sensor Droid",
-    href: "/devices/agaric",
-    description: "Autonomous aerial sensing, deployment, retrieval, and relay.",
-    video: "/assets/agaric/agaric-hero2.mp4",
-    sources: ["/assets/agaric/agaric-hero2.mp4"],
-    poster: "/assets/agaric/hero2.jpg",
-    icon: Radar,
+    title: "Mushroom 1",
+    eyebrow: "Field Robotics",
+    href: "/devices/mushroom-1",
+    description: "Ground mobility for ecological sensing and autonomous patrol.",
+    video: "/assets/mushroom1/mushroom1-hero-2026.mp4",
+    sources: ["/assets/mushroom1/mushroom1-hero-2026.mp4"],
+    poster: "/assets/mushroom1/Mushroom 1.jpg",
+    icon: Layers3,
   },
   {
     title: "SporeBase",
@@ -57,18 +58,20 @@ const TILES: HomeTile[] = [
     eyebrow: "Waterline Acoustic Node",
     href: "/devices/psathyrella",
     description: "Surface, shoreline, and amphibious intelligence collection.",
-    video: "/assets/psathyrella/psathyrella-hero.mp4",
+    video: "/assets/psathyrella/psathyrella-hero-2026.mp4",
+    sources: ["/assets/psathyrella/psathyrella-hero-2026.mp4"],
     poster: "/assets/psathyrella/hero.png",
     icon: Radar,
   },
   {
-    title: "Mushroom 1",
-    eyebrow: "Field Robotics",
-    href: "/devices/mushroom-1",
-    description: "Ground mobility for ecological sensing and autonomous patrol.",
-    video: "/assets/mushroom1/mushroom 1 walking.mp4",
-    poster: "/assets/mushroom1/Mushroom 1.jpg",
-    icon: Layers3,
+    title: "Agaric",
+    eyebrow: "Flying Sensor Droid",
+    href: "/devices/agaric",
+    description: "Autonomous aerial sensing, deployment, retrieval, and relay.",
+    video: "/assets/agaric/agaric-hero2.mp4",
+    sources: ["/assets/agaric/agaric-hero2.mp4"],
+    poster: "/assets/agaric/hero2.jpg",
+    icon: Radar,
   },
   {
     title: "MycoNode",
@@ -87,15 +90,7 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/Mycosoft Background-web.mp4",
     poster: HOME_HERO_POSTER,
     icon: Shield,
-  },
-  {
-    title: "NatureOS",
-    eyebrow: "Earth Intelligence",
-    href: "/natureos",
-    description: "Apps, workflows, live environmental data, and ecological operations.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
-    poster: HOME_HERO_POSTER,
-    icon: Globe2,
+    span: 2,
   },
   {
     title: "Earth Simulator",
@@ -107,24 +102,6 @@ const TILES: HomeTile[] = [
     icon: Globe2,
   },
   {
-    title: "Apps",
-    eyebrow: "Operator Tools",
-    href: "/apps",
-    description: "The application layer for research, field operations, and automation.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
-    poster: HOME_HERO_POSTER,
-    icon: Search,
-  },
-  {
-    title: "MINDEX",
-    eyebrow: "Living Index",
-    href: "/mindex",
-    description: "Searchable chain-of-custody for species, signals, models, and missions.",
-    video: "/assets/homepage/Mycosoft Background-web.mp4",
-    poster: HOME_HERO_POSTER,
-    icon: Database,
-  },
-  {
     title: "MYCA",
     eyebrow: "Mission AI",
     href: "/myca",
@@ -132,6 +109,16 @@ const TILES: HomeTile[] = [
     video: "/assets/homepage/Mycosoft Background-web.mp4",
     poster: HOME_HERO_POSTER,
     icon: Sparkles,
+  },
+  {
+    title: "NatureOS",
+    eyebrow: "Earth Intelligence",
+    href: "/natureos",
+    description: "Workflows, live environmental data, ecological operations, and Earth-scale intelligence.",
+    video: "/assets/homepage/Mycosoft Background-web.mp4",
+    poster: HOME_HERO_POSTER,
+    icon: Globe2,
+    span: 2,
   },
 ]
 
@@ -214,7 +201,7 @@ export function HomeCommandPage() {
             </h2>
           </div>
           <p className="max-w-2xl text-sm leading-6 text-white/55">
-            Each square routes directly into the operating layer behind Mycosoft: hardware, apps, MINDEX, MYCA, NatureOS, and FUSARIUM.
+            Each square routes directly into the operating layer behind Mycosoft: hardware, MYCA, NatureOS, Earth Simulator, and FUSARIUM.
           </p>
         </div>
       </section>
@@ -230,7 +217,8 @@ export function HomeCommandPage() {
                 prefetch={false}
                 className={cn(
                   "group relative aspect-square overflow-hidden border border-white/10 bg-neutral-950 text-white",
-                  "transition duration-300 hover:border-red-400/70 hover:shadow-[0_0_36px_rgba(220,38,38,0.25)]"
+                  "transition duration-300 hover:border-red-400/70 hover:shadow-[0_0_36px_rgba(220,38,38,0.25)]",
+                  tile.span === 2 && "sm:col-span-2 sm:aspect-[2/1]"
                 )}
               >
                 <TileMedia tile={tile} />

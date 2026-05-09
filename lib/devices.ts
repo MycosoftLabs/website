@@ -59,7 +59,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "Development",
     image: "/assets/mushroom1/Main A.jpg",
-    video: "/assets/mushroom1/waterfall 1.mp4",
+    video: "/assets/mushroom1/mushroom1-hero-2026.mp4",
     videoTitle: "Discover the Underground Network",
     videoDescription: "Experience real-time monitoring of mycelial networks with unprecedented precision and insight.",
     features: [
@@ -396,7 +396,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "Program",
     image: "/assets/psathyrella/hero.png",
-    video: "/assets/psathyrella/psathyrella-hero.mp4",
+    video: "/assets/psathyrella/psathyrella-hero-2026.mp4",
     videoTitle:
       "A fully autonomous, AI-driven, self-propelled buoy with acoustic and atmospheric sensors processed at the edge, and mesh connectivity to manned and unmanned systems.",
     videoDescription:

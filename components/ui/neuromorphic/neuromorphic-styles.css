@@ -610,6 +610,25 @@
   display: none !important;
 }
 
+/* Mushroom 1 light mode hero: keep the title as text only, no frame. */
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean,
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean span {
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean::before,
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean::after,
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean span::before,
+.neuromorphic-page:not(.neuromorphic-dark) .mushroom1-hero .mushroom1-hero-title-clean span::after {
+  content: none !important;
+  display: none !important;
+}
+
 /* MycoNode light mode hero: remove dark box feel + use dark text */
 .neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .device-hero-title,
 .neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .device-hero-subtitle {

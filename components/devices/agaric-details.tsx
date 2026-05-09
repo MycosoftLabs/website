@@ -72,6 +72,8 @@ const AGARIC_ASSETS = {
   ],
 }
 
+const AGARIC_HERO_YOUTUBE_URL = `https://www.youtube.com/watch?v=${AGARIC_ASSETS.youtube.hero}`
+
 // Component architecture data for blueprint
 interface DeviceComponent {
   id: string
@@ -397,14 +399,20 @@ export function AgaricDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton
-              variant="default"
-              className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
-              onClick={() => document.querySelector(".agaric-mission")?.scrollIntoView({ behavior: "smooth" })}
+            <a
+              href={AGARIC_HERO_YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch the Agaric hero video on YouTube"
             >
-              <ExternalLink className="mr-2 h-5 w-5" />
-              Learn More
-            </NeuButton>
+              <NeuButton
+                variant="default"
+                className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
+              >
+                <ExternalLink className="mr-2 h-5 w-5" />
+                Learn More
+              </NeuButton>
+            </a>
           </motion.div>
 
           {/* Scroll indicator */}

@@ -50,6 +50,8 @@ const SPOREBASE_ASSETS = {
   heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
 
+const SPOREBASE_HERO_YOUTUBE_URL = "https://www.youtube.com/watch?v=Gc3FUxi6Q1k"
+
 const SPOREBASE_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SPOREBASE_ASSETS.heroVideo))
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
@@ -290,10 +292,10 @@ export function SporeBaseDetails() {
             transition={{ duration: 1, delay: 0.9 }}
           >
             <a
-              href="https://www.youtube.com/@mycosoft"
+              href={SPOREBASE_HERO_YOUTUBE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Learn more on the Mycosoft YouTube channel"
+              aria-label="Watch the SporeBase hero video on YouTube"
               className="device-cta-over-video pointer-events-auto inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-orange-500 px-8 py-3 text-sm font-semibold !text-black transition-all duration-200 hover:bg-orange-600"
             >
               <Youtube className="h-5 w-5" />

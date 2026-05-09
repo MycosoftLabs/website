@@ -22,6 +22,7 @@ import {
   Waves, Ship, Radar,
 } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { mergeWithNasFallbacks, deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { DEVICES } from "@/lib/devices"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
@@ -62,7 +63,11 @@ interface SelectedVideo {
 // ============================================================================
 const PSATHYRELLA_DEVICE = DEVICES.find((d) => d.id === "psathyrella")!
 const PSATHYRELLA_HERO =
+  "/assets/psathyrella/psathyrella-hero-2026.mp4"
+const PSATHYRELLA_HERO_FALLBACK =
   PSATHYRELLA_DEVICE.video ?? "/assets/psathyrella/psathyrella-hero.mp4"
+const PSATHYRELLA_HERO_YOUTUBE = "RYelhYjPNts"
+const PSATHYRELLA_HERO_YOUTUBE_URL = `https://www.youtube.com/watch?v=${PSATHYRELLA_HERO_YOUTUBE}`
 
 const PSATHYRELLA_ASSETS = {
   images: [
@@ -127,6 +132,12 @@ const USE_CASES = PSATHYRELLA_DEVICE.detailedFeatures.map((df, i) => {
     applications: df.bulletPoints,
     image: img.src,
     imageAlt: img.alt,
+    video:
+      i === 0
+        ? "/assets/psathyrella/psathyrellatower.mp4"
+        : i === 1
+          ? "/assets/psathyrella/psathyrellaclose.mp4"
+          : null,
   }
 })
 
@@ -207,7 +218,10 @@ export function PsathyrellaDetails() {
   const heroRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  const heroSources = mergeWithNasFallbacks(deviceHeroVideoSources(PSATHYRELLA_HERO))
+  const heroSources = mergeWithNasFallbacks([
+    ...deviceHeroVideoSources(PSATHYRELLA_HERO),
+    ...deviceHeroVideoSources(PSATHYRELLA_HERO_FALLBACK),
+  ])
 
   const missionParagraphs = PSATHYRELLA_DEVICE.description
     .split(/(?<=\.)\s+/)
@@ -228,7 +242,6 @@ export function PsathyrellaDetails() {
   })
 
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
-  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, 100])
 
   const openVideoModal = (videoId: string) => {
@@ -251,17 +264,18 @@ export function PsathyrellaDetails() {
         style={{ opacity: heroOpacity }}
         data-over-video
       >
-        {/* Background Video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
-        <motion.div className="absolute inset-0 overflow-hidden" style={{ scale: heroScale }}>
-          {/* Taller frame + upward bias so more of the hero subject sits in view until replacement film ships */}
-          <div className="absolute inset-x-0 -top-[10%] h-[118%] min-h-full">
-            <AutoplayVideo
-              src={heroSources[0]}
-              sources={heroSources}
-              encodeSrc
-              className="absolute inset-0 h-full w-full object-cover object-[center_12%]"
-            />
-          </div>
+        {/* Background Video — keep the full exported frame visible without scroll zoom/crop */}
+        <motion.div className="absolute inset-0 overflow-hidden">
+          <InstantHeroVideo
+            mp4Src={PSATHYRELLA_HERO}
+            youtubeId={PSATHYRELLA_HERO_YOUTUBE}
+            poster={PSATHYRELLA_DEVICE.image}
+            className="absolute inset-0"
+            videoClassName="!inset-[5%] !h-[90%] !w-[90%] !object-contain"
+            posterClassName="!inset-[5%] !h-[90%] !w-[90%] !object-contain"
+            mp4StartTimeoutMs={8000}
+            nasProbeTimeoutMs={700}
+          />
           <div className="psathyrella-hero-overlay absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
         </motion.div>
 
@@ -310,15 +324,19 @@ export function PsathyrellaDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
+            <a
+              href={PSATHYRELLA_HERO_YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch the Psathyrella hero video on YouTube"
+            >
             <NeuButton 
               className="device-cta-over-video min-h-[44px] px-8 bg-sky-500 hover:bg-sky-600 !text-black font-semibold"
-              onClick={() =>
-                openMp4Modal(PSATHYRELLA_ASSETS.videos.promo, `${PSATHYRELLA_DEVICE.name} — Hero`)
-              }
             >
-              <Play className="mr-2 h-5 w-5" />
+              <Youtube className="mr-2 h-5 w-5" />
               Watch Film
             </NeuButton>
+            </a>
             <NeuButton
               variant="default"
               className="device-cta-over-video-outline min-h-[44px] px-8 border border-slate-900/35 hover:bg-slate-900/10 dark:border-white/30 dark:hover:bg-white/10"
@@ -604,13 +622,22 @@ export function PsathyrellaDetails() {
               transition={{ duration: 0.5 }}
               className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10"
             >
-              <Image
-                src={encodeAssetUrl(USE_CASES[activeUseCase].image)}
-                alt={USE_CASES[activeUseCase].imageAlt}
-                fill
-                className="object-cover object-center"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
+              {USE_CASES[activeUseCase].video ? (
+                <AutoplayVideo
+                  src={USE_CASES[activeUseCase].video ?? undefined}
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                  preload="metadata"
+                  encodeSrc
+                />
+              ) : (
+                <Image
+                  src={encodeAssetUrl(USE_CASES[activeUseCase].image)}
+                  alt={USE_CASES[activeUseCase].imageAlt}
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               <div className="absolute bottom-6 left-6 right-6">
                 <h3 className="text-2xl font-bold text-white drop-shadow-sm">{USE_CASES[activeUseCase].title}</h3>
@@ -933,4 +960,3 @@ export function PsathyrellaDetails() {
     </NeuromorphicProvider>
   )
 }
-
