@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
@@ -47,7 +47,7 @@ import {
   Map,
   Bell
 } from "lucide-react"
-import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import {
   NeuButton,
   NeuCard,
@@ -62,29 +62,14 @@ import { DefenseParticles } from "@/components/defense/defense-particles"
 import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
 
 function DefenseHeroVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  useEffect(() => {
-    const v = videoRef.current
-    if (v) {
-      v.play().catch(() => {})
-      const handler = () => v.play().catch(() => {})
-      document.addEventListener("touchstart", handler, { once: true })
-      return () => document.removeEventListener("touchstart", handler)
-    }
-  }, [])
   return (
-    <video
-      ref={videoRef}
-      autoPlay
-      muted
-      loop
-      playsInline
+    <AutoplayVideo
+      src="/assets/fusarium/fusarium-hero.mp4"
+      sources={["/assets/fusarium/fusarium-hero.mp4"]}
       preload="auto"
       className="absolute inset-0 w-full h-full object-cover"
       style={{ filter: "brightness(0.3)" }}
-    >
-            <source src={encodeAssetUrl("/assets/mushroom1/mushroom 1 walking.mp4")} type="video/mp4" />
-    </video>
+    />
   )
 }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { 
   ArrowLeft,
   ArrowRight,
@@ -21,7 +22,6 @@ import {
   Map,
   Activity,
   CheckCircle2,
-  AlertCircle,
   Plane,
   Waves
 } from "lucide-react"
@@ -33,6 +33,7 @@ import {
   NeuBadge,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 
 const fusariumComponents = [
   {
@@ -150,22 +151,30 @@ export default function FusariumPage() {
       </div>
 
       {/* Hero */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10 pointer-events-none" />
+      <section className="relative min-h-[82vh] overflow-hidden py-24 flex items-center" data-over-video>
+        <AutoplayVideo
+          src="/assets/fusarium/fusarium-hero.mp4"
+          sources={["/assets/fusarium/fusarium-hero.mp4"]}
+          preload="auto"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ filter: "brightness(0.34)" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/45 to-background" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-10 pointer-events-none" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
             <NeuBadge variant="default" className="mb-4 border-destructive/30 text-destructive">
               DEFENSE SYSTEM
             </NeuBadge>
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight">
+            <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-white">
               FUSARIUM
             </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-4">
+            <p className="text-xl text-white/82 max-w-3xl mx-auto mb-4">
               Named after one of Earth&apos;s most dangerous fungal organisms - a pathogen that embeds 
               itself in hosts and adapts to any environment.
             </p>
-            <p className="text-lg text-muted-foreground/80 max-w-2xl mx-auto mb-8">
+            <p className="text-lg text-white/70 max-w-2xl mx-auto mb-8">
               Like its namesake, our defense system embeds into the operational environment, 
               providing persistent awareness that adversaries cannot detect or evade.
             </p>
@@ -214,12 +223,25 @@ export default function FusariumPage() {
               </div>
             </div>
             <div className="relative">
-              <NeuCard className="aspect-square p-8 flex items-center justify-center">
-                <div className="text-center">
-                  <AlertCircle className="h-20 w-20 text-destructive/30 mx-auto mb-4" />
-                  <p className="text-lg font-semibold text-destructive/70">
-                    Embed. Adapt. Persist.
-                  </p>
+              <NeuCard className="overflow-hidden p-0">
+                <div className="relative aspect-[16/10] min-h-[320px]">
+                  <Image
+                    src="/assets/fusarium/mold-fusarium-mycotoxin-amphotericin-scaled.jpg"
+                    alt="Fusarium mold growth macro image"
+                    fill
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="object-cover"
+                    priority={false}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <p className="text-lg font-semibold text-white">
+                      Embed. Adapt. Persist.
+                    </p>
+                    <p className="mt-2 text-sm text-white/70">
+                      The biological namesake behind the defense system.
+                    </p>
+                  </div>
                 </div>
               </NeuCard>
             </div>
