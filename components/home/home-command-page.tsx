@@ -106,8 +106,9 @@ const TILES: HomeTile[] = [
     eyebrow: "Mission AI",
     href: "/myca",
     description: "The AI interface for planning, querying, and coordinating Mycosoft systems.",
-    video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
-    poster: HOME_HERO_POSTER,
+    video: "/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4",
+    sources: ["/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4"],
+    poster: "/assets/devices/mycobrainjetson-black.jpg",
     icon: Sparkles,
   },
   {
