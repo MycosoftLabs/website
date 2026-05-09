@@ -7,9 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { resolveMasApiUrl } from "../../../../../_lib/mas-url";
 import { getCachedReal, normalizeError, setCachedReal } from "../../../../../_lib/real-cache";
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001";
+const MAS_API_URL = resolveMasApiUrl();
 
 export async function GET(
   request: NextRequest,

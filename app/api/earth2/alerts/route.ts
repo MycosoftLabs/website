@@ -7,8 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { resolveMasApiUrl } from "../_lib/mas-url";
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001";
+const MAS_API_URL = resolveMasApiUrl();
 
 interface Earth2Alert {
   id: string;

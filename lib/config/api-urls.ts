@@ -10,6 +10,13 @@
 const SANDBOX_VM_IP = "192.168.0.187"
 const MAS_VM_IP = process.env.MAS_VM_HOST || "localhost"
 const MINDEX_VM_IP = process.env.MINDEX_VM_HOST || "localhost"
+const RAW_MAS_API_URL = process.env.MAS_API_URL || ""
+const RAW_PUBLIC_MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || ""
+const LOCAL_MAS_API_URLS = new Set([
+  "http://localhost:8001",
+  "http://127.0.0.1:8001",
+  "http://host.docker.internal:8001",
+])
 
 // Default ports
 const MAS_PORT = "8001"
@@ -43,7 +50,13 @@ export function resolveEarth2ApiBaseUrl(): string {
  */
 export const API_URLS = {
   // MAS Orchestrator (VM 188, port 8001)
-  MAS: process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || `http://${MAS_VM_IP}:${MAS_PORT}`,
+  MAS:
+    process.env.NODE_ENV === "production" &&
+    RAW_MAS_API_URL &&
+    LOCAL_MAS_API_URLS.has(RAW_MAS_API_URL.replace(/\/$/, "")) &&
+    RAW_PUBLIC_MAS_API_URL
+      ? RAW_PUBLIC_MAS_API_URL.replace(/\/$/, "")
+      : (RAW_MAS_API_URL || RAW_PUBLIC_MAS_API_URL || `http://${MAS_VM_IP}:${MAS_PORT}`).replace(/\/$/, ""),
   
   // MINDEX Database API (VM 189, port 8000)
   MINDEX: process.env.MINDEX_API_URL || process.env.NEXT_PUBLIC_MINDEX_URL || `http://${MINDEX_VM_IP}:${MINDEX_PORT}`,

@@ -6,9 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { resolveMasApiUrl } from "./_lib/mas-url";
 import { getCachedReal, normalizeError, setCachedReal } from "./_lib/real-cache";
 
-const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001";
+const MAS_API_URL = resolveMasApiUrl();
 const CACHE_KEY = "earth2:status";
 const RESPONSE_HEADERS = {
   "Cache-Control": "public, s-maxage=15, stale-while-revalidate=120",

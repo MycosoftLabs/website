@@ -7,11 +7,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { resolveMasApiUrl } from "../../_lib/mas-url";
 import { getCachedReal, normalizeError, setCachedReal } from "../../_lib/real-cache";
 import { getOpenMeteoClient, VARIABLE_MAPPING } from "@/lib/weather/open-meteo-client";
 import { pointsTo2DGrid } from "@/lib/earth2/points-to-2d-grid";
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001";
+const MAS_API_URL = resolveMasApiUrl();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
