@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { CircuitLinesBackground } from "@/components/devices/circuit-lines-background"
+import { youtubeHeroEmbedSrc } from "@/lib/hero-youtube"
 import {
   Microscope,
   Wind,
@@ -278,6 +279,7 @@ const devices = [
 const DEVICES_PORTAL_HERO_SOURCES = [
   process.env.NEXT_PUBLIC_DEVICES_HERO_MP4?.trim() || "/assets/devices/droids-hero.mp4",
 ]
+const DEVICES_HERO_YOUTUBE_ID = "9B4sFqvhvSQ"
 const DEVICES_HERO_YOUTUBE_URL = "https://www.youtube.com/channel/UCUUEOg35426XDmZ9sPXbDYg"
 
 const MYCOBRAIN_SECTION_BACKGROUNDS = {
@@ -351,6 +353,14 @@ export function DevicesPortal() {
         className="devices-hero relative min-h-[100dvh] flex flex-col justify-center overflow-hidden border-0 pt-20 pb-12 md:py-28"
         data-over-video
       >
+        <iframe
+          src={youtubeHeroEmbedSrc(DEVICES_HERO_YOUTUBE_ID)}
+          title="Mycosoft devices hero video"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[56.25vw] min-h-full w-screen min-w-[177.78vh] -translate-x-1/2 -translate-y-1/2 border-0"
+          allow="autoplay; encrypted-media; picture-in-picture"
+        />
         {DEVICES_PORTAL_HERO_SOURCES[0] ? (
           <AutoplayVideo
             src={DEVICES_PORTAL_HERO_SOURCES[0]}
@@ -358,6 +368,7 @@ export function DevicesPortal() {
             className="absolute inset-0 z-0 h-full w-full object-cover"
             style={{ filter: "brightness(0.9) contrast(1.04)" }}
             encodeSrc
+            hideUntilPlaying
           />
         ) : null}
         <div className="absolute inset-0 z-[2] pointer-events-none bg-black/10" />
@@ -886,11 +897,12 @@ export function DevicesPortal() {
       {/* CTA Section */}
       <section className="devices-footer-cta relative overflow-hidden py-24 bg-gradient-to-b from-muted/30 to-background text-white dark:bg-black" data-over-video>
         <AutoplayVideo
-          src="/assets/devices/devices-footer-motion.mp4"
-          sources={["/assets/devices/devices-footer-motion.mp4"]}
+          src="/assets/devices/mycobrain-hero.mp4"
+          sources={["/assets/devices/devices-footer-motion.mp4", "/assets/devices/mycobrain-hero.mp4"]}
           className="absolute inset-0 z-0 h-full w-full object-cover"
           style={{ filter: "brightness(0.72) contrast(1.06)" }}
           encodeSrc
+          hideUntilPlaying
         />
         <div className="absolute inset-0 z-[1] bg-black/48" aria-hidden="true" />
         <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/72 via-black/30 to-black/78" aria-hidden="true" />

@@ -848,20 +848,14 @@ export function Mushroom1Details() {
 
       {/* YouTube Videos Section */}
       <section className="mushroom1-watch relative overflow-hidden py-24 bg-black text-white">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          disablePictureInPicture
-          controls={false}
-          controlsList="nodownload noplaybackrate nofullscreen"
-          aria-label="Carbon-rich lipids moving through mycorrhizal fungal mycelium"
+        <AutoplayVideo
+          src="/assets/mushroom1/mycelium-lipids-watch.mp4"
+          sources={["/assets/mushroom1/mycelium-lipids-watch.mp4", MUSHROOM1_ASSETS.videos.hero]}
           className="absolute inset-0 h-full w-full object-cover opacity-75"
-        >
-          <source src="/assets/mushroom1/mycelium-lipids-watch.mp4" type="video/mp4" />
-        </video>
+          preload="metadata"
+          encodeSrc
+          hideUntilPlaying
+        />
         <div className="absolute inset-0 bg-black/62" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.20),transparent_34%),radial-gradient(circle_at_80%_70%,rgba(6,182,212,0.14),transparent_36%)]" />
         <div className="relative z-10 max-w-7xl mx-auto px-4">
