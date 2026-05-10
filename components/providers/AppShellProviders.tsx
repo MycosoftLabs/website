@@ -10,6 +10,7 @@ import { MYCAProvider } from "@/contexts/myca-context"
 import { AvaniProvider } from "@/contexts/avani-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { NavigationClickRescue } from "@/components/navigation-click-rescue"
 import { SiteVoiceStubProvider } from "@/components/voice/UnifiedVoiceProvider"
 import { Toaster } from "sonner"
 
@@ -109,6 +110,7 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
+        <NavigationClickRescue />
         <Header />
         <main className="flex-1 relative w-full overflow-x-hidden">{content}</main>
         <Footer />

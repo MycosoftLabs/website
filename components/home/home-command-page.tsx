@@ -141,7 +141,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         setShouldLoadVideo(true)
         observer.disconnect()
       },
-      { rootMargin: "900px" }
+      { rootMargin: "180px" }
     )
 
     observer.observe(node)
@@ -154,7 +154,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         <AutoplayVideo
           src={tile.video}
           sources={tile.sources}
-          preload="auto"
+          preload="metadata"
           stallTimeoutMs={9000}
           className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
           encodeSrc
