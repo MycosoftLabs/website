@@ -362,7 +362,7 @@ export function Header() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-[200]" suppressHydrationWarning>
+    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none" suppressHydrationWarning>
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">

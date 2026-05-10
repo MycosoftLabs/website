@@ -192,7 +192,8 @@ const USE_CASES = [
     colorDark: "dark:from-red-800 dark:to-black",
     description: "Move and place Mycosoft devices, probes, samplers, and sensor payloads into target environments with mission context intact.",
     applications: ["Device placement", "Sampler transport", "Field station drops", "Sensor package lift"],
-    image: "/assets/agaric/forest2.jpg"
+    image: "/assets/agaric/forest2.jpg",
+    video: "/assets/agaric/dronepickup.mp4"
   },
   {
     title: "Retrieve + Recover",
@@ -201,7 +202,7 @@ const USE_CASES = [
     colorDark: "dark:from-red-700 dark:to-black",
     description: "Recover samples, payloads, probes, and field devices after exposure, collection, inspection, or mission completion.",
     applications: ["Sampler recovery", "Payload pickup", "Probe return", "Winch / latch support"],
-    image: "/assets/agaric/close1.jpg"
+    image: "/assets/agaric/retrieve-recover.jpg"
   },
   {
     title: "Relay + Translate",
@@ -219,7 +220,8 @@ const USE_CASES = [
     colorDark: "dark:from-black dark:to-red-950",
     description: "Use tangential flight to translate without tilting, hold orientation, and move through difficult terrain while sensing devices, canopy, water, infrastructure, and access routes.",
     applications: ["Level translation", "Tangential passes", "Level hover", "Infrastructure scans"],
-    image: "/assets/agaric/close3.jpg"
+    image: "/assets/agaric/close3.jpg",
+    video: "/assets/agaric/maneuver.mp4"
   },
 ]
 
@@ -545,10 +547,10 @@ export function AgaricDetails() {
             className="text-center mb-16"
           >
             <NeuBadge variant="default" className="mb-4 bg-black/45 text-white border-white/20 backdrop-blur-md">Technology</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-              Sensor + Payload <span className="text-red-300">Equipment</span>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-black">
+              Sensor + Payload <span className="text-black">Equipment</span>
             </h2>
-            <p className="text-xl text-white/75 max-w-3xl mx-auto">
+            <p className="text-xl text-black max-w-3xl mx-auto">
               Cameras are navigation and inspection sensors inside a broader field droid: environmental sensing, range sensing, RF payloads,
               relay radios, and payload equipment all scale by mission and size.
             </p>
@@ -785,14 +787,31 @@ export function AgaricDetails() {
               transition={{ duration: 0.5 }}
               className="relative aspect-[16/9] min-h-[360px] rounded-2xl overflow-hidden border border-white/10"
             >
-              <Image
-                key={USE_CASES[activeUseCase].image}
-                src={encodeAssetUrl(USE_CASES[activeUseCase].image)}
-                alt={`${USE_CASES[activeUseCase].title} close-up`}
-                fill
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+              {USE_CASES[activeUseCase].video ? (
+                <video
+                  key={USE_CASES[activeUseCase].video}
+                  aria-label={`${USE_CASES[activeUseCase].title} video`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  disablePictureInPicture
+                  controlsList="nodownload nofullscreen noremoteplayback"
+                  className="absolute inset-0 h-full w-full object-cover"
+                >
+                  <source src={encodeAssetUrl(USE_CASES[activeUseCase].video)} type="video/mp4" />
+                </video>
+              ) : (
+                <Image
+                  key={USE_CASES[activeUseCase].image}
+                  src={encodeAssetUrl(USE_CASES[activeUseCase].image)}
+                  alt={`${USE_CASES[activeUseCase].title} close-up`}
+                  fill
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
                 <h3 className="text-2xl font-bold text-black drop-shadow-[0_2px_12px_rgba(255,255,255,0.92)]">{USE_CASES[activeUseCase].title}</h3>

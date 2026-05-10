@@ -76,17 +76,19 @@ export function AlarmSmokeBackground() {
     textureLoader.setCrossOrigin("")
     const smokeTexture = textureLoader.load("https://s3-us-west-2.amazonaws.com/s.cdpn.io/95637/Smoke-Element.png")
     const smokeMaterial = new THREE.MeshLambertMaterial({
-      color: 0xff2d2d,
+      color: 0xff3b3b,
       map: smokeTexture,
       transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
       depthWrite: false,
     })
-    const smokeGeo = new THREE.PlaneGeometry(300, 300)
+    const smokeGeo = new THREE.PlaneGeometry(360, 360)
     const smokeParticles: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>[] = []
 
-    for (let p = 0; p < 150; p += 1) {
+    for (let p = 0; p < 220; p += 1) {
       const particle = new THREE.Mesh(smokeGeo, smokeMaterial)
-      particle.position.set(Math.random() * 500 - 250, Math.random() * 500 - 250, Math.random() * 1000 - 100)
+      particle.position.set(Math.random() * 760 - 380, Math.random() * 520 - 260, Math.random() * 1100 - 140)
       particle.rotation.z = Math.random() * 360
       scene.add(particle)
       smokeParticles.push(particle)

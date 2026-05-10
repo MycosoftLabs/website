@@ -59,6 +59,7 @@ const HYPHAE1_ASSETS = {
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
   labPrototype: "/assets/hyphae1/hyphae1-lab-prototype.png",
+  schematicView: "/assets/hyphae1/schematic-view.jpg",
 }
 
 interface HyphaeVariant {
@@ -442,7 +443,7 @@ export function Hyphae1Details() {
 
   return (
     <NeuromorphicProvider className="hyphae1-neu-root">
-    <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-x-hidden">
+    <div className="hyphae1-glass-page relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-x-hidden">
       {/* Hero — video flush to viewport top (extends behind sticky header: h-12 md:h-14 + border) */}
       <section
         ref={heroRef}
@@ -604,7 +605,7 @@ export function Hyphae1Details() {
               <NeuBadge variant="default" className="mb-4 bg-cyan-400/10 text-cyan-200 border-cyan-300/30">
                 Why Hyphae 1
               </NeuBadge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 !text-white">
                 Datacenter capacity, outside the building
               </h2>
               <div className="space-y-4 text-lg text-slate-200 leading-relaxed">
@@ -969,13 +970,15 @@ export function Hyphae1Details() {
                   </div>
 
                   {/* Device Visual */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="relative w-3/4 h-3/4 border border-slate-400 rounded-lg bg-white/60 dark:border-slate-600 dark:bg-slate-800/50">
-                      <Box className="absolute inset-0 w-full h-full text-slate-400/40 dark:text-slate-600/30" strokeWidth={0.3} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-mono text-slate-600 dark:text-slate-500">HYPHAE 1</span>
-                      </div>
-                    </div>
+                  <div className="absolute inset-0">
+                    <Image
+                      src={HYPHAE1_ASSETS.schematicView}
+                      alt="Hyphae 1 open enclosure schematic view"
+                      fill
+                      sizes="(min-width: 1024px) 60vw, 100vw"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/5 dark:bg-black/10" aria-hidden="true" />
                   </div>
 
                   {/* Status bar */}
@@ -1120,6 +1123,95 @@ export function Hyphae1Details() {
           </div>
         </div>
       </section>
+      <style jsx global>{`
+        .hyphae1-glass-page .neu-btn,
+        .hyphae1-glass-page [data-slot="card"],
+        .hyphae1-glass-page .hyphae1-product-card,
+        .hyphae1-glass-page .hyphae1-spec-card,
+        .hyphae1-glass-page .hyphae1-applications [class*="rounded-2xl"][class*="border"],
+        .hyphae1-glass-page .hyphae1-capabilities [class*="rounded-"],
+        .hyphae1-glass-page [class*="rounded-3xl"][class*="border"],
+        .hyphae1-glass-page [class*="rounded-2xl"][class*="border"],
+        .hyphae1-glass-page button[class*="rounded-xl"][class*="border"] {
+          position: relative;
+          overflow: hidden;
+          border-color: rgba(15, 23, 42, 0.16) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34) 44%, rgba(255, 255, 255, 0.16)) !important;
+          box-shadow:
+            0 22px 60px rgba(15, 23, 42, 0.12),
+            0 8px 22px rgba(255, 255, 255, 0.34),
+            inset 0 1px 0 rgba(255, 255, 255, 0.78),
+            inset 0 -22px 38px rgba(15, 23, 42, 0.035) !important;
+          backdrop-filter: blur(18px) saturate(1.22);
+          -webkit-backdrop-filter: blur(18px) saturate(1.22);
+        }
+
+        .dark .hyphae1-glass-page .neu-btn,
+        .dark .hyphae1-glass-page [data-slot="card"],
+        .dark .hyphae1-glass-page .hyphae1-product-card,
+        .dark .hyphae1-glass-page .hyphae1-spec-card,
+        .dark .hyphae1-glass-page .hyphae1-applications [class*="rounded-2xl"][class*="border"],
+        .dark .hyphae1-glass-page .hyphae1-capabilities [class*="rounded-"],
+        .dark .hyphae1-glass-page [class*="rounded-3xl"][class*="border"],
+        .dark .hyphae1-glass-page [class*="rounded-2xl"][class*="border"],
+        .dark .hyphae1-glass-page button[class*="rounded-xl"][class*="border"] {
+          border-color: rgba(255, 255, 255, 0.24) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.065) 45%, rgba(255, 255, 255, 0.025)) !important;
+          box-shadow:
+            0 24px 70px rgba(0, 0, 0, 0.34),
+            0 8px 22px rgba(255, 255, 255, 0.06),
+            inset 0 1px 0 rgba(255, 255, 255, 0.42),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.045) !important;
+        }
+
+        html:not(.dark) .hyphae1-glass-page .neu-btn,
+        html:not(.dark) .hyphae1-glass-page [data-slot="card"],
+        html:not(.dark) .hyphae1-glass-page .hyphae1-product-card,
+        html:not(.dark) .hyphae1-glass-page .hyphae1-spec-card,
+        html:not(.dark) .hyphae1-glass-page .hyphae1-applications [class*="rounded-2xl"][class*="border"],
+        html:not(.dark) .hyphae1-glass-page .hyphae1-capabilities [class*="rounded-"],
+        html:not(.dark) .hyphae1-glass-page [class*="rounded-3xl"][class*="border"],
+        html:not(.dark) .hyphae1-glass-page [class*="rounded-2xl"][class*="border"],
+        html:not(.dark) .hyphae1-glass-page button[class*="rounded-xl"][class*="border"] {
+          border-color: rgba(15, 23, 42, 0.16) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34) 44%, rgba(255, 255, 255, 0.16)) !important;
+          box-shadow:
+            0 22px 60px rgba(15, 23, 42, 0.12),
+            0 8px 22px rgba(255, 255, 255, 0.34),
+            inset 0 1px 0 rgba(255, 255, 255, 0.78),
+            inset 0 -22px 38px rgba(15, 23, 42, 0.035) !important;
+        }
+
+        .hyphae1-glass-page .neu-btn::before,
+        .hyphae1-glass-page [data-slot="card"]::before,
+        .hyphae1-glass-page .hyphae1-product-card::before,
+        .hyphae1-glass-page .hyphae1-spec-card::before,
+        .hyphae1-glass-page [class*="rounded-3xl"][class*="border"]::before,
+        .hyphae1-glass-page [class*="rounded-2xl"][class*="border"]::before,
+        .hyphae1-glass-page button[class*="rounded-xl"][class*="border"]::before {
+          content: "";
+          position: absolute;
+          inset: 1px 2px auto;
+          height: 42%;
+          border-radius: inherit;
+          pointer-events: none;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0));
+        }
+
+        .hyphae1-glass-page .neu-btn > *,
+        .hyphae1-glass-page [data-slot="card"] > *,
+        .hyphae1-glass-page .hyphae1-product-card > *,
+        .hyphae1-glass-page .hyphae1-spec-card > *,
+        .hyphae1-glass-page [class*="rounded-3xl"][class*="border"] > *,
+        .hyphae1-glass-page [class*="rounded-2xl"][class*="border"] > *,
+        .hyphae1-glass-page button[class*="rounded-xl"][class*="border"] > * {
+          position: relative;
+          z-index: 1;
+        }
+      `}</style>
     </div>
     </NeuromorphicProvider>
   )

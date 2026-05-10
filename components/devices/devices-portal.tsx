@@ -957,6 +957,17 @@ export function DevicesPortal() {
           text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
         }
 
+        body:has(.devices-glass-page) header {
+          border-bottom-color: transparent !important;
+          box-shadow: none !important;
+        }
+
+        body:has(.devices-glass-page) header::before,
+        body:has(.devices-glass-page) header::after {
+          content: none !important;
+          display: none !important;
+        }
+
         .devices-glass-page .devices-hero,
         .devices-glass-page .devices-hero * {
           border-top-color: transparent !important;

@@ -1304,7 +1304,7 @@ export function Mushroom1Details() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 !text-white">
               Ready to take a walk in nature?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">

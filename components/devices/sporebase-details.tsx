@@ -46,6 +46,7 @@ const SPOREBASE_ASSETS = {
   ],
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",
+  schematicImage: "/assets/sporebase/interactive-schematic.jpg",
   // Hero MP4 on NAS/CDN. No YouTube hero iframe: users must never see YouTube chrome.
   heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
@@ -657,15 +658,15 @@ export function SporeBaseDetails() {
                   </div>
 
                   {/* Device Image */}
-                  <div className="absolute inset-0 flex items-center justify-center pt-10">
-                    <div className="relative h-[85%] aspect-[2/3] max-w-full">
-                      <Image
-                        src={SPOREBASE_ASSETS.mainImage}
-                        alt="SporeBase Schematic"
-                        fill
-                        className="opacity-40 filter grayscale object-contain"
-                      />
-                    </div>
+                  <div className="absolute inset-0">
+                    <Image
+                      src={SPOREBASE_ASSETS.schematicImage}
+                      alt="SporeBase interactive schematic"
+                      fill
+                      sizes="(min-width: 1024px) 60vw, 100vw"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/10" aria-hidden="true" />
                   </div>
 
                   {/* Status bar */}
@@ -752,10 +753,10 @@ export function SporeBaseDetails() {
         <SporeWave className="opacity-70" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 !text-white">
             Ready to map the invisible world?
           </h2>
-          <p className="text-xl text-white/60 mb-8">
+          <p className="text-xl !text-white/80 mb-8">
             Join researchers, health agencies, and environmental monitors using SporeBase
             to understand what&apos;s really in the air we breathe.
           </p>

@@ -359,8 +359,8 @@ export function AlarmDetails() {
       {/* Detection Capabilities */}
       <section className="alarm-detections relative overflow-hidden py-24 bg-black text-white" data-over-video>
         <AlarmSmokeBackground />
-        <div className="absolute inset-0 bg-black/20" aria-hidden="true" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/52 via-black/5 to-black/58" aria-hidden="true" />
+        <div className="absolute inset-0 bg-black/5" aria-hidden="true" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/24 via-transparent to-black/28" aria-hidden="true" />
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
@@ -807,11 +807,16 @@ export function AlarmDetails() {
           -webkit-text-fill-color: #dc2626 !important;
         }
 
+        .alarm-glass-page .alarm-detections .neu-raised svg,
+        .alarm-glass-page .alarm-detections .neu-raised-sm svg,
+        .alarm-glass-page .alarm-detections [class*="rounded-xl"][class*="border"] svg,
         .alarm-glass-page .alarm-detections svg,
         .alarm-glass-page .alarm-detections .text-red-500,
         .alarm-glass-page .alarm-detections .text-red-400 {
           color: #dc2626 !important;
           -webkit-text-fill-color: #dc2626 !important;
+          stroke: #dc2626 !important;
+          fill: none !important;
           filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55));
         }
 
