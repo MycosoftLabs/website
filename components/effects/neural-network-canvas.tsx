@@ -121,7 +121,7 @@ void main(){
     col*=(1.+vPulseIntensity*1.2);
     gs*=(1.+vPulseIntensity);
   }
-  col+=vec3(1.)*smoothstep(.4,0.,d)*.3;
+  col+=vColor*smoothstep(.4,0.,d)*.3;
   col*=(1.+vGlow*.1);
   float alpha=gs*(.95-.3*d);
   gl_FragColor=vec4(col,alpha);
@@ -218,7 +218,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
       const { OrbitControls } = OC as { OrbitControls: new (cam: unknown, el: HTMLElement) => unknown & { enableDamping: boolean; dampingFactor: number; rotateSpeed: number; minDistance: number; maxDistance: number; autoRotate: boolean; autoRotateSpeed: number; enablePan: boolean; update: () => void; dispose: () => void } }
       const { EffectComposer } = EC as { EffectComposer: new (r: unknown) => { addPass: (p: unknown) => void; render: () => void; setSize: (w: number, h: number) => void } }
       const { RenderPass } = RP as { RenderPass: new (s: unknown, c: unknown) => unknown }
-      const { UnrealBloomPass } = UBP as { UnrealBloomPass: new (res: unknown, str: number, rad: number, thr: number) => { resolution: { set: (w: number, h: number) => void } } }
+      const { UnrealBloomPass } = UBP as { UnrealBloomPass: new (res: unknown, str: number, rad: number, thr: number) => { resolution: { set: (w: number, h: number) => void }; strength: number } }
       const { OutputPass } = OP as { OutputPass: new () => unknown }
 
       const container = canvas.parentElement!
@@ -226,17 +226,18 @@ export function NeuralNetworkCanvas({ className }: Props) {
       let H = container.offsetHeight || 600
 
       // ── Mycosoft green palette ─────────────────────────────────────────────
-      const palette = [
-        new THREE.Color(0x22c55e),  // green-500
-        new THREE.Color(0x10b981),  // emerald-500
-        new THREE.Color(0x34d399),  // emerald-400
-        new THREE.Color(0x4ade80),  // green-400
-        new THREE.Color(0x6ee7b7),  // emerald-300
-      ]
+      const isDarkTheme = () => document.documentElement.classList.contains("dark")
+      const makePalette = (dark: boolean) =>
+        (dark
+          ? [0xffffff, 0xf5f5f5, 0xe5e7eb, 0xd4d4d4, 0xbfbfbf]
+          : [0x000000, 0x111111, 0x1f2937, 0x262626, 0x3f3f46]
+        ).map((color) => new THREE.Color(color))
+      let currentDark = isDarkTheme()
+      let palette = makePalette(currentDark)
 
       // ── Scene ──────────────────────────────────────────────────────────────
       const scene = new THREE.Scene()
-      scene.fog = new THREE.FogExp2(0x000000, 0.003)
+      scene.fog = new THREE.FogExp2(currentDark ? 0x000000 : 0xffffff, 0.003)
 
       const camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 1000)
       camera.position.set(0, 4, 14)  // 50% closer = 50% more zoomed in
@@ -244,7 +245,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" })
       renderer.setSize(W, H)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-      renderer.setClearColor(0x020c06, 1)
+      renderer.setClearColor(currentDark ? 0x000000 : 0xffffff, 1)
       renderer.outputColorSpace = THREE.SRGBColorSpace
 
       // ── Controls ───────────────────────────────────────────────────────────
@@ -262,7 +263,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
       // ── Post-processing ────────────────────────────────────────────────────
       const composer = new EffectComposer(renderer)
       composer.addPass(new RenderPass(scene, camera))
-      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 1.8, 0.6, 0.7)
+      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), currentDark ? 1.8 : 0, 0.6, 0.7)
       composer.addPass(bloom)
       composer.addPass(new OutputPass())
 
@@ -357,7 +358,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
         ng.setAttribute("nodeSize", new THREE.Float32BufferAttribute(nSize, 1))
         ng.setAttribute("nodeColor", new THREE.Float32BufferAttribute(nCol, 3))
         ng.setAttribute("distanceFromRoot", new THREE.Float32BufferAttribute(nDist, 1))
-        const nm = new THREE.ShaderMaterial({ uniforms: makePulseUniforms(), vertexShader: NODE_VERT, fragmentShader: NODE_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+        const nm = new THREE.ShaderMaterial({ uniforms: makePulseUniforms(), vertexShader: NODE_VERT, fragmentShader: NODE_FRAG, transparent: true, depthWrite: false, blending: currentDark ? THREE.AdditiveBlending : THREE.NormalBlending })
         palette.forEach((c, i) => { if (i < 3) nm.uniforms.uPulseColors.value[i].copy(c) })
         nodesMesh = new THREE.Points(ng, nm); scene.add(nodesMesh)
 
@@ -392,7 +393,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
         cg.setAttribute("connectionStrength", new THREE.Float32BufferAttribute(cStr, 1))
         cg.setAttribute("connectionColor", new THREE.Float32BufferAttribute(cCol, 3))
         cg.setAttribute("pathIndex", new THREE.Float32BufferAttribute(cPi, 1))
-        const cm = new THREE.ShaderMaterial({ uniforms: makePulseUniforms(), vertexShader: CONN_VERT, fragmentShader: CONN_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+        const cm = new THREE.ShaderMaterial({ uniforms: makePulseUniforms(), vertexShader: CONN_VERT, fragmentShader: CONN_FRAG, transparent: true, depthWrite: false, blending: currentDark ? THREE.AdditiveBlending : THREE.NormalBlending })
         palette.forEach((c, i) => { if (i < 3) cm.uniforms.uPulseColors.value[i].copy(c) })
         connMesh = new THREE.LineSegments(cg, cm); scene.add(connMesh)
       }
@@ -481,9 +482,20 @@ export function NeuralNetworkCanvas({ className }: Props) {
 
       // ── Init ───────────────────────────────────────────────────────────────
       buildMeshes(generateNetwork())
+      const themeObserver = new MutationObserver(() => {
+        const nextDark = isDarkTheme()
+        if (nextDark === currentDark) return
+        currentDark = nextDark
+        palette = makePalette(currentDark)
+        scene.fog = new THREE.FogExp2(currentDark ? 0x000000 : 0xffffff, 0.003)
+        renderer.setClearColor(currentDark ? 0x000000 : 0xffffff, 1)
+        bloom.strength = currentDark ? 1.8 : 0
+        buildMeshes(generateNetwork())
+      })
+      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
 
       threeCleanup = () => {
-        stop(); io.disconnect(); ro.disconnect()
+        stop(); io.disconnect(); ro.disconnect(); themeObserver.disconnect()
         if (nodesMesh) { scene.remove(nodesMesh); nodesMesh.geometry.dispose(); (nodesMesh.material as InstanceType<typeof THREE.ShaderMaterial>).dispose() }
         if (connMesh)  { scene.remove(connMesh);  connMesh.geometry.dispose();  (connMesh.material as InstanceType<typeof THREE.ShaderMaterial>).dispose() }
         renderer.dispose()

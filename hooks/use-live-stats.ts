@@ -107,7 +107,7 @@ interface UseLiveStatsOptions {
 export function useLiveStats(options: UseLiveStatsOptions = {}) {
   const {
     refreshInterval = 30000, // 30 seconds
-    simulateGrowth = true,
+    simulateGrowth = false,
     onNewData,
   } = options;
 
@@ -116,7 +116,6 @@ export function useLiveStats(options: UseLiveStatsOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   
-  const growthIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const baseStatsRef = useRef<LiveStats | null>(null);
 
   const fetchStats = useCallback(async () => {
@@ -171,65 +170,7 @@ export function useLiveStats(options: UseLiveStatsOptions = {}) {
     return () => clearInterval(interval);
   }, [fetchStats, refreshInterval]);
 
-  // Simulate real-time growth between fetches
-  useEffect(() => {
-    if (!simulateGrowth || !stats) return;
-
-    // Growth rates per second (derived from hourly rates)
-    const FUNGI_SPECIES_PER_SEC = 5 / 3600;
-    const FUNGI_OBS_PER_SEC = 3500 / 3600;
-    const FUNGI_IMG_PER_SEC = 2800 / 3600;
-
-    growthIntervalRef.current = setInterval(() => {
-      setStats((prev) => {
-        if (!prev) return prev;
-        
-        // Add small random increments to fungi (primary display)
-        const speciesIncrement = Math.random() < FUNGI_SPECIES_PER_SEC ? 1 : 0;
-        const obsIncrement = Math.floor(Math.random() * (FUNGI_OBS_PER_SEC * 2));
-        const imgIncrement = Math.floor(Math.random() * (FUNGI_IMG_PER_SEC * 2));
-
-        return {
-          ...prev,
-          timestamp: new Date().toISOString(),
-          fungi: {
-            ...prev.fungi,
-            species: {
-              ...prev.fungi.species,
-              total: prev.fungi.species.total + speciesIncrement,
-            },
-            observations: {
-              ...prev.fungi.observations,
-              total: prev.fungi.observations.total + obsIncrement,
-            },
-            images: {
-              ...prev.fungi.images,
-              total: prev.fungi.images.total + imgIncrement,
-            },
-          },
-          // Update legacy format too
-          species: prev.species ? {
-            ...prev.species,
-            total: prev.species.total + speciesIncrement,
-          } : undefined,
-          observations: prev.observations ? {
-            ...prev.observations,
-            total: prev.observations.total + obsIncrement,
-          } : undefined,
-          images: prev.images ? {
-            ...prev.images,
-            total: prev.images.total + imgIncrement,
-          } : undefined,
-        };
-      });
-    }, 1000);
-
-    return () => {
-      if (growthIntervalRef.current) {
-        clearInterval(growthIntervalRef.current);
-      }
-    };
-  }, [simulateGrowth, stats?.timestamp]);
+  void simulateGrowth;
 
   const refresh = useCallback(() => {
     setLoading(true);

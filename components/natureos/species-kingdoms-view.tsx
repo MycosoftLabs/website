@@ -3,7 +3,7 @@
 /**
  * Species & Kingdoms View — All 9 kingdom cards (Plants, Birds, Insects, Animals,
  * Marine, Mammals, Protista, Bacteria, Archaea) for the NatureOS Species tab.
- * Uses live stats when available; fallback defaults so every card always shows.
+ * Uses live stats from the NatureOS data stream.
  * Created: Feb 19, 2026
  */
 
@@ -27,26 +27,25 @@ const KINGDOMS: KingdomType[] = [
   "archaea",
 ]
 
-// Fallback environmental and counts per kingdom when live API has no data (so all cards always render)
-const FALLBACKS: Record<
+const EMPTY_KINGDOM_STATS: Record<
   KingdomType,
   { species: number; observations: number; images: number; co2: number; methane: number; water: number }
 > = {
-  plants: { species: 341000, observations: 54000000, images: 12000000, co2: -458000000, methane: 650000, water: 62000000 },
-  birds: { species: 11000, observations: 89000000, images: 24000000, co2: 890000, methane: 1200, water: 150 },
-  insects: { species: 1000000, observations: 42000000, images: 8500000, co2: 480000, methane: 12500, water: 82 },
-  animals: { species: 72000, observations: 31000000, images: 18000000, co2: 2150000, methane: 8800, water: 45000 },
-  marine: { species: 240000, observations: 68000000, images: 22000000, co2: -9500000, methane: 38000, water: 0 },
-  mammals: { species: 6500, observations: 19000000, images: 11000000, co2: 5200000, methane: 329000, water: 95800 },
-  protista: { species: 60000, observations: 8200000, images: 1200000, co2: -15000000, methane: 45000, water: 12000 },
-  bacteria: { species: 12000, observations: 4500000, images: 980000, co2: 85000000, methane: 580000, water: 0 },
-  archaea: { species: 400, observations: 120000, images: 45000, co2: 12000000, methane: 420000, water: 0 },
+  plants: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  birds: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  insects: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  animals: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  marine: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  mammals: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  protista: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  bacteria: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
+  archaea: { species: 0, observations: 0, images: 0, co2: 0, methane: 0, water: 0 },
 }
 
 function getKingdomProps(
   kingdom: KingdomType,
   live: KingdomData | null | undefined,
-  fallback: (typeof FALLBACKS)[KingdomType]
+  fallback: (typeof EMPTY_KINGDOM_STATS)[KingdomType]
 ) {
   return {
     kingdom,
@@ -87,7 +86,7 @@ export function SpeciesKingdomsView() {
                 <p className="text-sm text-muted-foreground">Loading live species data…</p>
               )}
               {error && (
-                <p className="text-sm text-amber-600">Live stats unavailable; showing catalog defaults.</p>
+                <p className="text-sm text-amber-600">Live stats unavailable; waiting for the NatureOS data stream.</p>
               )}
               <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -104,7 +103,7 @@ export function SpeciesKingdomsView() {
               {...getKingdomProps(
                 kingdom,
                 getLiveKingdom(liveStats ?? null, kingdom),
-                FALLBACKS[kingdom]
+                EMPTY_KINGDOM_STATS[kingdom]
               )}
             />
           ))}

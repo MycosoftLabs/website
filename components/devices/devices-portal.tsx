@@ -5,7 +5,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
-import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { CircuitLinesBackground } from "@/components/devices/circuit-lines-background"
 import {
   Microscope,
   Wind,
@@ -246,7 +246,7 @@ const devices = [
     description: "Next-generation indoor safety monitor. Detects smoke, mold, pathogens, and air quality threats before they become problems.",
     icon: AlertTriangle,
     color: "red-500",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Apr%208%2C%202025%2C%2004_02_32%20PM-cWILDVnWKhQEz6toW0Y161OJRUMnyq.png",
+    image: "/assets/alarm/alarm-device.jpg",
     status: "Coming Soon",
     price: "$49.99",
     specs: [
@@ -275,10 +275,10 @@ const devices = [
 ]
 
 /** Full-bleed /devices hero — NAS: `/assets/devices/droids-hero.mp4` (optional `-web`). Override: `NEXT_PUBLIC_DEVICES_HERO_MP4`. */
-const DEVICES_PORTAL_HERO_SOURCES = deviceHeroVideoSources("/assets/devices/droids-hero.mp4", {
-  envUrl: process.env.NEXT_PUBLIC_DEVICES_HERO_MP4,
-  aliases: ["/assets/devices/droids-hero-collage.mp4"],
-})
+const DEVICES_PORTAL_HERO_SOURCES = [
+  process.env.NEXT_PUBLIC_DEVICES_HERO_MP4?.trim() || "/assets/devices/droids-hero.mp4",
+]
+const DEVICES_HERO_YOUTUBE_URL = "https://www.youtube.com/channel/UCUUEOg35426XDmZ9sPXbDYg"
 
 const MYCOBRAIN_SECTION_BACKGROUNDS = {
   dark: "/assets/devices/mycobrainjetson-black.jpg",
@@ -345,28 +345,23 @@ export function DevicesPortal() {
 
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh">
+    <div className="devices-glass-page min-h-dvh">
       {/* Hero — full-viewport video (MycoBrain + device collage on NAS) */}
       <section
-        className="relative min-h-[100dvh] flex flex-col justify-center overflow-hidden pt-20 pb-12 md:py-28"
+        className="devices-hero relative min-h-[100dvh] flex flex-col justify-center overflow-hidden border-0 pt-20 pb-12 md:py-28"
         data-over-video
       >
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-background via-muted/80 to-background"
-          aria-hidden
-        />
         {DEVICES_PORTAL_HERO_SOURCES[0] ? (
           <AutoplayVideo
             src={DEVICES_PORTAL_HERO_SOURCES[0]}
             sources={DEVICES_PORTAL_HERO_SOURCES}
             className="absolute inset-0 z-0 h-full w-full object-cover"
-            style={{ filter: "brightness(0.32)" }}
+            style={{ filter: "brightness(0.9) contrast(1.04)" }}
             encodeSrc
           />
         ) : null}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-gradient-to-b from-background/55 via-background/75 to-background" />
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-[linear-gradient(to_right,#8883_1px,transparent_1px),linear-gradient(to_bottom,#8883_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.07]" />
-        <div className="absolute top-1/4 left-1/2 z-[2] -translate-x-1/2 w-[min(90vw,640px)] h-[min(90vw,640px)] pointer-events-none bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute inset-0 z-[2] pointer-events-none bg-black/10" />
+        <div className="absolute inset-x-0 bottom-0 z-[2] pointer-events-none h-1/4 bg-gradient-to-t from-black/20 to-transparent" />
 
         <div className="container max-w-7xl mx-auto relative z-10 px-4">
           <motion.div
@@ -378,33 +373,27 @@ export function DevicesPortal() {
               Hardware platform
             </NeuBadge>
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6 portal-hero-title">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-primary">
+              <span className="devices-hero-title-text">
                 Droids
               </span>
             </h1>
-            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 px-1 portal-hero-subtitle leading-relaxed">
+            <p className="text-base sm:text-xl max-w-2xl mx-auto mb-8 px-1 portal-hero-subtitle leading-relaxed">
               We build droids, or robots with sensors, built to live outside continuously — each device shares the
               same MycoBrain core, so the fleet scales manufacturing, adds new sensors, and ships new devices without
               reinventing the nervous system.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href={DEVICE_YOUTUBE_URLS.mycobrain} target="_blank" rel="noopener noreferrer">
+              <a href={DEVICES_HERO_YOUTUBE_URL} target="_blank" rel="noopener noreferrer">
                 <NeuButton variant="primary" className="w-full sm:w-auto gap-2 min-h-[44px]">
                   <Play className="h-5 w-5" />
                   Watch videos
                 </NeuButton>
               </a>
               <Link href="/devices/mycobrain">
-                <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px]">
+                <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px] devices-hero-mycobrain-btn">
                   <Brain className="h-5 w-5" />
                   MycoBrain
-                </NeuButton>
-              </Link>
-              <Link href="/devices/specifications">
-                <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px]">
-                  Specifications
-                  <ChevronRight className="h-5 w-5" />
                 </NeuButton>
               </Link>
             </div>
@@ -450,7 +439,7 @@ export function DevicesPortal() {
       </div>
 
       {/* ── DESKTOP: 5-column card grid ── */}
-      <section className="hidden md:block py-16 bg-muted/30">
+      <section className="hidden md:block py-16 bg-muted/30 dark:bg-black">
         <div className="container px-4 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
             {devices.map((device, index) => (
@@ -588,7 +577,7 @@ export function DevicesPortal() {
 
       {/* ── MOBILE: Device detail — shown below the sticky tab strip ── */}
       {/* ref={detailRef} so selecting a device auto-scrolls here */}
-      <section ref={detailRef} className="md:hidden bg-muted/30 pb-8">
+      <section ref={detailRef} className="md:hidden bg-muted/30 pb-8 dark:bg-black">
         <motion.div
           key={`mobile-${selectedDevice.id}`}
           initial={{ opacity: 0, y: 10 }}
@@ -674,14 +663,32 @@ export function DevicesPortal() {
       </section>
 
       {/* Applications Section */}
-      <section className="py-24">
-        <div className="container px-4 max-w-7xl mx-auto">
+      <section className="devices-nature-first relative overflow-hidden py-24 text-white" data-over-video>
+        <img
+          src="/assets/devices/deviceallwhite.jpg"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover dark:hidden"
+          loading="lazy"
+          decoding="async"
+        />
+        <img
+          src="/assets/devices/devicesall.jpg"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover dark:block"
+          loading="lazy"
+          decoding="async"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-black/32 dark:bg-black/45" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/48 via-black/14 to-black/50 dark:from-black/65 dark:via-black/28 dark:to-black/65" aria-hidden="true" />
+        <div className="container relative z-10 px-4 max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Nature First Technology</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 border-white/30 bg-white/15 text-white">Nature First Technology</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Giving Nature a Voice
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-white/82 max-w-2xl mx-auto">
               Our devices put technology in nature 24/7, collecting live data
               and providing early warning detection capabilities to everyone on the planet.
             </p>
@@ -710,13 +717,13 @@ export function DevicesPortal() {
                 description: "Alert systems that protect before threats become visible"
               }
             ].map((app) => (
-              <NeuCard key={app.title} className="text-center transition-colors">
+              <NeuCard key={app.title} className="text-center transition-colors border-white/25 bg-white/12 text-white">
                 <NeuCardContent className="pt-8">
-                  <div className="inline-flex p-4 rounded-xl bg-primary/10 mb-4">
-                    <app.icon className="h-8 w-8 text-primary" />
+                  <div className="inline-flex p-4 rounded-xl bg-white/15 mb-4">
+                    <app.icon className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="font-semibold mb-2">{app.title}</h3>
-                  <p className="text-sm text-muted-foreground">{app.description}</p>
+                  <p className="text-sm text-white/78">{app.description}</p>
                 </NeuCardContent>
               </NeuCard>
             ))}
@@ -792,7 +799,7 @@ export function DevicesPortal() {
         </div>
       </section>
 
-      <section className="relative min-h-[72vh] overflow-hidden border-b border-border/60 bg-black text-white">
+      <section className="devices-mycobrain-action relative min-h-[72vh] overflow-hidden border-b border-border/60 bg-black text-white">
         <InstantHeroVideo
           mp4Src={MYCOBRAIN_ACTION_VIDEO.mp4}
           youtubeId={MYCOBRAIN_ACTION_VIDEO.youtube}
@@ -840,8 +847,10 @@ export function DevicesPortal() {
       </section>
 
       {/* Support & Services */}
-      <section className="py-24">
-        <div className="container px-4 max-w-6xl mx-auto">
+      <section className="devices-support-circuit relative overflow-hidden py-24 bg-white dark:bg-black">
+        <CircuitLinesBackground />
+        <div className="absolute inset-0 bg-white/68 dark:bg-black/62" aria-hidden="true" />
+        <div className="container relative z-10 px-4 max-w-6xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {[
               {
@@ -875,33 +884,42 @@ export function DevicesPortal() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-b from-muted/30 to-background">
-        <div className="container max-w-7xl mx-auto px-4">
+      <section className="devices-footer-cta relative overflow-hidden py-24 bg-gradient-to-b from-muted/30 to-background text-white dark:bg-black" data-over-video>
+        <AutoplayVideo
+          src="/assets/devices/devices-footer-motion.mp4"
+          sources={["/assets/devices/devices-footer-motion.mp4"]}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+          style={{ filter: "brightness(0.72) contrast(1.06)" }}
+          encodeSrc
+        />
+        <div className="absolute inset-0 z-[1] bg-black/48" aria-hidden="true" />
+        <div className="absolute inset-0 z-[1] bg-gradient-to-b from-black/72 via-black/30 to-black/78" aria-hidden="true" />
+        <div className="container relative z-10 max-w-7xl mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.9)]">
               Start Monitoring Today
             </h2>
-            <p className="text-xl text-muted-foreground mb-8">
+            <p className="text-xl text-white/82 mb-8">
               Whether you&apos;re a researcher, conservationist, farmer, or technologist -
               our devices help you understand the environment like never before.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/devices/mushroom-1">
-                <NeuButton variant="primary" className="text-lg px-8 gap-2">
+                <NeuButton variant="primary" className="text-lg px-8 gap-2 text-white">
                   Get Mushroom 1
                   <ArrowRight className="h-5 w-5" />
                 </NeuButton>
               </Link>
               <Link href="/natureos">
-                <NeuButton variant="default" className="text-lg px-8">
+                <NeuButton variant="default" className="devices-footer-natureos-btn text-lg px-8 text-white">
                   Explore NatureOS
                 </NeuButton>
               </Link>
             </div>
 
-            <div className="mt-12 pt-12 border-t">
-              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+            <div className="mt-12 pt-12 border-t-0">
+              <div className="flex flex-wrap justify-center gap-8 text-sm text-white/72">
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4" />
                   <span>Worldwide Shipping</span>
@@ -919,29 +937,202 @@ export function DevicesPortal() {
           </div>
         </div>
       </section>
+      <style jsx global>{`
+        .devices-glass-page .portal-hero-badge {
+          color: #fff !important;
+          border-color: rgba(255, 255, 255, 0.34) !important;
+          background: rgba(255, 255, 255, 0.18) !important;
+          text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+        }
+
+        .devices-glass-page .devices-hero,
+        .devices-glass-page .devices-hero * {
+          border-top-color: transparent !important;
+          border-bottom-color: transparent !important;
+        }
+
+        .devices-glass-page .devices-hero::before,
+        .devices-glass-page .devices-hero::after,
+        .devices-glass-page .devices-hero > div::before,
+        .devices-glass-page .devices-hero > div::after {
+          content: none !important;
+          display: none !important;
+        }
+
+        .devices-glass-page .devices-hero .neu-btn::before,
+        .devices-glass-page .devices-hero .neu-btn::after,
+        .devices-glass-page .devices-hero [class*="rounded-xl"][class*="border"]::before,
+        .devices-glass-page .devices-hero [class*="rounded-xl"][class*="border"]::after,
+        .devices-glass-page .devices-hero [class*="rounded-2xl"][class*="border"]::before,
+        .devices-glass-page .devices-hero [class*="rounded-2xl"][class*="border"]::after,
+        .devices-glass-page .devices-hero [class*="rounded-3xl"][class*="border"]::before,
+        .devices-glass-page .devices-hero [class*="rounded-3xl"][class*="border"]::after {
+          content: none !important;
+          display: none !important;
+        }
+
+        .devices-glass-page .devices-hero-title-text {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          background: none !important;
+          text-shadow:
+            -2px -2px 0 rgba(0, 0, 0, 0.86),
+            2px -2px 0 rgba(0, 0, 0, 0.86),
+            -2px 2px 0 rgba(0, 0, 0, 0.86),
+            2px 2px 0 rgba(0, 0, 0, 0.86),
+            0 12px 32px rgba(0, 0, 0, 0.72);
+        }
+
+        .devices-glass-page .portal-hero-subtitle {
+          color: #fff !important;
+          text-shadow:
+            0 2px 8px rgba(0, 0, 0, 0.92),
+            0 8px 28px rgba(0, 0, 0, 0.7);
+        }
+
+        .devices-glass-page .devices-footer-cta,
+        .devices-glass-page .devices-footer-cta h2,
+        .devices-glass-page .devices-footer-cta p,
+        .devices-glass-page .devices-footer-cta span,
+        .devices-glass-page .devices-footer-cta svg {
+          color: #fff !important;
+          text-shadow: 0 3px 16px rgba(0, 0, 0, 0.82);
+        }
+
+        .devices-glass-page .devices-footer-cta .text-white\\/72,
+        .devices-glass-page .devices-footer-cta .text-white\\/82 {
+          color: rgba(255, 255, 255, 0.88) !important;
+        }
+
+        .devices-glass-page .devices-footer-cta .devices-footer-natureos-btn,
+        .devices-glass-page .devices-footer-cta .devices-footer-natureos-btn *,
+        .devices-glass-page .devices-footer-cta .devices-footer-natureos-btn svg {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          text-shadow: 0 2px 12px rgba(0, 0, 0, 0.78);
+        }
+
+        .devices-glass-page .devices-mycobrain-action,
+        .devices-glass-page .devices-mycobrain-action h2,
+        .devices-glass-page .devices-mycobrain-action h3,
+        .devices-glass-page .devices-mycobrain-action p,
+        .devices-glass-page .devices-mycobrain-action span,
+        .devices-glass-page .devices-mycobrain-action div,
+        .devices-glass-page .devices-mycobrain-action svg {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          text-shadow: 0 3px 16px rgba(0, 0, 0, 0.86);
+        }
+
+        .devices-glass-page .devices-nature-first,
+        .devices-glass-page .devices-nature-first h2,
+        .devices-glass-page .devices-nature-first h3,
+        .devices-glass-page .devices-nature-first p,
+        .devices-glass-page .devices-nature-first span,
+        .devices-glass-page .devices-nature-first svg,
+        .devices-glass-page .devices-nature-first .neu-raised,
+        .devices-glass-page .devices-nature-first .neu-raised *,
+        .devices-glass-page .devices-nature-first .neu-raised-sm,
+        .devices-glass-page .devices-nature-first .neu-raised-sm *,
+        .devices-glass-page .devices-nature-first [class*="rounded-xl"][class*="border"],
+        .devices-glass-page .devices-nature-first [class*="rounded-xl"][class*="border"] *,
+        .devices-glass-page .devices-nature-first [class*="rounded-2xl"][class*="border"],
+        .devices-glass-page .devices-nature-first [class*="rounded-2xl"][class*="border"] *,
+        .devices-glass-page .devices-nature-first [class*="rounded-3xl"][class*="border"],
+        .devices-glass-page .devices-nature-first [class*="rounded-3xl"][class*="border"] * {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          text-shadow: 0 3px 16px rgba(0, 0, 0, 0.82);
+        }
+
+        .devices-glass-page .devices-nature-first .text-white\\/78,
+        .devices-glass-page .devices-nature-first .text-white\\/82 {
+          color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        .devices-glass-page .neu-raised,
+        .devices-glass-page .neu-raised-sm,
+        .devices-glass-page .neu-btn,
+        .devices-glass-page [class*="rounded-xl"][class*="border"],
+        .devices-glass-page [class*="rounded-2xl"][class*="border"],
+        .devices-glass-page [class*="rounded-3xl"][class*="border"] {
+          position: relative;
+          overflow: hidden;
+          border-color: rgba(255, 255, 255, 0.32) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08) 42%, rgba(255, 255, 255, 0.035)) !important;
+          box-shadow:
+            0 18px 52px rgba(0, 0, 0, 0.28),
+            0 7px 18px rgba(255, 255, 255, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.58),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.07) !important;
+          backdrop-filter: blur(18px) saturate(1.22);
+          -webkit-backdrop-filter: blur(18px) saturate(1.22);
+        }
+
+        .devices-glass-page .neu-btn {
+          color: #111827 !important;
+        }
+
+        .devices-glass-page .devices-hero-mycobrain-btn {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+        }
+
+        .devices-glass-page .devices-hero-mycobrain-btn *,
+        .devices-glass-page .devices-hero-mycobrain-btn svg {
+          color: #fff !important;
+          -webkit-text-fill-color: #fff !important;
+          stroke: currentColor !important;
+        }
+
+        .dark .devices-glass-page .neu-btn,
+        .devices-glass-page [data-over-video] .neu-btn,
+        .devices-glass-page section.text-white .neu-btn {
+          color: #fff !important;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+        }
+
+        .devices-glass-page .neu-raised::before,
+        .devices-glass-page .neu-raised-sm::before,
+        .devices-glass-page .neu-btn::before,
+        .devices-glass-page [class*="rounded-xl"][class*="border"]::before,
+        .devices-glass-page [class*="rounded-2xl"][class*="border"]::before,
+        .devices-glass-page [class*="rounded-3xl"][class*="border"]::before {
+          content: "";
+          position: absolute;
+          inset: 1px 2px auto;
+          height: 42%;
+          border-radius: inherit;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0));
+          pointer-events: none;
+        }
+
+        .devices-glass-page [data-over-video] .neu-btn::before,
+        .devices-glass-page [data-over-video] [class*="rounded-xl"][class*="border"]::before,
+        .devices-glass-page [data-over-video] [class*="rounded-2xl"][class*="border"]::before,
+        .devices-glass-page [data-over-video] [class*="rounded-3xl"][class*="border"]::before {
+          display: none !important;
+        }
+
+        .devices-glass-page .neu-btn:hover,
+        .devices-glass-page .neu-raised:hover,
+        .devices-glass-page .neu-raised-sm:hover,
+        .devices-glass-page [class*="rounded-xl"][class*="border"]:hover,
+        .devices-glass-page [class*="rounded-2xl"][class*="border"]:hover,
+        .devices-glass-page [class*="rounded-3xl"][class*="border"]:hover {
+          border-color: rgba(255, 255, 255, 0.52) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.11) 42%, rgba(255, 255, 255, 0.045)) !important;
+          box-shadow:
+            0 24px 64px rgba(0, 0, 0, 0.34),
+            0 9px 24px rgba(255, 255, 255, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.75),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.09) !important;
+        }
+      `}</style>
     </div>
     </NeuromorphicProvider>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

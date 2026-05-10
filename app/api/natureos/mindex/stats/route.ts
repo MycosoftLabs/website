@@ -30,6 +30,42 @@ interface MindexStats {
   data_source: "live" | "cached" | "unavailable"
 }
 
+async function fetchJson(url: string) {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(10000),
+    cache: "no-store",
+    headers: {
+      "Accept": "application/json",
+      "User-Agent": "Mycosoft-NatureOS/1.0",
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`${url}: HTTP ${response.status}`)
+  }
+  return response.json()
+}
+
+async function fetchAuthorityTotals(): Promise<Partial<MindexStats>> {
+  const [taxa, observations, geoObservations, imageObservations] = await Promise.all([
+    fetchJson("https://api.inaturalist.org/v1/taxa?rank=species&per_page=1"),
+    fetchJson("https://api.inaturalist.org/v1/observations?per_page=1"),
+    fetchJson("https://api.inaturalist.org/v1/observations?per_page=1&geo=true"),
+    fetchJson("https://api.inaturalist.org/v1/observations?per_page=1&photos=true&geo=true"),
+  ])
+
+  return {
+    total_taxa: Number(taxa.total_results || 0),
+    total_observations: Number(observations.total_results || 0),
+    observations_with_location: Number(geoObservations.total_results || 0),
+    observations_with_images: Number(imageObservations.total_results || 0),
+    taxa_with_observations: Number(taxa.total_results || 0),
+    taxa_by_source: { inaturalist: Number(taxa.total_results || 0) },
+    observations_by_source: { inaturalist: Number(observations.total_results || 0) },
+    etl_status: "idle",
+    data_source: "live",
+  }
+}
+
 export async function GET() {
   const mindexUrl = env.mindexApiBaseUrl
   const apiKey = env.mindexApiKey || "local-dev-key"
@@ -134,7 +170,18 @@ export async function GET() {
       }
     }
 
-    stats.data_source = hasValidData ? "live" : "unavailable"
+    if (stats.total_taxa === 0 && stats.total_observations === 0) {
+      try {
+        stats = {
+          ...stats,
+          ...(await fetchAuthorityTotals()),
+        }
+      } catch (fallbackError) {
+        console.error("Failed to fetch authority totals:", fallbackError)
+      }
+    }
+
+    stats.data_source = hasValidData || stats.total_taxa > 0 || stats.total_observations > 0 ? "live" : "unavailable"
     stats.last_updated = new Date().toISOString()
 
     return NextResponse.json(stats)

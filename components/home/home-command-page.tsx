@@ -93,6 +93,16 @@ const TILES: HomeTile[] = [
     span: 2,
   },
   {
+    title: "NatureOS",
+    eyebrow: "Earth Intelligence",
+    href: "/natureos",
+    description: "Workflows, live environmental data, ecological operations, and Earth-scale intelligence.",
+    video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
+    poster: HOME_HERO_POSTER,
+    icon: Globe2,
+    span: 2,
+  },
+  {
     title: "Earth Simulator",
     eyebrow: "CREP Core",
     href: "/natureos/earth-simulator",
@@ -110,16 +120,6 @@ const TILES: HomeTile[] = [
     sources: ["/assets/homepage/tiles/mycobrain-tile-1080-2026.mp4"],
     poster: "/assets/devices/mycobrainjetson-black.jpg",
     icon: Sparkles,
-  },
-  {
-    title: "NatureOS",
-    eyebrow: "Earth Intelligence",
-    href: "/natureos",
-    description: "Workflows, live environmental data, ecological operations, and Earth-scale intelligence.",
-    video: "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
-    poster: HOME_HERO_POSTER,
-    icon: Globe2,
-    span: 2,
   },
 ]
 
@@ -182,8 +182,7 @@ export function HomeCommandPage() {
               encodeSrc
             />
           ) : null}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,0.20),transparent_34%),radial-gradient(circle_at_80%_70%,rgba(150,0,0,0.28),transparent_30%)]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70" />
         </div>
 
         <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-3rem)] max-w-7xl flex-col justify-center px-4 py-20 sm:px-6 lg:px-8">

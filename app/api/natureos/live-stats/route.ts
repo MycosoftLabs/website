@@ -22,6 +22,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url";
 
 interface KingdomStats {
   total: number;
@@ -358,6 +359,12 @@ const ENVIRONMENTAL_BASELINES = {
  * to give realistic small increments without inflating numbers incorrectly.
  */
 function simulateGrowth(base: number, deltaPerHour: number): { current: number; delta: number } {
+  void deltaPerHour;
+  return {
+    current: base,
+    delta: 0,
+  };
+
   // Use a reference date (Jan 1, 2026) to calculate growth from a known baseline
   const referenceDate = new Date("2026-01-01T00:00:00Z").getTime();
   const now = Date.now();
@@ -397,7 +404,7 @@ function buildKingdomStats(
   const imgGrowth = simulateGrowth(imgTotal, deltas.images);
 
   // Environmental metrics with slight variations
-  const envRandomFactor = 0.95 + Math.random() * 0.1; // 95% to 105%
+  const envRandomFactor = 1;
   const co2Current = Math.floor(envBaseline.co2 * envRandomFactor);
   const methaneCurrentRaw = envBaseline.methane * envRandomFactor;
   const methaneCurrent = methaneCurrentRaw < 1 ? parseFloat(methaneCurrentRaw.toFixed(1)) : Math.floor(methaneCurrentRaw);
@@ -441,15 +448,82 @@ function buildKingdomStats(
       co2: co2Current,
       methane: methaneCurrent,
       water: waterCurrent,
-      co2Delta: Math.floor(envBaseline.deltas.co2 * envRandomFactor),
-      methaneDelta: parseFloat((envBaseline.deltas.methane * envRandomFactor).toFixed(1)),
-      waterDelta: Math.floor(envBaseline.deltas.water * envRandomFactor),
+      co2Delta: 0,
+      methaneDelta: 0,
+      waterDelta: 0,
     },
+  };
+}
+
+const OPERATOR_DEVICE_URLS = (
+  process.env.MYCOBRAIN_OPERATOR_URLS || "http://192.168.0.228:8787,http://192.168.0.123:8787"
+)
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
+async function fetchDeviceStats() {
+  const operatorStats = await fetchOperatorDeviceStats();
+
+  try {
+    const res = await fetch(`${resolveMycoBrainServiceUrl()}/devices`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error(`MycoBrain devices returned ${res.status}`);
+
+    const data = await res.json();
+    const devices = Array.isArray(data.devices) ? data.devices : [];
+
+    return {
+      registered: Number(data.count ?? devices.length ?? 0) + operatorStats.registered,
+      online: devices.filter((device: { online?: boolean; status?: string }) =>
+        device.online === true || ["online", "connected", "streaming"].includes(String(device.status ?? "").toLowerCase())
+      ).length + operatorStats.online,
+      streaming: devices.filter((device: { streaming?: boolean; telemetry_streaming?: boolean; status?: string }) =>
+        device.streaming === true || device.telemetry_streaming === true || String(device.status ?? "").toLowerCase() === "streaming"
+      ).length + operatorStats.streaming,
+    };
+  } catch {
+    return operatorStats;
+  }
+}
+
+async function fetchOperatorDeviceStats() {
+  const statuses = await Promise.all(
+    OPERATOR_DEVICE_URLS.map(async (baseUrl) => {
+      try {
+        const res = await fetch(`${baseUrl}/api/status`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(5000),
+        });
+        return res.ok ? await res.json() : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const liveStatuses = statuses.filter(Boolean);
+  if (!liveStatuses.length) {
+    return {
+      registered: 0,
+      online: 0,
+      streaming: 0,
+    };
+  }
+
+  return {
+    registered: liveStatuses.length,
+    online: liveStatuses.filter((status) => status.serialConnected === true).length,
+    streaming: liveStatuses.filter((status) => status.lastSensorReading || status.lastHeartbeat).length,
   };
 }
 
 export async function GET() {
   try {
+    const deviceStats = await fetchDeviceStats();
     const fungi = buildKingdomStats(
       BASELINE_STATS.fungi.species,
       BASELINE_STATS.fungi.observations,
@@ -555,9 +629,9 @@ export async function GET() {
       bacteria,
       archaea,
       devices: {
-        registered: 1,
-        online: 1,
-        streaming: 0,
+        registered: deviceStats.registered,
+        online: deviceStats.online,
+        streaming: deviceStats.streaming,
       },
       totals: {
         allSpecies,

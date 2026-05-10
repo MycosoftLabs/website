@@ -51,9 +51,10 @@ function stepParticle(p: Particle, w: number, h: number) {
 
 interface Props {
   className?: string
+  variant?: "auto" | "light" | "dark"
 }
 
-export function ParticleCanvas({ className }: Props) {
+export function ParticleCanvas({ className, variant = "dark" }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -67,6 +68,12 @@ export function ParticleCanvas({ className }: Props) {
     let particles: Particle[] = []
     let W = 0
     let H = 0
+    let lastDark = document.documentElement.classList.contains("dark")
+
+    function particleFill() {
+      const isDark = variant === "auto" ? document.documentElement.classList.contains("dark") : variant === "dark"
+      return isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.045)"
+    }
 
     function spawn() {
       particles = []
@@ -85,10 +92,17 @@ export function ParticleCanvas({ className }: Props) {
 
     function loop() {
       if (!running) return
+      const nextDark = document.documentElement.classList.contains("dark")
+      if (variant === "auto" && nextDark !== lastDark) {
+        lastDark = nextDark
+        ctx.clearRect(0, 0, W, H)
+        spawn()
+      }
+      const fillStyle = particleFill()
       for (const p of particles) {
         stepParticle(p, W, H)
         ctx.beginPath()
-        ctx.fillStyle = "rgba(255,255,255,0.04)"
+        ctx.fillStyle = fillStyle
         ctx.arc(p.x, p.y, 1, 0, Math.PI * 2)
         ctx.fill()
       }
@@ -127,7 +141,7 @@ export function ParticleCanvas({ className }: Props) {
       io.disconnect()
       ro.disconnect()
     }
-  }, [])
+  }, [variant])
 
   return (
     <canvas

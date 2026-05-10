@@ -115,7 +115,7 @@ const navSections: NavSection[] = [
     key: "infrastructure",
     defaultOpen: false,
     items: [
-      { title: "Device Network", href: "/natureos/devices", icon: Network, companyOnly: true },
+      { title: "Device Network", href: "/natureos/devices", icon: Network },
       { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
       { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },

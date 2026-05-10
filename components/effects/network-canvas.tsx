@@ -249,14 +249,14 @@ export function NetworkCanvas({
 
     const isDark = resolvedTheme === "dark"
 
-    const bgColor = isDark ? "#374151" : "#C5CFC6"
+    const bgColor = isDark ? "#000000" : "#C5CFC6"
 
     const nodeGradientColors = isDark
       ? {
-          inner: "#1e293b",
-          mid: "#1e293b",
+          inner: "#ecfdf5",
+          mid: "#34d399",
           midOut: "#10b981",
-          midOutAlt: "#10b981",
+          midOutAlt: "#6ee7b7",
           outer: "#064e3b",
         }
       : {
@@ -269,10 +269,10 @@ export function NetworkCanvas({
 
     const edgeGradientColors = isDark
       ? {
-          start: "#10b981",
-          mid: "#059669",
+          start: "#d1fae5",
+          mid: "#34d399",
           midOut: "#10b981",
-          end: "#064e3b",
+          end: "#047857",
         }
       : {
           start: "#F8EDD1",

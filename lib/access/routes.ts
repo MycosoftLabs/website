@@ -21,6 +21,8 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/login', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Login page' },
   { path: '/signup', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Signup page' },
   { path: '/preview', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Preview page' },
+  { path: '/apps', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Apps hub' },
+  { path: '/apps/[slug]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'App page' },
   { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
   { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
   { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
@@ -33,6 +35,17 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
   { path: '/natureos/fusarium', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM' },
   { path: '/natureos/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator (NatureOS)' },
+  { path: '/natureos/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Network' },
+  { path: '/natureos/devices/registry', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Registry' },
+  { path: '/natureos/devices/telemetry', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Telemetry' },
+  { path: '/natureos/devices/alerts', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Alerts' },
+  { path: '/natureos/devices/map', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Map' },
+  { path: '/natureos/devices/fleet', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Fleet' },
+  { path: '/natureos/devices/insights', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Insights' },
+  { path: '/natureos/devices/network', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device Network Map' },
+  { path: '/natureos/devices/onsite-ai', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'On-Site AI' },
+  { path: '/natureos/settings', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'System Settings' },
+  { path: '/natureos/api', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'API Explorer' },
   { path: '/dashboard/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard (public)' },
   { path: '/natureos/model-training', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Model Training' },
   { path: '/defense', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Defense' },
@@ -127,7 +140,6 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
 export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/profile', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'User profile' },
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
-  { path: '/apps', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Apps hub' },
   { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
   { path: '/billing', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Billing' },
 ]
@@ -135,7 +147,6 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
 // Company routes - require @mycosoft.org or @mycosoft.com email
 // All NatureOS Infrastructure section routes
 export const COMPANY_ROUTES: RouteAccess[] = [
-  { path: '/natureos/devices', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Device Network' },
   { path: '/natureos/mycobrain', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MycoBrain Console' },
   { path: '/natureos/sporebase', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'SporeBase Monitor' },
   { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
@@ -198,16 +209,6 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
     },
     description: 'Developer SDK'
   },
-  {
-    path: '/natureos/api',
-    gate: AccessGate.PREMIUM,
-    config: {
-      gate: AccessGate.PREMIUM,
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.PRO
-    },
-    description: 'API Explorer'
-  },
 ]
 
 // Ethics Training routes (Morgan + Michelle only; checked in layout)
@@ -240,7 +241,6 @@ export const ADMIN_ROUTES: RouteAccess[] = [
   { path: '/security/compliance', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Compliance' },
   { path: '/security/fcl', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'FCL Tracking' },
   { path: '/security/forms', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Forms' },
-  { path: '/natureos/devices/network', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Network' },
   { path: '/natureos/mas', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'MAS' },
   { path: '/natureos/workflows', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Workflows' },
   { path: '/natureos/functions', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Functions' },
@@ -250,7 +250,6 @@ export const ADMIN_ROUTES: RouteAccess[] = [
 
 // Super Admin routes (Morgan only)
 export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
-  { path: '/natureos/settings', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Settings' },
   // model-training moved to PUBLIC_ROUTES to disable gating for integration
   // { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
   // containers and monitoring moved to COMPANY_ROUTES (infrastructure gate)

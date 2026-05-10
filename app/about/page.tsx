@@ -17,6 +17,7 @@ import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
 import { PUBLIC_TOOL_HREFS } from "@/lib/nav-public-tools"
 import { DEVICES } from "@/lib/devices"
 import { COMPANY_TAGLINE_LINES } from "@/lib/company-tagline"
+import { DataGlobe } from "@/components/about/data-globe"
 import {
   ArrowRight,
   Bot,
@@ -49,13 +50,16 @@ const ABOUT_HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(ABOUT_HER
 const CLOSING_VIDEO_SRC = "/assets/about us/10343918-hd_1920_1080_24fps.mp4"
 const CLOSING_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(CLOSING_VIDEO_SRC))
 
+const SENSING_VIDEO_SRC = "/assets/about/sensing-mycelium-lipids.mp4"
+const SENSING_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SENSING_VIDEO_SRC))
+
 // Full-stack architecture — aligned with Data Sensor Network Strategy (2026)
 const architectureLayers = [
   {
     id: "hardware",
     icon: Cpu,
-    title: "Hardware",
-    subtitle: "Data sensors",
+    title: "Sensing",
+    subtitle: "Data sensors + Fungi Compute",
     description:
       "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an AI execution environment — autonomous intelligence nodes, not IoT gadgets.",
     links: [
@@ -67,10 +71,13 @@ const architectureLayers = [
     id: "networking",
     icon: Network,
     title: "Networking",
-    subtitle: "Mycorrhizae Protocol",
+    subtitle: "DirtNet / MDP / Mycorrhizae",
     description:
       "Mesh networking and radio protocol inspired by biological networks, engineered for resilience and decentralisation — LoRa, LTE, and device-to-device paths for environmental data routing and real-time intelligence flow.",
-    links: [{ label: "Mycorrhizae", href: "/protocols/mycorrhizae" }],
+    links: [
+      { label: "DirtNet", href: "/dirtnet" },
+      { label: "Mycorrhizae", href: "/protocols/mycorrhizae" },
+    ],
   },
   {
     id: "data",
@@ -117,6 +124,7 @@ const organizationEntities = [
     id: "inc",
     icon: Building2,
     name: "Mycosoft Inc.",
+    backgroundImage: "/assets/about/mycosoft-logo-black-bg.png",
     summary:
       "Governance, holding, and cross-cutting strategy — capital allocation, board-level programs, and initiatives that span defense, research, and commercial rails under one mission.",
   },
@@ -124,6 +132,7 @@ const organizationEntities = [
     id: "llc",
     icon: Briefcase,
     name: "Mycosoft LLC",
+    backgroundImage: "/assets/about/mycosoft-logo-white-bg.png",
     summary:
       "Operating company for engineering, contracts, sales, and delivery — where hardware programs, software releases, and customer engagements are executed day to day.",
   },
@@ -131,6 +140,7 @@ const organizationEntities = [
     id: "dao",
     icon: Coins,
     name: "MycoDAO",
+    backgroundImage: "/assets/about/mycodao-red-cap-logo.png",
     summary:
       "Ecological and community-aligned layer — participatory funding, restoration and science-adjacent programs, and mission work that extends beyond classic corporate boundaries.",
     href: "https://mycodao.com",
@@ -140,6 +150,7 @@ const organizationEntities = [
     id: "affiliated",
     icon: Network,
     name: "Subsidiaries & partners",
+    backgroundImage: "/assets/about/myca-green-m-logo.jpg",
     summary:
       "Joint ventures, affiliated labs, and specialist entities plug into the same orchestration fabric — shared telemetry, governance (AVANI), and MYCA tasking across organizational lines.",
   },
@@ -151,6 +162,7 @@ const organizationAudiences = [
     id: "defense",
     icon: Shield,
     title: "Defense & security partners",
+    backgroundImage: "/assets/about/serve-defense.png",
     description:
       "Classified-adjacent discipline, FUSARIUM-grade workflows, OEI and CREP integrations — governed intelligence from sensor to admissible artifact.",
     href: "/defense/fusarium",
@@ -159,6 +171,7 @@ const organizationAudiences = [
     id: "science",
     icon: FlaskConical,
     title: "Scientists & institutions",
+    backgroundImage: "/assets/about/serve-science.jpg",
     description:
       "Ground-truth field biology, climate and biodiversity programs, and reproducible pipelines — MINDEX-backed context and sensor-native datasets.",
     href: "/science",
@@ -167,6 +180,7 @@ const organizationAudiences = [
     id: "agents",
     icon: Bot,
     title: "Builders & autonomous agents",
+    backgroundImage: "/assets/about/serve-agent.webp",
     description:
       "Developers and always-on MYCA workloads — skills, APIs, MAS agents, and automated loops that ship code, run checks, and operate infrastructure without waiting on manual queues.",
     href: "/myca",
@@ -175,6 +189,7 @@ const organizationAudiences = [
     id: "civil",
     icon: Globe,
     title: "Civil & enterprise platforms",
+    backgroundImage: "/assets/about/serve-society.jpg",
     description:
       "NatureOS operators, fleets, NGOs, and enterprise environmental programs — dashboards, APIs, and governed automation at civilian scale.",
     href: "/natureos",
@@ -220,34 +235,67 @@ const applicationCategories = [
     icon: Server,
     apps: [
       { name: "NatureOS", description: "Cloud OS for environmental intelligence", href: "/natureos" },
-      { name: "MINDEX", description: "Global fungal species intelligence database", href: "/search" },
-      { name: "AI Studio", description: "MYCA agent orchestration & model training", href: "/natureos/ai-studio" },
+      { name: "FUSARIUM", description: "Defense-grade environmental intelligence platform", href: "/defense/fusarium" },
+      { name: "MINDEX", description: "Nature data memory and sensing catalog", href: "/natureos/mindex" },
     ],
   },
   {
     title: "Intelligence",
     icon: Activity,
     apps: [
-      { name: "OEI Dashboard", description: "Operational environmental threat intelligence", href: "/defense/oei" },
-      { name: "CREP", description: "Continuous real-time environmental perception", href: "/crep" },
-      { name: "FUSARIUM", description: "Integrated defense & biosecurity system", href: "/defense/fusarium" },
+      { name: "Nature Learning Models", description: "NLMs trained from real-world environmental signals", href: "/myca/nlm" },
+      { name: "Multi Agent System", description: "MYCA agent orchestration across tools and missions", href: "/myca" },
+      { name: "Operating Environmental Intelligence", description: "OEI workflows for governed field intelligence", href: "/defense/oei" },
     ],
   },
   {
     title: "Science",
     icon: FileCode,
     apps: [
-      { name: "Fungi Compute", description: "Biological computing visualization", href: "/natureos/fungi-compute" },
-      { name: "Mycorrhizae Protocol", description: "Device telemetry & sensor mesh standard", href: "/protocols/mycorrhizae" },
       { name: "Earth Simulator", description: "Climate and ecosystem simulation", href: PUBLIC_TOOL_HREFS.earthSimulator },
+      { name: "Fungi Compute", description: "Biological computing and FCI systems", href: "/sensing/fungi-compute-fci" },
+      { name: "Aerosol", description: "Bioaerosol, particle, and atmospheric sensing workflows", href: "/natureos/aerosol" },
     ],
+  },
+]
+
+const sensingPackages = [
+  {
+    name: "Fungi Compute + FCI",
+    href: "/sensing/fungi-compute-fci",
+    description:
+      "Fungal Computer Interface probes and fungi compute systems bring bioelectric, biological, soil-contact, and mycelium-network signals into the same edge sensing fabric as conventional sensors.",
+  },
+  {
+    name: "MINDEX",
+    href: "/natureos/mindex",
+    description:
+      "The Mycosoft Nature Index catalogs accumulated nature data so sensing becomes defined, searchable, reusable, and operational across devices, NatureOS, MYCA, and field missions.",
+  },
+  {
+    name: "BlueSight",
+    href: "/sensing/bluesight",
+    description:
+      "Blue-light fungal sensing and spatial intelligence combine fungal optical response, LiDAR, radar, WiFiSense, 8K 360 cameras, and 4K directional cameras for biological and field perception.",
+  },
+  {
+    name: "SINE",
+    href: "/sensing/sine",
+    description:
+      "Acoustic sensing with hydrophones, transducers, MEMS microphones, and acoustic communication protocols for marine life, birds, propellers, explosions, human sounds, and audio intelligence trained against vast libraries of recorded sounds.",
+  },
+  {
+    name: "GANDHA",
+    href: "/sensing/gandha",
+    description:
+      "Smell and gas detection for VOCs, VSCs, BME690, BME688, BME680, Bosch smell-blob training workflows, and BMV080 particle counters for air chemistry and particulate intelligence.",
   },
 ]
 
 export default function AboutPage() {
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh">
+    <div className="about-glass-page min-h-dvh">
       {/* Hero — locked NAS MP4 background */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
         {ABOUT_HERO_VIDEO_SOURCES[0] ? (
@@ -265,12 +313,15 @@ export default function AboutPage() {
 
         {/* Content */}
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">
-          <NeuBadge variant="success" className="mb-6">
+          <NeuBadge
+            variant="default"
+            className="relative mb-6 overflow-hidden border border-white/35 bg-white/10 px-4 py-1.5 text-white shadow-[0_18px_50px_rgba(255,255,255,0.20),inset_0_1px_0_rgba(255,255,255,0.55),inset_0_-18px_35px_rgba(255,255,255,0.08)] backdrop-blur-xl before:absolute before:inset-x-2 before:top-0 before:h-px before:bg-white/80 after:absolute after:left-2 after:right-2 after:top-1 after:h-1/2 after:rounded-full after:bg-gradient-to-b after:from-white/35 after:to-transparent"
+          >
             Est. 2021 · San Diego, CA
           </NeuBadge>
 
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            <span className="bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-white via-white/70 to-black bg-clip-text text-transparent">
               {COMPANY_TAGLINE_LINES[0]}
             </span>
             <br />
@@ -285,7 +336,7 @@ export default function AboutPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/devices">
-              <NeuButton variant="success" className="gap-2 min-h-[44px] px-6 py-3">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-emerald-950/20 bg-emerald-950/10 text-emerald-950 backdrop-blur-xl hover:bg-emerald-950/15 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
                 Explore Devices
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
@@ -301,13 +352,15 @@ export default function AboutPage() {
       </section>
 
       {/* The data sensor replaces the data center */}
-      <section className="py-16 md:py-24 border-b border-border/60">
-        <div className="container max-w-4xl mx-auto px-4 md:px-6">
+      <section className="relative overflow-hidden py-16 md:py-24 border-b border-border/60">
+        <div className="absolute inset-0 z-0 bg-[url('/assets/about/mycobrainjetson-white.jpg')] bg-cover bg-center opacity-60 dark:bg-[url('/assets/about/mycobrainjetson-black.jpg')] dark:opacity-80" aria-hidden="true" />
+        <div className="absolute inset-0 z-0 bg-white/58 backdrop-blur-[1px] dark:bg-black/58" aria-hidden="true" />
+        <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-10">
             <NeuBadge variant="default" className="mb-4">Strategy</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">The Data Sensor Replaces the Data Center</h2>
           </div>
-          <div className="space-y-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
+          <div className="mx-auto max-w-4xl space-y-6 rounded-3xl border border-white/35 bg-white/14 p-6 text-base leading-relaxed text-foreground/82 shadow-2xl shadow-black/20 backdrop-blur-xl dark:bg-black/22 dark:text-white/84 sm:text-lg md:p-8">
             <p>
               Data centers were built to store and process information; they are centralized, power-intensive facilities optimized to refine what already exists. They do not generate new truth — they refine old information.
             </p>
@@ -324,35 +377,46 @@ export default function AboutPage() {
       {/* About Mycosoft — Nature Compute Manifesto (theme-aware) */}
       <section
         id="about"
-        className="relative py-16 md:py-24 overflow-hidden bg-gradient-to-b from-emerald-50/70 via-background to-muted/50 dark:from-[#031927] dark:via-[#031927] dark:to-[#020f14] border-y border-border/60 dark:border-transparent"
+        className="relative py-16 md:py-24 overflow-hidden bg-black border-y border-white/10"
       >
+        <DataGlobe className="absolute inset-0 z-0 h-full w-full opacity-100" />
         {/* Particle animation — tuned for dark bg; subtle on light */}
-        <div className="absolute inset-0 pointer-events-none">
-          <ParticleCanvas variant="auto" className="absolute inset-0 w-full h-full" />
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(0,255,190,0.10),transparent_38%),linear-gradient(180deg,rgba(0,0,0,0.28),rgba(0,0,0,0.22))]" />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-background/25 via-transparent to-background/30 dark:from-[#031927]/55 dark:via-transparent dark:to-[#031927]/55 pointer-events-none" />
 
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4 border-border dark:border-white/20 about-mycosoft-badge">
+            <NeuBadge variant="default" className="mb-4 border-white/20 bg-black/45 text-white shadow-2xl shadow-cyan-400/10 about-mycosoft-badge">
               About Mycosoft
             </NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2 text-foreground">Building the Earth Computer</h2>
-            <p className="text-green-700 dark:text-green-400 font-medium text-lg">
+            <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white">Building the Earth Computer</h2>
+            <p className="text-cyan-100/90 font-medium text-lg">
               Turn reality into data — then data into intelligence
             </p>
           </div>
 
           {/* Opening */}
           <div className="max-w-3xl mx-auto mb-16 text-center space-y-5">
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-lg text-white/86 leading-relaxed">
               Mycosoft is building systems that discover information in the world, not only refine what already exists on the internet. Our data sensors observe reality independently; when networked, they produce new ground truth for science, infrastructure, and defense.
             </p>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-lg text-white/86 leading-relaxed">
               We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed AI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
             </p>
           </div>
 
+        </div>
+      </section>
+
+      {/* What We Build */}
+      <section className="relative py-16 md:py-24 overflow-hidden bg-gradient-to-b from-emerald-950/[0.06] via-background to-emerald-950/[0.04] dark:from-[#020806] dark:via-[#06110d] dark:to-[#020806] border-b border-border/60 dark:border-transparent">
+        <div className="absolute inset-0 pointer-events-none">
+          <ParticleCanvas variant="auto" className="absolute inset-0 w-full h-full" />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-transparent to-background/10 dark:from-[#020806]/70 dark:via-transparent dark:to-[#020806]/70 pointer-events-none" />
+
+        <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           {/* What We Build */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 items-center">
 
@@ -373,10 +437,10 @@ export default function AboutPage() {
                 ].map(({ icon: Icon, label, desc }) => (
                   <div
                     key={label}
-                    className="flex gap-3 p-3 rounded-xl border border-border bg-muted/60 backdrop-blur-sm hover:bg-muted hover:border-green-600/35 dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:hover:border-green-500/30 transition-all"
+                    className="flex gap-3 p-3 rounded-xl border border-border bg-muted/60 backdrop-blur-sm hover:bg-muted hover:border-emerald-950/20 dark:border-white/10 dark:bg-black/40 dark:hover:bg-black/60 dark:hover:border-emerald-200/18 transition-all"
                   >
-                    <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-green-600/15 dark:bg-green-500/15">
-                      <Icon className="h-4 w-4 text-green-700 dark:text-green-400" />
+                    <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-emerald-950/[0.07] dark:bg-emerald-200/10">
+                      <Icon className="h-4 w-4 text-emerald-950/80 dark:text-emerald-200/85" />
                     </div>
                     <div>
                       <p className="font-semibold text-sm text-foreground">{label}</p>
@@ -387,9 +451,9 @@ export default function AboutPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border dark:border-white/10">
                 Platforms surface this stack to operators and researchers —{" "}
-                <span className="text-green-700 dark:text-green-400 font-medium">NatureOS</span> for civilian environmental intelligence and{" "}
-                <span className="text-green-700 dark:text-green-400 font-medium">FUSARIUM</span> for defense-grade deployment, alongside{" "}
-                <span className="text-green-700 dark:text-green-400 font-medium">OEI</span> where live CREP and edge sensing meet mission workflows.
+                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">NatureOS</span> for civilian environmental intelligence and{" "}
+                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">FUSARIUM</span> for defense-grade deployment, alongside{" "}
+                <span className="text-emerald-950/80 dark:text-emerald-200/85 font-medium">OEI</span> where live CREP and edge sensing meet mission workflows.
               </p>
             </div>
 
@@ -419,9 +483,9 @@ export default function AboutPage() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="flex items-start gap-2.5 p-3 rounded-xl border border-border bg-muted/40 backdrop-blur-sm hover:bg-muted/70 hover:border-green-600/35 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:border-green-500/30 transition-all"
+                    className="flex items-start gap-2.5 p-3 rounded-xl border border-border bg-muted/40 backdrop-blur-sm hover:bg-muted/70 hover:border-emerald-950/20 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:hover:border-emerald-200/18 transition-all"
                   >
-                    <div className="h-1.5 w-1.5 rounded-full bg-green-600 dark:bg-green-400 mt-1.5 shrink-0" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-950/70 dark:bg-emerald-200/80 mt-1.5 shrink-0" />
                     <p className="text-xs text-muted-foreground leading-relaxed">{item}</p>
                   </div>
                 ))}
@@ -431,9 +495,9 @@ export default function AboutPage() {
 
           {/* Philosophy + Mission */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-xl border border-green-600/25 bg-green-600/5 backdrop-blur-sm dark:border-green-500/30 dark:bg-green-500/5">
+            <div className="p-6 rounded-xl border border-emerald-950/15 bg-emerald-950/[0.04] backdrop-blur-xl dark:border-emerald-200/15 dark:bg-emerald-200/[0.06]">
               <div className="flex items-center gap-2 mb-3">
-                <Leaf className="h-5 w-5 text-green-700 dark:text-green-400" />
+                <Leaf className="h-5 w-5 text-emerald-950/80 dark:text-emerald-200/85" />
                 <h3 className="font-bold text-lg text-foreground">Our Philosophy</h3>
               </div>
               <div className="space-y-3 text-sm text-muted-foreground">
@@ -444,13 +508,13 @@ export default function AboutPage() {
             </div>
             <div className="p-6 rounded-xl border border-border bg-card/70 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
               <div className="flex items-center gap-2 mb-3">
-                <Globe className="h-5 w-5 text-green-700 dark:text-green-400" />
+                <Globe className="h-5 w-5 text-emerald-950/80 dark:text-emerald-200/85" />
                 <h3 className="font-bold text-lg text-foreground">Our Mission</h3>
               </div>
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p>To build the Earth computer by deploying a global network of data sensors that replace outdated center-only thinking. We generate new ground truth, train AI on live environmental data, and unlock a new paradigm of distributed intelligence.</p>
                 <p>This is not only environmental monitoring — it is infrastructure for truth in the biosphere.</p>
-                <p className="text-green-700 dark:text-green-400 font-bold text-base">
+                <p className="text-emerald-950/80 dark:text-emerald-200/85 font-bold text-base">
                   Nature Compute — where the planet is the dataset.
                 </p>
               </div>
@@ -474,19 +538,25 @@ export default function AboutPage() {
             {architectureLayers.map((layer) => (
               <NeuCard key={layer.id} className="p-6 transition-all h-full flex flex-col">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-xl bg-green-500/10">
-                    <layer.icon className="h-6 w-6 text-green-500" />
+                  <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10">
+                    <layer.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/80" />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg leading-tight">{layer.title}</h3>
                     <p className="text-sm text-muted-foreground">{layer.subtitle}</p>
                   </div>
                 </div>
-                <p className="text-muted-foreground text-sm flex-grow mb-4">{layer.description}</p>
+                <p className="text-muted-foreground text-sm flex-grow mb-4">
+                  {layer.id === "hardware"
+                    ? "Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella. Each device is an edge data-center node, a sensor platform, and an AI execution environment - autonomous intelligence nodes, not IoT gadgets."
+                    : layer.id === "networking"
+                      ? "MDP, the Mycosoft Device Protocol, gives MycoBrain devices a field language. DirtNet links MDP, Mycorrhizae Protocol, MycoSpeak, LoRa, LoRaWAN, Meshtastic, LTE, and device-to-device paths for decentralized edge data, inference, and AI."
+                      : layer.description}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {layer.links.map((link) => (
                     <Link key={link.href} href={link.href}>
-                      <NeuButton variant="default" className="p-0 h-auto text-green-500 hover:text-green-400 bg-transparent shadow-none">
+                      <NeuButton variant="default" className="p-0 h-auto text-emerald-950/70 dark:text-emerald-200/80 hover:text-emerald-950 dark:hover:text-emerald-100 bg-transparent shadow-none">
                         {link.label}
                       </NeuButton>
                     </Link>
@@ -499,17 +569,25 @@ export default function AboutPage() {
       </section>
 
       {/* Biological integration */}
-      <section className="py-16 md:py-24 bg-muted/30 border-y border-border/60">
-        <div className="container max-w-4xl mx-auto px-4 md:px-6">
+      <section className="about-sensing-section relative overflow-hidden py-16 md:py-24 border-y border-border/60" data-over-video>
+        <AutoplayVideo
+          src={SENSING_VIDEO_SOURCES[0]}
+          sources={SENSING_VIDEO_SOURCES}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+          encodeSrc
+        />
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-black/42" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_50%_35%,rgba(255,255,255,0.12),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.46))]" aria-hidden="true" />
+        <div className="relative z-10 container max-w-4xl mx-auto px-4 md:px-6">
           <div className="text-center mb-8">
-            <NeuBadge variant="default" className="mb-4">Sensing</NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Biological Integration</h2>
+            <NeuBadge variant="default" className="mb-4 border-white/25 bg-white/12 text-white backdrop-blur-xl">Sensing</NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Biological Integration</h2>
           </div>
-          <NeuCard className="p-6 md:p-8">
-            <p className="text-muted-foreground leading-relaxed mb-4">
+          <NeuCard className="about-sensing-card border border-white/20 bg-black/34 p-6 text-white shadow-2xl shadow-black/35 backdrop-blur-md md:p-8 [&_*]:!text-white">
+            <p className="leading-relaxed text-white mb-4">
               Fungi are not our only focus; they are the <span className="text-foreground font-semibold">missing layer</span>. Mycelium acts as a distributed sensing and signalling network — responding to environmental stimuli and transmitting electrical and chemical signals across ecosystems.
             </p>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="leading-relaxed text-white">
               The same nodes fuse conventional modalities: <span className="text-foreground font-medium">hydrophones</span>,{" "}
               <span className="text-foreground font-medium">radar</span>, <span className="text-foreground font-medium">VOC</span>{" "}
               (volatile organic compound) sensing, <span className="text-foreground font-medium">particle counters</span>,{" "}
@@ -518,42 +596,39 @@ export default function AboutPage() {
               <span className="text-foreground font-medium">temperature and humidity</span>, plus acoustic, optical, thermal, and mechanical channels — and{" "}
               <span className="text-foreground font-semibold">fungal biological interfaces (FCI)</span> as an extra layer. Fungi are not the product or limitation; they expand what sensing can be.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/natureos/fungi-compute">
-                <NeuButton variant="success" className="min-h-[44px]">
-                  Fungi Compute
-                </NeuButton>
-              </Link>
-              <Link href="/devices/mycobrain/integration/fci">
-                <NeuButton variant="default" className="min-h-[44px]">
-                  FCI
-                </NeuButton>
-              </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {sensingPackages.map((item) => (
+                <Link key={item.name} href={item.href}>
+                  <NeuButton variant="default" className="min-h-[44px] border border-white/25 bg-white/12 !text-white backdrop-blur-xl hover:bg-white/18 dark:border-white/25 dark:bg-white/12 dark:!text-white dark:hover:bg-white/18">
+                    {item.name}
+                  </NeuButton>
+                </Link>
+              ))}
             </div>
           </NeuCard>
         </div>
       </section>
 
       {/* Devices Grid — data-over-video: sharper outline in light mode */}
-      <section className="relative py-16 md:py-24 overflow-hidden" style={{ backgroundColor: "#020c06" }} data-over-video>
+      <section className="relative overflow-hidden bg-white py-16 text-black dark:bg-black dark:text-white md:py-24">
         {/* Neural network background — lazy starts on scroll */}
         <NeuralNetworkCanvas className="absolute inset-0 w-full h-full" />
         {/* Vignette to keep device cards readable */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#020c06]/50 via-transparent to-[#020c06]/50 pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/28 via-transparent to-white/32 dark:from-black/58 dark:via-transparent dark:to-black/58" />
 
         <div className="relative z-10 container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <NeuBadge variant="default" className="mb-4 border-white/20 about-hardware-badge">Hardware</NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 !text-white">Our Devices</h2>
-            <p className="!text-white/80 max-w-2xl mx-auto">
-              Edge data-center nodes in the field — Mushroom 1, SporeBase, MycoNode, Hyphae 1, ALARM, plus Psathyrella as those programs ship. Each bridges biological and digital worlds.
+            <NeuBadge variant="default" className="mb-4 border-black/20 !text-black dark:border-white/20 dark:!text-white about-hardware-badge">Hardware</NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 !text-black dark:!text-white">Our Devices</h2>
+            <p className="max-w-2xl mx-auto text-black/75 dark:text-white/80">
+              Edge data-center nodes in the field — Mushroom 1, SporeBase, MycoNode, Hyphae 1, and Psathyrella as those programs ship. Each bridges biological and digital worlds.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {DEVICES.map((device) => (
+            {DEVICES.filter((device) => device.id !== "alarm").map((device) => (
               <Link key={device.id} href={`/devices/${device.id}`}>
-                <NeuCard className="about-device-card group transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm">
+                <NeuCard className="about-device-card group transition-all cursor-pointer h-full bg-white/45 backdrop-blur-sm dark:bg-black/50">
                   <div className="relative aspect-square overflow-hidden rounded-t-lg">
                     <Image
                       src={device.image.startsWith("/") ? encodeAssetUrl(device.image) : device.image}
@@ -597,8 +672,8 @@ export default function AboutPage() {
             {applicationCategories.map((category) => (
               <NeuCard key={category.title} className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-green-500/20">
-                    <category.icon className="h-5 w-5 text-green-500" />
+                  <div className="p-2 rounded-lg bg-emerald-950/10 dark:bg-emerald-200/10">
+                    <category.icon className="h-5 w-5 text-emerald-950/70 dark:text-emerald-200/80" />
                   </div>
                   <h3 className="font-bold text-lg">{category.title}</h3>
                 </div>
@@ -607,10 +682,10 @@ export default function AboutPage() {
                     <Link key={app.href} href={app.href} className="block group">
                       <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                         <div>
-                          <p className="font-medium text-sm group-hover:text-green-500 transition-colors">{app.name}</p>
+                          <p className="font-medium text-sm group-hover:text-emerald-950 dark:group-hover:text-emerald-100 transition-colors">{app.name}</p>
                           <p className="text-xs text-muted-foreground">{app.description}</p>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-green-500 transition-colors" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-950 dark:group-hover:text-emerald-100 transition-colors" />
                       </div>
                     </Link>
                   ))}
@@ -638,7 +713,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="mb-14 md:mb-16">
+          <div className="about-serve-section mb-14 md:mb-16">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
                 <h3 className="text-xl font-bold text-foreground">Legal &amp; commercial structure</h3>
@@ -651,11 +726,17 @@ export default function AboutPage() {
               {organizationEntities.map((entity) => {
                 const card = (
                   <NeuCard
-                    className={`p-6 h-full flex flex-col transition-all ${entity.href ? "hover:border-green-500/35" : ""}`}
+                    className={`relative overflow-hidden p-6 h-full flex flex-col transition-all ${entity.href ? "hover:border-emerald-950/20 dark:hover:border-emerald-200/20" : ""}`}
                   >
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="p-3 rounded-xl bg-green-500/10 shrink-0">
-                        <entity.icon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div
+                      className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.16] mix-blend-multiply dark:opacity-[0.24] dark:mix-blend-screen"
+                      style={{ backgroundImage: `url('${entity.backgroundImage}')` }}
+                      aria-hidden="true"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-white/10 dark:bg-black/10" aria-hidden="true" />
+                    <div className="relative z-10 flex items-start gap-3 mb-4">
+                      <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10 shrink-0">
+                        <entity.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/85" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -666,7 +747,7 @@ export default function AboutPage() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed flex-grow">{entity.summary}</p>
+                    <p className="relative z-10 text-sm text-muted-foreground leading-relaxed flex-grow">{entity.summary}</p>
                   </NeuCard>
                 )
                 if (entity.href && entity.external) {
@@ -676,7 +757,7 @@ export default function AboutPage() {
                       href={entity.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-950/35 dark:focus-visible:ring-emerald-200/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {card}
                     </a>
@@ -691,7 +772,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="mb-14 md:mb-16">
+          <div className="about-serve-section mb-14 md:mb-16">
             <div className="mb-6">
               <h3 className="text-xl font-bold text-foreground">Who we serve</h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
@@ -701,19 +782,26 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {organizationAudiences.map((audience) => (
                 <Link key={audience.id} href={audience.href} className="block h-full group">
-                  <NeuCard className="p-6 h-full flex flex-col transition-all hover:border-green-500/35">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="p-3 rounded-xl bg-green-500/10 shrink-0">
-                        <audience.icon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  <NeuCard className="about-serve-card relative min-h-[260px] overflow-hidden p-6 h-full flex flex-col justify-end !text-white transition-all hover:border-emerald-950/20 dark:hover:border-emerald-200/20 [&_*]:!text-white">
+                    <div
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                      style={{ backgroundImage: `url('${audience.backgroundImage}')` }}
+                      aria-hidden="true"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/42 to-black/18 dark:from-black/88 dark:via-black/50 dark:to-black/18" aria-hidden="true" />
+                    <div className="absolute inset-0 bg-white/8 backdrop-blur-[1px] dark:bg-black/6" aria-hidden="true" />
+                    <div className="relative z-10 flex items-start gap-3 mb-3">
+                      <div className="p-3 rounded-xl border border-white/25 bg-white/16 backdrop-blur-md shrink-0">
+                        <audience.icon className="h-6 w-6 !text-white" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                        <h4 className="font-bold text-lg !text-white transition-colors">
                           {audience.title}
                         </h4>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1 group-hover:text-green-500 transition-colors" />
+                      <ChevronRight className="h-5 w-5 !text-white shrink-0 mt-1 transition-colors group-hover:!text-white" />
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed flex-grow">{audience.description}</p>
+                    <p className="relative z-10 text-sm !text-white leading-relaxed">{audience.description}</p>
                   </NeuCard>
                 </Link>
               ))}
@@ -729,10 +817,10 @@ export default function AboutPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {organizationMycaStreams.map((stream) => (
-                <NeuCard key={stream.id} className="p-6 h-full flex flex-col border-green-500/10">
+                <NeuCard key={stream.id} className="p-6 h-full flex flex-col border-emerald-950/10 dark:border-emerald-200/10">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 rounded-xl bg-green-500/10">
-                      <stream.icon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div className="p-3 rounded-xl bg-emerald-950/[0.06] dark:bg-emerald-200/10">
+                      <stream.icon className="h-6 w-6 text-emerald-950/70 dark:text-emerald-200/85" />
                     </div>
                     <h4 className="font-bold text-base leading-tight">{stream.title}</h4>
                   </div>
@@ -744,7 +832,7 @@ export default function AboutPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center">
             <Link href="/myca">
-              <NeuButton variant="success" className="gap-2 min-h-[44px] w-full sm:w-auto">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] w-full sm:w-auto border border-emerald-950/20 bg-emerald-950/10 text-emerald-950 backdrop-blur-xl hover:bg-emerald-950/15 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
                 Explore MYCA orchestration
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
@@ -770,8 +858,8 @@ export default function AboutPage() {
 
         {/* Dark overlay so text is legible */}
         <div className="absolute inset-0 bg-black/65" />
-        {/* Subtle green tint layer */}
-        <div className="absolute inset-0 bg-gradient-to-br from-green-950/40 via-transparent to-black/40" />
+        {/* Subtle dark glass tint layer */}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/45 via-transparent to-black/40" />
 
         <div className="container max-w-4xl mx-auto px-4 md:px-6 relative z-10">
           <div className="text-center">
@@ -779,7 +867,7 @@ export default function AboutPage() {
             <h2 className="text-3xl md:text-4xl font-bold mb-8 !text-white">
               The Data Center
               <br />
-              <span className="text-green-400">Dissolves Into the World</span>
+              <span className="text-emerald-200/85">Dissolves Into the World</span>
             </h2>
 
             <div className="space-y-6 text-lg text-white/90 leading-relaxed">
@@ -798,18 +886,15 @@ export default function AboutPage() {
       </section>
 
       {/* CTA Section — data-over-video for widget outline */}
-      <section className="py-16 md:py-24 bg-green-600 relative overflow-hidden" data-over-video>
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:40px_40px]" />
-        <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Join the Earth Computer
-          </h2>
-          <p className="text-lg text-green-100 mb-8 max-w-2xl mx-auto">
+      <>
+        <div className="hidden" aria-hidden="true">
+          <div>
+          <p>
             Researchers, developers, defense operators, and builders — deploy sensors, open the stack, and train on the planet, not only the crawl.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div>
             <Link href="/devices">
-              <NeuButton variant="success" className="gap-2 min-h-[44px] px-6 py-3">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-emerald-200/20 bg-emerald-200/10 text-emerald-50 backdrop-blur-xl hover:bg-emerald-200/15">
                 Get a Device
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
@@ -822,7 +907,89 @@ export default function AboutPage() {
             </Link>
           </div>
         </div>
-      </section>
+        </div></>
+      <style jsx global>{`
+        .about-glass-page .neu-raised,
+        .about-glass-page .neu-raised-sm,
+        .about-glass-page .neu-btn,
+        .about-glass-page [class*="rounded-xl"][class*="border"],
+        .about-glass-page [class*="rounded-2xl"][class*="border"],
+        .about-glass-page [class*="rounded-3xl"][class*="border"] {
+          position: relative;
+          overflow: hidden;
+          border-color: rgba(255, 255, 255, 0.34) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.075) 42%, rgba(255, 255, 255, 0.03)) !important;
+          box-shadow:
+            0 18px 52px rgba(0, 0, 0, 0.28),
+            0 7px 18px rgba(255, 255, 255, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.62),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.07) !important;
+          backdrop-filter: blur(18px) saturate(1.22);
+          -webkit-backdrop-filter: blur(18px) saturate(1.22);
+        }
+
+        .about-glass-page .neu-raised::before,
+        .about-glass-page .neu-raised-sm::before,
+        .about-glass-page .neu-btn::before,
+        .about-glass-page [class*="rounded-xl"][class*="border"]::before,
+        .about-glass-page [class*="rounded-2xl"][class*="border"]::before,
+        .about-glass-page [class*="rounded-3xl"][class*="border"]::before {
+          content: "";
+          position: absolute;
+          inset: 1px 2px auto;
+          height: 42%;
+          border-radius: inherit;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0));
+          pointer-events: none;
+        }
+
+        .about-glass-page .neu-btn:hover,
+        .about-glass-page .neu-raised:hover,
+        .about-glass-page .neu-raised-sm:hover,
+        .about-glass-page [class*="rounded-xl"][class*="border"]:hover,
+        .about-glass-page [class*="rounded-2xl"][class*="border"]:hover,
+        .about-glass-page [class*="rounded-3xl"][class*="border"]:hover {
+          border-color: rgba(255, 255, 255, 0.52) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.105) 42%, rgba(255, 255, 255, 0.045)) !important;
+          box-shadow:
+            0 24px 64px rgba(0, 0, 0, 0.34),
+            0 9px 24px rgba(255, 255, 255, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.75),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.09) !important;
+        }
+
+        .about-sensing-section,
+        .about-sensing-section *,
+        .about-sensing-section .neu-btn,
+        .about-sensing-section .neu-btn *,
+        .about-sensing-section .neu-raised,
+        .about-sensing-section .neu-raised *,
+        .about-sensing-section .neu-raised-sm,
+        .about-sensing-section .neu-raised-sm * {
+          color: #ffffff !important;
+        }
+
+        .about-sensing-section .neu-btn,
+        .about-sensing-section .neu-raised,
+        .about-sensing-section .neu-raised-sm {
+          border-color: rgba(255, 255, 255, 0.28) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07) 44%, rgba(255, 255, 255, 0.035)) !important;
+        }
+
+        .about-serve-section .neu-raised,
+        .about-serve-section .neu-raised *,
+        .about-serve-section .neu-raised-sm,
+        .about-serve-section .neu-raised-sm *,
+        .about-serve-section h4,
+        .about-serve-section p,
+        .about-serve-section svg {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+      `}</style>
     </div>
     </NeuromorphicProvider>
   )

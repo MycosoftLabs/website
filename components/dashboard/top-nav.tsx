@@ -10,17 +10,15 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
-  Search, Bell, HelpCircle, Settings, User, ExternalLink, Cloud,
-  LogOut, Shield, Home, ArrowLeft, Loader2, X, BookOpen,
+  Search, Bell, HelpCircle, Settings, Cloud,
+  Shield, ArrowLeft, Loader2, X, BookOpen,
   LifeBuoy, Keyboard, CheckCircle, AlertTriangle, Info, Zap,
   MessageSquare, FileText
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from "react"
 import {
   Dialog,
   DialogContent,
@@ -40,6 +38,26 @@ interface Notification {
   read: boolean
   actionUrl?: string
   actionLabel?: string
+}
+
+const NATUREOS_SEARCH_TARGETS = [
+  { label: "Nature Statistics", href: "/natureos/nature-statistics", keywords: ["nature", "statistics", "species", "kingdom", "biodiversity", "inat", "inaturalist", "mindex"] },
+  { label: "Live Telemetry", href: "/natureos/devices/telemetry", keywords: ["live", "telemetry", "sensor", "stream", "streams", "data"] },
+  { label: "Device Registry", href: "/natureos/devices/registry", keywords: ["device", "devices", "registry", "mycobrain", "sporebase", "mushroom"] },
+  { label: "Device Alerts", href: "/natureos/devices/alerts", keywords: ["notification", "notifications", "alert", "alerts", "events"] },
+  { label: "Device Map", href: "/natureos/devices/map", keywords: ["map", "location", "field", "fleet"] },
+  { label: "Earth Simulator", href: "/natureos/earth-simulator", keywords: ["earth", "simulator", "crep", "worldview", "world"] },
+  { label: "NatureOS Settings", href: "/natureos/settings", keywords: ["settings", "config", "configuration", "account"] },
+  { label: "API Resources", href: "/natureos/api", keywords: ["api", "resource", "resources", "docs", "documentation"] },
+]
+
+function resolveNatureOSSearch(query: string) {
+  const q = query.trim().toLowerCase()
+  if (!q) return null
+
+  return NATUREOS_SEARCH_TARGETS.find((target) =>
+    target.label.toLowerCase().includes(q) || target.keywords.some((keyword) => q.includes(keyword))
+  )
 }
 
 function timeAgo(timestamp: string): string {
@@ -65,8 +83,6 @@ function notificationIcon(type: string) {
 
 export function TopNav() {
   const router = useRouter()
-  const pathname = usePathname()
-  const { user, signOut, isLoading } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -110,18 +126,33 @@ export function TopNav() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }, [])
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push("/")
-  }
+  const routeSearch = useCallback(() => {
+    const query = searchQuery.trim()
+    if (!query) return
+
+    const target = resolveNatureOSSearch(query)
+    router.push(target?.href ?? `/search?q=${encodeURIComponent(query)}`)
+    setShowMobileSearch(false)
+  }, [router, searchQuery])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
-      setShowMobileSearch(false)
+    routeSearch()
+  }
+
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      routeSearch()
     }
   }
+
+  const matchingSearchTargets = searchQuery.trim()
+    ? NATUREOS_SEARCH_TARGETS.filter((target) => {
+        const q = searchQuery.trim().toLowerCase()
+        return target.label.toLowerCase().includes(q) || target.keywords.some((keyword) => keyword.includes(q) || q.includes(keyword))
+      }).slice(0, 5)
+    : []
 
   // Keyboard shortcut: Ctrl+K to focus search
   useEffect(() => {
@@ -176,8 +207,27 @@ export function TopNav() {
                 placeholder="Search resources, settings, devices..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 className="pl-10 pr-20 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 focus-visible:ring-blue-500"
               />
+              {matchingSearchTargets.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-md border border-gray-800 bg-gray-950/95 p-1 shadow-xl backdrop-blur">
+                  {matchingSearchTargets.map((target) => (
+                    <button
+                      key={target.href}
+                      type="button"
+                      onClick={() => {
+                        router.push(target.href)
+                        setSearchQuery("")
+                      }}
+                      className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-gray-200 hover:bg-blue-500/15 hover:text-white"
+                    >
+                      <span>{target.label}</span>
+                      <span className="text-xs text-gray-500">{target.href.replace("/natureos/", "")}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded">
                   Ctrl+K
@@ -387,67 +437,6 @@ export function TopNav() {
                 <Settings className="h-5 w-5" />
               </Link>
             </Button>
-
-            {/* User Menu */}
-            {isLoading ? (
-              <Button variant="ghost" size="icon" disabled>
-                <Loader2 className="h-5 w-5 animate-spin" />
-              </Button>
-            ) : (user || (pathname?.includes('/natureos/model-training') && { name: 'Developer', email: 'dev@natureos.io', avatar: undefined })) ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Avatar className="h-7 w-7 border border-emerald-500/20">
-                      <AvatarImage src={user?.avatar} alt={user?.name || 'Developer'} />
-                      <AvatarFallback className="bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">{(user?.name || 'Dev')[0]}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-3 py-2 border-b">
-                    <p className="font-medium">{user?.name || 'Developer Session'}</p>
-                    <p className="text-xs text-muted-foreground">{user?.email || 'dev-mode@natureos.internal'}</p>
-                  </div>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="flex items-center">
-                      <Home className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/natureos/settings" className="flex items-center">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/security" className="flex items-center">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Security Center
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/" className="flex items-center">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Mycosoft.com
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-400">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {user ? 'Sign Out' : 'End Dev Session'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login?redirectTo=/natureos">
-                  <User className="h-5 w-5 mr-2" />
-                  Sign In
-                </Link>
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -464,6 +453,7 @@ export function TopNav() {
                   placeholder="Search resources, settings, devices..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 focus-visible:ring-blue-500"
                   autoFocus
                 />
@@ -479,7 +469,22 @@ export function TopNav() {
             </Button>
           </div>
           {searchQuery.trim() && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
+              {matchingSearchTargets.map((target) => (
+                <Button
+                  key={target.href}
+                  variant="outline"
+                  onClick={() => {
+                    router.push(target.href)
+                    setSearchQuery("")
+                    setShowMobileSearch(false)
+                  }}
+                  className="w-full justify-between border-gray-800 bg-gray-900 text-white hover:bg-blue-500/15"
+                >
+                  {target.label}
+                  <span className="text-xs text-gray-500">{target.href.replace("/natureos/", "")}</span>
+                </Button>
+              ))}
               <Button
                 onClick={handleSearch as unknown as React.MouseEventHandler}
                 className="w-full bg-blue-600 hover:bg-blue-700"

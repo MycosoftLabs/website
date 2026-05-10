@@ -27,7 +27,7 @@ const defenseItems = [
 
 const natureOSItems = [
   { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map },
-  { title: "Device Network", href: "/natureos/devices", icon: Network, companyOnly: true },
+  { title: "Device Network", href: "/natureos/devices", icon: Network },
   { title: "MINDEX", href: "/mindex", icon: Database, companyOnly: true },
   { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
 ]

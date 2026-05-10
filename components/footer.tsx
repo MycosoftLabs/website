@@ -9,7 +9,18 @@
 //       single-click reliability across every page and every link.
 // External links also use <a> with target="_blank".
 
-import { Twitter, Youtube, Github } from "lucide-react"
+import { Youtube, Github } from "lucide-react"
+
+function XLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.657l-5.214-6.817-5.96 6.817H1.69l7.73-8.835L1.254 2.25h6.826l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"
+      />
+    </svg>
+  )
+}
 
 export function Footer() {
   return (
@@ -105,17 +116,17 @@ export function Footer() {
             </h3>
             <div className="flex gap-2">
               <a
-                href="https://twitter.com/mycosoftorg"
+                href="https://x.com/Mycosoft"
                 className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="Twitter"
+                aria-label="X"
                 target="_blank"
                 rel="noopener noreferrer"
                 suppressHydrationWarning
               >
-                <Twitter className="h-5 w-5" />
+                <XLogo className="h-5 w-5" />
               </a>
               <a
-                href="https://youtube.com/@mycosoftorg"
+                href="https://www.youtube.com/channel/UCUUEOg35426XDmZ9sPXbDYg"
                 className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="YouTube"
                 target="_blank"
@@ -125,7 +136,7 @@ export function Footer() {
                 <Youtube className="h-5 w-5" />
               </a>
               <a
-                href="https://github.com/mycosoftorg"
+                href="https://github.com/MycosoftLabs"
                 className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="GitHub"
                 target="_blank"

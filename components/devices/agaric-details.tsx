@@ -335,7 +335,7 @@ export function AgaricDetails() {
 
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh bg-background text-foreground overflow-x-hidden">
+    <div className="agaric-glass-page min-h-dvh bg-white text-slate-950 dark:bg-black dark:text-white overflow-x-hidden">
       {/* Hero Section - locked first-party Agaric video with data-over-video for neuromorphic theme consistency */}
       <motion.section
         ref={heroRef}
@@ -390,7 +390,7 @@ export function AgaricDetails() {
             A flying sensor droid built to deploy, retrieve, connect, and sense the world.
             <br />
             <br />
-            <span className="text-red-400">Designed from the ground up to do what traditional drones can't:</span>
+            <span className="text-white">Designed from the ground up to do what traditional drones can't:</span>
           </motion.p>
 
           <motion.div
@@ -433,7 +433,7 @@ export function AgaricDetails() {
       </motion.section>
 
       {/* Why Agaric Exists */}
-      <section className="agaric-mission py-24 px-4 bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white">
+      <section className="agaric-mission py-24 px-4 bg-slate-100 dark:bg-black text-slate-900 dark:text-white">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -610,7 +610,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Field deployment image */}
-      <section className="agaric-field-deployments py-24 bg-white dark:bg-slate-900">
+      <section className="agaric-field-deployments py-24 bg-white dark:bg-black">
         <div className="w-full px-0">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -653,7 +653,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Payload integration */}
-      <section className="agaric-payload py-24 px-4 bg-slate-50 dark:bg-slate-950 border-y border-slate-200/80 dark:border-white/10">
+      <section className="agaric-payload py-24 px-4 bg-slate-50 dark:bg-black border-y border-slate-200/80 dark:border-white/10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">
@@ -667,7 +667,7 @@ export function AgaricDetails() {
               safe release, safe recovery, optional power, and telemetry handshake where available.
             </p>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-black/80">
             <table className="min-w-[640px] w-full text-sm md:text-base">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 text-left">
@@ -714,7 +714,7 @@ export function AgaricDetails() {
             className="text-center mb-16"
           >
             <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-300 border-red-500/30 backdrop-blur-md">Capabilities</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
+            <h2 className="agaric-capabilities-title text-4xl md:text-5xl font-bold mb-4 text-white">
               What <span className="text-red-300">Agaric</span> Can Do
             </h2>
             <p className="text-xl text-white/75 max-w-3xl mx-auto">
@@ -736,7 +736,7 @@ export function AgaricDetails() {
                   className={`agaric-usecase-card cursor-pointer p-6 rounded-xl border transition-all ${
                     activeUseCase === i
                       ? 'bg-gradient-to-r ' + useCase.color + ' ' + useCase.colorDark + ' border-white/20 text-white'
-                      : 'bg-black/45 backdrop-blur-md border-white/15 hover:bg-black/60'
+                      : 'bg-black/45 backdrop-blur-md border-white/15 text-white hover:bg-black/60'
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -744,7 +744,7 @@ export function AgaricDetails() {
                       <useCase.icon className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white">{useCase.title}</h3>
+                      <h3 className="text-xl font-semibold text-red-300">{useCase.title}</h3>
                       {activeUseCase === i && (
                         <motion.p
                           initial={{ opacity: 0, height: 0 }}
@@ -795,7 +795,7 @@ export function AgaricDetails() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
-                <h3 className="text-2xl font-bold">{USE_CASES[activeUseCase].title}</h3>
+                <h3 className="text-2xl font-bold text-black drop-shadow-[0_2px_12px_rgba(255,255,255,0.92)]">{USE_CASES[activeUseCase].title}</h3>
                 <p className="text-white/70 mt-2">{USE_CASES[activeUseCase].description}</p>
               </div>
             </motion.div>
@@ -804,7 +804,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Blueprint Section - Placeholder for Interactive 2D Diagram */}
-      <section className="agaric-engineering py-24 bg-white dark:bg-slate-900">
+      <section className="agaric-engineering py-24 bg-white dark:bg-black">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -823,7 +823,7 @@ export function AgaricDetails() {
           </motion.div>
 
           {/* Control Device Layout - Industrial Control Panel Aesthetic */}
-          <div className="relative bg-slate-100 dark:bg-slate-900/50 rounded-3xl border-2 border-red-500/30 p-6 shadow-2xl shadow-red-500/5">
+          <div className="relative bg-slate-100 dark:bg-black/70 rounded-3xl border-2 border-red-500/30 p-6 shadow-2xl shadow-red-500/5">
             {/* Control Panel Frame */}
             <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
@@ -834,7 +834,7 @@ export function AgaricDetails() {
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel - Component Selectors */}
-                <div className="bg-slate-950 rounded-2xl border border-red-500/40 p-4 shadow-inner">
+                <div className="bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner">
                   {/* Panel Header */}
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-500/20">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -858,13 +858,13 @@ export function AgaricDetails() {
                               ? 'bg-red-500/20 border-red-400 shadow-lg shadow-red-500/30'
                               : isHovered
                                 ? 'bg-red-500/10 border-red-500/50'
-                                : 'bg-slate-900/50 border-slate-700 hover:border-red-500/40'
+                                : 'bg-black/55 border-white/10 hover:border-red-500/40'
                   }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-red-500/30' : 'bg-slate-800'}`}>
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-red-500/30' : 'bg-black/70 border border-white/10'}`}>
                               <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-white/50'}`} />
                     </div>
                             <span className={`text-sm font-medium ${isSelected ? 'text-red-400' : 'text-white/70'}`}>
@@ -884,7 +884,7 @@ export function AgaricDetails() {
                 </div>
 
                 {/* Description Widget - Below Controller */}
-                <div className="bg-slate-950 rounded-2xl border border-red-500/40 p-4 shadow-inner flex-1">
+                <div className="bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner flex-1">
                   {/* Panel Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/20">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -918,7 +918,7 @@ export function AgaricDetails() {
 
               {/* RIGHT SIDE: Tall Vertical Blueprint */}
               <div className="flex-1 min-w-0 flex">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-red-500/40 overflow-hidden shadow-inner">
+                <div className="relative flex-1 min-h-[500px] bg-black rounded-2xl border border-red-500/40 overflow-hidden shadow-inner">
                 {/* Grid pattern */}
                   <div className="absolute inset-0 opacity-15" style={{
                   backgroundImage: `
@@ -929,7 +929,7 @@ export function AgaricDetails() {
                 }} />
 
                   {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black to-transparent z-10">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                       <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Interactive Blueprint</span>
@@ -1003,7 +1003,7 @@ export function AgaricDetails() {
                                   initial={{ opacity: 0, x: 10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 10 }}
-                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-red-500/30 z-30"
+                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-red-500/30 z-30"
                                 >
                                   <span className="text-sm font-medium text-red-400 whitespace-nowrap">{component.name}</span>
                                 </motion.div>
@@ -1016,7 +1016,7 @@ export function AgaricDetails() {
                   </div>
 
                   {/* Bottom status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black to-transparent">
                     <div className="flex items-center justify-between text-xs font-mono text-white/30">
                       <span>COMPONENT: <span className="text-red-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
@@ -1033,7 +1033,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Relay network visualization */}
-      <section className="agaric-connectivity relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
+      <section className="agaric-connectivity relative py-24 bg-white dark:bg-black overflow-hidden">
         {/* Network animation background */}
         <NetworkCanvas className="opacity-80" />
         <div className="relative z-10 w-full px-0">
@@ -1088,7 +1088,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Ecosystem integration */}
-      <section className="agaric-ecosystem py-24 px-4 bg-white dark:bg-slate-900">
+      <section className="agaric-ecosystem py-24 px-4 bg-white dark:bg-black">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30">
@@ -1105,7 +1105,7 @@ export function AgaricDetails() {
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
             <table className="min-w-[720px] w-full text-sm md:text-base">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 text-left bg-slate-50 dark:bg-slate-800/80">
+                <tr className="border-b border-slate-200 dark:border-white/10 text-left bg-slate-50 dark:bg-black/80">
                   <th className="p-4 font-semibold text-slate-900 dark:text-white">System</th>
                   <th className="p-4 font-semibold text-slate-900 dark:text-white">Role</th>
                   <th className="p-4 font-semibold text-slate-900 dark:text-white">AGARIC connection</th>
@@ -1128,7 +1128,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Technical specifications — size architecture */}
-      <section className="agaric-specifications py-24 bg-slate-100 dark:bg-slate-900">
+      <section className="agaric-specifications py-24 bg-slate-100 dark:bg-black">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -1146,7 +1146,7 @@ export function AgaricDetails() {
           </motion.div>
 
           <Tabs defaultValue="mini" className="w-full">
-            <TabsList className="grid w-full max-w-xl mx-auto grid-cols-3 mb-10 h-auto p-1 bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-white/10">
+            <TabsList className="grid w-full max-w-xl mx-auto grid-cols-3 mb-10 h-auto p-1 bg-white/80 dark:bg-black/70 border border-slate-200 dark:border-white/10">
               <TabsTrigger value="mini" className="min-h-[44px] text-sm md:text-base">
                 AGARIC-S
               </TabsTrigger>
@@ -1185,7 +1185,7 @@ export function AgaricDetails() {
           <div className="mt-8 flex justify-center">
             <NeuButton
               variant="default"
-              className="min-h-[44px] border-red-500/30 dark:border-red-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-red-500/10 dark:hover:bg-gray-600"
+              className="min-h-[44px] border-red-500/30 dark:border-red-500/50 dark:bg-black/70 text-slate-900 dark:!text-white hover:bg-red-500/10 dark:hover:bg-red-950/40"
               onClick={() => document.querySelector(".agaric-ecosystem")?.scrollIntoView({ behavior: "smooth" })}
             >
               <ExternalLink className="mr-2 h-5 w-5" />
@@ -1196,7 +1196,7 @@ export function AgaricDetails() {
       </section>
 
       {/* Size family */}
-      <section className="agaric-pricing relative overflow-hidden py-24 px-4 bg-white dark:bg-slate-950 border-y border-slate-200/80 dark:border-white/10">
+      <section className="agaric-pricing relative overflow-hidden py-24 px-4 bg-white dark:bg-black border-y border-slate-200/80 dark:border-white/10">
         <div className="absolute inset-0">
           <Image
             src={encodeAssetUrl(AGARIC_ASSETS.sizesImage)}
@@ -1293,7 +1293,7 @@ export function AgaricDetails() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white [-webkit-text-stroke:1.25px_rgba(220,38,38,0.95)] [text-shadow:0_3px_0_rgba(127,29,29,0.85),0_10px_30px_rgba(0,0,0,0.85)]">
               Ready to connect the field?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
@@ -1312,6 +1312,167 @@ export function AgaricDetails() {
           </motion.div>
         </div>
       </section>
+
+      <style jsx global>{`
+        .dark .agaric-glass-page,
+        .dark .agaric-glass-page .agaric-mission,
+        .dark .agaric-glass-page .agaric-field-deployments,
+        .dark .agaric-glass-page .agaric-payload,
+        .dark .agaric-glass-page .agaric-technology,
+        .dark .agaric-glass-page .agaric-applications,
+        .dark .agaric-glass-page .agaric-engineering,
+        .dark .agaric-glass-page .agaric-connectivity,
+        .dark .agaric-glass-page .agaric-ecosystem,
+        .dark .agaric-glass-page .agaric-specifications,
+        .dark .agaric-glass-page .agaric-pricing {
+          background-color: #000 !important;
+          color: #fff !important;
+        }
+
+        .dark .agaric-glass-page .dark\\:bg-slate-900,
+        .dark .agaric-glass-page .dark\\:bg-slate-950,
+        .dark .agaric-glass-page .dark\\:bg-slate-800,
+        .dark .agaric-glass-page .dark\\:bg-gray-700,
+        .dark .agaric-glass-page .dark\\:bg-gray-800,
+        .dark .agaric-glass-page .dark\\:\\!bg-gray-700,
+        .dark .agaric-glass-page .dark\\:\\!bg-gray-800 {
+          background-color: rgba(5, 5, 5, 0.84) !important;
+        }
+
+        .agaric-glass-page .neu-raised,
+        .agaric-glass-page .neu-raised-sm,
+        .agaric-glass-page .neu-btn,
+        .agaric-glass-page .agaric-sensor-card,
+        .agaric-glass-page .agaric-network-card,
+        .agaric-glass-page .agaric-usecase-card,
+        .agaric-glass-page .agaric-connectivity-card,
+        .agaric-glass-page .agaric-spec-card,
+        .agaric-glass-page [class*="rounded-xl"][class*="border"],
+        .agaric-glass-page [class*="rounded-2xl"][class*="border"],
+        .agaric-glass-page [class*="rounded-3xl"][class*="border"] {
+          position: relative;
+          overflow: hidden;
+          border-color: rgba(220, 38, 38, 0.32) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.38)),
+            radial-gradient(circle at 12% 0%, rgba(239, 68, 68, 0.16), transparent 34%),
+            rgba(255, 255, 255, 0.36) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.72),
+            0 18px 55px rgba(15, 23, 42, 0.14),
+            0 4px 16px rgba(220, 38, 38, 0.08) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(1.3);
+          backdrop-filter: blur(20px) saturate(1.3);
+        }
+
+        .dark .agaric-glass-page .neu-raised,
+        .dark .agaric-glass-page .neu-raised-sm,
+        .dark .agaric-glass-page .neu-btn,
+        .dark .agaric-glass-page .agaric-sensor-card,
+        .dark .agaric-glass-page .agaric-network-card,
+        .dark .agaric-glass-page .agaric-usecase-card,
+        .dark .agaric-glass-page .agaric-connectivity-card,
+        .dark .agaric-glass-page .agaric-spec-card,
+        .dark .agaric-glass-page [class*="rounded-xl"][class*="border"],
+        .dark .agaric-glass-page [class*="rounded-2xl"][class*="border"],
+        .dark .agaric-glass-page [class*="rounded-3xl"][class*="border"] {
+          color: #fff !important;
+          border-color: rgba(248, 113, 113, 0.34) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.045)),
+            radial-gradient(circle at 14% 0%, rgba(220, 38, 38, 0.24), transparent 38%),
+            rgba(5, 5, 5, 0.72) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.18),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+            0 26px 70px rgba(0, 0, 0, 0.48),
+            0 8px 28px rgba(220, 38, 38, 0.11) !important;
+        }
+
+        .agaric-glass-page .neu-raised::before,
+        .agaric-glass-page .neu-raised-sm::before,
+        .agaric-glass-page .neu-btn::before,
+        .agaric-glass-page .agaric-sensor-card::before,
+        .agaric-glass-page .agaric-network-card::before,
+        .agaric-glass-page .agaric-usecase-card::before,
+        .agaric-glass-page .agaric-connectivity-card::before,
+        .agaric-glass-page .agaric-spec-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          border-radius: inherit;
+          background:
+            linear-gradient(120deg, rgba(255, 255, 255, 0.42), transparent 32%),
+            radial-gradient(circle at 85% 12%, rgba(255, 255, 255, 0.28), transparent 26%);
+          opacity: 0.58;
+        }
+
+        .dark .agaric-glass-page .neu-raised::before,
+        .dark .agaric-glass-page .neu-raised-sm::before,
+        .dark .agaric-glass-page .neu-btn::before,
+        .dark .agaric-glass-page .agaric-sensor-card::before,
+        .dark .agaric-glass-page .agaric-network-card::before,
+        .dark .agaric-glass-page .agaric-usecase-card::before,
+        .dark .agaric-glass-page .agaric-connectivity-card::before,
+        .dark .agaric-glass-page .agaric-spec-card::before {
+          background:
+            linear-gradient(120deg, rgba(255, 255, 255, 0.22), transparent 30%),
+            radial-gradient(circle at 88% 10%, rgba(248, 113, 113, 0.18), transparent 30%);
+          opacity: 0.72;
+        }
+
+        .agaric-glass-page .neu-btn > *,
+        .agaric-glass-page .neu-raised > *,
+        .agaric-glass-page .neu-raised-sm > *,
+        .agaric-glass-page .agaric-sensor-card > *,
+        .agaric-glass-page .agaric-network-card > *,
+        .agaric-glass-page .agaric-usecase-card > *,
+        .agaric-glass-page .agaric-connectivity-card > *,
+        .agaric-glass-page .agaric-spec-card > * {
+          position: relative;
+          z-index: 1;
+        }
+
+        .agaric-glass-page .agaric-sensor-card svg,
+        .agaric-glass-page .agaric-network-card svg,
+        .agaric-glass-page .agaric-connectivity-card svg,
+        .agaric-glass-page .agaric-spec-card svg,
+        .agaric-glass-page .neu-btn svg {
+          color: #dc2626 !important;
+          stroke: currentColor !important;
+        }
+
+        .agaric-glass-page .bg-blue-500,
+        .agaric-glass-page .bg-blue-600,
+        .agaric-glass-page .bg-cyan-500,
+        .agaric-glass-page .bg-indigo-500 {
+          background-color: rgba(220, 38, 38, 0.22) !important;
+          border-color: rgba(220, 38, 38, 0.36) !important;
+        }
+
+        .agaric-glass-page .text-blue-400,
+        .agaric-glass-page .text-blue-500,
+        .agaric-glass-page .text-blue-600,
+        .agaric-glass-page .text-cyan-400,
+        .agaric-glass-page .text-cyan-500,
+        .agaric-glass-page .text-indigo-400,
+        .agaric-glass-page .text-indigo-500 {
+          color: #dc2626 !important;
+        }
+
+        .dark .agaric-glass-page table,
+        .dark .agaric-glass-page thead,
+        .dark .agaric-glass-page tbody,
+        .dark .agaric-glass-page tr {
+          background-color: rgba(0, 0, 0, 0.62) !important;
+        }
+
+        .dark .agaric-glass-page .border-slate-200,
+        .dark .agaric-glass-page .dark\\:border-white\\/10 {
+          border-color: rgba(255, 255, 255, 0.12) !important;
+        }
+      `}</style>
 
     </div>
     </NeuromorphicProvider>

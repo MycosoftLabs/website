@@ -119,11 +119,11 @@ export function MyceliumCanvas({ className = "" }: MyceliumCanvasProps) {
     const config: HifaConfig = {
       lineColor: (hue: number) =>
         isDark
-          ? `hsla(${hue}, 80%, 60%, 0.15)`
+          ? `hsla(${hue}, 95%, 64%, 0.36)`
           : `hsla(${hue}, 70%, 35%, 0.12)`,
       pulseColor: (hue: number) =>
         isDark
-          ? `hsla(${hue}, 100%, 80%, 1)`
+          ? `hsla(${hue}, 100%, 74%, 1)`
           : `hsla(${hue}, 90%, 50%, 0.8)`,
       maxGrowth: 15,
       branchProbability: 0.12,
@@ -133,9 +133,9 @@ export function MyceliumCanvas({ className = "" }: MyceliumCanvasProps) {
     const globalHue = 140
 
     const bgColorLight = "#ffffff"
-    const bgColorDark = "#374151"
+    const bgColorDark = "#000000"
     const fadeColorLight = "rgba(255, 255, 255, 0.01)"
-    const fadeColorDark = "rgba(55, 65, 81, 0.01)"
+    const fadeColorDark = "rgba(0, 0, 0, 0.018)"
 
     const resize = () => {
       canvas.width = canvas.offsetWidth
