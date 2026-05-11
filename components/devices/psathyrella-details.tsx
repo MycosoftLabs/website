@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
-import { mergeWithNasFallbacks, deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources, mergeWithNasFallbacks, deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { DEVICES } from "@/lib/devices"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { TechnologyMeshCanvas } from "@/components/effects/technology-mesh-canvas"
@@ -134,7 +134,7 @@ const USE_CASES = PSATHYRELLA_DEVICE.detailedFeatures.map((df, i) => {
     imageAlt: img.alt,
     video:
       i === 0
-        ? "/assets/psathyrella/psathyrellatower.mp4"
+        ? assetMp4Sources("/assets/psathyrella/psathyrellatower.mp4")[0]
         : i === 1
           ? "/assets/psathyrella/psathyrellaclose.mp4"
           : null,
