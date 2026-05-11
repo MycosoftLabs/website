@@ -42,6 +42,8 @@ export default function Earth2RTXStream({
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [config, setConfig] = useState<StreamConfig | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const hasStream = Boolean(stream);
   const [stats, setStats] = useState<{
     fps: number;
     bitrate: number;
@@ -88,8 +90,8 @@ export default function Earth2RTXStream({
       // Handle incoming tracks
       pc.ontrack = (event) => {
         console.log("[E2RTX] Received track:", event.track.kind);
-        if (videoRef.current && event.streams[0]) {
-          videoRef.current.srcObject = event.streams[0];
+        if (event.streams[0]) {
+          setStream(event.streams[0]);
         }
       };
 
@@ -197,12 +199,21 @@ export default function Earth2RTXStream({
       pcRef.current.close();
       pcRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+    setStream(null);
     setConnectionState("disconnected");
   }, []);
+
+  useEffect(() => {
+    if (!videoRef.current || !stream) return;
+    videoRef.current.srcObject = stream;
+  }, [stream]);
 
   // Send command to Omniverse
   const sendCommand = useCallback(
@@ -254,13 +265,15 @@ export default function Earth2RTXStream({
   return (
     <div className={`relative w-full h-full bg-black ${className}`}>
       {/* Video stream */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full h-full object-contain"
-      />
+      {hasStream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-contain"
+        />
+      )}
 
       {/* Connection overlay */}
       {connectionState !== "connected" && (
