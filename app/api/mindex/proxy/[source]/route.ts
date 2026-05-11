@@ -399,13 +399,29 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { error: `MINDEX ingest failed: ${res.status}`, source, layer: mindexLayer },
-      { status: res.status }
+      {
+        ingested: 0,
+        dropped: rawEntities.length,
+        source,
+        layer: mindexLayer,
+        persisted: false,
+        available: false,
+        warning: `MINDEX ingest failed: ${res.status}`,
+      },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
     )
   } catch (err) {
     return NextResponse.json(
-      { error: "MINDEX unreachable for ingest", source, layer: mindexLayer },
-      { status: 503 }
+      {
+        ingested: 0,
+        dropped: rawEntities.length,
+        source,
+        layer: mindexLayer,
+        persisted: false,
+        available: false,
+        warning: "MINDEX unreachable for ingest",
+      },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
     )
   }
 }
