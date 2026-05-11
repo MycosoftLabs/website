@@ -38,11 +38,11 @@ import type { LucideIcon } from "lucide-react"
 const SPOREBASE_ASSETS = {
   // Gallery images - replace paths when real photos are added
   images: [
-    { src: "/assets/sporebase/1.jpg", alt: "SporeBase Urban Deployment", location: "Urban Monitoring" },
-    { src: "/assets/sporebase/2.jpg", alt: "SporeBase Vehicle Mount", location: "Mobile Collection" },
-    { src: "/assets/sporebase/3.jpg", alt: "SporeBase Building Install", location: "Building Mounted" },
-    { src: "/assets/sporebase/4.jpg", alt: "SporeBase Research Station", location: "Research Station" },
-    { src: "/assets/sporebase/5.jpg", alt: "SporeBase Network", location: "Mesh Network" },
+    { src: "/assets/sporebase/interactive-schematic.jpg", alt: "SporeBase Urban Deployment", location: "Urban Monitoring" },
+    { src: "/assets/sporebase/sporebase main.jpg", alt: "SporeBase Vehicle Mount", location: "Mobile Collection" },
+    { src: "/assets/sporebase/sporebase main2.jpg", alt: "SporeBase Building Install", location: "Building Mounted" },
+    { src: "/assets/sporebase/interactive-schematic.jpg", alt: "SporeBase Research Station", location: "Research Station" },
+    { src: "/assets/sporebase/sporebase main.jpg", alt: "SporeBase Network", location: "Mesh Network" },
   ],
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",

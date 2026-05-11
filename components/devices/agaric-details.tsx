@@ -38,11 +38,11 @@ import { AgaricTechnologyShaderBackground } from "@/components/devices/agaric-te
 // ============================================================================
 const AGARIC_ASSETS = {
   images: [
-    { src: "/assets/agaric/1.jpg", alt: "Agaric — field deploy", location: "Field Deployment" },
-    { src: "/assets/agaric/2.jpg", alt: "Agaric — aerial mesh", location: "Mesh Relay" },
-    { src: "/assets/agaric/3.jpg", alt: "Agaric — payload retrieval", location: "Payload Ops" },
-    { src: "/assets/agaric/4.jpg", alt: "Agaric — research", location: "Research" },
-    { src: "/assets/agaric/5.jpg", alt: "Agaric — heavy lift", location: "Heavy-Lift" },
+    { src: "/assets/agaric/forest2.jpg", alt: "Agaric — field deploy", location: "Field Deployment" },
+    { src: "/assets/agaric/connectivity-forest.png", alt: "Agaric — aerial mesh", location: "Mesh Relay" },
+    { src: "/assets/agaric/retrieve-recover.jpg", alt: "Agaric — payload retrieval", location: "Payload Ops" },
+    { src: "/assets/agaric/desertfly.jpg", alt: "Agaric — research", location: "Research" },
+    { src: "/assets/agaric/threesizes.jpg", alt: "Agaric — heavy lift", location: "Heavy-Lift" },
   ],
   heroImage: "/assets/agaric/hero2.jpg",
   missionImage: "/assets/agaric/main.jpg",
@@ -53,11 +53,11 @@ const AGARIC_ASSETS = {
   sizesImage: "/images/agaric/threesizes.jpg",
   videos: {
     hero: "/assets/agaric/agaric-hero2.mp4",
-    background: "/assets/agaric/hero.mp4",
-    deploy: "/assets/agaric/deploy-retrieve.mp4",
-    waterfall: "/assets/agaric/hero.mp4",
-    demo: "/assets/agaric/deploy-retrieve.mp4",
-    promo: "/assets/agaric/promo.mp4",
+    background: "/assets/agaric/agaric-hero2.mp4",
+    deploy: "/assets/agaric/dronepickup.mp4",
+    waterfall: "/assets/agaric/agaric-hero2.mp4",
+    demo: "/assets/agaric/dronepickup.mp4",
+    promo: "/assets/agaric/agaric-hero2.mp4",
     capabilities: "/assets/agaric/agaric-background1.mp4",
     footer: "/assets/agaric/forestfly.mp4",
   },
@@ -65,10 +65,10 @@ const AGARIC_ASSETS = {
     hero: "fk2rCM9hnpQ",
   },
   useCaseVideos: [
-    "/assets/agaric/a.mp4",
-    "/assets/agaric/b.mp4",
-    "/assets/agaric/c.mp4",
-    "/assets/agaric/d.mp4",
+    "/assets/agaric/dronepickup.mp4",
+    "/assets/agaric/maneuver.mp4",
+    "/assets/agaric/forestfly.mp4",
+    "/assets/agaric/agaric-background1.mp4",
   ],
 }
 

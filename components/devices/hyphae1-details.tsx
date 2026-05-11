@@ -51,9 +51,9 @@ const HYPHAE1_ASSETS = {
   mainImage: "/images/hyphae1-card.svg",
   // Gallery images
   gallery: [
-    { src: "/assets/hyphae1/gallery-1.jpg", alt: "Hyphae 1 Compact", location: "Panel Mounted" },
-    { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
-    { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
+    { src: "/assets/hyphae1/schematic-view.jpg", alt: "Hyphae 1 Compact", location: "Panel Mounted" },
+    { src: "/assets/hyphae1/hyphae1-lab-prototype.png", alt: "Hyphae 1 Standard", location: "DIN Rail" },
+    { src: "/assets/hyphae1/why-outdoor-install.png", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",

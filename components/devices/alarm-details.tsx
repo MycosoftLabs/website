@@ -38,15 +38,15 @@ const ALARM_ASSETS = {
   crossSectionImage: "/assets/alarm/alarm-cross-section.jpg",
   mainImage: "/assets/alarm/alarm-vision-device.jpg",
   // Future local assets (uncomment when media is added):
-  // mainImage: "/assets/alarm/main.jpg",
+  // mainImage: "/assets/alarm/alarm-vision-device.jpg",
   // Gallery images
   gallery: [
-    { src: "/assets/alarm/gallery-1.jpg", alt: "ALARM Wall Mount", location: "Home Installation" },
-    { src: "/assets/alarm/gallery-2.jpg", alt: "ALARM Ceiling Mount", location: "Office Setup" },
-    { src: "/assets/alarm/gallery-3.jpg", alt: "ALARM App View", location: "Mobile Interface" },
+    { src: "/assets/alarm/alarm-device.jpg", alt: "ALARM Wall Mount", location: "Home Installation" },
+    { src: "/assets/alarm/alarm-vision-device.jpg", alt: "ALARM Ceiling Mount", location: "Office Setup" },
+    { src: "/assets/alarm/alarm-cross-section.jpg", alt: "ALARM App View", location: "Mobile Interface" },
   ],
   // Demo video (add when available)
-  // demoVideo: "/assets/alarm/demo.mp4",
+  // demoVideo: "/assets/alarm/alarm-hero-temp.mp4",
 }
 
 // Device Components

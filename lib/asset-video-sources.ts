@@ -59,9 +59,6 @@ function orderedHomeHeroCanonicalPaths(): string[] {
   const env = process.env.NEXT_PUBLIC_HOME_HERO_MP4?.trim()
   const defaults = [
     "/assets/homepage/Mycosoft Background.mp4",
-    "/assets/homepage/MycosoftBackground.mp4",
-    "/assets/homepage/mycosoft-background.mp4",
-    "/assets/homepage/hero.mp4",
   ]
   const out: string[] = []
   const seen = new Set<string>()

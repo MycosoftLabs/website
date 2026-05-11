@@ -122,7 +122,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "In Stock",
     image: "/assets/sporebase/sporebase main2.jpg",
-    video: "/assets/sporebase/Sporebase1publish.mp4",
+    video: "/assets/sporebase/sporebase1publish.mp4",
     videoTitle: "Map the Fungal Future",
     videoDescription: "Create a dynamic map of fungal activity with our distributed spore collection network.",
     features: [
@@ -215,7 +215,7 @@ export const DEVICES: Device[] = [
           "Digital I/O cards",
           "Relay output modules",
         ],
-        image: "/assets/hyphae1/gallery-1.jpg",
+        image: "/assets/hyphae1/schematic-view.jpg",
       },
       {
         title: "Industrial Connectivity",
@@ -226,7 +226,7 @@ export const DEVICES: Device[] = [
           "REST API",
           "BACnet optional",
         ],
-        image: "/assets/hyphae1/gallery-2.jpg",
+        image: "/assets/hyphae1/hyphae1-lab-prototype.png",
       },
     ],
     specifications: {
