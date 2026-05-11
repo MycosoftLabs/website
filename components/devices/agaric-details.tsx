@@ -197,7 +197,7 @@ const USE_CASES = [
     description: "Move and place Mycosoft devices, probes, samplers, and sensor payloads into target environments with mission context intact.",
     applications: ["Device placement", "Sampler transport", "Field station drops", "Sensor package lift"],
     image: "/assets/agaric/forest2.jpg",
-    video: "/assets/agaric/dronepickup.mp4"
+    video: "/assets/agaric/dronepickup-web.mp4"
   },
   {
     title: "Retrieve + Recover",
@@ -225,7 +225,7 @@ const USE_CASES = [
     description: "Use tangential flight to translate without tilting, hold orientation, and move through difficult terrain while sensing devices, canopy, water, infrastructure, and access routes.",
     applications: ["Level translation", "Tangential passes", "Level hover", "Infrastructure scans"],
     image: "/assets/agaric/close3.jpg",
-    video: "/assets/agaric/maneuver.mp4"
+    video: "/assets/agaric/maneuver-web.mp4"
   },
 ]
 

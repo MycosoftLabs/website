@@ -133,7 +133,7 @@ export default function SciencePage() {
               <div className="flex items-start gap-4">
                 <div className="relative w-24 h-24 flex-shrink-0">
                   <Image
-                    src="https://sjc.microlink.io/hQ2pGM_Ffm495ihvZLjrPHCSnSDAXvHpOUIzWD7O1wslc97FIc8we8M81pU_kziq9a-TqjqAAQZ8bTHG-KLJEg.jpeg"
+                    src="/placeholder-logo.svg"
                     alt="7ensor Logo"
                     fill
                     className="object-contain"
@@ -156,7 +156,7 @@ export default function SciencePage() {
               <div className="flex items-start gap-4">
                 <div className="relative w-24 h-24 flex-shrink-0">
                   <Image
-                    src="https://sjc.microlink.io/ftFaGqQjVhrFjfgpSqRq8wI9FeAaEP-mgVurB2y-KpyAqeeoQ2S05dfg_8wu4F_kPozduFmyWAWeJ1w2mWijAw.jpeg"
+                    src="/assets/about/mycodao-red-cap-logo.png"
                     alt="MycoDAO Logo"
                     fill
                     className="object-contain"
