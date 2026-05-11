@@ -10,12 +10,11 @@ import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
-function unavailableGroups(message: string) {
+function unavailableGroups(_message: string) {
   return NextResponse.json([], {
     headers: {
       "Cache-Control": "no-store",
       "X-Ground-Station-Source": "unavailable",
-      "X-Ground-Station-Message": message.slice(0, 180),
     },
   })
 }

@@ -19,12 +19,11 @@ function emptyHardwareFor(type: string) {
   return type === "all" ? emptyHardware : []
 }
 
-function unavailableHardware(type: string, message: string) {
+function unavailableHardware(type: string, _message: string) {
   return NextResponse.json(emptyHardwareFor(type), {
     headers: {
       "Cache-Control": "no-store",
       "X-Ground-Station-Source": "unavailable",
-      "X-Ground-Station-Message": message.slice(0, 180),
     },
   })
 }
