@@ -44,17 +44,17 @@ export interface KingdomStatCardProps {
   className?: string;
 }
 
-// High-quality background images for each kingdom (Unsplash)
+// Local background images keep the public dashboard free of third-party image blocks.
 const kingdomImages: Record<KingdomType, string> = {
-  plants: "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&q=80", // Dense forest
-  birds: "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&q=80", // Flock of birds
-  insects: "https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&q=80", // Monarch butterfly
-  animals: "https://images.unsplash.com/photo-1564760055775-d63b17a55c44?w=800&q=80", // Safari wildlife
-  marine: "https://images.unsplash.com/photo-1544552866-d3ed42536cfd?w=800&q=80", // Underwater ocean
-  mammals: "https://images.unsplash.com/photo-1474511320723-9a56873571b7?w=800&q=80", // Elephants herd
-  protista: "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800&q=80", // Microscopic view
-  bacteria: "https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&q=80", // Petri dish cultures
-  archaea: "https://images.unsplash.com/photo-1462332420958-a05d1e002413?w=800&q=80", // Volcanic geothermal
+  plants: "/assets/about/serve-science.jpg",
+  birds: "/assets/about/serve-society.jpg",
+  insects: "/assets/about/serve-science.jpg",
+  animals: "/assets/about/serve-society.jpg",
+  marine: "/assets/about/serve-defense.png",
+  mammals: "/assets/about/serve-society.jpg",
+  protista: "/assets/fusarium/mold-fusarium-mycotoxin-amphotericin-scaled.jpg",
+  bacteria: "/assets/fusarium/mold-fusarium-mycotoxin-amphotericin-scaled.jpg",
+  archaea: "/assets/about/serve-science.jpg",
 };
 
 // Complete kingdom configuration with unique stats and news

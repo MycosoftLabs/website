@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     })
     if (!response.ok) {
       const text = await response.text()
-      return NextResponse.json({ error: text.slice(0, 300) }, { status: response.status })
+      return NextResponse.json({ available: false, results: [], documents: [], error: text.slice(0, 300) })
     }
     const data = await response.json()
     return NextResponse.json(data)
   } catch (err) {
-    return NextResponse.json({ error: "Failed to fetch documents" }, { status: 500 })
+    return NextResponse.json({ available: false, results: [], documents: [], error: "Failed to fetch documents" })
   }
 }

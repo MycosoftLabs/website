@@ -18,15 +18,14 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(12000),
     })
     const text = await res.text()
+    if (!res.ok) return NextResponse.json({ layer: "pollen", ok: false, results: [], upstreamStatus: res.status })
     return new NextResponse(text, {
-      status: res.status,
       headers: { "Content-Type": res.headers.get("Content-Type") || "application/json" },
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : "upstream_error"
     return NextResponse.json(
-      { layer: "pollen", ok: false, error: message },
-      { status: 502 },
+      { layer: "pollen", ok: false, results: [], error: message },
     )
   }
 }

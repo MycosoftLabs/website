@@ -14,10 +14,7 @@ function buildMasUrl(path: string, request?: NextRequest) {
 async function proxyToMas(request: NextRequest, path: string, method: string) {
   const target = buildMasUrl(path, request)
   if (!target) {
-    return NextResponse.json(
-      { error: "MAS_API_URL is not configured" },
-      { status: 500 }
-    )
+    return NextResponse.json({ available: false, alerts: [], rules: [], error: "MAS_API_URL is not configured" })
   }
 
   const body =
@@ -35,7 +32,8 @@ async function proxyToMas(request: NextRequest, path: string, method: string) {
 
   const text = await response.text()
   const contentType = response.headers.get("content-type") || "application/json"
-  return new NextResponse(text, { status: response.status, headers: { "content-type": contentType } })
+  if (!response.ok) return NextResponse.json({ available: false, alerts: [], rules: [], upstreamStatus: response.status })
+  return new NextResponse(text, { headers: { "content-type": contentType } })
 }
 
 export async function GET(request: NextRequest) {

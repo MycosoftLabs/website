@@ -14,7 +14,7 @@ export async function GET() {
       signal: AbortSignal.timeout(15000),
     })
     const body = await res.json().catch(() => ({}))
-    return NextResponse.json({ layer: "virus", upstream: body }, { status: res.status })
+    return NextResponse.json({ layer: "virus", upstream: body, available: res.ok, upstreamStatus: res.status })
   } catch (e) {
     const message = e instanceof Error ? e.message : "mas_unreachable"
     return NextResponse.json(
@@ -27,7 +27,6 @@ export async function GET() {
           detail: message,
         },
       },
-      { status: 502 },
     )
   }
 }

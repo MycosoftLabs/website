@@ -19,11 +19,10 @@ export async function GET() {
       const t = await res.text().catch(() => "")
       return NextResponse.json(
         { error: "upstream_mesh_stream", status: res.status, detail: t.slice(0, 500) },
-        { status: 502 }
       )
     }
     if (!res.body) {
-      return NextResponse.json({ error: "empty_upstream_body" }, { status: 502 })
+      return NextResponse.json({ error: "empty_upstream_body" })
     }
     return new NextResponse(res.body, {
       status: 200,
@@ -35,6 +34,6 @@ export async function GET() {
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : "mas_unreachable"
-    return NextResponse.json({ error: "proxy_failed", detail: message }, { status: 502 })
+    return NextResponse.json({ available: false, error: "proxy_failed", detail: message })
   }
 }

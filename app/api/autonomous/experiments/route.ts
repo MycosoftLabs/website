@@ -11,7 +11,6 @@ export async function GET() {
     if (!res.ok)
       return NextResponse.json(
         { experiments: [], steps: [], source: 'error', error: `MAS responded ${res.status}` },
-        { status: res.status }
       )
 
     const data = await res.json()
@@ -19,7 +18,6 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { experiments: [], steps: [], source: 'error', error: 'MAS backend not available' },
-      { status: 503 }
     )
   }
 }

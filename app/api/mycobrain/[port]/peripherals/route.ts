@@ -342,7 +342,6 @@ export async function GET(
         details: String(error),
         timestamp: new Date().toISOString(),
       },
-      { status: 503 }
     )
   }
 }

@@ -33,8 +33,11 @@ export async function GET() {
   try {
     const response = await fetch(CURSOR_TOKENS_CSV_URL, { cache: "no-store" })
     if (!response.ok) {
-      const text = await response.text()
-      return NextResponse.json({ error: text.slice(0, 300) }, { status: response.status })
+      return NextResponse.json({
+        total_tokens: null,
+        updated_at: new Date().toISOString(),
+        available: false,
+      })
     }
 
     const csv = await response.text()
@@ -72,6 +75,10 @@ export async function GET() {
       updated_at: new Date().toISOString(),
     })
   } catch (err) {
-    return NextResponse.json({ error: "Failed to load token usage" }, { status: 500 })
+    return NextResponse.json({
+      total_tokens: null,
+      updated_at: new Date().toISOString(),
+      available: false,
+    })
   }
 }

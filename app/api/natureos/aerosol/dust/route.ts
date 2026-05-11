@@ -24,15 +24,14 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(15000),
     })
     const text = await res.text()
+    if (!res.ok) return NextResponse.json({ layer: "dust", ok: false, features: [], observations: [], upstreamStatus: res.status })
     return new NextResponse(text, {
-      status: res.status,
       headers: { "Content-Type": res.headers.get("Content-Type") || "application/json" },
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : "upstream_error"
     return NextResponse.json(
-      { layer: "dust", ok: false, error: message },
-      { status: 502 },
+      { layer: "dust", ok: false, features: [], observations: [], error: message },
     )
   }
 }

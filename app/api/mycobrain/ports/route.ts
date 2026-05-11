@@ -27,13 +27,11 @@ export async function GET() {
     }
     
     return NextResponse.json(
-      { ports: [], error: "Service unavailable", message: "MycoBrain service is not running" },
-      { status: 503 }
+      { ports: [], available: false, error: "Service unavailable", message: "MycoBrain service is not running" },
     )
   } catch (error) {
     return NextResponse.json(
-      { ports: [], error: "Failed to fetch ports", details: String(error), serviceUrl: MYCOBRAIN_SERVICE_URL },
-      { status: 503 }
+      { ports: [], available: false, error: "Failed to fetch ports", details: String(error), serviceUrl: MYCOBRAIN_SERVICE_URL },
     )
   }
 }

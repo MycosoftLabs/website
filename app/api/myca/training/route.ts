@@ -26,7 +26,11 @@ export async function POST(request: NextRequest) {
     const authUser = auth.user
 
     if (!authUser) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return NextResponse.json({
+        success: false,
+        authenticated: false,
+        message: "Training capture requires a signed-in session",
+      })
     }
 
     const payload = {
@@ -77,7 +81,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return NextResponse.json({ authenticated: false, stats: null, items: [] })
     }
 
     const type = request.nextUrl.searchParams.get("type")
@@ -92,18 +96,12 @@ export async function GET(request: NextRequest) {
 
     if (!upstream.ok) {
       const details = await upstream.text()
-      return NextResponse.json(
-        { error: "Failed to fetch training stats", details },
-        { status: upstream.status }
-      )
+      return NextResponse.json({ available: false, stats: null, items: [], error: "Failed to fetch training stats", details })
     }
 
     const data = await upstream.json()
     return NextResponse.json(data)
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch training stats" },
-      { status: 500 }
-    )
+    return NextResponse.json({ available: false, stats: null, items: [], error: error instanceof Error ? error.message : "Failed to fetch training stats" })
   }
 }

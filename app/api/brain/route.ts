@@ -14,10 +14,30 @@ const ALLOWED_ENDPOINTS = ['status', 'chat', 'chat/stream', 'event', 'memories',
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth();
-  if (authResult.error) return authResult.error;
-
   const { searchParams } = new URL(request.url);
   const endpoint = searchParams.get('endpoint') || 'status';
+
+  if (authResult.error && endpoint === 'status') {
+    return NextResponse.json({
+      success: true,
+      authenticated: false,
+      data: {
+        status: 'unavailable',
+        brain: {
+          initialized: false,
+          frontier_router: false,
+          memory_coordinator: false,
+        },
+        providers: {},
+        memory: {
+          total_memories: 0,
+          active_sessions: 0,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+  if (authResult.error) return authResult.error;
 
   // SECURITY: Validate endpoint against allowlist to prevent path traversal
   if (!ALLOWED_ENDPOINTS.includes(endpoint)) {

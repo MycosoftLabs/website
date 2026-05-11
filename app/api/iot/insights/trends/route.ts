@@ -14,10 +14,7 @@ function buildMasUrl(path: string, request?: NextRequest) {
 export async function GET(request: NextRequest) {
   const target = buildMasUrl("/api/iot/analytics/trends", request)
   if (!target) {
-    return NextResponse.json(
-      { error: "MAS_API_URL is not configured" },
-      { status: 500 }
-    )
+    return NextResponse.json({ available: false, trends: [], error: "MAS_API_URL is not configured" })
   }
 
   const response = await fetch(target, {
@@ -26,5 +23,6 @@ export async function GET(request: NextRequest) {
   })
   const text = await response.text()
   const contentType = response.headers.get("content-type") || "application/json"
-  return new NextResponse(text, { status: response.status, headers: { "content-type": contentType } })
+  if (!response.ok) return NextResponse.json({ available: false, trends: [], upstreamStatus: response.status })
+  return new NextResponse(text, { headers: { "content-type": contentType } })
 }

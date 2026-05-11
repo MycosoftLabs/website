@@ -226,7 +226,6 @@ export async function GET(
         message: "MycoBrain service not available or device not connected",
         timestamp: new Date().toISOString(),
       },
-      { status: 503 }
     )
   }
 }

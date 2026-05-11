@@ -22,9 +22,10 @@ export async function GET(request: NextRequest) {
     } catch {
       payload = { raw: text }
     }
-    return NextResponse.json(payload as object, { status: res.status })
+    if (!res.ok) return NextResponse.json({ available: false, nodes: [], items: [] })
+    return NextResponse.json(payload as object)
   } catch (e) {
     const message = e instanceof Error ? e.message : "mas_unreachable"
-    return NextResponse.json({ error: "proxy_failed", detail: message }, { status: 502 })
+    return NextResponse.json({ available: false, nodes: [], items: [], error: "proxy_failed", detail: message })
   }
 }
