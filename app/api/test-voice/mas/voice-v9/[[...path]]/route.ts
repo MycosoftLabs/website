@@ -50,6 +50,18 @@ async function proxyRequest(
       },
     })
   } catch (e) {
+    const healthProbe = req.method === "GET" && pathSegments?.join("/") === "health"
+    if (healthProbe) {
+      return NextResponse.json(
+        {
+          available: false,
+          status: "offline",
+          source: "voice-v9",
+          error: String(e),
+        },
+        { status: 200, headers: { "Cache-Control": "no-store" } },
+      )
+    }
     return NextResponse.json(
       { error: String(e) },
       { status: 502, headers: { "Cache-Control": "no-store" } }

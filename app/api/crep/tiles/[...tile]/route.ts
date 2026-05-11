@@ -92,18 +92,24 @@ export async function GET(
     })
   }
 
-  // Parse "bytes=start-end" (end optional)
-  const m = range.match(/^bytes=(\d+)-(\d*)$/)
+  // Parse HTTP byte ranges. PMTiles clients may send normal ranges
+  // ("bytes=start-end") or suffix ranges ("bytes=-tail").
+  const m = range.match(/^bytes=(\d*)-(\d*)$/)
   if (!m) {
-    return NextResponse.json({ error: "invalid Range header" }, { status: 416 })
+    return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } })
   }
-  const start = parseInt(m[1], 10)
-  const end = m[2] ? parseInt(m[2], 10) : size - 1
+  let start: number
+  let end: number
+  if (!m[1] && m[2]) {
+    const suffixLength = parseInt(m[2], 10)
+    start = Math.max(size - suffixLength, 0)
+    end = size - 1
+  } else {
+    start = parseInt(m[1], 10)
+    end = m[2] ? Math.min(parseInt(m[2], 10), size - 1) : size - 1
+  }
   if (isNaN(start) || isNaN(end) || start < 0 || end >= size || start > end) {
-    return NextResponse.json(
-      { error: "Range out of bounds", size, requested: range },
-      { status: 416, headers: { "Content-Range": `bytes */${size}` } },
-    )
+    return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } })
   }
   const nodeStream = createReadStream(abs, { start, end })
   const webStream = Readable.toWeb(nodeStream) as ReadableStream
