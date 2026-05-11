@@ -141,7 +141,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         setShouldLoadVideo(true)
         observer.disconnect()
       },
-      { rootMargin: "180px" }
+      { rootMargin: "0px" }
     )
 
     observer.observe(node)
