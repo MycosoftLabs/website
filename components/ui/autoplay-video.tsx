@@ -124,6 +124,7 @@ export function AutoplayVideo({
   poster,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const lazyProbeRef = useRef<HTMLDivElement>(null)
   const isDev = process.env.NODE_ENV === "development"
   const list = useMemo(
     () => normalizeSources(src, sources, isDev, encodeSrc),
@@ -132,6 +133,7 @@ export function AutoplayVideo({
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [allFailed, setAllFailed] = useState(false)
+  const [shouldLoad, setShouldLoad] = useState(preload === "auto")
   const activeSrc = list[index] ?? ""
   const listRef = useRef(list)
   listRef.current = list
@@ -140,13 +142,35 @@ export function AutoplayVideo({
     setIndex(0)
     setPlaying(false)
     setAllFailed(false)
-  }, [list.join("|")])
+    setShouldLoad(preload === "auto")
+  }, [list.join("|"), preload])
+
+  useEffect(() => {
+    if (preload === "auto" || shouldLoad) return
+    const target = lazyProbeRef.current
+    if (!target) return
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "900px 0px" }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [preload, shouldLoad])
 
   // Skip zero-byte MP4s (origin often returns 200 + CL:0 for empty NAS files).
   // Runs in parallel with video load — does NOT block playback. If the probe
   // detects CL:0 before the video element loads, we advance immediately.
   useEffect(() => {
-    if (!activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
+    if (!shouldLoad || !activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
     let cancelled = false
     const ctrl = new AbortController()
     ;(async () => {
@@ -173,11 +197,11 @@ export function AutoplayVideo({
       cancelled = true
       ctrl.abort()
     }
-  }, [activeSrc])
+  }, [activeSrc, shouldLoad])
 
   useEffect(() => {
     const v = videoRef.current
-    if (!v || !activeSrc) return
+    if (!shouldLoad || !v || !activeSrc) return
 
     const tryPlay = () => {
       v.play().catch(() => {})
@@ -256,7 +280,7 @@ export function AutoplayVideo({
       v.removeEventListener("error", onError)
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
     }
-  }, [activeSrc, stallTimeoutMs, hideUntilPlaying])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad])
 
   if (!activeSrc) return null
   if (hideUntilPlaying && allFailed) return null
@@ -273,6 +297,7 @@ export function AutoplayVideo({
       : undefined
 
   return (
+    shouldLoad ? (
     <video
       key={activeSrc}
       ref={videoRef}
@@ -287,5 +312,18 @@ export function AutoplayVideo({
     >
       <source src={activeSrc} type="video/mp4" />
     </video>
+    ) : (
+      <div
+        ref={lazyProbeRef}
+        aria-hidden="true"
+        className={[className, pointerClass].filter(Boolean).join(" ")}
+        style={{
+          ...style,
+          backgroundImage: posterAttr ? `url("${posterAttr}")` : style?.backgroundImage,
+          backgroundSize: style?.backgroundSize || "cover",
+          backgroundPosition: style?.backgroundPosition || "center",
+        }}
+      />
+    )
   )
 }
