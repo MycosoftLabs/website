@@ -59,7 +59,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "Development",
     image: "/assets/mushroom1/Main A.jpg",
-    video: "/assets/mushroom1/mushroom1-hero-2026.mp4",
+    video: "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
     videoTitle: "Discover the Underground Network",
     videoDescription: "Experience real-time monitoring of mycelial networks with unprecedented precision and insight.",
     features: [

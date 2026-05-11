@@ -52,12 +52,12 @@ const MUSHROOM1_ASSETS = {
   blueprintImage: "/assets/mushroom1/mushroom1-blueprint-large.png",
   systemsBackground: "/assets/mushroom1/systems-background.jpg",
   videos: {
-    hero: "/assets/mushroom1/mushroom1-hero-2026.mp4",
+    hero: "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
     background: "/assets/mushroom1/PXL_20250404_210633484.VB-02.MAIN.mp4",
-    walking: "/assets/mushroom1/mushroom 1 walking.mp4",
-    waterfall: "/assets/mushroom1/waterfall 1.mp4",
-  demo: "/assets/mushroom1/mushroom 1 walking.mp4",
-  promo: "/assets/mushroom1/waterfall 1.mp4",
+    walking: "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+    waterfall: "/assets/mushroom1/waterfall-1-fast-web.mp4",
+  demo: "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+  promo: "/assets/mushroom1/waterfall-1-fast-web.mp4",
   },
   useCaseVideos: [
     "/assets/mushroom1/a.mp4",
@@ -189,7 +189,7 @@ const USE_CASES = [
     gradient: "linear-gradient(135deg, rgba(5, 150, 105, 0.9), rgba(15, 118, 110, 0.88))",
     description: "Universities and research institutions use Mushroom 1 to study mycelial network communication, forest health, and ecosystem dynamics.",
     applications: ["Mycology research", "Forest ecology studies", "Climate change monitoring", "Biodiversity assessment"],
-    video: "/assets/mushroom1/scientific-research.mp4"
+    video: "/assets/mushroom1/scientific-research-fast-web.mp4"
   },
   {
     title: "Conservation & Wildlife",
