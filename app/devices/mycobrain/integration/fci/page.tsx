@@ -211,7 +211,7 @@ export default function FCIIntegrationPage() {
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-3">
                 <Button asChild>
-                  <Link href="/crep">
+                  <Link href="/natureos/crep">
                     <Waves className="mr-2 h-4 w-4" />
                     CREP Dashboard
                   </Link>
@@ -510,7 +510,7 @@ export default function FCIIntegrationPage() {
 
               <div className="flex gap-3 mt-6">
                 <Button asChild>
-                  <Link href="/crep">
+                  <Link href="/natureos/crep">
                     Open CREP Dashboard
                   </Link>
                 </Button>

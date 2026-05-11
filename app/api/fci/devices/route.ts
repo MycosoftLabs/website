@@ -35,6 +35,17 @@ export async function GET(request: NextRequest) {
     
     if (!response.ok) {
       const error = await response.text()
+      if (response.status === 404 || response.status === 503) {
+        return NextResponse.json(
+          {
+            devices: [],
+            source: "mindex",
+            available: false,
+            message: `MINDEX FCI device registry unavailable: ${error || response.statusText}`,
+          },
+          { status: 200 }
+        )
+      }
       return NextResponse.json(
         { error: `MINDEX API error: ${error}` },
         { status: response.status }

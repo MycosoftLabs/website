@@ -150,7 +150,7 @@ const supportResources = [
     icon: BookOpen,
     title: "Knowledge Base",
     description: "Tutorials, best practices, and how-to articles",
-    href: "/docs/guides",
+    href: "/docs",
     color: "purple",
   },
   {
