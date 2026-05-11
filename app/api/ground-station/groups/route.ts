@@ -10,6 +10,16 @@ import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
+function unavailableGroups(message: string) {
+  return NextResponse.json([], {
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Ground-Station-Source": "unavailable",
+      "X-Ground-Station-Message": message.slice(0, 180),
+    },
+  })
+}
+
 export async function GET() {
   try {
     const groups = await gsDb.select().from(schema.gsGroups)
@@ -48,10 +58,7 @@ export async function GET() {
     }
 
     console.error("Ground Station groups error:", error)
-    return NextResponse.json(
-      { error: "Ground Station groups error", details: String(error) },
-      { status: 500 }
-    )
+    return unavailableGroups(String(error))
   }
 }
 

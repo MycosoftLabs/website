@@ -312,12 +312,22 @@ export async function GET(
 
   return NextResponse.json(
     {
-      error: "Data unavailable",
+      available: false,
       source,
       layer: mindexLayer,
+      entities: [],
+      observations: [],
+      features: [],
+      total: 0,
       message: `MINDEX and fallback APIs are unreachable for ${source}`,
     },
-    { status: 503 }
+    {
+      headers: {
+        "Cache-Control": "no-store",
+        "X-MINDEX-Source": "unavailable",
+        "X-MINDEX-Layer": mindexLayer,
+      },
+    }
   )
 }
 

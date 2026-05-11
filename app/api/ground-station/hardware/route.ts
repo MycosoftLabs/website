@@ -9,6 +9,26 @@ import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
+function emptyHardwareFor(type: string) {
+  const emptyHardware = {
+    sdrs: [],
+    rotators: [],
+    rigs: [],
+    cameras: [],
+  }
+  return type === "all" ? emptyHardware : []
+}
+
+function unavailableHardware(type: string, message: string) {
+  return NextResponse.json(emptyHardwareFor(type), {
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Ground-Station-Source": "unavailable",
+      "X-Ground-Station-Message": message.slice(0, 180),
+    },
+  })
+}
+
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type") || "all"
 
@@ -48,14 +68,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: `Unknown hardware type: ${type}` }, { status: 400 })
   } catch (error) {
     if (String(error).includes("No DATABASE_URL") || String(error).includes("No POSTGRES_URL")) {
-      const emptyHardware = {
-        sdrs: [],
-        rotators: [],
-        rigs: [],
-        cameras: [],
-      }
-
-      return NextResponse.json(type === "all" ? emptyHardware : [], {
+      return NextResponse.json(emptyHardwareFor(type), {
         headers: {
           "Cache-Control": "no-store",
           "X-Ground-Station-Source": "unconfigured",
@@ -64,10 +77,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.error("Ground Station hardware error:", error)
-    return NextResponse.json(
-      { error: "Ground Station hardware error", details: String(error) },
-      { status: 500 }
-    )
+    return unavailableHardware(type, String(error))
   }
 }
 

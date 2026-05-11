@@ -63,7 +63,15 @@ export async function GET() {
       error: authErr,
     } = await supabase.auth.getUser()
     if (authErr || !user) {
-      return NextResponse.json({ error: "Unauthorized", waypoints: [] }, { status: 401 })
+      return NextResponse.json(
+        { authenticated: false, waypoints: [] },
+        {
+          headers: {
+            "Cache-Control": "no-store",
+            "X-CREP-Waypoints-Source": "anonymous",
+          },
+        }
+      )
     }
 
     const { data, error } = await supabase
@@ -82,7 +90,15 @@ export async function GET() {
     })
   } catch (e) {
     console.error("[crep/waypoints GET]", e)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { available: false, waypoints: [] },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+          "X-CREP-Waypoints-Source": "unavailable",
+        },
+      }
+    )
   }
 }
 
