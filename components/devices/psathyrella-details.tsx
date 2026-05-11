@@ -267,7 +267,7 @@ export function PsathyrellaDetails() {
         {/* Background Video — keep the full exported frame visible without scroll zoom/crop */}
         <motion.div className="absolute inset-0 overflow-hidden">
           <InstantHeroVideo
-            mp4Src={PSATHYRELLA_HERO}
+            mp4Src={heroSources[0] ?? PSATHYRELLA_HERO}
             youtubeId={PSATHYRELLA_HERO_YOUTUBE}
             poster={PSATHYRELLA_DEVICE.image}
             className="absolute inset-0"

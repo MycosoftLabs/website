@@ -25,6 +25,7 @@ import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { NetworkCanvas } from "@/components/effects/network-canvas"
 import { AgaricShardTitle } from "@/components/devices/agaric-shard-title"
 import { AgaricTechnologyShaderBackground } from "@/components/devices/agaric-technology-shader-background"
@@ -73,6 +74,9 @@ const AGARIC_ASSETS = {
 }
 
 const AGARIC_HERO_YOUTUBE_URL = `https://www.youtube.com/watch?v=${AGARIC_ASSETS.youtube.hero}`
+const AGARIC_HERO_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.hero)[0] ?? AGARIC_ASSETS.videos.hero
+const AGARIC_CAPABILITIES_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.capabilities)[0] ?? AGARIC_ASSETS.videos.capabilities
+const AGARIC_FOOTER_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.footer)[0] ?? AGARIC_ASSETS.videos.footer
 
 // Component architecture data for blueprint
 interface DeviceComponent {
@@ -348,7 +352,7 @@ export function AgaricDetails() {
         {/* Background Video */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <InstantHeroVideo
-            mp4Src={AGARIC_ASSETS.videos.hero}
+            mp4Src={AGARIC_HERO_VIDEO}
             youtubeId={AGARIC_ASSETS.youtube.hero}
             poster={AGARIC_ASSETS.heroImage}
             mp4StartTimeoutMs={1200}
@@ -705,7 +709,7 @@ export function AgaricDetails() {
           controlsList="nodownload nofullscreen noremoteplayback"
           className="absolute inset-0 h-full w-full object-cover"
         >
-          <source src={encodeAssetUrl(AGARIC_ASSETS.videos.capabilities)} type="video/mp4" />
+          <source src={encodeAssetUrl(AGARIC_CAPABILITIES_VIDEO)} type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative z-10 max-w-7xl mx-auto px-4">
@@ -1301,7 +1305,7 @@ export function AgaricDetails() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
           >
-            <source src={encodeAssetUrl(AGARIC_ASSETS.videos.footer)} type="video/mp4" />
+            <source src={encodeAssetUrl(AGARIC_FOOTER_VIDEO)} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/15" />
         </div>

@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { AlarmSmokeBackground } from "@/components/devices/alarm-smoke-background"
 import { AlarmSmokeTitle } from "@/components/devices/alarm-smoke-title"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import {
   NeuCard,
   NeuCardContent,
@@ -48,6 +49,7 @@ const ALARM_ASSETS = {
   // Demo video (add when available)
   // demoVideo: "/assets/alarm/alarm-hero-temp.mp4",
 }
+const ALARM_HERO_SOURCES = assetMp4Sources(ALARM_ASSETS.heroVideo)
 
 // Device Components
 interface DeviceComponent {
@@ -205,8 +207,8 @@ export function AlarmDetails() {
       {/* Hero Section - Clean Glass Lab Aesthetic */}
       <section ref={heroRef} className="alarm-hero relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
         <AutoplayVideo
-          src={ALARM_ASSETS.heroVideo}
-          sources={[ALARM_ASSETS.heroVideo]}
+          src={ALARM_HERO_SOURCES[0]}
+          sources={ALARM_HERO_SOURCES}
           className="absolute inset-0 z-0 h-full w-full object-cover"
           preload="auto"
           encodeSrc

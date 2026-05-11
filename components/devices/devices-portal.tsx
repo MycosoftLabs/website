@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { InstantHeroVideo } from "@/components/ui/instant-hero-video"
 import { CircuitLinesBackground } from "@/components/devices/circuit-lines-background"
-import { youtubeHeroEmbedSrc } from "@/lib/hero-youtube"
+import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
 import {
   Microscope,
   Wind,
@@ -277,9 +277,8 @@ const devices = [
 
 /** Full-bleed /devices hero — NAS: `/assets/devices/droids-hero.mp4` (optional `-web`). Override: `NEXT_PUBLIC_DEVICES_HERO_MP4`. */
 const DEVICES_PORTAL_HERO_SOURCES = [
-  process.env.NEXT_PUBLIC_DEVICES_HERO_MP4?.trim() || "/assets/devices/droids-hero.mp4",
+  ...assetMp4Sources(process.env.NEXT_PUBLIC_DEVICES_HERO_MP4?.trim() || "/assets/devices/droids-hero.mp4"),
 ]
-const DEVICES_HERO_YOUTUBE_ID = "9B4sFqvhvSQ"
 const DEVICES_HERO_YOUTUBE_URL = "https://www.youtube.com/channel/UCUUEOg35426XDmZ9sPXbDYg"
 
 const MYCOBRAIN_SECTION_BACKGROUNDS = {
@@ -292,6 +291,7 @@ const MYCOBRAIN_ACTION_VIDEO = {
   poster: MYCOBRAIN_SECTION_BACKGROUNDS.dark,
   youtube: "3WDneg9OHtU",
 } as const
+const MYCOBRAIN_ACTION_VIDEO_SOURCES = assetMp4Sources(MYCOBRAIN_ACTION_VIDEO.mp4)
 
 const MYCOSOFT_YOUTUBE_CHANNEL = "https://www.youtube.com/@mycosoft"
 const DEVICE_YOUTUBE_URLS: Record<string, string> = {
@@ -353,14 +353,6 @@ export function DevicesPortal() {
         className="devices-hero relative min-h-[100dvh] flex flex-col justify-center overflow-hidden border-0 pt-20 pb-12 md:py-28"
         data-over-video
       >
-        <iframe
-          src={youtubeHeroEmbedSrc(DEVICES_HERO_YOUTUBE_ID)}
-          title="Mycosoft devices hero video"
-          aria-hidden="true"
-          tabIndex={-1}
-          className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[56.25vw] min-h-full w-screen min-w-[177.78vh] -translate-x-1/2 -translate-y-1/2 border-0"
-          allow="autoplay; encrypted-media; picture-in-picture"
-        />
         {DEVICES_PORTAL_HERO_SOURCES[0] ? (
           <AutoplayVideo
             src={DEVICES_PORTAL_HERO_SOURCES[0]}
@@ -812,7 +804,7 @@ export function DevicesPortal() {
 
       <section className="devices-mycobrain-action relative min-h-[72vh] overflow-hidden border-b border-border/60 bg-black text-white">
         <InstantHeroVideo
-          mp4Src={MYCOBRAIN_ACTION_VIDEO.mp4}
+          mp4Src={MYCOBRAIN_ACTION_VIDEO_SOURCES[0] ?? MYCOBRAIN_ACTION_VIDEO.mp4}
           youtubeId={MYCOBRAIN_ACTION_VIDEO.youtube}
           poster={MYCOBRAIN_ACTION_VIDEO.poster}
           className="absolute inset-0"
@@ -897,8 +889,11 @@ export function DevicesPortal() {
       {/* CTA Section */}
       <section className="devices-footer-cta relative overflow-hidden py-24 bg-gradient-to-b from-muted/30 to-background text-white dark:bg-black" data-over-video>
         <AutoplayVideo
-          src="/assets/devices/mycobrain-hero.mp4"
-          sources={["/assets/devices/devices-footer-motion.mp4", "/assets/devices/mycobrain-hero.mp4"]}
+          src="/assets/devices/devices-footer-motion-web.mp4"
+          sources={mergeVideoSources(
+            assetMp4Sources("/assets/devices/devices-footer-motion.mp4"),
+            assetMp4Sources("/assets/devices/mycobrain-hero.mp4")
+          )}
           className="absolute inset-0 z-0 h-full w-full object-cover"
           style={{ filter: "brightness(0.72) contrast(1.06)" }}
           encodeSrc
