@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 interface HyphaeShuffledTitleProps {
   text?: string
@@ -32,6 +33,7 @@ export function HyphaeShuffledTitle({ text = "Hyphae 1", className = "" }: Hypha
 
     let points: TitlePoint[] = []
     let interval: ReturnType<typeof window.setInterval> | null = null
+    const lightweight = shouldUseLightweightVisuals()
     let fontFamily =
       'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
@@ -108,7 +110,15 @@ export function HyphaeShuffledTitle({ text = "Hyphae 1", className = "" }: Hypha
     const resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(canvas)
     resize()
-    interval = window.setInterval(draw, 60)
+    if (lightweight) {
+      interval = window.setInterval(() => {
+        if (!document.hidden) draw()
+      }, 220)
+    } else {
+      interval = window.setInterval(() => {
+        if (!document.hidden) draw()
+      }, 60)
+    }
 
     return () => {
       resizeObserver.disconnect()

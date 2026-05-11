@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 type Point = { x: number; y: number }
 type CircuitLine = Point[]
@@ -44,6 +45,9 @@ export function CircuitLinesBackground() {
     let height = 0
     let frameId = 0
     let lines: CircuitLine[] = []
+    let isVisible = true
+    let lastFrame = 0
+    const lightweight = shouldUseLightweightVisuals()
 
     const intersectsAnother = (x3: number, y3: number, x4: number, y4: number) => {
       for (const points of lines) {
@@ -95,7 +99,9 @@ export function CircuitLinesBackground() {
 
     const buildLines = () => {
       lines = []
-      const count = Math.min(800, Math.max(260, Math.floor((width * height) / 2600)))
+      const maxLines = lightweight ? 260 : 800
+      const minLines = lightweight ? 120 : 260
+      const count = Math.min(maxLines, Math.max(minLines, Math.floor((width * height) / 2600)))
       for (let i = 0; i < count; i += 1) addLine()
     }
 
@@ -143,7 +149,12 @@ export function CircuitLinesBackground() {
       }
     }
 
-    const animate = () => {
+    const animate = (now = 0) => {
+      if (!isVisible || document.hidden || (lightweight && now - lastFrame < 80)) {
+        frameId = requestAnimationFrame(animate)
+        return
+      }
+      lastFrame = now
       drawLines()
       frameId = requestAnimationFrame(animate)
     }
@@ -155,6 +166,13 @@ export function CircuitLinesBackground() {
 
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting
+      },
+      { threshold: 0.01 },
+    )
+    visibilityObserver.observe(canvas)
     window.addEventListener("pointermove", onPointerMove, { passive: true })
     window.addEventListener("pointerdown", onPointerMove, { passive: true })
     resize()
@@ -163,6 +181,7 @@ export function CircuitLinesBackground() {
     return () => {
       cancelAnimationFrame(frameId)
       observer.disconnect()
+      visibilityObserver.disconnect()
       window.removeEventListener("pointermove", onPointerMove)
       window.removeEventListener("pointerdown", onPointerMove)
     }

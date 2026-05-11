@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import Stats from "stats.js"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 const colorPallete = ["#000"]
 
@@ -18,18 +18,13 @@ interface Ball {
 export function AgaricTechnologyShaderBackground() {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const statsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const root = rootRef.current
     const canvas = canvasRef.current
-    const div = statsRef.current
     const context = canvas?.getContext("2d")
 
-    if (!root || !canvas || !div || !context) return
-
-    const stats = new Stats()
-    div.appendChild(stats.domElement)
+    if (!root || !canvas || !context) return
 
     let width = canvas.width = root.clientWidth || window.innerWidth
     let height = canvas.height = root.clientHeight || window.innerHeight
@@ -39,6 +34,9 @@ export function AgaricTechnologyShaderBackground() {
     let count = 0
     let randomCount = 1
     let frame = 0
+    let isVisible = true
+    let lastFrame = 0
+    const lightweight = shouldUseLightweightVisuals()
 
     class BallInstance implements Ball {
       x: number
@@ -89,7 +87,10 @@ export function AgaricTechnologyShaderBackground() {
     }
 
     const loop = () => {
-      stats.begin()
+      frame = requestAnimationFrame(loop)
+      const now = performance.now()
+      if (!isVisible || document.hidden || (lightweight && now - lastFrame < 80)) return
+      lastFrame = now
       context.clearRect(0, 0, width, height)
       if (count === randomCount) {
         balls.push(new BallInstance())
@@ -116,26 +117,32 @@ export function AgaricTechnologyShaderBackground() {
       context.fill()
 
       removeBall()
-      stats.end()
-      frame = requestAnimationFrame(loop)
     }
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const bounds = root.getBoundingClientRect()
       mouse.x = e.clientX - bounds.left
       mouse.y = e.clientY - bounds.top
     }
 
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting
+      },
+      { threshold: 0.01 },
+    )
+    visibilityObserver.observe(root)
+
     onresize()
     loop()
     window.addEventListener("resize", onresize)
-    window.addEventListener("mousemove", handleMouseMove, false)
+    window.addEventListener("pointermove", handlePointerMove, { passive: true })
 
     return () => {
       cancelAnimationFrame(frame)
+      visibilityObserver.disconnect()
       window.removeEventListener("resize", onresize)
-      window.removeEventListener("mousemove", handleMouseMove, false)
-      stats.domElement.remove()
+      window.removeEventListener("pointermove", handlePointerMove)
     }
   }, [])
 
@@ -147,7 +154,6 @@ export function AgaricTechnologyShaderBackground() {
         className="absolute inset-0 cursor-none"
         style={{ WebkitFilter: 'url("#goo")', filter: 'url("#goo")' }}
       />
-      <div id="stats" ref={statsRef} className="absolute left-0 top-0 z-[2]" />
       <svg xmlns="http://www.w3.org/2000/svg" version="1.1" className="absolute h-0 w-0">
         <defs>
           <filter id="goo">

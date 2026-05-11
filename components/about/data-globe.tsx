@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 type DataGlobeProps = {
   className?: string
@@ -34,6 +35,8 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     const container = containerRef.current
     if (!container) return
 
+    if (shouldUseLightweightVisuals()) return
+
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(30, 1, 1, 10000)
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
@@ -45,9 +48,11 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     let distanceTarget = 900
     let frame = 0
     let alive = true
+    let isVisible = true
+    let lastRender = 0
 
     renderer.setClearColor(0x000000, 0)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setPixelRatio(1)
     renderer.domElement.style.position = "absolute"
     renderer.domElement.style.inset = "0"
     renderer.domElement.style.width = "100%"
@@ -59,7 +64,7 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     texture.colorSpace = THREE.SRGBColorSpace
 
     const earth = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 64, 48),
+      new THREE.SphereGeometry(radius, 40, 30),
       new THREE.ShaderMaterial({
         uniforms: {
           uTexture: { value: texture },
@@ -92,7 +97,7 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     group.add(earth)
 
     const atmosphere = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 64, 48),
+      new THREE.SphereGeometry(radius, 40, 30),
       new THREE.ShaderMaterial({
         vertexShader: `
           varying vec3 vNormal;
@@ -128,6 +133,14 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     const resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(container)
     resize()
+
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting
+      },
+      { threshold: 0.01 },
+    )
+    visibilityObserver.observe(container)
 
     fetch("/assets/about-globe/population909500.json")
       .then((response) => response.json())
@@ -213,8 +226,10 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
         // Keep the textured globe even if population data fails.
       })
 
-    const animate = () => {
+    const animate = (now: number) => {
       frame = requestAnimationFrame(animate)
+      if (!isVisible || document.hidden || now - lastRender < 33) return
+      lastRender = now
 
       rotation.x += 0.005
       rotation.y += (target.y - rotation.y) * 0.1
@@ -227,17 +242,28 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
 
       renderer.render(scene, camera)
     }
-    animate()
+    frame = requestAnimationFrame(animate)
 
     return () => {
       alive = false
       cancelAnimationFrame(frame)
       resizeObserver.disconnect()
+      visibilityObserver.disconnect()
       texture.dispose()
       renderer.dispose()
       renderer.domElement.remove()
     }
   }, [])
 
-  return <div ref={containerRef} className={`overflow-hidden ${className}`} aria-hidden="true" />
+  return (
+    <div
+      ref={containerRef}
+      className={`data-globe-root overflow-hidden ${className}`}
+      aria-hidden="true"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-black" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[min(82vw,620px)] w-[min(82vw,620px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/30 bg-[radial-gradient(circle_at_38%_32%,rgba(255,255,255,0.34),transparent_12%),radial-gradient(circle,rgba(0,255,255,0.18),rgba(0,0,0,0)_66%)] shadow-[0_0_90px_rgba(0,255,255,0.35)]" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[min(88vw,680px)] w-[min(88vw,680px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+    </div>
+  )
 }

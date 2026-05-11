@@ -5,6 +5,7 @@ import * as THREE from "three"
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js"
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js"
 import fontJson from "three/examples/fonts/helvetiker_bold.typeface.json"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 const vertexShader = `
 uniform float uTime;
@@ -127,10 +128,11 @@ export function AgaricShardTitle() {
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
+    const lightweight = shouldUseLightweightVisuals()
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true })
     renderer.setClearColor(0xffffff, 0)
-    renderer.setPixelRatio(window.devicePixelRatio || 1)
+    renderer.setPixelRatio(lightweight ? 1 : Math.min(window.devicePixelRatio || 1, 1.5))
     renderer.domElement.style.display = "block"
     renderer.domElement.style.width = "100%"
     renderer.domElement.style.height = "100%"
@@ -152,6 +154,7 @@ export function AgaricShardTitle() {
     let dragX = 0
     let dragging = false
     let frame = 0
+    let lastRender = 0
 
     const setProgress = (value: number) => {
       animationProgress = THREE.MathUtils.clamp(value, 0, 1)
@@ -205,6 +208,9 @@ export function AgaricShardTitle() {
 
     let last = performance.now()
     const tick = (now: number) => {
+      frame = requestAnimationFrame(tick)
+      if (document.hidden || (lightweight && now - lastRender < 50)) return
+      lastRender = now
       const delta = (now - last) / 1000
       last = now
       if (!dragging && timeScale > 0) {
@@ -215,7 +221,6 @@ export function AgaricShardTitle() {
         if (linear >= 1) timeScale = 0
       }
       renderer.render(scene, camera)
-      frame = requestAnimationFrame(tick)
     }
 
     root.style.cursor = "pointer"

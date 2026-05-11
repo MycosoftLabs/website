@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef } from "react"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 export function AlarmSmokeTitle() {
   const turbulenceRef = useRef<SVGFETurbulenceElement | null>(null)
@@ -10,15 +11,19 @@ export function AlarmSmokeTitle() {
     let frames = 1
     const rad = Math.PI / 180
     let frameId = 0
+    let lastFrame = 0
+    const lightweight = shouldUseLightweightVisuals()
 
-    const freqAnimation = () => {
+    const freqAnimation = (now: number) => {
+      frameId = window.requestAnimationFrame(freqAnimation)
+      if (document.hidden || (lightweight && now - lastFrame < 100)) return
+      lastFrame = now
       frames += 0.2
 
       const bfx = 0.03 + 0.005 * Math.cos(frames * rad)
       const bfy = 0.03 + 0.005 * Math.sin(frames * rad)
 
       turbulenceRef.current?.setAttributeNS(null, "baseFrequency", `${bfx} ${bfy}`)
-      frameId = window.requestAnimationFrame(freqAnimation)
     }
 
     frameId = window.requestAnimationFrame(freqAnimation)

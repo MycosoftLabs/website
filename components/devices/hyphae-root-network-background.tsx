@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 const GRID_SIZE = 5
 
@@ -137,7 +138,7 @@ export function HyphaeRootNetworkBackground({ className = "" }: HyphaeRootNetwor
     const roots: RootNode[] = []
     const connectionPoints: ConnectionPoint[] = []
     const grid = new Map<string, GridCell>()
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const prefersReducedMotion = shouldUseLightweightVisuals()
     let width = 0
     let height = 0
     let frame: number | null = null
@@ -215,7 +216,13 @@ export function HyphaeRootNetworkBackground({ className = "" }: HyphaeRootNetwor
       }
     }
 
-    function animate() {
+    let lastFrame = 0
+    function animate(now = 0) {
+      if (document.hidden || (prefersReducedMotion && now - lastFrame < 250)) {
+        frame = requestAnimationFrame(animate)
+        return
+      }
+      lastFrame = now
       drawNetworkFrame()
       frame = requestAnimationFrame(animate)
     }

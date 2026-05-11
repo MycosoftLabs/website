@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
+import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
 function makeAlarmTextTexture() {
   const canvas = document.createElement("canvas")
@@ -32,15 +33,19 @@ export function AlarmSmokeBackground() {
     const container = containerRef.current
     if (!container) return
 
+    if (shouldUseLightweightVisuals()) return
+
     let width = container.clientWidth || window.innerWidth
     let height = container.clientHeight || window.innerHeight
     let animationFrame = 0
     let delta = 0
     let cubeSineDriver = 0
+    let isVisible = true
+    let lastRender = 0
 
     const clock = new THREE.Clock()
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setPixelRatio(1)
     renderer.setSize(width, height)
     renderer.domElement.className = "h-full w-full"
     container.appendChild(renderer.domElement)
@@ -86,7 +91,7 @@ export function AlarmSmokeBackground() {
     const smokeGeo = new THREE.PlaneGeometry(360, 360)
     const smokeParticles: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>[] = []
 
-    for (let p = 0; p < 220; p += 1) {
+    for (let p = 0; p < 120; p += 1) {
       const particle = new THREE.Mesh(smokeGeo, smokeMaterial)
       particle.position.set(Math.random() * 760 - 380, Math.random() * 520 - 260, Math.random() * 1100 - 140)
       particle.rotation.z = Math.random() * 360
@@ -105,6 +110,14 @@ export function AlarmSmokeBackground() {
     const observer = new ResizeObserver(resize)
     observer.observe(container)
 
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting
+      },
+      { threshold: 0.01 },
+    )
+    visibilityObserver.observe(container)
+
     const evolveSmoke = () => {
       let sp = smokeParticles.length
       while (sp--) {
@@ -120,18 +133,21 @@ export function AlarmSmokeBackground() {
       renderer.render(scene, camera)
     }
 
-    const animate = () => {
-      delta = clock.getDelta()
+    const animate = (now: number) => {
       animationFrame = requestAnimationFrame(animate)
+      if (!isVisible || document.hidden || now - lastRender < 33) return
+      lastRender = now
+      delta = clock.getDelta()
       evolveSmoke()
       render()
     }
 
-    animate()
+    animationFrame = requestAnimationFrame(animate)
 
     return () => {
       cancelAnimationFrame(animationFrame)
       observer.disconnect()
+      visibilityObserver.disconnect()
       container.removeChild(renderer.domElement)
       smokeParticles.forEach((particle) => scene.remove(particle))
       scene.remove(text)
@@ -147,5 +163,14 @@ export function AlarmSmokeBackground() {
     }
   }, [])
 
-  return <div ref={containerRef} className="absolute inset-0 h-full w-full" aria-hidden="true" />
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 h-full w-full overflow-hidden bg-black"
+      aria-hidden="true"
+    >
+      <div className="absolute inset-[-20%] bg-[radial-gradient(circle_at_50%_50%,rgba(255,30,30,0.44),transparent_24%),radial-gradient(circle_at_30%_35%,rgba(255,255,255,0.16),transparent_20%),radial-gradient(circle_at_70%_65%,rgba(130,0,0,0.48),transparent_30%)] blur-3xl" />
+      <div className="absolute inset-0 bg-black/20" />
+    </div>
+  )
 }

@@ -434,9 +434,8 @@ export function NeuralNetworkCanvas({ className }: Props) {
       canvas.addEventListener("click", (e) => { if (running) triggerPulse(e.clientX, e.clientY) })
       canvas.addEventListener("touchstart", (e) => {
         if (!running || !e.touches[0]) return
-        e.preventDefault()
         triggerPulse(e.touches[0].clientX, e.touches[0].clientY)
-      }, { passive: false })
+      }, { passive: true })
 
       // ── Resize ─────────────────────────────────────────────────────────────
       function onResize() {
