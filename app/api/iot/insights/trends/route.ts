@@ -17,12 +17,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ available: false, trends: [], error: "MAS_API_URL is not configured" })
   }
 
-  const response = await fetch(target, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(8000),
-  })
-  const text = await response.text()
-  const contentType = response.headers.get("content-type") || "application/json"
-  if (!response.ok) return NextResponse.json({ available: false, trends: [], upstreamStatus: response.status })
-  return new NextResponse(text, { headers: { "content-type": contentType } })
+  try {
+    const response = await fetch(target, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    })
+    const text = await response.text()
+    const contentType = response.headers.get("content-type") || "application/json"
+    if (!response.ok) return NextResponse.json({ available: false, trends: [], upstreamStatus: response.status })
+    return new NextResponse(text, { headers: { "content-type": contentType } })
+  } catch (error) {
+    return NextResponse.json({
+      available: false,
+      trends: [],
+      error: error instanceof Error ? error.message : "MAS IoT trends are unreachable",
+    })
+  }
 }

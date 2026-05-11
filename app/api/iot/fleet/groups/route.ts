@@ -19,18 +19,26 @@ async function proxyToMas(request: NextRequest, path: string, method: string) {
 
   const body = method === "POST" ? await request.json().catch(() => ({})) : undefined
 
-  const response = await fetch(target, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-    signal: AbortSignal.timeout(8000),
-  })
+  try {
+    const response = await fetch(target, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    })
 
-  const text = await response.text()
-  const contentType = response.headers.get("content-type") || "application/json"
-  if (!response.ok) return NextResponse.json({ available: false, groups: [], upstreamStatus: response.status })
-  return new NextResponse(text, { headers: { "content-type": contentType } })
+    const text = await response.text()
+    const contentType = response.headers.get("content-type") || "application/json"
+    if (!response.ok) return NextResponse.json({ available: false, groups: [], upstreamStatus: response.status })
+    return new NextResponse(text, { headers: { "content-type": contentType } })
+  } catch (error) {
+    return NextResponse.json({
+      available: false,
+      groups: [],
+      error: error instanceof Error ? error.message : "MAS IoT fleet groups are unreachable",
+    })
+  }
 }
 
 export async function GET(request: NextRequest) {
