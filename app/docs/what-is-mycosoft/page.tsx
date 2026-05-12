@@ -190,8 +190,8 @@ export default function Page() {
             running in distributed edge data centers embedded in dedicated hardware and nodes, not
             only in centralised cloud. MYCA is described as the structured &ldquo;hand&rdquo; in the
             stack, coordinating agents, tasks, APIs, and local reasoning. Public technical specs
-            name a 6-state consciousness model, a 6-layer memory architecture, and roughly 150+
-            agents, skills, and integrations across 14 categories.
+            name a 6-state consciousness model and a 6-layer memory architecture. MYCA is being
+            built toward <strong>1,000+ specialised agents</strong> across 14 categories.
           </li>
           <li>
             <strong>
