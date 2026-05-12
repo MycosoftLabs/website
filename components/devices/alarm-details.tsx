@@ -404,7 +404,7 @@ export function AlarmDetails() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
-              <div className="alarm-ai-card relative aspect-video rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xl dark:border-white/15 dark:bg-slate-900">
+              <div className="alarm-ai-card relative aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-2xl dark:border-white/15 dark:bg-slate-900">
                 <Image
                   src={ALARM_ASSETS.tinyMlImage}
                   alt="ALARM TinyML inference hardware stack with ESP32, VOC sensor, particle sensor, and battery"
@@ -531,7 +531,7 @@ export function AlarmDetails() {
                 <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-inner dark:bg-white dark:border-red-200 dark:text-slate-900">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-200 dark:border-red-200">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-red-700/70 uppercase tracking-wider dark:text-red-700/70">Component Selector</span>
+                    <span className="text-xs font-mono !text-black uppercase tracking-wider">Component Selector</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -566,7 +566,7 @@ export function AlarmDetails() {
                 <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-inner flex-1 dark:bg-white dark:border-red-200 dark:text-slate-900">
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-200 dark:border-red-200">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-xs font-mono text-red-700/70 uppercase tracking-wider dark:text-red-700/70">Component Details</span>
+                    <span className="text-xs font-mono !text-black uppercase tracking-wider">Component Details</span>
                   </div>
 
                   <AnimatePresence mode="wait">
@@ -609,9 +609,9 @@ export function AlarmDetails() {
                   <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-white/90 to-transparent z-10 dark:from-white">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-slate-500 uppercase tracking-wider dark:text-slate-900">Device Cross-Section</span>
+                      <span className="text-xs font-mono !text-black uppercase tracking-wider">Device Cross-Section</span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-slate-400 dark:text-slate-900">ALARM // REV 1.0</span>
+                      <span className="text-xs font-mono !text-black">ALARM // REV 1.0</span>
                     </div>
                   </div>
 
@@ -628,7 +628,7 @@ export function AlarmDetails() {
 
                   {/* Status bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-white/90 to-transparent dark:from-white">
-                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-900">
+                    <div className="flex items-center justify-between text-xs font-mono !text-black">
                       <span>COMPONENT: <span className="text-red-600 dark:text-red-600">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />

@@ -56,18 +56,23 @@ export function PsathyrellaWaveTitle({ title, className = "" }: PsathyrellaWaveT
           <path
             d="M-40 11 Q-30 8 -20 11 T0 11 T20 11 T40 11 T60 11 T80 11 T100 11 T120 11 V26 H-40z"
             fill={`url(#${gradId})`}
-          >
-            <animateTransform
-              attributeName="transform"
-              begin="0s"
-              dur="1.5s"
-              type="translate"
-              from="0 0"
-              to="40 0"
-              repeatCount="indefinite"
-            />
-          </path>
+            className="psathyrella-wave-path"
+          />
         </pattern>
+        <style>{`
+          @keyframes psathyrella-wave-shift {
+            from { transform: translateX(0); }
+            to { transform: translateX(40px); }
+          }
+          .psathyrella-wave-path {
+            animation: psathyrella-wave-shift 1.5s linear infinite;
+            transform-box: fill-box;
+            transform-origin: center;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .psathyrella-wave-path { animation: none; }
+          }
+        `}</style>
       </defs>
       {/* Light rim only — no blur filter (keeps wave fill crisp) */}
       <g>

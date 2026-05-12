@@ -184,9 +184,10 @@ const USE_CASES = [
   {
     title: "Scientific Research",
     icon: Microscope,
-    color: "from-emerald-600 to-teal-700",
-    colorDark: "dark:from-emerald-950 dark:to-stone-950",
-    gradient: "linear-gradient(135deg, rgba(5, 150, 105, 0.9), rgba(15, 118, 110, 0.88))",
+    color: "from-blue-500 to-blue-600",
+    colorDark: "dark:from-blue-700 dark:to-blue-900",
+    buttonClass: "bg-blue-500 hover:bg-blue-600 !text-white",
+    gradient: "linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.88))",
     description: "Universities and research institutions use Mushroom 1 to study mycelial network communication, forest health, and ecosystem dynamics.",
     applications: ["Mycology research", "Forest ecology studies", "Climate change monitoring", "Biodiversity assessment"],
     video: "/assets/mushroom1/scientific-research-fast-web.mp4"
@@ -194,9 +195,10 @@ const USE_CASES = [
   {
     title: "Conservation & Wildlife",
     icon: Trees,
-    color: "from-green-500 to-emerald-500",
-    colorDark: "dark:from-green-800 dark:to-emerald-800",
-    gradient: "linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.88))",
+    color: "from-emerald-500 to-emerald-600",
+    colorDark: "dark:from-emerald-700 dark:to-emerald-900",
+    buttonClass: "bg-emerald-500 hover:bg-emerald-600 !text-white",
+    gradient: "linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.88))",
     description: "National parks and conservation areas deploy Mushroom 1 networks to monitor ecosystem health and detect environmental threats early.",
     applications: ["Park ecosystem monitoring", "Wildlife habitat tracking", "Fire risk assessment", "Pollution detection"],
     video: "/assets/mushroom1/conservation-wildlife.mp4"
@@ -204,9 +206,10 @@ const USE_CASES = [
   {
     title: "Agriculture & Farming",
     icon: Leaf,
-    color: "from-amber-500 to-orange-500",
-    colorDark: "dark:from-amber-800 dark:to-orange-800",
-    gradient: "linear-gradient(135deg, rgba(245, 158, 11, 0.92), rgba(249, 115, 22, 0.88))",
+    color: "from-orange-500 to-yellow-500",
+    colorDark: "dark:from-orange-700 dark:to-yellow-700",
+    buttonClass: "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 !text-white",
+    gradient: "linear-gradient(135deg, rgba(249, 115, 22, 0.92), rgba(234, 179, 8, 0.88))",
     description: "Farmers and agricultural operations use Mushroom 1 to monitor soil health, predict crop conditions, and optimize growing environments.",
     applications: ["Soil health monitoring", "Irrigation optimization", "Pest early warning", "Organic certification"],
     video: "/assets/mushroom1/c.mp4"
@@ -214,9 +217,10 @@ const USE_CASES = [
   {
     title: "Defense & Security",
     icon: Shield,
-    color: "from-slate-600 to-slate-800",
-    colorDark: "dark:from-slate-700 dark:to-slate-900",
-    gradient: "linear-gradient(135deg, rgba(71, 85, 105, 0.94), rgba(15, 23, 42, 0.9))",
+    color: "from-red-500 to-red-600",
+    colorDark: "dark:from-red-700 dark:to-red-900",
+    buttonClass: "bg-red-500 hover:bg-red-600 !text-white",
+    gradient: "linear-gradient(135deg, rgba(239, 68, 68, 0.94), rgba(185, 28, 28, 0.9))",
     description: "Military and security operations leverage Mushroom 1 for persistent environmental awareness and operational intelligence.",
     applications: ["Base perimeter monitoring", "Contamination detection", "Early warning systems", "Threat assessment"],
     video: "/assets/mushroom1/defense-security.mp4"
@@ -303,6 +307,7 @@ export function Mushroom1Details() {
             src={heroSources[0]}
             sources={heroSources}
             encodeSrc
+            poster="/assets/mushroom1/Mushroom 1.jpg"
             className="absolute inset-0 w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
@@ -358,18 +363,18 @@ export function Mushroom1Details() {
               aria-label="Watch the Mushroom 1 hero video on YouTube"
             >
             <NeuButton
-              className="device-cta-over-video min-h-[44px] px-8 bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
+              className="device-cta-over-video min-h-[44px] px-8 bg-emerald-500 hover:bg-emerald-600 !text-white font-semibold"
             >
-              <Youtube className="mr-2 h-5 w-5" />
+              <Youtube className="mr-2 h-5 w-5 text-emerald-300" />
               Watch Film
             </NeuButton>
             </a>
             <NeuButton
               variant="default"
-              className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
+              className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10 !text-white"
               onClick={() => router.push("/devices/specifications")}
             >
-              <FileText className="mr-2 h-5 w-5" />
+              <FileText className="mr-2 h-5 w-5 text-emerald-300" />
               Specifications
             </NeuButton>
           </motion.div>
@@ -1163,6 +1168,8 @@ export function Mushroom1Details() {
               src={encodeAssetUrl("/assets/mushroom1/hill 1.jpg")}
               alt="Mushroom 1 Mesh Network Deployment"
               fill
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />

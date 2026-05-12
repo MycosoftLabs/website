@@ -127,6 +127,7 @@ const organizationEntities = [
     backgroundImage: "/assets/about/mycosoft-logo-black-bg.png",
     summary:
       "Governance, holding, and cross-cutting strategy — capital allocation, board-level programs, and initiatives that span defense, research, and commercial rails under one mission.",
+    href: "/about#about-organization-heading",
   },
   {
     id: "llc",
@@ -135,6 +136,7 @@ const organizationEntities = [
     backgroundImage: "/assets/about/mycosoft-logo-white-bg.png",
     summary:
       "Operating company for engineering, contracts, sales, and delivery — where hardware programs, software releases, and customer engagements are executed day to day.",
+    href: "/about#about-organization-heading",
   },
   {
     id: "dao",
@@ -336,13 +338,13 @@ export default function AboutPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/devices">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-emerald-950/20 bg-emerald-950/10 text-emerald-950 backdrop-blur-xl hover:bg-emerald-950/15 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/10 !text-white backdrop-blur-xl hover:bg-white/20 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
                 Explore Devices
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
             </Link>
             <Link href="#about">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border-gray-900/30 dark:border-white/30 about-hero-learn-more">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 !text-white bg-white/5 hover:bg-white/15 about-hero-learn-more">
                 Learn More
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
@@ -378,6 +380,7 @@ export default function AboutPage() {
       <section
         id="about"
         className="relative py-16 md:py-24 overflow-hidden bg-black border-y border-white/10"
+        data-over-video
       >
         <DataGlobe className="absolute inset-0 z-0 h-full w-full opacity-100" />
         {/* Particle animation — tuned for dark bg; subtle on light */}
@@ -390,18 +393,18 @@ export default function AboutPage() {
             <NeuBadge variant="default" className="mb-4 border-white/20 bg-black/45 text-white shadow-2xl shadow-cyan-400/10 about-mycosoft-badge">
               About Mycosoft
             </NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white">Building the Earth Computer</h2>
-            <p className="text-cyan-100/90 font-medium text-lg">
+            <h2 className="text-3xl md:text-4xl font-bold mb-2 !text-white">Building the Earth Computer</h2>
+            <p className="!text-cyan-100/90 font-medium text-lg">
               Turn reality into data — then data into intelligence
             </p>
           </div>
 
           {/* Opening */}
           <div className="max-w-3xl mx-auto mb-16 text-center space-y-5">
-            <p className="text-lg text-white/86 leading-relaxed">
+            <p className="text-lg !text-white/86 leading-relaxed">
               Mycosoft is building systems that discover information in the world, not only refine what already exists on the internet. Our data sensors observe reality independently; when networked, they produce new ground truth for science, infrastructure, and defense.
             </p>
-            <p className="text-lg text-white/86 leading-relaxed">
+            <p className="text-lg !text-white/86 leading-relaxed">
               We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed AI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
             </p>
           </div>
@@ -711,6 +714,16 @@ export default function AboutPage() {
               <span className="text-foreground font-medium">MYCA</span> orchestrates work across all of them: corporate rhythm, manufacturing signals, software lifecycles, and device rollout, under{" "}
               <span className="text-foreground font-medium">AVANI</span> governance so automation stays admissible and auditable.
             </p>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-base md:text-lg leading-relaxed mt-4">
+              <a
+                href="https://mycosoft.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-700 dark:text-emerald-300 underline underline-offset-4 hover:text-emerald-800 dark:hover:text-emerald-200"
+              >
+                Read about our story here
+              </a>
+            </p>
           </div>
 
           <div className="about-serve-section mb-14 md:mb-16">
@@ -761,6 +774,17 @@ export default function AboutPage() {
                     >
                       {card}
                     </a>
+                  )
+                }
+                if (entity.href) {
+                  return (
+                    <Link
+                      key={entity.id}
+                      href={entity.href}
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-950/35 dark:focus-visible:ring-emerald-200/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      {card}
+                    </Link>
                   )
                 }
                 return (

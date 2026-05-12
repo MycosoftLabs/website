@@ -382,7 +382,7 @@ export function AgaricDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <NeuBadge variant="default" className="device-hero-badge mb-4 bg-red-500/20 text-red-400 border-red-500/50 text-sm px-4 py-1">
+            <NeuBadge variant="default" className="device-hero-badge mb-4 bg-red-500/20 !text-red-600 dark:!text-red-400 border-red-500/50 text-sm px-4 py-1">
               Flying Sensor Droid
             </NeuBadge>
           </motion.div>
@@ -550,7 +550,7 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-black/45 text-white border-white/20 backdrop-blur-md">Technology</NeuBadge>
+            <NeuBadge variant="default" className="mb-4 bg-black/45 !text-red-600 dark:!text-red-400 border-white/20 backdrop-blur-md">Technology</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-black">
               Sensor + Payload <span className="text-black">Equipment</span>
             </h2>
@@ -624,7 +624,7 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-12 px-4"
           >
-            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-red-600/80 text-white border-red-700/40 dark:!bg-red-500/20 dark:!text-red-300 dark:!border-red-500/40">Field Deployments</NeuBadge>
+            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-red-600/80 !text-red-600 border-red-700/40 dark:!bg-red-500/20 dark:!text-red-300 dark:!border-red-500/40">Field Deployments</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white">
               Wide-area <span className="text-red-600 dark:text-red-400">field flight</span>
             </h2>
@@ -719,9 +719,9 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-300 border-red-500/30 backdrop-blur-md">Capabilities</NeuBadge>
-            <h2 className="agaric-capabilities-title text-4xl md:text-5xl font-bold mb-4 text-white">
-              What <span className="text-red-300">Agaric</span> Can Do
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 !text-red-600 dark:!text-red-400 border-red-500/30 backdrop-blur-md">Capabilities</NeuBadge>
+            <h2 className="agaric-capabilities-title text-4xl md:text-5xl font-bold mb-4 !text-white">
+              What <span className="!text-red-500">AGARIC</span> Can Do
             </h2>
             <p className="text-xl text-white/75 max-w-3xl mx-auto">
               Four mission scenarios combine the same AGARIC functions across every size. AGARIC-S, AGARIC-M, and AGARIC-L change the lift envelope, not the mission identity.
@@ -747,15 +747,15 @@ export function AgaricDetails() {
                 >
                   <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-lg ${activeUseCase === i ? 'bg-white/20' : 'bg-white/10'}`}>
-                      <useCase.icon className="h-6 w-6 text-white" />
+                      <useCase.icon className="h-6 w-6 text-red-500" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-red-300">{useCase.title}</h3>
+                      <h3 className="text-xl font-semibold !text-red-600">{useCase.title}</h3>
                       {activeUseCase === i && (
                         <motion.p
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
-                          className="text-white/80 mt-2"
+                          className="text-slate-900 dark:text-slate-200 mt-2"
                         >
                           {useCase.description}
                         </motion.p>

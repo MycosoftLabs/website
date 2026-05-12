@@ -517,7 +517,7 @@ export function Hyphae1Details() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
+            <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:!text-white border-slate-200 dark:border-slate-600">
               Product Line
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
@@ -559,7 +559,7 @@ export function Hyphae1Details() {
                 </div>
 
                 <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">{variant.name}</h3>
-                <p className="text-slate-700 dark:text-slate-300 mb-4 text-sm sm:text-base leading-relaxed">
+                <p className="text-slate-800 dark:text-slate-300 mb-4 text-sm sm:text-base leading-relaxed">
                   {variant.description}
                 </p>
 
@@ -602,7 +602,7 @@ export function Hyphae1Details() {
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <NeuBadge variant="default" className="mb-4 bg-cyan-400/10 text-cyan-200 border-cyan-300/30">
+              <NeuBadge variant="default" className="mb-4 bg-cyan-400/10 !text-white border-cyan-300/30">
                 Why Hyphae 1
               </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 !text-white">
@@ -733,7 +733,7 @@ export function Hyphae1Details() {
       <section className="hyphae1-capabilities py-24 bg-slate-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-capabilities-badge mb-4 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600 shadow-sm dark:shadow-none">
+            <NeuBadge variant="default" className="hyphae1-capabilities-badge mb-4 border border-black/20 bg-white/40 backdrop-blur-xl !text-black hover:bg-white/60">
               Capabilities
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
@@ -771,7 +771,7 @@ export function Hyphae1Details() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 bg-white/95 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600 shadow-sm backdrop-blur-sm">
+            <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 border border-black/20 bg-white/40 backdrop-blur-xl !text-black hover:bg-white/60">
               Applications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
@@ -827,7 +827,7 @@ export function Hyphae1Details() {
           <div className="text-center mb-16">
             <NeuBadge
               variant="default"
-              className="mb-4 bg-white dark:bg-white/10 text-slate-800 dark:text-white border-slate-200 dark:border-white/20 shadow-sm dark:shadow-none"
+              className="mb-4 border border-black/20 bg-white/40 backdrop-blur-xl !text-black hover:bg-white/60"
             >
               Engineering
             </NeuBadge>
@@ -845,9 +845,71 @@ export function Hyphae1Details() {
 
           {/* Control Device Layout */}
           <div className="relative bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-[8px_12px_32px_rgba(15,23,42,0.06)] dark:shadow-none">
-            <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-              {/* LEFT SIDE: Controller Panel + Description */}
-              <div className="lg:w-80 flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
+              {/* SCHEMATIC: full width, on top */}
+              <div className="w-full">
+                <div className="relative min-h-[500px] bg-slate-200 dark:bg-slate-950 rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden shadow-inner">
+                  <div
+                    className="absolute inset-0 opacity-35 dark:hidden"
+                    style={{
+                      backgroundImage: `
+                      linear-gradient(rgba(15,23,42,0.14) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(15,23,42,0.14) 1px, transparent 1px)
+                    `,
+                      backgroundSize: "30px 30px",
+                    }}
+                  />
+                  <div
+                    className="absolute inset-0 opacity-20 hidden dark:block"
+                    style={{
+                      backgroundImage: `
+                      linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
+                    `,
+                      backgroundSize: "30px 30px",
+                    }}
+                  />
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-100/95 to-transparent dark:from-slate-900 z-10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span className="text-xs font-mono text-slate-500 uppercase tracking-wider dark:text-white/50">
+                        Schematic View
+                      </span>
+                      <div className="flex-1" />
+                      <span className="text-xs font-mono text-slate-400 dark:text-white/30">
+                        HYPHAE-1 // {selectedVariant.size.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0">
+                    <Image
+                      src={HYPHAE1_ASSETS.schematicView}
+                      alt="Hyphae 1 open enclosure schematic view"
+                      fill
+                      sizes="100vw"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/5 dark:bg-black/10" aria-hidden="true" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-100/95 to-transparent dark:from-slate-900">
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-white/30">
+                      <span>
+                        COMPONENT:{" "}
+                        <span className="text-slate-800 dark:text-white/70">
+                          {DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        SYSTEM READY
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CONTROLLER: below schematic, in a row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Controller Panel */}
                 <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-inner">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
@@ -867,7 +929,7 @@ export function Hyphae1Details() {
                           onClick={() => setSelectedComponent(component.id)}
                           className={`p-3 rounded-xl border transition-all text-left ${
                             isSelected
-                              ? "bg-slate-900 border-slate-900 text-white dark:bg-white/10 dark:border-white/40"
+                              ? "bg-cyan-500 border-cyan-400 !text-white shadow-[0_0_15px_rgba(34,211,238,0.7)] dark:bg-cyan-500 dark:border-cyan-400"
                               : "bg-white border-slate-200 hover:border-slate-400 dark:bg-slate-800/50 dark:border-slate-700 dark:hover:border-white/30"
                           }`}
                           whileHover={{ scale: 1.02 }}
@@ -930,74 +992,6 @@ export function Hyphae1Details() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE: Schematic */}
-              <div className="flex-1 min-w-0 flex flex-col">
-                <div className="relative flex-1 min-h-[500px] bg-slate-200 dark:bg-slate-950 rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden shadow-inner">
-                  {/* Grid pattern — dark lines on light; light lines on dark */}
-                  <div
-                    className="absolute inset-0 opacity-35 dark:hidden"
-                    style={{
-                      backgroundImage: `
-                      linear-gradient(rgba(15,23,42,0.14) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(15,23,42,0.14) 1px, transparent 1px)
-                    `,
-                      backgroundSize: "30px 30px",
-                    }}
-                  />
-                  <div
-                    className="absolute inset-0 opacity-20 hidden dark:block"
-                    style={{
-                      backgroundImage: `
-                      linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
-                    `,
-                      backgroundSize: "30px 30px",
-                    }}
-                  />
-
-                  {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-100/95 to-transparent dark:from-slate-900 z-10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-slate-500 uppercase tracking-wider dark:text-white/50">
-                        Schematic View
-                      </span>
-                      <div className="flex-1" />
-                      <span className="text-xs font-mono text-slate-400 dark:text-white/30">
-                        HYPHAE-1 // {selectedVariant.size.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Device Visual */}
-                  <div className="absolute inset-0">
-                    <Image
-                      src={HYPHAE1_ASSETS.schematicView}
-                      alt="Hyphae 1 open enclosure schematic view"
-                      fill
-                      sizes="(min-width: 1024px) 60vw, 100vw"
-                      className="object-cover"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/5 dark:bg-black/10" aria-hidden="true" />
-                  </div>
-
-                  {/* Status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-100/95 to-transparent dark:from-slate-900">
-                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-white/30">
-                      <span>
-                        COMPONENT:{" "}
-                        <span className="text-slate-800 dark:text-white/70">
-                          {DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        SYSTEM READY
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1013,7 +1007,7 @@ export function Hyphae1Details() {
       <section className="hyphae1-tech-specs py-24 bg-slate-50 dark:bg-slate-900" data-section="tech-specs">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
+            <NeuBadge variant="default" className="mb-4 border border-black/20 bg-white/40 backdrop-blur-xl !text-black hover:bg-white/60">
               Specifications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
@@ -1040,8 +1034,8 @@ export function Hyphae1Details() {
                     key={row.label}
                     className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
                   >
-                    <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
-                    <span className="font-medium text-slate-900 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                    <span className="text-slate-600 dark:!text-white text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
+                    <span className="font-medium text-slate-900 dark:!text-white text-sm text-left sm:text-right sm:max-w-[58%]">
                       {row.value}
                     </span>
                   </div>
@@ -1060,8 +1054,8 @@ export function Hyphae1Details() {
                     key={row.label}
                     className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
                   >
-                    <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
-                    <span className="font-medium text-slate-900 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                    <span className="text-slate-600 dark:!text-white text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
+                    <span className="font-medium text-slate-900 dark:!text-white text-sm text-left sm:text-right sm:max-w-[58%]">
                       {row.value}
                     </span>
                   </div>
