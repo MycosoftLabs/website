@@ -9,7 +9,7 @@
 //       single-click reliability across every page and every link.
 // External links also use <a> with target="_blank".
 
-import { Youtube, Github } from "lucide-react"
+import { Youtube, Github, Linkedin } from "lucide-react"
 
 function XLogo({ className }: { className?: string }) {
   return (
@@ -18,6 +18,37 @@ function XLogo({ className }: { className?: string }) {
         fill="currentColor"
         d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.657l-5.214-6.817-5.96 6.817H1.69l7.73-8.835L1.254 2.25h6.826l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"
       />
+    </svg>
+  )
+}
+
+function CrunchbaseLogo({ className }: { className?: string }) {
+  // Stylized "cb" wordmark — Crunchbase doesn't publish an official monogram lucide-style,
+  // so we use a rounded-square monogram drawn in currentColor for theme-aware rendering.
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect
+        x="2"
+        y="2"
+        width="20"
+        height="20"
+        rx="4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <text
+        x="12"
+        y="16.25"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="11"
+        fill="currentColor"
+        letterSpacing="-0.5"
+      >
+        cb
+      </text>
     </svg>
   )
 }
@@ -114,7 +145,7 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4" suppressHydrationWarning>
               Connect
             </h3>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <a
                 href="https://x.com/Mycosoft"
                 className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -124,6 +155,16 @@ export function Footer() {
                 suppressHydrationWarning
               >
                 <XLogo className="h-5 w-5" />
+              </a>
+              <a
+                href="https://www.linkedin.com/company/mycosoft"
+                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="LinkedIn"
+                target="_blank"
+                rel="noopener noreferrer"
+                suppressHydrationWarning
+              >
+                <Linkedin className="h-5 w-5" />
               </a>
               <a
                 href="https://www.youtube.com/channel/UCUUEOg35426XDmZ9sPXbDYg"
@@ -144,6 +185,16 @@ export function Footer() {
                 suppressHydrationWarning
               >
                 <Github className="h-5 w-5" />
+              </a>
+              <a
+                href="https://www.crunchbase.com/organization/mycosoft"
+                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Crunchbase"
+                target="_blank"
+                rel="noopener noreferrer"
+                suppressHydrationWarning
+              >
+                <CrunchbaseLogo className="h-5 w-5" />
               </a>
             </div>
           </div>
