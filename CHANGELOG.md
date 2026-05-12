@@ -528,6 +528,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -703,6 +704,7 @@ All notable changes to this project will be documented in this file.
 - *(footer)* Add US-based business + federal credentials block (#154)
 - *(footer)* Add LinkedIn and Crunchbase to Connect column (#155)
 - *(docs)* Rebuild /docs as catalog-driven portal with 41 stubs (#156)
+- *(docs)* Add full Overview docs (What is Mycosoft / Quickstart / Glossary) + TOS formatting pass (#158)
 
 ### Fix
 
