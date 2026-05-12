@@ -328,6 +328,7 @@ All notable changes to this project will be documented in this file.
 - *(home)* Restore search identity and unblock build [fast]
 - *(build)* Wrap search-param routes for production [fast]
 - *(docs)* Correct devices section to ship-realistic lineup (#157)
+- *(docs)* Rewrite overview docs with accurate stack — correct devices, MYCA scope, AVANI, CREP, protocols (#159)
 
 ### CREP
 
@@ -461,6 +462,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
