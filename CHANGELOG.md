@@ -533,6 +533,10 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Rewrite /docs/what-is-mycosoft per audit; reconcile Agaric/MycoDrone and Earth Simulator/CREP (#161)
+- Align MYCA agent count to 1,000+ across docs (#162)
+- Clarify device ownership model (Mycosoft-owned, hosted on partner property; DoD exception) (#163)
 
 ### Features
 
