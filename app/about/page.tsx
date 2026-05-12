@@ -127,6 +127,7 @@ const organizationEntities = [
     backgroundImage: "/assets/about/mycosoft-logo-black-bg.png",
     summary:
       "Governance, holding, and cross-cutting strategy — capital allocation, board-level programs, and initiatives that span defense, research, and commercial rails under one mission.",
+    href: "/about#about-organization-heading",
   },
   {
     id: "llc",
@@ -135,6 +136,7 @@ const organizationEntities = [
     backgroundImage: "/assets/about/mycosoft-logo-white-bg.png",
     summary:
       "Operating company for engineering, contracts, sales, and delivery — where hardware programs, software releases, and customer engagements are executed day to day.",
+    href: "/about#about-organization-heading",
   },
   {
     id: "dao",
@@ -712,6 +714,16 @@ export default function AboutPage() {
               <span className="text-foreground font-medium">MYCA</span> orchestrates work across all of them: corporate rhythm, manufacturing signals, software lifecycles, and device rollout, under{" "}
               <span className="text-foreground font-medium">AVANI</span> governance so automation stays admissible and auditable.
             </p>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-base md:text-lg leading-relaxed mt-4">
+              <a
+                href="https://mycosoft.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-700 dark:text-emerald-300 underline underline-offset-4 hover:text-emerald-800 dark:hover:text-emerald-200"
+              >
+                Read about our story here
+              </a>
+            </p>
           </div>
 
           <div className="about-serve-section mb-14 md:mb-16">
@@ -762,6 +774,17 @@ export default function AboutPage() {
                     >
                       {card}
                     </a>
+                  )
+                }
+                if (entity.href) {
+                  return (
+                    <Link
+                      key={entity.id}
+                      href={entity.href}
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-950/35 dark:focus-visible:ring-emerald-200/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      {card}
+                    </Link>
                   )
                 }
                 return (
