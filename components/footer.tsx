@@ -149,6 +149,73 @@ export function Footer() {
           </div>
         </div>
 
+        {/* US-based business + federal credentials block (NEMIX-style) */}
+        <div className="border-t pt-8">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[auto_1fr] md:items-start md:gap-8 px-4">
+            {/* US flag */}
+            <div className="flex items-start">
+              <svg
+                viewBox="0 0 760 400"
+                className="h-16 w-auto rounded-sm shadow-sm"
+                aria-label="United States flag"
+                role="img"
+              >
+                <rect width="760" height="400" fill="#B22234" />
+                {/* 6 white stripes */}
+                <rect y="30.77" width="760" height="30.77" fill="#FFFFFF" />
+                <rect y="92.31" width="760" height="30.77" fill="#FFFFFF" />
+                <rect y="153.85" width="760" height="30.77" fill="#FFFFFF" />
+                <rect y="215.38" width="760" height="30.77" fill="#FFFFFF" />
+                <rect y="276.92" width="760" height="30.77" fill="#FFFFFF" />
+                <rect y="338.46" width="760" height="30.77" fill="#FFFFFF" />
+                {/* Canton */}
+                <rect width="304" height="215.38" fill="#3C3B6E" />
+                {/* 50 stars — 9 rows alternating 6/5 */}
+                <g fill="#FFFFFF">
+                  {Array.from({ length: 9 }).flatMap((_, row) => {
+                    const cols = row % 2 === 0 ? 6 : 5
+                    const offsetX = row % 2 === 0 ? 25.33 : 50.67
+                    const spacingX = 50.67
+                    const offsetY = 21.54 + row * 21.54
+                    return Array.from({ length: cols }).map((_, col) => (
+                      <circle
+                        key={`s-${row}-${col}`}
+                        cx={offsetX + col * spacingX}
+                        cy={offsetY}
+                        r="7"
+                      />
+                    ))
+                  })}
+                </g>
+              </svg>
+            </div>
+
+            {/* Credentials text */}
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground" suppressHydrationWarning>
+                US-Based Business · Building Earth Intelligence Since 2018
+              </p>
+              <p suppressHydrationWarning>
+                Mycosoft, Inc. — Delaware C-Corporation (parent)
+              </p>
+              <p suppressHydrationWarning>
+                Mycosoft, LLC — California operating subsidiary, federal contracting entity
+              </p>
+              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                <p suppressHydrationWarning>
+                  <span className="font-semibold text-foreground">UEI:</span> YK3ARVKJ77S9
+                </p>
+                <p suppressHydrationWarning>
+                  <span className="font-semibold text-foreground">CAGE Code:</span> 9KR60
+                </p>
+                <p className="sm:col-span-2 text-xs" suppressHydrationWarning>
+                  Mycosoft, LLC is an active SAM.gov-registered supplier eligible for U.S. federal contracting.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-t pt-8">
           <p className="text-sm text-muted-foreground" suppressHydrationWarning>
             © {new Date().getFullYear()} Mycosoft – Building The Earth Intelligence. All rights reserved.
