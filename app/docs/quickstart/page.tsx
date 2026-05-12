@@ -40,10 +40,10 @@ export default function Page() {
             href="#path-device"
             className="rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
           >
-            <div className="text-sm font-semibold text-foreground">Path A — Device</div>
+            <div className="text-sm font-semibold text-foreground">Path A — Host devices</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              You have (or want) a Mushroom 1, Hyphae 1, MycoNode, SporeBase, Agaric, or ALARM and
-              want telemetry in a dashboard.
+              You have property useful to the network and want Mycosoft-owned devices deployed in
+              exchange for data access. (Commercial / civilian model.)
             </p>
           </Link>
           <Link
@@ -77,15 +77,28 @@ export default function Page() {
           </Link>
         </div>
 
-        <h2 id="path-device">Path A — Start with a device</h2>
+        <h2 id="path-device">Path A — Host Mycosoft devices on your property</h2>
 
-        <h3 id="device-pick">1. Pick the device that matches your use case</h3>
+        <div className="not-prose my-6 rounded-lg border border-border bg-muted/30 p-4">
+          <p className="text-sm leading-relaxed text-foreground">
+            <strong>How this works.</strong> Mycosoft devices are not sold as individual consumer
+            units. They are data sensors and droids that operate collectively for the multi-agent
+            system and the decentralized environmental database. Every device is owned, operated,
+            and maintained by Mycosoft. Commercial and civilian partners subscribe to the
+            data-access platform; in exchange, Mycosoft-owned devices can be hosted on the
+            partner&apos;s property to capture the signal, coverage, or environmental resources the
+            site provides. (Defense and federal customers, see{" "}
+            <Link href="#path-defense">Path D</Link>.)
+          </p>
+        </div>
+
+        <h3 id="device-pick">1. Identify the device class that fits the site</h3>
         <ul>
           <li>
             <strong>Mushroom 1</strong> — solar-powered quadruped walker. 2-metre soil probe, dual
             BME688 environmental sensors, 915 MHz mesh radio, six-month battery life with solar
-            recharge. For forests, farms, parks, and field sites where you want a mobile, self-sited
-            sensor that can reposition itself.
+            recharge. For forests, farms, parks, and field sites where a mobile, self-sited sensor
+            can reposition itself.
           </li>
           <li>
             <strong>Hyphae 1</strong> — distributed edge datacenter. Air, light, sound, gas, radar,
@@ -94,7 +107,7 @@ export default function Page() {
           </li>
           <li>
             <strong>MycoNode</strong> — subsurface bioelectric probe, 5-mile broadcast range. Hand
-            placement or drone-deployed for fungal and root-zone signal.
+            placement or Agaric-deployed for fungal and root-zone signal.
           </li>
           <li>
             <strong>SporeBase v4</strong> — bioaerosol collector. Time-indexed sealed tape captures
@@ -102,17 +115,14 @@ export default function Page() {
             For air-quality, biosurveillance, and longitudinal studies.
           </li>
           <li>
-            <strong>Agaric</strong> — flying sensor hub (Mini / Standard / Heavy-Lift). For aerial
-            survey, mesh extension, and over-the-horizon work.
+            <strong>Agaric</strong> — flying platform (Mini / Standard / Heavy-Lift). Aerial
+            survey, mesh extension, over-the-horizon work, and payload delivery of Mushroom 1,
+            MycoNode, or SporeBase to remote terrain.
           </li>
           <li>
-            <strong>ALARM</strong> — incident signaling device. Dual smoke (ionisation +
+            <strong>ALARM</strong> — incident signalling device. Dual smoke (ionisation +
             photoelectric), VOC, particulates, CO₂, BME688, mold warning, on-device TinyML. For
             facilities, vehicles, and early-warning deployments.
-          </li>
-          <li>
-            <strong>MycoDrone</strong> — carrier drone that deploys Mushroom 1, MycoNode, or
-            SporeBase to remote terrain.
           </li>
           <li>
             <strong>Psathyrella</strong> <em>(draft)</em> — water buoy with undersea cable
@@ -121,47 +131,49 @@ export default function Page() {
           </li>
         </ul>
         <p>
-          Full spec sheets, dimensions, sensor channels, and power profiles live at{" "}
+          Full device specs — dimensions, sensor channels, power profiles — live at{" "}
           <Link href="/devices">/devices</Link>.
         </p>
 
-        <h3 id="device-order">2. Order or request a unit</h3>
+        <h3 id="device-order">2. Request a deployment on your site</h3>
         <ol>
           <li>
-            Email <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the device, the
-            quantity, the deployment site, and the use case.
+            Email <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the site
+            location, the kind of coverage or signal the property offers, the device classes that
+            seem to fit, and the data you want access to in return.
           </li>
           <li>
-            For research or pilot pricing, ask for the <strong>pilot programme</strong>. For
-            classroom and citizen-science, mention <strong>educational pricing</strong>.
+            Mycosoft reviews the site for fit with the network. If accepted, we issue a hosting
+            and data-access agreement that defines the device count, the data you receive, the
+            subscription terms, and the access Mycosoft requires to install and maintain the
+            hardware.
           </li>
           <li>
-            Defence and government customers should follow{" "}
-            <Link href="#path-defense">Path D</Link> instead — federal contracting has its own
-            pathway.
+            Devices are shipped, installed, and commissioned by Mycosoft (or under Mycosoft
+            supervision). They remain Mycosoft property throughout the deployment.
           </li>
         </ol>
 
-        <h3 id="device-onboarding">3. Onboard the device</h3>
+        <h3 id="device-onboarding">3. What happens once devices are on site</h3>
         <ol>
           <li>
-            Power on. Mushroom 1, Hyphae 1, MycoNode, SporeBase, and Agaric all run our firmware on
-            ESP32-S3 silicon (MycoBrain) and ship pre-flashed and pre-paired to your NatureOS
-            organisation.
+            Devices ship pre-flashed with Mycosoft firmware on ESP32-S3 silicon (MycoBrain) and
+            are pre-paired into the Mycosoft fleet. Your NatureOS organisation is provisioned
+            with the views and data scopes defined in the agreement.
           </li>
           <li>
-            The device joins your local mesh via 915 MHz LoRa and the upstream gateway over Wi-Fi,
-            cellular, or satellite — whichever you provisioned.
+            Devices join their local mesh via 915 MHz LoRa and reach the upstream gateway over
+            Wi-Fi, cellular, or satellite — whichever path the site supports.
           </li>
           <li>
             Telemetry flows over <strong>MDP</strong> (Mycosoft Data Protocol — COBS-framed,
             CRC-16, device transport) into the upstream gateway, which forwards it over{" "}
-            <strong>MMP</strong> (Mycosoft Mycorrhizae Protocol — gateway-to-cloud mesh) into
-            NatureOS.
+            <strong>MMP</strong> (Mycosoft Mycorrhizae Protocol — gateway-to-cloud mesh) into the
+            Mycosoft fleet and into your NatureOS views.
           </li>
           <li>
-            Watch your NatureOS dashboard. First readings typically appear within five minutes of
-            power-on in coverage.
+            You see your contracted data in NatureOS. Mycosoft handles firmware, calibration,
+            field service, recovery, and end-of-life on the hardware itself.
           </li>
         </ol>
 
