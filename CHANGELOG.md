@@ -327,6 +327,7 @@ All notable changes to this project will be documented in this file.
 - *(media)* Make Agaric hero instant and remove device loading screen [fast]
 - *(home)* Restore search identity and unblock build [fast]
 - *(build)* Wrap search-param routes for production [fast]
+- *(docs)* Correct devices section to ship-realistic lineup (#157)
 
 ### CREP
 
@@ -460,6 +461,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -697,6 +699,10 @@ All notable changes to this project will be documented in this file.
 - *(meshtastic)* TennMesh-style map with packet stream, position decode, activity overlay
 - Update device pages and NAS media routing [fast]
 - *(home)* Hero search, Agaric detail polish, home command page shell
+- *(science)* Rebuild /science as 9-section atlas + stub sub-routes (#153)
+- *(footer)* Add US-based business + federal credentials block (#154)
+- *(footer)* Add LinkedIn and Crunchbase to Connect column (#155)
+- *(docs)* Rebuild /docs as catalog-driven portal with 41 stubs (#156)
 
 ### Fix
 
@@ -767,6 +773,7 @@ All notable changes to this project will be documented in this file.
 - Autonomous wedged-docker recovery in deploy cleanup
 - Free ~30GB before docker build to prevent 'No space left on device' (#135)
 - *(website)* Lint and production build on push/PR
+- *(terms)* Publish 2026-05-11 Terms of Service (#151)
 
 ### Performance
 
