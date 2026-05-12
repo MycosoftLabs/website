@@ -336,13 +336,13 @@ export default function AboutPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/devices">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-emerald-950/20 bg-emerald-950/10 text-emerald-950 backdrop-blur-xl hover:bg-emerald-950/15 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/10 !text-white backdrop-blur-xl hover:bg-white/20 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
                 Explore Devices
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
             </Link>
             <Link href="#about">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border-gray-900/30 dark:border-white/30 about-hero-learn-more">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 !text-white bg-white/5 hover:bg-white/15 about-hero-learn-more">
                 Learn More
                 <ArrowRight className="h-4 w-4" />
               </NeuButton>
@@ -378,6 +378,7 @@ export default function AboutPage() {
       <section
         id="about"
         className="relative py-16 md:py-24 overflow-hidden bg-black border-y border-white/10"
+        data-over-video
       >
         <DataGlobe className="absolute inset-0 z-0 h-full w-full opacity-100" />
         {/* Particle animation — tuned for dark bg; subtle on light */}
@@ -390,18 +391,18 @@ export default function AboutPage() {
             <NeuBadge variant="default" className="mb-4 border-white/20 bg-black/45 text-white shadow-2xl shadow-cyan-400/10 about-mycosoft-badge">
               About Mycosoft
             </NeuBadge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white">Building the Earth Computer</h2>
-            <p className="text-cyan-100/90 font-medium text-lg">
+            <h2 className="text-3xl md:text-4xl font-bold mb-2 !text-white">Building the Earth Computer</h2>
+            <p className="!text-cyan-100/90 font-medium text-lg">
               Turn reality into data — then data into intelligence
             </p>
           </div>
 
           {/* Opening */}
           <div className="max-w-3xl mx-auto mb-16 text-center space-y-5">
-            <p className="text-lg text-white/86 leading-relaxed">
+            <p className="text-lg !text-white/86 leading-relaxed">
               Mycosoft is building systems that discover information in the world, not only refine what already exists on the internet. Our data sensors observe reality independently; when networked, they produce new ground truth for science, infrastructure, and defense.
             </p>
-            <p className="text-lg text-white/86 leading-relaxed">
+            <p className="text-lg !text-white/86 leading-relaxed">
               We integrate physical sensing, edge compute, mesh protocols, cryptographic data layers, and governed AI so that environmental and biological signals become durable intelligence — not one-off telemetry, but a living data fabric.
             </p>
           </div>
