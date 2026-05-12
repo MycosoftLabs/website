@@ -305,17 +305,17 @@ export function PsathyrellaDetails() {
           >
             <PsathyrellaWaveTitle
               title={PSATHYRELLA_DEVICE.name}
-              className="scale-[1.35] sm:scale-150 md:scale-[1.65] lg:scale-[1.85] origin-center"
+              className="scale-[1.35] sm:scale-150 md:scale-150 lg:scale-[1.85] origin-center"
             />
           </motion.h1>
           
           <motion.p 
-            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-slate-900 dark:text-white/80 mb-8 max-w-4xl mx-auto px-2 font-light leading-snug"
+            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl !text-white dark:!text-white/80 mb-8 max-w-4xl mx-auto px-2 font-light leading-snug"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            <span className="text-sky-800 dark:text-sky-400">{PSATHYRELLA_DEVICE.videoTitle}</span>
+            <span className="!text-white dark:!text-sky-100">{PSATHYRELLA_DEVICE.videoTitle}</span>
           </motion.p>
 
           <motion.div 
@@ -581,7 +581,7 @@ export function PsathyrellaDetails() {
                       <useCase.icon className={`h-6 w-6 ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`} />
                     </div>
                     <div>
-                      <h3 className={`text-xl font-semibold ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{useCase.title}</h3>
+                      <h3 className={`text-xl font-semibold ${activeUseCase === i ? '!text-white' : 'text-slate-900 dark:text-white'}`}>{useCase.title}</h3>
                       {activeUseCase === i && (
                         <motion.p 
                           initial={{ opacity: 0, height: 0 }}
@@ -640,7 +640,7 @@ export function PsathyrellaDetails() {
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               <div className="absolute bottom-6 left-6 right-6">
-                <h3 className="text-2xl font-bold text-white drop-shadow-sm">{USE_CASES[activeUseCase].title}</h3>
+                <h3 className="text-2xl font-bold !text-white drop-shadow-sm">{USE_CASES[activeUseCase].title}</h3>
                 <p className="mt-2 text-white/85 drop-shadow-sm">{USE_CASES[activeUseCase].description}</p>
               </div>
             </motion.div>
@@ -890,7 +890,7 @@ export function PsathyrellaDetails() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 !text-white">
               Ready to explore passive acoustics at the edge?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
