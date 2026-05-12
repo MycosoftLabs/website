@@ -8,6 +8,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from "react"
 import { Loader2 } from "lucide-react"
+import { Slot } from "@radix-ui/react-slot"
 
 export type NeuButtonVariant = "default" | "primary" | "success" | "warning" | "error" | "info"
 
@@ -15,6 +16,7 @@ export interface NeuButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> 
   variant?: NeuButtonVariant
   isLoading?: boolean
   fullWidth?: boolean
+  asChild?: boolean
 }
 
 const VARIANT_CLASSES: Record<NeuButtonVariant, string> = {
@@ -38,6 +40,7 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
       variant = "default",
       isLoading = false,
       fullWidth = false,
+      asChild = false,
       className = "",
       children,
       disabled,
@@ -49,20 +52,29 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
       "neu-btn neu-focus py-3 px-6 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
     const variantClass = VARIANT_CLASSES[variant]
     const widthClass = fullWidth ? "w-full" : ""
+    const Comp: any = asChild ? Slot : "button"
+
+    const buttonProps: Record<string, unknown> = {
+      ref,
+      className: `${baseClass} ${variantClass} ${widthClass} ${className}`,
+      ...props,
+    }
+    if (!asChild) {
+      buttonProps.type = "button"
+      buttonProps.disabled = disabled ?? isLoading
+    }
+
+    if (asChild) {
+      return <Comp {...buttonProps}>{children}</Comp>
+    }
 
     return (
-      <button
-        ref={ref}
-        type="button"
-        className={`${baseClass} ${variantClass} ${widthClass} ${className}`}
-        disabled={disabled ?? isLoading}
-        {...props}
-      >
+      <Comp {...buttonProps}>
         {isLoading ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden />
         ) : null}
         <span>{children}</span>
-      </button>
+      </Comp>
     )
   }
 )

@@ -455,7 +455,7 @@ export function DevicesPortal() {
                 <NeuCard
                   className={`cursor-pointer transition-all ${
                     selectedDevice.id === device.id
-                      ? "ring-2 ring-primary/20"
+                      ? "ring-2 ring-emerald-600/40 bg-emerald-50/80 dark:bg-emerald-900/30 dark:ring-emerald-400/30"
                       : ""
                   }`}
                   onClick={() => setSelectedDevice(device)}
@@ -498,6 +498,9 @@ export function DevicesPortal() {
               <img
                 src={selectedDevice.image}
                 alt={selectedDevice.name}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => {
                   // Fallback to icon if image fails
@@ -567,11 +570,9 @@ export function DevicesPortal() {
                     Learn More
                   </NeuButton>
                 </a>
-                <Link href={`/devices/${selectedDevice.id}`}>
-                  <NeuButton variant="default" className="w-full sm:w-auto">
-                    Full Details
-                  </NeuButton>
-                </Link>
+                <NeuButton asChild variant="default" className="w-full sm:w-auto">
+                  <Link href={`/devices/${selectedDevice.id}`}>Full Details</Link>
+                </NeuButton>
               </div>
             </div>
           </motion.div>
@@ -593,6 +594,9 @@ export function DevicesPortal() {
             <img
               src={selectedDevice.image}
               alt={selectedDevice.name}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
               className="absolute inset-0 w-full h-full object-cover"
               onError={(e) => {
                 const t = e.target as HTMLImageElement
@@ -649,18 +653,18 @@ export function DevicesPortal() {
 
           {/* CTA buttons */}
           <div className="flex flex-col gap-3 pb-2">
-            <Link href={`/devices/${selectedDevice.id}`}>
-              <NeuButton variant="primary" className="w-full gap-2">
-                View Full Details
+            <NeuButton asChild variant="primary" className="w-full gap-2">
+              <Link href={`/devices/${selectedDevice.id}`}>
+                <span>View Full Details</span>
                 <ChevronRight className="h-5 w-5" />
-              </NeuButton>
-            </Link>
-            <a href={deviceYoutubeUrl(selectedDevice.id)} target="_blank" rel="noopener noreferrer">
-              <NeuButton variant="default" className="w-full gap-2">
+              </Link>
+            </NeuButton>
+            <NeuButton asChild variant="default" className="w-full gap-2">
+              <a href={deviceYoutubeUrl(selectedDevice.id)} target="_blank" rel="noopener noreferrer">
                 <Play className="h-5 w-5" />
-                Watch Demo
-              </NeuButton>
-            </a>
+                <span>Watch Demo</span>
+              </a>
+            </NeuButton>
           </div>
         </motion.div>
       </section>
