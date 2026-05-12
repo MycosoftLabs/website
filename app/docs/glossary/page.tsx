@@ -177,20 +177,15 @@ export default function Page() {
           </dd>
 
           <dt>
-            <strong>Earth Simulator</strong>
+            <strong>Earth Simulator / CREP</strong>
           </dt>
           <dd>
-            Environmental world-model service for scenario generation, simulation-backed training,
-            and what-if analysis against live telemetry.
-          </dd>
-
-          <dt>
-            <strong>CREP</strong>
-          </dt>
-          <dd>
-            Common Relevant Environmental Picture. The fused, time-aligned operational view of an
-            area of interest — combining device telemetry, public data, and model output into a
-            single shared picture used by operators and partners.
+            Two names for the same surface. <strong>Earth Simulator</strong> is the runtime: an
+            environmental world-model for scenario generation, simulation-backed training, and
+            what-if analysis against live telemetry. <strong>CREP</strong> — Common Relevant
+            Environmental Picture — is what it produces and how it is used: a fused, time-aligned
+            operational view of an area of interest, combining device telemetry, public data, and
+            model output into a single shared picture for operators and partners.
           </dd>
 
           <dt>
