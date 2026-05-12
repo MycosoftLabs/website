@@ -409,7 +409,7 @@ export function MycoNodeDetails() {
               <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
                 The Mission
               </NeuBadge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 !text-white">
                 Decoding the Underground
               </h2>
               <div className="space-y-4 text-lg text-white/70">
@@ -767,9 +767,44 @@ export function MycoNodeDetails() {
 
           {/* Control Device Layout */}
           <div className="relative bg-gradient-to-br from-purple-950/50 to-slate-900/50 rounded-3xl border border-purple-500/30 p-6">
-            <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-              {/* LEFT SIDE: Controller Panel + Description */}
-              <div className="lg:w-80 flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
+              {/* VISUALIZATION: full width, on top */}
+              <div className="w-full">
+                <div className="relative min-h-[700px] bg-slate-950 rounded-2xl border border-purple-500/40 overflow-hidden shadow-inner">
+                  <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-cyan-950/20" />
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span className="text-xs font-mono text-cyan-400/70 uppercase tracking-wider">Probe Visualization</span>
+                      <div className="flex-1" />
+                      <span className="text-xs font-mono text-white/30">MYCONODE // REV 1.0</span>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center p-8">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={encodeAssetUrl(MYCONODE_ASSETS.probeImage)}
+                        alt="MycoNode probe device"
+                        fill
+                        className="object-contain"
+                        sizes="100vw"
+                      />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
+                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
+                      <span>COMPONENT: <span className="text-purple-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        SYSTEM READY
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CONTROLLER: below visualization, in a row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Controller Panel */}
                 <div className="bg-slate-950 rounded-2xl border border-purple-500/40 p-4 shadow-inner">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-purple-500/20">
@@ -836,47 +871,6 @@ export function MycoNodeDetails() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE: Visualization */}
-              <div className="flex-1 min-w-0 flex flex-col">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-purple-500/40 overflow-hidden shadow-inner">
-                  {/* Gradient background */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-cyan-950/20" />
-                  
-                  {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-cyan-400/70 uppercase tracking-wider">Probe Visualization</span>
-                      <div className="flex-1" />
-                      <span className="text-xs font-mono text-white/30">MYCONODE // REV 1.0</span>
-                    </div>
-                  </div>
-                  
-                  {/* Probe Visual - Real Image */}
-                  <div className="absolute inset-0 flex items-center justify-center p-8">
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={encodeAssetUrl(MYCONODE_ASSETS.probeImage)}
-                        alt="MycoNode probe device"
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 768px) 100vw, 60vw"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
-                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-purple-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
-                      <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        SYSTEM READY
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
