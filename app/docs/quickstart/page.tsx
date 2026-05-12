@@ -30,303 +30,316 @@ export default function Page() {
         </div>
 
         <p>
-          This page takes you from zero to your first data flowing through a Mycosoft system in
-          about fifteen minutes. There are three entry paths — pick the one that matches what
-          you have today and what you want to do next. You can come back and follow another path
-          later.
+          This page takes you from zero to your first data flowing through a Mycosoft system in about
+          fifteen minutes. There are four entry paths — pick the one that matches what you have
+          today and what you want to do next. You can come back and follow another path later.
         </p>
 
-        <div className="not-prose my-8 grid gap-4 sm:grid-cols-3">
+        <div className="not-prose my-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href="#path-device"
             className="rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
           >
             <div className="text-sm font-semibold text-foreground">Path A — Device</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              You have (or want) a Mushroom 1, Hyphae 1, or Agaric and want signal in a
-              dashboard.
+              You have (or want) a Mushroom 1, Hyphae 1, MycoNode, SporeBase, Agaric, or ALARM and
+              want telemetry in a dashboard.
             </p>
           </Link>
           <Link
-            href="#path-api"
+            href="#path-platform"
             className="rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
           >
-            <div className="text-sm font-semibold text-foreground">Path B — API</div>
+            <div className="text-sm font-semibold text-foreground">Path B — Platform</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              You are a developer and you want to query NatureOS / OEI from your own code.
+              You want NatureOS for dashboards, AI Studio, MINDEX, and the apps without rolling out
+              hardware yet.
             </p>
           </Link>
           <Link
-            href="#path-dashboards"
+            href="#path-agents"
             className="rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
           >
-            <div className="text-sm font-semibold text-foreground">Path C — Dashboards</div>
+            <div className="text-sm font-semibold text-foreground">Path C — MYCA / Agents</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              You want to explore data in NatureOS dashboards without writing code.
+              You want to build on, host, or run agents in the MYCA multi-agent system (MAS).
+            </p>
+          </Link>
+          <Link
+            href="#path-defense"
+            className="rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors"
+          >
+            <div className="text-sm font-semibold text-foreground">Path D — Defence / Gov</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You are a federal customer evaluating Mycosoft for an OTA, BAA, SBIR, or programme of
+              record.
             </p>
           </Link>
         </div>
 
-        <h2 id="before-you-start">Before you start</h2>
+        <h2 id="path-device">Path A — Start with a device</h2>
 
-        <p>You need:</p>
+        <h3 id="device-pick">1. Pick the device that matches your use case</h3>
         <ul>
-          <li>A work email address you can receive mail at.</li>
           <li>
-            For Path A only — physical device hardware (Mushroom 1, Hyphae 1, an Agaric
-            development board, or a partner board running FCI firmware), a USB-C cable, and
-            Wi-Fi access.
+            <strong>Mushroom 1</strong> — solar-powered quadruped walker. 2-metre soil probe, dual
+            BME688 environmental sensors, 915 MHz mesh radio, six-month battery life with solar
+            recharge. For forests, farms, parks, and field sites where you want a mobile, self-sited
+            sensor that can reposition itself.
           </li>
           <li>
-            For Path B only — a computer with{" "}
-            <span className="font-mono">curl</span> or Node.js / Python installed.
+            <strong>Hyphae 1</strong> — distributed edge datacenter. Air, light, sound, gas, radar,
+            lidar, and radio (incl. jamming and anti-jamming) in a shelter-grade enclosure.
+            Aggregates clusters of other Mycosoft devices and runs local compute.
+          </li>
+          <li>
+            <strong>MycoNode</strong> — subsurface bioelectric probe, 5-mile broadcast range. Hand
+            placement or drone-deployed for fungal and root-zone signal.
+          </li>
+          <li>
+            <strong>SporeBase v4</strong> — bioaerosol collector. Time-indexed sealed tape captures
+            pollen, spores, fungal, bacterial, and viral particulates in 15- to 60-minute segments.
+            For air-quality, biosurveillance, and longitudinal studies.
+          </li>
+          <li>
+            <strong>Agaric</strong> — flying sensor hub (Mini / Standard / Heavy-Lift). For aerial
+            survey, mesh extension, and over-the-horizon work.
+          </li>
+          <li>
+            <strong>ALARM</strong> — incident signaling device. Dual smoke (ionisation +
+            photoelectric), VOC, particulates, CO₂, BME688, mold warning, on-device TinyML. For
+            facilities, vehicles, and early-warning deployments.
+          </li>
+          <li>
+            <strong>MycoDrone</strong> — carrier drone that deploys Mushroom 1, MycoNode, or
+            SporeBase to remote terrain.
+          </li>
+          <li>
+            <strong>Psathyrella</strong> <em>(draft)</em> — water buoy with undersea cable
+            monitoring, cameras, laser comms, and turbopropellers. Surface-deployed from USVs,
+            manned vessels, or shore.
           </li>
         </ul>
-
         <p>
-          By using the Services you agree to the <Link href="/terms">Mycosoft Terms of
-          Service</Link>. The Terms apply to every path below.
+          Full spec sheets, dimensions, sensor channels, and power profiles live at{" "}
+          <Link href="/devices">/devices</Link>.
         </p>
 
-        <h2 id="path-device">Path A — From device to first signal</h2>
-
-        <p>Target outcome: your device is paired, online, and streaming readings into NatureOS.</p>
-
-        <h3 id="device-step-1">1. Identify your device</h3>
-        <ul>
-          <li>
-            <strong>Mushroom 1</strong> — flagship; substrate-grown mycelium probe with full FCI
-            firmware. <Link href="/docs/devices">Spec sheet →</Link>
-          </li>
-          <li>
-            <strong>Hyphae 1</strong> — compact growth / signal node; lower-cost classroom and
-            citizen-science deployments.
-          </li>
-          <li>
-            <strong>Agaric</strong> — reference development board for partners and integrators.
-          </li>
-        </ul>
-        <p>
-          Other devices in the lineup (<strong>MycoNode</strong>, <strong>SporeBase</strong>,{" "}
-          <strong>ALARM</strong>, <strong>MycoBrain</strong> board) follow the same flow; consult
-          the device-specific page for any deltas.
-        </p>
-
-        <h3 id="device-step-2">2. Power on and flash (if needed)</h3>
-        <p>
-          Production devices ship with FCI firmware pre-flashed. If you have a development board
-          or want to upgrade:
-        </p>
+        <h3 id="device-order">2. Order or request a unit</h3>
         <ol>
           <li>
-            Install PlatformIO CLI: <span className="font-mono">pip install platformio</span>.
+            Email <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the device, the
+            quantity, the deployment site, and the use case.
           </li>
           <li>
-            Clone the firmware repo:{" "}
-            <span className="font-mono">
-              git clone https://github.com/MycosoftLabs/mycobrain-firmware.git
-            </span>
+            For research or pilot pricing, ask for the <strong>pilot programme</strong>. For
+            classroom and citizen-science, mention <strong>educational pricing</strong>.
           </li>
           <li>
-            Connect the device by USB-C and run <span className="font-mono">pio run -t upload</span>{" "}
-            from the repo root.
-          </li>
-        </ol>
-        <p>
-          Full reference and troubleshooting:{" "}
-          <Link href="/docs/fci-firmware">FCI firmware documentation</Link>.
-        </p>
-
-        <h3 id="device-step-3">3. Join Wi-Fi and pair</h3>
-        <ol>
-          <li>
-            On first boot the device exposes a captive Wi-Fi network named{" "}
-            <span className="font-mono">mycosoft-setup-XXXX</span>.
-          </li>
-          <li>
-            Join it from your phone or laptop. The pairing page opens automatically.
-          </li>
-          <li>
-            Enter your Wi-Fi credentials and the pairing code printed on the device label.
-          </li>
-          <li>
-            When the device boots into normal mode, it registers with NatureOS and appears in
-            your device list.
+            Defence and government customers should follow{" "}
+            <Link href="#path-defense">Path D</Link> instead — federal contracting has its own
+            pathway.
           </li>
         </ol>
 
-        <h3 id="device-step-4">4. See your first signal</h3>
-        <p>
-          Sign in at <a href="https://natureos.mycosoft.com">natureos.mycosoft.com</a> and open
-          the device. Within a minute or two you should see live bioelectric and environmental
-          channels (temperature, humidity, VOC, gas resistance, bioelectric voltage). The
-          dashboard updates in real time and stores history in MINDEX so you can scrub backwards.
-        </p>
-
-        <div className="not-prose my-6 rounded-lg border border-border bg-muted/40 p-4 text-sm">
-          <p className="m-0">
-            <strong>If you don&apos;t have a device yet:</strong> request one at{" "}
-            <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the use case
-            (research, classroom, commercial pilot, defence) and the deployment environment.
-            Allocation is currently order-by-order.
-          </p>
-        </div>
-
-        <h2 id="path-api">Path B — From zero to first API call</h2>
-
-        <p>Target outcome: you have an API key, made a successful authenticated call, and seen real data come back.</p>
-
-        <h3 id="api-step-1">1. Request developer access</h3>
+        <h3 id="device-onboarding">3. Onboard the device</h3>
         <ol>
           <li>
-            Email <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the subject{" "}
-            <strong>API access request</strong> and include your name, organisation, intended use
-            case, and whether you need access to your own device data, the OEI public-data layer,
-            or both.
+            Power on. Mushroom 1, Hyphae 1, MycoNode, SporeBase, and Agaric all run our firmware on
+            ESP32-S3 silicon (MycoBrain) and ship pre-flashed and pre-paired to your NatureOS
+            organisation.
           </li>
           <li>
-            Accept the <Link href="/terms">Terms of Service</Link>.
+            The device joins your local mesh via 915 MHz LoRa and the upstream gateway over Wi-Fi,
+            cellular, or satellite — whichever you provisioned.
           </li>
           <li>
-            You will receive a developer-portal invitation and an initial API key with scoped
-            permissions.
-          </li>
-        </ol>
-
-        <h3 id="api-step-2">2. Make your first call</h3>
-        <p>From a terminal:</p>
-        <pre className="not-prose overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 text-sm font-mono">
-{`curl -H "Authorization: Bearer YOUR_API_KEY" \\
-     https://api.mycosoft.com/v1/health`}
-        </pre>
-        <p>
-          You should get a JSON <span className="font-mono">200 OK</span> with platform version
-          and your key&apos;s scopes. If you get a 401, your key isn&apos;t active yet — wait a
-          minute and retry; if it persists, contact support.
-        </p>
-
-        <h3 id="api-step-3">3. Query real data</h3>
-        <p>List the devices in your organisation:</p>
-        <pre className="not-prose overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 text-sm font-mono">
-{`curl -H "Authorization: Bearer YOUR_API_KEY" \\
-     https://api.mycosoft.com/v1/devices`}
-        </pre>
-        <p>Pull the last hour of signal from a device:</p>
-        <pre className="not-prose overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 text-sm font-mono">
-{`curl -H "Authorization: Bearer YOUR_API_KEY" \\
-     "https://api.mycosoft.com/v1/devices/DEVICE_ID/signal?window=1h"`}
-        </pre>
-        <p>
-          Each row is a timestamped reading. The full schema, rate limits, pagination rules, and
-          OEI public-data endpoints (AIS, ADS-B, weather, biodiversity) are documented under{" "}
-          <Link href="/docs/api">API reference</Link>.
-        </p>
-
-        <h3 id="api-step-4">4. Optional — talk to an agent</h3>
-        <p>
-          If your access scope includes the agent runtime, you can send a task to MYCA from your
-          code. See <Link href="/docs/ai/myca">MYCA</Link> for the request shape, agent roles,
-          and the Task Automation Law that governs what an agent will and will not do
-          autonomously.
-        </p>
-
-        <h2 id="path-dashboards">Path C — Explore in NatureOS dashboards</h2>
-
-        <p>Target outcome: you have a NatureOS account and have opened a live dashboard.</p>
-
-        <ol>
-          <li>
-            Go to <a href="https://natureos.mycosoft.com">natureos.mycosoft.com</a> and sign in
-            with the email used in your pilot, order, or partnership.
-          </li>
-          <li>
-            On the home page, open the <strong>Environment</strong> tile to see public-data
-            feeds (OEI), or the <strong>Devices</strong> tile to see live device telemetry, or
-            the <strong>Apps</strong> tile to launch a simulation (mushroom-sim,
-            petri-dish-sim, earth-simulator, and others).
-          </li>
-          <li>
-            Every chart in NatureOS has an <strong>Export</strong> button — CSV or JSON, with the
-            same data your API key can pull.
-          </li>
-        </ol>
-
-        <p>
-          Dashboard catalogue and deep-links live under{" "}
-          <Link href="/docs/dashboards">Dashboards</Link>.
-        </p>
-
-        <h2 id="what-next">What to do next</h2>
-
-        <h3 id="next-developers">If you&apos;re a developer</h3>
-        <ul>
-          <li>
-            <Link href="/docs/api">API reference</Link> — full endpoint list and SDKs.
-          </li>
-          <li>
-            <Link href="/docs/fci-firmware">FCI firmware</Link> — protocol details, MQTT topics,
-            OTA, custom builds.
-          </li>
-          <li>
-            <Link href="/docs/mas">MAS</Link> — running and hosting agents.
-          </li>
-          <li>
-            <Link href="/docs/open-source">Open source</Link> — what is permissively licensed,
-            source-available, or commercial.
-          </li>
-        </ul>
-
-        <h3 id="next-operators">If you&apos;re an operator or scientist</h3>
-        <ul>
-          <li>
-            <Link href="/docs/devices">Devices</Link> — per-device deployment guides.
-          </li>
-          <li>
-            <Link href="/docs/mindex">MINDEX</Link> — how telemetry is stored and queried.
-          </li>
-          <li>
-            <Link href="/docs/dashboards">Dashboards</Link> — building views and exports.
-          </li>
-          <li>
-            <Link href="/docs/apps">Apps</Link> — the simulation and lab tools on top of
+            Telemetry flows over <strong>MDP</strong> (Mycosoft Data Protocol — COBS-framed,
+            CRC-16, device transport) into the upstream gateway, which forwards it over{" "}
+            <strong>MMP</strong> (Mycosoft Mycorrhizae Protocol — gateway-to-cloud mesh) into
             NatureOS.
           </li>
-        </ul>
+          <li>
+            Watch your NatureOS dashboard. First readings typically appear within five minutes of
+            power-on in coverage.
+          </li>
+        </ol>
 
-        <h3 id="next-defense">If you&apos;re a defence or government contact</h3>
+        <p>
+          If anything stalls — no telemetry after 15 minutes — check the device&apos;s status LEDs
+          (green: normal · blue: network · red: alert · amber: charging) and email{" "}
+          <a href="mailto:support@mycosoft.com">support@mycosoft.com</a> with the device serial.
+        </p>
+
+        <h2 id="path-platform">Path B — Start with NatureOS</h2>
+
+        <h3 id="platform-access">1. Request platform access</h3>
+        <p>
+          NatureOS is the cloud and edge platform: dashboards, AI Studio, MINDEX (data plane), Earth
+          Simulator (environmental world model), CREP (Common Relevant Environmental Picture), and
+          the apps. Request a workspace at{" "}
+          <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with your team, intended
+          users, and use case.
+        </p>
+
+        <h3 id="platform-data">2. Bring data in</h3>
+        <ol>
+          <li>
+            <strong>Public data first.</strong> OEI (Open Environmental Intelligence) ingests AIS,
+            ADS-B, satellite, weather, and biodiversity feeds out of the box. Turn the channels you
+            need on in your workspace and see the data populate within minutes.
+          </li>
+          <li>
+            <strong>Existing telemetry.</strong> Bring your own CSV, Parquet, or live stream over the
+            NatureOS ingestion API. MINDEX stores the canonical record; AI Studio reads from it.
+          </li>
+          <li>
+            <strong>Mycosoft devices.</strong> If you add devices later (Path A), they appear
+            alongside your imported data without changes to dashboards.
+          </li>
+        </ol>
+
+        <h3 id="platform-first-app">3. Open your first app</h3>
+        <p>
+          Pick one of the focused apps that matches your work — <em>earth-simulator</em>,{" "}
+          <em>spore-tracker</em>, <em>growth-analytics</em>, <em>digital-twin</em>,{" "}
+          <em>petri-dish-sim</em>, <em>retrosynthesis</em>, <em>symbiosis</em>, and so on. Each app
+          is a thin client over the NatureOS APIs, so anything you do there shows up everywhere else
+          in the platform.
+        </p>
+
+        <h2 id="path-agents">Path C — Start with MYCA / agents</h2>
+
+        <p>
+          <strong>MYCA</strong> is the MYCOSOFT Environmental Super Intelligence: an edge-native
+          multi-agent system orchestrating <strong>over 1,000 agents</strong> across{" "}
+          <strong>14 categories</strong>, governed by a three-tier permission model. MYCA is what
+          you build on if you want autonomous workflows running against environmental and biological
+          signal.
+        </p>
+
+        <h3 id="agents-clone">1. Clone the agent runtime</h3>
+        <ol>
+          <li>
+            Clone the open-source MAS repo:{" "}
+            <a href="https://github.com/MycosoftLabs/mycosoft-mas">
+              github.com/MycosoftLabs/mycosoft-mas
+            </a>
+            .
+          </li>
+          <li>
+            Follow the repo&apos;s README to bring up a local MAS instance. You will be running a
+            scoped subset of MYCA against test data.
+          </li>
+          <li>
+            Each agent operates under one of three permission tiers — <em>Read</em>{" "}
+            (auto-approved), <em>Write</em> (requires approval), <em>Execute</em> (requires explicit
+            yes). The permission model is non-negotiable for production deployments.
+          </li>
+        </ol>
+
+        <h3 id="agents-connect">2. Connect to MYCA in production</h3>
+        <ol>
+          <li>
+            For hosted MYCA access, request a workspace at{" "}
+            <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a>.
+          </li>
+          <li>
+            Your local agents connect over the MYCA APIs into the production fleet. AVANI provides
+            the Live Earth Substrate that grounds agent actions in real, continuous planetary
+            context.
+          </li>
+          <li>
+            For voice and conversational interfaces, integrate <strong>MycaPLEX</strong> — our
+            modified PersonaPlex full-duplex voice-to-agent stack.
+          </li>
+        </ol>
+
+        <h3 id="agents-deploy">3. Deploy with discipline</h3>
+        <p>
+          Mycosoft draws a hard line between <em>deterministic</em> and <em>stochastic</em>{" "}
+          pipelines. Any agent action that touches physical equipment, regulated workflows, or
+          chain-of-custody records is deterministic by default — frontier models reason, draft, and
+          explore, but they are never the sole decision-maker for a field action.
+        </p>
+
+        <h2 id="path-defense">Path D — Defence and government</h2>
+
+        <h3 id="defense-credentials">1. Verify our credentials</h3>
         <ul>
           <li>
-            <Link href="/docs/defense-government">Defence &amp; Government</Link> — SAM.gov
-            status (UEI <span className="font-mono">YK3ARVKJ77S9</span>, CAGE{" "}
-            <span className="font-mono">9KR60</span>), capability statements, teaming, and the
-            deployment-sponsor model.
+            UEI: <span className="font-mono">YK3ARVKJ77S9</span>
           </li>
           <li>
-            <Link href="/docs/security">Security</Link> — controls, evidence, and the CREP
-            pipeline.
+            CAGE: <span className="font-mono">9KR60</span>
+          </li>
+          <li>SAM.gov: active through April 9, 2027</li>
+          <li>
+            Contracting entity: <strong>Mycosoft, LLC</strong> (CA Entity No. 202253910565). All
+            federal submissions are 100% self-performed.
           </li>
         </ul>
 
-        <h2 id="getting-help">Getting help</h2>
-
+        <h3 id="defense-fit">2. Confirm programme fit</h3>
+        <p>
+          Mycosoft focuses on <strong>non-kinetic environmental intelligence and electronic
+          warfare</strong> — jamming and anti-jamming, microwave, laser, radar, and software-defined
+          radio — aligned with the U.S. military Black Dart programme. Current priorities:
+        </p>
         <ul>
           <li>
-            General — <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a>
+            <strong>DARPA</strong> and <strong>U.S. Army</strong> first. ITDX 2026 white paper
+            (W91RUSI-FCID260001) submitted; DARPA submission against HR001125S0011 covering the
+            FUSARIUM programme submitted.
           </li>
           <li>
-            Engineering — issues and discussions at{" "}
-            <a href="https://github.com/MycosoftLabs">github.com/MycosoftLabs</a>
+            <strong>USAF</strong> — engagement around MycoDrone as a deployment platform for
+            Mushroom 1, MycoNode, and SporeBase.
           </li>
           <li>
-            Glossary of every term you&apos;ll meet in these docs:{" "}
-            <Link href="/docs/glossary">Glossary</Link>
+            <strong>U.S. Navy</strong> — Tactical Operations (TAC-O) and undersea monitoring via the
+            Psathyrella buoy.
+          </li>
+          <li>
+            <strong>DoD SBIR</strong> — sequenced after the primary programmes.
+          </li>
+        </ul>
+
+        <h3 id="defense-request">3. Request a capability statement and demo</h3>
+        <p>
+          Email <a href="mailto:contact@mycosoft.com">contact@mycosoft.com</a> with the agency, the
+          programme, and the contact point. We will provide the capability statement, programme
+          alignment notes, and schedule a CREP and device walkthrough.
+        </p>
+
+        <h2 id="what-next">What to read next</h2>
+        <ul>
+          <li>
+            <Link href="/docs/what-is-mycosoft">What is Mycosoft</Link> — the canonical company and
+            stack overview.
+          </li>
+          <li>
+            <Link href="/docs/glossary">Glossary</Link> — every Mycosoft term in one place: MYCA,
+            AVANI, NLM, MAS, MycaPLEX, CREP, MDP, MMP, every device, and every protocol.
+          </li>
+          <li>
+            <Link href="/devices">/devices</Link> — full specifications page for every shipping
+            device.
+          </li>
+          <li>
+            <Link href="/docs/defense-government">Defence &amp; Government</Link> — federal-only
+            engagement.
+          </li>
+          <li>
+            <a href="https://github.com/MycosoftLabs/mycosoft-mas">mycosoft-mas on GitHub</a> — the
+            open-source MYCA agent runtime.
           </li>
         </ul>
 
         <hr className="my-12" />
 
         <p className="text-sm text-muted-foreground">
-          Back to: <Link href="/docs/what-is-mycosoft">What is Mycosoft</Link> · Next:{" "}
+          Previous: <Link href="/docs/what-is-mycosoft">← What is Mycosoft</Link> · Next:{" "}
           <Link href="/docs/glossary">Glossary →</Link>
         </p>
       </article>

@@ -30,8 +30,8 @@ export default function Page() {
         </div>
 
         <p>
-          One place to look up every term you will hit in the Mycosoft docs. Grouped into five
-          sections — company &amp; products, platform &amp; AI, devices &amp; firmware,
+          One place to look up every term you will hit in the Mycosoft docs. Grouped into six
+          sections — company &amp; products, platform &amp; AI, devices &amp; firmware, protocols,
           mycology &amp; biology, and federal contracting. Cross-references link to the canonical
           documentation for each concept.
         </p>
@@ -46,451 +46,516 @@ export default function Page() {
           <a href="#devices" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
             Devices &amp; firmware
           </a>
+          <a href="#protocols" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
+            Protocols
+          </a>
           <a href="#biology" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
             Mycology &amp; biology
           </a>
           <a href="#federal" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
             Federal contracting
           </a>
-          <a href="#status-labels" className="rounded-md border border-border bg-card px-3 py-2 hover:bg-accent">
-            Status labels
-          </a>
         </div>
 
         <h2 id="company">Company &amp; products</h2>
-
         <dl>
-          <dt><strong>Mycosoft, Inc.</strong></dt>
+          <dt>
+            <strong>Mycosoft</strong>
+          </dt>
           <dd>
-            Delaware C-Corporation. The parent company, investor-of-record, and licensor of
-            platform intellectual property.
+            The biotechnology and software company building the operating layer for biological
+            intelligence. See <Link href="/docs/what-is-mycosoft">What is Mycosoft</Link>.
           </dd>
 
-          <dt><strong>Mycosoft, LLC</strong></dt>
+          <dt>
+            <strong>Mycosoft, Inc.</strong>
+          </dt>
+          <dd>Delaware C-Corporation. Parent company, investment vehicle, IP licensor.</dd>
+
+          <dt>
+            <strong>Mycosoft, LLC</strong>
+          </dt>
           <dd>
-            California limited liability company; operating subsidiary. The federal contracting
-            entity and the party that signs most pilot, reseller, and field-deployment
-            agreements. Holds UEI <span className="font-mono">YK3ARVKJ77S9</span> and CAGE{" "}
-            <span className="font-mono">9KR60</span>.
+            California limited liability company (CA Entity No. 202253910565). Operating subsidiary,
+            federal contracting entity, manufacturing entity. All federal submissions are 100%
+            self-performed.
           </dd>
 
-          <dt><strong>MycoLabs</strong> / <strong>MycosoftLabs</strong></dt>
+          <dt>
+            <strong>NatureOS</strong>
+          </dt>
           <dd>
-            Public engineering presence on GitHub:{" "}
-            <a href="https://github.com/MycosoftLabs">github.com/MycosoftLabs</a>.
+            The single software identity for the Mycosoft platform — cloud and edge services for
+            ingestion, storage, modelling, dashboards, and apps.
           </dd>
 
-          <dt><strong>NatureOS</strong></dt>
+          <dt>
+            <strong>MYCO DAO</strong>
+          </dt>
           <dd>
-            The Mycosoft operating platform. Cloud + edge services that ingest device signal and
-            public environmental data, store it, model it, and expose it through dashboards,
-            APIs, and agentic interfaces.{" "}
-            <Link href="/docs/dashboards">Dashboards →</Link>
+            Tokenised community vehicle on Solana. Raised approximately $500k in 48 hours by selling
+            15% of the MYCO token. Funds community-aligned research and tooling; operating contracts
+            remain with Mycosoft, LLC.
           </dd>
 
-          <dt><strong>Earth Simulator</strong></dt>
+          <dt>
+            <strong>FUSARIUM</strong>
+          </dt>
           <dd>
-            Environmental world-model service inside NatureOS. Used for scenario generation,
-            simulation-backed model training, and what-if analysis against live telemetry.
-          </dd>
-
-          <dt><strong>MINDEX</strong></dt>
-          <dd>
-            The indexed data plane — Postgres-backed store of record for telemetry, specimen
-            records, chain-of-custody, and model outputs.{" "}
-            <Link href="/docs/mindex">MINDEX →</Link>
-          </dd>
-
-          <dt><strong>AI Studio</strong></dt>
-          <dd>
-            Model training, evaluation, and deployment surface for internal and partner ML work.
-          </dd>
-
-          <dt><strong>CREP</strong></dt>
-          <dd>
-            Compliance, Reporting, and Evidence Pipeline. The audit and chain-of-custody layer
-            for regulated work and defence deployments.
-          </dd>
-
-          <dt><strong>OEI</strong></dt>
-          <dd>
-            Open Environmental Intelligence — the public-data ingestion layer covering AIS,
-            ADS-B, satellite imagery, weather, biodiversity records, and other open feeds.
-          </dd>
-
-          <dt><strong>FUSARIUM</strong></dt>
-          <dd>
-            Field intelligence and defence-deployment programme; a named operational stack inside
-            Mycosoft for environmental and biosurveillance use cases.
-          </dd>
-
-          <dt><strong>Mycorrhizae Protocol</strong></dt>
-          <dd>
-            Inter-device protocol for moving signal between Mycosoft devices, edge nodes, and the
-            NatureOS cloud — analogous to how mycorrhizal networks shuttle resources between
-            plants and fungi.
-          </dd>
-
-          <dt><strong>HPL</strong></dt>
-          <dd>
-            Higher-level platform protocol used between NatureOS services and external partner
-            systems.
-          </dd>
-
-          <dt><strong>Apps</strong></dt>
-          <dd>
-            The library of focused web apps on top of NatureOS: <em>earth-simulator</em>,{" "}
-            <em>alchemy-lab</em>, <em>compound-sim</em>, <em>digital-twin</em>,{" "}
-            <em>genetic-circuit</em>, <em>growth-analytics</em>, <em>lifecycle-sim</em>,{" "}
-            <em>mushroom-sim</em>, <em>petri-dish-sim</em>, <em>physics-sim</em>,{" "}
-            <em>retrosynthesis</em>, <em>spore-tracker</em>, and <em>symbiosis</em>.{" "}
-            <Link href="/docs/apps">Apps →</Link>
+            Mycosoft&rsquo;s defence programme name. Subject of the Mycosoft submission against DARPA
+            BAA HR001125S0011. Integrates MycoBrain devices, MYCA agents, and NatureOS into a
+            non-kinetic environmental intelligence stack.
           </dd>
         </dl>
 
         <h2 id="platform">Platform &amp; AI</h2>
-
         <dl>
-          <dt><strong>MYCA</strong></dt>
+          <dt>
+            <strong>MYCA</strong>
+          </dt>
           <dd>
-            Mycosoft&apos;s multi-agent AI orchestrator. Routes work across specialised agents
-            under the <strong>Task Automation Law</strong> that governs delegation, escalation,
-            and human-in-the-loop checkpoints. <Link href="/docs/ai/myca">MYCA →</Link>
+            MYCOSOFT Environmental Super Intelligence. An edge-native multi-agent system
+            orchestrating <strong>over 1,000 specialised agents</strong> across{" "}
+            <strong>14 categories</strong>, governed by a three-tier permission model: <em>Read</em>{" "}
+            (auto-approved), <em>Write</em> (requires approval), and <em>Execute</em> (requires
+            explicit yes). Powered by NVIDIA Nemotron, PersonaPlex, and designed for
+            Blackwell-generation edge GPUs. Open source at{" "}
+            <a href="https://github.com/MycosoftLabs/mycosoft-mas">
+              github.com/MycosoftLabs/mycosoft-mas
+            </a>
+            .
           </dd>
 
-          <dt><strong>MAS</strong></dt>
+          <dt>
+            <strong>MAS</strong>
+          </dt>
           <dd>
-            Mycosoft Agent Swarm runtime. The deployment-side execution environment that hosts
-            agents in production, including resource limits, retries, and observability.{" "}
-            <Link href="/docs/mas">MAS →</Link>
+            Multi-Agent System. The open-source runtime for MYCA agents. The repo name is{" "}
+            <code>mycosoft-mas</code>.
           </dd>
 
-          <dt><strong>AVANI</strong></dt>
+          <dt>
+            <strong>AVANI</strong>
+          </dt>
           <dd>
-            Voice and conversational interface across Mycosoft products. The layer customers and
-            operators speak to. <Link href="/docs/ai/avani">AVANI →</Link>
+            The Live Earth Substrate. A dedicated backend next to MYCA that ingests and harmonises
+            planetary-scale signals — climate, sensor networks, infrastructure telemetry, remote
+            sensing — and serves them to MYCA through privacy-respecting APIs. If MYCA is the hand,
+            AVANI is the palm that grounds every action in real, continuous environmental context.
           </dd>
 
-          <dt><strong>NLM</strong></dt>
+          <dt>
+            <strong>MycaPLEX</strong>
+          </dt>
           <dd>
-            A frontier research programme on natural-language-to-signal interfaces. Labelled
-            frontier; not a shipping product. <Link href="/docs/ai/nlm">NLM →</Link>
+            Full-duplex voice-to-voice and voice-to-agent interface for MYCA. A modified PersonaPlex
+            stack used in operator headsets, vehicles, and conversational dashboards.
           </dd>
 
-          <dt><strong>Task Automation Law</strong></dt>
+          <dt>
+            <strong>NLM</strong>
+          </dt>
           <dd>
-            The governance contract every MYCA-orchestrated agent operates under. Defines what an
-            agent may decide on its own, what it must escalate, what it must log, and where
-            human approval is required.
+            Natural Language Model. Mycosoft&rsquo;s frontier research programme on bioelectric and
+            environmental signal interfaces. Labelled <em>frontier</em>; not a shipping product.
           </dd>
 
-          <dt><strong>Deterministic vs stochastic AI</strong></dt>
+          <dt>
+            <strong>MINDEX</strong>
+          </dt>
           <dd>
-            The decision framework Mycosoft uses for field-deployed systems. Deterministic
-            pipelines (rules, classical algorithms) own anything safety-critical or
-            regulated; stochastic systems (LLMs, frontier models) are used for reasoning,
-            drafting, and exploration — never as the sole decision-maker for a field action.{" "}
-            <Link href="/docs/ai/deterministic-vs-stochastic">Read more →</Link>
+            The indexed data plane. Postgres-backed store of record for telemetry, specimen records,
+            chain-of-custody, and model outputs.
           </dd>
 
-          <dt><strong>Chain-of-custody record</strong></dt>
+          <dt>
+            <strong>AI Studio</strong>
+          </dt>
           <dd>
-            A cryptographically signed log entry that tracks who handled a sample, signal, or
-            artifact and when. CREP produces and stores chain-of-custody records for regulated
-            workflows.
+            Model training, evaluation, and deployment surface for internal and partner ML work.
+            Sits inside NatureOS.
           </dd>
 
-          <dt><strong>Telemetry</strong></dt>
+          <dt>
+            <strong>Earth Simulator</strong>
+          </dt>
           <dd>
-            The continuous stream of measured readings from a device — environmental channels
-            (temperature, humidity, gas), bioelectric channels, and device-health metadata.
+            Environmental world-model service for scenario generation, simulation-backed training,
+            and what-if analysis against live telemetry.
           </dd>
 
-          <dt><strong>Digital twin</strong></dt>
+          <dt>
+            <strong>CREP</strong>
+          </dt>
           <dd>
-            A live, simulation-backed representation of a physical specimen, device, or
-            environment, kept in sync with real telemetry via NatureOS and Earth Simulator.
+            Common Relevant Environmental Picture. The fused, time-aligned operational view of an
+            area of interest — combining device telemetry, public data, and model output into a
+            single shared picture used by operators and partners.
+          </dd>
+
+          <dt>
+            <strong>OEI</strong>
+          </dt>
+          <dd>
+            Open Environmental Intelligence. Public-data ingestion (AIS, ADS-B, satellite, weather,
+            biodiversity).
+          </dd>
+
+          <dt>
+            <strong>Deterministic vs Stochastic AI</strong>
+          </dt>
+          <dd>
+            A hard line Mycosoft draws in production. Any pipeline that affects physical equipment,
+            regulated workflows, or chain-of-custody records is <em>deterministic</em>. Frontier
+            models reason, draft, and explore — they are never the sole decision-maker for a field
+            action.
+          </dd>
+
+          <dt>
+            <strong>Task Automation Law</strong>
+          </dt>
+          <dd>
+            MYCA&rsquo;s governing rule for delegation, escalation, and human-in-the-loop
+            checkpoints. Combined with the three-tier permission model, it defines what an agent may
+            do without sign-off, what requires approval, and what requires an explicit yes.
           </dd>
         </dl>
 
         <h2 id="devices">Devices &amp; firmware</h2>
-
         <dl>
-          <dt><strong>FCI</strong> — Fungal Computer Interface</dt>
+          <dt>
+            <strong>Mushroom 1</strong>
+          </dt>
           <dd>
-            Two meanings: (1) the firmware stack that runs on every Mycosoft device and on
-            partner boards (BME688 / BSEC2 environmental sensing, bioelectric sampling,
-            MQTT/HTTP APIs, OTA updates); and (2) the broader multi-year R&amp;D programme
-            building higher-bandwidth fungal computer interfaces. The firmware is{" "}
-            <em>stable</em>; the broader programme is <em>frontier</em>.{" "}
-            <Link href="/docs/fci-firmware">FCI firmware →</Link>
+            The flagship Mycosoft device. A solar-powered quadruped walker with four articulated
+            carbon-fibre legs, a 2-metre multi-depth soil probe, dual Bosch BME688 environmental
+            sensors, a long-range 915 MHz mesh radio, and ~6 months of battery life with solar
+            recharge. Designed to self-site on uneven terrain.
           </dd>
 
-          <dt><strong>Mushroom 1</strong></dt>
+          <dt>
+            <strong>Hyphae 1</strong>
+          </dt>
           <dd>
-            Flagship Mycosoft device. Substrate-grown mycelium probe that records bioelectric
-            activity and environmental signal, forwarded to NatureOS.
+            An on-ground distributed edge datacenter in a shelter-grade enclosure. Air, light,
+            sound, and gas sensors plus radar, lidar, and radio (including jamming and anti-jamming)
+            capability. Aggregates clusters of Mushroom 1, MycoNode, SporeBase, and Agaric units and
+            runs local compute.
           </dd>
 
-          <dt><strong>Hyphae 1</strong></dt>
+          <dt>
+            <strong>MycoBrain</strong>
+          </dt>
           <dd>
-            Compact, lower-cost growth and signal node for lab benches, classrooms, and
-            citizen-science deployments.
+            The ESP32-S3 edge compute module that ships inside every Mycosoft device. Dual BME688 +
+            BSEC2, runs the firmware stack, processes all sensor inputs locally before they leave
+            the device.
           </dd>
 
-          <dt><strong>MycoBrain</strong></dt>
+          <dt>
+            <strong>MycoNode</strong>
+          </dt>
           <dd>
-            The ESP32-class embedded compute board that runs the FCI firmware inside finished
-            devices.
+            A subsurface bioelectric probe with a 5-mile broadcast range. Hand placement or
+            drone-deployed. Captures fungal and root-zone electrical signal and forwards it through
+            the mesh.
           </dd>
 
-          <dt><strong>MycoNode</strong></dt>
+          <dt>
+            <strong>SporeBase v4</strong>
+          </dt>
           <dd>
-            Environmental gateway / edge node. Aggregates signal from multiple devices and
-            brokers it to the cloud.
+            A bioaerosol collector. A stepper-driven sealed tape cassette captures pollen, spores,
+            fungal, bacterial, and viral particulates in time-indexed 15- to 60-minute segments (up
+            to 2,880 segments over 30 days). Dual ESP32-S3, LoRa, fan-driven sampling, Bosch BME69x
+            gas sensing, solar + battery.
           </dd>
 
-          <dt><strong>SporeBase</strong></dt>
+          <dt>
+            <strong>Agaric</strong>
+          </dt>
           <dd>
-            Spore-sampling and chain-of-custody hardware module used in laboratory and field
-            workflows.
+            A flying sensor hub (drone) in Mini, Standard, and Heavy-Lift variants. Six-point
+            coaxial propulsion, tangential flight control, MAVLink, LoRa mesh, and satellite options
+            for over-the-horizon work.
           </dd>
 
-          <dt><strong>ALARM</strong></dt>
+          <dt>
+            <strong>ALARM</strong>
+          </dt>
           <dd>
-            Early-warning sensor unit for biological and environmental anomalies.
+            An incident signaling device. Dual smoke (ionisation + photoelectric), MOS VOC, PM1.0 /
+            2.5 / 10 particulates, NDIR CO₂ (400–5,000 ppm), BME688 climate, mold warning, ESP32-S3
+            + on-device TinyML for early-warning classification.
           </dd>
 
-          <dt><strong>Agaric</strong></dt>
+          <dt>
+            <strong>MycoDrone</strong>
+          </dt>
           <dd>
-            Reference development board for partners and integrators building on top of FCI
-            firmware.
+            A flying carrier drone that deploys Mushroom 1, MycoNode, or SporeBase to remote terrain
+            and supports mesh extension.
           </dd>
 
-          <dt><strong>Psathyrella</strong> <em className="text-muted-foreground">(draft)</em></dt>
+          <dt>
+            <strong>Psathyrella</strong> <Badge variant="outline">Draft</Badge>
+          </dt>
           <dd>
-            Specialised field-sampling device under partial build; status will move to stable
-            once shipping.
+            A water buoy for undersea cable monitoring, boat and submarine deterrence, cameras, and
+            laser comms. Solar + battery, four turbopropellers. Surface-deployed from USVs, manned
+            vessels, or shore.
           </dd>
 
-          <dt><strong>BME688</strong></dt>
+          <dt>
+            <strong>BME688 / BSEC2</strong>
+          </dt>
           <dd>
-            Bosch four-in-one environmental sensor (temperature, humidity, pressure, VOC / gas
-            resistance) used throughout the Mycosoft device line.
+            Bosch&rsquo;s integrated environmental sensor (temperature, humidity, pressure, gas) and
+            its software library. Used across the Mycosoft device line for atmospheric and VOC
+            sensing.
           </dd>
 
-          <dt><strong>BSEC2</strong></dt>
+          <dt>
+            <strong>ESP32-S3</strong>
+          </dt>
           <dd>
-            Bosch Sensortec Environmental Cluster library, version 2 — the gas-classification and
-            calibration runtime layered on top of BME688.
+            The dual-core Xtensa LX7 microcontroller with Wi-Fi and Bluetooth used as the host
+            silicon for MycoBrain and every shipping Mycosoft device.
           </dd>
 
-          <dt><strong>Bioelectric signal</strong></dt>
+          <dt>
+            <strong>Status LEDs</strong>
+          </dt>
           <dd>
-            Voltage and current measurements taken across or within living tissue — in our case,
-            mycelium. The primary biological channel Mushroom 1 and Hyphae 1 record.
-          </dd>
-
-          <dt><strong>OTA</strong></dt>
-          <dd>
-            Over-the-air firmware update. Mycosoft devices receive signed OTA updates via the
-            NatureOS device-management service.
-          </dd>
-
-          <dt><strong>FCI protocol</strong></dt>
-          <dd>
-            The on-wire and over-network message format that FCI firmware uses to publish
-            samples, sensor frames, and device events.
+            Mycosoft devices use a standard convention: <strong>green</strong> normal operation,{" "}
+            <strong>blue</strong> network connectivity, <strong>red</strong> alert or warning,{" "}
+            <strong>amber</strong> charging.
           </dd>
         </dl>
 
-        <h2 id="biology">Mycology &amp; biology</h2>
-
+        <h2 id="protocols">Protocols</h2>
         <dl>
-          <dt><strong>Mycelium</strong></dt>
+          <dt>
+            <strong>MDP — Mycosoft Data Protocol</strong>
+          </dt>
           <dd>
-            The vegetative, thread-like body of a fungus — a network of fine filaments called
-            hyphae. Mushroom 1 grows mycelium on a controlled substrate and records its
-            electrical and environmental activity.
+            Device-level transport. COBS-framed with CRC-16. Low-overhead, lossy-link tolerant,
+            suitable for radio mesh and serial bus. Moves data between sensors, MycoBrain, and the
+            upstream gateway.
           </dd>
 
-          <dt><strong>Hyphae</strong></dt>
+          <dt>
+            <strong>MMP — Mycosoft Mycorrhizae Protocol</strong>
+          </dt>
           <dd>
-            The individual filaments that make up mycelium. Hyphae 1 takes its name from these.
+            Gateway-to-cloud mesh transport. Handles store-and-forward, prioritisation, and platform
+            attestation between field gateways and NatureOS.
           </dd>
 
-          <dt><strong>Fruiting body</strong></dt>
+          <dt>
+            <strong>HPL — Hypha Programming Language</strong>
+          </dt>
           <dd>
-            The reproductive structure of a fungus — the &ldquo;mushroom&rdquo; in everyday
-            language. Most of the organism&apos;s mass and information lives below it, in the
-            mycelium.
+            A programming language Mycosoft is developing for biological and environmental
+            workflows. See the introduction on{" "}
+            <a href="https://medium.com/@mycosoft.inc/introduction-to-the-hypha-programming-language-hpl-069567239474">
+              Mycosoft Labs on Medium
+            </a>
+            .
           </dd>
 
-          <dt><strong>Substrate</strong></dt>
+          <dt>
+            <strong>OTA</strong>
+          </dt>
+          <dd>Over-the-air firmware updates. All Mycosoft devices support signed OTA.</dd>
+        </dl>
+
+        <h2 id="biology">Mycology &amp; biology</h2>
+        <dl>
+          <dt>
+            <strong>Mycelium</strong>
+          </dt>
           <dd>
-            The growth medium that mycelium colonises — wood chips, grain, agar, controlled
-            blends. Substrate composition directly affects signal quality.
+            The vegetative body of a fungus: a network of fine filaments (hyphae) that grow through
+            soil, wood, and other substrates. The world&rsquo;s most distributed biological network
+            and the substrate Mycosoft devices most frequently sample.
           </dd>
 
-          <dt><strong>Mycorrhiza</strong></dt>
+          <dt>
+            <strong>Hypha (pl. hyphae)</strong>
+          </dt>
+          <dd>A single filament of fungal cells. Many hyphae together form mycelium.</dd>
+
+          <dt>
+            <strong>Substrate</strong>
+          </dt>
           <dd>
-            A symbiotic relationship between fungal mycelium and plant roots. Inspires (and
-            names) the Mycorrhizae Protocol used between Mycosoft devices.
+            The medium fungi grow on or through — soil, wood, agar, grain, straw, sawdust. Mycosoft
+            devices read environmental signal from and around substrate.
           </dd>
 
-          <dt><strong>Spore</strong></dt>
+          <dt>
+            <strong>Spore</strong>
+          </dt>
           <dd>
-            The reproductive unit of a fungus. SporeBase and the spore-tracker app deal with
-            collection, identification, and chain-of-custody for spores.
+            The reproductive unit of a fungus. Captured by SporeBase as part of bioaerosol sampling.
           </dd>
 
-          <dt><strong>Symbiosis</strong></dt>
+          <dt>
+            <strong>Bioaerosol</strong>
+          </dt>
           <dd>
-            A long-term biological interaction between two organisms. The{" "}
-            <em>symbiosis</em> app models and visualises symbiotic systems.
+            Airborne biological particulates — pollen, fungal spores, bacteria, viruses. SporeBase
+            v4 collects these on a time-indexed sealed tape for laboratory analysis.
           </dd>
 
-          <dt><strong>Retrosynthesis</strong></dt>
+          <dt>
+            <strong>Bioelectric signal</strong>
+          </dt>
           <dd>
-            A chemistry planning technique for working backwards from a target molecule to viable
-            precursors. The <em>retrosynthesis</em> app exposes this for compounds of interest
-            in mycology and biotechnology.
+            Electrical activity measured in or near living tissue. MycoNode samples bioelectric
+            activity in the subsurface root and mycelial zone.
           </dd>
 
-          <dt><strong>Bioaerosol</strong></dt>
+          <dt>
+            <strong>FCI — Fungal Computer Interface</strong>
+          </dt>
           <dd>
-            Airborne biological particles — spores, bacteria, fragments. Mycosoft sensor kits
-            include bioaerosol collection in some deployments.
+            A long-running Mycosoft research programme exploring direct interfaces between fungal
+            networks and digital systems. Labelled <em>frontier</em>. See the FCI article on{" "}
+            <a href="https://medium.com/@mycosoft.inc/fungal-computer-interface-fci-c0c444611cc1">
+              Mycosoft Labs on Medium
+            </a>
+            .
           </dd>
         </dl>
 
         <h2 id="federal">Federal contracting</h2>
-
         <dl>
-          <dt><strong>SAM.gov</strong></dt>
+          <dt>
+            <strong>UEI</strong>
+          </dt>
           <dd>
-            The U.S. federal System for Award Management. The required registry for any entity
-            receiving federal contracts, grants, or sub-awards. Mycosoft, LLC&apos;s registration
-            is active through April 2027.
+            Unique Entity Identifier. Replaces the legacy DUNS number. Mycosoft, LLC&apos;s UEI is{" "}
+            <span className="font-mono">YK3ARVKJ77S9</span>.
           </dd>
 
-          <dt><strong>UEI</strong> — Unique Entity Identifier</dt>
+          <dt>
+            <strong>CAGE Code</strong>
+          </dt>
           <dd>
-            The 12-character federal identifier that replaced DUNS in 2022. Mycosoft, LLC&apos;s
-            UEI is <span className="font-mono">YK3ARVKJ77S9</span>.
-          </dd>
-
-          <dt><strong>CAGE code</strong></dt>
-          <dd>
-            Commercial And Government Entity code — a 5-character identifier assigned by the
-            Defense Logistics Agency. Mycosoft, LLC&apos;s CAGE is{" "}
+            Commercial and Government Entity code. Mycosoft, LLC&apos;s CAGE is{" "}
             <span className="font-mono">9KR60</span>.
           </dd>
 
-          <dt><strong>FAR</strong></dt>
+          <dt>
+            <strong>SAM.gov</strong>
+          </dt>
           <dd>
-            Federal Acquisition Regulation — the primary regulation governing how U.S. federal
-            agencies acquire goods and services.
+            The federal System for Award Management. Mycosoft, LLC&apos;s registration is active
+            through April 9, 2027.
           </dd>
 
-          <dt><strong>DFARS</strong></dt>
+          <dt>
+            <strong>NAICS</strong>
+          </dt>
           <dd>
-            Defense Federal Acquisition Regulation Supplement — the DoD-specific supplement to
-            the FAR.
+            North American Industry Classification System. Codes used in federal procurement to
+            describe the type of work being procured.
           </dd>
 
-          <dt><strong>OTA</strong> — Other Transaction Authority</dt>
+          <dt>
+            <strong>DARPA</strong>
+          </dt>
           <dd>
-            A non-traditional contracting authority used by DoD and select agencies to acquire
-            prototypes and research outside the FAR. Not to be confused with over-the-air
-            firmware updates (also abbreviated OTA in the device section above).
+            Defense Advanced Research Projects Agency. Primary federal research customer for the
+            FUSARIUM programme.
           </dd>
 
-          <dt><strong>CSO</strong></dt>
+          <dt>
+            <strong>ITDX</strong>
+          </dt>
           <dd>
-            Commercial Solutions Opening — a competitive acquisition vehicle that lets agencies
-            solicit innovative solutions on shorter timelines.
+            Information Technology Defense Experiment (Army). Mycosoft submitted ITDX 2026 white
+            paper W91RUSI-FCID260001.
           </dd>
 
-          <dt><strong>SBIR / STTR</strong></dt>
+          <dt>
+            <strong>Navy TAC-O</strong>
+          </dt>
           <dd>
-            Small Business Innovation Research / Small Business Technology Transfer — federal
-            R&amp;D funding programmes for small businesses; STTR requires a research-institution
-            partner.
+            Tactical Operations. The U.S. Navy track Mycosoft engages on for undersea monitoring and
+            surface intelligence (Psathyrella).
           </dd>
 
-          <dt><strong>SAFE</strong></dt>
+          <dt>
+            <strong>Black Dart</strong>
+          </dt>
           <dd>
-            Simple Agreement for Future Equity — a startup financing instrument. Used by
-            Mycosoft, Inc. in early-stage rounds. Distinct from federal contracting acronyms.
+            The U.S. military counter-UAS demonstration programme. Mycosoft&rsquo;s non-kinetic EW
+            focus — jamming and anti-jamming, microwave, laser, radar — aligns with Black Dart.
           </dd>
 
-          <dt><strong>Capability statement</strong></dt>
+          <dt>
+            <strong>BAA</strong>
+          </dt>
           <dd>
-            A short, structured document a federal vendor uses to introduce itself to a
-            contracting officer — what it does, NAICS codes, past performance, and key
-            differentiators.
+            Broad Agency Announcement. The standard federal solicitation mechanism for research
+            programmes such as DARPA HR001125S0011 (FUSARIUM).
           </dd>
 
-          <dt><strong>Teaming agreement</strong></dt>
+          <dt>
+            <strong>OTA</strong> <em>(contracting)</em>
+          </dt>
           <dd>
-            A contract between a prime contractor and one or more subcontractors covering how
-            they will jointly pursue and execute a federal opportunity.
+            Other Transaction Authority. A flexible non-FAR-based contracting vehicle the DoD uses
+            for prototyping and research. Distinct from over-the-air firmware updates of the same
+            acronym.
           </dd>
 
-          <dt><strong>Prime contractor / subcontractor</strong></dt>
+          <dt>
+            <strong>CSO</strong>
+          </dt>
           <dd>
-            The prime holds the federal contract directly with the agency; subcontractors hold
-            contracts with the prime. Mycosoft, LLC engages in both roles depending on the
-            programme.
+            Commercial Solutions Opening. A solicitation mechanism used by federal customers to
+            acquire commercial technology rapidly.
           </dd>
 
-          <dt><strong>Deployment Sponsor</strong></dt>
+          <dt>
+            <strong>SBIR / STTR</strong>
+          </dt>
           <dd>
-            Defined in the <Link href="/terms">Mycosoft Terms of Service</Link>: the person or
-            entity responsible for authorising, funding, directing, hosting, purchasing,
-            leasing, permitting, or benefiting from a field deployment.
-          </dd>
-
-          <dt><strong>NAICS code</strong></dt>
-          <dd>
-            North American Industry Classification System code — used by federal procurement to
-            categorise vendors by industry.
-          </dd>
-        </dl>
-
-        <h2 id="status-labels">Status labels used in these docs</h2>
-
-        <dl>
-          <dt><strong>Stable</strong></dt>
-          <dd>
-            Shipping today, supported, and covered by the standard{" "}
-            <Link href="/terms">Terms of Service</Link>.
-          </dd>
-
-          <dt><strong>Draft</strong></dt>
-          <dd>
-            Being built right now; the documentation reflects current direction but specifics
-            will change.
-          </dd>
-
-          <dt><strong>Frontier</strong></dt>
-          <dd>
-            Multi-year research programme. Read as ambition, not roadmap. No product commitment
-            and no shipping date.
-          </dd>
-
-          <dt><strong>Coming soon</strong></dt>
-          <dd>
-            The document exists in outline; the page is being written.
+            Small Business Innovation Research / Small Business Technology Transfer. Federal
+            programmes funding small-business R&amp;D. Sequenced after Mycosoft&rsquo;s primary DARPA
+            and Army engagements.
           </dd>
         </dl>
+
+        <h2 id="status-labels">Status labels in our docs</h2>
+        <ul>
+          <li>
+            <strong>Stable</strong> — shipping today, supported, covered by the standard Terms of
+            Service.
+          </li>
+          <li>
+            <strong>Draft</strong> — being built right now; documentation reflects current direction
+            but specifics will change.
+          </li>
+          <li>
+            <strong>Frontier</strong> — multi-year research; no product commitment, no shipping
+            date. Read as ambition, not roadmap.
+          </li>
+          <li>
+            <strong>Coming soon</strong> — the document exists in outline; the page is being
+            written.
+          </li>
+        </ul>
 
         <hr className="my-12" />
 
         <p className="text-sm text-muted-foreground">
-          Back to: <Link href="/docs/what-is-mycosoft">What is Mycosoft</Link> ·{" "}
-          <Link href="/docs/quickstart">Quickstart</Link>
+          Previous: <Link href="/docs/quickstart">← Quickstart</Link> · See also:{" "}
+          <Link href="/docs/what-is-mycosoft">What is Mycosoft</Link>
         </p>
       </article>
     </DocsLayout>
