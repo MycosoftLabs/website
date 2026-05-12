@@ -10,7 +10,7 @@ export default function TermsPage() {
   return (
     <div className="container py-6 md:py-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24 prose-h1:text-4xl prose-h2:mt-16 prose-h2:pt-8 prose-h2:border-t prose-h2:border-border prose-h2:text-2xl prose-h2:font-bold prose-h3:mt-10 prose-h3:text-xl prose-h3:font-semibold prose-p:my-5 prose-p:leading-relaxed prose-li:leading-relaxed prose-li:my-1.5 prose-ul:my-5 prose-ul:pl-6 prose-ol:my-5 prose-ol:pl-6">
+        <article className="max-w-none text-foreground [&_h1]:text-4xl [&_h1]:font-bold [&_h1]:mb-8 [&_h1]:scroll-mt-24 [&_h2]:mt-16 [&_h2]:pt-8 [&_h2]:mb-4 [&_h2]:border-t [&_h2]:border-border [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:scroll-mt-24 [&_h3]:mt-10 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:scroll-mt-24 [&_p]:my-5 [&_p]:leading-relaxed [&_p]:text-base [&_ul]:my-5 [&_ul]:pl-6 [&_ul]:list-disc [&_ul]:space-y-2 [&_ol]:my-5 [&_ol]:pl-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_li]:leading-relaxed [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-primary/80 [&_strong]:font-semibold [&_strong]:text-foreground">
           <h1>{`MYCOSOFT TERMS OF SERVICE`}</h1>
           <div className="not-prose my-6 rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <dl className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-4 gap-y-1">
