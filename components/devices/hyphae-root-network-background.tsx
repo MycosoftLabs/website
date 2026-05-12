@@ -232,9 +232,19 @@ export function HyphaeRootNetworkBackground({ className = "" }: HyphaeRootNetwor
       spawn(event.clientX - rect.left, event.clientY - rect.top)
     }
 
+    let lastMoveSpawn = 0
+    function handlePointerMove(event: PointerEvent) {
+      const now = performance.now()
+      if (now - lastMoveSpawn < 80) return
+      lastMoveSpawn = now
+      const rect = canvas.getBoundingClientRect()
+      spawn(event.clientX - rect.left, event.clientY - rect.top)
+    }
+
     const resizeObserver = new ResizeObserver(init)
     resizeObserver.observe(canvas)
     canvas.addEventListener("pointerdown", handlePointerDown)
+    canvas.addEventListener("pointermove", handlePointerMove)
     init()
     frame = requestAnimationFrame(animate)
 
@@ -242,6 +252,7 @@ export function HyphaeRootNetworkBackground({ className = "" }: HyphaeRootNetwor
       if (frame) cancelAnimationFrame(frame)
       resizeObserver.disconnect()
       canvas.removeEventListener("pointerdown", handlePointerDown)
+      canvas.removeEventListener("pointermove", handlePointerMove)
     }
   }, [])
 
