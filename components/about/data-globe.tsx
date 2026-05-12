@@ -35,11 +35,11 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     const container = containerRef.current
     if (!container) return
 
-    if (shouldUseLightweightVisuals()) return
+    const lightweight = shouldUseLightweightVisuals()
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(30, 1, 1, 10000)
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    const renderer = new THREE.WebGLRenderer({ antialias: !lightweight, alpha: true, powerPreference: "low-power" })
     const group = new THREE.Group()
     const radius = 200
     const target = { x: Math.PI * 1.05, y: Math.PI / 8 }
@@ -52,7 +52,7 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     let lastRender = 0
 
     renderer.setClearColor(0x000000, 0)
-    renderer.setPixelRatio(1)
+    renderer.setPixelRatio(lightweight ? Math.min(window.devicePixelRatio || 1, 1) : 1)
     renderer.domElement.style.position = "absolute"
     renderer.domElement.style.inset = "0"
     renderer.domElement.style.width = "100%"
@@ -142,7 +142,7 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     )
     visibilityObserver.observe(container)
 
-    fetch("/assets/about-globe/population909500.json")
+    if (!lightweight) fetch("/assets/about-globe/population909500.json")
       .then((response) => response.json())
       .then((datasets: GlobeDataset[]) => {
         if (!alive) return
@@ -260,10 +260,6 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
       ref={containerRef}
       className={`data-globe-root overflow-hidden ${className}`}
       aria-hidden="true"
-    >
-      <div className="pointer-events-none absolute inset-0 bg-black" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[min(82vw,620px)] w-[min(82vw,620px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/30 bg-[radial-gradient(circle_at_38%_32%,rgba(255,255,255,0.34),transparent_12%),radial-gradient(circle,rgba(0,255,255,0.18),rgba(0,0,0,0)_66%)] shadow-[0_0_90px_rgba(0,255,255,0.35)]" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[min(88vw,680px)] w-[min(88vw,680px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-    </div>
+    />
   )
 }
