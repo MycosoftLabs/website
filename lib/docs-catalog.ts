@@ -66,21 +66,24 @@ export const DOCS_CATALOG: DocSection[] = [
       {
         title: "What is Mycosoft",
         description: "Company overview, the stack, and who this documentation is for.",
-        status: "coming-soon",
+        href: "/docs/what-is-mycosoft",
+        status: "stable",
         sources: placeholderSources("what-is-mycosoft"),
       },
       {
         title: "Quickstart",
         description:
           "First 15 minutes: pick a device or API, request access, and see your first data flow.",
-        status: "coming-soon",
+        href: "/docs/quickstart",
+        status: "stable",
         sources: placeholderSources("quickstart"),
       },
       {
         title: "Glossary",
         description:
           "Mycology, AI, and federal-contracting terms in one place — written for newcomers.",
-        status: "coming-soon",
+        href: "/docs/glossary",
+        status: "stable",
         sources: placeholderSources("glossary"),
       },
     ],

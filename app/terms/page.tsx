@@ -10,7 +10,7 @@ export default function TermsPage() {
   return (
     <div className="container py-6 md:py-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24 prose-h1:text-4xl prose-h2:mt-12 prose-h2:text-2xl prose-h2:font-bold prose-h3:mt-8 prose-h3:text-xl prose-h3:font-semibold prose-p:leading-relaxed prose-li:leading-relaxed prose-ul:my-4">
+        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24 prose-h1:text-4xl prose-h2:mt-16 prose-h2:pt-8 prose-h2:border-t prose-h2:border-border prose-h2:text-2xl prose-h2:font-bold prose-h3:mt-10 prose-h3:text-xl prose-h3:font-semibold prose-p:my-5 prose-p:leading-relaxed prose-li:leading-relaxed prose-li:my-1.5 prose-ul:my-5 prose-ul:pl-6 prose-ol:my-5 prose-ol:pl-6">
           <h1>{`MYCOSOFT TERMS OF SERVICE`}</h1>
           <div className="not-prose my-6 rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <dl className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -48,15 +48,17 @@ export default function TermsPage() {
           <h3 id="sub-1-3">{`1.3 No Use Without Agreement`}</h3>
           <p>{`If you do not agree to these Terms, you may not access, use, deploy, operate, integrate, resell, connect to, receive data from, or otherwise interact with the Services.`}</p>
           <h3 id="sub-1-4">{`1.4 Supplemental Terms`}</h3>
-          <p>{`Certain Services may be subject to additional terms, including order forms, procurement addenda, hardware terms, beta terms, research agreements, data processing agreements, open-source licenses, government contract clauses, reseller agreements, field deployment authorizations, export control notices, and safety documentation. Supplemental terms control`}</p>
-          <p>{`only for the specific Service, transaction, or deployment they cover. These Terms control all other matters.`}</p>
+          <p>{`Certain Services may be subject to additional terms, including order forms, procurement addenda, hardware terms, beta terms, research agreements, data processing agreements, open-source licenses, government contract clauses, reseller agreements, field deployment authorizations, export control notices, and safety documentation. Supplemental terms control only for the specific Service, transaction, or deployment they cover. These Terms control all other matters.`}</p>
           <h3 id="sub-1-5">{`1.5 Hierarchy of Terms`}</h3>
-          <p>{`Unless otherwise expressly stated in a signed writing by an authorized officer of Mycosoft, conflicts are resolved in this order: 1. written enterprise, government, procurement, or master services agreement signed by Mycosoft;`}</p>
-          <p>{`2. signed order form, statement of work, pilot agreement, reseller agreement, or deployment agreement;`}</p>
-          <p>{`3. applicable product-specific supplemental terms;`}</p>
-          <p>{`4. open-source license for specific open-source code only;`}</p>
-          <p>{`5. these Terms;`}</p>
-          <p>{`6. documentation, marketing materials, FAQs, or website statements.`}</p>
+          <p>{`Unless otherwise expressly stated in a signed writing by an authorized officer of Mycosoft, conflicts are resolved in this order:`}</p>
+          <ol>
+            <li>{`written enterprise, government, procurement, or master services agreement signed by Mycosoft;`}</li>
+            <li>{`signed order form, statement of work, pilot agreement, reseller agreement, or deployment agreement;`}</li>
+            <li>{`applicable product-specific supplemental terms;`}</li>
+            <li>{`open-source license for specific open-source code only;`}</li>
+            <li>{`these Terms;`}</li>
+            <li>{`documentation, marketing materials, FAQs, or website statements.`}</li>
+          </ol>
           <h2 id="section-2">{`2. Company Identity; Corporate Structure; Affiliates`}</h2>
           <h3 id="sub-2-1">{`2.1 Mycosoft Entity`}</h3>
           <p>{`“Mycosoft,” “Company,” “we,” “us,” or “our” means Mycosoft, Inc., a Delaware corporation, together with its subsidiaries, affiliates, controlled entities, operating divisions, field deployment programs, labs, research programs, software platforms, autonomous agents, device fleets, contractors, subcontractors, and representatives, as applicable.`}</p>
@@ -149,8 +151,7 @@ export default function TermsPage() {
           <h3 id="sub-8-3">{`8.3 Human Oversight`}</h3>
           <p>{`You must maintain appropriate human oversight for any AI-assisted operation that may affect safety, property, legal rights, privacy, environment, public infrastructure, financial decisions, regulated activities, government decisions, aircraft, vessels, vehicles, robotics, field devices, biological systems, or public alerts.`}</p>
           <h3 id="sub-8-4">{`8.4 Autonomous Workflows`}</h3>
-          <p>{`By using AI Systems, you authorize Mycosoft systems to process inputs, route tasks among agents, call tools, interact with APIs, generate plans, summarize data, recommend actions,`}</p>
-          <p>{`create tickets, modify dashboards, queue commands, communicate status, and perform other automated actions within the permissions you configure or authorize.`}</p>
+          <p>{`By using AI Systems, you authorize Mycosoft systems to process inputs, route tasks among agents, call tools, interact with APIs, generate plans, summarize data, recommend actions, create tickets, modify dashboards, queue commands, communicate status, and perform other automated actions within the permissions you configure or authorize.`}</p>
           <h3 id="sub-8-5">{`8.5 No Fully Autonomous High-Risk Reliance Without Separate Agreement`}</h3>
           <p>{`You may not use AI Systems as the sole basis for high-risk decisions, including life safety, targeting, law enforcement, employment, credit, housing, insurance, medical, legal, military action, public benefits, biometric identification, or rights-impacting decisions, without a separate written agreement and required legal, technical, and human oversight controls.`}</p>
           <h3 id="sub-8-6">{`8.6 AI Identity and Disclosure`}</h3>
@@ -170,8 +171,7 @@ export default function TermsPage() {
           <h3 id="sub-10-1">{`10.1 Device Use`}</h3>
           <p>{`You may use Devices only in accordance with documentation, safety instructions, deployment instructions, applicable law, and any written authorization. You are responsible for site selection, installation, operation, maintenance, inspection, recovery, disposal, and safe use.`}</p>
           <h3 id="sub-10-2">{`10.2 Experimental and Environmental Conditions`}</h3>
-          <p>{`Devices may be exposed to rain, dust, soil, animals, insects, fungi, corrosion, saltwater, UV, temperature extremes, RF interference, GPS degradation, cellular dead zones, satellite delays,`}</p>
-          <p>{`power loss, tampering, vandalism, theft, wildlife interaction, collision, flooding, marine growth, battery degradation, sensor drift, and other environmental conditions. Mycosoft does not guarantee uninterrupted operation.`}</p>
+          <p>{`Devices may be exposed to rain, dust, soil, animals, insects, fungi, corrosion, saltwater, UV, temperature extremes, RF interference, GPS degradation, cellular dead zones, satellite delays, power loss, tampering, vandalism, theft, wildlife interaction, collision, flooding, marine growth, battery degradation, sensor drift, and other environmental conditions. Mycosoft does not guarantee uninterrupted operation.`}</p>
           <h3 id="sub-10-3">{`10.3 No Unauthorized Modifications`}</h3>
           <p>{`You may not modify, disassemble, open, reverse engineer, bypass, tamper with, clone, counterfeit, reflash, jailbreak, patch, unlock, alter, or disable Devices, firmware, secure boot, encryption, tamper switches, telemetry, identity modules, safety systems, or data integrity systems except as expressly authorized.`}</p>
           <h3 id="sub-10-4">{`10.4 Device Recovery`}</h3>
@@ -188,8 +188,7 @@ export default function TermsPage() {
           <h3 id="sub-11-3">{`11.3 BLM and DOI Lands`}</h3>
           <p>{`Use of Devices on lands managed by the Bureau of Land Management, Department of the Interior, or other public agencies must comply with all applicable federal, state, local, tribal, and agency-specific requirements, including rules governing access, surface disturbance, cultural resources, endangered species, reclamation, rights-of-way, mining operations, grazing allotments, range improvements, roads, utilities, environmental review, and public safety.`}</p>
           <h3 id="sub-11-4">{`11.4 Mining Claims`}</h3>
-          <p>{`A mining claim, prospecting right, mineral lease, or related interest does not automatically authorize Device deployment, surface occupancy, environmental sensing, data extraction, digging, drilling, installation, power connection, communications infrastructure, biological`}</p>
-          <p>{`sampling, public access, or long-term placement. Operators must confirm the scope of rights and obtain any required surface-use, occupancy, environmental, reclamation, or agency approvals.`}</p>
+          <p>{`A mining claim, prospecting right, mineral lease, or related interest does not automatically authorize Device deployment, surface occupancy, environmental sensing, data extraction, digging, drilling, installation, power connection, communications infrastructure, biological sampling, public access, or long-term placement. Operators must confirm the scope of rights and obtain any required surface-use, occupancy, environmental, reclamation, or agency approvals.`}</p>
           <h3 id="sub-11-5">{`11.5 Homestead-Derived Property`}</h3>
           <p>{`References to homesteading, homestead-derived title, patents, historic land grants, or rural property rights do not create any new right to deploy Devices. Deployments on such property require permission from the current lawful owner or authorized holder and compliance with all applicable law.`}</p>
           <h3 id="sub-11-6">{`11.6 Grazing Allotments and Range Concepts`}</h3>
@@ -226,8 +225,7 @@ export default function TermsPage() {
           <p>{`Aerial data collection may implicate privacy, surveillance, trespass, nuisance, critical infrastructure, data protection, law enforcement, wildlife, environmental, and public-safety laws. You are responsible for compliance.`}</p>
           <h2 id="section-14">{`14. Maritime, Inland Waters, International Waters, Buoys, Vessels, Aids to Navigation, and Ocean Deployments`}</h2>
           <h3 id="sub-14-1">{`14.1 Maritime Compliance`}</h3>
-          <p>{`All maritime, inland waterway, underwater, buoy, vessel, USV, UUV, hydrophone, mooring, anchor, floating platform, submerged sensor, surface gateway, or coastal Deployment must comply with applicable maritime law, Coast Guard rules, COLREGS, Inland Navigation Rules, port rules, state waters rules, coastal state law, flag state law, environmental law, fisheries law,`}</p>
-          <p>{`marine mammal law, protected area rules, navigation requirements, and local harbor authority requirements.`}</p>
+          <p>{`All maritime, inland waterway, underwater, buoy, vessel, USV, UUV, hydrophone, mooring, anchor, floating platform, submerged sensor, surface gateway, or coastal Deployment must comply with applicable maritime law, Coast Guard rules, COLREGS, Inland Navigation Rules, port rules, state waters rules, coastal state law, flag state law, environmental law, fisheries law, marine mammal law, protected area rules, navigation requirements, and local harbor authority requirements.`}</p>
           <h3 id="sub-14-2">{`14.2 Private Aids to Navigation`}</h3>
           <p>{`No Device may be represented, used, placed, marked, lighted, signaled, or maintained as an aid to navigation unless all required Coast Guard, state, Army Corps, local, port, or other approvals have been obtained.`}</p>
           <h3 id="sub-14-3">{`14.3 Moorings, Anchors, and Fixed Structures`}</h3>
@@ -302,8 +300,7 @@ export default function TermsPage() {
           <h3 id="sub-19-4">{`19.4 California Privacy`}</h3>
           <p>{`For California residents and California-regulated processing, Mycosoft will comply with applicable California privacy laws to the extent they apply. Customers using the Services to process California personal information are responsible for determining whether they are businesses, service providers, contractors, third parties, or other regulated actors and for entering any required data processing terms.`}</p>
           <h3 id="sub-19-5">{`19.5 EU, UK, and International Privacy`}</h3>
-          <p>{`For EU, UK, or other international data, you are responsible for lawful basis, notices, data transfer mechanisms, data processing agreements, data subject rights, automated`}</p>
-          <p>{`decision-making obligations, AI transparency, and other required compliance unless a separate agreement assigns responsibility to Mycosoft.`}</p>
+          <p>{`For EU, UK, or other international data, you are responsible for lawful basis, notices, data transfer mechanisms, data processing agreements, data subject rights, automated decision-making obligations, AI transparency, and other required compliance unless a separate agreement assigns responsibility to Mycosoft.`}</p>
           <h3 id="sub-19-6">{`19.6 Sensitive Locations`}</h3>
           <p>{`You may not use the Services to collect, infer, or publish personal data from sensitive locations, including homes, schools, medical facilities, places of worship, shelters, protests, political gatherings, union activity, protected cultural sites, or other sensitive areas without lawful basis and appropriate safeguards.`}</p>
           <h2 id="section-20">{`20. Acceptable Use Policy`}</h2>
@@ -362,8 +359,7 @@ export default function TermsPage() {
           <h3 id="sub-23-1">{`23.1 Open-Source Components`}</h3>
           <p>{`Some Mycosoft code, libraries, SDKs, protocols, dashboards, examples, integrations, blockchain-facing tools, data-ledger tools, public financial tools, or security-sensitive public interfaces may be released under open-source or source-available licenses.`}</p>
           <h3 id="sub-23-2">{`23.2 Open-Source License Controls`}</h3>
-          <p>{`Open-source components are licensed under their specific repository license. Those licenses govern only the specific code identified as open source and do not grant rights to Mycosoft`}</p>
-          <p>{`proprietary software, firmware, hardware, schematics, device designs, trademarks, patents, trade secrets, or confidential materials.`}</p>
+          <p>{`Open-source components are licensed under their specific repository license. Those licenses govern only the specific code identified as open source and do not grant rights to Mycosoft proprietary software, firmware, hardware, schematics, device designs, trademarks, patents, trade secrets, or confidential materials.`}</p>
           <h3 id="sub-23-3">{`23.3 Security-Driven Open Source`}</h3>
           <p>{`Mycosoft may open source certain public-facing, blockchain-facing, API-facing, or financial-data-facing systems for transparency and security. That does not convert related firmware, hardware, internal APIs, models, schematics, device interiors, manufacturing methods, or backend systems into open-source materials.`}</p>
           <h3 id="sub-23-4">{`23.4 No Implied License`}</h3>
