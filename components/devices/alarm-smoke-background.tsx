@@ -166,7 +166,7 @@ export function AlarmSmokeBackground() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 h-full w-full overflow-hidden bg-black"
+      className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-black"
       aria-hidden="true"
     >
       <div className="absolute inset-[-20%] bg-[radial-gradient(circle_at_50%_50%,rgba(255,30,30,0.44),transparent_24%),radial-gradient(circle_at_30%_35%,rgba(255,255,255,0.16),transparent_20%),radial-gradient(circle_at_70%_65%,rgba(130,0,0,0.48),transparent_30%)] blur-3xl" />
