@@ -329,6 +329,7 @@ All notable changes to this project will be documented in this file.
 - *(build)* Wrap search-param routes for production [fast]
 - *(docs)* Correct devices section to ship-realistic lineup (#157)
 - *(docs)* Rewrite overview docs with accurate stack — correct devices, MYCA scope, AVANI, CREP, protocols (#159)
+- *(tos,docs)* Replace broken prose-* modifiers with Tailwind v4 child selectors (#160)
 
 ### CREP
 
@@ -462,6 +463,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(crep)* Shinobi connector POST path + DDL applied + entity stream
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
