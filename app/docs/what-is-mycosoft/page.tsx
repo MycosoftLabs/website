@@ -147,6 +147,29 @@ export default function Page() {
           options.
         </p>
 
+        <h3 id="device-ownership">How devices are provided</h3>
+        <p>
+          Mycosoft devices are <strong>not sold as individual consumer units</strong>. They are
+          data sensors and droids that operate collectively for the multi-agent system and the
+          decentralized environmental database. Every device in the field is{" "}
+          <strong>owned, operated, and maintained by Mycosoft</strong>.
+        </p>
+        <p>
+          Commercial and civilian partners do not purchase devices. Instead, they{" "}
+          <strong>subscribe to the data-access software system</strong> (NatureOS, MINDEX, MYCA,
+          and related surfaces). Where a partner&apos;s property is useful to the network, devices
+          can be hosted on that property in exchange for the data, signal, environmental coverage,
+          or resources the property provides. Mycosoft retains full ownership and operational
+          control of the hardware throughout.
+        </p>
+        <p>
+          <strong>Defense exception.</strong> The U.S. Department of Defense and affiliated
+          military branches are the only customers to whom Mycosoft delivers devices and systems
+          as discrete contractual deliverables. Those engagements run through federal contracting
+          vehicles (OTAs, BAAs, SBIRs, and programmes of record) and are governed by the relevant
+          contract terms, not by the commercial data-access model.
+        </p>
+
         <h3 id="layer-protocols">2. Telemetry and provenance — Mycorrhizae Protocol, FCI</h3>
         <p>
           Devices speak two public protocols that move signal through the stack while preserving
