@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     params.set("limit", limit.toString())
 
     const upstreamPath =
-      mode === "devices" ? "/api/telemetry/devices" : "/api/telemetry/devices/latest-samples"
+      mode === "devices" ? "/api/mindex/internal/devices" : "/api/mindex/internal/telemetry/devices/latest"
 
     const res = await fetch(`${MINDEX_API_URL}${upstreamPath}?${params}`, {
       signal: AbortSignal.timeout(10000),
@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to ingest envelope", details: String(error) }, { status: 500 })
   }
 }
-
 
 
 

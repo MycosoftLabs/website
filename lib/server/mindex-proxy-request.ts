@@ -14,7 +14,7 @@ export function mindexProxyHeaders(): HeadersInit {
   ).trim()
   const key = process.env.MINDEX_API_KEY?.trim()
   if (internal) h["X-Internal-Token"] = internal
-  else if (key) h["X-API-Key"] = key
+  if (key) h["X-API-Key"] = key
   return h
 }
 

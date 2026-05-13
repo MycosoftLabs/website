@@ -18,7 +18,8 @@ export function mindexUpstreamHeaders(extra?: HeadersInit): Headers {
   const apiKey = process.env.MINDEX_API_KEY?.trim()
   if (internal) {
     headers.set("X-Internal-Token", internal)
-  } else if (apiKey) {
+  }
+  if (apiKey) {
     headers.set("X-API-Key", apiKey)
   }
   return headers
