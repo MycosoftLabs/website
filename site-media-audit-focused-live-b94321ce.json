@@ -1,0 +1,811 @@
+{
+  "summary": {
+    "routeCount": 16,
+    "navBad": [],
+    "routesWithBad": [
+      {
+        "route": "/natureos/earth-simulator",
+        "bad": [
+          {
+            "status": 500,
+            "type": "fetch",
+            "url": "/api/ground-station/hardware?type=all"
+          },
+          {
+            "status": 500,
+            "type": "fetch",
+            "url": "/api/ground-station/groups"
+          },
+          {
+            "status": 404,
+            "type": "fetch",
+            "url": "/api/mindex/waypoints"
+          },
+          {
+            "status": 416,
+            "type": "fetch",
+            "url": "/api/crep/tiles/transmission-lines-us-full.pmtiles"
+          },
+          {
+            "status": 504,
+            "type": "fetch",
+            "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A30%5D%3B(node%5B%22man_made%22~%22pipeline%7Cpetroleum_well%7Cpump%22%5D(17.793942447015965%2C-140.6360152339626%2C56.03915796712566%2C-56.36398476602926)%3Bway%5B%22industrial%22~%22oil%7Cgas%7Crefinery%22%5D(17.793942447015965%2C-140.6360152339626%2C56.03915796712566%2C-56.36398476602926)%3B)%3Bout%20center%202000%3B"
+          }
+        ]
+      }
+    ],
+    "mediaBad": [],
+    "mediaFail": [
+      {
+        "route": "/",
+        "type": "fetch",
+        "url": "/assets/homepage/Mycosoft%20Background-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/",
+        "type": "fetch",
+        "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/",
+        "type": "fetch",
+        "url": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/",
+        "type": "fetch",
+        "url": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/about",
+        "type": "fetch",
+        "url": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/about",
+        "type": "fetch",
+        "url": "/assets/about/sensing-mycelium-lipids-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/about",
+        "type": "fetch",
+        "url": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices",
+        "type": "fetch",
+        "url": "/assets/devices/droids-hero-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices",
+        "type": "fetch",
+        "url": "/assets/devices/devices-footer-motion-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "type": "fetch",
+        "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "type": "fetch",
+        "url": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "type": "fetch",
+        "url": "/assets/mushroom1/scientific-research-fast-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "type": "fetch",
+        "url": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "type": "fetch",
+        "url": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/psathyrella",
+        "type": "media",
+        "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/psathyrella",
+        "type": "fetch",
+        "url": "/assets/psathyrella/psathyrellatower-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/psathyrella",
+        "type": "fetch",
+        "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/sporebase",
+        "type": "fetch",
+        "url": "/assets/sporebase/sporebase1publish-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/hyphae-1",
+        "type": "fetch",
+        "url": "/assets/hyphae1/hero-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/devices/alarm",
+        "type": "fetch",
+        "url": "/assets/alarm/alarm-hero-temp-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/defense",
+        "type": "fetch",
+        "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+        "err": "net::ERR_ABORTED"
+      },
+      {
+        "route": "/defense/fusarium",
+        "type": "fetch",
+        "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+        "err": "net::ERR_ABORTED"
+      }
+    ],
+    "brokenImages": [],
+    "youtubeFrames": [],
+    "videoNotReady": [],
+    "videosWithControls": [],
+    "totalVideos": 27,
+    "totalMedia": 94,
+    "slowRoutes": [
+      {
+        "route": "/natureos/earth-simulator",
+        "ms": 12155
+      }
+    ]
+  },
+  "results": [
+    {
+      "route": "/",
+      "navStatus": 200,
+      "ms": 11728,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/Mycosoft%20Background-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 7,
+      "videos": [
+        {
+          "src": "/assets/homepage/Mycosoft%20Background-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 59,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nMycosoft\n\nThe AI That Sees the World — All of It\n\nAll "
+    },
+    {
+      "route": "/about",
+      "navStatus": 200,
+      "ms": 11772,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/about/sensing-mycelium-lipids-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 15,
+      "videos": [
+        {
+          "src": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/about/sensing-mycelium-lipids-web.mp4",
+          "ready": 4,
+          "w": 1334,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 86,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nEst. 2021 · San Diego, CA\nData centers process the pas"
+    },
+    {
+      "route": "/devices",
+      "navStatus": 200,
+      "ms": 11654,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/devices/droids-hero-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/devices/devices-footer-motion-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 8,
+      "videos": [
+        {
+          "src": "/assets/devices/droids-hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/devices/mycobrain-hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/devices/devices-footer-motion-web.mp4",
+          "ready": 4,
+          "w": 1264,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 54,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nHardware platform\nDroids\n\nWe build droids, or robots w"
+    },
+    {
+      "route": "/devices/agaric",
+      "navStatus": 200,
+      "ms": 11675,
+      "bad": [],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 9,
+      "videos": [
+        {
+          "src": "/assets/agaric/agaric-hero2-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/agaric/agaric-background1-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": true,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/agaric/dronepickup-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": true,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/agaric/forestfly-web.mp4",
+          "ready": 4,
+          "w": 1104,
+          "h": 832,
+          "paused": true,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 45,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nAgaric\nFlying Sensor Droid\n\nA flying sensor droid buil"
+    },
+    {
+      "route": "/devices/mushroom-1",
+      "navStatus": 200,
+      "ms": 11687,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/scientific-research-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 11,
+      "videos": [
+        {
+          "src": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+          "ready": 4,
+          "w": 1080,
+          "h": 1920,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/scientific-research-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+          "ready": 4,
+          "w": 1334,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+          "ready": 4,
+          "w": 960,
+          "h": 1280,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 45,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nEnvironmental drone\nMushroom 1\n\nThe world's first real"
+    },
+    {
+      "route": "/devices/psathyrella",
+      "navStatus": 200,
+      "ms": 11992,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "media",
+          "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/psathyrella/psathyrellatower-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 7,
+      "videos": [
+        {
+          "src": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/psathyrella/psathyrellatower-web.mp4",
+          "ready": 4,
+          "w": 1344,
+          "h": 896,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 47,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nMarine Drone\nPsathyrella\nPsathyrella\nPsathyrella\n\nA fu"
+    },
+    {
+      "route": "/devices/sporebase",
+      "navStatus": 200,
+      "ms": 11678,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/sporebase/sporebase1publish-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 5,
+      "videos": [
+        {
+          "src": "/assets/sporebase/sporebase1publish-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 45,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nBioaerosol Collection\nSporeBase\n\nTime-indexed bioaeros"
+    },
+    {
+      "route": "/devices/hyphae-1",
+      "navStatus": 200,
+      "ms": 11683,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/hyphae1/hero-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 5,
+      "videos": [
+        {
+          "src": "/assets/hyphae1/hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 44,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nEdge Datacenter\nHyphae 1\n\nThe Outside Datacenter\nTerre"
+    },
+    {
+      "route": "/devices/alarm",
+      "navStatus": 200,
+      "ms": 10585,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/alarm/alarm-hero-temp-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 6,
+      "videos": [
+        {
+          "src": "/assets/alarm/alarm-hero-temp-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 44,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nIndoor Safety Monitor\nALARM\n\nThe smartest safety devic"
+    },
+    {
+      "route": "/defense",
+      "navStatus": 200,
+      "ms": 11670,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 3,
+      "videos": [
+        {
+          "src": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 50,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nOPERATIONAL\nENVIRONMENTAL\nINTELLIGENCE\n\nA new intellig"
+    },
+    {
+      "route": "/defense/fusarium",
+      "navStatus": 200,
+      "ms": 11674,
+      "bad": [],
+      "mediaFail": [
+        {
+          "type": "fetch",
+          "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 4,
+      "videos": [
+        {
+          "src": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 54,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nBack to Defense Portal\nDEFENSE SYSTEM\nFUSARIUM\n\nNamed "
+    },
+    {
+      "route": "/natureos",
+      "navStatus": 200,
+      "ms": 5077,
+      "bad": [],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 76,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nNatureOS\nCtrl+K\n2\nNavigation\nToggle Sidebar\nAPPS\nNatur"
+    },
+    {
+      "route": "/natureos/fungi-compute",
+      "navStatus": 200,
+      "ms": 5586,
+      "bad": [],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 66,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nNatureOS\nCtrl+K\n2\nNavigation\nToggle Sidebar\nAPPS\nNatur"
+    },
+    {
+      "route": "/natureos/earth-simulator",
+      "navStatus": 200,
+      "ms": 12155,
+      "bad": [
+        {
+          "status": 500,
+          "type": "fetch",
+          "url": "/api/ground-station/hardware?type=all"
+        },
+        {
+          "status": 500,
+          "type": "fetch",
+          "url": "/api/ground-station/groups"
+        },
+        {
+          "status": 404,
+          "type": "fetch",
+          "url": "/api/mindex/waypoints"
+        },
+        {
+          "status": 416,
+          "type": "fetch",
+          "url": "/api/crep/tiles/transmission-lines-us-full.pmtiles"
+        },
+        {
+          "status": 504,
+          "type": "fetch",
+          "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A30%5D%3B(node%5B%22man_made%22~%22pipeline%7Cpetroleum_well%7Cpump%22%5D(17.793942447015965%2C-140.6360152339626%2C56.03915796712566%2C-56.36398476602926)%3Bway%5B%22industrial%22~%22oil%7Cgas%7Crefinery%22%5D(17.793942447015965%2C-140.6360152339626%2C56.03915796712566%2C-56.36398476602926)%3B)%3Bout%20center%202000%3B"
+        }
+      ],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 6,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 64,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nNatureOS\nCtrl+K\n2\nNavigation\nToggle Sidebar\nAPPS\nNatur"
+    },
+    {
+      "route": "/devices/mycobrain/integration/fci",
+      "navStatus": 200,
+      "ms": 3293,
+      "bad": [],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 47,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nFungal Computer Interface (FCI)\n\nTransform MycoBrain i"
+    },
+    {
+      "route": "/support",
+      "navStatus": 200,
+      "ms": 2563,
+      "bad": [],
+      "mediaFail": [],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "links": 52,
+      "text": "Mycosoft\nSearch\nAbout Us\nAI\nDefense\nNatureOS\nDevices\nApps\nSign In\nSupport Center\nHow Can We Help You?\n\nBrowse our FAQs, "
+    }
+  ]
+}

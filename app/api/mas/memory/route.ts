@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/lib/auth/api-auth"
+import {
+  masServiceHeaders,
+  requireAuthenticatedIdentity,
+  resolveScopedUserId,
+  resolveVerifiedIdentity,
+} from "@/lib/auth/verified-identity"
 
 // MAS API URL
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
@@ -32,21 +37,23 @@ interface ConversationMemory {
  * Retrieve conversation history and context
  */
 export async function GET(request: NextRequest) {
-  // Require authentication - no anonymous access to memory
-  const auth = await requireAuth()
-  if (auth.error) return auth.error
+  const identity = await resolveVerifiedIdentity()
+  const authError = requireAuthenticatedIdentity(identity)
+  if (authError) return authError
 
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("session_id")
-    const userId = searchParams.get("user_id") || "default"
+    const scopedUser = resolveScopedUserId(identity, searchParams.get("user_id"))
+    if (scopedUser.denied) return scopedUser.denied
+    const userId = scopedUser.userId
     const limit = parseInt(searchParams.get("limit") || "50")
 
     // Try MAS memory endpoint first
     try {
       const masResponse = await fetch(
         `${MAS_API_URL}/memory/conversations?user_id=${userId}&session_id=${sessionId || ""}&limit=${limit}`,
-        { cache: "no-store" }
+        { cache: "no-store", headers: masServiceHeaders() }
       )
 
       if (masResponse.ok) {
@@ -98,13 +105,15 @@ export async function GET(request: NextRequest) {
  * Store conversation turn
  */
 export async function POST(request: NextRequest) {
-  // Require authentication
-  const auth = await requireAuth()
-  if (auth.error) return auth.error
+  const identity = await resolveVerifiedIdentity()
+  const authError = requireAuthenticatedIdentity(identity)
+  if (authError) return authError
 
   try {
     const body = await request.json()
     const { session_id, user_id, message, role, agent, context } = body
+    const scopedUser = resolveScopedUserId(identity, user_id)
+    if (scopedUser.denied) return scopedUser.denied
 
     if (!message || !role) {
       return NextResponse.json(
@@ -117,14 +126,18 @@ export async function POST(request: NextRequest) {
     try {
       const masResponse = await fetch(`${MAS_API_URL}/memory/store`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: masServiceHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           session_id,
-          user_id: user_id || "default",
+          user_id: scopedUser.userId,
           message,
           role,
           agent,
-          context,
+          context: {
+            ...(context || {}),
+            auth_trust_level: identity.authTrustLevel,
+            verified_role: identity.userRole,
+          },
           timestamp: new Date().toISOString(),
         }),
       })
@@ -151,7 +164,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             session_id: session_id || `session-${Date.now()}`,
-            user_id: user_id || "default",
+            user_id: scopedUser.userId,
             role,
             content: message,
             agent,
@@ -188,20 +201,22 @@ export async function POST(request: NextRequest) {
  * Clear conversation memory
  */
 export async function DELETE(request: NextRequest) {
-  // Require authentication
-  const auth = await requireAuth()
-  if (auth.error) return auth.error
+  const identity = await resolveVerifiedIdentity()
+  const authError = requireAuthenticatedIdentity(identity)
+  if (authError) return authError
 
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("session_id")
-    const userId = searchParams.get("user_id") || "default"
+    const scopedUser = resolveScopedUserId(identity, searchParams.get("user_id"))
+    if (scopedUser.denied) return scopedUser.denied
+    const userId = scopedUser.userId
 
     // Try MAS first
     try {
       const masResponse = await fetch(
         `${MAS_API_URL}/memory/clear?user_id=${userId}&session_id=${sessionId || ""}`,
-        { method: "DELETE" }
+        { method: "DELETE", headers: masServiceHeaders() }
       )
 
       if (masResponse.ok) {

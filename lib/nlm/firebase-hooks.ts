@@ -39,21 +39,40 @@ export function useModels(userId: string | undefined, isAdmin?: boolean) {
 
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/natureos/nlm-training/models', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`NLM models API returned ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setModels(Array.isArray(data.models) ? data.models : []);
+      } catch (error) {
+        console.error("Supabase NLM Models Error:", error);
+        if (!cancelled) setModels([]);
+      } finally {
+        if (!cancelled) setLoadedUserId(userId);
+      }
+    };
+    load();
+    const interval = window.setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [userId, isAdmin]);
 
-    // If admin, we fetch all models, otherwise only the user's models
-    let q = query(
-      collection(db, 'models'),
-      orderBy('createdAt', 'desc')
-    );
+  return { models, loading };
+}
 
-    if (!isAdmin) {
-      q = query(
-        collection(db, 'models'),
-        where('ownerId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-    }
+export function useFirestoreModels(userId: string | undefined, isAdmin?: boolean) {
+  const [models, setModels] = useState<any[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | undefined>(undefined);
+  const loading = userId ? (userId !== loadedUserId) : false;
 
+  useEffect(() => {
+    if (!userId) return;
+    let q = query(collection(db, 'models'), orderBy('createdAt', 'desc'));
+    if (!isAdmin) q = query(collection(db, 'models'), where('ownerId', '==', userId), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       setModels(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoadedUserId(userId);
@@ -224,19 +243,26 @@ export function useVariants(userId?: string, isAdmin?: boolean) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let q = query(collection(db, 'variants'), orderBy('timestamp', 'desc'));
-
-    if (userId && !isAdmin) {
-      q = query(collection(db, 'variants'), where('ownerId', '==', userId), orderBy('timestamp', 'desc'));
-    }
-
-    return onSnapshot(q, (snapshot) => {
-      setVariants(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    }, (error) => {
-      console.error("Firestore Error (variants):", error);
-      setLoading(false);
-    });
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/natureos/nlm-training/variants', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`NLM variants API returned ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setVariants(Array.isArray(data.variants) ? data.variants : []);
+      } catch (error) {
+        console.error("Supabase NLM Variants Error:", error);
+        if (!cancelled) setVariants([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    const interval = window.setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [userId, isAdmin]);
 
   return { variants, loading };

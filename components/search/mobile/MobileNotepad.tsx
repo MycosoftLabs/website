@@ -9,6 +9,7 @@
 
 import { useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import Link from "next/link"
 import { 
   StickyNote, X, Trash2, Download, Share2, 
   Leaf, FlaskConical, Dna, FileText, Sparkles, 
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 import { useSearchContext, type NotepadItem } from "../SearchContextProvider"
 
 interface MobileNotepadProps {
@@ -40,6 +42,7 @@ const typeIcons: Record<string, React.ReactNode> = {
 }
 
 export function MobileNotepad({ open, onOpenChange }: MobileNotepadProps) {
+  const { user } = useAuth()
   const { 
     notepadItems, 
     removeNotepadItem, 
@@ -206,6 +209,15 @@ export function MobileNotepad({ open, onOpenChange }: MobileNotepadProps) {
 
             {/* Notes list */}
             <ScrollArea className="flex-1 px-4 py-3">
+              {!user && (
+                <div className="mb-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground backdrop-blur-sm">
+                  <span className="font-medium text-foreground/80">Sign in to sync Notepad.</span>{" "}
+                  <Link href="/login?redirectTo=/search" className="text-emerald-400 hover:text-emerald-300 hover:underline">
+                    Log in or create account
+                  </Link>
+                </div>
+              )}
+
               {notepadItems.length === 0 ? (
                 <div className="text-center py-12">
                   <StickyNote className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />

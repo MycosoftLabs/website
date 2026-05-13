@@ -4,38 +4,35 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-
-const MAS_URL = process.env.MAS_API_URL || "http://localhost:8001"
+import { assertScopedMasUserId, masHttpBaseUrl, masJsonHeaders } from "@/lib/myca/scoped-mas-user"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
+  const { userId: pathUserId } = await params
+  const scope = await assertScopedMasUserId(pathUserId)
+  if ("denied" in scope) return scope.denied
+
   const { searchParams } = new URL(request.url)
   const limit = searchParams.get("limit") || "10"
   const model = searchParams.get("model")
-  
+
   try {
-    let url = `${MAS_URL}/api/earth2-memory/forecasts/${params.userId}?limit=${limit}`
-    if (model) url += `&model=${model}`
-    
+    let url = `${masHttpBaseUrl()}/api/earth2-memory/forecasts/${encodeURIComponent(scope.scopedUserId)}?limit=${encodeURIComponent(limit)}`
+    if (model) url += `&model=${encodeURIComponent(model)}`
+
     const response = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
+      headers: masJsonHeaders(),
     })
-    
+
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `MAS API error: ${response.status}` },
-        { status: response.status }
-      )
+      return NextResponse.json({ error: `MAS API error: ${response.status}` }, { status: response.status })
     }
-    
+
     return NextResponse.json(await response.json())
   } catch (error) {
     console.error("Earth2 forecasts API error:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch forecasts" },
-      { status: 503 }
-    )
+    return NextResponse.json({ error: "Failed to fetch forecasts" }, { status: 503 })
   }
 }

@@ -1,36 +1,28 @@
 /**
  * MYCA Consciousness Identity API
  * Returns MYCA's identity (name, creator, purpose, beliefs)
- * 
+ *
  * Created: Feb 10, 2026
  */
 
 import { NextRequest, NextResponse } from "next/server"
-
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+import { buildConsciousnessMasGetUrl } from "@/lib/myca/scoped-mas-user"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("user_id")
-    const sessionId = searchParams.get("session_id")
-    const conversationId = searchParams.get("conversation_id")
-    const url = new URL(`${MAS_API_URL}/api/myca/identity`)
-    if (userId) url.searchParams.set("user_id", userId)
-    if (sessionId) url.searchParams.set("session_id", sessionId)
-    if (conversationId) url.searchParams.set("conversation_id", conversationId)
+    const built = await buildConsciousnessMasGetUrl(request, "/api/myca/identity")
+    if ("denied" in built) return built.denied
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(built.url, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: built.headers,
       cache: "no-store",
+      signal: AbortSignal.timeout(15000),
     })
-    
+
     if (!response.ok) {
       return NextResponse.json(
-        { 
+        {
           name: "MYCA",
           error: `MAS API returned ${response.status}`,
           available: false,
@@ -38,13 +30,13 @@ export async function GET(request: NextRequest) {
         { status: 200 }
       )
     }
-    
+
     const data = await response.json()
     return NextResponse.json({ ...data, available: true })
   } catch (error) {
     console.error("MYCA identity error:", error)
     return NextResponse.json(
-      { 
+      {
         name: "MYCA",
         error: error instanceof Error ? error.message : "Failed to connect",
         available: false,

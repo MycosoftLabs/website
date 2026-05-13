@@ -5,6 +5,7 @@
 
 import type { LiveResultType, SearchRoute } from "./search-intelligence-router"
 import type { WidgetType } from "./widget-registry"
+import type { EarthContextFilters } from "./earth-context-filters"
 
 /** JSON-safe snapshot of SearchRoute for MAS search_context.fluid_route */
 export interface FluidSearchRouteSnapshot {
@@ -19,6 +20,7 @@ export interface FluidSearchRouteSnapshot {
   liveResultTypes: LiveResultType[]
   worldview: SearchRoute["worldview"]
   isMapPrimary: boolean
+  earthContextFilters: EarthContextFilters
 }
 
 /** Client bundle: threading + routing for unified search + MYCA Answers */
@@ -45,6 +47,7 @@ export function searchRouteToFluidSnapshot(route: SearchRoute): FluidSearchRoute
     liveResultTypes: route.liveResultTypes,
     worldview: route.worldview,
     isMapPrimary: route.isMapPrimary,
+    earthContextFilters: route.earthContextFilters,
   }
 }
 

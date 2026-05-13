@@ -6,7 +6,21 @@ import { cn } from "@/lib/utils"
 import { Map, MapPin, AlertTriangle, Maximize2, Minimize2, Loader2, Thermometer, Droplets, CloudRain, Wind, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
+import { classifyAndRoute } from "@/lib/search/search-intelligence-router"
 import "leaflet/dist/leaflet.css"
+
+const EarthSimulatorContainer = dynamic(
+  () => import("@/components/earth-simulator/earth-simulator-container").then((mod) => mod.EarthSimulatorContainer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[360px] items-center justify-center bg-black text-white">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-emerald-400" />
+        Loading Earth Simulator...
+      </div>
+    ),
+  }
+)
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(
@@ -78,6 +92,8 @@ interface EarthWidgetProps {
   eventsData?: EventObservation[]
   earth2Data?: Earth2Data | null
   searchLocation?: { lat: number; lng: number; name?: string }
+  searchQuery?: string
+  liveEntities?: Array<Record<string, unknown>>
   isFocused?: boolean
   error?: string
   isLoading?: boolean
@@ -89,6 +105,8 @@ export function EarthWidget({
   eventsData = [],
   earth2Data,
   searchLocation,
+  searchQuery = "",
+  liveEntities = [],
   isFocused = false,
   error,
   isLoading = false,
@@ -146,6 +164,43 @@ export function EarthWidget({
 
   const mapHeight = isFocused || isExpanded ? "h-[400px]" : "h-[250px]"
   const conditions = earth2Data?.currentConditions
+  const route = searchQuery.trim().length >= 2 ? classifyAndRoute(searchQuery) : null
+  const routeLocation = route?.intent.filters.location
+  const simulatorLocation = searchLocation || (
+    routeLocation?.lat && routeLocation?.lng
+      ? {
+          lat: routeLocation.lat,
+          lng: routeLocation.lng,
+          name: routeLocation.city || routeLocation.state || routeLocation.country || routeLocation.region,
+        }
+      : null
+  )
+
+  const isMapSearch = !!route?.earthContextFilters.isContextual || liveEntities.length > 0 || !!simulatorLocation
+
+  if (isMapSearch) {
+    return (
+      <div className="relative h-full min-h-[360px] overflow-hidden rounded-xl border border-emerald-500/20 bg-black">
+        <EarthSimulatorContainer
+          variant="embedded"
+          className="h-full min-h-[360px]"
+          initialQuery={searchQuery}
+          earthContextFilters={route?.earthContextFilters ?? null}
+          hideSidePanels
+          hideControls
+          focusLocation={simulatorLocation ? { ...simulatorLocation, zoomMeters: 90000 } : null}
+          liveEntities={liveEntities}
+        />
+        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-lg border border-white/10 bg-black/65 px-3 py-2 text-xs text-white shadow-xl backdrop-blur-md">
+          <div className="font-semibold">Earth Simulator</div>
+          <div className="text-white/70">
+            {(route?.earthContextFilters.enabledFilters ?? []).map((f) => f.label).join(" + ") || "Search layers"}
+            {simulatorLocation?.name ? ` over ${simulatorLocation.name}` : ""}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={cn("space-y-3", isFocused && "")}>

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { identityRuntimeContext, masServiceHeaders, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || "http://localhost:8001"
 const GROQ_API_KEY = process.env.GROQ_API_KEY
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    const identity = await resolveVerifiedIdentity()
     const text = body.text?.trim()
 
     if (!text) {
@@ -29,13 +31,17 @@ export async function POST(request: NextRequest) {
     try {
       const response = await fetch(`${MAS_URL}/voice/command`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: masServiceHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           text,
           session_id: body.session_id,
-          user_id: body.user_id,
+          user_id: identity.userId,
+          user_role: identity.userRole,
           source: body.source || "website",
-          context: body.context,
+          context: {
+            ...(body.context || {}),
+            ...identityRuntimeContext(identity),
+          },
         }),
         signal: AbortSignal.timeout(5000),
       })

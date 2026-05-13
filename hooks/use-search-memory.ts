@@ -75,7 +75,6 @@ export function useSearchMemory({ userId, autoStart = true }: UseSearchMemoryOpt
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'start',
-          user_id: userId,
           voice_session_id: voiceSessionId,
           metadata,
         }),
@@ -299,9 +298,7 @@ export function useSearchMemory({ userId, autoStart = true }: UseSearchMemoryOpt
     if (!userId) return [];
     
     try {
-      const response = await fetch(
-        `/api/search/history?user_id=${encodeURIComponent(userId)}&limit=${limit}`
-      );
+      const response = await fetch(`/api/search/history?limit=${limit}`);
       const result = await response.json();
       return result.sessions || [];
     } catch (err) {
@@ -342,7 +339,7 @@ export function useSearchMemory({ userId, autoStart = true }: UseSearchMemoryOpt
     isInitialized.current = true;
     
     // Check if user has active session
-    fetch(`/api/search/memory?user_id=${encodeURIComponent(userId)}`)
+    fetch('/api/search/memory')
       .then(res => res.json())
       .then(result => {
         if (result.active && result.session_id) {

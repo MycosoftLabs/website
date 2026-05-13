@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { recordMindexEtlImprovement } from "@/lib/mindex/etl-improvement"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
@@ -1670,6 +1671,23 @@ export async function GET(request: NextRequest) {
       cameras: earthCameras = [],
     } = earthResults || {}
 
+    const resultBuckets = {
+      species,
+      compounds,
+      genetics,
+      research,
+      events: earthEvents,
+      aircraft: earthAircraft,
+      vessels: earthVessels,
+      satellites: earthSatellites,
+      weather: earthWeather,
+      emissions: earthEmissions,
+      infrastructure: earthInfrastructure,
+      devices: earthDevices,
+      space_weather: earthSpaceWeather,
+      cameras: earthCameras,
+    }
+
     const totalCount = species.length + compounds.length + genetics.length + research.length
       + earthEvents.length + earthAircraft.length + earthVessels.length + earthSatellites.length
       + earthWeather.length + earthEmissions.length + earthInfrastructure.length
@@ -1759,6 +1777,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const requestedMissingBuckets = types.filter((type) => {
+      const value = resultBuckets[type as keyof typeof resultBuckets]
+      return Array.isArray(value) && value.length === 0
+    })
+    let etlImprovement: Awaited<ReturnType<typeof recordMindexEtlImprovement>> | null = null
+    if (totalCount === 0 || requestedMissingBuckets.length > 0) {
+      etlImprovement = await recordMindexEtlImprovement({
+        source: "search-unified",
+        app: "search",
+        route: "/api/search/unified",
+        query,
+        missing: totalCount === 0 ? ["answer", "widget", ...requestedMissingBuckets] : requestedMissingBuckets,
+        context: {
+          types,
+          lifeScope,
+          earthDomains: earthDomainsObj,
+          hasLocation: Boolean(lat && lng),
+        },
+      }).catch((error) => ({
+        recorded: false,
+        error: error instanceof Error ? error.message : JSON.stringify(error),
+      }))
+    }
+
+    const missingDataAnswer = totalCount === 0
+      ? `No canonical MINDEX record is available yet for "${query}". I queued a MINDEX ETL improvement request so MAS/MYCA can find authoritative source data, normalize it into Supabase, cache artifacts on NAS/local storage, and render it from MINDEX next time.`
+      : undefined
+
     // Do not block JSON on Supabase/Stripe metering — can exceed client timeouts when auth is slow.
     void recordUsageFromRequest({
       request,
@@ -1770,22 +1816,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         query,
-        results: {
-          species,
-          compounds,
-          genetics,
-          research,
-          events: earthEvents,
-          aircraft: earthAircraft,
-          vessels: earthVessels,
-          satellites: earthSatellites,
-          weather: earthWeather,
-          emissions: earthEmissions,
-          infrastructure: earthInfrastructure,
-          devices: earthDevices,
-          space_weather: earthSpaceWeather,
-          cameras: earthCameras,
-        },
+        results: resultBuckets,
         totalCount,
         timing: {
           total: Math.round(performance.now() - startTime),
@@ -1801,7 +1832,8 @@ export async function GET(request: NextRequest) {
             ? "MINDEX research endpoint pending implementation. Using CrossRef and OpenAlex."
             : undefined,
         },
-        ...(aiAnswer ? { aiAnswer } : {}),
+        ...(aiAnswer || missingDataAnswer ? { aiAnswer: aiAnswer || missingDataAnswer } : {}),
+        ...(etlImprovement ? { etlImprovement } : {}),
       },
       {
         headers: {

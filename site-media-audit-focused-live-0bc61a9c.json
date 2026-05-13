@@ -1,0 +1,1247 @@
+{
+  "summary": {
+    "routeCount": 16,
+    "navBad": [],
+    "routesWithBad": [
+      {
+        "route": "/natureos",
+        "bad": [
+          {
+            "status": 500,
+            "type": "fetch",
+            "url": "/api/iot/insights/fleet-health"
+          }
+        ]
+      },
+      {
+        "route": "/natureos/earth-simulator",
+        "bad": [
+          {
+            "status": 500,
+            "type": "fetch",
+            "url": "/api/ground-station/groups"
+          },
+          {
+            "status": 500,
+            "type": "fetch",
+            "url": "/api/ground-station/hardware?type=all"
+          },
+          {
+            "status": 401,
+            "type": "fetch",
+            "url": "/api/crep/waypoints"
+          },
+          {
+            "status": 416,
+            "type": "fetch",
+            "url": "/api/crep/tiles/transmission-lines-us-full.pmtiles"
+          },
+          {
+            "status": 401,
+            "type": "fetch",
+            "url": "/api/mindex/proxy/satellites"
+          },
+          {
+            "status": 401,
+            "type": "fetch",
+            "url": "/api/mindex/proxy/satellites"
+          }
+        ]
+      }
+    ],
+    "routesWithFailed": [
+      {
+        "route": "/",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/homepage/Mycosoft%20Background-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/about",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/about/sensing-mycelium-lipids-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/devices/droids-hero-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/devices/devices-footer-motion-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/login?_rsc=lblbm",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/mushroom-1",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/scientific-research-fast-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/psathyrella",
+        "fail": [
+          {
+            "type": "media",
+            "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/psathyrella/psathyrellatower-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/sporebase",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/sporebase/sporebase1publish-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/hyphae-1",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/hyphae1/hero-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/alarm",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/alarm/alarm-hero-temp-web.mp4",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/defense",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/login?_rsc=ste4x",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/defense/fusarium",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/dashboard/crep?_rsc=19xmp",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/natureos",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/api/iot/insights/fleet-health",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/natureos/virtual-petri-dish?_rsc=gl6wm",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/natureos/fungi-compute",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/natureos/virtual-petri-dish?_rsc=1bts6",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/login?_rsc=1bts6",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/api/earth2/health",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/natureos/earth-simulator",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/api/crep/fungal?north=56.03915796712566&south=17.793942447015965&east=-56.36398476602926&west=-140.6360152339626&nocache=true&limit=15000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/natureos/global-events?limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/natureos/global-events?limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/natureos/global-events?limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/natureos/global-events?limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/natureos/global-events?limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/api/crep/fungal?north=56.03915796712566&south=17.793942447015965&east=-56.36398476602926&west=-140.6360152339626&nocache=true&limit=15000",
+            "err": "net::ERR_FAILED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "other",
+            "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/devices/mycobrain/integration/fci",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/natureos/crep?_rsc=ncu8p",
+            "err": "net::ERR_ABORTED"
+          },
+          {
+            "type": "fetch",
+            "url": "/login?_rsc=ncu8p",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      },
+      {
+        "route": "/support",
+        "fail": [
+          {
+            "type": "fetch",
+            "url": "/login?_rsc=1k6k5",
+            "err": "net::ERR_ABORTED"
+          }
+        ]
+      }
+    ],
+    "brokenImages": [],
+    "youtubeFrames": [],
+    "videoNotReady": [],
+    "videosWithControls": [],
+    "slowDom": [],
+    "totalVideos": 27,
+    "totalMedia": 94
+  },
+  "results": [
+    {
+      "route": "/",
+      "navStatus": 200,
+      "timings": {
+        "dom": 223,
+        "total": 10232
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/Mycosoft%20Background-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 7,
+      "videos": [
+        {
+          "src": "/assets/homepage/Mycosoft%20Background-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 56,
+      "buttons": 8
+    },
+    {
+      "route": "/about",
+      "navStatus": 200,
+      "timings": {
+        "dom": 154,
+        "total": 10164
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/about/sensing-mycelium-lipids-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 15,
+      "videos": [
+        {
+          "src": "/assets/about%20us/mycosoft-commercial-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/about/sensing-mycelium-lipids-web.mp4",
+          "ready": 4,
+          "w": 1334,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/about%20us/10343918-hd_1920_1080_24fps-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 82,
+      "buttons": 29
+    },
+    {
+      "route": "/devices",
+      "navStatus": 200,
+      "timings": {
+        "dom": 148,
+        "total": 10159
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/devices/droids-hero-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/devices/devices-footer-motion-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/login?_rsc=lblbm",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 8,
+      "videos": [
+        {
+          "src": "/assets/devices/droids-hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/devices/mycobrain-hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/devices/devices-footer-motion-web.mp4",
+          "ready": 4,
+          "w": 1264,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 48,
+      "buttons": 23
+    },
+    {
+      "route": "/devices/agaric",
+      "navStatus": 200,
+      "timings": {
+        "dom": 164,
+        "total": 10169
+      },
+      "bad": [],
+      "fail": [],
+      "mediaBad": [],
+      "mediaCount": 9,
+      "videos": [
+        {
+          "src": "/assets/agaric/agaric-hero2-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/agaric/agaric-background1-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": true,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/agaric/dronepickup-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": true,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/agaric/forestfly-web.mp4",
+          "ready": 4,
+          "w": 1104,
+          "h": 832,
+          "paused": true,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 27
+    },
+    {
+      "route": "/devices/mushroom-1",
+      "navStatus": 200,
+      "timings": {
+        "dom": 317,
+        "total": 10318
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/scientific-research-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 11,
+      "videos": [
+        {
+          "src": "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/mushroom1/waterfall-1-fast-web.mp4",
+          "ready": 4,
+          "w": 1080,
+          "h": 1920,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/scientific-research-fast-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/mycelium-lipids-watch.mp4",
+          "ready": 4,
+          "w": 1334,
+          "h": 720,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/mushroom1/mushroom-1-walking-fast-web.mp4",
+          "ready": 4,
+          "w": 960,
+          "h": 1280,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 29
+    },
+    {
+      "route": "/devices/psathyrella",
+      "navStatus": 200,
+      "timings": {
+        "dom": 454,
+        "total": 10469
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "media",
+          "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/psathyrella/psathyrellatower-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 7,
+      "videos": [
+        {
+          "src": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        },
+        {
+          "src": "/assets/psathyrella/psathyrellatower-web.mp4",
+          "ready": 4,
+          "w": 1344,
+          "h": 896,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        },
+        {
+          "src": "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "metadata"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 14
+    },
+    {
+      "route": "/devices/sporebase",
+      "navStatus": 200,
+      "timings": {
+        "dom": 242,
+        "total": 10252
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/sporebase/sporebase1publish-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 5,
+      "videos": [
+        {
+          "src": "/assets/sporebase/sporebase1publish-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 18
+    },
+    {
+      "route": "/devices/hyphae-1",
+      "navStatus": 200,
+      "timings": {
+        "dom": 238,
+        "total": 10239
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/hyphae1/hero-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 5,
+      "videos": [
+        {
+          "src": "/assets/hyphae1/hero-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 18
+    },
+    {
+      "route": "/devices/alarm",
+      "navStatus": 200,
+      "timings": {
+        "dom": 254,
+        "total": 7514
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/alarm/alarm-hero-temp-web.mp4",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 6,
+      "videos": [
+        {
+          "src": "/assets/alarm/alarm-hero-temp-web.mp4",
+          "ready": 4,
+          "w": 1921,
+          "h": 1094,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 41,
+      "buttons": 20
+    },
+    {
+      "route": "/defense",
+      "navStatus": 200,
+      "timings": {
+        "dom": 132,
+        "total": 10144
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/login?_rsc=ste4x",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 3,
+      "videos": [
+        {
+          "src": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 47,
+      "buttons": 22
+    },
+    {
+      "route": "/defense/fusarium",
+      "navStatus": 200,
+      "timings": {
+        "dom": 174,
+        "total": 10175
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/dashboard/crep?_rsc=19xmp",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 4,
+      "videos": [
+        {
+          "src": "/assets/fusarium/fusarium-hero-2026-web.mp4",
+          "ready": 4,
+          "w": 1920,
+          "h": 1080,
+          "paused": false,
+          "controls": false,
+          "preload": "auto"
+        }
+      ],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 51,
+      "buttons": 15
+    },
+    {
+      "route": "/natureos",
+      "navStatus": 200,
+      "timings": {
+        "dom": 133,
+        "total": 3368
+      },
+      "bad": [
+        {
+          "status": 500,
+          "type": "fetch",
+          "url": "/api/iot/insights/fleet-health"
+        }
+      ],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/api/iot/insights/fleet-health",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/natureos/virtual-petri-dish?_rsc=gl6wm",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 73,
+      "buttons": 19
+    },
+    {
+      "route": "/natureos/fungi-compute",
+      "navStatus": 200,
+      "timings": {
+        "dom": 135,
+        "total": 4092
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/natureos/virtual-petri-dish?_rsc=1bts6",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/login?_rsc=1bts6",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/api/earth2/health",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 60,
+      "buttons": 91
+    },
+    {
+      "route": "/natureos/earth-simulator",
+      "navStatus": 200,
+      "timings": {
+        "dom": 125,
+        "total": 10127
+      },
+      "bad": [
+        {
+          "status": 500,
+          "type": "fetch",
+          "url": "/api/ground-station/groups"
+        },
+        {
+          "status": 500,
+          "type": "fetch",
+          "url": "/api/ground-station/hardware?type=all"
+        },
+        {
+          "status": 401,
+          "type": "fetch",
+          "url": "/api/crep/waypoints"
+        },
+        {
+          "status": 416,
+          "type": "fetch",
+          "url": "/api/crep/tiles/transmission-lines-us-full.pmtiles"
+        },
+        {
+          "status": 401,
+          "type": "fetch",
+          "url": "/api/mindex/proxy/satellites"
+        },
+        {
+          "status": 401,
+          "type": "fetch",
+          "url": "/api/mindex/proxy/satellites"
+        }
+      ],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/api/crep/fungal?north=56.03915796712566&south=17.793942447015965&east=-56.36398476602926&west=-140.6360152339626&nocache=true&limit=15000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/natureos/global-events?limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/natureos/global-events?limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/natureos/global-events?limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/natureos/global-events?limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/natureos/global-events?limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/api/crep/fungal?north=56.03915796712566&south=17.793942447015965&east=-56.36398476602926&west=-140.6360152339626&nocache=true&limit=15000",
+          "err": "net::ERR_FAILED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "other",
+          "url": "/api/eagle/sources?bbox=-140.6360152339626,17.793942447015965,-56.36398476602926,56.03915796712566&limit=10000",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 6,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 59,
+      "buttons": 485
+    },
+    {
+      "route": "/devices/mycobrain/integration/fci",
+      "navStatus": 200,
+      "timings": {
+        "dom": 160,
+        "total": 912
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/natureos/crep?_rsc=ncu8p",
+          "err": "net::ERR_ABORTED"
+        },
+        {
+          "type": "fetch",
+          "url": "/login?_rsc=ncu8p",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 44,
+      "buttons": 11
+    },
+    {
+      "route": "/support",
+      "navStatus": 200,
+      "timings": {
+        "dom": 233,
+        "total": 1288
+      },
+      "bad": [],
+      "fail": [
+        {
+          "type": "fetch",
+          "url": "/login?_rsc=1k6k5",
+          "err": "net::ERR_ABORTED"
+        }
+      ],
+      "mediaBad": [],
+      "mediaCount": 2,
+      "videos": [],
+      "brokenImages": [],
+      "youtubeFrames": [],
+      "anchors": 48,
+      "buttons": 26
+    }
+  ]
+}

@@ -10,6 +10,7 @@
 
 import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,6 +27,7 @@ import {
   RotateCcw,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 import { useSearchContext, type NotepadItem } from "../SearchContextProvider"
 import { useMYCAContext } from "@/hooks/use-myca-context"
 
@@ -58,6 +60,7 @@ export function NotepadWidget({ onReadItem }: NotepadWidgetProps = {}) {
     notepadItems, addNotepadItem, removeNotepadItem, clearNotepad,
     focusWidget, setQuery, emit,
   } = useSearchContext()
+  const { user } = useAuth()
   const { trackNotepadAdd } = useMYCAContext({ enabled: true })
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -157,6 +160,15 @@ export function NotepadWidget({ onReadItem }: NotepadWidgetProps = {}) {
 
       {/* Notes list -- this is the ONLY scrollable area */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
+        {!user && (
+          <div className="mb-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[9px] leading-relaxed text-muted-foreground backdrop-blur-sm">
+            <span className="font-medium text-foreground/80">Sign in to sync Notepad.</span>{" "}
+            <Link href="/login?redirectTo=/search" className="text-emerald-400 hover:text-emerald-300 hover:underline">
+              Log in or create account
+            </Link>
+          </div>
+        )}
+
         {notepadItems.length === 0 && (
           <div className={cn(
             "text-center py-6 rounded-xl border-2 border-dashed transition-colors",

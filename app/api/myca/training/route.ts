@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -15,6 +16,14 @@ interface TrainingData {
   conversation_id?: string
   feedback?: string
   metadata?: Record<string, any>
+}
+
+function getVerifiedRole(authUser: any): string {
+  return String(authUser?.user_metadata?.role || "user").toLowerCase()
+}
+
+function canWriteTraining(authUser: any): boolean {
+  return ["owner", "superuser"].includes(getVerifiedRole(authUser))
 }
 
 // Store training data
@@ -33,18 +42,36 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (!canWriteTraining(authUser)) {
+      return NextResponse.json(
+        {
+          success: false,
+          authenticated: true,
+          authorized: false,
+          message: "Training capture requires owner or superuser authorization",
+        },
+        { status: 403 }
+      )
+    }
+
     const payload = {
       ...data,
-      userId: data.userId || authUser.id,
+      userId: authUser.id,
       session_id: data.session_id,
       conversation_id: data.conversation_id,
       source: data.source || "myca-chat",
       timestamp: data.timestamp || new Date().toISOString(),
+      metadata: {
+        ...(data.metadata || {}),
+        verified_role: getVerifiedRole(authUser),
+        verified_email: authUser.email || null,
+        auth_trust_level: "verified",
+      },
     }
 
     const upstream = await fetch(`${MAS_API_URL}/api/training/log`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10000),
     })
@@ -91,6 +118,7 @@ export async function GET(request: NextRequest) {
 
     const upstream = await fetch(upstreamUrl.toString(), {
       cache: "no-store",
+      headers: masServiceHeaders(),
       signal: AbortSignal.timeout(10000),
     })
 

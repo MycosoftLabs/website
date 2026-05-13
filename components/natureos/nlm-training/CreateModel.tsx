@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/nlm/firebase';
 import { motion } from 'framer-motion';
 import { X, Brain, Sparkles, Zap, Shield } from 'lucide-react';
 import { Button } from './ui/button';
@@ -23,13 +21,14 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
 
     setLoading(true);
     try {
-      await addDoc(collection(db, 'models'), {
+      const response = await fetch('/api/natureos/nlm-training/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         name,
         description,
         status: 'idle',
         ownerId: userId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
         config: {
           architecture,
           variantId,
@@ -43,7 +42,12 @@ export function CreateModel({ userId, onClose }: { userId: string, onClose: () =
             epochs
           }
         }
+        }),
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Create model failed (${response.status})`);
+      }
       onClose();
     } catch (error) {
       console.error("Error creating model:", error);

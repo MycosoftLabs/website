@@ -12,6 +12,7 @@
 import { parseSearchIntent, type SearchIntent, type EntityType } from "./intent-parser"
 import { detectWorldviewIntent } from "./world-view-suggestions"
 import type { WidgetType } from "./widget-registry"
+import { buildEarthContextFilters, type EarthContextFilters } from "./earth-context-filters"
 
 // =============================================================================
 // QUERY CLASSIFICATION
@@ -40,6 +41,8 @@ export interface SearchRoute {
   worldview: { crep: boolean; earth2: boolean; map: boolean }
   /** Whether this is a map/location query that needs full viewport map */
   isMapPrimary: boolean
+  /** Context-resolved Earth Simulator filters. All contextual layers default off except these. */
+  earthContextFilters: EarthContextFilters
 }
 
 export type LiveResultType =
@@ -94,23 +97,38 @@ export function classifyAndRoute(query: string): SearchRoute {
 
   // Determine what live results to fetch
   const liveResultTypes = determineLiveResultTypes(intent, normalizedQuery)
+  const earthContextFilters = buildEarthContextFilters(intent)
 
   // Is this a map-primary query?
   const isMapPrimary = worldview.map || worldview.crep || worldview.earth2 ||
     intent.type === "location" || intent.type === "event" ||
-    intent.type === "aircraft" || intent.type === "vessel"
+    intent.type === "aircraft" || intent.type === "vessel" ||
+    earthContextFilters.isContextual
+
+  let resolvedPrimaryWidget = primaryWidget
+  let resolvedPrimaryWidgetSize = primaryWidgetSize
+  let contextualSecondaryWidgets: WidgetType[] = [...secondaryWidgets]
+  if (earthContextFilters.isContextual && primaryWidget !== "earth") {
+    resolvedPrimaryWidget = "earth"
+    resolvedPrimaryWidgetSize = { width: 2, height: 3 }
+    contextualSecondaryWidgets = [primaryWidget, ...secondaryWidgets].filter(
+      (widget, index, widgets): widget is WidgetType =>
+        Boolean(widget) && widget !== "earth" && widgets.indexOf(widget) === index
+    )
+  }
 
   return {
     classification,
     intent,
     useMycaLLM: classification === "conversational" || classification === "hybrid",
     useUnifiedSearch: classification !== "conversational",
-    primaryWidget,
-    primaryWidgetSize,
-    secondaryWidgets,
+    primaryWidget: resolvedPrimaryWidget,
+    primaryWidgetSize: resolvedPrimaryWidgetSize,
+    secondaryWidgets: contextualSecondaryWidgets,
     liveResultTypes,
     worldview,
     isMapPrimary,
+    earthContextFilters,
   }
 }
 
@@ -172,9 +190,6 @@ function prioritizeWorldviewCrepSecondary(
   primary: WidgetType,
   secondary: WidgetType[],
 ): WidgetType[] {
-  if (worldview.crep && primary !== "crep" && !secondary.includes("crep")) {
-    secondary.push("crep")
-  }
   return secondary
 }
 
@@ -220,9 +235,9 @@ function determinePrimaryWidget(
   // Map-type queries: CREP/Earth2/Map take viewport priority (non–narrow-domain queries)
   if (worldview.crep) {
     return {
-      primaryWidget: "crep",
-      primaryWidgetSize: { width: 2, height: 2 },
-      secondaryWidgets: getSecondaryWidgets(intent, "crep"),
+      primaryWidget: "earth",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: getSecondaryWidgets(intent, "earth").filter((widget) => widget !== "crep"),
     }
   }
   if (worldview.earth2) {
@@ -394,6 +409,16 @@ function createEmptyRoute(): SearchRoute {
     liveResultTypes: [],
     worldview: { crep: false, earth2: false, map: false },
     isMapPrimary: false,
+    earthContextFilters: buildEarthContextFilters({
+      type: "general",
+      queryType: "factual",
+      filters: {},
+      entities: [],
+      keywords: [],
+      originalQuery: "",
+      normalizedQuery: "",
+      confidence: 0,
+    }),
   }
 }
 

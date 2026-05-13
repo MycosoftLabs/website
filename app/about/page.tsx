@@ -87,7 +87,7 @@ const architectureLayers = [
     description:
       "Cryptographic integrity across environmental and biological datasets — mapping signals to context and building a global knowledge graph. MINDEX is the memory of Earth-scale sensing.",
     links: [
-      { label: "MINDEX", href: "/natureos/mindex" },
+      { label: "MINDEX", href: "/mindex" },
       { label: "Search", href: "/search" },
     ],
   },
@@ -238,7 +238,7 @@ const applicationCategories = [
     apps: [
       { name: "NatureOS", description: "Cloud OS for environmental intelligence", href: "/natureos" },
       { name: "FUSARIUM", description: "Defense-grade environmental intelligence platform", href: "/defense/fusarium" },
-      { name: "MINDEX", description: "Nature data memory and sensing catalog", href: "/natureos/mindex" },
+      { name: "MINDEX", description: "Nature data memory and sensing catalog", href: "/mindex" },
     ],
   },
   {
@@ -270,7 +270,7 @@ const sensingPackages = [
   },
   {
     name: "MINDEX",
-    href: "/natureos/mindex",
+    href: "/mindex",
     description:
       "The Mycosoft Nature Index catalogs accumulated nature data so sensing becomes defined, searchable, reusable, and operational across devices, NatureOS, MYCA, and field missions.",
   },
@@ -337,18 +337,18 @@ export default function AboutPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/devices">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/10 !text-white backdrop-blur-xl hover:bg-white/20 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
+            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/10 !text-white backdrop-blur-xl hover:bg-white/20 dark:border-emerald-200/20 dark:bg-emerald-200/10 dark:text-emerald-50 dark:hover:bg-emerald-200/15">
+              <Link href="/devices" className="inline-flex touch-manipulation">
                 Explore Devices
                 <ArrowRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
-            <Link href="#about">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 !text-white bg-white/5 hover:bg-white/15 about-hero-learn-more">
+              </Link>
+            </NeuButton>
+            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 !text-white bg-white/5 hover:bg-white/15 about-hero-learn-more">
+              <Link href="#about" className="inline-flex touch-manipulation">
                 Learn More
                 <ArrowRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
+              </Link>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -650,12 +650,12 @@ export default function AboutPage() {
           </div>
 
           <div className="text-center mt-8">
-            <Link href="/devices">
-              <NeuButton variant="default" className="gap-2 min-h-[44px] border-white/20 about-devices-view-all">
+            <NeuButton asChild variant="default" className="gap-2 min-h-[44px] border-white/20 about-devices-view-all">
+              <Link href="/devices" className="touch-manipulation">
                 View All Devices
                 <ArrowRight className="h-4 w-4" />
-              </NeuButton>
-            </Link>
+              </Link>
+            </NeuButton>
           </div>
         </div>
       </section>

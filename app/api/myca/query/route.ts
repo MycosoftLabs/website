@@ -8,13 +8,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { assertScopedMasUserId, masJsonHeaders } from "@/lib/myca/scoped-mas-user"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { question, context, userId } = body
+    const { question, context, userId: bodyUserId } = body
 
     if (!question || typeof question !== "string" || !question.trim()) {
       return NextResponse.json(
@@ -23,14 +24,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const scope = await assertScopedMasUserId(
+      typeof bodyUserId === "string" && bodyUserId.trim() ? bodyUserId.trim() : null
+    )
+    if ("denied" in scope) return scope.denied
+
     const message = context ? `${question}\n\n[Context: ${context}]` : question.trim()
 
     const res = await fetch(`${MAS_API_URL}/api/myca/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: masJsonHeaders(),
       body: JSON.stringify({
         message,
-        user_id: userId || "anonymous",
+        user_id: scope.scopedUserId,
         session_id: body.session_id || `natureos-${Date.now()}`,
         conversation_id: body.conversation_id,
       }),

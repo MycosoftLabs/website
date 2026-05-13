@@ -479,7 +479,7 @@ export function MemoryDashboard({ className }: { className?: string }) {
   // Fetch memory health
   const fetchHealth = useCallback(async () => {
     try {
-      const response = await fetch(`${MAS_URL}/api/memory/health`)
+      const response = await fetch(`/api/mas/system-memory?path=${encodeURIComponent("/api/memory/health")}`)
       if (response.ok) {
         const data = await response.json()
         setHealth(data)
@@ -492,7 +492,7 @@ export function MemoryDashboard({ className }: { className?: string }) {
   // Fetch audit log
   const fetchAuditLog = useCallback(async () => {
     try {
-      const response = await fetch(`${MAS_URL}/api/security/audit/query?limit=50`)
+      const response = await fetch(`/api/mas/system-memory?path=${encodeURIComponent("/api/security/audit/query?limit=50")}`)
       if (response.ok) {
         const data = await response.json()
         setAuditLog(data.entries || [])
@@ -506,7 +506,7 @@ export function MemoryDashboard({ className }: { className?: string }) {
   const fetchScopeEntries = useCallback(async (scope: MemoryScope) => {
     setLoading(true)
     try {
-      const response = await fetch(`${MAS_URL}/api/memory/list/${scope}/all`)
+      const response = await fetch(`/api/mas/system-memory?path=${encodeURIComponent(`/api/memory/list/${scope}/all`)}`)
       if (response.ok) {
         const data = await response.json()
         const entriesData: MemoryEntry[] = (data.keys || []).map((key: string) => ({
@@ -541,15 +541,18 @@ export function MemoryDashboard({ className }: { className?: string }) {
         parsedValue = data.value
       }
       
-      const response = await fetch(`${MAS_URL}/api/memory/write`, {
+      const response = await fetch(`/api/mas/system-memory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scope: data.scope,
-          namespace: data.namespace,
-          key: data.key,
-          value: parsedValue,
-          source: "ai-studio-dashboard",
+          path: "/api/memory/write",
+          payload: {
+            scope: data.scope,
+            namespace: data.namespace,
+            key: data.key,
+            value: parsedValue,
+            source: "ai-studio-dashboard",
+          },
         }),
       })
       
@@ -570,13 +573,16 @@ export function MemoryDashboard({ className }: { className?: string }) {
   // Delete memory
   const handleDeleteMemory = useCallback(async (entry: MemoryEntry) => {
     try {
-      const response = await fetch(`${MAS_URL}/api/memory/delete`, {
+      const response = await fetch(`/api/mas/system-memory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scope: entry.scope,
-          namespace: entry.namespace,
-          key: entry.key,
+          path: "/api/memory/delete",
+          payload: {
+            scope: entry.scope,
+            namespace: entry.namespace,
+            key: entry.key,
+          },
         }),
       })
       

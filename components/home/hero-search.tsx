@@ -320,9 +320,13 @@ export function HeroSearch({
   const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
+  const heroLogoSrc = embedded
+    ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
+    : logoSrc
 
   return (
     <section
+      data-over-video={embedded ? true : undefined}
       className={cn(
         "relative flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8 pointer-events-none",
         embedded
@@ -378,18 +382,29 @@ export function HeroSearch({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className={cn(
-            "relative rounded-3xl overflow-hidden",
-            "backdrop-blur-xl bg-background/20 dark:bg-background/30",
-            isFocused && "ring-2 ring-primary/50"
+            "relative",
+            embedded
+              ? "myco-hero-search-card overflow-visible"
+              : "overflow-hidden rounded-3xl backdrop-blur-xl bg-background/20 dark:bg-background/30",
+            !embedded && isFocused && "ring-2 ring-primary/50"
           )}
         >
           {/* Animated Gradient Border */}
-          <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
-          <div className="absolute inset-[2px] rounded-[22px] bg-background/10 dark:bg-background/20" />
+          {!embedded ? (
+            <>
+              <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
+              <div className="absolute inset-[2px] rounded-[22px] bg-background/10 dark:bg-background/20" />
+            </>
+          ) : null}
 
           {/* Content */}
-          <div className="relative z-10 px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16">
-            <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className={cn("relative z-10", embedded ? "space-y-2" : "px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16")}>
+            <div
+              className={cn(
+                "flex flex-col items-center gap-3 sm:gap-4",
+                embedded ? "myco-hero-heading-glass px-4 py-8 sm:px-8 sm:py-10" : "mb-6 sm:mb-8"
+              )}
+            >
               <motion.div
                 className="flex items-center gap-2 sm:gap-3"
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -398,29 +413,32 @@ export function HeroSearch({
               >
                 <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 relative shrink-0">
                   <Image
-                    src={logoSrc}
+                    src={heroLogoSrc}
                     alt="Mycosoft Logo"
                     fill
                     className="object-contain"
                     priority
                   />
                 </div>
-                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
+                <h1 className={cn(
+                  "text-3xl sm:text-4xl md:text-6xl font-bold",
+                  embedded ? "text-white" : "bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent"
+                )}>
                   Mycosoft
                 </h1>
               </motion.div>
 
               <motion.p
-                className="text-base sm:text-lg md:text-xl text-foreground/80 text-center flex items-center gap-2"
+                className={cn("text-base sm:text-lg md:text-xl text-center flex items-center gap-2", embedded ? "text-white/88" : "text-foreground/80")}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                <Brain className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", embedded ? "text-white" : "text-primary")} />
                 <span>The AI That Sees the World — All of It</span>
               </motion.p>
               <motion.p
-                className="text-xs sm:text-sm italic text-foreground/60 text-center max-w-2xl"
+                className={cn("text-xs sm:text-sm italic text-center max-w-2xl", embedded ? "text-white/74" : "text-foreground/60")}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.25, duration: 0.5 }}
@@ -436,22 +454,27 @@ export function HeroSearch({
               onSubmit={handleSearch}
               action="/search"
               method="GET"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="relative"
+              initial={embedded ? { opacity: 0, y: -92, scale: 0.985 } : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={embedded
+                ? { delay: 0.35, duration: 0.72, ease: [0.22, 0.61, 0.36, 1] }
+                : { delay: 0.3, duration: 0.5 }}
+              className={cn("relative", embedded && "myco-hero-input-drop")}
             >
               <div
                 className={cn(
-                  "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
-                  "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20",
-                  "shadow-2xl shadow-black/10 dark:shadow-black/20",
-                  "transition-all duration-300",
-                  isFocused && "bg-background/80 dark:bg-white/15 border-primary/30 dark:border-white/30 shadow-primary/20"
-                )}
+                "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
+                embedded
+                  ? "myco-hero-input-glass border border-white/20"
+                  : "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20 shadow-2xl shadow-black/10 dark:shadow-black/20",
+                "transition-all duration-300",
+                isFocused && (embedded
+                  ? "border-white/25"
+                  : "bg-background/80 dark:bg-white/15 border-primary/30 dark:border-white/30 shadow-primary/20")
+              )}
               >
                 {/* Search Icon */}
-                <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground shrink-0" />
+                <Search className={cn("h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shrink-0", embedded ? "text-white/70" : "text-muted-foreground")} />
 
                 {/* Input */}
                 <input
@@ -480,7 +503,9 @@ export function HeroSearch({
                   }
                   className={cn(
                     "flex-1 bg-transparent text-base sm:text-lg md:text-xl",
-                    "text-foreground placeholder:text-muted-foreground placeholder:text-sm sm:placeholder:text-base",
+                    embedded
+                      ? "text-white placeholder:text-white/62 placeholder:text-sm sm:placeholder:text-base"
+                      : "text-foreground placeholder:text-muted-foreground placeholder:text-sm sm:placeholder:text-base",
                     "focus:outline-none",
                     "min-w-0"
                   )}
@@ -515,8 +540,8 @@ export function HeroSearch({
                     isListening
                       ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50"
                       : (isConnected || hasWebSpeech)
-                        ? "bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 text-foreground/90"
-                        : "bg-white/5 dark:bg-white/5 text-muted-foreground",
+                        ? "bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 text-white"
+                        : "bg-white/5 dark:bg-white/5 text-white/55",
                     connectionState === "connecting" && !hasWebSpeech && "animate-pulse"
                   )}
                   title={
@@ -571,7 +596,9 @@ export function HeroSearch({
                     "p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
                     query.trim()
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : "bg-background/40 dark:bg-white/10 text-muted-foreground"
+                      : embedded
+                        ? "bg-white/10 text-white/70"
+                        : "bg-background/40 dark:bg-white/10 text-muted-foreground"
                   )}
                 >
                   {isSearching ? (
@@ -606,7 +633,12 @@ export function HeroSearch({
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur-md"
+                  className={cn(
+                    "absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl shadow-2xl",
+                    embedded
+                      ? "myco-hero-suggestion-panel"
+                      : "border border-border bg-background/95 backdrop-blur-md"
+                  )}
                 >
                   {suggestionsLoading ? (
                     <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
@@ -614,7 +646,7 @@ export function HeroSearch({
                       Loading suggestions...
                     </div>
                   ) : (
-                    <ul className="max-h-72 overflow-auto py-2">
+                    <ul className={cn("overflow-y-auto overscroll-contain py-2", embedded ? "myco-hero-suggestion-list" : "max-h-72")}>
                       {suggestions.slice(0, 5).map((suggestion) => (
                         <li key={suggestion.id}>
                           <a
@@ -624,7 +656,10 @@ export function HeroSearch({
                               event.preventDefault()
                               navigateToSearch(suggestionSearchText(suggestion))
                             }}
-                            className="flex w-full flex-col px-4 py-3 text-left hover:bg-muted/70"
+                            className={cn(
+                              "flex w-full flex-col px-4 py-3 text-left",
+                              embedded ? "hover:bg-white/10" : "hover:bg-muted/70"
+                            )}
                           >
                             <span className="text-sm font-medium text-foreground">{suggestion.title}</span>
                             {suggestion.scientificName ? (
@@ -646,9 +681,12 @@ export function HeroSearch({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.5 }}
-          className="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-3 sm:mt-4 min-h-[44px] overflow-hidden py-1 px-1"
+          className={cn(
+            "w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3 min-h-[44px] overflow-hidden py-1 px-1",
+            embedded ? "myco-hero-suggestions" : "mt-3 sm:mt-4"
+          )}
         >
-          <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">Try:</span>
+          <span className={cn("text-xs flex-shrink-0 whitespace-nowrap", embedded ? "text-white/70" : "text-muted-foreground")}>Try:</span>
           {trySuggestions.slice(0, 4).map(({ term, phoneVisible }) => (
             <a
               key={term}
@@ -659,8 +697,9 @@ export function HeroSearch({
               }}
               className={cn(
                 "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
-                "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground",
-                "border border-border dark:border-white/10 dark:hover:border-white/25",
+                embedded
+                  ? "myco-hero-chip-glass text-white"
+                  : "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground border border-border dark:border-white/10 dark:hover:border-white/25",
                 "transition-all duration-200 cursor-pointer select-none min-h-[36px]",
                 !phoneVisible && "hidden sm:inline-flex"
               )}
@@ -668,7 +707,7 @@ export function HeroSearch({
               {term}
             </a>
           ))}
-          <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0 whitespace-nowrap">
+          <div className={cn("hidden md:flex items-center gap-1 text-xs ml-2 flex-shrink-0 whitespace-nowrap", embedded ? "text-white/55" : "text-muted-foreground")}>
             <Command className="h-3 w-3" />
             <span>K for commands</span>
           </div>

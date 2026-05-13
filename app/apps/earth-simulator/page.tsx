@@ -1,6 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { classifyAndRoute } from "@/lib/search/search-intelligence-router";
 
 const EarthSimulatorContainer = dynamic(
   () =>
@@ -18,9 +21,19 @@ const EarthSimulatorContainer = dynamic(
 );
 
 export default function EarthSimulatorPage() {
+  const searchParams = useSearchParams();
+  const query = searchParams.get("q") || "";
+  const earthContextFilters = useMemo(
+    () => query.trim().length >= 2 ? classifyAndRoute(query).earthContextFilters : null,
+    [query]
+  );
+
   return (
     <div className="w-full h-screen bg-black text-white">
-      <EarthSimulatorContainer />
+      <EarthSimulatorContainer
+        initialQuery={query}
+        earthContextFilters={earthContextFilters}
+      />
     </div>
   );
 }

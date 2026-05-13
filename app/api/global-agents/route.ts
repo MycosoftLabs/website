@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { resolveMindexServerBaseUrl } from '@/lib/mindex-base-url';
 
 export async function GET() {
   try {
@@ -10,12 +11,13 @@ export async function GET() {
     // --------------------------------------------------------------------------
     
     // Call the MINDEX internal ETL pipeline which handles normalization and database/registry tracking.
-    const res = await fetch('http://127.0.0.1:8000/api/mindex/telemetry/global-agents', {
+    const res = await fetch(`${resolveMindexServerBaseUrl()}/api/mindex/telemetry/global-agents`, {
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': process.env.MINDEX_API_KEY || 'test_key' 
       },
-      next: { revalidate: 60 } // Cache locally for 1 minute
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     });
     
     if (!res.ok) {
@@ -23,15 +25,33 @@ export async function GET() {
     }
     
     const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json({ ...data, sources: { ...data.sources, mindex_global_agents: { ok: true } } });
     
   } catch (e) {
     console.error('Failed to fetch from MINDEX telemetry pipeline', e);
-    // Fallback empty structure avoiding mock data
-    return NextResponse.json({
-        x402: { transactions: 0, volumeUsdc: 0, activeSellers: 0, activeBuyers: 0 },
-        models: { mycosoft_active: [], global_top_frontier: [] },
-        frameworks: { openClawCore: "Decentralized", anthropicLocal: "Untracked" }
-    });
   }
+
+  return NextResponse.json({
+    x402: {
+      transactions: null,
+      volumeUsdc: null,
+      activeSellers: null,
+      activeBuyers: null,
+    },
+    agent_internet: {
+      agents: null,
+      discussions: null,
+      upvotes: null,
+      sandboxes: null,
+      m2mRequests: null,
+      m2mRequestsDaily: null,
+    },
+    models: { mycosoft_active: [], global_top_frontier: [] },
+    frameworks: { openClawCore: "unverified", anthropicLocal: "untracked" },
+    sources: { mindex_global_agents: { ok: false, error: "unavailable" } },
+    warnings: [
+      "Global agent economy sources must be ingested through MINDEX/Supabase/NAS before rendering.",
+      "Configure the MINDEX telemetry pipeline to pull x402.direct, Agora402, and on-chain feeds.",
+    ],
+  });
 }

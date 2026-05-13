@@ -47,7 +47,6 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/natureos/settings', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'System Settings' },
   { path: '/natureos/api', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'API Explorer' },
   { path: '/dashboard/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard (public)' },
-  { path: '/natureos/model-training', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Model Training' },
   { path: '/defense', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Defense' },
 ]
 
@@ -250,8 +249,7 @@ export const ADMIN_ROUTES: RouteAccess[] = [
 
 // Super Admin routes (Morgan only)
 export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
-  // model-training moved to PUBLIC_ROUTES to disable gating for integration
-  // { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
+  { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
   // containers and monitoring moved to COMPANY_ROUTES (infrastructure gate)
   { path: '/natureos/drone', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Drone Control' },
   { path: '/natureos/shell', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Shell' },
@@ -351,7 +349,6 @@ const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/apps/earth-simulator',
   '/apps/petri-dish-sim',
   '/apps/compound-sim',
-  '/natureos/model-training'
 ]
 
 /** True if path requires any authenticated user (middleware use). */

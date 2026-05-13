@@ -16,7 +16,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
-import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { AnswerMessageContent } from "@/components/answers/AnswerMessageContent"
 import { MessageCircle, Loader2, Play, Send, Trash2, Search, Sparkles } from "lucide-react"
@@ -70,8 +69,6 @@ export function AnswersWidget({
     confirmAction,
     consciousness,
   } = useMYCA()
-
-  const { user } = useAuth()
 
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
@@ -196,7 +193,7 @@ export function AnswersWidget({
           )}
 
           {/* Advertisement for unauthenticated users */}
-          {!user && (
+          {false && (
             <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3 mb-2 flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-blue-500/20 rounded-md shrink-0">

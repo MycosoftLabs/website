@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { masServiceHeaders, resolveScopedUserId, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -81,7 +82,7 @@ async function queryMYCAConsciousness(
 
     const res = await fetch(`${MAS_API_URL}/api/myca/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...masServiceHeaders() },
       body: JSON.stringify({
         message: payload.query + contextStr,
         session_id: payload.sessionId,
@@ -125,7 +126,7 @@ async function queryMASBrain(
 
     const res = await fetch(`${MAS_API_URL}/voice/brain/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...masServiceHeaders() },
       body: JSON.stringify({
         message: payload.query + contextPrompt,
         user_id: payload.userId,
@@ -159,7 +160,7 @@ async function queryMASBrain(
 function recordIntention(query: string, source: string, sessionId?: string, userId?: string) {
   fetch(`${MAS_API_URL}/api/myca/intention`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...masServiceHeaders() },
     body: JSON.stringify({
       session_id: sessionId,
       user_id: userId,
@@ -179,6 +180,11 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim()
   if (!query) return NextResponse.json({ error: "No query provided" }, { status: 400 })
 
+  const identity = await resolveVerifiedIdentity()
+  const requestedUserId = request.nextUrl.searchParams.get("user_id")?.trim() || null
+  const scoped = resolveScopedUserId(identity, requestedUserId || undefined)
+  if (scoped.denied) return scoped.denied
+
   let context: SearchContext | undefined
   const contextParam = request.nextUrl.searchParams.get("context")
   if (contextParam) {
@@ -190,7 +196,6 @@ export async function GET(request: NextRequest) {
   }
 
   const modelPreference = (request.nextUrl.searchParams.get("model")?.trim() as ModelPreference) || "fast"
-  const userId = request.nextUrl.searchParams.get("user_id")?.trim()
   const sessionId = request.nextUrl.searchParams.get("session_id")?.trim()
   const conversationId = request.nextUrl.searchParams.get("conversation_id")?.trim()
 
@@ -200,7 +205,7 @@ export async function GET(request: NextRequest) {
     query: llmQuery,
     context,
     modelPreference,
-    userId,
+    userId: scoped.userId,
     sessionId,
     conversationId,
     integrated,
@@ -234,7 +239,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (result.source.startsWith("MYCA")) {
-    recordIntention(query, result.source, sessionId, userId)
+    recordIntention(query, result.source, sessionId, scoped.userId)
   }
 
   return NextResponse.json({
@@ -384,13 +389,18 @@ export async function POST(request: NextRequest) {
   const query = (body.q || body.query)?.trim()
   if (!query) return NextResponse.json({ error: "No query provided" }, { status: 400 })
 
+  const identity = await resolveVerifiedIdentity()
+  const requestedUserId = typeof body.userId === "string" && body.userId.trim() ? body.userId.trim() : null
+  const scoped = resolveScopedUserId(identity, requestedUserId || undefined)
+  if (scoped.denied) return scoped.denied
+
   const integrated = body.integrated === true
   const llmQuery = llmQueryForRequest(query, integrated)
   const payload: SearchAIRequest = {
     query: llmQuery,
     context: body.context,
     modelPreference: body.modelPreference || "fast",
-    userId: body.userId,
+    userId: scoped.userId,
     sessionId: body.sessionId,
     conversationId: body.conversationId,
     history: body.history,

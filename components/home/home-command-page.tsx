@@ -168,8 +168,8 @@ function TileMedia({ tile }: { tile: HomeTile }) {
 
 export function HomeCommandPage() {
   return (
-    <div className="min-h-dvh bg-black text-white">
-      <section className="relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10">
+    <div className="home-command-page-light min-h-dvh bg-white text-slate-950 dark:bg-black dark:text-white">
+      <section data-over-video className="relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10">
         <div className="absolute inset-0">
           {HOME_HERO_SOURCES[0] ? (
             <AutoplayVideo
@@ -192,21 +192,21 @@ export function HomeCommandPage() {
         </div>
       </section>
 
-      <section className="border-b border-white/10 bg-black px-4 py-6 sm:px-6 lg:px-8">
+      <section className="border-b border-slate-200 bg-white px-4 py-6 sm:px-6 lg:px-8 dark:border-white/10 dark:bg-black">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-400">Direct Links</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            <p className="home-direct-links-eyebrow text-xs font-semibold uppercase tracking-[0.22em] text-red-600 dark:text-red-400">Direct Links</p>
+            <h2 className="home-direct-links-title mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl dark:text-white">
               Devices, platforms, and mission systems.
             </h2>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-white/55">
+          <p className="home-direct-links-copy max-w-2xl text-sm leading-6 text-slate-700 dark:text-white/55">
             Each square routes directly into the operating layer behind Mycosoft: hardware, MYCA, NatureOS, Earth Simulator, and FUSARIUM.
           </p>
         </div>
       </section>
 
-      <section className="bg-black px-3 pb-16 pt-3 sm:px-4 lg:px-6">
+      <section className="bg-white px-3 pb-16 pt-3 sm:px-4 lg:px-6 dark:bg-black">
         <div className="mx-auto grid max-w-[1800px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {TILES.map((tile) => {
             const Icon = tile.icon
@@ -216,7 +216,7 @@ export function HomeCommandPage() {
                 href={tile.href}
                 prefetch={false}
                 className={cn(
-                  "group relative aspect-square overflow-hidden border border-white/10 bg-neutral-950 text-white",
+                  "home-video-tile group relative aspect-square overflow-hidden border border-white/10 bg-neutral-950 text-white",
                   "transition duration-300 hover:border-red-400/70 hover:shadow-[0_0_36px_rgba(220,38,38,0.25)]",
                   tile.span === 2 && "sm:col-span-2 sm:aspect-[2/1]"
                 )}

@@ -6,23 +6,30 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { identityRuntimeContext, masServiceHeaders, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
+    const identity = await resolveVerifiedIdentity()
     const payload = {
       ...body,
-      user_id: body.user_id || "anonymous",
+      user_id: identity.userId,
+      user_role: identity.userRole,
       session_id: body.session_id,
       conversation_id: body.conversation_id,
+      context: {
+        ...(body.context || {}),
+        ...identityRuntimeContext(identity),
+      },
     }
 
     const response = await fetch(`${MAS_API_URL}/api/myca/awaken`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        ...masServiceHeaders({ "Content-Type": "application/json" }),
       },
       body: JSON.stringify(payload),
     })

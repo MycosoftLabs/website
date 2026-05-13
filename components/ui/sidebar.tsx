@@ -214,6 +214,8 @@ export function SidebarMenuButton({
         React.Children.map(children, (child) => {
           if (React.isValidElement(child)) {
             return React.cloneElement(child, {
+              "data-sidebar": "menu-button",
+              "data-active": isActive ? "true" : "false",
               className: cn(
                 "flex items-center w-full rounded-md px-2 py-2 text-sm font-medium transition-colors",
                 isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800",
@@ -226,6 +228,8 @@ export function SidebarMenuButton({
         })
       ) : (
         <Comp
+          data-sidebar="menu-button"
+          data-active={isActive ? "true" : "false"}
           className={cn(
             "flex items-center w-full rounded-md px-2 py-2 text-sm font-medium transition-colors",
             isActive ? "bg-gray-800 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800",

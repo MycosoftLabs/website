@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { recordMindexEtlImprovement } from "@/lib/mindex/etl-improvement"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
@@ -71,6 +72,12 @@ function transformToSpecies(taxon: MINDEXTaxon, index: number) {
     observations_count: metadata.observations_count || 0,
     wikipedia_url: metadata.wikipedia_url || null,
   }
+}
+
+function hasRequiredSpeciesImage(species: ReturnType<typeof transformToSpecies>) {
+  const name = String(species.scientific_name || "").trim().toLowerCase()
+  const rank = String(species.characteristics[0] || "").trim().toLowerCase()
+  return Boolean(species.image_url && rank === "species" && name && name !== "life" && name !== "biota")
 }
 
 export async function GET(request: Request) {
@@ -160,7 +167,9 @@ export async function GET(request: Request) {
       }
 
       if (taxa.length > 0) {
-        let species = taxa.map((taxon, index) => transformToSpecies(taxon, (page - 1) * limit + index))
+        let species = taxa
+          .map((taxon, index) => transformToSpecies(taxon, (page - 1) * limit + index))
+          .filter(hasRequiredSpeciesImage)
 
         // Apply filters
         if (filter && filter !== "All") {
@@ -208,28 +217,25 @@ export async function GET(request: Request) {
     console.log("MINDEX connection error:", error instanceof Error ? error.message : "Unknown error")
   }
 
-  // Fallback: Query external APIs directly for real data (iNat + GBIF; no invented totals)
-  try {
-    const externalData = await fetchFromExternalAPIs(query || "life", limit, kingdomParam)
-    if (externalData.species.length > 0) {
-      return NextResponse.json({
-        species: externalData.species,
-        total: externalData.total,
-        page,
-        pages: Math.ceil(externalData.total / limit),
-        source: "external_api"
-      })
-    }
-  } catch (error) {
-    console.log("External API error:", error)
-  }
+  // External taxon APIs are enrichment inputs only. The Ancestry UI renders from
+  // MINDEX/Supabase-backed records so observations can be audited, cached on NAS,
+  // and reused instantly by MYCA/search instead of becoming one-off API reads.
+  void recordMindexEtlImprovement({
+    source: "ancestry-api",
+    app: "ancestry",
+    route: "/api/ancestry",
+    query: query || undefined,
+    missing: ["species", "taxonomy", "images", "popularity_counts"],
+    context: { kingdom: kingdomParam, page, limit, category, sort },
+  }).catch(() => {})
 
-  // Last resort: Return minimal fallback data with message
   return NextResponse.json({
     species: [],
     total: 0,
-    source: "none",
-    message: "MINDEX service not running. Start it with: docker-compose -f docker-compose.mindex.yml up -d",
+    page,
+    pages: 0,
+    source: "mindex_unavailable",
+    message: "Live MINDEX ancestry data is unavailable. External taxonomy sources must be ingested into MINDEX before rendering.",
   })
 }
 
@@ -239,7 +245,7 @@ const INAT_KINGDOM_TAXON: Partial<Record<string, string>> = {
   plantae: "47126",
 }
 
-// Fetch from external APIs directly (iNaturalist, GBIF) — no invented totals. Kingdom-aware (not fungi-locked).
+// Fetch from external APIs directly. Kingdom-aware, and visual-card safe.
 async function fetchFromExternalAPIs(query: string, limit: number, kingdom: string) {
   const species: any[] = []
   let total = 0
@@ -268,6 +274,10 @@ async function fetchFromExternalAPIs(query: string, limit: number, kingdom: stri
         total = (data.results || []).length
       }
       for (const taxon of data.results || []) {
+        const imageUrl = taxon.default_photo?.medium_url || taxon.default_photo?.url || null
+        const rank = String(taxon.rank || "").toLowerCase()
+        const name = String(taxon.name || "").toLowerCase()
+        if (!imageUrl || rank !== "species" || name === "life" || name === "biota") continue
         const iconic = taxon.iconic_taxon_name || "Unknown"
         species.push({
           id: taxon.id,
@@ -276,7 +286,7 @@ async function fetchFromExternalAPIs(query: string, limit: number, kingdom: stri
           family: taxon.family || iconic,
           kingdom: iconic,
           description: taxon.wikipedia_summary || null,
-          image_url: taxon.default_photo?.medium_url || null,
+          image_url: imageUrl,
           characteristics: [
             taxon.rank || "species",
             `${taxon.observations_count || 0} observations`,
@@ -289,50 +299,6 @@ async function fetchFromExternalAPIs(query: string, limit: number, kingdom: stri
     }
   } catch (error) {
     console.error("iNaturalist fetch error:", error)
-  }
-
-  // GBIF — add kingdom when filter is a known GBIF kingdom
-  if (species.length < limit) {
-    try {
-      const gb = new URL("https://api.gbif.org/v1/species/search")
-      gb.searchParams.set("q", query)
-      gb.searchParams.set("limit", String(limit - species.length))
-      const gk = kingdom.toLowerCase()
-      if (gk && gk !== "all" && gk !== "protista" && gk !== "viruses") {
-        const cap = gk.charAt(0).toUpperCase() + gk.slice(1)
-        gb.searchParams.set("kingdom", cap)
-      }
-      const gbifResponse = await fetch(gb.toString(), {
-          headers: {
-            "Accept": "application/json",
-          },
-        }
-      )
-
-      if (gbifResponse.ok) {
-        const data = await gbifResponse.json()
-        for (const taxon of data.results || []) {
-          species.push({
-            id: taxon.key,
-            scientific_name: taxon.scientificName || taxon.canonicalName,
-            common_name: taxon.vernacularName || null,
-            family: taxon.family || "Unknown",
-            kingdom: taxon.kingdom || null,
-            description: taxon.description || null,
-            image_url: null,
-            characteristics: [
-              taxon.rank || "SPECIES",
-              taxon.taxonomicStatus || "ACCEPTED",
-            ],
-            habitat: null,
-            source: "GBIF",
-            observations_count: taxon.numDescendants || 0,
-          })
-        }
-      }
-    } catch (error) {
-      console.error("GBIF fetch error:", error)
-    }
   }
 
   if (species.length && !total) total = species.length

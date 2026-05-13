@@ -9,6 +9,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { evaluateGovernance } from "@/lib/services/avani-governance"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
+import { identityRuntimeContext, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as ChatRequest
+    const identity = await resolveVerifiedIdentity()
 
     if (!body.message?.trim()) {
       return NextResponse.json(
@@ -46,11 +48,14 @@ export async function POST(request: NextRequest) {
     // AVANI governance: all MYCA ingress routes must pass
     const avani = await evaluateGovernance({
       message: body.message,
-      user_id: body.user_id || ip || "anonymous",
-      user_role: "user",
-      is_superuser: false,
+      user_id: identity.userId,
+      user_role: identity.userRole,
+      is_superuser: identity.isSuperuser,
       action_type: "chat",
-      context: body.context,
+      context: {
+        ...(body.context || {}),
+        ...identityRuntimeContext(identity),
+      },
     })
     if (avani.verdict === "deny") {
       return NextResponse.json(
@@ -105,6 +110,10 @@ export async function POST(request: NextRequest) {
     // Call local orchestrator route (NOT MAS VM directly — let Next.js handle fallbacks)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3010}`
     let masData: Record<string, unknown> | null = null
+    const searchSessionId =
+      typeof body.context?.search_session_id === "string"
+        ? body.context.search_session_id
+        : `search-${Date.now()}`
 
     try {
       const masResponse = await fetch(`${baseUrl}/api/mas/voice/orchestrator`, {
@@ -112,15 +121,16 @@ export async function POST(request: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: body.message,
-          conversation_id: body.conversation_id,
-          session_id: body.session_id,
+          conversation_id: `search-${searchSessionId}`,
+          session_id: `search-${searchSessionId}`,
           want_audio: false,
           actor: "user",
           source: "web",
           context: {
             ...(body.context || {}),
-            user_id: body.user_id || "anonymous",
             platform: "mobile-search",
+            isolate_from_chat_memory: true,
+            include_memory_context: false,
             enriched_entities: detectedEntities,
           },
         }),

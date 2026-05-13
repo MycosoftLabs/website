@@ -125,6 +125,8 @@ export interface MyceliumSimulatorProps {
 
 export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: MyceliumSimulatorProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rimCanvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>(0)
   const recorderRef = useRef<MediaRecorder | null>(null)
   
@@ -142,6 +144,10 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const [isRunning, setIsRunning] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [consoleLog, setConsoleLog] = useState<string[]>([])
+  const selectedToolRef = useRef(selectedTool)
+  const selectedSpeciesRef = useRef(selectedSpecies)
+  const selectedContaminantRef = useRef(selectedContaminant)
+  const virtualHoursRef = useRef(virtualHours)
   
   // Simulation refs (mutable during animation)
   const samplesRef = useRef<Organism[]>([])
@@ -152,6 +158,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const chemicalFieldsRef = useRef<Record<string, number[][]>>({})
   
   const DISH_RADIUS = 300
+  const GROWTH_RADIUS = DISH_RADIUS - 2
   const CANVAS_SIZE = 650
   
   const logToConsole = useCallback((message: string) => {
@@ -162,6 +169,12 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const dx = x - CANVAS_SIZE / 2
     const dy = y - CANVAS_SIZE / 2
     return Math.sqrt(dx * dx + dy * dy) <= DISH_RADIUS
+  }
+
+  const isInsideGrowthArea = (x: number, y: number): boolean => {
+    const dx = x - CANVAS_SIZE / 2
+    const dy = y - CANVAS_SIZE / 2
+    return Math.sqrt(dx * dx + dy * dy) <= GROWTH_RADIUS
   }
 
   const emitMetricsAndCompounds = useCallback((overrideVirtualHours?: number) => {
@@ -196,7 +209,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const totalBranches = samples.reduce((a, s) => a + s.branches.length, 0) +
       contaminants.reduce((a, c) => a + c.branches.length, 0)
     onMetricsUpdate?.({
-      virtual_hours: overrideVirtualHours ?? virtualHours,
+      virtual_hours: overrideVirtualHours ?? virtualHoursRef.current,
       sample_count: samples.length,
       contaminant_count: contaminants.length,
       total_branches: totalBranches,
@@ -215,11 +228,27 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       atp: compoundSums.atp / compoundCells,
       oxygen: compoundSums.oxygen / compoundCells,
     })
-  }, [virtualHours, onMetricsUpdate, onCompoundsUpdate])
+  }, [onMetricsUpdate, onCompoundsUpdate])
+
+  useEffect(() => {
+    selectedToolRef.current = selectedTool
+  }, [selectedTool])
+
+  useEffect(() => {
+    selectedSpeciesRef.current = selectedSpecies
+  }, [selectedSpecies])
+
+  useEffect(() => {
+    selectedContaminantRef.current = selectedContaminant
+  }, [selectedContaminant])
+
+  useEffect(() => {
+    virtualHoursRef.current = virtualHours
+  }, [virtualHours])
   
   // Initialize grids
-  const initializeGrids = useCallback(() => {
-    const nutrientLevel = AGAR_TYPES[agarType as keyof typeof AGAR_TYPES]?.nutrientLevel || 80
+  const initializeGrids = useCallback((nextAgarType = agarType) => {
+    const nutrientLevel = AGAR_TYPES[nextAgarType as keyof typeof AGAR_TYPES]?.nutrientLevel || 80
     const grid: number[][] = []
     const occupancy: (Organism | null)[][] = []
     const antifungal: number[][] = []
@@ -253,27 +282,67 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     chemicalFieldsRef.current = chemicalFields
   }, [agarType])
   
-  // Draw petri dish background
-  const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
-    ctx.fillStyle = "#1a1a2e"
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    
+  const drawDishRim = useCallback(() => {
+    const rimCanvas = rimCanvasRef.current
+    const ctx = rimCanvas?.getContext("2d")
+    if (!rimCanvas || !ctx) return
+
+    const cx = CANVAS_SIZE / 2
+    const cy = CANVAS_SIZE / 2
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    ctx.save()
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.shadowColor = "rgba(255, 255, 255, 0.5)"
+    ctx.shadowBlur = 5
+
     ctx.beginPath()
-    ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, DISH_RADIUS, 0, 2 * Math.PI)
-    ctx.fillStyle = "rgba(255, 255, 255, 0.05)"
-    ctx.fill()
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"
+    ctx.arc(cx, cy, DISH_RADIUS, 0, 2 * Math.PI)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.58)"
     ctx.lineWidth = 2
     ctx.stroke()
+
+    ctx.shadowBlur = 0
+    ctx.beginPath()
+    ctx.arc(cx, cy, DISH_RADIUS - 0.5, 0, 2 * Math.PI)
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.26)"
+    ctx.lineWidth = 0.75
+    ctx.stroke()
+    ctx.restore()
   }, [])
 
-  const renderChemicalOverlay = useCallback((ctx: CanvasRenderingContext2D) => {
+  // Draw petri dish background
+  const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+
+    const cx = CANVAS_SIZE / 2
+    const cy = CANVAS_SIZE / 2
+    const plateGradient = ctx.createRadialGradient(cx - 95, cy - 110, 20, cx, cy, DISH_RADIUS)
+    plateGradient.addColorStop(0, "rgba(255, 255, 255, 0.58)")
+    plateGradient.addColorStop(0.34, "rgba(226, 232, 240, 0.42)")
+    plateGradient.addColorStop(0.76, "rgba(148, 163, 184, 0.28)")
+    plateGradient.addColorStop(1, "rgba(71, 85, 105, 0.28)")
+    
+    ctx.beginPath()
+    ctx.arc(cx, cy, DISH_RADIUS, 0, 2 * Math.PI)
+    ctx.fillStyle = plateGradient
+    ctx.fill()
+
+  }, [])
+
+  const renderChemicalOverlay = useCallback(() => {
+    const overlay = overlayCanvasRef.current
+    const ctx = overlay?.getContext("2d")
+    if (!overlay || !ctx) return
+
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     if (selectedChemicalOverlay === "none") return
+
     const grid = chemicalFieldsRef.current[selectedChemicalOverlay]
     if (!grid) return
 
     const color = CHEMICAL_COLORS[selectedChemicalOverlay] || "#ffffff"
-    const step = 4
+    const step = 2
     let maxValue = 0
     for (let x = 0; x < CANVAS_SIZE; x += step) {
       for (let y = 0; y < CANVAS_SIZE; y += step) {
@@ -284,12 +353,13 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const scale = maxValue > 0 ? 1 / maxValue : 0
 
     ctx.save()
+    ctx.globalCompositeOperation = "source-over"
     for (let x = 0; x < CANVAS_SIZE; x += step) {
       for (let y = 0; y < CANVAS_SIZE; y += step) {
         if (!isInsideDish(x, y)) continue
         const value = grid[x]?.[y] || 0
         if (value <= 0) continue
-        ctx.globalAlpha = Math.min(0.5, value * scale)
+        ctx.globalAlpha = Math.min(0.18, value * scale * 0.18)
         ctx.fillStyle = color
         ctx.fillRect(x, y, step, step)
       }
@@ -323,12 +393,12 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   
   // Place sample on canvas
   const placeSample = useCallback((x: number, y: number, isContaminant: boolean = false) => {
-    if (!isInsideDish(x, y)) return
+    if (!isInsideGrowthArea(x, y)) return
     
     const ctx = canvasRef.current?.getContext("2d")
     if (!ctx) return
     
-    const species = isContaminant ? selectedContaminant : selectedSpecies
+    const species = isContaminant ? selectedContaminantRef.current : selectedSpeciesRef.current
     const props = isContaminant 
       ? CONTAMINANT_PROPERTIES[species] 
       : SPECIES_PROPERTIES[species]
@@ -368,7 +438,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     if (!isRunning) setIsRunning(true)
     logToConsole(`Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
     emitMetricsAndCompounds()
-  }, [selectedSpecies, selectedContaminant, isRunning, logToConsole, emitMetricsAndCompounds])
+  }, [isRunning, logToConsole, emitMetricsAndCompounds])
   
   // Draw filament
   const drawFilament = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, props: SpeciesProps, isStarved: boolean = false) => {
@@ -385,7 +455,9 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const ctx = canvasRef.current?.getContext("2d")
     if (!ctx) return
     
-    setVirtualHours(h => h + 1)
+    const nextVirtualHours = virtualHoursRef.current + 1
+    virtualHoursRef.current = nextVirtualHours
+    setVirtualHours(nextVirtualHours)
     
     const simulateOrganism = (organism: Organism) => {
       const props = organism.isContaminant 
@@ -413,7 +485,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
         const gridX = Math.floor(newX)
         const gridY = Math.floor(newY)
         
-        if (isInsideDish(newX, newY) && gridX >= 0 && gridX < CANVAS_SIZE && gridY >= 0 && gridY < CANVAS_SIZE) {
+        if (isInsideGrowthArea(newX, newY) && gridX >= 0 && gridX < CANVAS_SIZE && gridY >= 0 && gridY < CANVAS_SIZE) {
           const nutrient = nutrientGridRef.current[gridX]?.[gridY] || 0
           
           if (nutrient > 0) {
@@ -444,7 +516,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
               })
             }
           }
-        } else if (!isInsideDish(newX, newY)) {
+        } else if (!isInsideGrowthArea(newX, newY)) {
           // At edge - potential fruiting
           branch.atEdgeTime = (branch.atEdgeTime || 0) + 1
           if (branch.atEdgeTime > 50 && !organism.isContaminant) {
@@ -462,7 +534,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     samplesRef.current.forEach(simulateOrganism)
     contaminantsRef.current.forEach(simulateOrganism)
 
-    renderChemicalOverlay(ctx)
+    if (selectedChemicalOverlay !== "none") renderChemicalOverlay()
     
     // Clean up dead organisms
     samplesRef.current = samplesRef.current.filter(s => s.branches.length > 0)
@@ -472,8 +544,8 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       setIsRunning(false)
     }
 
-    emitMetricsAndCompounds(virtualHours + 1)
-  }, [agarType, emitMetricsAndCompounds, getGrowthFactors, renderChemicalOverlay, virtualHours])
+    emitMetricsAndCompounds(nextVirtualHours)
+  }, [agarType, emitMetricsAndCompounds, getGrowthFactors, renderChemicalOverlay, selectedChemicalOverlay])
   
   // Animation loop
   useEffect(() => {
@@ -496,25 +568,39 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     
     initializeGrids()
     drawBackground(ctx)
+    drawDishRim()
+    renderChemicalOverlay()
     emitMetricsAndCompounds()
-  }, [initializeGrids, drawBackground, emitMetricsAndCompounds])
+    // Keep the live growth canvas stable; do not reinitialize on metric/time updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initializeGrids, drawBackground, drawDishRim])
+
+  useEffect(() => {
+    renderChemicalOverlay()
+  }, [renderChemicalOverlay])
+
+  useEffect(() => {
+    if (selectedChemicalOverlay !== "none") return
+    const overlayCtx = overlayCanvasRef.current?.getContext("2d")
+    overlayCtx?.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+  }, [selectedChemicalOverlay])
   
-  // Handle canvas click
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const placeFromClientPoint = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return
     
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
-    const x = (e.clientX - rect.left) * scaleX
-    const y = (e.clientY - rect.top) * scaleY
+    const x = (clientX - rect.left) * scaleX
+    const y = (clientY - rect.top) * scaleY
     
-    if (selectedTool === "sporeSwab") {
+    const activeTool = selectedToolRef.current
+    if (activeTool === "sporeSwab") {
       placeSample(x, y, false)
-    } else if (selectedTool === "contamination") {
+    } else if (activeTool === "contamination") {
       placeSample(x, y, true)
-    } else if (selectedTool === "scalpel") {
+    } else if (activeTool === "scalpel") {
       // Place tissue sample (multiple points)
       const numPoints = 5
       for (let i = 0; i < numPoints; i++) {
@@ -523,6 +609,12 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
         placeSample(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, false)
       }
     }
+  }
+
+  // Handle canvas placement with pointer events so it works while the simulation is running.
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    placeFromClientPoint(e.clientX, e.clientY)
   }
   
   // Reset simulation
@@ -539,6 +631,9 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
       drawBackground(ctx)
     }
+    drawDishRim()
+    const overlayCtx = overlayCanvasRef.current?.getContext("2d")
+    overlayCtx?.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     
     logToConsole("Simulation reset")
     emitMetricsAndCompounds(0)
@@ -607,20 +702,47 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   }
   
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
+    <div className="petri-app-frame flex w-full min-w-0 flex-col gap-4 overflow-x-hidden rounded-3xl border p-3 xl:flex-row xl:p-4">
       {/* Canvas Area */}
-      <div className="flex flex-col items-center gap-4">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
-          onClick={handleCanvasClick}
-          className={`border-2 border-white/20 rounded-lg bg-black ${getCursorClass()}`}
-          style={{ maxWidth: "100%", height: "auto" }}
-        />
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-4 overflow-hidden">
+        <div className="petri-canvas-glass flex w-full max-w-[650px] items-center justify-center overflow-hidden rounded-2xl border p-2">
+          <div className="petri-dish-stage relative aspect-square w-full overflow-hidden rounded-xl">
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
+            onPointerDown={handleCanvasPointerDown}
+            className={`relative z-10 block h-full w-full touch-none bg-transparent ${getCursorClass()}`}
+          />
+          <canvas
+            ref={rimCanvasRef}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
+            className="pointer-events-none absolute inset-0 z-30 h-full w-full"
+            aria-hidden="true"
+          />
+          {selectedChemicalOverlay !== "none" ? (
+            <canvas
+              ref={overlayCanvasRef}
+              width={CANVAS_SIZE}
+              height={CANVAS_SIZE}
+              className="pointer-events-none absolute inset-0 z-20 h-full w-full mix-blend-screen opacity-70"
+              aria-hidden="true"
+            />
+          ) : (
+            <canvas
+              ref={overlayCanvasRef}
+              width={CANVAS_SIZE}
+              height={CANVAS_SIZE}
+              className="hidden"
+              aria-hidden="true"
+            />
+          )}
+          </div>
+        </div>
         
         {/* Console */}
-        <Card className="w-full max-w-[650px]">
+        <Card className="petri-console-glass w-full max-w-[650px]">
           <CardHeader className="py-2">
             <CardTitle className="text-sm">Console</CardTitle>
           </CardHeader>
@@ -639,7 +761,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       </div>
       
       {/* Controls Panel */}
-      <Card className="lg:w-64 shrink-0">
+      <Card className="petri-controls-glass w-full min-w-0 shrink-0 overflow-hidden xl:w-80">
         <CardHeader className="py-3">
           <CardTitle className="flex items-center justify-between text-base">
             Controls
@@ -649,19 +771,19 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="max-h-[min(80dvh,760px)] space-y-4 overflow-y-auto overflow-x-hidden">
           {/* Playback Controls */}
           <div className="flex gap-2">
             <Button 
               variant={isRunning ? "destructive" : "default"} 
               size="sm" 
               className="flex-1"
-              onClick={() => setIsRunning(!isRunning)}
+              onPointerDown={() => setIsRunning((running) => !running)}
             >
               {isRunning ? <Pause className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
               {isRunning ? "Pause" : "Start"}
             </Button>
-            <Button variant="outline" size="sm" onClick={resetSimulation}>
+            <Button variant="outline" size="sm" onPointerDown={resetSimulation}>
               <RotateCcw className="h-4 w-4" />
             </Button>
           </div>
@@ -693,7 +815,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
                 variant={selectedTool === "sporeSwab" ? "default" : "outline"} 
                 size="sm" 
                 className="text-xs h-7"
-                onClick={() => setSelectedTool("sporeSwab")}
+                onPointerDown={() => setSelectedTool("sporeSwab")}
               >
                 Swab
               </Button>
@@ -701,7 +823,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
                 variant={selectedTool === "scalpel" ? "default" : "outline"} 
                 size="sm"
                 className="text-xs h-7"
-                onClick={() => setSelectedTool("scalpel")}
+                onPointerDown={() => setSelectedTool("scalpel")}
               >
                 Scalpel
               </Button>
@@ -709,7 +831,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
                 variant={selectedTool === "contamination" ? "destructive" : "outline"} 
                 size="sm"
                 className="text-xs h-7"
-                onClick={() => setSelectedTool("contamination")}
+                onPointerDown={() => setSelectedTool("contamination")}
               >
                 Contam
               </Button>
@@ -738,7 +860,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
             <Label className="text-xs flex items-center gap-1">
               <FlaskConical className="h-3 w-3" /> Agar Type
             </Label>
-            <Select value={agarType} onValueChange={(v) => { setAgarType(v); initializeGrids(); }}>
+            <Select value={agarType} onValueChange={(v) => { setAgarType(v); initializeGrids(v); }}>
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>

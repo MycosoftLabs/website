@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/api-auth"
+import { createAdminClient } from "@/lib/supabase/server"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -16,70 +17,60 @@ interface Notification {
 }
 
 export async function GET() {
-  // Try to get auth, but don't fail if we are in a bypassed session
   const auth = await requireAuth()
+  if (auth.error) return auth.error
 
   try {
-    // Only try to fetch from real MAS if we are authenticated
-    if (!auth.error) {
-      try {
-        const response = await fetch(`${MAS_API_URL}/notifications`, {
-          cache: "no-store",
-        })
+    const supabase = await createAdminClient()
+    const { data: stored, error: storedError } = await supabase
+      .from("notifications")
+      .select("id,type,title,message,source,created_at,read,action_url,action_label,metadata")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(50)
 
-        if (response.ok) {
-          const data = await response.json()
-          return NextResponse.json(data)
-        }
-      } catch {
-        // Fall through to sample data
-      }
+    if (!storedError && Array.isArray(stored)) {
+      return NextResponse.json({
+        notifications: stored.map((item: any) => ({
+          id: item.id,
+          type: item.type || item.metadata?.severity || "info",
+          title: item.title || "NatureOS notification",
+          message: item.message || "",
+          source: item.source || item.metadata?.source || "MYCA",
+          timestamp: item.created_at,
+          read: Boolean(item.read),
+          actionUrl: item.action_url || undefined,
+          actionLabel: item.action_label || undefined,
+        })),
+        source: "supabase",
+      })
     }
 
-    // Return sample notifications when MAS is not available
-    const now = new Date()
-    const notifications: Notification[] = [
-      {
-        id: "1",
-        type: "success",
-        title: "MAS v2 Deployed",
-        message: "MYCA Orchestrator is running on MAS_HOST:8001",
-        source: "System",
-        timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
-        read: false,
-      },
-      {
-        id: "2",
-        type: "info",
-        title: "Agent Pool Updated",
-        message: "12 agents are now active and processing tasks",
-        source: "MYCA Orchestrator",
-        timestamp: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
-        read: false,
-      },
-      {
-        id: "3",
-        type: "success",
-        title: "Workflow Completed",
-        message: "MycoBrain Data Sync workflow completed successfully",
-        source: "n8n Agent",
-        timestamp: new Date(now.getTime() - 45 * 60 * 1000).toISOString(),
-        read: true,
-      },
-      {
-        id: "4",
-        type: "alert",
-        title: "Security Scan Complete",
-        message: "Weekly security audit completed. No vulnerabilities found.",
-        source: "SOC Agent",
-        timestamp: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
-        read: true,
-      },
-    ]
+    const response = await fetch(`${MAS_API_URL}/notifications?user_id=${encodeURIComponent(auth.user.id)}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    })
 
-    return NextResponse.json({ notifications })
+    if (response.ok) {
+      const data = await response.json()
+      return NextResponse.json({
+        notifications: Array.isArray(data) ? data : data.notifications || [],
+        source: "mas",
+      })
+    }
+
+    return NextResponse.json({
+      notifications: [],
+      source: "unavailable",
+      warning: "Live MYCA/MAS notification feed is unavailable.",
+    })
   } catch (error) {
     console.error("Notifications API error:", error)
-    return NextResponse.json({ notifications: [] })
+    return NextResponse.json({
+      notifications: [],
+      source: "unavailable",
+      warning: "Live MYCA/MAS notification feed is unavailable.",
+    })
   }
 }

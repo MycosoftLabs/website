@@ -1319,7 +1319,7 @@ export function FluidSearchCanvas({
       const next = new Set<WidgetType>()
       if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
       for (const sw of route.secondaryWidgets) next.add(sw as WidgetType)
-      if (route.worldview.crep) next.add("crep" as WidgetType)
+      if (route.worldview.crep) next.add("earth" as WidgetType)
       if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
       if (route.useMycaLLM) next.add("answers" as WidgetType)
       if (next.size === 0) {
@@ -1380,8 +1380,7 @@ export function FluidSearchCanvas({
       chemistry: compounds.length,
       genetics: genetics.length,
       research: research.length,
-      crep: mergedCrepData.length,
-      earth: (mapObservations.length > 0 || !!earth2Data) ? 1 : 0,
+      earth: (mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
       events: len(events),
       aircraft: len(aircraft),
       vessels: len(vessels),
@@ -1444,7 +1443,7 @@ export function FluidSearchCanvas({
       }
 
       // Intent-based: expand worldview widgets even before data arrives
-      if (route.worldview.crep) next.add("crep" as WidgetType)
+      if (route.worldview.crep) next.add("earth" as WidgetType)
       if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
 
       // Always show Answers for conversational/hybrid queries
@@ -1983,7 +1982,7 @@ function WidgetContent({
         />
       )
     case "species":
-      if (isLoading && species.length === 0 && !pinnedSpeciesName) return <SpeciesWidget data={[]} isLoading isFocused={isFocused} />
+      if ((isLoading || searchPipelineBusy) && species.length === 0 && !pinnedSpeciesName) return <SpeciesWidget data={[]} isLoading isFocused={isFocused} />
       if (species.length === 0 && !pinnedSpeciesName) return <EmptyWidgetState type="species" label="Species" />
       return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} pinnedSpeciesName={pinnedSpeciesName} />
     case "chemistry":
@@ -2008,8 +2007,32 @@ function WidgetContent({
       if (isLoading && crep.length === 0) return <CrepWidget data={[]} isLoading isFocused={isFocused} onAddToNotepad={onAddToNotepad} onOpenDashboard={onOpenDashboard} />
       return <CrepWidget data={crep as any} isLoading={isLoading} isFocused={isFocused} query={searchQuery} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} onOpenDashboard={onOpenDashboard} />
     case "earth":
-      if (mapObservations.length === 0 && eventObservations.length === 0 && !earth2) return <EmptyWidgetState type="earth" label="Earth Simulator" />
-      return <EarthWidget data={mapObservations} earth2Data={earth2} eventsData={eventObservations} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      if (
+        mapObservations.length === 0 &&
+        eventObservations.length === 0 &&
+        !earth2 &&
+        !aircraft?.length &&
+        !vessels?.length &&
+        !satellites?.length &&
+        !devices?.length &&
+        !searchQuery
+      ) return <EmptyWidgetState type="earth" label="Earth Simulator" />
+      return (
+        <EarthWidget
+          data={mapObservations}
+          earth2Data={earth2}
+          eventsData={eventObservations}
+          searchQuery={searchQuery}
+          liveEntities={[
+            ...(aircraft ?? []).map((item) => ({ ...item, type: "aircraft" })),
+            ...(vessels ?? []).map((item) => ({ ...item, type: "vessel" })),
+            ...(satellites ?? []).map((item) => ({ ...item, type: "satellite" })),
+            ...(devices ?? []).map((item) => ({ ...item, type: "device" })),
+          ]}
+          isFocused={isFocused}
+          onAddToNotepad={onAddToNotepad}
+        />
+      )
     case "embedding_atlas":
       return <EmbeddingAtlasWidget query={searchQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "events":

@@ -1,43 +1,76 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-// Mock MYCA AI responses for demonstration
-const mockResponses = [
-  "Based on the morphological characteristics you've described, this appears to be from the Agaricus genus. The brown spore print and ring on the stem are key identifying features.",
-  "The spore count data shows typical seasonal patterns for temperate regions. Peak dispersal usually occurs during autumn months when humidity levels are optimal.",
-  "Current network status shows 847 active monitoring stations across North America. All systems are operational with 99.2% uptime this month.",
-  "The mycorrhizal connections you're observing indicate a healthy forest ecosystem. These symbiotic relationships are crucial for nutrient exchange.",
-  "Recent discoveries in our database include 23 new species documented this quarter, with particularly interesting finds in tropical regions.",
-]
-
-const mockSuggestions = [
-  "What species are currently active in the network?",
-  "Show me the latest spore count data",
-  "How is the monitoring system performing?",
-  "Explain mycorrhizal network connections",
-  "What are the recent species discoveries?",
-  "Help me identify this mushroom specimen",
-  "What's the current environmental data?",
-  "Show me cultivation best practices",
-]
+import { assertScopedMasUserId, masHttpBaseUrl, masJsonHeaders } from "@/lib/myca/scoped-mas-user"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const action = searchParams.get("action")
 
   if (action === "suggestions") {
-    return NextResponse.json({
-      suggestions: mockSuggestions.slice(0, 4),
-      timestamp: new Date().toISOString(),
-    })
+    try {
+      const MAS_BASE = masHttpBaseUrl()
+      const built = new URL(`${MAS_BASE}/api/myca/suggestions`)
+      const sessionId = searchParams.get("session_id")
+      if (sessionId) built.searchParams.set("session_id", sessionId)
+      const scope = await assertScopedMasUserId(searchParams.get("user_id"))
+      if ("denied" in scope) return scope.denied
+      built.searchParams.set("user_id", scope.scopedUserId)
+
+      const res = await fetch(built.toString(), {
+        headers: masJsonHeaders(),
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!res.ok) {
+        return NextResponse.json(
+          {
+            suggestions: [] as string[],
+            timestamp: new Date().toISOString(),
+            error: `MAS returned ${res.status}; configure MAS for live suggestions.`,
+          },
+          { status: 200 }
+        )
+      }
+      const data = await res.json()
+      const suggestions = Array.isArray(data?.suggestions)
+        ? data.suggestions
+        : Array.isArray(data)
+          ? data
+          : data?.items || []
+      return NextResponse.json({
+        suggestions,
+        timestamp: new Date().toISOString(),
+      })
+    } catch {
+      return NextResponse.json(
+        {
+          suggestions: [] as string[],
+          timestamp: new Date().toISOString(),
+          error: "Suggestions require a reachable MAS instance.",
+        },
+        { status: 200 }
+      )
+    }
   }
 
   if (action === "context") {
-    return NextResponse.json({
-      status: "operational",
-      activeNodes: 847,
-      systemHealth: 99.2,
-      lastUpdate: new Date().toISOString(),
-    })
+    try {
+      const MAS_BASE = masHttpBaseUrl()
+      const health = await fetch(`${MAS_BASE}/health`, {
+        headers: masJsonHeaders(),
+        signal: AbortSignal.timeout(3000),
+      }).catch(() => null)
+      return NextResponse.json({
+        status: health?.ok ? "operational" : "degraded",
+        masReachable: Boolean(health?.ok),
+        lastChecked: new Date().toISOString(),
+      })
+    } catch {
+      return NextResponse.json({
+        status: "unknown",
+        masReachable: false,
+        lastChecked: new Date().toISOString(),
+      })
+    }
   }
 
   return NextResponse.json({
@@ -57,67 +90,71 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { question, context, userId } = await request.json()
+    const { question, context, userId: bodyUserId, session_id, conversation_id } = await request.json()
 
     if (!question) {
+      return NextResponse.json({ error: "Question is required" }, { status: 400 })
+    }
+
+    const scope = await assertScopedMasUserId(
+      typeof bodyUserId === "string" && bodyUserId.trim() ? bodyUserId.trim() : null
+    )
+    if ("denied" in scope) return scope.denied
+
+    const message = context ? `${question}\n\n[Context: ${context}]` : String(question)
+    const MAS_BASE = masHttpBaseUrl()
+
+    const res = await fetch(`${MAS_BASE}/api/myca/chat`, {
+      method: "POST",
+      headers: masJsonHeaders(),
+      body: JSON.stringify({
+        message,
+        user_id: scope.scopedUserId,
+        session_id: session_id || `myca-rest-${Date.now()}`,
+        conversation_id,
+      }),
+      signal: AbortSignal.timeout(60000),
+    })
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "")
       return NextResponse.json(
         {
-          error: "Question is required",
+          answer: "",
+          confidence: 0,
+          sources: [],
+          suggestedQuestions: [],
+          timestamp: new Date().toISOString(),
+          error: `MAS chat failed (${res.status}): ${errText || "no body"}`,
         },
-        { status: 400 },
+        { status: 502 }
       )
     }
 
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    // Select a contextual response based on keywords
-    let response = mockResponses[0] // default
-    const lowerQuestion = question.toLowerCase()
-
-    if (lowerQuestion.includes("spore") || lowerQuestion.includes("count")) {
-      response = mockResponses[1]
-    } else if (
-      lowerQuestion.includes("network") ||
-      lowerQuestion.includes("status") ||
-      lowerQuestion.includes("system")
-    ) {
-      response = mockResponses[2]
-    } else if (lowerQuestion.includes("mycorrhiz") || lowerQuestion.includes("connection")) {
-      response = mockResponses[3]
-    } else if (
-      lowerQuestion.includes("discover") ||
-      lowerQuestion.includes("new") ||
-      lowerQuestion.includes("recent")
-    ) {
-      response = mockResponses[4]
-    }
-
-    // Generate relevant follow-up suggestions
-    const relevantSuggestions = mockSuggestions
-      .filter((s) => !s.toLowerCase().includes(lowerQuestion.split(" ")[0]))
-      .slice(0, 3)
+    const data = await res.json()
+    const answer = data.message || data.response || data.content || ""
 
     return NextResponse.json({
-      answer: response,
-      confidence: 0.85 + Math.random() * 0.1, // 85-95%
-      sources: ["MINDEX Database", "NatureOS Network", "Field Observations"],
-      suggestedQuestions: relevantSuggestions,
+      answer: typeof answer === "string" ? answer : String(answer),
+      confidence: typeof data.confidence === "number" ? data.confidence : 0.85,
+      sources: data.sources || [],
+      suggestedQuestions: data.suggested_questions || data.suggestedQuestions || [],
       timestamp: new Date().toISOString(),
-      fallback: false,
     })
   } catch (error) {
     console.error("MYCA API error:", error)
 
-    return NextResponse.json({
-      answer:
-        "I'm experiencing some technical difficulties right now. Please try your question again in a moment, or contact our support team if the issue persists.",
-      confidence: 0.0,
-      sources: [],
-      suggestedQuestions: mockSuggestions.slice(0, 3),
-      timestamp: new Date().toISOString(),
-      fallback: true,
-    })
+    return NextResponse.json(
+      {
+        answer: "",
+        confidence: 0,
+        sources: [],
+        suggestedQuestions: [],
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    )
   }
 }
 
@@ -126,10 +163,13 @@ export async function PUT(request: NextRequest) {
     const { action, conversationId, feedback } = await request.json()
 
     if (action === "feedback") {
-      // Log feedback for improvement (in a real app, this would go to a database)
+      const scope = await assertScopedMasUserId(null)
+      if ("denied" in scope) return scope.denied
+
       console.log("User feedback received:", {
         conversationId,
         feedback,
+        user_id: scope.scopedUserId,
         timestamp: new Date().toISOString(),
       })
 
@@ -139,19 +179,9 @@ export async function PUT(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(
-      {
-        error: "Invalid action",
-      },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
   } catch (error) {
     console.error("MYCA feedback error:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to process feedback",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to process feedback" }, { status: 500 })
   }
 }

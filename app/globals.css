@@ -907,3 +907,576 @@ html.crep-mobile .crep-map-container {
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -14px 24px rgba(0, 0, 0, 0.08) !important;
 }
+/* NatureOS / Apps glass template: About-style neuromorphic glass for new platform pages. */
+.natureos-glass-page [data-slot="card"],
+.natureos-glass-page .bg-card,
+.natureos-glass-page .rounded-lg.border:not(.petri-canvas-glass),
+.natureos-glass-page .rounded-xl.border:not(.petri-canvas-glass),
+.natureos-glass-page .rounded-2xl.border:not(.petri-canvas-glass),
+.natureos-glass-page .rounded-3xl.border:not(.petri-canvas-glass) {
+  background: rgba(255, 255, 255, 0.58) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62) !important;
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.natureos-glass-page button,
+.natureos-glass-page a[role="button"],
+.natureos-glass-page [data-sidebar="menu-button"],
+.natureos-glass-page .btn,
+.natureos-glass-page [class*="inline-flex"][class*="border"] {
+  border-color: rgba(255, 255, 255, 0.46) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.32) 46%, rgba(255, 255, 255, 0.18)) !important;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -12px 20px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+html:not(.dark) .natureos-glass-page {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .natureos-glass-page :where(h1, h2, h3, h4, h5, h6, p, span, div, label, li, td, th):not([data-over-video] *):not(.text-white):not([class*="text-white"]) {
+  color: inherit;
+}
+
+html:not(.dark) .natureos-glass-page .text-white,
+html:not(.dark) .natureos-glass-page [class*="text-white"],
+html:not(.dark) .natureos-glass-page .text-gray-100,
+html:not(.dark) .natureos-glass-page .text-gray-200,
+html:not(.dark) .natureos-glass-page .text-gray-300,
+html:not(.dark) .natureos-glass-page .text-gray-400,
+html:not(.dark) .natureos-glass-page .text-zinc-100,
+html:not(.dark) .natureos-glass-page .text-zinc-200,
+html:not(.dark) .natureos-glass-page .text-zinc-300,
+html:not(.dark) .natureos-glass-page .text-zinc-400 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .natureos-glass-page .text-muted-foreground,
+html:not(.dark) .natureos-glass-page [class*="text-muted-foreground"] {
+  color: #334155 !important;
+}
+
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"] {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .natureos-glass-page button:not([data-sidebar="menu-button"][data-active="true"]),
+html:not(.dark) .natureos-glass-page a[role="button"]:not([data-sidebar="menu-button"][data-active="true"]),
+html:not(.dark) .natureos-glass-page [role="button"]:not([data-sidebar="menu-button"][data-active="true"]) {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .natureos-glass-page button:not([data-sidebar="menu-button"][data-active="true"]) *,
+html:not(.dark) .natureos-glass-page a[role="button"]:not([data-sidebar="menu-button"][data-active="true"]) *,
+html:not(.dark) .natureos-glass-page [role="button"]:not([data-sidebar="menu-button"][data-active="true"]) * {
+  color: #0f172a !important;
+  stroke: currentColor;
+}
+
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"]:hover {
+  color: #0f172a !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(226, 232, 240, 0.6) 48%, rgba(255, 255, 255, 0.38)) !important;
+}
+
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] {
+  color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.72) !important;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.84) 48%, rgba(15, 23, 42, 0.72)) !important;
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -16px 26px rgba(255, 255, 255, 0.08) !important;
+}
+
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] *,
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] svg,
+html:not(.dark) .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] span {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+
+html:not(.dark) .natureos-glass-page [data-over-video],
+html:not(.dark) .natureos-glass-page [data-over-video] *,
+html:not(.dark) .natureos-glass-page .preserve-media-text,
+html:not(.dark) .natureos-glass-page .preserve-media-text * {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .natureos-glass-page [class*="bg-gray-900"],
+html:not(.dark) .natureos-glass-page [class*="bg-zinc-900"],
+html:not(.dark) .natureos-glass-page [class*="bg-slate-900"],
+html:not(.dark) .natureos-glass-page [class*="bg-black"] {
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+html:not(.dark) .natureos-glass-page input,
+html:not(.dark) .natureos-glass-page textarea,
+html:not(.dark) .natureos-glass-page select {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .natureos-glass-page input::placeholder,
+html:not(.dark) .natureos-glass-page textarea::placeholder {
+  color: rgba(51, 65, 85, 0.68) !important;
+}
+
+.dark .natureos-glass-page [data-slot="card"],
+.dark .natureos-glass-page .bg-card,
+.dark .natureos-glass-page .rounded-lg.border:not(.petri-canvas-glass),
+.dark .natureos-glass-page .rounded-xl.border:not(.petri-canvas-glass),
+.dark .natureos-glass-page .rounded-2xl.border:not(.petri-canvas-glass),
+.dark .natureos-glass-page .rounded-3xl.border:not(.petri-canvas-glass) {
+  background: rgba(15, 23, 42, 0.46) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow:
+    0 22px 55px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .natureos-glass-page button,
+.dark .natureos-glass-page a[role="button"],
+.dark .natureos-glass-page [data-sidebar="menu-button"],
+.dark .natureos-glass-page .btn,
+.dark .natureos-glass-page [class*="inline-flex"][class*="border"] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(15, 23, 42, 0.48) 48%, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -14px 24px rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] {
+  color: #ffffff !important;
+  border-color: rgba(96, 165, 250, 0.54) !important;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.58), rgba(15, 23, 42, 0.68) 52%, rgba(14, 165, 233, 0.36)) !important;
+}
+
+.natureos-glass-page .petri-canvas-glass {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.38) 42%, rgba(226, 232, 240, 0.24)),
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.62), transparent 32%),
+    radial-gradient(circle at 78% 82%, rgba(148, 163, 184, 0.24), transparent 34%) !important;
+  border-color: rgba(255, 255, 255, 0.56) !important;
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    inset 0 -18px 34px rgba(15, 23, 42, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: translateZ(0);
+}
+
+.natureos-glass-page .petri-app-frame {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2) 46%, rgba(148, 163, 184, 0.16)),
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.5), transparent 30%),
+    radial-gradient(circle at 88% 92%, rgba(14, 165, 233, 0.12), transparent 32%) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    0 28px 74px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.66),
+    inset 0 -24px 44px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  contain: paint;
+  isolation: isolate;
+}
+
+.natureos-glass-page .petri-dish-stage {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(226, 232, 240, 0.08)) !important;
+  background-repeat: no-repeat;
+  contain: paint;
+  isolation: isolate;
+}
+
+.natureos-glass-page .petri-console-glass {
+  background: rgba(255, 255, 255, 0.42) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58) !important;
+}
+
+.natureos-glass-page .petri-controls-glass {
+  background: rgba(255, 255, 255, 0.34) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow:
+    0 22px 54px rgba(15, 23, 42, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54) !important;
+}
+
+.dark .natureos-glass-page .petri-canvas-glass {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(15, 23, 42, 0.46) 48%, rgba(255, 255, 255, 0.08)),
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 78% 82%, rgba(14, 165, 233, 0.16), transparent 34%) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -18px 34px rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .natureos-glass-page .petri-app-frame {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(15, 23, 42, 0.32) 48%, rgba(255, 255, 255, 0.06)),
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.14), transparent 30%),
+    radial-gradient(circle at 88% 92%, rgba(14, 165, 233, 0.16), transparent 32%) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 28px 74px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -24px 44px rgba(255, 255, 255, 0.03) !important;
+}
+
+.dark .natureos-glass-page .petri-dish-stage {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(15, 23, 42, 0.1)) !important;
+}
+
+.dark .natureos-glass-page .petri-console-glass,
+.dark .natureos-glass-page .petri-controls-glass {
+  background: rgba(15, 23, 42, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .natureos-glass-page .petri-controls-glass button,
+.dark .natureos-glass-page .petri-controls-glass button *,
+.dark .natureos-glass-page .petri-controls-glass [role="combobox"],
+.dark .natureos-glass-page .petri-controls-glass [role="combobox"] *,
+.dark .natureos-glass-page .petri-controls-glass label,
+.dark .natureos-glass-page .petri-controls-glass span,
+.dark .natureos-glass-page .petri-controls-glass svg {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+
+.natureos-glass-page button,
+.natureos-glass-page a[role="button"],
+.natureos-glass-page [data-sidebar="menu-button"] {
+  touch-action: manipulation;
+}
+
+.natureos-glass-page button:not([data-state="active"]),
+.natureos-glass-page a[role="button"] {
+  backdrop-filter: blur(14px) saturate(1.18);
+}
+
+.natureos-glass-page input,
+.natureos-glass-page textarea,
+.natureos-glass-page select {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  backdrop-filter: blur(12px);
+}
+
+.dark .natureos-glass-page input,
+.dark .natureos-glass-page textarea,
+.dark .natureos-glass-page select {
+  background: rgba(15, 23, 42, 0.52) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+}
+
+.science-glass-page {
+  background: #fff;
+  color: #0f172a;
+}
+
+.dark .science-glass-page {
+  background: #000;
+  color: #fff;
+}
+
+.science-glass-page section:not([data-over-video]) {
+  background: #fff !important;
+  color: #0f172a !important;
+}
+
+.dark .science-glass-page section:not([data-over-video]) {
+  background: #050806 !important;
+  color: #f8fafc !important;
+}
+
+.home-command-page-light section:not([data-over-video]) {
+  background: #fff !important;
+  color: #0f172a !important;
+}
+
+.home-command-page-light .home-direct-links-eyebrow {
+  color: #dc2626 !important;
+}
+
+.home-command-page-light .home-direct-links-title,
+.home-command-page-light .home-direct-links-copy {
+  color: #0f172a !important;
+}
+
+.home-command-page-light .home-video-tile {
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+}
+
+.dark .home-command-page-light section:not([data-over-video]) {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+.dark .home-command-page-light .home-direct-links-eyebrow {
+  color: #f87171 !important;
+}
+
+.dark .home-command-page-light .home-direct-links-title {
+  color: #fff !important;
+}
+
+.dark .home-command-page-light .home-direct-links-copy {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.myco-hero-search-card {
+  --myco-glass-radius: 20px;
+  --myco-light-reflect:
+    inset -5px 20px 2px -20px rgba(255, 255, 255, 0.9),
+    inset 5px -20px 2px -20px rgba(255, 255, 255, 0.72);
+  --myco-shadow-reflect:
+    inset -19px 1px 2px -20px rgba(0, 0, 0, 0.75),
+    inset 19px 1px 2px -20px rgba(0, 0, 0, 0.72),
+    inset -15px -26px 3px -30px rgba(0, 0, 0, 0.72);
+}
+
+.myco-hero-heading-glass,
+.myco-hero-input-glass {
+  position: relative;
+  border-radius: var(--myco-glass-radius);
+  color: #fff;
+  text-shadow: 0 0.25em 1px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  box-shadow:
+    5px -30px 30px -20px rgba(255, 255, 255, 0.28),
+    5px 10px 30px -20px rgba(255, 255, 255, 0.24),
+    0.5px 1px 1.1px rgba(0, 0, 0, 0.22),
+    3.9px 8.4px 9.3px -1.1px rgba(0, 0, 0, 0.2),
+    13.4px 28.9px 32px -2.2px rgba(0, 0, 0, 0.18),
+    inset 0 -8px 3px -5px rgba(255, 255, 255, 0.2),
+    inset 0 -20px 10px -15px rgba(255, 255, 255, 0.3),
+    inset -40px 50px 7px -55px rgba(0, 0, 0, 0.26);
+}
+
+.myco-hero-search-card,
+.myco-hero-heading-glass,
+.myco-hero-input-glass,
+.myco-hero-search-card input,
+.myco-hero-search-card button,
+.myco-hero-search-card a,
+.myco-hero-chip-glass {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.myco-hero-search-card:focus,
+.myco-hero-search-card:focus-visible,
+.myco-hero-heading-glass:focus,
+.myco-hero-heading-glass:focus-visible,
+.myco-hero-input-glass:focus,
+.myco-hero-input-glass:focus-within,
+.myco-hero-input-glass:focus-visible,
+.myco-hero-search-card input:focus,
+.myco-hero-search-card input:focus-visible,
+.myco-hero-search-card button:focus,
+.myco-hero-search-card button:focus-visible,
+.myco-hero-search-card a:focus,
+.myco-hero-search-card a:focus-visible {
+  outline: none !important;
+  box-shadow: none;
+}
+
+.myco-hero-search-card ::selection {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.myco-hero-search-card,
+.myco-hero-search-card h1,
+.myco-hero-search-card p,
+.myco-hero-search-card span,
+.myco-hero-search-card svg {
+  color: #fff !important;
+}
+
+.myco-hero-search-card input {
+  color: #fff !important;
+}
+
+.myco-hero-search-card input::placeholder {
+  color: rgba(255, 255, 255, 0.72) !important;
+  opacity: 1;
+}
+
+.myco-hero-heading-glass {
+  min-height: 15rem;
+  overflow: hidden;
+  background:
+    linear-gradient(45deg,
+      rgba(133, 213, 231, 0.34),
+      rgba(122, 158, 210, 0.33),
+      rgba(186, 106, 201, 0.25),
+      rgba(222, 84, 194, 0.14),
+      rgba(248, 107, 45, 0.31));
+  background-size: 120% 120%;
+  animation: mycoHeroGlassGradient 10s linear infinite;
+}
+
+.myco-hero-heading-glass::before,
+.myco-hero-heading-glass::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  border-radius: calc(var(--myco-glass-radius) - var(--inset));
+  box-shadow: var(--myco-light-reflect), var(--myco-shadow-reflect);
+}
+
+.myco-hero-heading-glass::before {
+  --inset: 2px;
+  inset: 2px;
+  opacity: 0.62;
+}
+
+.myco-hero-heading-glass::after {
+  --inset: 4px;
+  inset: 4px;
+  opacity: 0.42;
+}
+
+.myco-hero-input-glass {
+  min-height: 5.5rem;
+  background: rgba(255, 255, 255, 0.11) !important;
+}
+
+.myco-hero-input-drop {
+  transform-origin: top center;
+}
+
+.myco-hero-input-glass:focus-within {
+  background: rgba(255, 255, 255, 0.13) !important;
+}
+
+.myco-hero-suggestions {
+  margin-top: 0.5rem;
+}
+
+.myco-hero-chip-glass {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px) saturate(1.18);
+  -webkit-backdrop-filter: blur(10px) saturate(1.18);
+  box-shadow:
+    inset 0 -6px 2px -5px rgba(255, 255, 255, 0.2),
+    inset 0 -14px 10px -14px rgba(255, 255, 255, 0.18),
+    5px 10px 30px -22px rgba(255, 255, 255, 0.26),
+    0 14px 32px rgba(0, 0, 0, 0.16);
+}
+
+.myco-hero-chip-glass:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.myco-hero-suggestion-panel {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(45deg,
+      rgba(133, 213, 231, 0.3),
+      rgba(122, 158, 210, 0.31),
+      rgba(186, 106, 201, 0.24),
+      rgba(222, 84, 194, 0.13),
+      rgba(248, 107, 45, 0.28)),
+    rgba(8, 12, 20, 0.48);
+  background-size: 120% 120%;
+  animation: mycoHeroGlassGradient 10s linear infinite;
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+  box-shadow:
+    5px -30px 30px -20px rgba(255, 255, 255, 0.26),
+    5px 10px 30px -20px rgba(255, 255, 255, 0.22),
+    0 24px 60px rgba(0, 0, 0, 0.34),
+    inset 0 -8px 3px -5px rgba(255, 255, 255, 0.2),
+    inset 0 -20px 10px -15px rgba(255, 255, 255, 0.28),
+    inset -40px 50px 7px -55px rgba(0, 0, 0, 0.28);
+}
+
+.myco-hero-suggestion-panel::before,
+.myco-hero-suggestion-panel::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  border-radius: inherit;
+  box-shadow: var(--myco-light-reflect), var(--myco-shadow-reflect);
+}
+
+.myco-hero-suggestion-panel::before {
+  inset: 2px;
+  opacity: 0.56;
+}
+
+.myco-hero-suggestion-panel::after {
+  inset: 4px;
+  opacity: 0.36;
+}
+
+.myco-hero-suggestion-list {
+  position: relative;
+  z-index: 1;
+  max-height: 7.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.36) transparent;
+}
+
+@media (min-width: 768px) {
+  .myco-hero-suggestion-list {
+    max-height: 11.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .myco-hero-suggestion-list {
+    max-height: 15rem;
+  }
+}
+
+.myco-hero-suggestion-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.myco-hero-suggestion-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.myco-hero-suggestion-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+@keyframes mycoHeroGlassGradient {
+  0% { background-size: 100% 100%; }
+  50% { background-size: 150% 150%; }
+  100% { background-size: 100% 100%; }
+}

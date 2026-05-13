@@ -5,6 +5,7 @@
  */
 
 export { MobileSearchChat, type DataCard, type MobileChatMessage } from "./MobileSearchChat"
+export { MobileSearchViewport } from "./MobileSearchViewport"
 export { ChatMessage } from "./ChatMessage"
 export { ChatInput } from "./ChatInput"
 export { DataCardRenderer } from "./DataCardRenderer"

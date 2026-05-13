@@ -7,6 +7,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 import { listAgentRuns, startAgentRun } from "@/lib/integrations/myca-mas"
+import { identityRuntimeContext, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    const identity = await resolveVerifiedIdentity()
 
     if (!body.agentId) {
       return NextResponse.json({ error: "agentId is required", code: "VALIDATION_ERROR" }, { status: 400 })
@@ -46,9 +48,13 @@ export async function POST(request: NextRequest) {
 
     const metadata = {
       ...(body.metadata || {}),
-      user_id: body.user_id || "anonymous",
+      user_id: identity.userId,
+      user_role: identity.userRole,
+      auth_trust_level: identity.authTrustLevel,
+      is_authenticated: identity.isAuthenticated,
       session_id: body.session_id,
       conversation_id: body.conversation_id,
+      runtime_context: identityRuntimeContext(identity),
     }
 
     const result = await startAgentRun({

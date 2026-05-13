@@ -17,7 +17,7 @@ const NORMALIZE: Record<string, WidgetType> = {
   media: "media",
   location: "location",
   news: "news",
-  crep: "crep",
+  crep: "earth",
   earth: "earth",
   earth2: "earth",
   map: "earth",

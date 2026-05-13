@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { resolveMasServerBaseUrl } from '@/lib/mas-server-url';
 import { resolveMindexServerBaseUrl } from '@/lib/mindex-base-url';
+import {
+  masServiceHeaders,
+  requireOwnerOrSuperuserIdentity,
+  resolveVerifiedIdentity,
+} from '@/lib/auth/verified-identity';
 
 const MINDEX_BASE_URL = resolveMindexServerBaseUrl();
 const MAS_BASE_URL = resolveMasServerBaseUrl();
@@ -121,6 +126,10 @@ function normalizeTrainingStatus(trainingRuns: any, standaloneTraining: any) {
 }
 
 export async function GET() {
+  const identity = await resolveVerifiedIdentity();
+  const authError = requireOwnerOrSuperuserIdentity(identity);
+  if (authError) return authError;
+
   const now = new Date().toISOString();
 
   const [mindex, standaloneTraining] = await Promise.all([
@@ -133,11 +142,12 @@ export async function GET() {
 
   // MAS can be single-worker or temporarily slow after restarts, so avoid
   // fanning out several long-running probes at once.
-  const trainingRuns = await getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 15000);
-  const checkpoints = await getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 15000);
-  const nlmHealth = await getJson(MAS_BASE_URL, ['/api/nlm/health'], 15000);
-  const nlmModelStatus = await getJson(MAS_BASE_URL, ['/api/nlm/model/status', '/api/nlm/model/info'], 15000);
-  const masHealth = await getJson(MAS_BASE_URL, ['/api/myca/status', '/health'], 15000);
+  const serviceHeaders = masServiceHeaders();
+  const trainingRuns = await getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 15000, serviceHeaders);
+  const checkpoints = await getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 15000, serviceHeaders);
+  const nlmHealth = await getJson(MAS_BASE_URL, ['/api/nlm/health'], 15000, serviceHeaders);
+  const nlmModelStatus = await getJson(MAS_BASE_URL, ['/api/nlm/model/status', '/api/nlm/model/info'], 15000, serviceHeaders);
+  const masHealth = await getJson(MAS_BASE_URL, ['/api/myca/status', '/health'], 15000, serviceHeaders);
 
   const training = normalizeTrainingStatus(trainingRuns, standaloneTraining);
   const masOnline = Boolean(masHealth);
@@ -214,6 +224,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const identity = await resolveVerifiedIdentity();
+    const authError = requireOwnerOrSuperuserIdentity(identity);
+    if (authError) return authError;
+
     const body = await req.json();
     const { action } = body;
 
@@ -247,7 +261,7 @@ export async function POST(req: Request) {
 
     const masRes = await fetch(`${MAS_BASE_URL}/api/nlm/training/${action}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: masServiceHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(12000),
     });

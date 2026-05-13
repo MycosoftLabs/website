@@ -26,7 +26,6 @@ import {
   Binary,
   Braces,
   Terminal,
-  Cloud,
   Layers,
   Settings,
   ChevronDown,
@@ -108,6 +107,7 @@ const navSections: NavSection[] = [
       { title: "Functions", href: "/natureos/functions", icon: Binary },
       { title: "SDK", href: "/natureos/sdk", icon: Braces },
       { title: "Cloud Shell", href: "/natureos/shell", icon: Terminal },
+      { title: "Settings", href: "/natureos/settings", icon: Settings },
     ],
   },
   {
@@ -125,16 +125,6 @@ const navSections: NavSection[] = [
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },
       { title: "Containers", href: "/natureos/containers", icon: Boxes, companyOnly: true },
       { title: "Monitoring", href: "/natureos/monitoring", icon: Activity, companyOnly: true },
-    ],
-  },
-  {
-    title: "Platform",
-    key: "platform",
-    defaultOpen: false,
-    items: [
-      { title: "Cloud Services", href: "/natureos/cloud", icon: Cloud, companyOnly: true },
-      { title: "Integration Hub", href: "/natureos/integrations", icon: Layers, companyOnly: true },
-      { title: "Settings", href: "/natureos/settings", icon: Settings },
     ],
   },
 ]

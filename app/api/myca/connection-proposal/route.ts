@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import type { ConnectionProposal, ImplementationPlan } from "@/lib/services/connection-proposer"
+import { identityRuntimeContext, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 interface ConnectionProposalRequest {
   source: {
@@ -258,6 +259,7 @@ function generatePatternBasedPlan(
 export async function POST(request: NextRequest) {
   try {
     const body: ConnectionProposalRequest = await request.json()
+    const identity = await resolveVerifiedIdentity()
     
     if (!body.source || !body.target) {
       return NextResponse.json(
@@ -282,9 +284,9 @@ export async function POST(request: NextRequest) {
       model: result.model,
       generatedAt: new Date().toISOString(),
       context: {
-        user_id: body.user_id || "anonymous",
         session_id: body.session_id,
         conversation_id: body.conversation_id,
+        ...identityRuntimeContext(identity),
       },
     })
   } catch (error) {

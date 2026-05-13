@@ -8,6 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  masServiceHeaders,
+  requireOwnerOrSuperuserIdentity,
+  resolveScopedUserId,
+  resolveVerifiedIdentity,
+} from '@/lib/auth/verified-identity';
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
 
@@ -18,7 +24,15 @@ const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const identity = await resolveVerifiedIdentity();
     const { action, ...data } = body;
+    const scopedUser = resolveScopedUserId(identity, data.user_id);
+    if (scopedUser.denied) return scopedUser.denied;
+    const payload = {
+      ...data,
+      user_id: scopedUser.userId,
+      auth_trust_level: identity.authTrustLevel,
+    };
 
     let endpoint = '/api/search/memory';
     let method = 'POST';
@@ -44,9 +58,10 @@ export async function POST(request: NextRequest) {
         method = 'POST';
         // Add query params for widget
         const params = new URLSearchParams({
-          session_id: data.session_id,
-          widget: data.widget,
-          ...(data.species_id && { species_id: data.species_id })
+          session_id: payload.session_id,
+          widget: payload.widget,
+          user_id: payload.user_id,
+          ...(payload.species_id && { species_id: payload.species_id })
         });
         endpoint = `/api/search/memory/widget-interaction?${params}`;
         break;
@@ -59,10 +74,10 @@ export async function POST(request: NextRequest) {
 
     const response = await fetch(`${MAS_API_URL}${endpoint}`, {
       method,
-      headers: {
+      headers: masServiceHeaders({
         'Content-Type': 'application/json',
-      },
-      body: action !== 'widget' ? JSON.stringify(data) : undefined,
+      }),
+      body: action !== 'widget' ? JSON.stringify(payload) : undefined,
     });
 
     if (!response.ok) {
@@ -92,38 +107,41 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id');
+    const identity = await resolveVerifiedIdentity();
+    const userScope = resolveScopedUserId(identity, searchParams.get('user_id'));
+    if (userScope.denied) return userScope.denied;
+    const wantsStats = searchParams.get('stats') === 'true';
 
-    // If user_id provided, get active session
-    if (userId) {
+    if (wantsStats) {
+      const authError = requireOwnerOrSuperuserIdentity(identity);
+      if (authError) return authError;
       const response = await fetch(
-        `${MAS_API_URL}/api/search/memory/active/${userId}`,
-        { method: 'GET' }
+        `${MAS_API_URL}/api/search/memory/stats`,
+        { method: 'GET', headers: masServiceHeaders() }
       );
 
       if (!response.ok) {
-        return NextResponse.json({ active: false });
+        return NextResponse.json(
+          { error: 'Failed to get stats' },
+          { status: response.status }
+        );
       }
 
-      const result = await response.json();
-      return NextResponse.json(result);
+      const stats = await response.json();
+      return NextResponse.json(stats);
     }
 
-    // Otherwise get stats
     const response = await fetch(
-      `${MAS_API_URL}/api/search/memory/stats`,
-      { method: 'GET' }
+      `${MAS_API_URL}/api/search/memory/active/${encodeURIComponent(userScope.userId)}`,
+      { method: 'GET', headers: masServiceHeaders() }
     );
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: 'Failed to get stats' },
-        { status: response.status }
-      );
+      return NextResponse.json({ active: false });
     }
 
-    const stats = await response.json();
-    return NextResponse.json(stats);
+    const result = await response.json();
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('Search memory error:', error);

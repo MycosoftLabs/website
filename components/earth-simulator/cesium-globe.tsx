@@ -16,6 +16,7 @@ import { StormCellVisualization } from "./earth2/storm-cell-visualization";
 import { WindFieldArrows } from "./earth2/wind-field-arrows";
 import { SporeParticleSystem } from "./earth2/spore-particle-system";
 import { ForecastHUD } from "./earth2/forecast-hud";
+import type { EarthContextFilters } from "@/lib/search/earth-context-filters";
 
 interface GridTile {
   id: string;
@@ -44,6 +45,17 @@ interface FungalObservation {
   quality_grade?: string;
 }
 
+interface ContextObservation {
+  id: number | string;
+  observed_on?: string;
+  latitude: number;
+  longitude: number;
+  species: string;
+  scientificName?: string;
+  source?: string;
+  imageUrl?: string;
+}
+
 interface CesiumGlobeProps {
   onViewportChange?: (viewport: { north: number; south: number; east: number; west: number }) => void;
   onCellClick?: (cellId: string, lat: number, lon: number) => void;
@@ -66,6 +78,10 @@ interface CesiumGlobeProps {
     earth2StormCells?: boolean;
     earth2Clouds?: boolean;
   };
+  contextQuery?: string;
+  earthContextFilters?: EarthContextFilters | null;
+  focusLocation?: { lat: number; lng: number; name?: string; zoomMeters?: number } | null;
+  liveEntities?: Array<Record<string, unknown>>;
 }
 
 export function CesiumGlobe({ 
@@ -74,7 +90,11 @@ export function CesiumGlobe({
   onTileClick,
   showLandGrid = false,
   gridTileSize = 0.5,
-  layers 
+  layers,
+  contextQuery = "",
+  earthContextFilters = null,
+  focusLocation = null,
+  liveEntities = [],
 }: CesiumGlobeProps) {
   const cesiumContainerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Viewer loaded from CDN has no TypeScript declarations in this context
@@ -83,11 +103,16 @@ export function CesiumGlobe({
   const gridEntitiesRef = useRef<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Entity instances from CDN-loaded library
   const fungalEntitiesRef = useRef<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Entity instances from CDN-loaded library
+  const contextEntitiesRef = useRef<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Entity instances from CDN-loaded library
+  const liveEntityRefs = useRef<any[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gridLoaded, setGridLoaded] = useState(false);
   const [gridStats, setGridStats] = useState<{ totalTiles: number; landTiles: number } | null>(null);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
+  const [contextObservations, setContextObservations] = useState<ContextObservation[]>([]);
   
   // Earth-2 AI Weather State
   const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
@@ -260,6 +285,92 @@ export function CesiumGlobe({
 
     loadCesium();
   }, [initialized, onViewportChange, onCellClick]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !initialized || !focusLocation) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
+    const Cesium = (window as any).Cesium;
+    if (!Cesium) return;
+    const lat = Number(focusLocation.lat);
+    const lng = Number(focusLocation.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(lng, lat, focusLocation.zoomMeters ?? 90000),
+      duration: 1.2,
+      orientation: {
+        heading: 0,
+        pitch: Cesium.Math.toRadians(-62),
+        roll: 0,
+      },
+    });
+  }, [focusLocation, initialized]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !initialized) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
+    const Cesium = (window as any).Cesium;
+    if (!Cesium) return;
+
+    liveEntityRefs.current.forEach((entity) => viewer.entities.remove(entity));
+    liveEntityRefs.current = [];
+
+    const enabledCategories = new Set((earthContextFilters?.enabledFilters ?? []).map((filter) => filter.category));
+    const enabledForType = (type: string) =>
+      (type === "aircraft" && enabledCategories.has("aircraft")) ||
+      (type === "vessel" && enabledCategories.has("vessel")) ||
+      (type === "satellite" && enabledCategories.has("satellite")) ||
+      (type === "device" && (enabledCategories.has("device") || layers?.devices));
+
+    const readNumber = (item: Record<string, unknown>, keys: string[]) => {
+      for (const key of keys) {
+        const value = key.split(".").reduce<unknown>((acc, part) => {
+          if (!acc || typeof acc !== "object") return undefined;
+          return (acc as Record<string, unknown>)[part];
+        }, item);
+        const num = Number(value);
+        if (Number.isFinite(num)) return num;
+      }
+      return null;
+    };
+
+    for (const item of liveEntities) {
+      const type = String(item.type ?? item.category ?? item.entity_type ?? "").toLowerCase();
+      if (!enabledForType(type)) continue;
+      const lat = readNumber(item, ["lat", "latitude", "location.lat", "location.latitude", "location.coordinates.1"]);
+      const lng = readNumber(item, ["lng", "lon", "longitude", "location.lng", "location.lon", "location.longitude", "location.coordinates.0"]);
+      if (lat == null || lng == null) continue;
+
+      const title = String((item.callsign ?? item.flightNumber ?? item.name ?? item.title ?? item.id ?? type) || "Live entity").trim();
+      const altitudeFeet = readNumber(item, ["altitude", "properties.altitude"]) ?? 4000;
+      const color = type === "aircraft" ? "#38bdf8" : type === "vessel" ? "#22d3ee" : type === "satellite" ? "#fbbf24" : "#22c55e";
+      const glyph = type === "aircraft" ? "AIR" : type === "vessel" ? "SEA" : type === "satellite" ? "SAT" : "DEV";
+      const entity = viewer.entities.add({
+        id: `search-${type}-${String(item.id ?? title)}-${lat}-${lng}`,
+        position: Cesium.Cartesian3.fromDegrees(lng, lat, Math.max(altitudeFeet * 0.3048, 1200)),
+        point: {
+          pixelSize: type === "aircraft" ? 10 : 8,
+          color: Cesium.Color.fromCssColorString(color),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+        },
+        label: {
+          text: `${glyph} ${title}`,
+          font: "12px sans-serif",
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -16),
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 400000),
+        },
+        description: `<div style="padding:10px;font-family:system-ui"><h3 style="margin:0 0 8px;color:${color}">${title}</h3><p><strong>Type:</strong> ${type}</p><p><strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>${type === "aircraft" ? `<p><strong>Altitude:</strong> ${Math.round(altitudeFeet).toLocaleString()} ft</p>` : ""}</div>`,
+      });
+      liveEntityRefs.current.push(entity);
+    }
+  }, [earthContextFilters, initialized, layers?.devices, liveEntities]);
 
   // Load grid stats once
   useEffect(() => {
@@ -597,6 +708,103 @@ export function CesiumGlobe({
 
     console.log(`[Earth Simulator] Rendered ${fungalEntitiesRef.current.length} fungal markers`);
   }, [fungalObservations, layers?.fungi, initialized]);
+
+  // Fetch context-specific organism observations (for searches like dolphins, bees, corals).
+  useEffect(() => {
+    if (!initialized || !layers?.organisms || !earthContextFilters?.searchTerms.species.length) {
+      setContextObservations([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const speciesQuery = earthContextFilters.searchTerms.species.join(" ");
+
+    const fetchContextData = async () => {
+      try {
+        const response = await fetch(
+          `/api/earth-simulator/search?q=${encodeURIComponent(speciesQuery)}&type=observation`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const rows = Array.isArray(data?.results?.observations) ? data.results.observations : [];
+        setContextObservations(rows
+          .map((obs: any) => ({
+            id: obs.id,
+            observed_on: obs.observed_on,
+            latitude: Number(obs.location?.lat),
+            longitude: Number(obs.location?.lon),
+            species: obs.species || speciesQuery,
+            scientificName: obs.species,
+            source: "iNaturalist",
+            imageUrl: obs.photos?.[0]?.url,
+          }))
+          .filter((obs: ContextObservation) => Number.isFinite(obs.latitude) && Number.isFinite(obs.longitude))
+        );
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Failed to fetch context observations:", error);
+        }
+      }
+    };
+
+    fetchContextData();
+    return () => controller.abort();
+  }, [earthContextFilters, initialized, layers?.organisms]);
+
+  // Render context-specific organism markers. These are separate from the default fungal layer.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !initialized) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
+    const Cesium = (window as any).Cesium;
+    if (!Cesium) return;
+
+    contextEntitiesRef.current.forEach(entity => {
+      viewer.entities.remove(entity);
+    });
+    contextEntitiesRef.current = [];
+
+    if (!layers?.organisms || contextObservations.length === 0) return;
+
+    contextObservations.forEach((obs) => {
+      if (!Number.isFinite(obs.latitude) || !Number.isFinite(obs.longitude)) return;
+      const entity = viewer.entities.add({
+        id: `context-${obs.id}`,
+        position: Cesium.Cartesian3.fromDegrees(obs.longitude, obs.latitude, 1200),
+        point: {
+          pixelSize: 9,
+          color: Cesium.Color.fromCssColorString("#38bdf8"),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+        },
+        label: {
+          text: obs.species || contextQuery || "Observation",
+          font: "12px sans-serif",
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -15),
+          show: false,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000),
+        },
+        description: `
+          <div style="padding: 10px; font-family: system-ui;">
+            <h3 style="margin: 0 0 8px; color: #38bdf8;">${obs.species || "Observation"}</h3>
+            ${obs.scientificName ? `<p style="margin: 0 0 8px; font-style: italic; color: #888;">${obs.scientificName}</p>` : ""}
+            <p style="margin: 0 0 4px;"><strong>Source:</strong> ${obs.source || "Search context"}</p>
+            ${obs.observed_on ? `<p style="margin: 0 0 4px;"><strong>Date:</strong> ${new Date(obs.observed_on).toLocaleDateString()}</p>` : ""}
+            ${obs.imageUrl ? `<img src="${obs.imageUrl}" style="max-width: 200px; border-radius: 4px; margin-top: 8px;" />` : ""}
+          </div>
+        `,
+      });
+      contextEntitiesRef.current.push(entity);
+    });
+  }, [contextObservations, contextQuery, initialized, layers?.organisms]);
 
   // NVIDIA Earth-2 layers are now rendered as React components below
   // This provides proper lifecycle management and uses the Earth2Client for real data

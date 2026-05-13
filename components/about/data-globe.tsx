@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { shouldUseLightweightVisuals } from "@/lib/client-motion"
 
@@ -30,16 +30,31 @@ function latLngToVector(lat: number, lng: number, radius: number) {
 
 export function DataGlobe({ className = "" }: DataGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [fallback, setFallback] = useState(false)
+  const [tabletBackdrop, setTabletBackdrop] = useState(false)
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const lightweight = shouldUseLightweightVisuals()
+    setTabletBackdrop(lightweight)
+    const fallbackTimer = window.setTimeout(() => setFallback(true), 2500)
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(30, 1, 1, 10000)
-    const renderer = new THREE.WebGLRenderer({ antialias: !lightweight, alpha: true, powerPreference: "low-power" })
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: !lightweight,
+        alpha: true,
+        powerPreference: lightweight ? "low-power" : "high-performance",
+      })
+    } catch {
+      window.clearTimeout(fallbackTimer)
+      setFallback(true)
+      return
+    }
     const group = new THREE.Group()
     const radius = 200
     const target = { x: Math.PI * 1.05, y: Math.PI / 8 }
@@ -57,10 +72,22 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
     renderer.domElement.style.inset = "0"
     renderer.domElement.style.width = "100%"
     renderer.domElement.style.height = "100%"
+    renderer.domElement.style.zIndex = "1"
     container.appendChild(renderer.domElement)
     scene.add(group)
 
-    const texture = new THREE.TextureLoader().load("/assets/about-globe/world.jpg")
+    const texture = new THREE.TextureLoader().load(
+      "/assets/about-globe/world.jpg",
+      () => {
+        window.clearTimeout(fallbackTimer)
+        setFallback(false)
+      },
+      undefined,
+      () => {
+        window.clearTimeout(fallbackTimer)
+        setFallback(true)
+      },
+    )
     texture.colorSpace = THREE.SRGBColorSpace
 
     const earth = new THREE.Mesh(
@@ -252,6 +279,7 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
       texture.dispose()
       renderer.dispose()
       renderer.domElement.remove()
+      window.clearTimeout(fallbackTimer)
     }
   }, [])
 
@@ -260,6 +288,30 @@ export function DataGlobe({ className = "" }: DataGlobeProps) {
       ref={containerRef}
       className={`data-globe-root overflow-hidden ${className}`}
       aria-hidden="true"
-    />
+    >
+      {fallback || tabletBackdrop ? (
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_45%,rgba(34,211,238,0.26),transparent_24%),radial-gradient(circle_at_52%_45%,rgba(15,23,42,0.65),rgba(2,6,23,0.95)_46%,transparent_47%),linear-gradient(120deg,rgba(34,211,238,0.12),transparent_42%,rgba(16,185,129,0.14))]">
+          <div className="about-tablet-globe absolute left-1/2 top-1/2 h-[min(72vw,640px)] w-[min(72vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/25 shadow-[0_0_90px_rgba(34,211,238,0.25),inset_0_0_65px_rgba(34,211,238,0.12)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(34,211,238,0.16)_50%,transparent_51%),linear-gradient(0deg,transparent_49%,rgba(34,211,238,0.12)_50%,transparent_51%)] bg-[size:96px_96px] opacity-40" />
+        </div>
+      ) : null}
+      <style jsx>{`
+        .about-tablet-globe {
+          animation: about-tablet-globe-pulse 12s ease-in-out infinite;
+        }
+
+        @keyframes about-tablet-globe-pulse {
+          0%,
+          100% {
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+            opacity: 0.78;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.04) rotate(5deg);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </div>
   )
 }

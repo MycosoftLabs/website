@@ -5,6 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  masServiceHeaders,
+  resolveScopedUserId,
+  resolveVerifiedIdentity,
+} from '@/lib/auth/verified-identity';
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
 
@@ -15,19 +20,15 @@ const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id');
+    const identity = await resolveVerifiedIdentity();
+    const scopedUser = resolveScopedUserId(identity, searchParams.get('user_id'));
     const limit = searchParams.get('limit') || '10';
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'user_id is required' },
-        { status: 400 }
-      );
-    }
+    if (scopedUser.denied) return scopedUser.denied;
 
     const response = await fetch(
-      `${MAS_API_URL}/api/search/memory/history?user_id=${encodeURIComponent(userId)}&limit=${limit}`,
-      { method: 'GET' }
+      `${MAS_API_URL}/api/search/memory/history?user_id=${encodeURIComponent(scopedUser.userId)}&limit=${limit}`,
+      { method: 'GET', headers: masServiceHeaders() }
     );
 
     if (!response.ok) {

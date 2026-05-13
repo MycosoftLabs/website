@@ -262,14 +262,13 @@ export function Footer() {
               <p suppressHydrationWarning>
                 Mycosoft, LLC — California operating subsidiary, federal contracting entity
               </p>
-              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+              <div className="pt-2 grid grid-cols-1 gap-y-1">
                 <p suppressHydrationWarning>
                   <span className="font-semibold text-foreground">UEI:</span> YK3ARVKJ77S9
-                </p>
-                <p suppressHydrationWarning>
+                  <span className="mx-2 text-muted-foreground/60">·</span>
                   <span className="font-semibold text-foreground">CAGE Code:</span> 9KR60
                 </p>
-                <p className="sm:col-span-2 text-xs" suppressHydrationWarning>
+                <p className="text-xs" suppressHydrationWarning>
                   Mycosoft, LLC is an active SAM.gov-registered supplier eligible for U.S. federal contracting.
                 </p>
               </div>

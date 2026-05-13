@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import {
+  masServiceHeaders,
+  resolveScopedUserId,
+  resolveVerifiedIdentity,
+} from "@/lib/auth/verified-identity"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -28,12 +32,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient()
-    const { data: auth } = await supabase.auth.getUser()
-    const userId = auth.user?.id || requestedUserId || "anonymous"
+    const identity = await resolveVerifiedIdentity()
+    const scopedUser = resolveScopedUserId(identity, requestedUserId)
+    if (scopedUser.denied) return scopedUser.denied
     const response = await fetch(
-      `${MAS_API_URL}/memory/conversations?user_id=${encodeURIComponent(userId)}&session_id=${encodeURIComponent(sessionId)}`,
-      { cache: "no-store" }
+      `${MAS_API_URL}/memory/conversations?user_id=${encodeURIComponent(scopedUser.userId)}&session_id=${encodeURIComponent(sessionId)}`,
+      { cache: "no-store", headers: masServiceHeaders() }
     )
     if (!response.ok) {
       const errorText = await response.text()
@@ -57,9 +61,9 @@ export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json()
     const { session_id, user_id, conversation_id, messages = [] } = body
-    const supabase = await createClient()
-    const { data: auth } = await supabase.auth.getUser()
-    const resolvedUserId = auth.user?.id || user_id || "anonymous"
+    const identity = await resolveVerifiedIdentity()
+    const scopedUser = resolveScopedUserId(identity, user_id)
+    if (scopedUser.denied) return scopedUser.denied
 
     if (!session_id || messages.length === 0) {
       return NextResponse.json(
@@ -72,15 +76,17 @@ export async function POST(request: NextRequest) {
       messages.map((message) =>
         fetch(`${MAS_API_URL}/memory/store`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: masServiceHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             session_id,
-            user_id: resolvedUserId,
+            user_id: scopedUser.userId,
             message: message.content,
             role: message.role,
             agent: message.agent,
             context: {
               conversation_id,
+              auth_trust_level: identity.authTrustLevel,
+              verified_role: identity.userRole,
               ...message.metadata,
             },
             timestamp: message.timestamp || new Date().toISOString(),

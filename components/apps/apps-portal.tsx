@@ -407,7 +407,7 @@ export function AppsPortal() {
 
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh">
+    <div className="natureos-glass-page min-h-dvh bg-white text-slate-950 dark:bg-[#0A1929] dark:text-white">
       {/* Hero Section with Background Video — data-over-video for theme-aware text over dark video */}
       <section className="relative py-24 overflow-hidden" data-over-video>
         {/* Background Video */}
@@ -741,7 +741,6 @@ export function AppsPortal() {
     </NeuromorphicProvider>
   )
 }
-
 
 
 

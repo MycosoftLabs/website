@@ -8,12 +8,86 @@ import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limite
 import { computeBlendedIntent } from "@/lib/search/compute-blended-intent"
 /** In-process call avoids HTTP self-fetch to `/api/search/unified` (dev can deadlock / starve → empty widgets + ChunkLoadError under parallel tests). */
 import { POST as unifiedSearchPost } from "../unified/route"
+import { createAdminClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 function sseEncode(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+}
+
+function countResults(payload: unknown): Record<string, number> {
+  const results = payload && typeof payload === "object" ? (payload as Record<string, unknown>).results : null
+  if (!results || typeof results !== "object") return {}
+  const counts: Record<string, number> = {}
+  for (const [key, value] of Object.entries(results)) {
+    if (Array.isArray(value)) counts[key] = value.length
+  }
+  return counts
+}
+
+async function recordSearchTelemetry(input: {
+  query: string
+  sessionId?: string
+  plan: Awaited<ReturnType<typeof computeBlendedIntent>>
+  unifiedPayload?: unknown
+}) {
+  try {
+    const admin = await createAdminClient()
+    const { data } = await admin
+      .from("search_intent_telemetry")
+      .insert({
+        session_id: input.sessionId ?? null,
+        query_text: input.query,
+        classification: input.plan.route.classification,
+        intent_type: input.plan.route.intent.type,
+        confidence: input.plan.confidence,
+        primary_widget: input.plan.route.primaryWidget,
+        secondary_widgets: input.plan.route.secondaryWidgets,
+        result_counts: countResults(input.unifiedPayload),
+        source: "search-stream",
+      })
+      .select("id")
+      .single()
+
+    await admin.from("search_earth_filter_decisions").insert({
+      intent_telemetry_id: data?.id ?? null,
+      query_text: input.query,
+      enabled_filters: input.plan.route.earthContextFilters.enabledFilters,
+      disabled_filters: input.plan.route.earthContextFilters.disabledFilters,
+      layer_state: input.plan.route.earthContextFilters.layerState,
+      search_terms: input.plan.route.earthContextFilters.searchTerms,
+      agent_refinement: { sources: input.plan.sources, deterministic: true },
+    })
+
+    const widgets = [input.plan.route.primaryWidget, ...input.plan.route.secondaryWidgets]
+      .filter(Boolean) as string[]
+    if (widgets.length) {
+      await admin.from("search_widget_usage").insert(
+        widgets.slice(0, 3).map((widget, index) => ({
+          session_id: input.sessionId ?? null,
+          query_text: input.query,
+          widget_id: widget,
+          rank: index + 1,
+          interaction: "shown",
+          device_class: "unknown",
+        }))
+      )
+    }
+
+    await admin.from("search_agent_audit_records").insert({
+      session_id: input.sessionId ?? null,
+      agent_id: input.plan.sources.masSession ? "mas-session-intention" : "heuristic-router",
+      query_text: input.query,
+      action: "resolve_earth_context_filters",
+      proposed_filters: input.plan.route.earthContextFilters.enabledFilters,
+      resolved_filters: input.plan.route.earthContextFilters.enabledFilters,
+      notes: "Client receives one resolved deterministic filter plan.",
+    })
+  } catch (error) {
+    console.warn("[search-stream] telemetry write skipped", error)
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -110,14 +184,25 @@ export async function GET(request: NextRequest) {
           body: JSON.stringify(unifiedBody),
         })
         const unifiedRes = await unifiedSearchPost(unifiedReq)
+        let unifiedPayload: unknown | undefined
         if (unifiedRes.ok) {
-          const unified = await unifiedRes.json()
-          send("widget-data", { source: "unified", payload: unified })
+          unifiedPayload = await unifiedRes.json()
+          send("widget-data", { source: "unified", payload: unifiedPayload })
         } else {
           send("widget-data", { source: "unified", error: `HTTP ${unifiedRes.status}` })
         }
 
-        send("ingest", { status: "skipped", note: "MINDEX ingest wired per-connector in follow-up jobs" })
+        void recordSearchTelemetry({
+          query: q,
+          sessionId,
+          plan,
+          unifiedPayload,
+        })
+
+        send("ingest", {
+          status: "queued-when-missing",
+          note: "Missing search buckets are recorded as MINDEX ETL improvement requests for MAS/MYCA enrichment.",
+        })
         send("done", { ok: true })
       } catch (e) {
         send("stream-error", { message: e instanceof Error ? e.message : "stream failed" })

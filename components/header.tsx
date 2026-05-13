@@ -468,7 +468,7 @@ export function Header() {
             onOpen={() => setOpenDropdown("apps")}
             onClose={() => setOpenDropdown(null)}
             accentColor="orange"
-            mainHref={user ? "/apps" : "/natureos"}
+            mainHref="/apps"
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 

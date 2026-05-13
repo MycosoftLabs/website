@@ -413,7 +413,7 @@ const SOURCE_REPOS = [
 export default function SciencePage() {
   return (
     <NeuromorphicProvider>
-      <div className="science-glass-page min-h-dvh bg-black text-white">
+      <div className="science-glass-page min-h-dvh bg-white text-slate-950 dark:bg-black dark:text-white">
         {/* ── Section 1: Hero ── */}
         <section
           className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden border-b border-white/10"
@@ -1221,6 +1221,49 @@ export default function SciencePage() {
               0 9px 24px rgba(255, 255, 255, 0.12),
               inset 0 1px 0 rgba(255, 255, 255, 0.75),
               inset 0 -22px 38px rgba(255, 255, 255, 0.09) !important;
+          }
+
+          html:not(.dark) .science-glass-page {
+            background: #ffffff !important;
+            color: #0f172a !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) {
+            background: #ffffff !important;
+            border-color: rgba(15, 23, 42, 0.12) !important;
+            color: #0f172a !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) > div[aria-hidden="true"].absolute {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(236, 253, 245, 0.72), rgba(255, 255, 255, 0.98)) !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="text-white"] {
+            color: rgba(15, 23, 42, 0.86) !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="border-white"] {
+            border-color: rgba(15, 23, 42, 0.16) !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="bg-white/"],
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="bg-white["],
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="bg-black"] {
+            background: rgba(255, 255, 255, 0.72) !important;
+          }
+
+          html:not(.dark) .science-glass-page section:not([data-over-video]) .neu-raised,
+          html:not(.dark) .science-glass-page section:not([data-over-video]) .neu-raised-sm,
+          html:not(.dark) .science-glass-page section:not([data-over-video]) .neu-btn,
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="rounded-xl"][class*="border"],
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="rounded-2xl"][class*="border"],
+          html:not(.dark) .science-glass-page section:not([data-over-video]) [class*="rounded-3xl"][class*="border"] {
+            background:
+              linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.54) 44%, rgba(236, 253, 245, 0.38)) !important;
+            box-shadow:
+              0 18px 48px rgba(15, 23, 42, 0.14),
+              inset 0 1px 0 rgba(255, 255, 255, 0.82),
+              inset 0 -18px 34px rgba(15, 23, 42, 0.04) !important;
           }
         `}</style>
       </div>

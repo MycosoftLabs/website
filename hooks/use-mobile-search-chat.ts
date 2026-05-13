@@ -106,11 +106,12 @@ export function useMobileSearchChat(options: UseMobileSearchChatOptions = {}) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          conversation_id: myca.conversationId,
-          session_id: myca.sessionId,
           user_id: userId,
           context: {
             search_session_id: searchMemory.sessionId,
+            platform: "mobile-search",
+            isolate_from_chat_memory: true,
+            include_memory_context: false,
           },
         }),
       })
@@ -149,14 +150,13 @@ export function useMobileSearchChat(options: UseMobileSearchChatOptions = {}) {
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, addMessage, searchMemory, myca.conversationId, myca.sessionId, userId])
+  }, [isLoading, addMessage, searchMemory, userId])
 
   // Clear all messages
   const clearMessages = useCallback(() => {
     setMessages([])
     setError(null)
-    myca.clearMessages()
-  }, [myca])
+  }, [])
 
   // Save item to notepad (uses search context)
   const saveToNotepad = useCallback((message: MobileSearchMessage, card?: DataCard) => {
@@ -185,26 +185,6 @@ export function useMobileSearchChat(options: UseMobileSearchChatOptions = {}) {
       sendMessage(initialQuery)
     }
   }, [initialQuery, autoStart, sendMessage])
-
-  // Sync with MYCA messages (for persistence)
-  useEffect(() => {
-    // If MYCA has messages and we don't, sync them
-    if (myca.messages.length > 0 && messages.length === 0) {
-      const converted = myca.messages
-        .filter(m => m.role !== "system")
-        .map(m => ({
-          id: m.id,
-          role: m.role as MobileSearchMessage["role"],
-          content: m.content,
-          timestamp: m.timestamp,
-          dataCards: m.nlqData?.map(nlq => ({
-            type: mapNlqType(nlq.type),
-            data: { id: nlq.id, name: nlq.title, subtitle: nlq.subtitle },
-          })).filter((c): c is DataCard => c.type !== null),
-        }))
-      setMessages(converted)
-    }
-  }, [myca.messages, messages.length])
 
   return {
     // State

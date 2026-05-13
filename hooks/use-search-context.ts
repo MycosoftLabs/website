@@ -100,7 +100,7 @@ export function SearchContextProvider({
 
   // SWR for active session check
   const { data: activeSession, mutate: mutateActive } = useSWR(
-    userId ? `/api/search/memory?user_id=${encodeURIComponent(userId)}` : null,
+    userId ? `/api/search/memory` : null,
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds
@@ -151,7 +151,6 @@ export function SearchContextProvider({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'start',
-          user_id: userId,
         }),
       })
         .then(res => res.json())
@@ -171,7 +170,6 @@ export function SearchContextProvider({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'start',
-        user_id: userId,
       }),
     });
     const result = await response.json();

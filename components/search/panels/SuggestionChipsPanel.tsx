@@ -32,6 +32,14 @@ export function SuggestionChipsPanel() {
 
   if (chips.length === 0) return null
 
+  const runSuggestedSearch = (label: string) => {
+    executeSearchAction({ type: "search", query: label })
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", `/search?q=${encodeURIComponent(label)}`)
+      window.dispatchEvent(new CustomEvent("myca-search-action", { detail: { type: "search", query: label } }))
+    }
+  }
+
   return (
     <div className="border-t border-white/10 pt-3 mt-2" data-testid="suggestion-chips-panel">
       <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
@@ -47,7 +55,7 @@ export function SuggestionChipsPanel() {
               "min-h-[44px] rounded-full border border-white/10 bg-white/5 px-3 py-2 text-base text-foreground/90",
               "hover:bg-white/10 active:scale-[0.99] touch-manipulation text-left max-w-full",
             )}
-            onClick={() => executeSearchAction({ type: "search", query: label })}
+            onClick={() => runSuggestedSearch(label)}
           >
             <span className="line-clamp-2">{label}</span>
           </button>

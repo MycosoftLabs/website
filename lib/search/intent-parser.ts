@@ -198,7 +198,9 @@ const INFRASTRUCTURE_KEYWORDS = [
   "refinery", "pipeline", "power grid", "airport", "seaport", "spaceport",
   "railway", "railroad", "train station", "antenna", "cell tower",
   "internet cable", "submarine cable", "power line", "nuclear",
-  "military base", "military", "wind farm", "solar farm",
+  "sea cable", "undersea cable", "transmission line",
+  "military base", "military bases", "base", "bases", "military", "naval base",
+  "wind farm", "solar farm",
   "water treatment", "treatment plant", "reservoir",
 ]
 
@@ -251,6 +253,11 @@ export function parseSearchIntent(query: string): SearchIntent {
   const filters: SearchFilters = {}
   const entities: string[] = []
   const keywords: string[] = []
+  const scientificNameMatch = originalQuery.trim().match(/^([A-Z][a-z]+(?:\s+[a-z][a-z-]+){1,2})$/)
+  if (scientificNameMatch) {
+    entities.push(scientificNameMatch[1])
+    keywords.push(scientificNameMatch[1].toLowerCase())
+  }
 
   // Detect location
   for (const [locationKey, locationData] of Object.entries(LOCATIONS)) {
@@ -361,6 +368,9 @@ export function parseSearchIntent(query: string): SearchIntent {
   } else if (filters.location && !keywords.length) {
     type = "location"
     confidence = 0.75
+  } else if (scientificNameMatch) {
+    type = "species"
+    confidence = 0.95
   } else if (keywords.length > 0) {
     type = "species"
     confidence = 0.85

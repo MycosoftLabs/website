@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { PetriDishV2App } from "@/components/petri-dish-v2/petri-dish-app"
+import { MyceliumSimulator } from "@/components/apps/mycelium-simulator"
 import { MyceliumsegValidationPanel } from "@/components/scientific/myceliumseg-validation-panel"
 import { ArrowLeft, Microscope } from "lucide-react"
 
@@ -58,7 +58,9 @@ export function PetriDishSimContent({ showBackLink = true, variant = "app" }: Pe
         </div>
       </div>
 
-      <PetriDishV2App />
+      <div className="overflow-hidden rounded-2xl border bg-card/40 p-3">
+        <MyceliumSimulator />
+      </div>
 
       <MyceliumsegValidationPanel />
 

@@ -85,6 +85,14 @@ export function NatureStatisticsView() {
   const deathsToday = populationData?.deathsToday ?? 0
   const totalAgents = agentsData?.totalRegistered ?? agentsData?.count ?? 0
   const activeAgents = agentsData?.activeCount ?? 0
+  const formatLive = (value: unknown, suffix = "") =>
+    typeof value === "number" && Number.isFinite(value)
+      ? `${value.toLocaleString()}${suffix}`
+      : "Source unavailable"
+  const formatMoney = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      : "Source unavailable"
 
   return (
     <DashboardShell>
@@ -271,19 +279,19 @@ export function NatureStatisticsView() {
                 <div className="flex-1 p-3">
                   <span className="text-[9px] text-muted-foreground uppercase tracking-wider mb-2 block">Global Ecosystem</span>
                   <div className="text-xl font-bold text-indigo-400 tabular-nums">
-                    {(globalAgentsData?.x402?.activeSellers || 0).toLocaleString()}
+                    {formatLive(globalAgentsData?.x402?.activeSellers)}
                   </div>
                   <p className="text-[9px] text-muted-foreground mb-2">Agents on x402scan Network</p>
                   
                   <div className="space-y-1.5 mt-2 pt-2 border-t border-indigo-500/10">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-blue-400 flex items-center gap-1">✨ x402 Transactions</span>
-                      <span className="font-medium tabular-nums text-amber-400 animate-pulse">{(globalAgentsData?.x402?.transactions || 0).toLocaleString()}</span>
+                      <span className="font-medium tabular-nums text-amber-400 animate-pulse">{formatLive(globalAgentsData?.x402?.transactions)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-indigo-400 flex items-center gap-1">💎 x402 USDC Volume</span>
                       <span className="font-medium tabular-nums text-green-400">
-                        ${(globalAgentsData?.x402?.volumeUsdc || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        {formatMoney(globalAgentsData?.x402?.volumeUsdc)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-xs mt-1 border-t border-indigo-500/10 pt-1">
@@ -318,27 +326,27 @@ export function NatureStatisticsView() {
                 <div className="flex-1 p-3">
                   <span className="text-[9px] text-muted-foreground uppercase tracking-wider mb-2 block">Agent Internet</span>
                   <div className="text-xl font-bold text-sky-400 tabular-nums">
-                    {(globalAgentsData?.agent_internet?.agents || globalAgentsData?.x402?.activeSellers || 0).toLocaleString()}
+                    {formatLive(globalAgentsData?.agent_internet?.agents ?? globalAgentsData?.x402?.activeSellers)}
                   </div>
                   <p className="text-[9px] text-muted-foreground mb-2">Live registry agents</p>
                   
                   <div className="space-y-1.5 mt-2 pt-2 border-t border-sky-500/10">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-blue-400 flex items-center gap-1">Discussions</span>
-                      <span className="font-medium tabular-nums">{(globalAgentsData?.agent_internet?.discussions || 0).toLocaleString()}</span>
+                      <span className="font-medium tabular-nums">{formatLive(globalAgentsData?.agent_internet?.discussions)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-indigo-400 flex items-center gap-1">Upvotes</span>
-                      <span className="font-medium tabular-nums">{(globalAgentsData?.agent_internet?.upvotes || 0).toLocaleString()}</span>
+                      <span className="font-medium tabular-nums">{formatLive(globalAgentsData?.agent_internet?.upvotes)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-cyan-400 flex items-center gap-1">Sandboxes</span>
-                      <span className="font-medium tabular-nums">{(globalAgentsData?.agent_internet?.sandboxes || 0).toLocaleString()} Live</span>
+                      <span className="font-medium tabular-nums">{formatLive(globalAgentsData?.agent_internet?.sandboxes, " Live")}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-1 border-t border-sky-500/10">
                       <span className="text-green-400 font-medium">M2M Requests</span>
                       <span className="font-medium tabular-nums text-foreground animate-pulse text-green-500">
-                        {(globalAgentsData?.agent_internet?.m2mRequestsDaily || 0).toLocaleString()}/day
+                        {formatLive(globalAgentsData?.agent_internet?.m2mRequestsDaily, "/day")}
                       </span>
                     </div>
                     <div className="text-[8px] text-muted-foreground pt-1 flex gap-1 justify-end opacity-60">

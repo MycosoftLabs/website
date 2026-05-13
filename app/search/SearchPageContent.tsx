@@ -12,7 +12,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { SearchContextProvider } from "@/components/search/SearchContextProvider"
 import { SearchLayout } from "@/components/search/SearchLayout"
 import { FluidSearchCanvas } from "@/components/search/fluid/FluidSearchCanvas"
-import { MobileSearchChat } from "@/components/search/mobile/MobileSearchChat"
+import { MobileSearchViewport } from "@/components/search/mobile/MobileSearchViewport"
 import { Loader2, Brain } from "lucide-react"
 
 export default function SearchPageContent() {
@@ -65,7 +65,7 @@ export default function SearchPageContent() {
             </div>
           }
         >
-          <MobileSearchChat initialQuery={query} />
+          <MobileSearchViewport initialQuery={query} />
         </Suspense>
       </SearchContextProvider>
     )

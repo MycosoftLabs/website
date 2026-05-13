@@ -95,7 +95,7 @@ function AncestryDatabaseContent() {
       const k =
         kingdomFilter && kingdomFilter !== "all" ? `&kingdom=${encodeURIComponent(kingdomFilter)}` : ""
       const response = await fetch(
-        `/api/ancestry?limit=500&sort=alphabetical&prefix=${encodeURIComponent(selectedLetter)}&page=${Math.floor(letterOffset / 500) + 1}${k}`
+        `/api/ancestry?limit=1000&sort=popular&prefix=${encodeURIComponent(selectedLetter)}&page=${Math.floor(letterOffset / 1000) + 1}${k}`
       )
       if (response.ok) {
         const data = await response.json()
@@ -349,7 +349,7 @@ function AncestryDatabaseContent() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setLetterOffset((v) => v + 500)}
+                    onClick={() => setLetterOffset((v) => v + 1000)}
                   >
                     Load more {selectedLetter}…
                   </Button>

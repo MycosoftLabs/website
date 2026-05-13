@@ -9,8 +9,6 @@ import { PipelineDashboard } from './PipelineDashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Filter, Grid, List as ListIcon, Database, Layers, Lock, User as UserIcon } from 'lucide-react';
 import { Button } from './ui/button';
-import { collection, addDoc, setDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/nlm/firebase';
 import { UserProfile } from '@/lib/nlm/supabase-auth-hooks';
 
 import { MindexExplorer } from './MindexExplorer';
@@ -84,11 +82,15 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
     };
 
     try {
-      await setDoc(doc(db, 'variants', 'v1-standard'), {
-        ...baseVariant,
-        ownerId: userId,
-        createdAt: serverTimestamp()
+      const response = await fetch('/api/natureos/nlm-training/variants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...baseVariant,
+          ownerId: userId,
+        }),
       });
+      if (!response.ok) throw new Error(`Variant seed failed (${response.status})`);
       alert('Architecture Variant "Base-NLM-v1" seeded successfully!');
     } catch (error) {
       console.error('Error seeding architecture variant:', error);
@@ -122,11 +124,12 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
 
     const loadSettings = async () => {
       try {
-        const preferencesSnap = await getDoc(doc(db, 'nlm_dashboard_preferences', userId));
-        if (!cancelled && preferencesSnap.exists()) {
+        const prefRes = await fetch('/api/natureos/nlm-training/preferences', { cache: 'no-store' });
+        if (!cancelled && prefRes.ok) {
+          const prefData = await prefRes.json();
           setPreferences({
             ...DEFAULT_DASHBOARD_PREFERENCES,
-            ...preferencesSnap.data(),
+            ...(prefData.preferences || {}),
           });
         }
       } catch (error) {
@@ -155,15 +158,12 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
 
     setIsSavingPreferences(true);
     try {
-      await setDoc(
-        doc(db, 'nlm_dashboard_preferences', userId),
-        {
-          ...nextPreferences,
-          ownerId: userId,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      const response = await fetch('/api/natureos/nlm-training/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: nextPreferences }),
+      });
+      if (!response.ok) throw new Error(`Preference save failed (${response.status})`);
     } catch (error) {
       console.error('Error saving dashboard preferences:', error);
     } finally {
@@ -190,12 +190,13 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
 
     try {
       for (const modelData of baseModels) {
-        await addDoc(collection(db, 'models'), {
+        const response = await fetch('/api/natureos/nlm-training/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
           ...modelData,
           status: 'idle',
           ownerId: user?.id,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
           config: {
             architecture: 'v3.1-mamba-graph',
             variantId: 'v1-standard',
@@ -209,7 +210,9 @@ export function Dashboard({ activeTab, user, profile }: { activeTab: string, use
               epochs: 10
             }
           }
+          }),
         });
+        if (!response.ok) throw new Error(`Seed model failed (${response.status})`);
       }
       // Seeding complete, real-time listener will update the list
     } catch (error) {

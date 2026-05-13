@@ -7,12 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { masServiceHeaders, resolveVerifiedIdentity } from '@/lib/auth/verified-identity';
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
 
 interface EnrichRequest {
   query: string;
-  user_id: string;
+  user_id?: string;
   taxon_ids?: number[];
 }
 
@@ -23,10 +24,11 @@ interface EnrichRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: EnrichRequest = await request.json();
+    const identity = await resolveVerifiedIdentity();
 
-    if (!body.query || !body.user_id) {
+    if (!body.query) {
       return NextResponse.json(
-        { error: 'query and user_id are required' },
+        { error: 'query is required' },
         { status: 400 }
       );
     }
@@ -35,12 +37,13 @@ export async function POST(request: NextRequest) {
       `${MAS_API_URL}/api/search/memory/enrich`,
       {
         method: 'POST',
-        headers: {
+        headers: masServiceHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
         body: JSON.stringify({
           query: body.query,
-          user_id: body.user_id,
+          user_id: identity.userId,
+          auth_trust_level: identity.authTrustLevel,
           taxon_ids: body.taxon_ids || [],
         }),
       }

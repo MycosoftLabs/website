@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { FlaskConical } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ToolsHubHealthStrip } from "@/components/natureos/apps/tools-hub/tools-hub-health-strip"
@@ -172,12 +173,12 @@ function statusBadge(status: HubItem["status"]) {
 
 export function ToolsHubIndex() {
   return (
-    <div className="container mx-auto px-4 py-6 md:py-10 max-w-5xl space-y-10">
+    <div className="natureos-glass-page container mx-auto px-4 py-6 md:py-10 max-w-6xl space-y-8">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">NatureOS</p>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Science &amp; Lab Tools Hub</h1>
         <p className="text-sm sm:text-base text-muted-foreground max-w-3xl">
-          Seven categories catalog real routes only — nothing listed here is mock data. Items marked pending require an
+          Seven categories catalog real routes only - nothing listed here is mock data. Items marked pending require an
           upstream service or dataset before they surface live metrics.
         </p>
         <ToolsHubHealthStrip />
@@ -190,22 +191,25 @@ export function ToolsHubIndex() {
               <h2 className="text-xl font-semibold">{cat.title}</h2>
               <p className="text-sm text-muted-foreground">{cat.description}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {cat.items.map((item) => (
-                <Card key={item.name + item.href} className="border-border/70">
+                <Card key={item.name + item.href} className="aspect-square border-border/70 transition-transform hover:-translate-y-1">
                   <CardHeader className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
+                      <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/30 bg-white/30 shadow-inner dark:bg-white/10">
+                        <FlaskConical className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+                      </span>
                       <CardTitle className="text-lg">{item.name}</CardTitle>
                       {statusBadge(item.status)}
                     </div>
-                    <CardDescription className="text-base">{item.description}</CardDescription>
+                    <CardDescription className="line-clamp-4 text-sm">{item.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Link
                       href={item.href}
                       className="inline-flex min-h-[44px] items-center text-base font-medium text-primary underline-offset-4 hover:underline touch-manipulation"
                     >
-                      Open →
+                      Open -&gt;
                     </Link>
                   </CardContent>
                 </Card>

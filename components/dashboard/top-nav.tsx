@@ -45,8 +45,8 @@ const NATUREOS_SEARCH_TARGETS = [
   { label: "Live Telemetry", href: "/natureos/devices/telemetry", keywords: ["live", "telemetry", "sensor", "stream", "streams", "data"] },
   { label: "Device Registry", href: "/natureos/devices/registry", keywords: ["device", "devices", "registry", "mycobrain", "sporebase", "mushroom"] },
   { label: "Device Alerts", href: "/natureos/devices/alerts", keywords: ["notification", "notifications", "alert", "alerts", "events"] },
-  { label: "Device Map", href: "/natureos/devices/map", keywords: ["map", "location", "field", "fleet"] },
-  { label: "Earth Simulator", href: "/natureos/earth-simulator", keywords: ["earth", "simulator", "crep", "worldview", "world"] },
+  { label: "Device Map", href: "/natureos/devices/map", keywords: ["device map", "fleet map", "field fleet"] },
+  { label: "Earth Simulator", href: "/natureos/earth-simulator", keywords: ["earth", "simulator", "crep", "worldview", "world", "map", "maps", "geospatial", "location", "gps"] },
   { label: "NatureOS Settings", href: "/natureos/settings", keywords: ["settings", "config", "configuration", "account"] },
   { label: "API Resources", href: "/natureos/api", keywords: ["api", "resource", "resources", "docs", "documentation"] },
 ]
@@ -93,6 +93,7 @@ export function TopNav() {
   // ── Notifications: fetch from API ──
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notifLoading, setNotifLoading] = useState(false)
+  const [notifError, setNotifError] = useState<string | null>(null)
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -102,12 +103,14 @@ export function TopNav() {
         const data = await res.json()
         const items = Array.isArray(data) ? data : (data.notifications || [])
         setNotifications(items)
+        setNotifError(null)
       } else {
-        // Return empty notifications instead of showing an error state
         setNotifications([])
+        setNotifError("Live notification feed unavailable")
       }
     } catch {
-      // Silently fail - notifications are non-critical
+      setNotifications([])
+      setNotifError("Live notification feed unavailable")
     } finally {
       setNotifLoading(false)
     }
@@ -180,20 +183,20 @@ export function TopNav() {
 
   return (
     <>
-      <header className="h-12 md:h-14 border-b border-gray-800 bg-[#0A1929] sticky top-0 z-40">
+      <header className="natureos-top-nav h-12 md:h-14 border-b border-slate-200/70 bg-white/78 text-slate-950 shadow-sm shadow-slate-900/5 backdrop-blur-xl dark:border-gray-800 dark:bg-[#0A1929] dark:text-white sticky top-0 z-40">
         <div className="flex h-full items-center px-3 md:px-4 gap-x-1 md:gap-x-4 container mx-auto">
           {/* Back Button */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="text-gray-400 hover:text-white"
+            className="text-slate-700 hover:text-slate-950 dark:text-gray-400 dark:hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
 
           {/* Logo/Home */}
-          <Link href="/natureos" className="flex items-center gap-1 md:gap-2 font-semibold hover:text-blue-400 transition-colors">
+          <Link href="/natureos" className="flex items-center gap-1 md:gap-2 font-semibold text-slate-950 hover:text-blue-700 transition-colors dark:text-white dark:hover:text-blue-400">
             <Cloud className="h-5 w-5 md:h-6 md:w-6" />
             <span className="hidden sm:inline">NatureOS</span>
           </Link>
@@ -201,17 +204,17 @@ export function TopNav() {
           {/* Desktop Search Bar */}
           <form onSubmit={handleSearch} className="flex-1 max-w-xl ml-2 md:ml-8 hidden sm:flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-gray-400" />
               <Input
                 ref={searchInputRef}
                 placeholder="Search resources, settings, devices..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
-                className="pl-10 pr-20 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 focus-visible:ring-blue-500"
+                className="pl-10 pr-20 border-slate-300/70 bg-white/72 text-slate-950 placeholder:text-slate-500 focus-visible:ring-blue-500 dark:bg-gray-900 dark:border-gray-800 dark:text-white dark:placeholder:text-gray-500"
               />
               {matchingSearchTargets.length > 0 && (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-md border border-gray-800 bg-gray-950/95 p-1 shadow-xl backdrop-blur">
+                <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-md border border-slate-200 bg-white/95 p-1 shadow-xl backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
                   {matchingSearchTargets.map((target) => (
                     <button
                       key={target.href}
@@ -220,19 +223,19 @@ export function TopNav() {
                         router.push(target.href)
                         setSearchQuery("")
                       }}
-                      className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-gray-200 hover:bg-blue-500/15 hover:text-white"
+                      className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-800 hover:bg-blue-500/15 hover:text-slate-950 dark:text-gray-200 dark:hover:text-white"
                     >
                       <span>{target.label}</span>
-                      <span className="text-xs text-gray-500">{target.href.replace("/natureos/", "")}</span>
+                      <span className="text-xs text-slate-500 dark:text-gray-500">{target.href.replace("/natureos/", "")}</span>
                     </button>
                   ))}
                 </div>
               )}
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded">
+                <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] text-slate-500 bg-white/80 border border-slate-200 rounded dark:text-gray-500 dark:bg-gray-800 dark:border-gray-700">
                   Ctrl+K
                 </kbd>
-                <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-400">
+                <Button type="submit" variant="ghost" size="icon" className="h-6 w-6 text-slate-600 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">
                   <Search className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -245,7 +248,7 @@ export function TopNav() {
             <Button
               variant="ghost"
               size="icon"
-              className="sm:hidden text-gray-400 hover:text-white"
+              className="sm:hidden text-slate-700 hover:text-slate-950 dark:text-gray-400 dark:hover:text-white"
               onClick={() => setShowMobileSearch(true)}
             >
               <Search className="h-5 w-5" />
@@ -280,9 +283,13 @@ export function TopNav() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading...
                   </div>
+                ) : notifError ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm">
+                    {notifError}
+                  </div>
                 ) : notifications.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground text-sm">
-                    No notifications
+                    No live notifications from MYCA yet
                   </div>
                 ) : (
                   notifications.map((notif) => (

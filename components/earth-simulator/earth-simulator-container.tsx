@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, ReactNode } from "react";
+import { useState, useCallback, useEffect, ReactNode } from "react";
 import { CesiumGlobe } from "./cesium-globe";
 import { ComprehensiveSidePanel } from "./comprehensive-side-panel";
 import { LayerControls } from "./layer-controls";
@@ -8,6 +8,7 @@ import { Controls } from "./controls";
 import { HUD } from "./hud";
 import { EarthSimulatorErrorBoundary } from "./error-boundary";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
+import type { EarthContextFilters, EarthContextLayerState } from "@/lib/search/earth-context-filters";
 
 // Collapsible Control Panel Component
 interface ControlPanelProps {
@@ -73,9 +74,24 @@ interface GridTile {
 interface EarthSimulatorContainerProps {
   className?: string;
   variant?: "full" | "embedded";
+  initialQuery?: string;
+  earthContextFilters?: EarthContextFilters | null;
+  hideSidePanels?: boolean;
+  hideControls?: boolean;
+  focusLocation?: { lat: number; lng: number; name?: string; zoomMeters?: number } | null;
+  liveEntities?: Array<Record<string, unknown>>;
 }
 
-export function EarthSimulatorContainer({ className = "", variant = "full" }: EarthSimulatorContainerProps) {
+export function EarthSimulatorContainer({
+  className = "",
+  variant = "full",
+  initialQuery = "",
+  earthContextFilters = null,
+  hideSidePanels = false,
+  hideControls = false,
+  focusLocation = null,
+  liveEntities = [],
+}: EarthSimulatorContainerProps) {
   const [selectedCell, setSelectedCell] = useState<{
     cellId: string;
     lat: number;
@@ -90,7 +106,9 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
   } | null>(null);
   const [showLandGrid, setShowLandGrid] = useState(false);
   const [gridTileSize, setGridTileSize] = useState(0.5);
-  const [layers, setLayers] = useState({
+  const defaultLayers: EarthContextLayerState = earthContextFilters?.isContextual
+    ? earthContextFilters.layerState
+    : {
     // PRIORITY LAYERS - Fungal data first
     fungi: true,      // PRIMARY: Fungal observations from MINDEX/iNat/GBIF - ON by default
     devices: true,    // PRIMARY: MycoBrain devices - ON by default
@@ -112,7 +130,13 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
     earth2WindField: false,     // 3D wind field arrows
     earth2StormCells: false,    // 3D storm cell visualization
     earth2Clouds: false,        // Volumetric cloud rendering
-  });
+  };
+  const [layers, setLayers] = useState<EarthContextLayerState>(defaultLayers);
+
+  useEffect(() => {
+    if (!earthContextFilters?.isContextual) return;
+    setLayers(earthContextFilters.layerState);
+  }, [earthContextFilters]);
 
   const handleCellClick = useCallback((cellId: string, lat: number, lon: number) => {
     setSelectedCell({ cellId, lat, lon });
@@ -137,7 +161,7 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
 
   const isEmbedded = variant === "embedded";
   const containerClasses = isEmbedded
-    ? "earth-simulator-container w-full min-h-[70vh] relative flex flex-col lg:flex-row"
+    ? "earth-simulator-container w-full min-h-[70vh] relative flex"
     : "earth-simulator-container w-full h-screen relative flex";
   const panelClasses = isEmbedded
     ? "w-full lg:w-96 flex-shrink-0 z-20 max-h-[40vh] lg:max-h-none"
@@ -150,14 +174,16 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
     <EarthSimulatorErrorBoundary>
       <div className={`${containerClasses} ${className}`}>
       {/* Left Side Panel - Always Visible */}
-      <div className={panelClasses}>
-        <ComprehensiveSidePanel
-          viewport={viewport}
-          selectedCell={selectedCell}
-          layers={layers}
-          onCloseCell={() => setSelectedCell(null)}
-        />
-      </div>
+      {!hideSidePanels && (
+        <div className={panelClasses}>
+          <ComprehensiveSidePanel
+            viewport={viewport}
+            selectedCell={selectedCell}
+            layers={layers}
+            onCloseCell={() => setSelectedCell(null)}
+          />
+        </div>
+      )}
 
       {/* Main Globe Area */}
       <div className={globeClasses}>
@@ -170,10 +196,15 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
             showLandGrid={showLandGrid}
             gridTileSize={gridTileSize}
             layers={layers} 
+            contextQuery={initialQuery || earthContextFilters?.query || ""}
+            earthContextFilters={earthContextFilters}
+            focusLocation={focusLocation}
+            liveEntities={liveEntities}
           />
         </div>
 
         {/* Unified Control Panel - Right Side (Non-overlapping, Scrollable) */}
+        {!hideControls && (
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 max-h-[calc(100vh-6rem)] w-64 earth-sim-controls">
           {/* HUD - Viewport Info - Collapsible */}
           <ControlPanel title="Viewport" defaultOpen={false}>
@@ -184,7 +215,12 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
           <ControlPanel title="Layers" defaultOpen={true} badge={Object.values(layers).filter(Boolean).length}>
             <LayerControls 
               layers={layers} 
-              onLayersChange={(newLayers) => setLayers(prev => ({ ...prev, ...newLayers }))} 
+              onLayersChange={(newLayers) => setLayers(prev => ({
+                ...prev,
+                ...(Object.fromEntries(
+                  Object.entries(newLayers).filter(([, value]) => typeof value === "boolean")
+                ) as Record<string, boolean>),
+              }))}
             />
           </ControlPanel>
 
@@ -213,6 +249,7 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
             </div>
           </ControlPanel>
         </div>
+        )}
 
         {/* Selected Tile Info */}
         {selectedTile && (
@@ -240,9 +277,11 @@ export function EarthSimulatorContainer({ className = "", variant = "full" }: Ea
         )}
 
         {/* Controls */}
+        {!hideControls && (
         <div className="absolute bottom-4 right-4 z-10">
           <Controls />
         </div>
+        )}
       </div>
     </div>
     </EarthSimulatorErrorBoundary>
