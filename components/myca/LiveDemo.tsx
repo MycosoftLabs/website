@@ -216,7 +216,7 @@ export function LiveDemo({ className }: { className?: string }) {
   }, [])
 
   return (
-    <section className={cn("relative w-screen max-w-none left-1/2 -translate-x-1/2 py-16 md:py-24 overflow-hidden", className)}>
+    <section className={cn("myca-live-demo relative w-screen max-w-none left-1/2 -translate-x-1/2 py-16 md:py-24 overflow-hidden", className)}>
       <div className="absolute inset-0 w-full pointer-events-none">
         <MYCALiveDemoBackground className="w-full h-full" />
       </div>
@@ -258,7 +258,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   <span className="text-xs text-muted-foreground">— single stream</span>
                 </div>
                 <div
-                  className="overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
+                  className="myca-live-panel overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
                   style={{ height: CHAT_PANEL_HEIGHT }}
                 >
                   <MYCAChatWidget showHeader title="Chat with MYCA" className="h-full min-h-0" />
@@ -279,7 +279,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   <span className="text-xs font-medium uppercase tracking-wider text-green-500">MYCA</span>
                   <span className="text-xs text-muted-foreground">— multiple streams, all interactions</span>
                 </div>
-                <div className="hidden lg:block min-h-0 overflow-hidden shrink-0" style={{ height: CHAT_PANEL_HEIGHT }}>
+                <div className="myca-live-panel hidden lg:block min-h-0 overflow-hidden shrink-0 rounded-xl border border-border/50" style={{ height: CHAT_PANEL_HEIGHT }}>
                   <MYCALiveActivityPanel className="h-full min-h-0" />
                 </div>
                 <Collapsible open={activityOpen} onOpenChange={setActivityOpen} className="lg:hidden">

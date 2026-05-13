@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
 import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
 import { GroundingStatusBadge } from "./GroundingStatusBadge"
-import { AvaniStatusBadge } from "./AvaniStatusBadge"
 
 interface MYCAChatWidgetProps {
   className?: string
@@ -154,9 +153,9 @@ export function MYCAChatWidget({
   }, [visibleMessages.length, isLoading])
 
   return (
-    <Card className={cn("flex h-full min-h-[260px] flex-col bg-card/80 backdrop-blur-sm", className)}>
+    <Card className={cn("myca-chat-shell flex h-full min-h-[260px] flex-col bg-card/80 backdrop-blur-sm", className)}>
       {showHeader && (
-        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <div className="myca-chat-header flex items-center justify-between border-b border-border px-3 py-2">
           <div className="flex items-center gap-2">
             <div className="relative">
               <Brain className="h-4 w-4 text-violet-500" />
@@ -175,7 +174,6 @@ export function MYCAChatWidget({
               isGrounded={grounding?.is_grounded}
               thoughtCount={grounding?.thought_count}
             />
-            <AvaniStatusBadge />
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -221,10 +219,10 @@ export function MYCAChatWidget({
             >
               <div
                 className={cn(
-                  "max-w-[85%] rounded-xl px-4 py-2.5 text-base leading-relaxed",
+                  "myca-message-bubble max-w-[85%] rounded-xl px-4 py-2.5 text-base leading-relaxed",
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+                    ? "myca-message-user bg-primary text-primary-foreground"
+                    : "myca-message-myca bg-muted text-foreground"
                 )}
               >
                 {message.content}
@@ -254,13 +252,13 @@ export function MYCAChatWidget({
           ))}
 
           {pendingConfirmationId && (
-            <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 space-y-2">
+            <div className="myca-confirmation-panel rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 space-y-2">
               <div className="text-xs font-semibold text-orange-500">Confirmation required</div>
               <Input
                 value={confirmationInput}
                 onChange={(event) => setConfirmationInput(event.target.value)}
                 placeholder='Type "confirm and proceed" or "cancel"'
-                className="h-10 text-base"
+                className="myca-chat-input h-10 text-base"
               />
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -284,13 +282,13 @@ export function MYCAChatWidget({
         </div>
       </div>
 
-      <div className="border-t border-border p-3">
+      <div className="myca-chat-input-bar border-t border-border p-3">
         <div className="flex items-center gap-2">
           <Input
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Ask MYCA..."
-            className="h-11 text-base"
+            className="myca-chat-input h-11 text-base"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault()

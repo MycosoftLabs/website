@@ -182,7 +182,7 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
   return (
     <NeuCard
       className={cn(
-        "h-full min-h-[200px] overflow-hidden border border-border/50 bg-card/40 backdrop-blur-md",
+        "myca-live-activity-card h-full min-h-[200px] overflow-hidden border border-border/50 bg-card/40 backdrop-blur-md",
         className
       )}
     >
@@ -291,7 +291,7 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
               <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 shrink-0">
                 Activity Log
               </div>
-              <div className="flex-1 min-h-0 overflow-auto border border-border/40 rounded-lg bg-muted/20 p-2 space-y-1.5">
+              <div className="myca-activity-log flex-1 min-h-0 overflow-auto border border-border/40 rounded-lg bg-muted/20 p-2 space-y-1.5">
                 {activityLog.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-4 text-center">No activity yet</p>
                 ) : (
@@ -312,7 +312,7 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
                     return (
                       <div
                         key={entry.id}
-                        className="flex items-start gap-2 text-xs py-1 px-2 rounded-md bg-background/50 border border-border/30 hover:border-border/60 transition-colors"
+                        className="myca-activity-log-row flex items-start gap-2 text-xs py-1 px-2 rounded-md bg-background/50 border border-border/30 hover:border-border/60 transition-colors"
                       >
                         <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", colorClass)} />
                         <span className="text-foreground/90 break-words">{entry.text}</span>

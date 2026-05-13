@@ -58,7 +58,6 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { ChallengeCanvas } from "@/components/defense/challenge-canvas"
-import { DefenseParticles } from "@/components/defense/defense-particles"
 import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
 
 function DefenseHeroVideo() {
@@ -70,6 +69,32 @@ function DefenseHeroVideo() {
       className="absolute inset-0 w-full h-full object-cover"
       style={{ filter: "brightness(0.68) contrast(1.08) saturate(1.06)" }}
     />
+  )
+}
+
+function NatureComputeVideoPanel({
+  sources,
+  label,
+  accentClassName,
+}: {
+  sources: string[]
+  label: string
+  accentClassName: string
+}) {
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-xl border bg-slate-950 shadow-2xl">
+      <AutoplayVideo
+        sources={sources}
+        preload="auto"
+        hideUntilPlaying
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ filter: "contrast(1.08) saturate(1.08)" }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+      <div className={`absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold text-white shadow-lg ${accentClassName}`}>
+        {label}
+      </div>
+    </div>
   )
 }
 
@@ -530,7 +555,7 @@ export function DefensePortalV2() {
 
   return (
     <NeuromorphicProvider>
-    <div className="min-h-dvh">
+    <div className="defense-page min-h-dvh">
       {/* Mission Critical Application Modal */}
       <AnimatePresence>
         {selectedMission && (
@@ -698,7 +723,7 @@ export function DefensePortalV2() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-xl md:text-2xl text-muted-foreground max-w-4xl mx-auto mb-12 portal-hero-subtitle"
+            className="text-xl md:text-2xl !text-white max-w-4xl mx-auto mb-12 portal-hero-subtitle defense-hero-subtitle-outline"
           >
             A new intelligence discipline for the Department of Defense.
             <br className="hidden md:block" />
@@ -763,16 +788,16 @@ export function DefensePortalV2() {
       </section>
 
       {/* Problem Statement Section - Environmental Threats */}
-      <section className="py-24 relative overflow-hidden">
+      <section className="py-24 relative overflow-hidden bg-white text-slate-950 dark:bg-slate-950 dark:text-white">
         <ChallengeCanvas className="z-0" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">The Challenge</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
+            <NeuBadge variant="default" className="mb-4 !text-slate-950 dark:!text-white">The Challenge</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-950 dark:text-white">
               Environmental Threats Are Invisible Until They&apos;re Not
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-slate-900 dark:text-white/80">
               DoD installations face contamination, infrastructure degradation, and biological hazards 
               that current intelligence architectures cannot detect in time.
             </p>
@@ -884,93 +909,17 @@ export function DefensePortalV2() {
               </div>
             </div>
 
-            {/* OEI Diagram - Military Hierarchy with Data Flow */}
+            {/* OEI Diagram */}
             <div className="relative">
-              <div className="aspect-square bg-gradient-to-br from-primary/10 via-muted to-blue-500/10 rounded-3xl p-6">
-                <div className="h-full w-full border border-primary/20 rounded-2xl relative overflow-hidden bg-background/50 p-4">
-                  {/* Top Level: Decision Makers */}
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4">
-                    <div className="w-20 h-14 rounded-lg bg-primary/20 border border-primary/50 flex flex-col items-center justify-center">
-                      <Users className="h-4 w-4 text-primary" />
-                      <span className="text-[7px] font-bold mt-0.5">COMMAND</span>
-                    </div>
-                    <div className="w-20 h-14 rounded-lg bg-blue-500/20 border border-blue-500/50 flex flex-col items-center justify-center">
-                      <Target className="h-4 w-4 text-blue-500" />
-                      <span className="text-[7px] font-bold mt-0.5">WARFIGHTER</span>
-                    </div>
-                  </div>
-                  
-                  {/* AI Processing Layer */}
-                  <div className="absolute top-24 left-1/2 -translate-x-1/2 w-28 h-12 rounded-lg bg-purple-500/20 border border-purple-500/50 flex flex-col items-center justify-center">
-                    <Cpu className="h-4 w-4 text-purple-500" />
-                    <span className="text-[7px] font-bold mt-0.5">NLM / AI</span>
-                  </div>
-
-                  {/* Central Node - NatureOS */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-                      <div className="text-center">
-                        <Eye className="h-6 w-6 mx-auto text-primary" />
-                        <span className="text-[9px] font-bold mt-1 block">NatureOS</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Gateway/Mesh Layer */}
-                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-3">
-                    <div className="w-16 h-12 rounded-lg bg-green-500/20 border border-green-500/50 flex flex-col items-center justify-center">
-                      <Network className="h-4 w-4 text-green-500" />
-                      <span className="text-[6px] font-medium mt-0.5">GATEWAY</span>
-                    </div>
-                    <div className="w-16 h-12 rounded-lg bg-green-500/20 border border-green-500/50 flex flex-col items-center justify-center">
-                      <Radio className="h-4 w-4 text-green-500" />
-                      <span className="text-[6px] font-medium mt-0.5">MESH</span>
-                    </div>
-                  </div>
-
-                  {/* Device Layer - Bottom */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    <div className="w-14 h-12 rounded-lg bg-red-500/20 border border-red-500/50 flex flex-col items-center justify-center">
-                      <Plane className="h-3 w-3 text-red-500" />
-                      <span className="text-[5px] font-medium mt-0.5">AGARIC</span>
-                    </div>
-                    <div className="w-14 h-12 rounded-lg bg-cyan-500/20 border border-cyan-500/50 flex flex-col items-center justify-center">
-                      <Server className="h-3 w-3 text-cyan-500" />
-                      <span className="text-[5px] font-medium mt-0.5">HYPHAE</span>
-                    </div>
-                    <div className="w-14 h-12 rounded-lg bg-blue-500/20 border border-blue-500/50 flex flex-col items-center justify-center">
-                      <Wind className="h-3 w-3 text-blue-500" />
-                      <span className="text-[5px] font-medium mt-0.5">SPORE</span>
-                    </div>
-                    <div className="w-14 h-12 rounded-lg bg-sky-500/20 border border-sky-500/50 flex flex-col items-center justify-center">
-                      <Waves className="h-3 w-3 text-sky-500" />
-                      <span className="text-[5px] font-medium mt-0.5">PSATH</span>
-                    </div>
-                  </div>
-
-                  {/* Data Flow Arrows */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                    {/* Command to AI */}
-                    <line x1="50%" y1="18%" x2="50%" y2="26%" stroke="currentColor" strokeWidth="2" className="text-primary/40" markerEnd="url(#arrowhead)" />
-                    {/* AI to NatureOS */}
-                    <line x1="50%" y1="34%" x2="50%" y2="42%" stroke="currentColor" strokeWidth="2" className="text-purple-500/40" markerEnd="url(#arrowhead)" />
-                    {/* NatureOS to Gateway */}
-                    <line x1="50%" y1="58%" x2="50%" y2="66%" stroke="currentColor" strokeWidth="2" className="text-primary/40" markerEnd="url(#arrowhead)" />
-                    {/* Gateway to Devices */}
-                    <line x1="50%" y1="76%" x2="50%" y2="84%" stroke="currentColor" strokeWidth="2" className="text-green-500/40" markerEnd="url(#arrowhead)" />
-                    <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/60" />
-                      </marker>
-                    </defs>
-                  </svg>
-
-                  {/* MINDEX Database - Side */}
-                  <div className="absolute top-1/2 -translate-y-1/2 left-4 w-14 h-14 rounded-lg bg-purple-500/20 border border-purple-500/50 flex flex-col items-center justify-center">
-                    <Database className="h-4 w-4 text-purple-500" />
-                    <span className="text-[6px] font-medium mt-0.5">MINDEX</span>
-                  </div>
-                </div>
+              <div className="relative overflow-hidden rounded-2xl border border-cyan-400/25 bg-slate-950 shadow-2xl">
+                <Image
+                  src="/assets/defense/oei-intelligence-layer.png"
+                  alt="Operational Environmental Intelligence missing layer diagram"
+                  width={1024}
+                  height={1024}
+                  className="h-auto w-full object-cover"
+                />
+                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-white/10" />
               </div>
             </div>
           </div>
@@ -978,15 +927,14 @@ export function DefensePortalV2() {
       </section>
 
       {/* Products/Capabilities Section */}
-      <section className="py-24 relative overflow-hidden">
-        <DefenseParticles className="z-0" />
+      <section className="py-24 relative overflow-hidden text-slate-950 dark:text-white">
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Nature Compute System</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
+            <NeuBadge variant="default" className="mb-4 !text-slate-950 dark:!text-white">Nature Compute System</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-950 dark:text-white">
               Defense-Grade Environmental Sensing
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-xl text-slate-900 dark:text-white/80 max-w-3xl mx-auto">
               Purpose-built hardware and software for persistent environmental intelligence operations.
             </p>
           </div>
@@ -1028,9 +976,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-orange-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Radar className="h-32 w-32 text-orange-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="Mushroom1-D"
+                  accentClassName="bg-orange-500/90"
+                  sources={[
+                    "/assets/mushroom1/mushroom1-hero-2026-fast-web.mp4",
+                    "/assets/mushroom1/mushroom1-hero-2026-web.mp4",
+                    "/assets/homepage/tiles/mushroom1-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1066,9 +1020,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-primary/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Microscope className="h-32 w-32 text-primary/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="MycoNode"
+                  accentClassName="bg-emerald-500/90"
+                  sources={[
+                    "/assets/myconode/myconode hero1-web.mp4",
+                    "/assets/myconode/myconode deploy1-web.mp4",
+                    "/assets/homepage/tiles/myconode-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1104,9 +1064,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-blue-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Wind className="h-32 w-32 text-blue-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="SporeBase"
+                  accentClassName="bg-blue-500/90"
+                  sources={[
+                    "/assets/sporebase/sporebase1publish-web.mp4",
+                    "/assets/sporebase/sporebase1publish.mp4",
+                    "/assets/homepage/tiles/sporebase-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1142,9 +1108,14 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-destructive/20 to-muted rounded-xl flex items-center justify-center border">
-                  <AlertTriangle className="h-32 w-32 text-destructive/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="ALARM"
+                  accentClassName="bg-red-500/90"
+                  sources={[
+                    "/assets/alarm/alarm-hero-temp-web.mp4",
+                    "/assets/alarm/alarm-hero-temp.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1180,9 +1151,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-green-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Eye className="h-32 w-32 text-green-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="NatureOS"
+                  accentClassName="bg-green-500/90"
+                  sources={[
+                    "/assets/homepage/tiles/generic-tile-1080-2026.mp4",
+                    "/assets/devices/mycobrain-hero-web.mp4",
+                    "/assets/homepage/tiles/generic-tile-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1218,9 +1195,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-red-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Plane className="h-32 w-32 text-red-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="Agaric"
+                  accentClassName="bg-red-500/90"
+                  sources={[
+                    "/assets/agaric/agaric-hero2-web.mp4",
+                    "/assets/agaric/forestfly-web.mp4",
+                    "/assets/homepage/tiles/agaric-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1256,9 +1239,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-cyan-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Server className="h-32 w-32 text-cyan-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="Hyphae 1"
+                  accentClassName="bg-cyan-500/90"
+                  sources={[
+                    "/assets/hyphae1/hero-web.mp4",
+                    "/assets/hyphae1/hero.mp4",
+                    "/assets/homepage/tiles/hyphae1-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1294,9 +1283,15 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-sky-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Waves className="h-32 w-32 text-sky-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="Psathyrella"
+                  accentClassName="bg-sky-500/90"
+                  sources={[
+                    "/assets/psathyrella/psathyrella-hero-2026-web.mp4",
+                    "/assets/psathyrella/psathyrellatower-web.mp4",
+                    "/assets/homepage/tiles/psathyrella-tile-1080-2026.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
 
@@ -1332,9 +1327,13 @@ export function DefensePortalV2() {
                     </NeuButton>
                   </Link>
                 </div>
-                <div className="aspect-video bg-gradient-to-br from-emerald-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Globe className="h-32 w-32 text-emerald-500/50" />
-                </div>
+                <NatureComputeVideoPanel
+                  label="Earth Simulator"
+                  accentClassName="bg-emerald-500/90"
+                  sources={[
+                    "/assets/earth-simulator/earth-simulator-defense-preview.mp4",
+                  ]}
+                />
               </div>
             </NeuTabsContent>
           </NeuTabs>
@@ -1400,15 +1399,15 @@ export function DefensePortalV2() {
       </section>
 
       {/* Intelligence Products Section - Now with Hover Tooltips */}
-      <section className="py-24 relative">
+      <section className="py-24 relative bg-slate-950 text-white">
         <IntelligenceWaves className="z-0 overflow-hidden" targetSelector="[data-intel-key]" />
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4">Intelligence Products</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
+            <NeuBadge variant="default" className="mb-4 !text-white">Intelligence Products</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 !text-white">
               Actionable Environmental Intelligence
             </h2>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-lg text-white/80 max-w-3xl mx-auto">
               Standardized packet formats for environmental data exchange. Hover over each to see the data structure.
             </p>
           </div>
@@ -1493,7 +1492,7 @@ export function DefensePortalV2() {
       </section>
 
       {/* Integration Section - Now Interactive */}
-      <section className="py-24">
+      <section className="defense-integration-section py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-start">
             <div>
@@ -1512,7 +1511,7 @@ export function DefensePortalV2() {
                     key={item.code} 
                     className={`flex items-center gap-4 p-4 rounded-lg cursor-pointer transition-all ${
                       selectedDodItem?.code === item.code 
-                        ? "bg-primary/10 border border-primary/30" 
+                        ? "bg-blue-500/10 border border-blue-500/30"
                         : "bg-muted/50 hover:bg-muted"
                     }`}
                     onClick={() => setSelectedDodItem(item)}
@@ -1521,8 +1520,8 @@ export function DefensePortalV2() {
                       scale: selectedDodItem?.code === item.code ? 1.02 : 1,
                     }}
                   >
-                    <NeuBadge 
-                      variant={selectedDodItem?.code === item.code ? "primary" : "default"} 
+                    <NeuBadge
+                      variant={selectedDodItem?.code === item.code ? "info" : "default"}
                       className="font-mono min-w-[80px] justify-center"
                     >
                       {item.code}
@@ -1531,7 +1530,7 @@ export function DefensePortalV2() {
                       {item.desc}
                     </span>
                     {selectedDodItem?.code === item.code && (
-                      <ChevronRight className="h-4 w-4 ml-auto text-primary" />
+                      <ChevronRight className="h-4 w-4 ml-auto text-blue-500" />
                     )}
                   </motion.div>
                 ))}
@@ -1551,7 +1550,7 @@ export function DefensePortalV2() {
                   <NeuCard>
                     <div className="space-y-2 mb-6">
                       <div className="flex items-center gap-3">
-                        <NeuBadge variant="primary" className="text-lg px-3 py-1">{selectedDodItem.code}</NeuBadge>
+                        <NeuBadge variant="info" className="text-lg px-3 py-1">{selectedDodItem.code}</NeuBadge>
                         <h3 className="font-semibold text-lg">{selectedDodItem.details.title}</h3>
                       </div>
                       <p className="text-base text-muted-foreground">
@@ -1562,7 +1561,7 @@ export function DefensePortalV2() {
                       {/* Capabilities */}
                       <div>
                         <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                          <CheckCircle2 className="h-4 w-4 text-blue-500" />
                           Integration Capabilities
                         </h4>
                         <ul className="space-y-2">
@@ -1574,7 +1573,7 @@ export function DefensePortalV2() {
                               transition={{ delay: i * 0.05 }}
                               className="flex items-start gap-2 text-sm"
                             >
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 shrink-0" />
                               {cap}
                             </motion.li>
                           ))}
@@ -1584,7 +1583,7 @@ export function DefensePortalV2() {
                       {/* Tools */}
                       <div>
                         <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-primary" />
+                          <Layers className="h-4 w-4 text-blue-500" />
                           Mycosoft Tools
                         </h4>
                         <div className="space-y-2">
@@ -1606,7 +1605,7 @@ export function DefensePortalV2() {
                       {/* Compliance */}
                       <div>
                         <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-primary" />
+                          <Shield className="h-4 w-4 text-blue-500" />
                           Compliance Standards
                         </h4>
                         <div className="flex flex-wrap gap-2">
@@ -1632,14 +1631,23 @@ export function DefensePortalV2() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 relative overflow-hidden bg-gradient-to-b from-muted/20 to-background">
+      <section className="py-24 relative overflow-hidden bg-slate-950 text-white">
+        <AutoplayVideo
+          sources={["/assets/defense/defense-cta-background.mp4"]}
+          preload="metadata"
+          hideUntilPlaying
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ filter: "contrast(1.08) saturate(1.06)" }}
+        />
+        <div className="absolute inset-0 bg-slate-950/48" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/58 via-slate-950/24 to-slate-950/42" />
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <NeuBadge variant="default" className="mb-4">Get Started</NeuBadge>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
+          <div className="max-w-4xl mx-auto text-center defense-cta-content">
+            <NeuBadge variant="default" className="mb-4 !text-white">Get Started</NeuBadge>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 !text-white">
               Ready to Deploy OEI?
             </h2>
-            <p className="text-xl text-muted-foreground mb-8">
+            <p className="text-xl text-white/86 mb-8">
               Contact our defense team for a classified briefing, pilot program discussion, 
               or technical evaluation.
             </p>
@@ -1659,8 +1667,8 @@ export function DefensePortalV2() {
               </Link>
             </div>
 
-            <div className="mt-12 pt-12 border-t">
-              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+            <div className="mt-12 pt-12">
+              <div className="flex flex-wrap justify-center gap-8 text-sm text-white/78">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   <span>Cleared Personnel Available</span>
@@ -1678,6 +1686,58 @@ export function DefensePortalV2() {
           </div>
         </div>
       </section>
+
+      <style jsx global>{`
+        .defense-page .neu-btn[class*="from-purple-"],
+        .defense-page .neu-btn[class*="to-purple-"],
+        .defense-page .neu-tab-btn[aria-selected="true"] {
+          background: linear-gradient(145deg, #111827, #030712) !important;
+          color: #ffffff !important;
+          border-color: rgba(255, 255, 255, 0.16) !important;
+          box-shadow:
+            4px 4px 12px rgba(3, 7, 18, 0.35),
+            -4px -4px 12px rgba(255, 255, 255, 0.28) !important;
+        }
+
+        .defense-page .neu-btn[class*="from-purple-"] *,
+        .defense-page .neu-btn[class*="to-purple-"] *,
+        .defense-page .neu-tab-btn[aria-selected="true"] * {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        .defense-page.neuromorphic-dark .neu-btn[class*="from-purple-"],
+        .defense-page.neuromorphic-dark .neu-btn[class*="to-purple-"],
+        .neuromorphic-page.neuromorphic-dark .defense-page .neu-tab-btn[aria-selected="true"] {
+          background: linear-gradient(145deg, #0f172a, #020617) !important;
+          color: #ffffff !important;
+          box-shadow:
+            4px 4px 12px rgba(0, 0, 0, 0.55),
+            -4px -4px 12px rgba(51, 65, 85, 0.26) !important;
+        }
+
+        .defense-page.neuromorphic-dark .neu-btn[class*="from-purple-"] *,
+        .defense-page.neuromorphic-dark .neu-btn[class*="to-purple-"] *,
+        .neuromorphic-page.neuromorphic-dark .defense-page .neu-tab-btn[aria-selected="true"] * {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        .defense-page .defense-hero-subtitle-outline {
+          -webkit-text-stroke: 0.9px rgba(255, 255, 255, 0.92);
+          paint-order: stroke fill;
+          text-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.62),
+            0 0 12px rgba(0, 0, 0, 0.45),
+            0 0 2px rgba(255, 255, 255, 0.72);
+        }
+
+        .defense-page .defense-cta-content {
+          text-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.65),
+            0 0 18px rgba(0, 0, 0, 0.45);
+        }
+      `}</style>
 
     </div>
     </NeuromorphicProvider>

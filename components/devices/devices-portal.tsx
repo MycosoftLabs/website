@@ -29,6 +29,7 @@ import {
   RefreshCw,
   Puzzle,
   Plane,
+  Bot,
 } from "lucide-react"
 import {
   NeuButton,
@@ -397,6 +398,16 @@ export function DevicesPortal() {
                 <NeuButton variant="default" className="w-full sm:w-auto gap-2 min-h-[44px] devices-hero-mycobrain-btn">
                   <Brain className="h-5 w-5" />
                   MycoBrain
+                </NeuButton>
+              </Link>
+            </div>
+            <div className="mt-4 flex justify-center">
+              <Link href="/droid-rights" className="w-full max-w-xs sm:w-auto">
+                <NeuButton variant="default" className="w-full sm:min-w-[260px] gap-3 min-h-[64px] px-10 text-xl devices-hero-droid-rights-btn">
+                  <span className="inline-flex items-center justify-center gap-3">
+                    <Bot className="h-6 w-6" />
+                    <span>Droid Rights</span>
+                  </span>
                 </NeuButton>
               </Link>
             </div>
@@ -1096,17 +1107,31 @@ export function DevicesPortal() {
           color: #111827 !important;
         }
 
-        .devices-glass-page .devices-hero-mycobrain-btn {
+        .devices-glass-page .devices-hero-mycobrain-btn,
+        .devices-glass-page .devices-hero-droid-rights-btn {
           color: #fff !important;
           -webkit-text-fill-color: #fff !important;
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
         }
 
         .devices-glass-page .devices-hero-mycobrain-btn *,
-        .devices-glass-page .devices-hero-mycobrain-btn svg {
+        .devices-glass-page .devices-hero-mycobrain-btn svg,
+        .devices-glass-page .devices-hero-droid-rights-btn *,
+        .devices-glass-page .devices-hero-droid-rights-btn svg {
           color: #fff !important;
           -webkit-text-fill-color: #fff !important;
           stroke: currentColor !important;
+        }
+
+        .devices-glass-page .devices-hero-droid-rights-btn {
+          border-color: rgba(255, 255, 255, 0.42) !important;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1) 44%, rgba(255, 255, 255, 0.045)) !important;
+          box-shadow:
+            0 20px 56px rgba(0, 0, 0, 0.32),
+            0 0 24px rgba(255, 255, 255, 0.16),
+            inset 0 1px 0 rgba(255, 255, 255, 0.62),
+            inset 0 -22px 38px rgba(255, 255, 255, 0.08) !important;
         }
 
         .dark .devices-glass-page .neu-btn,

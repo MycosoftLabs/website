@@ -4,6 +4,10 @@
 
  interface ChallengeCanvasProps {
    className?: string
+   lightBackgroundColor?: string
+   lightLineColor?: string
+   darkBackgroundColor?: string
+   darkLineColor?: string
  }
 
  interface Point {
@@ -11,7 +15,13 @@
    y: number
  }
 
- export function ChallengeCanvas({ className = "" }: ChallengeCanvasProps) {
+ export function ChallengeCanvas({
+   className = "",
+   lightBackgroundColor = "rgba(255, 255, 255, 0.28)",
+   lightLineColor = "rgba(220, 38, 38, 0.38)",
+   darkBackgroundColor = "rgba(34, 49, 63, 0.2)",
+   darkLineColor = "rgba(249, 191, 59, 0.3)",
+ }: ChallengeCanvasProps) {
    const containerRef = useRef<HTMLDivElement>(null)
    const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -37,6 +47,7 @@
      let H = 0
      let frame: number | null = null
      let time = 0
+     let isDark = document.documentElement.classList.contains("dark")
 
      const NODES_PER_BIN = 1
      const DECAY = 0.97
@@ -309,7 +320,7 @@
      }
 
      const draw = () => {
-       ctx.fillStyle = "rgba(34, 49, 63, 0.2)"
+       ctx.fillStyle = isDark ? darkBackgroundColor : lightBackgroundColor
        ctx.fillRect(0, 0, W, H)
        updateCircles()
        activateIntersections()
@@ -320,7 +331,7 @@
          if (!node.isActive) return
          ons.push(node)
        })
-       drawLines(ons, "rgba(249, 191, 59, 0.3)", dpr(0.5))
+       drawLines(ons, isDark ? darkLineColor : lightLineColor, dpr(0.5))
      }
 
      const loop = () => {
@@ -340,14 +351,20 @@
 
      const observer = new ResizeObserver(() => reset())
      observer.observe(container)
+     const themeObserver = new MutationObserver(() => {
+       isDark = document.documentElement.classList.contains("dark")
+       ctx.clearRect(0, 0, W, H)
+     })
+     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
 
      reset()
 
      return () => {
        if (frame) cancelAnimationFrame(frame)
        observer.disconnect()
+       themeObserver.disconnect()
      }
-   }, [])
+   }, [darkBackgroundColor, darkLineColor, lightBackgroundColor, lightLineColor])
 
    return (
      <div
@@ -358,7 +375,7 @@
        <canvas
          ref={canvasRef}
          className="absolute inset-0 h-full w-full"
-         style={{ backgroundColor: "rgb(34, 49, 63)" }}
+         style={{ backgroundColor: "transparent" }}
        />
      </div>
    )

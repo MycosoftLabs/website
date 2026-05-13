@@ -1,99 +1,118 @@
- "use client"
+"use client"
 
- import { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
 
- interface DefenseParticlesProps {
-   className?: string
- }
+interface DefenseParticlesProps {
+  className?: string
+}
 
- declare global {
-   interface Window {
-     particlesJS?: (tagId: string, params: Record<string, unknown>) => void
-     pJSDom?: Array<{ pJS?: { fn?: { vendors?: { destory?: () => void } } } }>
-   }
- }
+interface Particle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  radius: number
+  alpha: number
+  tint: number
+  pulse: number
+}
 
- export function DefenseParticles({ className = "" }: DefenseParticlesProps) {
-   const frameRef = useRef<number | null>(null)
+export function DefenseParticles({ className = "" }: DefenseParticlesProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-   useEffect(() => {
-     let isMounted = true
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
 
-     async function initParticles() {
-       await import("particles.js")
-       if (!isMounted || !window.particlesJS) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
 
-       window.particlesJS("particles-js", {
-         particles: {
-           number: { value: 534, density: { enable: true, value_area: 200 } },
-           color: { value: ["#e2e8f0", "#7dd3fc"] },
-           shape: {
-             type: "circle",
-             stroke: { width: 0, color: "#000000" },
-             polygon: { nb_sides: 5 },
-             image: { src: "img/github.svg", width: 100, height: 100 },
-           },
-           opacity: {
-             value: 0.45,
-             random: false,
-             anim: { enable: true, speed: 1, opacity_min: 0.77142949946406, sync: false },
-           },
-           size: { value: 6, random: true, anim: { enable: true, speed: 40, size_min: 0.1, sync: false } },
-           line_linked: { enable: false, distance: 150, color: "#ffffff", opacity: 0.4, width: 1 },
-           move: {
-             enable: true,
-             speed: 4,
-             direction: "none",
-             random: false,
-             straight: false,
-             out_mode: "out",
-             bounce: false,
-             attract: { enable: false, rotateX: 600, rotateY: 1200 },
-           },
-         },
-         interactivity: {
-           detect_on: "canvas",
-           events: {
-             onhover: { enable: true, mode: "bubble" },
-             onclick: { enable: true, mode: "push" },
-             resize: true,
-           },
-           modes: {
-             grab: { distance: 400, line_linked: { opacity: 1 } },
-             bubble: { distance: 250, size: 13, duration: 2, opacity: 1, speed: 3 },
-             repulse: { distance: 200, duration: 0.4 },
-             push: { particles_nb: 4 },
-             remove: { particles_nb: 2 },
-           },
-         },
-         retina_detect: true,
-       })
+    let frame: number | null = null
+    let width = 0
+    let height = 0
+    let dpr = window.devicePixelRatio || 1
+    let particles: Particle[] = []
+    let isDark = document.documentElement.classList.contains("dark")
 
-       const update = () => {
-         frameRef.current = requestAnimationFrame(update)
-       }
+    const makeParticle = (): Particle => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.22 * dpr,
+      vy: (Math.random() - 0.5) * 0.2 * dpr,
+      radius: (1.8 + Math.random() * 6.8) * dpr,
+      alpha: 0.2 + Math.random() * 0.42,
+      tint: Math.random(),
+      pulse: Math.random() * Math.PI * 2,
+    })
 
-       frameRef.current = requestAnimationFrame(update)
-     }
+    const resize = () => {
+      const rect = container.getBoundingClientRect()
+      dpr = window.devicePixelRatio || 1
+      width = Math.max(1, rect.width * dpr)
+      height = Math.max(1, rect.height * dpr)
+      canvas.width = width
+      canvas.height = height
+      canvas.style.width = `${rect.width}px`
+      canvas.style.height = `${rect.height}px`
+      const count = Math.min(620, Math.max(260, Math.floor((rect.width * rect.height) / 1350)))
+      particles = Array.from({ length: count }, makeParticle)
+    }
 
-     initParticles()
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height)
+      const colors = isDark
+        ? [
+            [226, 232, 240],
+            [125, 211, 252],
+          ]
+        : [
+            [15, 23, 42],
+            [14, 116, 144],
+          ]
 
-     return () => {
-       isMounted = false
-       if (frameRef.current) cancelAnimationFrame(frameRef.current)
-       const instance = window.pJSDom?.[0]?.pJS
-       instance?.fn?.vendors?.destory?.()
-       if (window.pJSDom?.length) window.pJSDom.length = 0
-     }
-   }, [])
+      for (const p of particles) {
+        p.pulse += 0.018
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < -p.radius) p.x = width + p.radius
+        if (p.x > width + p.radius) p.x = -p.radius
+        if (p.y < -p.radius) p.y = height + p.radius
+        if (p.y > height + p.radius) p.y = -p.radius
+
+        const color = colors[p.tint > 0.5 ? 1 : 0]
+        const pulse = 0.7 + Math.sin(p.pulse) * 0.3
+        ctx.beginPath()
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${p.alpha * pulse})`
+        ctx.arc(p.x, p.y, p.radius * pulse, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      frame = requestAnimationFrame(draw)
+    }
+
+    const resizeObserver = new ResizeObserver(resize)
+    resizeObserver.observe(container)
+
+    const themeObserver = new MutationObserver(() => {
+      isDark = document.documentElement.classList.contains("dark")
+    })
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+
+    resize()
+    frame = requestAnimationFrame(draw)
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      resizeObserver.disconnect()
+      themeObserver.disconnect()
+    }
+  }, [])
 
   return (
-    <div className={`absolute inset-0 opacity-50 ${className}`} aria-hidden="true">
-       <div
-         id="particles-js"
-        className="absolute inset-0 h-full w-full pointer-events-auto"
-        style={{ backgroundColor: "#0b1220" }}
-       />
-     </div>
-   )
- }
+    <div ref={containerRef} className={`absolute inset-0 opacity-60 dark:opacity-70 ${className}`} aria-hidden="true">
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full pointer-events-none" />
+    </div>
+  )
+}

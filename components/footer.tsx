@@ -84,6 +84,11 @@ export function Footer() {
                   Applications
                 </a>
               </li>
+              <li>
+                <a href="/defense/fusarium" className="hover:text-foreground transition-colors" suppressHydrationWarning>
+                  Fusarium
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -135,6 +140,11 @@ export function Footer() {
               <li>
                 <a href="/terms" className="hover:text-foreground transition-colors" suppressHydrationWarning>
                   Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="/droid-rights" className="hover:text-foreground transition-colors" suppressHydrationWarning>
+                  Droid Rights
                 </a>
               </li>
             </ul>
@@ -244,7 +254,7 @@ export function Footer() {
             {/* Credentials text */}
             <div className="space-y-2 text-sm text-muted-foreground">
               <p className="font-semibold text-foreground" suppressHydrationWarning>
-                US-Based Business · Building Earth Intelligence Since 2018
+                US-Based Business · Building Earth Intelligence Since 2021
               </p>
               <p suppressHydrationWarning>
                 Mycosoft, Inc. — Delaware C-Corporation (parent)

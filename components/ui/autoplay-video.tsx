@@ -102,6 +102,13 @@ function sidecarPosterForVideo(src: string): string | undefined {
   }
 }
 
+function mediaTypeForVideo(src: string): string {
+  const path = src.split(/[?#]/, 1)[0]?.toLowerCase() || ""
+  if (path.endsWith(".webm")) return "video/webm"
+  if (path.endsWith(".mov")) return "video/quicktime"
+  return "video/mp4"
+}
+
 interface AutoplayVideoProps {
   /** Primary URL (backward compatible) */
   src?: string
@@ -351,7 +358,7 @@ export function AutoplayVideo({
       className={[className, visibilityClass, pointerClass].filter(Boolean).join(" ")}
       style={style}
     >
-      <source src={activeSrc} type="video/mp4" />
+      <source src={activeSrc} type={mediaTypeForVideo(activeSrc)} />
     </video>
     ) : (
       <div
