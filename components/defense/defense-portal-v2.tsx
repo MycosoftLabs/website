@@ -68,7 +68,7 @@ function DefenseHeroVideo() {
       sources={["/assets/fusarium/fusarium-hero-2026-web.mp4"]}
       preload="auto"
       className="absolute inset-0 w-full h-full object-cover"
-      style={{ filter: "brightness(0.3)" }}
+      style={{ filter: "brightness(0.68) contrast(1.08) saturate(1.06)" }}
     />
   )
 }
@@ -655,7 +655,7 @@ export function DefensePortalV2() {
         <DefenseHeroVideo />
         
         {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/28 via-background/16 to-background/58" />
         
         {/* Animated Background Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:24px_24px] opacity-10" />

@@ -8,6 +8,7 @@ const MINDEX_RESEARCH = `${MINDEX_API_URL}/api/mindex/research`
 
 const mindexHeaders = () => ({
   "X-API-Key": env.mindexApiKey || "",
+  ...(env.mindexInternalToken ? { "X-Internal-Token": env.mindexInternalToken } : {}),
   "Content-Type": "application/json",
 })
 

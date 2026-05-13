@@ -77,6 +77,7 @@ const AGARIC_HERO_YOUTUBE_URL = `https://www.youtube.com/watch?v=${AGARIC_ASSETS
 const AGARIC_HERO_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.hero)[0] ?? AGARIC_ASSETS.videos.hero
 const AGARIC_CAPABILITIES_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.capabilities)[0] ?? AGARIC_ASSETS.videos.capabilities
 const AGARIC_FOOTER_VIDEO = assetMp4Sources(AGARIC_ASSETS.videos.footer)[0] ?? AGARIC_ASSETS.videos.footer
+const videoPoster = (src: string) => src.replace(/\.(mp4|mov|webm)$/i, "-poster.jpg")
 
 // Component architecture data for blueprint
 interface DeviceComponent {
@@ -550,7 +551,7 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-black/45 !text-red-600 dark:!text-red-400 border-white/20 backdrop-blur-md">Technology</NeuBadge>
+            <NeuBadge variant="default" className="agaric-tech-badge mb-4 bg-white/75 !text-red-800 border-red-700/30 backdrop-blur-md dark:bg-black/45 dark:!text-red-300 dark:border-white/20">Technology</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-black">
               Sensor + Payload <span className="text-black">Equipment</span>
             </h2>
@@ -607,8 +608,8 @@ export function AgaricDetails() {
                 <div className="inline-flex p-4 rounded-full bg-red-500/20 mb-4">
                   <feature.icon className="h-8 w-8 text-red-300" />
                 </div>
-                <h3 className="text-xl font-bold text-white">{feature.title}</h3>
-                <p className="text-white/70 mt-2">{feature.description}</p>
+                <h3 className="text-xl font-bold text-slate-950 dark:text-white">{feature.title}</h3>
+                <p className="mt-2 text-slate-800 dark:text-white/70">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -624,7 +625,7 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-12 px-4"
           >
-            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-red-600/80 !text-red-600 border-red-700/40 dark:!bg-red-500/20 dark:!text-red-300 dark:!border-red-500/40">Field Deployments</NeuBadge>
+            <NeuBadge variant="default" className="agaric-field-badge mb-4 bg-white/75 !text-red-800 border-red-700/30 dark:!bg-red-500/20 dark:!text-red-300 dark:!border-red-500/40">Field Deployments</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white">
               Wide-area <span className="text-red-600 dark:text-red-400">field flight</span>
             </h2>
@@ -704,7 +705,8 @@ export function AgaricDetails() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
+          poster={encodeAssetUrl(videoPoster(AGARIC_CAPABILITIES_VIDEO))}
           disablePictureInPicture
           controlsList="nodownload nofullscreen noremoteplayback"
           className="absolute inset-0 h-full w-full object-cover"
@@ -719,9 +721,9 @@ export function AgaricDetails() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-red-500/20 !text-red-600 dark:!text-red-400 border-red-500/30 backdrop-blur-md">Capabilities</NeuBadge>
-            <h2 className="agaric-capabilities-title text-4xl md:text-5xl font-bold mb-4 !text-white">
-              What <span className="!text-red-500">AGARIC</span> Can Do
+            <NeuBadge variant="default" className="agaric-capabilities-badge mb-4 bg-white/75 !text-red-800 border-red-700/30 backdrop-blur-md dark:bg-red-500/20 dark:!text-red-300 dark:border-red-500/30">Capabilities</NeuBadge>
+            <h2 className="agaric-capabilities-title text-4xl md:text-5xl font-bold mb-4 text-white">
+              What <span className="text-red-300">Agaric</span> Can Do
             </h2>
             <p className="text-xl text-white/75 max-w-3xl mx-auto">
               Four mission scenarios combine the same AGARIC functions across every size. AGARIC-S, AGARIC-M, and AGARIC-L change the lift envelope, not the mission identity.
@@ -800,6 +802,7 @@ export function AgaricDetails() {
                   loop
                   playsInline
                   preload="metadata"
+                  poster={encodeAssetUrl(videoPoster(USE_CASES[activeUseCase].video))}
                   disablePictureInPicture
                   controlsList="nodownload nofullscreen noremoteplayback"
                   className="absolute inset-0 h-full w-full object-cover"
@@ -857,7 +860,7 @@ export function AgaricDetails() {
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel - Component Selectors */}
-                <div className="bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner">
+                <div className="agaric-engineering-selector bg-white/80 dark:bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner backdrop-blur-md">
                   {/* Panel Header */}
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-500/20">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -881,16 +884,16 @@ export function AgaricDetails() {
                               ? 'bg-red-500/20 border-red-400 shadow-lg shadow-red-500/30'
                               : isHovered
                                 ? 'bg-red-500/10 border-red-500/50'
-                                : 'bg-black/55 border-white/10 hover:border-red-500/40'
+                                : 'bg-white/65 dark:bg-black/55 border-red-500/20 dark:border-white/10 hover:border-red-500/40'
                   }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-red-500/30' : 'bg-black/70 border border-white/10'}`}>
-                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-white/50'}`} />
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-red-500/30' : 'bg-white/70 dark:bg-black/70 border border-red-500/20 dark:border-white/10'}`}>
+                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-red-600 dark:text-white/50'}`} />
                     </div>
-                            <span className={`text-sm font-medium ${isSelected ? 'text-red-400' : 'text-white/70'}`}>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-red-500 dark:text-red-400' : 'text-slate-950 dark:text-white/70'}`}>
                               {component.name}
                             </span>
                           </div>
@@ -907,7 +910,7 @@ export function AgaricDetails() {
                 </div>
 
                 {/* Description Widget - Below Controller */}
-                <div className="bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner flex-1">
+                <div className="agaric-engineering-details bg-white/80 dark:bg-black rounded-2xl border border-red-500/40 p-4 shadow-inner flex-1 backdrop-blur-md">
                   {/* Panel Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/20">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -929,10 +932,10 @@ export function AgaricDetails() {
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-red-400">{component.name}</h3>
-                            <p className="text-xs text-white/50 font-mono">{component.description}</p>
+                            <p className="text-xs text-slate-700 dark:text-white/50 font-mono">{component.description}</p>
                           </div>
                         </div>
-                        <p className="text-sm text-white/80 leading-relaxed">{component.details}</p>
+                        <p className="text-sm text-slate-800 dark:text-white/80 leading-relaxed">{component.details}</p>
                 </motion.div>
               ))}
                   </AnimatePresence>
@@ -1298,6 +1301,7 @@ export function AgaricDetails() {
             loop
             playsInline
             preload="metadata"
+            poster={encodeAssetUrl(videoPoster(AGARIC_FOOTER_VIDEO))}
             disablePictureInPicture
             controls={false}
             controlsList="nodownload noplaybackrate nofullscreen"
@@ -1360,6 +1364,42 @@ export function AgaricDetails() {
         .dark .agaric-glass-page .dark\\:\\!bg-gray-700,
         .dark .agaric-glass-page .dark\\:\\!bg-gray-800 {
           background-color: rgba(5, 5, 5, 0.84) !important;
+        }
+
+        html:not(.dark) .agaric-glass-page .neu-btn:not(.device-cta-over-video-outline),
+        html:not(.dark) .agaric-glass-page .neu-btn:not(.device-cta-over-video-outline) *,
+        html:not(.dark) .agaric-glass-page .agaric-tech-badge,
+        html:not(.dark) .agaric-glass-page .agaric-field-badge,
+        html:not(.dark) .agaric-glass-page .agaric-capabilities-badge {
+          color: #991b1b !important;
+          -webkit-text-fill-color: #991b1b !important;
+        }
+
+        html:not(.dark) .agaric-glass-page .agaric-network-card,
+        html:not(.dark) .agaric-glass-page .agaric-network-card h3,
+        html:not(.dark) .agaric-glass-page .agaric-network-card p {
+          color: #020617 !important;
+          -webkit-text-fill-color: #020617 !important;
+        }
+
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card,
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card h3,
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card p {
+          color: #020617 !important;
+          -webkit-text-fill-color: #020617 !important;
+        }
+
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card svg {
+          color: #dc2626 !important;
+          stroke: #dc2626 !important;
+        }
+
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card .neu-raised-sm,
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card .neu-raised-sm *,
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card span[class*="rounded-full"],
+        html:not(.dark) .agaric-glass-page .agaric-applications .agaric-usecase-card span[class*="rounded-full"] * {
+          color: #991b1b !important;
+          -webkit-text-fill-color: #991b1b !important;
         }
 
         .agaric-glass-page .neu-raised,

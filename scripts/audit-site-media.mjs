@@ -70,7 +70,7 @@ function classifyIssue(pageResult) {
   if (pageResult.badResponses.length) issues.push("bad_responses")
   if (pageResult.youtubeFrames.length) issues.push("youtube_frame")
   if (pageResult.brokenImages.length) issues.push("broken_images")
-  if (pageResult.videos.some((v) => !v.src || v.readyState < 2 || v.w === 0 || v.h === 0)) issues.push("video_not_ready")
+  if (pageResult.videos.some((v) => (!v.src || v.readyState < 2 || v.w === 0 || v.h === 0) && !v.poster)) issues.push("video_not_ready")
   if (pageResult.videos.some((v) => /youtube|youtu\.be/i.test(v.src))) issues.push("youtube_video_src")
   if (pageResult.navMs > 8000) issues.push("slow_nav")
   if (pageResult.totalVideoBytes > 125_000_000) issues.push("heavy_video_bytes")
@@ -89,19 +89,21 @@ async function auditRoute(context, route) {
     const failure = request.failure()
     const reqUrl = request.url()
     if (reqUrl.includes("static.cloudflareinsights.com")) return
+    if (failure?.errorText === "net::ERR_ABORTED" && /\.(mp4|webm|mov|m4v|jpg|jpeg|png|webp|gif|svg)(\?|$)/i.test(reqUrl)) return
     errors.push({ url: reqUrl, error: failure?.errorText || "request failed" })
   })
   page.on("response", async (response) => {
     const status = response.status()
     const reqUrl = response.url()
     const headers = response.headers()
+    const method = response.request().method()
     const type = headers["content-type"] || ""
     const len = Number(headers["content-length"] || 0)
     if (status >= 400) {
       badResponses.push({ status, url: reqUrl, type, len })
     }
     if (/image|video|audio/i.test(type) || /\.(mp4|webm|jpg|jpeg|png|webp|gif|svg)(\?|$)/i.test(reqUrl)) {
-      mediaResponses.push({ status, url: reqUrl, type, len })
+      mediaResponses.push({ status, method, url: reqUrl, type, len })
     }
   })
 
@@ -143,6 +145,7 @@ async function auditRoute(context, route) {
         index,
         src: video.currentSrc || video.src,
         poster: video.poster,
+        preload: video.preload,
         readyState: video.readyState,
         currentTime: Number(video.currentTime.toFixed(2)),
         paused: video.paused,
@@ -173,7 +176,7 @@ async function auditRoute(context, route) {
 
   await page.close()
   const totalVideoBytes = mediaResponses
-    .filter((r) => /video|\.mp4|\.webm/i.test(`${r.type} ${r.url}`))
+    .filter((r) => r.method !== "HEAD" && /video|\.mp4|\.webm/i.test(`${r.type} ${r.url}`))
     .reduce((sum, r) => sum + (r.len || 0), 0)
   const maxResourceMs = Math.max(0, ...browserState.resources.map((r) => r.duration || 0))
   const result = {

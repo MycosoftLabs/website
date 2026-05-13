@@ -310,12 +310,12 @@ export function PsathyrellaDetails() {
           </motion.h1>
           
           <motion.p 
-            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl !text-white dark:!text-white/80 mb-8 max-w-4xl mx-auto px-2 font-light leading-snug"
+            className="device-hero-subtitle psathyrella-hero-bio text-xl md:text-2xl lg:text-3xl !text-white mb-8 max-w-4xl mx-auto px-2 font-light leading-snug"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            <span className="!text-white dark:!text-sky-100">{PSATHYRELLA_DEVICE.videoTitle}</span>
+            <span className="!text-white">{PSATHYRELLA_DEVICE.videoTitle}</span>
           </motion.p>
 
           <motion.div 
@@ -870,7 +870,7 @@ export function PsathyrellaDetails() {
       </section>
 
       {/* CTA Section with Walking Video Background - Much taller to show more video (square-ish) */}
-      <section className="relative py-40 md:py-56 min-h-[800px] md:min-h-[900px] overflow-hidden">
+      <section className="psathyrella-bottom-cta relative py-40 md:py-56 min-h-[800px] md:min-h-[900px] overflow-hidden" data-over-video>
         {/* Background Video */}
         <div className="absolute inset-0">
           <AutoplayVideo
@@ -893,7 +893,7 @@ export function PsathyrellaDetails() {
             <h2 className="text-4xl md:text-6xl font-bold mb-6 !text-white">
               Ready to explore passive acoustics at the edge?
             </h2>
-            <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl !text-white/70 mb-8 max-w-2xl mx-auto">
               {PSATHYRELLA_DEVICE.name} is a program platform — edge inference, mesh handoff, and MYCA orchestration for coastal and research workflows. Not offered for retail sale.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
@@ -955,6 +955,23 @@ export function PsathyrellaDetails() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <style jsx global>{`
+        html:not(.dark) .psathyrella-hero .device-hero-title,
+        html:not(.dark) .psathyrella-hero .psathyrella-wave-title {
+          color: #020617 !important;
+          filter: drop-shadow(0 2px 12px rgba(255, 255, 255, 0.72));
+        }
+
+        html:not(.dark) .psathyrella-hero .psathyrella-hero-bio,
+        html:not(.dark) .psathyrella-hero .psathyrella-hero-bio span,
+        html:not(.dark) .psathyrella-bottom-cta h2,
+        html:not(.dark) .psathyrella-bottom-cta p {
+          color: #ffffff !important;
+          -webkit-text-fill-color: #ffffff !important;
+          text-shadow: 0 3px 18px rgba(0, 0, 0, 0.72);
+        }
+      `}</style>
 
     </div>
     </NeuromorphicProvider>

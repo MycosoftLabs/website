@@ -5,8 +5,9 @@
  */
 
 import { NextResponse } from "next/server"
+import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
+const MYCOBRAIN_SERVICE_URL = resolveMycoBrainServiceUrl()
 
 // In-memory cache
 interface CacheEntry {
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
         count: 0, 
         available: false,
         message: "MycoBrain service unavailable",
+        serviceUrl: MYCOBRAIN_SERVICE_URL,
         cached: false,
       }
       return NextResponse.json(fallbackData)
@@ -80,6 +82,7 @@ export async function GET(request: Request) {
       count: 0,
       available: false,
       cached: false,
+      serviceUrl: MYCOBRAIN_SERVICE_URL,
       message: error instanceof Error && error.name === "AbortError" 
         ? "MycoBrain service timeout" 
         : "MycoBrain service not running"

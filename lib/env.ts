@@ -58,7 +58,9 @@ export const env = {
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 
   // Feature Flags
-  integrationsEnabled: process.env.INTEGRATIONS_ENABLED === "true",
+  integrationsEnabled:
+    process.env.INTEGRATIONS_ENABLED === "true" ||
+    Boolean(process.env.MINDEX_API_KEY && (process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL)),
 
   // Development
   isDevelopment: process.env.NODE_ENV === "development",

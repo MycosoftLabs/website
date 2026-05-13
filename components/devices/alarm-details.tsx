@@ -213,8 +213,7 @@ export function AlarmDetails() {
           preload="auto"
           encodeSrc
         />
-        <div className="absolute inset-0 z-[1] bg-black/38" />
-        <div className="absolute inset-x-0 bottom-0 z-[1] h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute inset-0 z-[1] bg-white/24 dark:bg-black/38" />
 
         {/* Pulsing warning light effects */}
         <div className="absolute top-20 right-20 z-[3] w-4 h-4 bg-red-500 rounded-full shadow-lg shadow-red-500/50 animate-pulse" />
@@ -777,6 +776,12 @@ export function AlarmDetails() {
           text-shadow: 0 2px 14px rgba(255, 255, 255, 0.5);
         }
 
+        html:not(.dark) .alarm-glass-page .alarm-hero .neu-raised-sm,
+        html:not(.dark) .alarm-glass-page .alarm-hero .neu-raised-sm * {
+          color: #dc2626 !important;
+          -webkit-text-fill-color: #dc2626 !important;
+        }
+
         .alarm-glass-page .neu-btn,
         .alarm-glass-page .neu-btn *,
         .alarm-glass-page .alarm-section-badge,
@@ -860,6 +865,15 @@ export function AlarmDetails() {
         .alarm-glass-page .alarm-hero,
         .alarm-glass-page .alarm-hero * {
           border-top-color: transparent !important;
+          border-bottom-color: transparent !important;
+        }
+
+        .alarm-glass-page .alarm-hero::before,
+        .alarm-glass-page .alarm-hero::after,
+        .alarm-glass-page .alarm-hero *::before,
+        .alarm-glass-page .alarm-hero *::after {
+          content: none !important;
+          display: none !important;
         }
 
         .alarm-glass-page .alarm-hero .neu-raised,

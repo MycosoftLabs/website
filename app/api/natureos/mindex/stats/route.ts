@@ -27,7 +27,9 @@ interface MindexStats {
   trait_records: number
   synonym_records: number
   last_updated: string
-  data_source: "live" | "cached" | "unavailable"
+  data_source: "mindex" | "external_authority" | "cached" | "unavailable"
+  mindex_available?: boolean
+  mindex_has_counts?: boolean
 }
 
 async function fetchJson(url: string) {
@@ -62,7 +64,9 @@ async function fetchAuthorityTotals(): Promise<Partial<MindexStats>> {
     taxa_by_source: { inaturalist: Number(taxa.total_results || 0) },
     observations_by_source: { inaturalist: Number(observations.total_results || 0) },
     etl_status: "idle",
-    data_source: "live",
+    data_source: "external_authority",
+    mindex_available: false,
+    mindex_has_counts: false,
   }
 }
 
@@ -115,6 +119,7 @@ export async function GET() {
     )
 
     let hasValidData = false
+    let usedAuthorityFallback = false
 
     for (const result of responses) {
       if (result.status !== "fulfilled") continue
@@ -176,12 +181,21 @@ export async function GET() {
           ...stats,
           ...(await fetchAuthorityTotals()),
         }
+        usedAuthorityFallback = true
       } catch (fallbackError) {
         console.error("Failed to fetch authority totals:", fallbackError)
       }
     }
 
-    stats.data_source = hasValidData || stats.total_taxa > 0 || stats.total_observations > 0 ? "live" : "unavailable"
+    stats.mindex_available = hasValidData
+    stats.mindex_has_counts = hasValidData && !usedAuthorityFallback && (stats.total_taxa > 0 || stats.total_observations > 0)
+    stats.data_source = usedAuthorityFallback
+      ? "external_authority"
+      : hasValidData
+        ? "mindex"
+        : stats.total_taxa > 0 || stats.total_observations > 0
+          ? "external_authority"
+          : "unavailable"
     stats.last_updated = new Date().toISOString()
 
     return NextResponse.json(stats)

@@ -616,6 +616,8 @@ export function DefensePortal() {
           muted
           loop
           playsInline
+          preload="metadata"
+          poster={encodeAssetUrl("/assets/mushroom1/mushroom 1 walking-poster.jpg")}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.3)" }}
         >
@@ -1532,4 +1534,3 @@ export function DefensePortal() {
     </div>
   )
 }
-

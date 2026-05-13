@@ -83,6 +83,25 @@ function normalizeSources(
   return out
 }
 
+function sidecarPosterForVideo(src: string): string | undefined {
+  if (!src) return undefined
+  try {
+    const url = /^https?:\/\//i.test(src) ? new URL(src) : null
+    const pathOnly = url ? url.pathname : src.split(/[?#]/, 1)[0]
+    if (!pathOnly.startsWith("/assets/")) return undefined
+    if (!/\.(mp4|mov|webm)$/i.test(pathOnly)) return undefined
+    const posterPath = pathOnly.replace(/\.(mp4|mov|webm)$/i, "-poster.jpg")
+    if (url) {
+      url.pathname = posterPath
+      return url.toString()
+    }
+    const suffix = src.slice(pathOnly.length)
+    return `${posterPath}${suffix}`
+  } catch {
+    return undefined
+  }
+}
+
 interface AutoplayVideoProps {
   /** Primary URL (backward compatible) */
   src?: string
@@ -99,7 +118,7 @@ interface AutoplayVideoProps {
    * When every source fails, the component unmounts (`return null`).
    */
   hideUntilPlaying?: boolean
-  /** Video preload strategy. "auto" for hero videos (faster start), "metadata" for below-fold. Default "auto" */
+  /** Video preload strategy. Use "auto" only for true first-viewport hero videos. Default "metadata" */
   preload?: "auto" | "metadata" | "none"
   /** Still image until first frame decodes (faster perceived hero load). */
   poster?: string
@@ -119,7 +138,7 @@ export function AutoplayVideo({
   encodeSrc = true,
   stallTimeoutMs = 12000,
   hideUntilPlaying = false,
-  preload = "auto",
+  preload = "metadata",
   pointerEventsNone = true,
   poster,
 }: AutoplayVideoProps) {
@@ -130,6 +149,7 @@ export function AutoplayVideo({
     () => normalizeSources(src, sources, isDev, encodeSrc),
     [src, sources, isDev, encodeSrc]
   )
+  const sourcesKey = useMemo(() => list.join("|"), [list])
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [allFailed, setAllFailed] = useState(false)
@@ -143,7 +163,7 @@ export function AutoplayVideo({
     setPlaying(false)
     setAllFailed(false)
     setShouldLoad(preload === "auto")
-  }, [list.join("|"), preload])
+  }, [sourcesKey, preload])
 
   useEffect(() => {
     if (preload === "auto" || shouldLoad) return
@@ -160,7 +180,7 @@ export function AutoplayVideo({
           observer.disconnect()
         }
       },
-      { rootMargin: "900px 0px" }
+      { rootMargin: "1400px 0px" }
     )
     observer.observe(target)
     return () => observer.disconnect()
@@ -256,6 +276,7 @@ export function AutoplayVideo({
     const onLoadedMetadata = () => {
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
+        const L = listRef.current
         setIndex((i) => {
           if (i + 1 < L.length) return i + 1
           if (hideUntilPlaying) setAllFailed(true)
@@ -283,18 +304,38 @@ export function AutoplayVideo({
   }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad])
 
   if (!activeSrc) return null
-  if (hideUntilPlaying && allFailed) return null
+  const derivedPoster = sidecarPosterForVideo(activeSrc)
+  const rawPoster = typeof poster === "string" && poster ? poster : derivedPoster
+  const posterAttr =
+    typeof rawPoster === "string" && rawPoster
+      ? encodeSrc
+        ? encodeAssetUrl(rawPoster)
+        : rawPoster
+      : undefined
+
+  if (hideUntilPlaying && allFailed) {
+    if (!posterAttr) return null
+    return (
+      <div
+        aria-hidden="true"
+        className={[className, pointerEventsNone ? "pointer-events-none" : ""].filter(Boolean).join(" ")}
+        style={{
+          ...style,
+          backgroundImage: `url("${posterAttr}")`,
+          backgroundSize: style?.backgroundSize || "cover",
+          backgroundPosition: style?.backgroundPosition || "center",
+        }}
+      />
+    )
+  }
 
   const visibilityClass =
-    hideUntilPlaying && !playing ? "opacity-0" : hideUntilPlaying ? "opacity-100 transition-opacity duration-500" : ""
+    hideUntilPlaying && !playing && !posterAttr
+      ? "opacity-0"
+      : hideUntilPlaying
+        ? "opacity-100 transition-opacity duration-500"
+        : ""
   const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
-
-  const posterAttr =
-    typeof poster === "string" && poster
-      ? encodeSrc
-        ? encodeAssetUrl(poster)
-        : poster
-      : undefined
 
   return (
     shouldLoad ? (

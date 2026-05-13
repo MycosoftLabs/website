@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
+import { env } from "@/lib/env"
 
 export const dynamic = "force-dynamic"
 
-const MYCOBRAIN_SERVICE_URL =
-  process.env.MYCOBRAIN_SERVICE_URL || process.env.MYCOBRAIN_API_URL || "http://localhost:8003"
+const MYCOBRAIN_SERVICE_URL = resolveMycoBrainServiceUrl()
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
 
 /**
@@ -12,19 +13,43 @@ const MINDEX_API_URL = resolveMindexServerBaseUrl()
  * List all MycoBrain devices registered in NatureOS/MINDEX
  */
 export async function GET(request: NextRequest) {
+  const warnings: string[] = []
+  let mycobrainDevices: any[] = []
+  let mindexDevices: any[] = []
+
   try {
-    // Get devices from MycoBrain service
     const mycobrainRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
       signal: AbortSignal.timeout(5000),
     })
-    const mycobrainDevices = mycobrainRes.ok ? (await mycobrainRes.json()).devices || [] : []
-    
-    // Get devices from MINDEX
+    if (mycobrainRes.ok) {
+      const data = await mycobrainRes.json()
+      mycobrainDevices = data.devices || []
+    } else {
+      warnings.push(`MycoBrain service returned HTTP ${mycobrainRes.status}`)
+    }
+  } catch (error) {
+    warnings.push(`MycoBrain service unavailable: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  try {
     const mindexRes = await fetch(`${MINDEX_API_URL}/api/mindex/devices?device_type=mycobrain`, {
       signal: AbortSignal.timeout(5000),
+      headers: {
+        ...(env.mindexApiKey ? { "X-API-Key": env.mindexApiKey } : {}),
+        ...(env.mindexInternalToken ? { "X-Internal-Token": env.mindexInternalToken } : {}),
+      },
     })
-    const mindexDevices = mindexRes.ok ? (await mindexRes.json()).devices || [] : []
-    
+    if (mindexRes.ok) {
+      const data = await mindexRes.json()
+      mindexDevices = data.devices || data.data || []
+    } else {
+      warnings.push(`MINDEX devices returned HTTP ${mindexRes.status}`)
+    }
+  } catch (error) {
+    warnings.push(`MINDEX devices unavailable: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
+  try {
     // Merge and deduplicate by device_id
     const deviceMap = new Map<string, any>()
     
@@ -67,6 +92,12 @@ export async function GET(request: NextRequest) {
       sources: {
         mycobrain_service: mycobrainDevices.length,
         mindex: mindexDevices.length,
+      },
+      available: warnings.length === 0,
+      warnings,
+      serviceUrls: {
+        mycobrain: MYCOBRAIN_SERVICE_URL,
+        mindex: MINDEX_API_URL,
       },
       timestamp: new Date().toISOString(),
     })
@@ -139,7 +170,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
 
 
 

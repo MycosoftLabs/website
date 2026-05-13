@@ -116,23 +116,30 @@ export function ConnectedDots({
     }
     updateSize()
 
-    // Mouse/touch event handlers
-    const handleMouseMove = (event: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect()
+    const updatePointerFromClient = (clientX: number, clientY: number) => {
+      const rect = container.getBoundingClientRect()
+      const x = clientX - rect.left
+      const y = clientY - rect.top
+
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return
+
       mouseRef.current = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
+        x,
+        y,
       }
     }
 
+    // Mouse/touch event handlers. The canvas is pointer-events-none so it never
+    // steals clicks from Product Line cards, but global pointer tracking still
+    // lets the background respond to mouse and touch inside its bounds.
+    const handlePointerMove = (event: PointerEvent) => {
+      updatePointerFromClient(event.clientX, event.clientY)
+    }
+
     const handleTouchMove = (event: TouchEvent) => {
-      const rect = canvas.getBoundingClientRect()
       const touch = event.touches[0]
       if (touch) {
-        mouseRef.current = {
-          x: touch.clientX - rect.left,
-          y: touch.clientY - rect.top,
-        }
+        updatePointerFromClient(touch.clientX, touch.clientY)
       }
     }
 
@@ -186,8 +193,10 @@ export function ConnectedDots({
     const resizeObserver = new ResizeObserver(updateSize)
     resizeObserver.observe(container)
     
-    container.addEventListener("mousemove", handleMouseMove)
-    container.addEventListener("touchmove", handleTouchMove, { passive: true })
+    window.addEventListener("pointermove", handlePointerMove, { passive: true })
+    window.addEventListener("pointerdown", handlePointerMove, { passive: true })
+    window.addEventListener("touchstart", handleTouchMove, { passive: true })
+    window.addEventListener("touchmove", handleTouchMove, { passive: true })
 
     // Cleanup
     return () => {
@@ -195,8 +204,10 @@ export function ConnectedDots({
         cancelAnimationFrame(animationRef.current)
       }
       resizeObserver.disconnect()
-      container.removeEventListener("mousemove", handleMouseMove)
-      container.removeEventListener("touchmove", handleTouchMove)
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerdown", handlePointerMove)
+      window.removeEventListener("touchstart", handleTouchMove)
+      window.removeEventListener("touchmove", handleTouchMove)
     }
   }, [totalDots, minDistance, friction, dotColor, lineColor, cursorColor, initDots, updateDot, PI2])
 

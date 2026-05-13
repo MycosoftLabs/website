@@ -23,6 +23,7 @@ import {
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
+import { hyphae1HeroYoutubeId } from "@/lib/hero-youtube"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -42,6 +43,7 @@ import { HyphaeShuffledTitle } from "@/components/devices/hyphae-shuffled-title"
 // Hero: locked NAS MP4 background (`hyphaeHeroVideoSources`).
 
 const HYPHAE1_HERO_MP4_SOURCES = hyphaeHeroVideoSources("/assets/hyphae1/hero.mp4")
+const HYPHAE1_YOUTUBE_URL = `https://www.youtube.com/watch?v=${hyphae1HeroYoutubeId()}`
 
 const HYPHAE1_ASSETS = {
   compact: "/assets/hyphae1/why-outdoor-install.png",
@@ -502,10 +504,21 @@ export function Hyphae1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.1 }}
           >
-            <NeuButton size="lg" variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
-              <Download className="mr-2 h-5 w-5" />
-              Download Datasheet
-            </NeuButton>
+            <a
+              href={HYPHAE1_YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Learn more about Hyphae 1 on YouTube"
+            >
+              <NeuButton
+                size="lg"
+                variant="outline"
+                className="border-white/45 !text-white hover:!text-white bg-white/10 hover:bg-white/18 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+              >
+                <ExternalLink className="mr-2 h-5 w-5" />
+                Learn More
+              </NeuButton>
+            </a>
           </motion.div>
         </motion.div>
       </section>
