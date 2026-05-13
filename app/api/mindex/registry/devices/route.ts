@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -136,9 +137,7 @@ export async function GET(request: NextRequest) {
     const mindexResponse = await fetch(
       `${MINDEX_API_URL}/api/mindex/devices?${queryParams}`,
       {
-        headers: {
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
-        },
+        headers: mindexUpstreamHeaders(),
         signal: AbortSignal.timeout(10000),
       }
     )
@@ -226,10 +225,7 @@ export async function POST(request: NextRequest) {
       `${MINDEX_API_URL}/api/mindex/devices/register`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
-        },
+        headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(registration),
         signal: AbortSignal.timeout(10000),
       }
@@ -294,10 +290,7 @@ export async function PUT(request: NextRequest) {
       `${MINDEX_API_URL}/api/mindex/devices/${encodeURIComponent(body.id)}/heartbeat`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
-        },
+        headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(update),
         signal: AbortSignal.timeout(5000),
       }

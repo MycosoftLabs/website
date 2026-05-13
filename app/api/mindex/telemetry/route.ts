@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
+import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 /**
  * GET /api/mindex/telemetry
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(`${MINDEX_API_URL}${upstreamPath}?${params}`, {
       signal: AbortSignal.timeout(10000),
-      headers: MINDEX_API_KEY ? { "X-API-Key": MINDEX_API_KEY } : undefined,
+      headers: mindexUpstreamHeaders(),
     })
     
     if (!res.ok) {
@@ -55,15 +55,11 @@ export async function GET(request: NextRequest) {
  * Proxy envelope ingest into MINDEX (server-side API key).
  */
 export async function POST(request: NextRequest) {
-  if (!MINDEX_API_KEY) {
-    return NextResponse.json({ error: "MINDEX_API_KEY not configured" }, { status: 500 })
-  }
-
   try {
     const body = await request.json()
     const res = await fetch(`${MINDEX_API_URL}/api/telemetry/envelope`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": MINDEX_API_KEY },
+      headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     })
@@ -88,7 +84,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to ingest envelope", details: String(error) }, { status: 500 })
   }
 }
-
 
 
 

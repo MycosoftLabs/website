@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
-import { env } from "@/lib/env"
+import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -34,10 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     const mindexRes = await fetch(`${MINDEX_API_URL}/api/mindex/devices?device_type=mycobrain`, {
       signal: AbortSignal.timeout(5000),
-      headers: {
-        ...(env.mindexApiKey ? { "X-API-Key": env.mindexApiKey } : {}),
-        ...(env.mindexInternalToken ? { "X-Internal-Token": env.mindexInternalToken } : {}),
-      },
+      headers: mindexUpstreamHeaders(),
     })
     if (mindexRes.ok) {
       const data = await mindexRes.json()
@@ -135,7 +132,7 @@ export async function POST(request: NextRequest) {
     // Register with MINDEX
     const mindexRes = await fetch(`${MINDEX_API_URL}/api/mindex/devices/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         device_id: deviceId,
         device_type: "mycobrain",
@@ -170,7 +167,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
 
 
 
