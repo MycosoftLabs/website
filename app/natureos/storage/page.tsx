@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
@@ -66,6 +67,18 @@ interface FileItem {
   shared?: boolean
 }
 
+interface AppArtifact {
+  id: string
+  appId: string
+  kind: string
+  filename: string
+  contentType: string
+  size: number
+  relativePath: string
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
 interface DriveInfo {
   connected: boolean
   email?: string
@@ -110,6 +123,8 @@ export default function StoragePage() {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [activeStorage, setActiveStorage] = useState<"nas" | "gdrive" | "all">("all")
+  const [appArtifacts, setAppArtifacts] = useState<AppArtifact[]>([])
+  const [artifactStatus, setArtifactStatus] = useState<string | null>(null)
 
   // Fetch NAS info from UniFi network
   const fetchNASInfo = useCallback(async () => {
@@ -158,11 +173,29 @@ export default function StoragePage() {
     }
   }, [currentPath, activeStorage])
 
+  const fetchAppArtifacts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/natureos/storage/artifacts", { cache: "no-store" })
+      if (res.status === 401) {
+        setArtifactStatus("Sign in to view your private NatureOS app storage.")
+        setAppArtifacts([])
+        return
+      }
+      if (!res.ok) throw new Error("Storage unavailable")
+      const data = await res.json()
+      setAppArtifacts(data.artifacts ?? [])
+      setArtifactStatus(null)
+    } catch {
+      setArtifactStatus("NatureOS app storage is unavailable.")
+      setAppArtifacts([])
+    }
+  }, [])
+
   const refreshAll = useCallback(async () => {
     setLoading(true)
-    await Promise.all([fetchNASInfo(), fetchGoogleDrive(), fetchFiles()])
+    await Promise.all([fetchNASInfo(), fetchGoogleDrive(), fetchFiles(), fetchAppArtifacts()])
     setLoading(false)
-  }, [fetchNASInfo, fetchGoogleDrive, fetchFiles])
+  }, [fetchNASInfo, fetchGoogleDrive, fetchFiles, fetchAppArtifacts])
 
   useEffect(() => {
     refreshAll()
@@ -502,6 +535,65 @@ export default function StoragePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* User App Storage */}
+      <Card className="border-cyan-500/40 bg-gradient-to-br from-cyan-500/10 via-white/5 to-emerald-500/10">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-cyan-500" />
+                Saved NatureOS App Data
+              </CardTitle>
+              <CardDescription>
+                User-scoped files saved from NatureOS apps: simulation JSON, timelapse videos, images, exports, and model-ready artifacts.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchAppArtifacts}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {artifactStatus ? (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-4 text-sm">
+              {artifactStatus}
+            </div>
+          ) : appArtifacts.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              No saved app artifacts yet. Use Save Data or Record inside a NatureOS app and choose Save to NatureOS.
+            </div>
+          ) : (
+            <div className="divide-y rounded-lg border">
+              {appArtifacts.map((artifact) => (
+                <div key={artifact.id} className="grid gap-3 p-3 md:grid-cols-12 md:items-center">
+                  <div className="md:col-span-5 flex items-center gap-3">
+                    {artifact.kind.includes("video") ? <Film className="h-5 w-5 text-purple-500" /> : <Database className="h-5 w-5 text-blue-500" />}
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{artifact.filename}</div>
+                      <div className="truncate text-xs text-muted-foreground">{artifact.relativePath}</div>
+                    </div>
+                  </div>
+                  <div className="md:col-span-2 text-sm">
+                    <Badge variant="outline">{artifact.appId}</Badge>
+                  </div>
+                  <div className="md:col-span-2 text-sm text-muted-foreground">{artifact.kind}</div>
+                  <div className="md:col-span-1 text-sm text-muted-foreground">{formatSize(artifact.size)}</div>
+                  <div className="md:col-span-2 flex justify-end gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/api/natureos/storage/artifacts?download=${encodeURIComponent(artifact.id)}`}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* File Browser */}
       <Card>

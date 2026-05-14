@@ -9,9 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { 
   RotateCcw, Download, Video, VideoOff, 
-  Droplets, Thermometer, FlaskConical, Timer
+  Droplets, Thermometer, FlaskConical, Timer, Trash2, Cloud
 } from "lucide-react"
 
 const CHEMICAL_FIELDS = [
@@ -97,6 +105,59 @@ interface Organism {
   isContaminant: boolean
 }
 
+type ExperimentEventType =
+  | "sample"
+  | "contamination"
+  | "swab"
+  | "scalpel"
+  | "environment"
+  | "recording"
+  | "snapshot"
+  | "system"
+  | "mindex"
+
+interface ExperimentEvent {
+  id: string
+  timestamp: string
+  virtualHour: number
+  type: ExperimentEventType
+  message: string
+  useful: boolean
+  persistable: boolean
+  debug?: boolean
+  payload?: Record<string, unknown>
+}
+
+interface PendingArtifactSave {
+  title: string
+  description: string
+  filename: string
+  contentType: string
+  kind: "simulation-data" | "timelapse-video"
+  blob: Blob
+  metadata: Record<string, unknown>
+}
+
+const MINDEX_CACHE_KEY = "mycosoft:petri:mindex-candidates:v1"
+const MAX_MINDEX_CACHE_EVENTS = 240
+
+const canUseLocalStorage = () => typeof window !== "undefined" && "localStorage" in window
+
+const readMindexCandidateCache = (): ExperimentEvent[] => {
+  if (!canUseLocalStorage()) return []
+  try {
+    const raw = window.localStorage.getItem(MINDEX_CACHE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+const writeMindexCandidateCache = (events: ExperimentEvent[]) => {
+  if (!canUseLocalStorage()) return
+  window.localStorage.setItem(MINDEX_CACHE_KEY, JSON.stringify(events.slice(-MAX_MINDEX_CACHE_EVENTS)))
+}
+
 export interface SimulatorMetrics {
   virtual_hours: number
   sample_count: number
@@ -130,6 +191,11 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>(0)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const recordingIntervalRef = useRef<number | null>(null)
+  const recordingChunksRef = useRef<Blob[]>([])
+  const recordingStartedAtRef = useRef<number>(0)
+  const experimentIdRef = useRef(`petri-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
   
   // State
   const [selectedTool, setSelectedTool] = useState<"sporeSwab" | "scalpel" | "contamination">("sporeSwab")
@@ -144,13 +210,17 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const [selectedChemicalOverlay, setSelectedChemicalOverlay] = useState("none")
   const [isRunning, setIsRunning] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [mindexLive, setMindexLive] = useState<boolean | null>(null)
   const [consoleLog, setConsoleLog] = useState<string[]>([])
+  const [pendingArtifactSave, setPendingArtifactSave] = useState<PendingArtifactSave | null>(null)
+  const [artifactSaveStatus, setArtifactSaveStatus] = useState<string | null>(null)
   const selectedToolRef = useRef(selectedTool)
   const selectedSpeciesRef = useRef(selectedSpecies)
   const selectedContaminantRef = useRef(selectedContaminant)
   const virtualHoursRef = useRef(virtualHours)
   const isSwabbingRef = useRef(false)
   const lastSwabPointRef = useRef<{ x: number; y: number } | null>(null)
+  const experimentEventsRef = useRef<ExperimentEvent[]>([])
   
   // Simulation refs (mutable during animation)
   const samplesRef = useRef<Organism[]>([])
@@ -164,9 +234,35 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const GROWTH_RADIUS = DISH_RADIUS - 2
   const CANVAS_SIZE = 650
   
-  const logToConsole = useCallback((message: string) => {
-    setConsoleLog(prev => [...prev.slice(-50), `[${new Date().toLocaleTimeString()}] ${message}`])
+  const queueMindexCandidate = useCallback((event: ExperimentEvent) => {
+    if (!event.persistable || !event.useful || event.debug) return
+    const cached = readMindexCandidateCache()
+    writeMindexCandidateCache([...cached, event])
   }, [])
+
+  const recordExperimentEvent = useCallback((input: Omit<ExperimentEvent, "id" | "timestamp" | "virtualHour">) => {
+    const timestamp = new Date().toISOString()
+    const event: ExperimentEvent = {
+      ...input,
+      id: `${experimentIdRef.current}-${timestamp}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp,
+      virtualHour: virtualHoursRef.current,
+    }
+    experimentEventsRef.current = [...experimentEventsRef.current, event].slice(-500)
+    queueMindexCandidate(event)
+    const time = new Date(timestamp).toLocaleTimeString()
+    const marker = event.persistable && event.useful ? "MINDEX" : event.debug ? "DEBUG" : "LOCAL"
+    setConsoleLog(prev => [...prev.slice(-80), `[${time}] [${marker}] ${event.message}`])
+  }, [queueMindexCandidate])
+
+  const logToConsole = useCallback((message: string) => {
+    recordExperimentEvent({
+      type: "system",
+      message,
+      useful: false,
+      persistable: false,
+    })
+  }, [recordExperimentEvent])
 
   const isInsideDish = (x: number, y: number): boolean => {
     const dx = x - CANVAS_SIZE / 2
@@ -248,6 +344,31 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   useEffect(() => {
     virtualHoursRef.current = virtualHours
   }, [virtualHours])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 3500)
+
+    fetch("/api/natureos/mindex/etl-status", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => setMindexLive(response.ok))
+      .catch(() => setMindexLive(false))
+      .finally(() => window.clearTimeout(timeout))
+
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) window.clearInterval(recordingIntervalRef.current)
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop()
+    }
+  }, [])
   
   // Initialize grids
   const initializeGrids = useCallback((nextAgarType = agarType) => {
@@ -433,10 +554,25 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     
     if (!isRunning) setIsRunning(true)
     if (logPlacement) {
-      logToConsole(`Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
+      recordExperimentEvent({
+        type: isContaminant ? "contamination" : "sample",
+        message: `Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`,
+        useful: true,
+        persistable: true,
+        payload: {
+          species,
+          tool: selectedToolRef.current,
+          x: Math.round(x),
+          y: Math.round(y),
+          agarType,
+          pH,
+          temperature,
+          humidity,
+        },
+      })
     }
     if (emitUpdate) emitMetricsAndCompounds()
-  }, [isRunning, logToConsole, emitMetricsAndCompounds])
+  }, [agarType, emitMetricsAndCompounds, humidity, isRunning, pH, recordExperimentEvent, temperature])
   
   // Draw filament
   const drawFilament = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, props: SpeciesProps, isStarved: boolean = false) => {
@@ -617,7 +753,22 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       const dist = Math.sqrt(Math.random()) * 12
       placeSample(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, false, false, false)
     }
-    logToConsole(`Placed tissue chunk: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
+    recordExperimentEvent({
+      type: "scalpel",
+      message: `Placed tissue chunk: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`,
+      useful: true,
+      persistable: true,
+      payload: {
+        species,
+        x: Math.round(x),
+        y: Math.round(y),
+        clusterPoints: numPoints,
+        agarType,
+        pH,
+        temperature,
+        humidity,
+      },
+    })
     emitMetricsAndCompounds()
   }
 
@@ -685,7 +836,19 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     }
     if (isSwabbingRef.current) {
       const species = selectedSpeciesRef.current
-      logToConsole(`Swabbed ${species} across dish`)
+      recordExperimentEvent({
+        type: "swab",
+        message: `Swabbed ${species} across dish`,
+        useful: true,
+        persistable: true,
+        payload: {
+          species,
+          agarType,
+          pH,
+          temperature,
+          humidity,
+        },
+      })
       emitMetricsAndCompounds()
     }
     isSwabbingRef.current = false
@@ -710,60 +873,276 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const overlayCtx = overlayCanvasRef.current?.getContext("2d")
     overlayCtx?.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     
-    logToConsole("Simulation reset")
+    recordExperimentEvent({
+      type: "system",
+      message: "Simulation reset",
+      useful: false,
+      persistable: false,
+    })
     emitMetricsAndCompounds(0)
   }
   
-  // Save simulation data
-  const saveSimulation = () => {
-    const data = {
-      virtualHours,
-      samples: samplesRef.current.length,
-      contaminants: contaminantsRef.current.length,
-      settings: { agarType, pH, temperature, humidity },
+  const buildSimulationSnapshot = useCallback(() => {
+    const samples = samplesRef.current
+    const contaminants = contaminantsRef.current
+    const totalBranches = samples.reduce((total, sample) => total + sample.branches.length, 0) +
+      contaminants.reduce((total, contaminant) => total + contaminant.branches.length, 0)
+
+    return {
+      schema: "mycosoft.petri.simulation.snapshot.v1",
+      experimentId: experimentIdRef.current,
       timestamp: new Date().toISOString(),
+      virtualHours: virtualHoursRef.current,
+      settings: {
+        selectedSpecies,
+        selectedContaminant,
+        selectedTool,
+        agarType,
+        pH,
+        temperature,
+        humidity,
+        speed,
+        chemicalOverlay: selectedChemicalOverlay,
+      },
+      summary: {
+        samples: samples.length,
+        contaminants: contaminants.length,
+        totalBranches,
+        sampleSpecies: Array.from(new Set(samples.map(sample => sample.species))),
+        contaminantSpecies: Array.from(new Set(contaminants.map(contaminant => contaminant.species))),
+      },
+      events: experimentEventsRef.current.filter(event => event.useful && event.persistable && !event.debug).slice(-120),
+      cachePolicy: {
+        localStorageKey: MINDEX_CACHE_KEY,
+        maxCachedEvents: MAX_MINDEX_CACHE_EVENTS,
+        purgeable: true,
+        debugEventsExcluded: true,
+      },
     }
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
+  }, [agarType, humidity, pH, selectedChemicalOverlay, selectedContaminant, selectedSpecies, selectedTool, speed, temperature])
+
+  const drawRecordingAgarLayer = useCallback((ctx: CanvasRenderingContext2D) => {
+    const cx = CANVAS_SIZE / 2
+    const cy = CANVAS_SIZE / 2
+    const agarPalette: Record<string, { fill: string; edge: string }> = {
+      transparent: { fill: "rgba(230, 245, 255, 0.2)", edge: "rgba(255, 255, 255, 0.38)" },
+      charcoal: { fill: "rgba(13, 18, 24, 0.62)", edge: "rgba(140, 158, 176, 0.34)" },
+      blood: { fill: "rgba(142, 27, 42, 0.55)", edge: "rgba(255, 180, 190, 0.28)" },
+      dextrose: { fill: "rgba(119, 78, 43, 0.45)", edge: "rgba(230, 180, 120, 0.3)" },
+      feces: { fill: "rgba(86, 52, 29, 0.5)", edge: "rgba(196, 160, 120, 0.25)" },
+      maltExtract: { fill: "rgba(211, 171, 107, 0.38)", edge: "rgba(255, 230, 180, 0.32)" },
+      fungalAgar: { fill: "rgba(189, 213, 155, 0.34)", edge: "rgba(230, 255, 205, 0.28)" },
+      sabouraud: { fill: "rgba(240, 196, 126, 0.4)", edge: "rgba(255, 236, 190, 0.3)" },
+    }
+    const palette = agarPalette[agarType] ?? agarPalette.charcoal
+
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    ctx.save()
+    ctx.fillStyle = "rgba(245, 247, 250, 0.82)"
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    ctx.globalAlpha = 0.08
+    ctx.fillStyle = "#111827"
+    for (let x = 0; x < CANVAS_SIZE; x += 28) {
+      for (let y = 0; y < CANVAS_SIZE; y += 28) {
+        ctx.beginPath()
+        ctx.arc(x + 2, y + 2, 1, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    ctx.globalAlpha = 1
+    ctx.beginPath()
+    ctx.arc(cx, cy, DISH_RADIUS, 0, Math.PI * 2)
+    ctx.fillStyle = palette.fill
+    ctx.fill()
+    ctx.strokeStyle = palette.edge
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.restore()
+  }, [agarType])
+
+  const drawRecordingFrame = useCallback(() => {
+    const recordCanvas = recordingCanvasRef.current
+    const ctx = recordCanvas?.getContext("2d")
+    if (!recordCanvas || !ctx) return
+
+    drawRecordingAgarLayer(ctx)
+    if (canvasRef.current) ctx.drawImage(canvasRef.current, 0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    if (selectedChemicalOverlay !== "none" && overlayCanvasRef.current) {
+      ctx.save()
+      ctx.globalAlpha = 0.7
+      ctx.globalCompositeOperation = "screen"
+      ctx.drawImage(overlayCanvasRef.current, 0, 0, CANVAS_SIZE, CANVAS_SIZE)
+      ctx.restore()
+    }
+    if (rimCanvasRef.current) ctx.drawImage(rimCanvasRef.current, 0, 0, CANVAS_SIZE, CANVAS_SIZE)
+  }, [drawRecordingAgarLayer, selectedChemicalOverlay])
+
+  const purgeMindexCache = () => {
+    if (canUseLocalStorage()) window.localStorage.removeItem(MINDEX_CACHE_KEY)
+    recordExperimentEvent({
+      type: "mindex",
+      message: "Purged local MINDEX candidate cache",
+      useful: false,
+      persistable: false,
+    })
+  }
+
+  const downloadArtifactToDesktop = (artifact: PendingArtifactSave) => {
+    const url = URL.createObjectURL(artifact.blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `mycelium_simulation_${Date.now()}.json`
+    a.download = artifact.filename
     a.click()
     URL.revokeObjectURL(url)
+    setPendingArtifactSave(null)
+    setArtifactSaveStatus(null)
+    recordExperimentEvent({
+      type: artifact.kind === "timelapse-video" ? "recording" : "snapshot",
+      message: `Downloaded ${artifact.filename} locally`,
+      useful: false,
+      persistable: false,
+    })
+  }
+
+  const saveArtifactToNatureOS = async (artifact: PendingArtifactSave) => {
+    setArtifactSaveStatus("Saving to NatureOS storage...")
+    try {
+      const formData = new FormData()
+      formData.append("file", artifact.blob, artifact.filename)
+      formData.append("appId", "virtual-petri-dish")
+      formData.append("kind", artifact.kind)
+      formData.append("metadata", JSON.stringify(artifact.metadata))
+
+      const response = await fetch("/api/natureos/storage/artifacts", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(response.status === 401 ? "Sign in to save this artifact to NatureOS storage." : data?.error || "NatureOS storage save failed")
+      }
+      setPendingArtifactSave(null)
+      setArtifactSaveStatus(null)
+      recordExperimentEvent({
+        type: artifact.kind === "timelapse-video" ? "recording" : "snapshot",
+        message: `Saved ${artifact.filename} to NatureOS storage`,
+        useful: true,
+        persistable: true,
+        payload: {
+          artifactId: data.artifact?.id,
+          storagePath: data.artifact?.relativePath,
+          size: artifact.blob.size,
+        },
+      })
+    } catch (error) {
+      setArtifactSaveStatus(error instanceof Error ? error.message : "NatureOS storage save failed")
+    }
+  }
+
+  // Save simulation data
+  const saveSimulation = () => {
+    const data = buildSimulationSnapshot()
     
-    logToConsole("Simulation data saved")
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    setArtifactSaveStatus(null)
+    setPendingArtifactSave({
+      title: "Save Simulation Data",
+      description: "Save this console and simulation JSON locally or to your gated NatureOS storage.",
+      filename: `mycosoft_petri_mindex_snapshot_${Date.now()}.json`,
+      contentType: "application/json",
+      kind: "simulation-data",
+      blob,
+      metadata: {
+        experimentId: data.experimentId,
+        virtualHours: data.virtualHours,
+        samples: data.summary.samples,
+        contaminants: data.summary.contaminants,
+        totalBranches: data.summary.totalBranches,
+      },
+    })
   }
   
   // Toggle recording
   const toggleRecording = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    
     if (!isRecording) {
-      const stream = canvas.captureStream(30)
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" })
-      const chunks: Blob[] = []
+      const recordCanvas = document.createElement("canvas")
+      recordCanvas.width = CANVAS_SIZE
+      recordCanvas.height = CANVAS_SIZE
+      recordingCanvasRef.current = recordCanvas
+      drawRecordingFrame()
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+          ? "video/webm;codecs=vp8"
+          : "video/webm"
+      const stream = recordCanvas.captureStream(12)
+      const recorder = new MediaRecorder(stream, { mimeType })
+      recordingChunksRef.current = []
+      recordingStartedAtRef.current = Date.now()
       
-      recorder.ondataavailable = (e) => chunks.push(e.data)
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data)
+      }
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `mycelium_recording_${Date.now()}.webm`
-        a.click()
-        URL.revokeObjectURL(url)
+        if (recordingIntervalRef.current) {
+          window.clearInterval(recordingIntervalRef.current)
+          recordingIntervalRef.current = null
+        }
+        const blob = new Blob(recordingChunksRef.current, { type: mimeType })
+        const durationSeconds = Math.max(0, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+        const snapshot = buildSimulationSnapshot()
+        setArtifactSaveStatus(null)
+        setPendingArtifactSave({
+          title: "Save Petri Timelapse",
+          description: "Save this visual recording locally or to the Microsoft NatureOS cloud for MYCA/MINDEX analysis.",
+          filename: `mycosoft_petri_timelapse_${Date.now()}.webm`,
+          contentType: mimeType,
+          kind: "timelapse-video",
+          blob,
+          metadata: {
+            experimentId: snapshot.experimentId,
+            durationSeconds,
+            virtualHours: snapshot.virtualHours,
+            samples: snapshot.summary.samples,
+            contaminants: snapshot.summary.contaminants,
+          },
+        })
+        recordExperimentEvent({
+          type: "recording",
+          message: `Timelapse ready for save (${durationSeconds}s, ${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
+          useful: true,
+          persistable: true,
+          payload: {
+            durationSeconds,
+            sizeBytes: blob.size,
+            mimeType,
+            snapshot,
+          },
+        })
+        recordingCanvasRef.current = null
+        recordingChunksRef.current = []
       }
       
-      recorder.start()
+      recordingIntervalRef.current = window.setInterval(drawRecordingFrame, 1000 / 12)
+      recorder.start(1000)
       recorderRef.current = recorder
       setIsRecording(true)
-      logToConsole("Recording started")
+      recordExperimentEvent({
+        type: "recording",
+        message: "Timelapse recording started",
+        useful: false,
+        persistable: false,
+      })
     } else {
       recorderRef.current?.stop()
       setIsRecording(false)
-      logToConsole("Recording stopped")
+      recordExperimentEvent({
+        type: "recording",
+        message: "Timelapse recording stopped",
+        useful: false,
+        persistable: false,
+      })
     }
   }
   
@@ -777,6 +1156,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   }
   
   return (
+    <>
     <div className="petri-app-frame flex w-full min-w-0 flex-col gap-4 overflow-x-hidden rounded-3xl border p-3 xl:flex-row xl:p-4">
       {/* Canvas Area */}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-4 overflow-hidden">
@@ -829,8 +1209,8 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
             <CardTitle className="text-sm">Console</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-32 bg-black rounded-b-lg">
-              <div className="p-3 font-mono text-xs text-green-400 space-y-1">
+            <ScrollArea className="petri-console-log h-32 rounded-b-lg">
+              <div className="space-y-1 p-3 font-mono text-xs">
                 {consoleLog.length === 0 ? (
                   <p className="text-muted-foreground">Waiting for activity...</p>
                 ) : (
@@ -843,19 +1223,23 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       </div>
       
       {/* Controls Panel */}
-      <Card className="petri-controls-glass w-full min-w-0 shrink-0 xl:w-80">
-        <CardHeader className="pb-1 pt-3">
-          <CardTitle className="flex items-center justify-between text-base">
-            Controls
-            <Badge variant="outline">
+      <Card className="petri-controls-glass w-full min-w-0 shrink-0 gap-0 py-0 xl:w-80">
+        <div className="petri-controls-topbar">
+          <CardTitle className="text-sm font-semibold tracking-tight">Controls</CardTitle>
+          <div className="petri-controls-status">
+            <span className="petri-mindex-status" data-live={mindexLive === true} data-checking={mindexLive == null}>
+              <span className="petri-mindex-led" aria-hidden="true" />
+              <span>MINDEX</span>
+            </span>
+            <Badge variant="outline" className="petri-hour-badge">
               <Timer className="h-3 w-3 mr-1" />
               {virtualHours}h
             </Badge>
-          </CardTitle>
-        </CardHeader>
+          </div>
+        </div>
         <CardContent className="space-y-4 overflow-visible pt-0">
           {/* Playback Controls */}
-          <div className="relative flex h-[5.75rem] items-center justify-center overflow-visible pt-3">
+          <div className="petri-playback-row relative flex h-[5rem] items-center justify-center overflow-visible">
             <div className="petri-codepen-button-demo">
               <div className="button-wrap">
                 <button
@@ -1057,33 +1441,69 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
                 <div className="button-shadow" />
               </div>
             </div>
+            <div className="petri-codepen-button-demo petri-codepen-button-demo-rect petri-codepen-button-demo-wide">
+              <div className="button-wrap">
+                <button type="button" onClick={purgeMindexCache}>
+                  <span>
+                    <Trash2 className="h-[1em] w-[1em]" />
+                    Purge Cache
+                  </span>
+                </button>
+                <div className="button-shadow" />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
+    <Dialog open={pendingArtifactSave != null} onOpenChange={(open) => {
+      if (!open) {
+        setPendingArtifactSave(null)
+        setArtifactSaveStatus(null)
+      }
+    }}>
+      <DialogContent className="border-white/30 bg-white/80 shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-black/70">
+        <DialogHeader>
+          <DialogTitle>{pendingArtifactSave?.title ?? "Save Artifact"}</DialogTitle>
+          <DialogDescription>
+            {pendingArtifactSave?.description}
+          </DialogDescription>
+        </DialogHeader>
+        {pendingArtifactSave ? (
+          <div className="rounded-2xl border border-white/25 bg-white/35 p-3 text-sm shadow-inner backdrop-blur-md dark:border-white/10 dark:bg-white/10">
+            <div className="font-mono text-xs break-all">{pendingArtifactSave.filename}</div>
+            <div className="mt-1 text-muted-foreground">
+              {(pendingArtifactSave.blob.size / 1024 / 1024).toFixed(2)} MB • {pendingArtifactSave.contentType}
+            </div>
+            {artifactSaveStatus ? (
+              <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs">
+                {artifactSaveStatus}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => pendingArtifactSave && downloadArtifactToDesktop(pendingArtifactSave)}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Save to Desktop
+          </Button>
+          <Button
+            type="button"
+            onClick={() => pendingArtifactSave && saveArtifactToNatureOS(pendingArtifactSave)}
+          >
+            <Cloud className="mr-2 h-4 w-4" />
+            Save to NatureOS
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
