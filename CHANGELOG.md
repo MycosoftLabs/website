@@ -537,6 +537,7 @@ All notable changes to this project will be documented in this file.
 - Rewrite /docs/what-is-mycosoft per audit; reconcile Agaric/MycoDrone and Earth Simulator/CREP (#161)
 - Align MYCA agent count to 1,000+ across docs (#162)
 - Clarify device ownership model (Mycosoft-owned, hosted on partner property; DoD exception) (#163)
+- Update changelog [skip ci]
 
 ### Features
 
@@ -823,6 +824,10 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Checkpoint
+
+- Save glass site state and petri dish baseline
 
 ### Crep
 
