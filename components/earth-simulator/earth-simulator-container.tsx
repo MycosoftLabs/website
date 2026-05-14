@@ -106,9 +106,30 @@ export function EarthSimulatorContainer({
   } | null>(null);
   const [showLandGrid, setShowLandGrid] = useState(false);
   const [gridTileSize, setGridTileSize] = useState(0.5);
+  const isEmbedded = variant === "embedded";
   const defaultLayers: EarthContextLayerState = earthContextFilters?.isContextual
     ? earthContextFilters.layerState
-    : {
+    : isEmbedded
+      ? {
+    fungi: false,
+    devices: false,
+    organisms: false,
+    mycelium: false,
+    heat: false,
+    weather: false,
+    inat: false,
+    wind: false,
+    precipitation: false,
+    ndvi: false,
+    nlm: false,
+    earth2Forecast: false,
+    earth2Nowcast: false,
+    earth2SporeDisperal: false,
+    earth2WindField: false,
+    earth2StormCells: false,
+    earth2Clouds: false,
+  }
+      : {
     // PRIORITY LAYERS - Fungal data first
     fungi: true,      // PRIMARY: Fungal observations from MINDEX/iNat/GBIF - ON by default
     devices: true,    // PRIMARY: MycoBrain devices - ON by default
@@ -159,15 +180,14 @@ export function EarthSimulatorContainer({
     []
   );
 
-  const isEmbedded = variant === "embedded";
   const containerClasses = isEmbedded
-    ? "earth-simulator-container w-full min-h-[70vh] relative flex"
+    ? "earth-simulator-container w-full h-full min-h-0 relative flex"
     : "earth-simulator-container w-full h-screen relative flex";
   const panelClasses = isEmbedded
     ? "w-full lg:w-96 flex-shrink-0 z-20 max-h-[40vh] lg:max-h-none"
     : "w-96 flex-shrink-0 z-20";
   const globeClasses = isEmbedded
-    ? "flex-1 relative min-h-[45vh] lg:min-h-0"
+    ? "flex-1 relative h-full min-h-0"
     : "flex-1 relative";
 
   return (

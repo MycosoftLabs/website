@@ -208,25 +208,25 @@ function determinePrimaryWidget(
    * so "Planes over LA" expanded CREP + earth/weather/events but never the aircraft tile → all empty.
    */
   if (intent.type === "aircraft") {
-    const secondary = prioritizeWorldviewCrepSecondary(worldview, "aircraft", getSecondaryWidgets(intent, "aircraft"))
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "earth", getSecondaryWidgets(intent, "earth"))
     return {
-      primaryWidget: "aircraft",
+      primaryWidget: "earth",
       primaryWidgetSize: { width: 2, height: 3 },
       secondaryWidgets: secondary,
     }
   }
   if (intent.type === "vessel") {
-    const secondary = prioritizeWorldviewCrepSecondary(worldview, "vessels", getSecondaryWidgets(intent, "vessels"))
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "earth", getSecondaryWidgets(intent, "earth"))
     return {
-      primaryWidget: "vessels",
+      primaryWidget: "earth",
       primaryWidgetSize: { width: 2, height: 3 },
       secondaryWidgets: secondary,
     }
   }
   if (intent.type === "satellite") {
-    const secondary = prioritizeWorldviewCrepSecondary(worldview, "satellites", getSecondaryWidgets(intent, "satellites"))
+    const secondary = prioritizeWorldviewCrepSecondary(worldview, "earth", getSecondaryWidgets(intent, "earth"))
     return {
-      primaryWidget: "satellites",
+      primaryWidget: "earth",
       primaryWidgetSize: { width: 2, height: 3 },
       secondaryWidgets: secondary,
     }
@@ -278,24 +278,24 @@ function determinePrimaryWidget(
     media: "media",
     research: "research",
     location: "earth",
-    crep: "crep",
+    crep: "earth",
     general: "answers",
-    event: "events",
-    aircraft: "aircraft",
-    vessel: "vessels",
-    satellite: "satellites",
-    weather: "weather",
-    emissions: "emissions",
-    infrastructure: "infrastructure",
-    device: "devices",
-    space_weather: "space_weather",
+    event: "earth",
+    aircraft: "earth",
+    vessel: "earth",
+    satellite: "earth",
+    weather: "earth",
+    emissions: "earth",
+    infrastructure: "earth",
+    device: "earth",
+    space_weather: "earth",
     cameras: "cameras", // Added cameras
   }
 
   const primaryWidget = entityWidgetMap[intent.type] || "answers"
 
   // Size based on type - location/map/earth types get viewport priority
-  const largeWidgets: WidgetType[] = ["crep", "earth", "events", "aircraft", "vessels", "cameras"] // Added cameras
+  const largeWidgets: WidgetType[] = ["crep", "earth", "cameras"] // Added cameras
   const mediumWidgets: WidgetType[] = ["species", "answers", "weather"]
 
   let primaryWidgetSize: { width: 1 | 2; height: 1 | 2 | 3 }
@@ -329,10 +329,8 @@ function getSecondaryWidgets(intent: SearchIntent, primaryWidget: WidgetType): W
   }
 
   // For earth intelligence, include related widgets
-  if (["event", "aircraft", "vessel", "weather", "satellite"].includes(intent.type)) {
+  if (["event", "aircraft", "vessel", "weather", "satellite", "emissions", "infrastructure", "device", "space_weather"].includes(intent.type)) {
     if (primaryWidget !== "earth") secondary.push("earth")
-    if (primaryWidget !== "weather") secondary.push("weather")
-    if (primaryWidget !== "events") secondary.push("events")
   }
 
   // Research always gets news

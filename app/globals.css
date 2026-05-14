@@ -1480,3 +1480,142 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   50% { background-size: 150% 150%; }
   100% { background-size: 100% 100%; }
 }
+
+/* Search results glass system: same material language as the home hero card, scoped to search only. */
+.search-glass-page {
+  --search-glass-radius: 20px;
+  --search-light-reflect:
+    inset -5px 20px 2px -20px rgba(255, 255, 255, 0.9),
+    inset 5px -20px 2px -20px rgba(255, 255, 255, 0.72);
+  --search-shadow-reflect:
+    inset -19px 1px 2px -20px rgba(0, 0, 0, 0.75),
+    inset 19px 1px 2px -20px rgba(0, 0, 0, 0.72),
+    inset -15px -26px 3px -30px rgba(0, 0, 0, 0.72);
+  background:
+    radial-gradient(circle at 16% 8%, rgba(34, 197, 94, 0.2), transparent 30%),
+    radial-gradient(circle at 82% 4%, rgba(14, 165, 233, 0.18), transparent 28%),
+    linear-gradient(135deg, #f8fbff, #edf4f8 48%, #f7fbf7);
+  color: #0f172a;
+}
+
+.dark .search-glass-page {
+  background:
+    radial-gradient(circle at 16% 8%, rgba(34, 197, 94, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 4%, rgba(14, 165, 233, 0.16), transparent 28%),
+    linear-gradient(135deg, #02050c, #07111f 48%, #050b12);
+  color: #f8fafc;
+}
+
+.search-glass-page :where([data-slot="card"], .bg-card, .search-magnetic-widget > div, aside, section.bg-card\/30, .rounded-lg.border, .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border) {
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.38) 46%, rgba(226, 232, 240, 0.22)) !important;
+  box-shadow:
+    5px -30px 30px -22px rgba(255, 255, 255, 0.45),
+    0 22px 54px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -18px 32px rgba(15, 23, 42, 0.06) !important;
+  backdrop-filter: blur(18px) saturate(1.22);
+  -webkit-backdrop-filter: blur(18px) saturate(1.22);
+}
+
+.dark .search-glass-page :where([data-slot="card"], .bg-card, .search-magnetic-widget > div, aside, section.bg-card\/30, .rounded-lg.border, .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border) {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(15, 23, 42, 0.54) 48%, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow:
+    5px -30px 30px -24px rgba(255, 255, 255, 0.22),
+    0 26px 62px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -18px 32px rgba(255, 255, 255, 0.05) !important;
+}
+
+.search-glass-page :where(button, a[role="button"], input, textarea, select, [role="button"]) {
+  border-color: rgba(255, 255, 255, 0.46) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.36) 46%, rgba(255, 255, 255, 0.18)) !important;
+  box-shadow:
+    var(--search-light-reflect),
+    var(--search-shadow-reflect),
+    0 12px 28px rgba(15, 23, 42, 0.1) !important;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dark .search-glass-page :where(button, a[role="button"], input, textarea, select, [role="button"]) {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.17) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(15, 23, 42, 0.48) 48%, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow:
+    var(--search-light-reflect),
+    var(--search-shadow-reflect),
+    0 16px 34px rgba(0, 0, 0, 0.24) !important;
+}
+
+.search-glass-page :where(button, a, input, textarea, select, [role="button"]):focus,
+.search-glass-page :where(button, a, input, textarea, select, [role="button"]):focus-visible {
+  outline: none !important;
+}
+
+html:not(.dark) .search-glass-page :where(h1, h2, h3, h4, h5, h6, p, span, div, label, li, td, th):not(.text-white):not([class*="text-white"]) {
+  color: #0f172a;
+}
+
+html:not(.dark) .search-glass-page .text-muted-foreground,
+html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
+  color: #334155 !important;
+}
+
+.search-glass-page .earth-simulator-container,
+.search-glass-page .earth-simulator-container *,
+.search-glass-page canvas {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.search-glass-page .earth-simulator-container {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+.search-glass-page .earth-simulator-container :where(button, input, select, [role="button"]) {
+  box-shadow: none !important;
+}
+
+.search-glass-page .earth-simulator-container :where(
+  .cesium-viewer-bottom,
+  .cesium-credit-lightbox-overlay,
+  .cesium-credit-lightbox,
+  .cesium-credit-logoContainer,
+  .cesium-widget-credits,
+  .cesium-credit-textContainer,
+  .cesium-viewer-toolbar,
+  .cesium-viewer-fullscreenContainer,
+  .cesium-viewer-animationContainer,
+  .cesium-viewer-timelineContainer
+) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.search-glass-page .earth-simulator-container .cesium-viewer,
+.search-glass-page .earth-simulator-container .cesium-widget,
+.search-glass-page .earth-simulator-container .cesium-widget canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.search-glass-page .search-magnetic-widget > div > div:first-child {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background:
+    linear-gradient(45deg,
+      rgba(133, 213, 231, 0.24),
+      rgba(122, 158, 210, 0.22),
+      rgba(186, 106, 201, 0.16),
+      rgba(248, 107, 45, 0.16)) !important;
+}

@@ -1,51 +1,21 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { motion } from "framer-motion"
-import { cn } from "@/lib/utils"
-import { Map, MapPin, AlertTriangle, Maximize2, Minimize2, Loader2, Thermometer, Droplets, CloudRain, Wind, AlertCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
+import { AlertTriangle, Loader2 } from "lucide-react"
 import { classifyAndRoute } from "@/lib/search/search-intelligence-router"
-import "leaflet/dist/leaflet.css"
 
 const EarthSimulatorContainer = dynamic(
   () => import("@/components/earth-simulator/earth-simulator-container").then((mod) => mod.EarthSimulatorContainer),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[360px] items-center justify-center bg-black text-white">
+      <div className="flex h-full min-h-[460px] items-center justify-center bg-black text-white">
         <Loader2 className="mr-2 h-5 w-5 animate-spin text-emerald-400" />
         Loading Earth Simulator...
       </div>
     ),
   }
-)
-
-// Dynamically import Leaflet components to avoid SSR issues
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  { ssr: false }
-)
-const TileLayer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false }
-)
-const Marker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Marker),
-  { ssr: false }
-)
-const Popup = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Popup),
-  { ssr: false }
-)
-const Circle = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Circle),
-  { ssr: false }
-)
-const MarkerClusterGroup = dynamic(
-  () => import("react-leaflet-cluster").then((mod) => mod.default),
-  { ssr: false }
 )
 
 export interface MapObservation {
@@ -62,11 +32,11 @@ export interface MapObservation {
 }
 
 export interface WeatherCondition {
-  temperature: number // Celsius
-  humidity: number // Percentage
-  precipitation: number // mm
-  windSpeed: number // m/s
-  cloudCover: number // Percentage
+  temperature: number
+  humidity: number
+  precipitation: number
+  windSpeed: number
+  cloudCover: number
   uvIndex: number
 }
 
@@ -100,40 +70,114 @@ interface EarthWidgetProps {
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
 }
 
+function readNumber(item: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = key.split(".").reduce<unknown>((acc, part) => {
+      if (!acc || typeof acc !== "object") return undefined
+      return (acc as Record<string, unknown>)[part]
+    }, item)
+    const num = Number(value)
+    if (Number.isFinite(num)) return num
+  }
+  return null
+}
+
 export function EarthWidget({
   data = [],
   eventsData = [],
-  earth2Data,
   searchLocation,
   searchQuery = "",
   liveEntities = [],
   isFocused = false,
   error,
   isLoading = false,
-  onAddToNotepad,
 }: EarthWidgetProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [selectedObservation, setSelectedObservation] = useState<MapObservation | null>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const mapCenter = useMemo(() => {
-    if (searchLocation) {
-      return [searchLocation.lat, searchLocation.lng] as [number, number]
+  const route = useMemo(
+    () => (searchQuery.trim().length >= 2 ? classifyAndRoute(searchQuery) : null),
+    [searchQuery]
+  )
+  const routeLocation = route?.intent.filters.location
+  const simulatorLocation = searchLocation || (
+    routeLocation?.lat && routeLocation?.lng
+      ? {
+          lat: routeLocation.lat,
+          lng: routeLocation.lng,
+          name: routeLocation.city || routeLocation.state || routeLocation.country || routeLocation.region,
+        }
+      : null
+  )
+  const enabledFilters = useMemo(
+    () => route?.earthContextFilters.enabledFilters ?? [],
+    [route]
+  )
+  const enabledLabels = useMemo(
+    () => enabledFilters.map((filter) => filter.label),
+    [enabledFilters]
+  )
+  const enabledCategories = useMemo(
+    () => new Set(enabledFilters.map((filter) => filter.category)),
+    [enabledFilters]
+  )
+  const normalizedLiveEntities = useMemo(
+    () => [
+      ...liveEntities,
+      ...eventsData.map((event) => ({
+        id: event.id,
+        type: event.type?.toLowerCase().includes("vessel") ? "vessel" : "event",
+        name: event.title || event.type,
+        lat: event.lat,
+        lng: event.lng,
+        severity: event.severity,
+        magnitude: event.magnitude,
+        timestamp: event.timestamp,
+      })),
+      ...data.map((observation) => ({
+        id: observation.id,
+        type: "species",
+        name: observation.commonName || observation.scientificName || observation.species,
+        lat: observation.lat,
+        lng: observation.lng,
+        timestamp: observation.timestamp,
+      })),
+    ],
+    [data, eventsData, liveEntities]
+  )
+  const filteredEntities = useMemo(
+    () => normalizedLiveEntities.filter((entity) => {
+      const type = String(entity.type ?? entity.category ?? entity.entity_type ?? "").toLowerCase()
+      if (enabledCategories.size === 0) return false
+      if (type === "species") return enabledCategories.has("species")
+      if (type === "event") return enabledCategories.has("event")
+      if (type === "aircraft") return enabledCategories.has("aircraft")
+      if (type === "vessel") return enabledCategories.has("vessel")
+      if (type === "satellite") return enabledCategories.has("satellite")
+      if (type === "device") return enabledCategories.has("device")
+      return false
+    }),
+    [enabledCategories, normalizedLiveEntities]
+  )
+  const entityFocus = useMemo(() => {
+    const coords = filteredEntities
+      .map((entity) => {
+        const lat = readNumber(entity, ["lat", "latitude", "location.lat", "location.latitude", "location.coordinates.1"])
+        const lng = readNumber(entity, ["lng", "lon", "longitude", "location.lng", "location.lon", "location.longitude", "location.coordinates.0"])
+        return lat == null || lng == null ? null : { lat, lng }
+      })
+      .filter((coord): coord is { lat: number; lng: number } => Boolean(coord))
+    if (coords.length === 0) return null
+    return {
+      lat: coords.reduce((sum, coord) => sum + coord.lat, 0) / coords.length,
+      lng: coords.reduce((sum, coord) => sum + coord.lng, 0) / coords.length,
+      name: enabledLabels[0] || "Search results",
     }
-    if (data.length > 0) {
-      const avgLat = data.reduce((sum, obs) => sum + obs.lat, 0) / data.length
-      const avgLng = data.reduce((sum, obs) => sum + obs.lng, 0) / data.length
-      return [avgLat, avgLng] as [number, number]
-    }
-    return [40.7128, -74.0060] as [number, number] 
-  }, [data, searchLocation])
-
-  const toxicCount = data.filter((o) => o.isToxic).length
-  const safeCount = data.length - toxicCount
+  }, [enabledLabels, filteredEntities])
+  const focusTarget = simulatorLocation || entityFocus
 
   if (error) {
     return (
@@ -145,230 +189,34 @@ export function EarthWidget({
     )
   }
 
-  if (isLoading) {
+  if (isLoading || !mounted) {
     return (
-      <div className="flex flex-col items-center justify-center h-[200px] gap-3">
+      <div className="flex flex-col items-center justify-center h-[260px] gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <p className="text-sm text-muted-foreground">Loading Earth data...</p>
-      </div>
-    )
-  }
-
-  if (!mounted) {
-    return (
-      <div className="flex items-center justify-center h-[200px]">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      </div>
-    )
-  }
-
-  const mapHeight = isFocused || isExpanded ? "h-[400px]" : "h-[250px]"
-  const conditions = earth2Data?.currentConditions
-  const route = searchQuery.trim().length >= 2 ? classifyAndRoute(searchQuery) : null
-  const routeLocation = route?.intent.filters.location
-  const simulatorLocation = searchLocation || (
-    routeLocation?.lat && routeLocation?.lng
-      ? {
-          lat: routeLocation.lat,
-          lng: routeLocation.lng,
-          name: routeLocation.city || routeLocation.state || routeLocation.country || routeLocation.region,
-        }
-      : null
-  )
-
-  const isMapSearch = !!route?.earthContextFilters.isContextual || liveEntities.length > 0 || !!simulatorLocation
-
-  if (isMapSearch) {
-    return (
-      <div className="relative h-full min-h-[360px] overflow-hidden rounded-xl border border-emerald-500/20 bg-black">
-        <EarthSimulatorContainer
-          variant="embedded"
-          className="h-full min-h-[360px]"
-          initialQuery={searchQuery}
-          earthContextFilters={route?.earthContextFilters ?? null}
-          hideSidePanels
-          hideControls
-          focusLocation={simulatorLocation ? { ...simulatorLocation, zoomMeters: 90000 } : null}
-          liveEntities={liveEntities}
-        />
-        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-lg border border-white/10 bg-black/65 px-3 py-2 text-xs text-white shadow-xl backdrop-blur-md">
-          <div className="font-semibold">Earth Simulator</div>
-          <div className="text-white/70">
-            {(route?.earthContextFilters.enabledFilters ?? []).map((f) => f.label).join(" + ") || "Search layers"}
-            {simulatorLocation?.name ? ` over ${simulatorLocation.name}` : ""}
-          </div>
-        </div>
+        <p className="text-sm text-muted-foreground">Loading Earth Simulator...</p>
       </div>
     )
   }
 
   return (
-    <div className={cn("space-y-3", isFocused && "")}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 text-xs">
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <MapPin className="h-3.5 w-3.5" />
-            {safeCount} observations
-          </span>
-          {toxicCount > 0 && (
-            <span className="flex items-center gap-1.5 text-red-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {toxicCount} toxic
-          </span>
-          )}
-          {eventsData.length > 0 && (
-            <span className="flex items-center gap-1.5 text-orange-400 font-bold">
-              <AlertCircle className="h-3.5 w-3.5" />
-              {eventsData.length} events
-            </span>
-          )}
+    <div className="relative h-full min-h-[320px] overflow-hidden rounded-xl border border-emerald-500/20 bg-black">
+      <EarthSimulatorContainer
+        variant="embedded"
+        className="h-full min-h-[320px]"
+        initialQuery={searchQuery}
+        earthContextFilters={route?.earthContextFilters ?? null}
+        hideSidePanels
+        hideControls
+        focusLocation={focusTarget ? { ...focusTarget, zoomMeters: isFocused ? 65000 : 110000 } : null}
+        liveEntities={filteredEntities}
+      />
+      <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/65 px-3 py-2 text-xs text-white shadow-xl backdrop-blur-md">
+        <div className="font-semibold">Earth Simulator</div>
+        <div className="text-white/70">
+          {enabledLabels.length > 0 ? enabledLabels.join(" + ") : "Search-controlled Earth layers"}
+          {focusTarget?.name ? ` over ${focusTarget.name}` : ""}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? (
-            <Minimize2 className="h-3.5 w-3.5" />
-          ) : (
-            <Maximize2 className="h-3.5 w-3.5" />
-          )}
-        </Button>
       </div>
-
-      <motion.div
-        className={cn(
-          "rounded-xl overflow-hidden border border-emerald-500/20 bg-black/20 relative",
-          mapHeight,
-          "transition-all duration-300"
-        )}
-        layout
-      >
-        <MapContainer
-          center={mapCenter}
-          zoom={8}
-          className="h-full w-full z-0"
-          scrollWheelZoom={isFocused || isExpanded}
-        >
-          <TileLayer
-            attribution='&copy; OpenStreetMap'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MarkerClusterGroup
-            chunkedLoading
-            spiderfyOnMaxZoom
-            showCoverageOnHover={false}
-            maxClusterRadius={50}
-            disableClusteringAtZoom={15}
-          >
-            {data.map((observation) => (
-              <Marker
-                key={observation.id}
-                position={[observation.lat, observation.lng]}
-                eventHandlers={{
-                  click: () => setSelectedObservation(observation),
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[150px]">
-                    <p className="font-semibold text-sm">
-                      {observation.commonName || observation.species}
-                    </p>
-                    <p className="text-xs text-gray-500 italic">
-                      {observation.scientificName || observation.species}
-                    </p>
-                    {observation.isToxic && (
-                      <span className="inline-block mt-1 text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">
-                        ⚠️ Toxic
-                      </span>
-                    )}
-                    {observation.timestamp && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Observed: {new Date(observation.timestamp).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-
-            {eventsData.map((event) => {
-              const radius = event.magnitude ? Math.pow(1.5, event.magnitude) * 5000 : 20000;
-              const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
-              const ageMs = event.timestamp ? (new Date().getTime() - new Date(event.timestamp).getTime()) : 0;
-              const ageRatio = Math.max(0, Math.min(1, 1 - (ageMs / maxAgeMs)));
-              const strokeOpacity = 0.4 + (0.6 * ageRatio);
-              const fillOpacity = 0.1 + (0.3 * ageRatio);
-              const color = event.type.toLowerCase().includes("fire") ? "#ef4444" : 
-                            event.type.toLowerCase().includes("storm") ? "#3b82f6" : "#f97316";
-
-              return (
-              <div key={event.id}>
-                <Circle 
-                  center={[event.lat, event.lng]} 
-                  radius={radius} 
-                  pathOptions={{ color, stroke: true, weight: 2, opacity: strokeOpacity, fillColor: color, fillOpacity }} 
-                />
-                <Marker
-                  position={[event.lat, event.lng]}
-                  eventHandlers={{
-                    click: () => {
-                      if (onAddToNotepad) {
-                        onAddToNotepad({
-                          type: "event",
-                          title: event.title || event.type,
-                          content: `Global Event at [${event.lat.toFixed(2)}, ${event.lng.toFixed(2)}]. Magnitude: ${event.magnitude || event.severity || "N/A"}`,
-                          source: "Earth Simulator",
-                        })
-                      }
-                    },
-                  }}
-                >
-                  <Popup>
-                    <div className="min-w-[150px]">
-                      <p className="font-semibold text-sm flex items-center gap-1.5 text-orange-500">
-                        <AlertCircle className="w-4 h-4" />
-                        {event.title || event.type}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 capitalize">{event.type}</p>
-                      {(event.magnitude || event.severity) && (
-                        <p className="text-xs font-semibold text-red-600 mt-1">
-                          {event.magnitude ? `Magnitude: ${event.magnitude}` : event.severity}
-                        </p>
-                      )}
-                      {event.timestamp && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(event.timestamp).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              </div>
-            )})}
-          </MarkerClusterGroup>
-        </MapContainer>
-
-        {conditions && (
-          <div className="absolute top-2 right-2 z-[400] bg-black/60 backdrop-blur-md p-2 rounded-lg border border-white/10 text-xs shadow-lg pointer-events-none">
-            <div className="flex flex-col gap-2 font-medium">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5 text-orange-400"><Thermometer className="w-3.5 h-3.5"/> Temp</div>
-                <span>{conditions.temperature}°C</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5 text-blue-400"><Droplets className="w-3.5 h-3.5"/> Humid</div>
-                <span>{conditions.humidity}%</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5 text-gray-300"><Wind className="w-3.5 h-3.5"/> Wind</div>
-                <span>{conditions.windSpeed} m/s</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </motion.div>
     </div>
   )
 }

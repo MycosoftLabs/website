@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { classifyAndRoute } from "@/lib/search/search-intelligence-router";
 
@@ -20,7 +20,7 @@ const EarthSimulatorContainer = dynamic(
   }
 );
 
-export default function EarthSimulatorPage() {
+function EarthSimulatorPageContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
   const earthContextFilters = useMemo(
@@ -35,5 +35,19 @@ export default function EarthSimulatorPage() {
         earthContextFilters={earthContextFilters}
       />
     </div>
+  );
+}
+
+export default function EarthSimulatorPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-full items-center justify-center bg-black text-white">
+          Loading Earth Simulator...
+        </div>
+      }
+    >
+      <EarthSimulatorPageContent />
+    </Suspense>
   );
 }

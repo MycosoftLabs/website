@@ -182,7 +182,7 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mt-3">
-            <div className="p-2 rounded bg-black/20">
+            <div className="p-2 rounded border border-sky-400/20 bg-sky-500/10 shadow-inner">
               <span className="text-xs text-muted-foreground block mb-1">Gender</span>
               <div className="flex justify-center gap-2 items-end mb-1">
                  <span className="font-bold text-sky-300 text-sm">~50.4%</span>
@@ -190,17 +190,17 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
               </div>
               <span className="text-xs text-muted-foreground block opacity-70">Men / Women</span>
             </div>
-            <div className="p-2 rounded bg-black/20">
+            <div className="p-2 rounded border border-purple-400/20 bg-purple-500/10 shadow-inner">
                <span className="text-xs text-muted-foreground block mb-1">Youth 0-14</span>
                <span className="font-bold text-purple-300 text-base">{formatCompact(2_050_000_000)}</span>
                <span className="text-xs text-muted-foreground block mt-1 opacity-70">~25.3% globally</span>
             </div>
-            <div className="p-2 rounded bg-black/20">
+            <div className="p-2 rounded border border-blue-400/20 bg-blue-500/10 shadow-inner">
                <span className="text-xs text-muted-foreground block mb-1">Adult 15-64</span>
                <span className="font-bold text-blue-300 text-base">{formatCompact(5_300_000_000)}</span>
                <span className="text-xs text-muted-foreground block mt-1 opacity-70">~65.2% globally</span>
             </div>
-            <div className="p-2 rounded bg-black/20 flex flex-col justify-center">
+            <div className="p-2 rounded border border-cyan-400/20 bg-cyan-500/10 shadow-inner flex flex-col justify-center">
                <span className="text-xs text-muted-foreground flex items-center justify-center gap-1 mb-1">
                  <Plane className="h-3 w-3 text-cyan-400" />
                  In Transit
@@ -221,17 +221,17 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             <span className="text-sm text-orange-400">{formatCompact(activeData.vehicles)} active</span>
           </div>
           <div className="grid grid-cols-3 gap-3 text-center text-sm">
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-orange-400/20 bg-orange-500/10 shadow-inner">
               <Car className="h-5 w-5 mx-auto text-orange-300" />
               <span className="font-bold text-orange-300">{formatCompact(BASELINE_DATA.vehicles.cars)}</span>
               <span className="text-muted-foreground block text-xs">cars</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-amber-400/20 bg-amber-500/10 shadow-inner">
               <Truck className="h-5 w-5 mx-auto text-amber-300" />
               <span className="font-bold text-amber-300">{formatCompact(BASELINE_DATA.vehicles.trucks)}</span>
               <span className="text-muted-foreground block text-xs">trucks</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-yellow-400/20 bg-yellow-500/10 shadow-inner">
               <Bike className="h-5 w-5 mx-auto text-yellow-300" />
               <span className="font-bold text-yellow-300">{formatCompact(BASELINE_DATA.vehicles.motorcycles)}</span>
               <span className="text-muted-foreground block text-xs">motorcycles</span>
@@ -249,19 +249,19 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             <span className="text-sm text-sky-400">{formatCompact(activeData.aircraft)} in flight</span>
           </div>
           <div className="grid grid-cols-4 gap-3 text-center text-xs">
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-sky-400/20 bg-sky-500/10 shadow-inner">
               <span className="font-bold text-sky-300 text-base">{formatCompact(BASELINE_DATA.aircraft.commercial)}</span>
               <span className="text-muted-foreground block">commercial</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-cyan-400/20 bg-cyan-500/10 shadow-inner">
               <span className="font-bold text-cyan-300 text-base">{formatCompact(BASELINE_DATA.aircraft.private)}</span>
               <span className="text-muted-foreground block">private</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-blue-400/20 bg-blue-500/10 shadow-inner">
               <span className="font-bold text-blue-300 text-base">{formatCompact(BASELINE_DATA.aircraft.cargo)}</span>
               <span className="text-muted-foreground block">cargo</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-indigo-400/20 bg-indigo-500/10 shadow-inner">
               <span className="font-bold text-indigo-300 text-base">{formatCompact(BASELINE_DATA.aircraft.military)}</span>
               <span className="text-muted-foreground block">military</span>
             </div>
@@ -282,19 +282,19 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             <span className="text-sm text-teal-400">{formatCompact(activeData.ships)} at sea</span>
           </div>
           <div className="grid grid-cols-4 gap-3 text-center text-xs">
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-teal-400/20 bg-teal-500/10 shadow-inner">
               <span className="font-bold text-teal-300 text-base">{formatCompact(BASELINE_DATA.ships.cargo)}</span>
               <span className="text-muted-foreground block">cargo</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-emerald-400/20 bg-emerald-500/10 shadow-inner">
               <span className="font-bold text-emerald-300 text-base">{formatCompact(BASELINE_DATA.ships.tankers)}</span>
               <span className="text-muted-foreground block">tankers</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-green-400/20 bg-green-500/10 shadow-inner">
               <span className="font-bold text-green-300 text-base">{formatCompact(BASELINE_DATA.ships.container)}</span>
               <span className="text-muted-foreground block">container</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-cyan-400/20 bg-cyan-500/10 shadow-inner">
               <span className="font-bold text-cyan-300 text-base">{formatCompact(BASELINE_DATA.ships.fishing)}</span>
               <span className="text-muted-foreground block">fishing</span>
             </div>
@@ -315,15 +315,15 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             <span className="text-sm text-purple-400">{formatCompact(activeData.drones)} active</span>
           </div>
           <div className="grid grid-cols-3 gap-3 text-center text-xs">
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-purple-400/20 bg-purple-500/10 shadow-inner">
               <span className="font-bold text-purple-300 text-base">{formatCompact(BASELINE_DATA.drones.commercial)}</span>
               <span className="text-muted-foreground block">commercial</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-pink-400/20 bg-pink-500/10 shadow-inner">
               <span className="font-bold text-pink-300 text-base">{formatCompact(BASELINE_DATA.drones.consumer)}</span>
               <span className="text-muted-foreground block">consumer</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-rose-400/20 bg-rose-500/10 shadow-inner">
               <span className="font-bold text-rose-300 text-base">{formatCompact(BASELINE_DATA.drones.military)}</span>
               <span className="text-muted-foreground block">military</span>
             </div>
@@ -337,22 +337,22 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
             Human & Machine Environmental Impact
           </p>
           <div className="grid grid-cols-4 gap-3 text-center text-xs">
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-red-400/20 bg-red-500/10 shadow-inner">
               <Cloud className="h-5 w-5 mx-auto text-red-400" />
               <span className="font-bold text-red-400 text-sm">{formatCompact(BASELINE_DATA.environmental.totalCO2PerDay)}</span>
               <span className="text-muted-foreground block text-[10px]">t CO₂/d</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-amber-400/20 bg-amber-500/10 shadow-inner">
               <CircleDot className="h-5 w-5 mx-auto text-amber-400" />
               <span className="font-bold text-amber-400 text-sm">{formatCompact(BASELINE_DATA.environmental.totalMethanePerDay)}</span>
               <span className="text-muted-foreground block text-[10px]">t CH₄/d</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-orange-400/20 bg-orange-500/10 shadow-inner">
               <Fuel className="h-5 w-5 mx-auto text-orange-400" />
               <span className="font-bold text-orange-400 text-sm">{formatCompact(BASELINE_DATA.environmental.fuelConsumptionPerDay)}</span>
               <span className="text-muted-foreground block text-[10px]">bbl/d</span>
             </div>
-            <div className="p-3 rounded bg-black/20">
+            <div className="p-3 rounded border border-blue-400/20 bg-blue-500/10 shadow-inner">
               <Droplets className="h-5 w-5 mx-auto text-blue-400" />
               <span className="font-bold text-blue-400 text-sm">{BASELINE_DATA.environmental.waterUsagePerDay.toFixed(1)}K</span>
               <span className="text-muted-foreground block text-[10px]">km³/d</span>

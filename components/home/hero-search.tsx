@@ -295,13 +295,7 @@ export function HeroSearch({
       return
     }
 
-    // Try PersonaPlex first
-    if (personaplex && isConnected) {
-      personaplex.startListening()
-      return
-    }
-
-    // Fall back to Web Speech API
+    // Prefer browser speech for search because it produces immediate text and submit behavior.
     if (hasWebSpeech && recognitionRef.current) {
       try {
         recognitionRef.current.start()
@@ -311,6 +305,11 @@ export function HeroSearch({
         // Recognition may already be running
         setWebSpeechListening(false)
       }
+      return
+    }
+
+    if (personaplex && isConnected) {
+      personaplex.startListening()
       return
     }
 

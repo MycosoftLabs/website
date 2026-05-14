@@ -37,7 +37,7 @@ export default function SearchPageContent() {
   if (isPhone === null) {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center bg-background px-4"
+        className="search-glass-page flex min-h-dvh items-center justify-center px-4"
         suppressHydrationWarning
       >
         <div className="text-center space-y-3" suppressHydrationWarning>
@@ -52,45 +52,49 @@ export default function SearchPageContent() {
 
   if (isPhone) {
     return (
-      <SearchContextProvider>
-        <Suspense
-          fallback={
-            <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
-              <div className="text-center space-y-3">
-                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/10">
-                  <Brain className="h-8 w-8 text-violet-500 animate-pulse" />
+      <div className="search-glass-page min-h-dvh">
+        <SearchContextProvider>
+          <Suspense
+            fallback={
+              <div className="flex min-h-dvh flex-col items-center justify-center px-4">
+                <div className="text-center space-y-3">
+                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/10">
+                    <Brain className="h-8 w-8 text-violet-500 animate-pulse" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Loading MYCA...</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Loading MYCA...</p>
               </div>
-            </div>
-          }
-        >
-          <MobileSearchViewport initialQuery={query} />
-        </Suspense>
-      </SearchContextProvider>
+            }
+          >
+            <MobileSearchViewport initialQuery={query} />
+          </Suspense>
+        </SearchContextProvider>
+      </div>
     )
   }
 
   return (
-    <SearchContextProvider>
-      <SearchLayout>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center px-4 py-20">
-              <div className="text-center space-y-3">
-                <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-                <p className="text-sm text-muted-foreground">Initializing search...</p>
+    <div className="search-glass-page min-h-dvh">
+      <SearchContextProvider>
+        <SearchLayout>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center px-4 py-20">
+                <div className="text-center space-y-3">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+                  <p className="text-sm text-muted-foreground">Initializing search...</p>
+                </div>
               </div>
-            </div>
-          }
-        >
-          <FluidSearchCanvas
-            initialQuery={query}
-            voiceEnabled={false}
-            onNavigate={handleNavigate}
-          />
-        </Suspense>
-      </SearchLayout>
-    </SearchContextProvider>
+            }
+          >
+            <FluidSearchCanvas
+              initialQuery={query}
+              voiceEnabled
+              onNavigate={handleNavigate}
+            />
+          </Suspense>
+        </SearchLayout>
+      </SearchContextProvider>
+    </div>
   )
 }

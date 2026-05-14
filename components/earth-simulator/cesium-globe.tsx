@@ -272,8 +272,25 @@ export function CesiumGlobe({
         setViewerReady(true);
         setError(null);
 
+        const resizeObserver = new ResizeObserver(() => {
+          try {
+            viewer.resize();
+            viewer.scene.requestRender();
+          } catch {
+            // Viewer can be destroyed while React is unmounting an embedded widget.
+          }
+        });
+        resizeObserver.observe(cesiumContainerRef.current);
+        window.setTimeout(() => {
+          try {
+            viewer.resize();
+            viewer.scene.requestRender();
+          } catch {}
+        }, 120);
+
         // Cleanup
         return () => {
+          resizeObserver.disconnect();
           handler.destroy();
           viewer.destroy();
         };
@@ -321,6 +338,8 @@ export function CesiumGlobe({
       (type === "aircraft" && enabledCategories.has("aircraft")) ||
       (type === "vessel" && enabledCategories.has("vessel")) ||
       (type === "satellite" && enabledCategories.has("satellite")) ||
+      (type === "event" && enabledCategories.has("event")) ||
+      (type === "species" && enabledCategories.has("species")) ||
       (type === "device" && (enabledCategories.has("device") || layers?.devices));
 
     const readNumber = (item: Record<string, unknown>, keys: string[]) => {
@@ -344,8 +363,8 @@ export function CesiumGlobe({
 
       const title = String((item.callsign ?? item.flightNumber ?? item.name ?? item.title ?? item.id ?? type) || "Live entity").trim();
       const altitudeFeet = readNumber(item, ["altitude", "properties.altitude"]) ?? 4000;
-      const color = type === "aircraft" ? "#38bdf8" : type === "vessel" ? "#22d3ee" : type === "satellite" ? "#fbbf24" : "#22c55e";
-      const glyph = type === "aircraft" ? "AIR" : type === "vessel" ? "SEA" : type === "satellite" ? "SAT" : "DEV";
+      const color = type === "aircraft" ? "#38bdf8" : type === "vessel" ? "#22d3ee" : type === "satellite" ? "#fbbf24" : type === "event" ? "#f97316" : type === "species" ? "#22c55e" : "#22c55e";
+      const glyph = type === "aircraft" ? "AIR" : type === "vessel" ? "SEA" : type === "satellite" ? "SAT" : type === "event" ? "EVT" : type === "species" ? "BIO" : "DEV";
       const entity = viewer.entities.add({
         id: `search-${type}-${String(item.id ?? title)}-${lat}-${lng}`,
         position: Cesium.Cartesian3.fromDegrees(lng, lat, Math.max(altitudeFeet * 0.3048, 1200)),

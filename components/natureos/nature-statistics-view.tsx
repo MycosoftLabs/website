@@ -88,11 +88,17 @@ export function NatureStatisticsView() {
   const formatLive = (value: unknown, suffix = "") =>
     typeof value === "number" && Number.isFinite(value)
       ? `${value.toLocaleString()}${suffix}`
-      : "Source unavailable"
+      : "Syncing"
   const formatMoney = (value: unknown) =>
     typeof value === "number" && Number.isFinite(value)
       ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      : "Source unavailable"
+      : "Syncing"
+  const globalAgentSource =
+    globalAgentsData?.sources?.mindex_global_agents?.ok
+      ? "MINDEX live telemetry"
+      : globalAgentsData?.sources?.x402_direct_services?.ok
+        ? "x402.direct live registry"
+        : "Telemetry syncing"
 
   return (
     <DashboardShell>
@@ -139,9 +145,9 @@ export function NatureStatisticsView() {
                   </p>
                   <RollingNumber
                     value={population}
-                    size="xl"
+                    size="lg"
                     color="blue"
-                    className="tabular-nums"
+                    className="max-w-full overflow-hidden tabular-nums [&_*]:max-w-full"
                     rollDuration={0.5}
                     staggering
                   />
@@ -282,6 +288,24 @@ export function NatureStatisticsView() {
                     {formatLive(globalAgentsData?.x402?.activeSellers)}
                   </div>
                   <p className="text-[9px] text-muted-foreground mb-2">Agents on x402scan Network</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 p-2">
+                      <span className="block text-[8px] uppercase tracking-wide text-cyan-300">Services</span>
+                      <span className="text-sm font-semibold tabular-nums text-cyan-200">{formatLive(globalAgentsData?.x402?.trackedServices)}</span>
+                    </div>
+                    <div className="rounded-lg border border-blue-400/25 bg-blue-500/10 p-2">
+                      <span className="block text-[8px] uppercase tracking-wide text-blue-300">Networks</span>
+                      <span className="text-sm font-semibold tabular-nums text-blue-200">{formatLive(globalAgentsData?.x402?.networks)}</span>
+                    </div>
+                    <div className="rounded-lg border border-violet-400/25 bg-violet-500/10 p-2">
+                      <span className="block text-[8px] uppercase tracking-wide text-violet-300">Categories</span>
+                      <span className="text-sm font-semibold tabular-nums text-violet-200">{formatLive(globalAgentsData?.x402?.categories)}</span>
+                    </div>
+                    <div className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 p-2">
+                      <span className="block text-[8px] uppercase tracking-wide text-emerald-300">Source</span>
+                      <span className="text-[10px] font-semibold text-emerald-200">{globalAgentSource}</span>
+                    </div>
+                  </div>
                   
                   <div className="space-y-1.5 mt-2 pt-2 border-t border-indigo-500/10">
                     <div className="flex justify-between items-center text-xs">
@@ -350,7 +374,7 @@ export function NatureStatisticsView() {
                       </span>
                     </div>
                     <div className="text-[8px] text-muted-foreground pt-1 flex gap-1 justify-end opacity-60">
-                      Source: live global agent registry
+                      Source: {globalAgentSource}
                     </div>
                   </div>
                 </div>

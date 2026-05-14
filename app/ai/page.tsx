@@ -33,7 +33,7 @@ export default function AIOverviewPage() {
   return (
     <div className="ai-glass-page min-h-dvh">
       {/* Hero */}
-      <section className="relative min-h-[76vh] overflow-hidden border-b bg-slate-950 py-20 md:py-28 flex items-center">
+      <section className="relative min-h-[58vh] overflow-hidden border-b bg-slate-950 py-14 md:min-h-[64vh] md:py-20 flex items-center">
         <Image
           src="/assets/ai/ai-hero.png"
           alt=""

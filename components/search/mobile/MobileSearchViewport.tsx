@@ -21,7 +21,11 @@ import { ChatMessage } from "./ChatMessage"
 import type { DataCard, MobileChatMessage } from "./MobileSearchChat"
 import type { MapObservation, EventObservation } from "../fluid/widgets/EarthWidget"
 import { FallbackWidget } from "../fluid/widgets/FallbackWidget"
-import "leaflet/dist/leaflet.css"
+
+const EarthWidget = dynamic(() => import("../fluid/widgets/EarthWidget"), {
+  ssr: false,
+  loading: () => <WidgetLoader label="Loading Earth Simulator" />,
+})
 
 const SpeciesWidget = dynamic(() => import("../fluid/widgets/SpeciesWidget"), {
   ssr: false,
@@ -31,23 +35,13 @@ const ResearchWidget = dynamic(() => import("../fluid/widgets/ResearchWidget"), 
   ssr: false,
   loading: () => <WidgetLoader label="Loading research" />,
 })
-const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), {
-  ssr: false,
-  loading: () => <WidgetLoader label="Loading map" />,
-})
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
-const CircleMarker = dynamic(() => import("react-leaflet").then((mod) => mod.CircleMarker), { ssr: false })
-const Circle = dynamic(() => import("react-leaflet").then((mod) => mod.Circle), { ssr: false })
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false })
 interface MobileSearchViewportProps {
   initialQuery?: string
 }
 
-const MOBILE_DATA_WIDGETS = new Set<WidgetType>([
-  "earth",
-  "species",
+const MOBILE_EARTH_WIDGETS = new Set<WidgetType>([
   "crep",
-  "research",
+  "location",
   "weather",
   "events",
   "aircraft",
@@ -57,14 +51,23 @@ const MOBILE_DATA_WIDGETS = new Set<WidgetType>([
   "devices",
   "emissions",
   "space_weather",
+  "flights",
+])
+
+const MOBILE_DATA_WIDGETS = new Set<WidgetType>([
+  "earth",
+  "species",
+  "research",
   "cameras",
 ])
 
 function uniqueWidgets(widgets: Array<WidgetType | null | undefined>): WidgetType[] {
   const out: WidgetType[] = []
   for (const widget of widgets) {
-    if (!widget || !MOBILE_DATA_WIDGETS.has(widget)) continue
-    if (!out.includes(widget)) out.push(widget)
+    if (!widget) continue
+    const normalized = MOBILE_EARTH_WIDGETS.has(widget) ? "earth" : widget
+    if (!MOBILE_DATA_WIDGETS.has(normalized)) continue
+    if (!out.includes(normalized)) out.push(normalized)
   }
   return out
 }
@@ -294,8 +297,8 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
   }, [ctx, query])
 
   return (
-    <main className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-background text-foreground flex flex-col">
-      <section className="h-[50dvh] min-h-0 border-b bg-card/30 flex flex-col">
+    <main className="h-[calc(100dvh-56px)] max-h-[calc(100dvh-56px)] overflow-hidden bg-background text-foreground flex flex-col sm:h-[calc(100dvh-64px)] sm:max-h-[calc(100dvh-64px)]">
+      <section className="h-[46%] min-h-0 border-b bg-card/30 flex flex-col">
         <div className="flex items-center justify-between px-3 py-2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <SlidersHorizontal className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -368,7 +371,7 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
         </div>
       </section>
 
-      <section className="h-[50dvh] min-h-0 flex flex-col bg-background">
+      <section className="h-[54%] min-h-0 flex flex-col bg-background">
         <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -411,7 +414,7 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="shrink-0">
+        <div className="shrink-0 pb-[env(safe-area-inset-bottom)]">
           <ChatInput onSend={handleSend} isLoading={mycaLoading} placeholder="Search or ask MYCA..." />
         </div>
       </section>
@@ -449,6 +452,7 @@ function MobileTopWidget({
         filters={earthContextFilters}
         mapObservations={mapObservations}
         eventObservations={eventObservations}
+        buckets={buckets}
         isLoading={isLoading}
       />
     )
@@ -495,25 +499,29 @@ function MobileEarthSummary({
   filters,
   mapObservations,
   eventObservations,
+  buckets,
   isLoading,
 }: {
   query: string
   filters: EarthContextFilters | null
   mapObservations: MapObservation[]
   eventObservations: EventObservation[]
+  buckets: Record<string, any[]>
   isLoading: boolean
 }) {
-  const latestObservations = mapObservations.slice(0, 5)
-  const latestEvents = eventObservations.slice(0, 6)
   const enabledLayers = filters
     ? Object.entries(filters.layerState).filter(([, enabled]) => enabled).map(([key]) => key)
     : []
-  const center = useMemo<[number, number]>(() => {
-    if (mapObservations[0]) return [mapObservations[0].lat, mapObservations[0].lng]
-    if (eventObservations[0]) return [eventObservations[0].lat, eventObservations[0].lng]
-    return [20, 0]
-  }, [eventObservations, mapObservations])
-  const hasMapData = latestObservations.length > 0 || latestEvents.length > 0
+  const liveEntities = useMemo(() => [
+    ...(buckets.aircraft ?? []).map((item) => ({ ...item, type: "aircraft" })),
+    ...(buckets.vessels ?? []).map((item) => ({ ...item, type: "vessel" })),
+    ...(buckets.satellites ?? []).map((item) => ({ ...item, type: "satellite" })),
+    ...(buckets.devices ?? []).map((item) => ({ ...item, type: "device" })),
+    ...(buckets.weather ?? []).map((item) => ({ ...item, type: "event" })),
+    ...(buckets.infrastructure ?? []).map((item) => ({ ...item, type: "event" })),
+    ...(buckets.emissions ?? []).map((item) => ({ ...item, type: "event" })),
+    ...(buckets.space_weather ?? []).map((item) => ({ ...item, type: "event" })),
+  ], [buckets])
 
   return (
     <div className="h-full min-h-0 overflow-hidden flex flex-col">
@@ -546,71 +554,14 @@ function MobileEarthSummary({
       </div>
 
       <div className="relative flex-1 min-h-0 bg-black">
-        <MapContainer
-          center={center}
-          zoom={hasMapData ? 3 : 2}
-          minZoom={2}
-          maxZoom={12}
-          className="h-full w-full"
-          scrollWheelZoom={false}
-          touchZoom
-          dragging
-          doubleClickZoom
-          attributionControl={false}
-          zoomControl={false}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="OpenStreetMap"
-          />
-          {latestObservations.map((obs) => (
-            <CircleMarker
-              key={obs.id}
-              center={[obs.lat, obs.lng]}
-              radius={7}
-              pathOptions={{
-                color: "#38bdf8",
-                fillColor: "#38bdf8",
-                fillOpacity: 0.8,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <strong>{obs.species || obs.scientificName}</strong>
-                  <div>{obs.lat.toFixed(2)}, {obs.lng.toFixed(2)}</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
-          {latestEvents.map((event) => (
-            <Circle
-              key={event.id}
-              center={[event.lat, event.lng]}
-              radius={event.magnitude ? Math.pow(1.4, event.magnitude) * 4000 : 18000}
-              pathOptions={{
-                color: "#f97316",
-                fillColor: "#f97316",
-                fillOpacity: 0.22,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="text-xs">
-                  <strong>{event.title}</strong>
-                  <div>{event.type}</div>
-                </div>
-              </Popup>
-            </Circle>
-          ))}
-        </MapContainer>
-
-        {!hasMapData && (
-          <div className="pointer-events-none absolute inset-0 z-[400] flex items-center justify-center bg-black/35 px-8 text-center text-xs text-white">
-            {isLoading ? "Loading focused Earth layers..." : "Drag and pinch the Earth view. Results appear here when the search returns geospatial data."}
-          </div>
-        )}
-
+        <EarthWidget
+          data={mapObservations}
+          eventsData={eventObservations}
+          searchQuery={query}
+          liveEntities={liveEntities}
+          isFocused
+          isLoading={isLoading}
+        />
         <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-[401] flex items-center justify-between rounded-md bg-black/60 px-2 py-1 text-[10px] text-white backdrop-blur">
           <span>{filters?.enabledFilters.length ?? 0} filters</span>
           <span>{mapObservations.length} points</span>

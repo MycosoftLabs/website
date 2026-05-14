@@ -112,6 +112,31 @@ const STREAMING_SEARCH_TYPES = [
   "cameras",
 ] satisfies ResultBucketKey[]
 
+const EARTH_SIMULATOR_RESULT_WIDGETS = new Set<WidgetType>([
+  "crep",
+  "location",
+  "events",
+  "aircraft",
+  "vessels",
+  "satellites",
+  "weather",
+  "emissions",
+  "infrastructure",
+  "devices",
+  "space_weather",
+  "flights",
+])
+
+function normalizeSearchWidget(widget: WidgetType | null | undefined): WidgetType | null {
+  if (!widget) return null
+  return EARTH_SIMULATOR_RESULT_WIDGETS.has(widget) ? "earth" : widget
+}
+
+function addSearchWidget(target: Set<WidgetType>, widget: WidgetType | null | undefined) {
+  const normalized = normalizeSearchWidget(widget)
+  if (normalized) target.add(normalized)
+}
+
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
 
 /** CREP search + unified Earth intelligence can return the same EONET item with different id strings. */
@@ -420,6 +445,7 @@ export function FluidSearchCanvas({
   // with everything else (nav bar, MYCA widgets, etc.).
   const isMicActive = unifiedVoice.isListening || voiceSearch.isListening
   const handleMicClickRef = useRef<(() => void) | undefined>(undefined)
+  const lastUnifiedTranscriptRef = useRef("")
   handleMicClickRef.current = () => {
     if (unifiedVoice.isListening || voiceSearch.isListening) {
       unifiedVoice.stopListening()
@@ -437,6 +463,20 @@ export function FluidSearchCanvas({
   useEffect(() => {
     ctx.setVoiceListening(isMicActive)
   }, [isMicActive, ctx])
+
+  useEffect(() => {
+    if (!voiceEnabled) return
+    const transcript = unifiedVoice.transcript.trim()
+    if (!transcript || transcript === lastUnifiedTranscriptRef.current) return
+
+    const previous = lastUnifiedTranscriptRef.current
+    lastUnifiedTranscriptRef.current = transcript
+    const spoken = previous && transcript.startsWith(previous)
+      ? transcript.slice(previous.length).trim()
+      : transcript
+
+    if (spoken) voiceSearch.processCommand(spoken)
+  }, [unifiedVoice.transcript, voiceEnabled, voiceSearch])
 
   // Let MYCA panel trigger voice via event bus (toggle)
   useEffect(() => {
@@ -1235,8 +1275,7 @@ export function FluidSearchCanvas({
     { type: "recipe", label: "Recipes", icon: "📖", gradient: "from-amber-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("recipe") },
   ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
-  // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
-  const activeWidgets = widgetConfigs
+  const activeWidgets = widgetConfigs.filter((widget) => !EARTH_SIMULATOR_RESULT_WIDGETS.has(widget.type))
 
   /** Empty until after mount — reading sessionStorage during first client render breaks SSR/client HTML parity. */
   const [savedWidgetOrder, setSavedWidgetOrder] = useState<string[]>([])
@@ -1270,8 +1309,8 @@ export function FluidSearchCanvas({
     const route = streamingIntentPlan?.route ?? effectiveSearchRoute
     const relScore = (w: (typeof gridWidgets)[number]) => {
       let s = 0
-      if (route?.primaryWidget === w.type) s += 1000
-      if (route?.secondaryWidgets?.includes(w.type as (typeof route.secondaryWidgets)[number])) s += 120
+      if (normalizeSearchWidget(route?.primaryWidget) === w.type) s += 1000
+      if (route?.secondaryWidgets?.some((widget) => normalizeSearchWidget(widget) === w.type)) s += 120
       if (w.hasData) s += 80
       const sz = widgetSizes[w.type] || DEFAULT_WIDGET_SIZES[w.type] || { width: 1, height: 1 }
       s += sz.width * 15 + sz.height * 5
@@ -1317,11 +1356,11 @@ export function FluidSearchCanvas({
     // Instantly layout widgets based on the predicted route before data even arrives
     setExpandedWidgets((prev) => {
       const next = new Set<WidgetType>()
-      if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
-      for (const sw of route.secondaryWidgets) next.add(sw as WidgetType)
-      if (route.worldview.crep) next.add("earth" as WidgetType)
-      if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
-      if (route.useMycaLLM) next.add("answers" as WidgetType)
+      addSearchWidget(next, route.primaryWidget as WidgetType | null)
+      for (const sw of route.secondaryWidgets) addSearchWidget(next, sw as WidgetType)
+      if (route.worldview.crep) addSearchWidget(next, "earth")
+      if (route.worldview.earth2 || route.worldview.map) addSearchWidget(next, "earth")
+      if (route.useMycaLLM) addSearchWidget(next, "answers")
       if (next.size === 0) {
         next.add("species" as WidgetType)
         next.add("answers" as WidgetType)
@@ -1430,16 +1469,16 @@ export function FluidSearchCanvas({
       }
 
       // Expand primary widget from router
-      if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
+      addSearchWidget(next, route.primaryWidget as WidgetType | null)
 
       // Expand secondary widgets from router
       for (const sw of route.secondaryWidgets) {
-        next.add(sw as WidgetType)
+        addSearchWidget(next, sw as WidgetType)
       }
 
       // Expand every type that has data
       for (const [wType, count] of Object.entries(dataMap)) {
-        if (count > 0) next.add(wType as WidgetType)
+        if (count > 0) addSearchWidget(next, wType as WidgetType)
       }
 
       // Intent-based: expand worldview widgets even before data arrives
