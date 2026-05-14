@@ -1650,8 +1650,25 @@ function syncToMINDEX(source: "aircraft" | "vessels" | "satellites", entities: R
   });
 }
 
+export interface CREPDashboardClientProps {
+  embedded?: boolean;
+  initialQuery?: string;
+  enabledLayerIds?: string[];
+  focusLocation?: {
+    lat: number;
+    lng: number;
+    name?: string;
+    zoom?: number;
+  } | null;
+}
+
 // Main CREP Page Component
-export default function CREPDashboardPage() {
+export default function CREPDashboardPage({
+  embedded = false,
+  initialQuery = "",
+  enabledLayerIds = [],
+  focusLocation = null,
+}: CREPDashboardClientProps) {
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -1721,8 +1738,8 @@ export default function CREPDashboardPage() {
       window.removeEventListener("error", onError);
     };
   }, []);
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(!embedded);
+  const [rightPanelOpen, setRightPanelOpen] = useState(!embedded);
   const [rightPanelTab, setRightPanelTab] = useState("mission");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events" | "infra">("fungal"); // DEFAULT TO FUNGAL
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
@@ -2263,6 +2280,10 @@ export default function CREPDashboardPage() {
 
   // Check for existing mission in localStorage on mount
   useEffect(() => {
+    if (embedded) {
+      setShowMissionPrompt(false);
+      return;
+    }
     if (typeof window === "undefined") return;
     const stored = localStorage.getItem("crep_active_mission");
     if (stored) {
@@ -2277,7 +2298,7 @@ export default function CREPDashboardPage() {
       // First time using CREP - show mission prompt
       setShowMissionPrompt(true);
     }
-  }, []);
+  }, [embedded]);
 
   const handleCreateMission = useCallback((mission: MissionContext) => {
     setCurrentMission(mission);
@@ -2639,6 +2660,19 @@ export default function CREPDashboardPage() {
     { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
     { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ]);
+
+  const embeddedLayerKey = useMemo(() => enabledLayerIds.slice().sort().join("|"), [enabledLayerIds]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    const allowed = new Set(enabledLayerIds);
+    setLayers((prev) =>
+      prev.map((layer) => ({
+        ...layer,
+        enabled: allowed.has(layer.id),
+      })),
+    );
+  }, [embedded, embeddedLayerKey]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
   
@@ -2724,7 +2758,7 @@ export default function CREPDashboardPage() {
   // continent/region to immediately show relevant fungal data
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
-    if (hasAutoZoomed || !mounted) return;
+    if (embedded || hasAutoZoomed || !mounted) return;
     
     // Get user's location via browser Geolocation API
     if (typeof navigator !== "undefined" && "geolocation" in navigator) {
@@ -2770,7 +2804,7 @@ export default function CREPDashboardPage() {
         }
       );
     }
-  }, [mounted, mapRef, hasAutoZoomed]);
+  }, [embedded, mounted, mapRef, hasAutoZoomed]);
   
   // Update map projection when toggle changes (Apr 2026)
   useEffect(() => {
@@ -3883,6 +3917,37 @@ export default function CREPDashboardPage() {
     window.addEventListener("myca-crep-action" as any, handler as any);
     return () => window.removeEventListener("myca-crep-action" as any, handler as any);
   }, [mapCommandHandlers]);
+
+  useEffect(() => {
+    if (!embedded || !mounted || !mapRef) return;
+
+    if (focusLocation?.lat != null && focusLocation?.lng != null && mapRef.flyTo) {
+      mapRef.flyTo({
+        center: [focusLocation.lng, focusLocation.lat],
+        zoom: focusLocation.zoom ?? 7,
+        duration: 900,
+        essential: true,
+      });
+      return;
+    }
+
+    const query = initialQuery.trim();
+    if (query.length >= 2) {
+      executeCrepCommand(
+        { type: "geocodeAndFlyTo", query, zoom: 7, duration: 900 },
+        mapCommandHandlers,
+      );
+    }
+  }, [
+    embedded,
+    mounted,
+    mapRef,
+    focusLocation?.lat,
+    focusLocation?.lng,
+    focusLocation?.zoom,
+    initialQuery,
+    mapCommandHandlers,
+  ]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
@@ -5615,7 +5680,7 @@ export default function CREPDashboardPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-dvh bg-[#0a1628] flex items-center justify-center">
+      <div className={cn(embedded ? "h-full min-h-[320px]" : "min-h-dvh", "bg-[#0a1628] flex items-center justify-center")}>
         <div className="text-cyan-400 text-sm font-mono animate-pulse">
           INITIALIZING CREP SYSTEM...
         </div>
@@ -5624,7 +5689,7 @@ export default function CREPDashboardPage() {
   }
 
   return (
-    <div className="relative w-full h-dvh bg-[#0a1628] overflow-hidden flex flex-col">
+    <div className={cn("relative w-full bg-[#0a1628] overflow-hidden flex flex-col", embedded ? "h-full min-h-[320px]" : "h-dvh")}>
       {/* Apr 23, 2026 — <RegisterCrepDataServiceWorker /> removed. Its
           /sw-crep-data.js fought with /crep-sw.js (both scope "/") and
           caused auto-refreshes mid-session. The old SW is now a
@@ -5633,14 +5698,14 @@ export default function CREPDashboardPage() {
           page — after which only /crep-sw.js runs, which is the
           unified cache for /data/crep + /crep/icons + /_next/static. */}
       {/* Top Classification Banner */}
-      <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
+      {!embedded && <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
           CREP // COMMON RELEVANT ENVIRONMENTAL PICTURE // UNCLASSIFIED // FOUO
         </Badge>
-      </div>
+      </div>}
 
       {/* Top Control Bar */}
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 bg-[#0a1628]/95 border-b border-cyan-500/20 z-40">
+      {!embedded && <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 bg-[#0a1628]/95 border-b border-cyan-500/20 z-40">
         {/* Left controls */}
         <div className="flex items-center gap-2">
           <Link
@@ -5747,7 +5812,7 @@ export default function CREPDashboardPage() {
             {isFullscreen ? <Minimize2 className="w-4 h-4 text-cyan-400" /> : <Maximize2 className="w-4 h-4 text-cyan-400" />}
           </Button>
         </div>
-      </div>
+      </div>}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">

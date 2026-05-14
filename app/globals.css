@@ -1610,6 +1610,39 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   height: 100% !important;
 }
 
+.search-glass-page .search-earth-dashboard-embed,
+.search-glass-page .search-earth-dashboard-embed > div:first-child {
+  height: 100% !important;
+  min-height: 320px !important;
+}
+
+.search-glass-page .search-earth-dashboard-embed .crep-map-container {
+  inset: 0 !important;
+}
+
+.search-glass-page .search-earth-dashboard-embed canvas,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-canvas,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.search-glass-page .search-earth-dashboard-embed .maplibregl-ctrl-logo,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-ctrl-attrib,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-ctrl-attrib-button,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-ctrl-bottom-left,
+.search-glass-page .search-earth-dashboard-embed .maplibregl-ctrl-bottom-right {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.search-glass-page .search-earth-dashboard-embed [data-panel="timeline"],
+.search-glass-page .search-earth-dashboard-embed :where(button, [role="button"]) {
+  display: none !important;
+}
+
 .search-glass-page .search-magnetic-widget > div > div:first-child {
   border-color: rgba(255, 255, 255, 0.22) !important;
   background:

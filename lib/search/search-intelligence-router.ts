@@ -256,6 +256,14 @@ function determinePrimaryWidget(
   }
 
   // Conservation / threatened taxa groups → synthesis first, multi-widget context (not one species hero)
+  if (intent.type === "species" && intent.filters.location) {
+    return {
+      primaryWidget: "earth",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: getSecondaryWidgets(intent, "earth"),
+    }
+  }
+
   if (
     isConservationThematicQuery(intent.originalQuery) &&
     (classification === "hybrid" || classification === "data_query")

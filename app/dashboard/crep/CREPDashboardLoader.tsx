@@ -125,7 +125,19 @@ function CrepLoadingGlobe() {
   )
 }
 
-const CREPDashboardClient = nextDynamic(
+export interface CREPDashboardEmbedProps {
+  embedded?: boolean
+  initialQuery?: string
+  enabledLayerIds?: string[]
+  focusLocation?: {
+    lat: number
+    lng: number
+    name?: string
+    zoom?: number
+  } | null
+}
+
+const CREPDashboardClient = nextDynamic<CREPDashboardEmbedProps>(
   () => import("./CREPDashboardClient"),
   {
     ssr: false,
@@ -133,14 +145,14 @@ const CREPDashboardClient = nextDynamic(
   }
 )
 
-export default function CREPDashboardLoader() {
+export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
   return (
     <MYCAProvider>
       <CREPProvider>
         <GroundStationProvider>
           <CREPErrorBoundary componentName="CREP Dashboard">
             <CrepMobileShell>
-              <CREPDashboardClient />
+              <CREPDashboardClient {...props} />
             </CrepMobileShell>
           </CREPErrorBoundary>
         </GroundStationProvider>

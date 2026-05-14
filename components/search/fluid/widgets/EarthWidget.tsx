@@ -5,8 +5,8 @@ import dynamic from "next/dynamic"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { classifyAndRoute } from "@/lib/search/search-intelligence-router"
 
-const EarthSimulatorContainer = dynamic(
-  () => import("@/components/earth-simulator/earth-simulator-container").then((mod) => mod.EarthSimulatorContainer),
+const SearchEarthDashboard = dynamic(
+  () => import("@/app/dashboard/crep/CREPDashboardLoader"),
   {
     ssr: false,
     loading: () => (
@@ -124,6 +124,60 @@ export function EarthWidget({
     () => new Set(enabledFilters.map((filter) => filter.category)),
     [enabledFilters]
   )
+  const enabledLayerIds = useMemo(() => {
+    const layers = new Set<string>()
+    const q = searchQuery.toLowerCase()
+
+    for (const category of enabledCategories) {
+      if (category === "aircraft") {
+        layers.add("aviation")
+        layers.add("aviationRoutes")
+      }
+      if (category === "vessel") {
+        layers.add("ships")
+        layers.add("shipRoutes")
+        layers.add("fishing")
+        layers.add("containers")
+      }
+      if (category === "satellite") layers.add("satellites")
+      if (category === "species") layers.add("fungi")
+      if (category === "device") {
+        layers.add("mycobrain")
+        layers.add("devMushroom1")
+        layers.add("devHyphae1")
+        layers.add("sporebase")
+        layers.add("devMycoNode")
+        layers.add("devAlarm")
+        layers.add("devPsathyrella")
+      }
+      if (category === "weather") {
+        layers.add("weather")
+        layers.add("earth2Forecast")
+      }
+      if (category === "event") {
+        if (/\bquake|earthquake|seismic\b/.test(q)) layers.add("earthquakes")
+        else if (/\bfire|wildfire|smoke\b/.test(q)) layers.add("wildfires")
+        else if (/\bstorm|hurricane|tornado|lightning\b/.test(q)) {
+          layers.add("storms")
+          layers.add("tornadoes")
+          layers.add("lightning")
+        } else if (/\bvolcano|volcanic|eruption\b/.test(q)) layers.add("volcanoes")
+        else {
+          layers.add("earthquakes")
+          layers.add("wildfires")
+          layers.add("storms")
+        }
+      }
+      if (category === "infrastructure") {
+        layers.add("powerPlantsG")
+        layers.add("txLinesGlobal")
+        layers.add("dataCentersG")
+        layers.add("cellTowersG")
+      }
+    }
+
+    return [...layers]
+  }, [enabledCategories, searchQuery])
   const normalizedLiveEntities = useMemo(
     () => [
       ...liveEntities,
@@ -178,6 +232,9 @@ export function EarthWidget({
     }
   }, [enabledLabels, filteredEntities])
   const focusTarget = simulatorLocation || entityFocus
+  const embeddedFocusTarget = focusTarget
+    ? { ...focusTarget, zoom: isFocused ? 8 : 6 }
+    : { lat: 20, lng: 0, name: "global view", zoom: 1.35 }
 
   if (error) {
     return (
@@ -199,16 +256,12 @@ export function EarthWidget({
   }
 
   return (
-    <div className="relative h-full min-h-[320px] overflow-hidden rounded-xl border border-emerald-500/20 bg-black">
-      <EarthSimulatorContainer
-        variant="embedded"
-        className="h-full min-h-[320px]"
+    <div className="search-earth-dashboard-embed relative h-full min-h-[320px] overflow-hidden rounded-xl border border-emerald-500/20 bg-black">
+      <SearchEarthDashboard
+        embedded
         initialQuery={searchQuery}
-        earthContextFilters={route?.earthContextFilters ?? null}
-        hideSidePanels
-        hideControls
-        focusLocation={focusTarget ? { ...focusTarget, zoomMeters: isFocused ? 65000 : 110000 } : null}
-        liveEntities={filteredEntities}
+        enabledLayerIds={enabledLayerIds}
+        focusLocation={embeddedFocusTarget}
       />
       <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/65 px-3 py-2 text-xs text-white shadow-xl backdrop-blur-md">
         <div className="font-semibold">Earth Simulator</div>
