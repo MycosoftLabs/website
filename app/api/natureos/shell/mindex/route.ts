@@ -18,7 +18,7 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
  * - taxa get <id>: Get specific taxon
  * - observations list: List recent observations
  * - etl status: Get ETL pipeline status
- * - etl run: Trigger manual sync
+ * - etl run: Not implemented here (returns 501; use upstream admin workflow when available)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -58,9 +58,14 @@ export async function POST(request: NextRequest) {
         result = await executeObservations(args)
         break
       
-      case "etl":
-        result = await executeETL(args)
+      case "etl": {
+        const etlOutcome = await executeETL(args)
+        if (etlOutcome instanceof NextResponse) {
+          return etlOutcome
+        }
+        result = etlOutcome
         break
+      }
       
       case "help":
         result = {
@@ -71,7 +76,7 @@ export async function POST(request: NextRequest) {
             "taxa get <id> - Get specific taxon",
             "observations list - List recent observations",
             "etl status - Get ETL pipeline status",
-            "etl run - Trigger manual sync (admin only)",
+            "etl run - Not proxied (501 until upstream exposes a supported trigger)",
           ]
         }
         break
@@ -166,24 +171,64 @@ async function executeObservations(args: string[]) {
   }
 }
 
-async function executeETL(args: string[]) {
+async function fetchUpstreamEtlStatus(): Promise<Response> {
+  const baseUrl = MINDEX_API_URL.endsWith("/api/mindex")
+    ? MINDEX_API_URL
+    : `${MINDEX_API_URL}/api/mindex`
+  const primary = await fetch(`${baseUrl}/etl-status`, {
+    headers: {
+      "X-API-Key": MINDEX_API_KEY,
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (primary.ok) return primary
+  return fetch(`${MINDEX_API_URL}/api/mindex/etl/status`, {
+    headers: {
+      "X-API-Key": MINDEX_API_KEY,
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(20_000),
+  })
+}
+
+/**
+ * ETL subcommands: real upstream status when MINDEX is reachable; no fabricated pipeline text.
+ * `run` is not proxied — returns 501 until an upstream trigger contract exists.
+ */
+async function executeETL(args: string[]): Promise<unknown | NextResponse> {
   const subcommand = args[0]
 
   if (subcommand === "status") {
-    return {
-      status: "Running",
-      lastSync: new Date().toISOString(),
-      nextSync: new Date(Date.now() + 3600000).toISOString(),
-      message: "ETL pipeline active - syncing from iNaturalist and GBIF"
+    const response = await fetchUpstreamEtlStatus()
+    if (!response.ok) {
+      const snippet = await response.text().catch(() => "")
+      return NextResponse.json(
+        {
+          error: "MINDEX_ETL_STATUS_UNAVAILABLE",
+          message:
+            "Live ETL status requires a reachable MINDEX upstream and a valid MINDEX_API_KEY. Configure the deployment or query GET /api/natureos/mindex/etl-status once the upstream exposes etl-status.",
+          upstream_status: response.status,
+          upstream_body_preview: snippet.slice(0, 500),
+        },
+        { status: 503 }
+      )
     }
-  } else if (subcommand === "run") {
-    return {
-      error: "Manual ETL trigger requires admin privileges",
-      message: "Contact system administrator to run manual sync"
-    }
-  } else {
-    return { error: "Usage: etl status | etl run" }
+    return await response.json()
   }
+
+  if (subcommand === "run") {
+    return NextResponse.json(
+      {
+        error: "MINDEX_ETL_RUN_NOT_IMPLEMENTED",
+        message:
+          "Manual ETL trigger is not implemented in this shell proxy. Use an upstream MINDEX operator workflow or admin API when one is configured and documented.",
+      },
+      { status: 501 }
+    )
+  }
+
+  return { error: "Usage: etl status | etl run" }
 }
 
 

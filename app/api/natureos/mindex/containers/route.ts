@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { env } from "@/lib/env"
+import { resolveScopedUserId, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
 
 export const dynamic = "force-dynamic"
 
@@ -28,12 +29,6 @@ interface DockerContainer {
   Ports: { PrivatePort: number; PublicPort?: number; Type: string }[]
   Created: number
   Labels: Record<string, string>
-}
-
-interface ContainerVisibility {
-  container_id: string
-  user_id: string
-  access_level: "owner" | "viewer" | "admin"
 }
 
 // Super admin check - users with role=admin in Supabase
@@ -65,7 +60,7 @@ async function getUserContainers(userId: string): Promise<string[]> {
       .select("container_id")
       .eq("user_id", userId)
     
-    return data?.map((row: ContainerVisibility) => row.container_id) || []
+    return data?.map((row: { container_id: string }) => row.container_id) || []
   } catch {
     return []
   }
@@ -114,73 +109,95 @@ async function fetchDockerContainers(filterIds?: string[]): Promise<any[]> {
 }
 
 export async function GET(request: NextRequest) {
-  // Get user from auth header or query param
-  const authHeader = request.headers.get("authorization")
-  const userId = request.nextUrl.searchParams.get("user_id") || 
-                 authHeader?.replace("Bearer ", "").slice(0, 36) // Simple extraction
-
-  // Filter params
-  const showAll = request.nextUrl.searchParams.get("all") === "true"
-  const mindexOnly = request.nextUrl.searchParams.get("mindex") === "true"
+  const searchParams = request.nextUrl.searchParams
+  const requestedUserId = searchParams.get("user_id")?.trim() || null
+  const showAll = searchParams.get("all") === "true"
+  const mindexOnly = searchParams.get("mindex") === "true"
 
   try {
     let containers: any[] = []
     let accessLevel: "admin" | "user" | "anonymous" = "anonymous"
+    let subjectUserId: string | null = null
 
-    // Check if super admin or filter by user containers
-    if (userId) {
-      const isAdmin = await isSuperAdmin(userId)
-      
-      if (isAdmin) {
-        // Super admin sees all containers
+    const identity = await resolveVerifiedIdentity()
+
+    if (!identity.isAuthenticated) {
+      if (requestedUserId) {
+        return NextResponse.json(
+          {
+            error: "Authentication required",
+            message: "Listing containers for a specific user_id requires a signed-in session; remove user_id for anonymous MINDEX-only discovery.",
+          },
+          { status: 401 }
+        )
+      }
+      containers = await fetchDockerContainers()
+      containers = containers.filter((c) => c.is_mindex)
+      accessLevel = "anonymous"
+    } else {
+      const scoped = resolveScopedUserId(identity, requestedUserId || undefined)
+      if (scoped.denied) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      subjectUserId = scoped.userId
+
+      const elevated = identity.isSuperuser || (await isSuperAdmin(identity.userId))
+
+      if (elevated && showAll) {
+        containers = await fetchDockerContainers()
+        accessLevel = "admin"
+      } else if (elevated && requestedUserId) {
+        const userContainerIds = await getUserContainers(subjectUserId)
+        containers =
+          userContainerIds.length > 0 ? await fetchDockerContainers(userContainerIds) : []
+        accessLevel = "admin"
+      } else if (elevated) {
         containers = await fetchDockerContainers()
         accessLevel = "admin"
       } else {
-        // Regular user sees only assigned containers
-        const userContainerIds = await getUserContainers(userId)
-        containers = await fetchDockerContainers(userContainerIds)
+        const userContainerIds = await getUserContainers(subjectUserId)
+        containers =
+          userContainerIds.length > 0 ? await fetchDockerContainers(userContainerIds) : []
         accessLevel = "user"
       }
-    } else {
-      // Anonymous - only show MINDEX containers
-      containers = await fetchDockerContainers()
-      containers = containers.filter(c => c.is_mindex)
     }
 
-    // Filter MINDEX only if requested
     if (mindexOnly) {
-      containers = containers.filter(c => c.is_mindex)
+      containers = containers.filter((c) => c.is_mindex)
     }
 
     // Calculate stats
     const stats = {
       total: containers.length,
-      running: containers.filter(c => c.status === "running").length,
-      stopped: containers.filter(c => c.status === "exited" || c.status === "stopped").length,
-      mindex_count: containers.filter(c => c.is_mindex).length,
+      running: containers.filter((c) => c.status === "running").length,
+      stopped: containers.filter((c) => c.status === "exited" || c.status === "stopped").length,
+      mindex_count: containers.filter((c) => c.is_mindex).length,
     }
 
     return NextResponse.json({
       containers,
       stats,
       access_level: accessLevel,
-      user_id: userId,
+      user_id: subjectUserId,
       data_source: containers.length > 0 ? "live" : "unavailable",
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error("Containers API error:", error)
-    
-    return NextResponse.json({
-      containers: [],
-      stats: { total: 0, running: 0, stopped: 0, mindex_count: 0 },
-      access_level: "anonymous",
-      data_source: "unavailable",
-      error: error instanceof Error ? error.message : "Failed to fetch containers",
-      troubleshooting: {
-        docker_url: DOCKER_API_URL,
-        check_docker: "Ensure Docker is running and API is exposed on port 2375",
-      }
-    }, { status: 503 })
+
+    return NextResponse.json(
+      {
+        containers: [],
+        stats: { total: 0, running: 0, stopped: 0, mindex_count: 0 },
+        access_level: "anonymous",
+        data_source: "unavailable",
+        error: error instanceof Error ? error.message : "Failed to fetch containers",
+        troubleshooting: {
+          docker_url: DOCKER_API_URL,
+          check_docker: "Ensure Docker is running and API is exposed on port 2375",
+        },
+      },
+      { status: 503 }
+    )
   }
 }

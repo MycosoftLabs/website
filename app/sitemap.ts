@@ -56,7 +56,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/apps/growth-analytics`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/lifecycle-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/mushroom-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/apps/petri-dish-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/virtual-petri-dish`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/physics-sim`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/retrosynthesis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/spore-tracker`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },

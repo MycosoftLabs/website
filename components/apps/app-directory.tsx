@@ -9,7 +9,7 @@ const apps = [
     title: "Petri Dish Simulator",
     description: "Simulate and analyze fungal growth patterns",
     icon: PetriDish,
-    href: "/apps/petri-dish-sim",
+    href: "/natureos/virtual-petri-dish",
   },
   {
     title: "Mushroom Simulator",

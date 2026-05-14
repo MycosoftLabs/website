@@ -43,7 +43,7 @@ const devicesItems = [
 ]
 
 const appsItems = [
-  { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: FlaskConical },
+  { title: "Petri Dish Simulator", href: "/natureos/virtual-petri-dish", icon: FlaskConical },
   { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, companyOnly: true },
   { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
   { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, companyOnly: true },

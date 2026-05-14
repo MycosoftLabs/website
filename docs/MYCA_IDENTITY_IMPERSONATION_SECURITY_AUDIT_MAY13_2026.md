@@ -341,14 +341,23 @@ File: `__tests__/api/security/myca-identity.test.ts`
 | `GET/POST/PUT /api/myca` | **Fixed** — removed mock POST; live MAS + scoped identity |
 | `GET/POST /api/search/ai`, `POST /api/search/ai/stream` | **Fixed** — scoped user + service headers on MAS calls |
 | `GET /api/natureos/nlm-training/mindex` | **Already safe** (no user-supplied tenant; service/data integration) |
-| `POST /api/natureos/shell/mindex` | **Deferred** — no cross-user `user_id`, but `executeETL` “status” still returns static placeholder text; replace with real MINDEX/ETL HTTP when endpoint exists |
+| `POST /api/natureos/shell/mindex` | **Fixed** — `etl status` proxies live MINDEX `etl-status` / `etl/status`; failures return **503** with explicit upstream message; `etl run` returns **501** (not proxied) |
+| `GET /api/myca/conversations` | **Fixed** — requires auth; `user_id` / `userId` resolved with `resolveScopedUserId`; MAS fetches use `masServiceHeaders` |
+| `GET /api/natureos/mindex/containers` | **Fixed** — removed JWT-prefix `user_id` spoof; uses `resolveVerifiedIdentity` + `resolveScopedUserId`; **admin** / “see all” is evaluated for the **caller** (`identity.userId`), not the query string |
 
 ## Remaining related risks (post second pass)
 
 - **Search AI** still uses static **local knowledge** text fallbacks (`getLocalFallback`) when all LLM paths fail; this is not an impersonation vector but is not live MAS data. Consider gating or removing when product requires “MAS-only answers.”
-- **NatureOS shell MINDEX** `etl status` path returns placeholder sync text rather than calling a real pipeline status API.
+- **`GET /api/myca/conversations`** still merges **unscoped** MAS `/api/runs` and `/api/threads` results into the list; only the `/api/conversations` leg is user-scoped. Tighten when MAS supports per-user filters on those endpoints.
 - Routes outside this pass that mention `user_id` in **Stripe**, **usage**, **worldview**, **grounding**, or **comments in security** should be reviewed on the next sweep if they gain MAS coupling.
-- Full-repo `tsc --noEmit` still reports unrelated historical errors; security verification for this work is the Jest suite above.
+- Full-repo `tsc --noEmit` may still report unrelated historical errors; security verification for this work is the Jest suite below.
+
+### Follow-up verification — May 13, 2026
+
+- **NatureOS shell MINDEX:** `executeETL` `status` now mirrors the BFF (`GET /api/natureos/mindex/etl-status`): upstream `…/api/mindex/etl-status` then fallback `…/api/mindex/etl/status`; non-OK upstream → HTTP **503** with `MINDEX_ETL_STATUS_UNAVAILABLE` (no invented pipeline text). `etl run` → **501** `MINDEX_ETL_RUN_NOT_IMPLEMENTED`.
+- **Impersonation / IDOR grep (`app/api`, `lib`):** Prior patterns (`targetUser`, `impersonate`, etc.) had **no new hits** beyond orchestrator copy and comments. **Fixed this pass:** `GET /api/myca/conversations` (unauthenticated list + query `user_id` trust) and **`GET /api/natureos/mindex/containers`** (admin check used **query** `user_id` instead of caller; removed unsafe `Authorization` bearer-prefix “user id” extraction). `POST /api/myca/connection-proposal` dropped unused body `user_id` from the TypeScript contract (never forwarded).
+- **`npx tsc --noEmit --skipLibCheck`:** Full project still reports **1059** `error TS` diagnostics (mostly unrelated legacy). **This pass:** fixed **one** error in `app/api/natureos/mindex/containers/route.ts` (`getUserContainers` map callback typing); other edited routes report **no** additional TS errors in that run.
+- **Tests:** `__tests__/api/security/myca-identity.test.ts` extended with **MYCA conversations** auth + cross-user + scoped MAS URL assertions.
 
 ## Security Invariants Going Forward
 

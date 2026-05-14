@@ -30,7 +30,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/natureos/mindex/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Species Explorer' },
   { path: '/natureos/ancestry/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Ancestry Explorer' },
   { path: '/apps/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator' },
-  { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
+  { path: '/natureos/virtual-petri-dish', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Virtual Petri Dish' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
   { path: '/natureos/fusarium', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM' },
@@ -347,7 +347,7 @@ const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/dashboard/crep',
   '/natureos/ancestry/explorer',
   '/apps/earth-simulator',
-  '/apps/petri-dish-sim',
+  '/natureos/virtual-petri-dish',
   '/apps/compound-sim',
 ]
 

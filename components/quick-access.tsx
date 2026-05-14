@@ -21,7 +21,7 @@ const quickAccessItems = [
     title: "Petri Dish Simulator",
     icon: PetriDish,
     description: "Simulate fungal growth patterns",
-    href: "/apps/petri-dish-sim",
+    href: "/natureos/virtual-petri-dish",
   },
   {
     title: "About Us",

@@ -685,3 +685,48 @@ describe("memory profile and consciousness proxy user scoping (May 13, 2026)", (
     expect(global.fetch).not.toHaveBeenCalled()
   })
 })
+
+describe("MYCA conversations list IDOR hardening (May 13, 2026)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn(async () => Response.json({ conversations: [], data: [] })) as jest.Mock
+  })
+
+  it("requires authentication for conversation listing", async () => {
+    setAnonymous()
+    const { GET } = await import("@/app/api/myca/conversations/route")
+    const response = await GET(makeUrlRequest("http://localhost.test/api/myca/conversations?limit=5"))
+    expect(response.status).toBe(401)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("blocks regular users from listing another user's MAS conversations", async () => {
+    setAuthUser({
+      id: "real-user",
+      email: "user@mycosoft.org",
+      user_metadata: { role: "user" },
+    })
+    const { GET } = await import("@/app/api/myca/conversations/route")
+    const response = await GET(
+      makeUrlRequest("http://localhost.test/api/myca/conversations?user_id=other-user&limit=5")
+    )
+    expect(response.status).toBe(403)
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it("scopes MAS conversation fetch to the verified user when user_id is omitted", async () => {
+    setAuthUser({
+      id: "real-user",
+      email: "user@mycosoft.org",
+      user_metadata: { role: "user" },
+    })
+    const { GET } = await import("@/app/api/myca/conversations/route")
+    const response = await GET(makeUrlRequest("http://localhost.test/api/myca/conversations?limit=5"))
+    expect(response.status).toBe(200)
+    const masCall = (global.fetch as jest.Mock).mock.calls.find(([url]) =>
+      String(url).includes("/api/conversations?")
+    )
+    expect(masCall).toBeTruthy()
+    expect(String(masCall![0])).toContain("user_id=real-user")
+  })
+})

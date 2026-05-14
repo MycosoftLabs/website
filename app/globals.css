@@ -3423,18 +3423,17 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
 
 .natureos-glass-page .petri-control-layer-card-top::after {
   inset: 1px !important;
-  opacity: 1 !important;
+  opacity: 0.68 !important;
   z-index: 0 !important;
   border-radius: inherit !important;
-  padding: 1px;
   background:
-    conic-gradient(from -75deg at 50% 50%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 5% 40%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0) 60% 95%, rgba(0, 0, 0, 0.5)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5));
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.45) !important;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(102, 112, 128, 0.16), transparent 46%);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.38),
+    inset 0 0.7rem 0.9rem -1rem rgba(255, 255, 255, 0.86),
+    inset 0.7rem 0 0.9rem -1rem rgba(255, 255, 255, 0.34),
+    inset -0.7rem 0 0.9rem -1rem rgba(0, 0, 0, 0.38) !important;
 }
 
 .natureos-glass-page .petri-control-layer-card-top > * {
@@ -3477,9 +3476,13 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
 
 .dark .natureos-glass-page .petri-control-layer-card-top::after {
   background:
-    conic-gradient(from -75deg at 50% 50%, rgba(148, 163, 184, 0.28), rgba(0, 0, 0, 0.14) 5% 40%, rgba(203, 213, 225, 0.24) 50%, rgba(0, 0, 0, 0.18) 60% 95%, rgba(148, 163, 184, 0.28)),
-    linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(0, 0, 0, 0.14));
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 0% 100%, rgba(100, 116, 139, 0.18), transparent 48%);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1),
+    inset 0 0.7rem 0.9rem -1rem rgba(255, 255, 255, 0.2),
+    inset 0.7rem 0 0.9rem -1rem rgba(255, 255, 255, 0.08),
+    inset -0.7rem 0 0.9rem -1rem rgba(0, 0, 0, 0.82) !important;
 }
 
 .dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button {
@@ -3582,12 +3585,9 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   border-radius: 0.55rem !important;
   border: 0 !important;
   color: rgba(30, 41, 59, 0.96) !important;
-  background: linear-gradient(
-    -75deg,
-    rgba(255, 255, 255, 0.1),
-    rgba(255, 255, 255, 0.34),
-    rgba(255, 255, 255, 0.1)
-  ) !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(102, 112, 128, 0.12), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.1)) !important;
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
@@ -3607,16 +3607,11 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  background: linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.52) 42% 50%,
-    rgba(255, 255, 255, 0) 58%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 42%);
   background-size: 200% 200%;
   background-position: 0% 50%;
   mix-blend-mode: screen;
-  opacity: 0.72;
+  opacity: 0.28;
   transition: background-position 500ms cubic-bezier(0.25, 1, 0.5, 1),
     opacity 400ms cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -3629,8 +3624,8 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   border-radius: inherit;
   padding: 1px;
   background:
-    conic-gradient(from -75deg at 50% 50%, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0) 5% 40%, rgba(0, 0, 0, 0.36) 50%, rgba(0, 0, 0, 0) 60% 95%, rgba(0, 0, 0, 0.42)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.34));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.16)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 18% 82%, rgba(255, 255, 255, 0.22));
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -3639,19 +3634,16 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
 
 .natureos-glass-page .petri-glass-select-trigger:hover {
   transform: scale(0.985);
-  background: linear-gradient(
-    -75deg,
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0.22),
-    rgba(255, 255, 255, 0.08)
-  ) !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(102, 112, 128, 0.16), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)) !important;
   backdrop-filter: blur(0.01em) saturate(1.08);
   -webkit-backdrop-filter: blur(0.01em) saturate(1.08);
 }
 
 .natureos-glass-page .petri-glass-select-trigger:hover::before,
 .natureos-glass-page .petri-glass-select-trigger[data-state="open"]::before {
-  background-position: 32% 50%;
+  opacity: 0.42;
 }
 
 .natureos-glass-page .petri-glass-select-trigger[data-state="open"] {
@@ -3676,12 +3668,9 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
 
 .dark .natureos-glass-page .petri-glass-select-trigger {
   color: rgba(255, 255, 255, 0.92) !important;
-  background: linear-gradient(
-    -75deg,
-    rgba(0, 0, 0, 0.86),
-    rgba(15, 23, 42, 0.58),
-    rgba(0, 0, 0, 0.84)
-  ) !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(100, 116, 139, 0.14), transparent 54%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(0, 0, 0, 0.76)) !important;
   box-shadow:
     inset 0 0.125em 0.125em rgba(255, 255, 255, 0.045),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.08),
@@ -3696,32 +3685,22 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
 }
 
 .dark .natureos-glass-page .petri-glass-select-trigger::before {
-  background: linear-gradient(
-    -45deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(15, 23, 42, 0.12) 40%,
-    rgba(148, 163, 184, 0.1) 48%,
-    rgba(15, 23, 42, 0.08) 56%,
-    rgba(0, 0, 0, 0) 64%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 44%);
   mix-blend-mode: soft-light;
-  opacity: 0.72;
+  opacity: 0.34;
 }
 
 .dark .natureos-glass-page .petri-glass-select-trigger::after {
   background:
-    conic-gradient(from -75deg at 50% 50%, rgba(148, 163, 184, 0.28), rgba(0, 0, 0, 0.14) 5% 40%, rgba(203, 213, 225, 0.24) 50%, rgba(0, 0, 0, 0.18) 60% 95%, rgba(148, 163, 184, 0.28)),
-    linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(0, 0, 0, 0.14));
+    linear-gradient(180deg, rgba(148, 163, 184, 0.16), rgba(0, 0, 0, 0.18)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 18% 82%, rgba(148, 163, 184, 0.12));
 }
 
 .dark .natureos-glass-page .petri-glass-select-trigger:hover,
 .dark .natureos-glass-page .petri-glass-select-trigger[data-state="open"] {
-  background: linear-gradient(
-    -75deg,
-    rgba(0, 0, 0, 0.34),
-    rgba(15, 23, 42, 0.2),
-    rgba(0, 0, 0, 0.36)
-  ) !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(100, 116, 139, 0.18), transparent 54%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.54), rgba(0, 0, 0, 0.62)) !important;
   box-shadow:
     inset 0 0.125em 0.125em rgba(255, 255, 255, 0.025),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.055),

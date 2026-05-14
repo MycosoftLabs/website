@@ -75,7 +75,7 @@ const researchApps = [
     title: "Petri Dish Simulator",
     description: "Simulate and analyze fungal growth patterns in controlled virtual environments",
     icon: PetriDish,
-    href: "/apps/petri-dish-sim",
+    href: "/natureos/virtual-petri-dish",
     status: "active",
     category: "simulation",
     theme: "petri" // Laboratory glass, sterile cyan
@@ -741,7 +741,6 @@ export function AppsPortal() {
     </NeuromorphicProvider>
   )
 }
-
 
 
 

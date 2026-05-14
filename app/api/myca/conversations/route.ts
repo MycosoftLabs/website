@@ -5,6 +5,12 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server"
+import {
+  masServiceHeaders,
+  requireAuthenticatedIdentity,
+  resolveScopedUserId,
+  resolveVerifiedIdentity,
+} from "@/lib/auth/verified-identity"
 
 // MAS API base URL (use Docker internal URL when in container)
 const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MYCA_MAS_API_BASE_URL || "http://host.docker.internal:8040"
@@ -39,9 +45,9 @@ async function fetchMASConversations(userId?: string, limit: number = 50): Promi
     if (userId) params.set("user_id", userId)
     
     const response = await fetch(`${MAS_API_URL}/api/conversations?${params}`, {
-      headers: {
+      headers: masServiceHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       cache: "no-store",
     })
     
@@ -60,9 +66,9 @@ async function fetchMASConversations(userId?: string, limit: number = 50): Promi
 async function fetchAgentRunsAsConversations(limit: number = 50): Promise<Conversation[]> {
   try {
     const response = await fetch(`${MAS_API_URL}/api/runs?page_size=${limit}`, {
-      headers: {
+      headers: masServiceHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       cache: "no-store",
     })
     
@@ -94,9 +100,9 @@ async function fetchAgentRunsAsConversations(limit: number = 50): Promise<Conver
 async function fetchChatThreads(limit: number = 50): Promise<Conversation[]> {
   try {
     const response = await fetch(`${MAS_API_URL}/api/threads?page_size=${limit}`, {
-      headers: {
+      headers: masServiceHeaders({
         "Content-Type": "application/json",
-      },
+      }),
       cache: "no-store",
     })
     
@@ -162,13 +168,23 @@ function formatTimeAgo(dateString: string): string {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const userId = searchParams.get("userId") || searchParams.get("user_id") || undefined
   const limit = parseInt(searchParams.get("limit") || "50")
   
   try {
+    const identity = await resolveVerifiedIdentity()
+    const authError = requireAuthenticatedIdentity(identity)
+    if (authError) return authError
+
+    const requested =
+      searchParams.get("userId")?.trim() || searchParams.get("user_id")?.trim() || undefined
+    const scoped = resolveScopedUserId(identity, requested || undefined)
+    if (scoped.denied) return scoped.denied
+
+    const effectiveUserId = scoped.userId
+
     // Try multiple endpoints to get conversation data
     const [masConversations, agentRuns, chatThreads] = await Promise.all([
-      fetchMASConversations(userId, limit),
+      fetchMASConversations(effectiveUserId, limit),
       fetchAgentRunsAsConversations(limit),
       fetchChatThreads(limit),
     ])
@@ -201,7 +217,7 @@ export async function GET(request: NextRequest) {
       hasRealData,
       sources: ["MAS", "AgentRuns", "ChatThreads"],
       context: {
-        user_id: userId || "anonymous",
+        user_id: effectiveUserId,
       },
       timestamp: new Date().toISOString(),
     })
@@ -226,10 +242,20 @@ export async function POST(request: NextRequest) {
     if (!conversationId) {
       return NextResponse.json({ error: "conversationId is required" }, { status: 400 })
     }
+
+    const identity = await resolveVerifiedIdentity()
+    const authError = requireAuthenticatedIdentity(identity)
+    if (authError) return authError
+
+    const scoped = resolveScopedUserId(
+      identity,
+      typeof user_id === "string" && user_id.trim() ? user_id.trim() : undefined
+    )
+    if (scoped.denied) return scoped.denied
     
     // Try to fetch messages from MAS
     const response = await fetch(`${MAS_API_URL}/api/conversations/${conversationId}/messages`, {
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders({ "Content-Type": "application/json" }),
       cache: "no-store",
     })
     
@@ -243,7 +269,7 @@ export async function POST(request: NextRequest) {
     
     // Fallback: try run logs
     const logsResponse = await fetch(`${MAS_API_URL}/api/runs/${conversationId}/logs`, {
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders({ "Content-Type": "application/json" }),
       cache: "no-store",
     })
     
@@ -259,7 +285,7 @@ export async function POST(request: NextRequest) {
       messages: [],
       conversationId,
       context: {
-        user_id: user_id || "anonymous",
+        user_id: scoped.userId,
         session_id,
       },
       error: "Conversation not found",

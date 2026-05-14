@@ -24,7 +24,6 @@ interface ConnectionProposalRequest {
     category: string
   }
   baseProposal: ConnectionProposal
-  user_id?: string
   session_id?: string
   conversation_id?: string
 }
