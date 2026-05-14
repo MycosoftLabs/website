@@ -116,9 +116,10 @@ export const DOCS_CATALOG: DocSection[] = [
       },
       {
         title: "AVANI",
-        description: "Voice and conversational interface across Mycosoft products.",
+        description:
+          "Earth-trained governance and live world substrate beneath MYCA, grounded in sensors, MINDEX, NLM, and constitutional audit.",
         href: "/docs/ai/avani",
-        status: "coming-soon",
+        status: "draft",
         sources: placeholderSources("avani"),
       },
       {
