@@ -102,12 +102,16 @@ export const DOCS_CATALOG: DocSection[] = [
       {
         title: "MYCA",
         description:
-          "Mycosoft's primary multi-agent AI orchestrator — task automation law, agent roles, deployment patterns.",
+          "Edge-native environmental super-intelligence grounded in live biospheric telemetry and specialized agents.",
         href: "/docs/ai/myca",
-        status: "coming-soon",
+        status: "draft",
         sources: [
-          { label: "PDF", href: "/pdf/myca-architecture.pdf", kind: "pdf" },
-          { label: "GitBook", href: "https://mycosoft.gitbook.io/myca", kind: "gitbook" },
+          { label: "MYCA", href: "https://mycosoft.com/myca", kind: "external" },
+          {
+            label: "core.py",
+            href: "https://github.com/MycosoftLabs/mycosoft-mas/blob/main/mycosoft_mas/myca/os/core.py",
+            kind: "external",
+          },
         ],
       },
       {
