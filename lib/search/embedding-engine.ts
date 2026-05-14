@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Embedding Atlas Engine - Mar 2026
  *

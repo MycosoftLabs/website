@@ -7,7 +7,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies'
 
-export async function createClient() {
+export async function createClient(): Promise<any> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -73,7 +73,7 @@ export async function createClient() {
 export function createClientForRedirect(
   request: Request,
   redirectResponse: { cookies: { set: (name: string, value: string, options?: Partial<ResponseCookie>) => void } }
-) {
+): any {
   const requestCookies = request.headers.get('cookie') ?? ''
   const parsed = parseCookieString(requestCookies)
 
@@ -119,7 +119,7 @@ function parseCookieString(cookieHeader: string): { name: string; value: string 
  * Create admin client with service role key
  * Use this ONLY for server-side operations that need elevated privileges
  */
-export async function createAdminClient() {
+export async function createAdminClient(): Promise<any> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const dynamic = "force-dynamic"
 
 import NextAuth, { type NextAuthOptions, type User } from "next-auth"

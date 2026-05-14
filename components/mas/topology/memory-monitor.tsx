@@ -180,8 +180,6 @@ const SCOPE_CONFIG: Record<MemoryScope, {
   },
 }
 
-const MAS_URL = process.env.NEXT_PUBLIC_MAS_URL || "http://localhost:8001"
-
 // Backend status indicator
 function BackendIndicator({ 
   name, 
@@ -247,11 +245,9 @@ function ScopeCard({
       <div className="flex items-center gap-2 mb-1">
         <div 
           className="p-1 rounded"
-          style={{ backgroundColor: `${config.color}20` }}
+          style={{ backgroundColor: `${config.color}20`, color: config.color }}
         >
-          {React.cloneElement(config.icon as React.ReactElement, { 
-            style: { color: config.color } 
-          })}
+          {config.icon}
         </div>
         <span className="text-sm font-medium text-white capitalize">{scope}</span>
         <Badge 

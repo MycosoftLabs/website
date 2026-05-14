@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await fetch(`${MAS_URL}/voice/command`, {
         method: "POST",
-        headers: masServiceHeaders({ "Content-Type": "application/json" }),
+        headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
         body: JSON.stringify({
           text,
           session_id: body.session_id,

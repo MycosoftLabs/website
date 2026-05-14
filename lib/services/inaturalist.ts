@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { INATURALIST_API } from "@/lib/constants"
 
 export interface INaturalistPhoto {

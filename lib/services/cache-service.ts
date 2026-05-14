@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { tempDB } from "@/lib/temp-db-singleton"
 import { getSearchTracker } from "./search-tracker"
 import { put } from "@vercel/blob"

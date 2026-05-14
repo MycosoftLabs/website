@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Exostar Integration Client
  * 

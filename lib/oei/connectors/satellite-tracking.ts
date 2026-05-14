@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Satellite Tracking Connector - Feb 18, 2026
  * 

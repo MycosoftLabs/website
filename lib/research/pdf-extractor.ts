@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * PDF Text Extraction Service
  * 

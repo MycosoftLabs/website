@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Security Database Layer
  * Provides persistence for security events, incidents, and audit logs

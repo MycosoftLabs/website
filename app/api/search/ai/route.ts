@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
-import { masServiceHeaders, resolveScopedUserId, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
+import { masServiceHeaders, resolveScopedUserId, resolveVerifiedIdentity, type VerifiedIdentity } from "@/lib/auth/verified-identity"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -71,7 +71,8 @@ interface SearchContext {
 
 // 1. MYCA Consciousness - Intent Engine, memory, full awareness
 async function queryMYCAConsciousness(
-  payload: SearchAIRequest
+  payload: SearchAIRequest,
+  identity: VerifiedIdentity
 ): Promise<{ answer: string; source: string; confidence: number } | null> {
   try {
     const contextStr = payload.context?.species?.length
@@ -82,7 +83,7 @@ async function queryMYCAConsciousness(
 
     const res = await fetch(`${MAS_API_URL}/api/myca/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...masServiceHeaders() },
+      headers: { "Content-Type": "application/json", ...masServiceHeaders({}, identity) },
       body: JSON.stringify({
         message: payload.query + contextStr,
         session_id: payload.sessionId,
@@ -117,7 +118,8 @@ async function queryMYCAConsciousness(
 // 2. MAS Brain - Memory-integrated LLM
 async function queryMASBrain(
   payload: SearchAIRequest,
-  provider: "auto" | "gemini" | "claude" | "openai"
+  provider: "auto" | "gemini" | "claude" | "openai",
+  identity: VerifiedIdentity
 ): Promise<{ answer: string; source: string; confidence: number } | null> {
   try {
     const contextPrompt = payload.context?.species?.length
@@ -126,7 +128,7 @@ async function queryMASBrain(
 
     const res = await fetch(`${MAS_API_URL}/voice/brain/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...masServiceHeaders() },
+      headers: { "Content-Type": "application/json", ...masServiceHeaders({}, identity) },
       body: JSON.stringify({
         message: payload.query + contextPrompt,
         user_id: payload.userId,
@@ -157,10 +159,16 @@ async function queryMASBrain(
 }
 
 // Fire-and-forget: record intention for MYCA (Intent Engine)
-function recordIntention(query: string, source: string, sessionId?: string, userId?: string) {
+function recordIntention(
+  query: string,
+  source: string,
+  identity: VerifiedIdentity,
+  sessionId?: string,
+  userId?: string
+) {
   fetch(`${MAS_API_URL}/api/myca/intention`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...masServiceHeaders() },
+    headers: { "Content-Type": "application/json", ...masServiceHeaders({}, identity) },
     body: JSON.stringify({
       session_id: sessionId,
       user_id: userId,
@@ -213,14 +221,14 @@ export async function GET(request: NextRequest) {
 
   let result: { answer: string; source: string; confidence: number } | null = null
 
-  result = await queryMYCAConsciousness(payload)
+  result = await queryMYCAConsciousness(payload, identity)
   if (!result) {
     const provider =
       modelPreference === "quality" ? "claude" : modelPreference === "reasoning" ? "openai" : "gemini"
-    result = await queryMASBrain(payload, provider)
+    result = await queryMASBrain(payload, provider, identity)
   }
   if (!result) {
-    result = await queryMASBrain(payload, "auto")
+    result = await queryMASBrain(payload, "auto", identity)
   }
 
   // Fallback: Direct Groq call when MAS is unreachable
@@ -239,7 +247,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (result.source.startsWith("MYCA")) {
-    recordIntention(query, result.source, sessionId, scoped.userId)
+    recordIntention(query, result.source, identity, sessionId, scoped.userId)
   }
 
   return NextResponse.json({
@@ -409,7 +417,7 @@ export async function POST(request: NextRequest) {
 
   let result: { answer: string; source: string; confidence: number } | null = null
 
-  result = await queryMYCAConsciousness(payload)
+  result = await queryMYCAConsciousness(payload, identity)
   if (!result) {
     const provider =
       payload.modelPreference === "quality"
@@ -417,10 +425,10 @@ export async function POST(request: NextRequest) {
         : payload.modelPreference === "reasoning"
           ? "openai"
           : "gemini"
-    result = await queryMASBrain(payload, provider)
+    result = await queryMASBrain(payload, provider, identity)
   }
   if (!result) {
-    result = await queryMASBrain(payload, "auto")
+    result = await queryMASBrain(payload, "auto", identity)
   }
 
   // Fallback: Direct Groq call when MAS is unreachable
@@ -439,7 +447,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.source.startsWith("MYCA")) {
-    recordIntention(query, result.source, payload.sessionId, payload.userId)
+    recordIntention(query, result.source, identity, payload.sessionId, payload.userId)
   }
 
   return NextResponse.json({

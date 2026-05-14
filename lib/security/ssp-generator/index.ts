@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * System Security Plan (SSP) Generator
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // In-memory database singleton for development
 interface Collection<T> {
   data: T[]

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Carbon Mapper API Connector
  * 

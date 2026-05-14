@@ -102,6 +102,7 @@ export function EarthWidget({
     () => (searchQuery.trim().length >= 2 ? classifyAndRoute(searchQuery) : null),
     [searchQuery]
   )
+  const isEarthquakeQuery = /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(searchQuery)
   const routeLocation = route?.intent.filters.location
   const simulatorLocation = searchLocation || (
     routeLocation?.lat && routeLocation?.lng
@@ -204,7 +205,8 @@ export function EarthWidget({
   )
   const filteredEntities = useMemo(
     () => normalizedLiveEntities.filter((entity) => {
-      const type = String(entity.type ?? entity.category ?? entity.entity_type ?? "").toLowerCase()
+      const row = entity as Record<string, unknown>
+      const type = String(row.type ?? row.category ?? row.entity_type ?? "").toLowerCase()
       if (enabledCategories.size === 0) return false
       if (type === "species") return enabledCategories.has("species")
       if (type === "event") return enabledCategories.has("event")
@@ -231,9 +233,9 @@ export function EarthWidget({
       name: enabledLabels[0] || "Search results",
     }
   }, [enabledLabels, filteredEntities])
-  const focusTarget = simulatorLocation || entityFocus
+  const focusTarget = simulatorLocation || (isEarthquakeQuery ? null : entityFocus)
   const embeddedFocusTarget = focusTarget
-    ? { ...focusTarget, zoom: isFocused ? 8 : 6 }
+    ? { ...focusTarget, zoom: isEarthquakeQuery ? 2.2 : isFocused ? 8 : 6 }
     : { lat: 20, lng: 0, name: "global view", zoom: 1.35 }
 
   if (error) {

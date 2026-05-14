@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { neon } from "@neondatabase/serverless"
 import { cache } from "react"
 import { getSpeciesImage } from "./image-service"

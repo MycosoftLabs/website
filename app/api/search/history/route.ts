@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(
       `${MAS_API_URL}/api/search/memory/history?user_id=${encodeURIComponent(scopedUser.userId)}&limit=${limit}`,
-      { method: 'GET', headers: masServiceHeaders() }
+      { method: 'GET', headers: masServiceHeaders({}, identity) }
     );
 
     if (!response.ok) {

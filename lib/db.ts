@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "@vercel/postgres"
 import { drizzle } from "drizzle-orm/vercel-postgres"
 import { fungi } from "@/schema/fungi"

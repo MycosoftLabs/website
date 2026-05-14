@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"

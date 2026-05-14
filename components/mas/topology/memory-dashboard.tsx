@@ -193,8 +193,6 @@ const SCOPE_CONFIG: Record<MemoryScope, {
   },
 }
 
-const MAS_URL = process.env.NEXT_PUBLIC_MAS_URL || "http://localhost:8001"
-
 // Scope Overview Card
 function ScopeOverviewCard({ 
   scope, 

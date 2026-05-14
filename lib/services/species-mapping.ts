@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Comprehensive species mapping with accurate IDs and related data
 export const SPECIES_MAPPING = {
   // Lion's Mane

@@ -10,6 +10,7 @@ import {
   requireAuthenticatedIdentity,
   resolveScopedUserId,
   resolveVerifiedIdentity,
+  type VerifiedIdentity,
 } from "@/lib/auth/verified-identity"
 
 // MAS API base URL (use Docker internal URL when in container)
@@ -39,7 +40,11 @@ interface Message {
 }
 
 // Fetch conversations from MAS backend
-async function fetchMASConversations(userId?: string, limit: number = 50): Promise<Conversation[]> {
+async function fetchMASConversations(
+  identity: VerifiedIdentity,
+  userId?: string,
+  limit: number = 50
+): Promise<Conversation[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) })
     if (userId) params.set("user_id", userId)
@@ -47,7 +52,7 @@ async function fetchMASConversations(userId?: string, limit: number = 50): Promi
     const response = await fetch(`${MAS_API_URL}/api/conversations?${params}`, {
       headers: masServiceHeaders({
         "Content-Type": "application/json",
-      }),
+      }, identity),
       cache: "no-store",
     })
     
@@ -63,12 +68,15 @@ async function fetchMASConversations(userId?: string, limit: number = 50): Promi
 }
 
 // Fetch agent runs and convert to conversation format
-async function fetchAgentRunsAsConversations(limit: number = 50): Promise<Conversation[]> {
+async function fetchAgentRunsAsConversations(
+  identity: VerifiedIdentity,
+  limit: number = 50
+): Promise<Conversation[]> {
   try {
     const response = await fetch(`${MAS_API_URL}/api/runs?page_size=${limit}`, {
       headers: masServiceHeaders({
         "Content-Type": "application/json",
-      }),
+      }, identity),
       cache: "no-store",
     })
     
@@ -97,12 +105,15 @@ async function fetchAgentRunsAsConversations(limit: number = 50): Promise<Conver
 }
 
 // Try to get chat threads from the MAS database directly
-async function fetchChatThreads(limit: number = 50): Promise<Conversation[]> {
+async function fetchChatThreads(
+  identity: VerifiedIdentity,
+  limit: number = 50
+): Promise<Conversation[]> {
   try {
     const response = await fetch(`${MAS_API_URL}/api/threads?page_size=${limit}`, {
       headers: masServiceHeaders({
         "Content-Type": "application/json",
-      }),
+      }, identity),
       cache: "no-store",
     })
     
@@ -184,9 +195,9 @@ export async function GET(request: NextRequest) {
 
     // Try multiple endpoints to get conversation data
     const [masConversations, agentRuns, chatThreads] = await Promise.all([
-      fetchMASConversations(effectiveUserId, limit),
-      fetchAgentRunsAsConversations(limit),
-      fetchChatThreads(limit),
+      fetchMASConversations(identity, effectiveUserId, limit),
+      fetchAgentRunsAsConversations(identity, limit),
+      fetchChatThreads(identity, limit),
     ])
     
     // Combine all sources and deduplicate
@@ -255,7 +266,7 @@ export async function POST(request: NextRequest) {
     
     // Try to fetch messages from MAS
     const response = await fetch(`${MAS_API_URL}/api/conversations/${conversationId}/messages`, {
-      headers: masServiceHeaders({ "Content-Type": "application/json" }),
+      headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
       cache: "no-store",
     })
     
@@ -269,7 +280,7 @@ export async function POST(request: NextRequest) {
     
     // Fallback: try run logs
     const logsResponse = await fetch(`${MAS_API_URL}/api/runs/${conversationId}/logs`, {
-      headers: masServiceHeaders({ "Content-Type": "application/json" }),
+      headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
       cache: "no-store",
     })
     

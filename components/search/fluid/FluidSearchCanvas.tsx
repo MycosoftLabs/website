@@ -115,7 +115,6 @@ const STREAMING_SEARCH_TYPES = [
 const EARTH_SIMULATOR_RESULT_WIDGETS = new Set<WidgetType>([
   "crep",
   "location",
-  "events",
   "aircraft",
   "vessels",
   "satellites",
@@ -138,6 +137,10 @@ function addSearchWidget(target: Set<WidgetType>, widget: WidgetType | null | un
 }
 
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
+
+function isEarthquakeSearch(query: string) {
+  return /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(query)
+}
 
 /** CREP search + unified Earth intelligence can return the same EONET item with different id strings. */
 function dedupeKeyForCrepMergedRow(r: Record<string, unknown>): string {
@@ -361,6 +364,10 @@ export function FluidSearchCanvas({
   const cycleWidgetSize = useCallback((type: WidgetType) => {
     setWidgetSizes((prev) => {
       const cur = prev[type] || { width: 1, height: 1 }
+      if (type === "answers") {
+        const next = cur.width === 2 ? { width: 1 as const, height: 2 as const } : { width: 2 as const, height: 1 as const }
+        return { ...prev, answers: next }
+      }
       let next: { width: 1 | 2; height: 1 | 2 | 3 }
       if (cur.width === 1 && cur.height === 1) next = { width: 1, height: 2 }
       else if (cur.width === 1 && cur.height === 2) next = { width: 1, height: 3 }
@@ -436,7 +443,7 @@ export function FluidSearchCanvas({
         contextText: contextParts.length ? `Search context: ${contextParts.join("; ")}` : undefined,
       })
       trackVoice(question)
-      trackSearch(question, undefined, { current_query: question, source: "voice_ai" })
+      trackSearch(question, undefined, { current_query: question } as any)
     },
     enabled: voiceEnabled,
   })
@@ -714,6 +721,8 @@ export function FluidSearchCanvas({
   // widgets, and recent search history so the news feed is always relevant
   // to everything the user has seen or said.
   const newsQuery = useMemo(() => {
+    if (isEarthquakeSearch(debouncedQuery || "")) return "active earthquakes OR seismic activity OR earthquake"
+
     const seen = new Set<string>()
     const push = (t: string) => { const v = t?.trim(); if (v && v.length > 1 && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); terms.push(v) } }
     const terms: string[] = []
@@ -775,6 +784,12 @@ export function FluidSearchCanvas({
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
 
+  const { data: liveEarthquakeData } = useSWR(
+    isEarthquakeSearch(debouncedQuery || "") ? `/api/natureos/global-events?type=earthquake&days=30&limit=20000` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 60000, refreshInterval: 60000 }
+  )
+
   // CREP data fetcher - uses CREP search API with live auto-refresh (30s)
   const { data: crepData } = useSWR(
     shouldFetchCrep && debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=50` : null,
@@ -797,6 +812,24 @@ export function FluidSearchCanvas({
   const newsResults = Array.isArray(newsData?.results) ? newsData.results : []
   const newsError = newsData?.error
   const newsQueryUsed = newsData?.queryUsed as string | undefined
+  const liveEarthquakeEvents = useMemo(
+    () => (Array.isArray(liveEarthquakeData?.events) ? liveEarthquakeData.events : [])
+      .filter((event: Record<string, unknown>) => String(event.type || "").toLowerCase() === "earthquake")
+      .map((event: Record<string, unknown>) => ({
+        id: String(event.id || `earthquake-${event.timestamp}`),
+        type: "earthquake",
+        title: String(event.title || "Earthquake"),
+        description: String(event.description || ""),
+        lat: Number((event.location as Record<string, unknown> | undefined)?.latitude ?? event.lat ?? event.latitude ?? 0),
+        lng: Number((event.location as Record<string, unknown> | undefined)?.longitude ?? event.lng ?? event.longitude ?? 0),
+        magnitude: Number(event.magnitude || 0),
+        severity: event.severity ? String(event.severity) : undefined,
+        timestamp: String(event.timestamp || new Date().toISOString()),
+        source: String(event.source || "USGS"),
+      })),
+    [liveEarthquakeData]
+  )
+  const eventsForWidgets = liveEarthquakeEvents.length > 0 ? liveEarthquakeEvents : events
   const crepResults = useMemo(() => {
     // Pass through full CREPSearchResult objects to preserve domain-specific properties
     // for the compartmentalized CrepWidget (aircraft speed/altitude, vessel heading, etc.)
@@ -859,7 +892,7 @@ export function FluidSearchCanvas({
         propsFn: (v) => ({ mmsi: v.mmsi, shipType: v.type || v.shipType, destination: v.destination, flag: v.flag, speed: v.speed || v.sog }),
       },
       {
-        items: events, type: "event",
+        items: eventsForWidgets, type: "event",
         titleFn: (e) => String(e.title || e.type || "Event"),
         propsFn: (e) => ({ severity: e.severity, eventType: e.type, magnitude: e.magnitude, sourceUrl: e.sourceUrl || e.link }),
       },
@@ -913,7 +946,7 @@ export function FluidSearchCanvas({
       deduped.push(row)
     }
     return deduped
-  }, [crepResults, aircraft, vessels, events, satellites, devices, spaceWeather])
+  }, [crepResults, aircraft, vessels, eventsForWidgets, satellites, devices, spaceWeather])
 
   const earth2Data = earth2RawData?.available ? earth2RawData : null
 
@@ -954,8 +987,8 @@ export function FluidSearchCanvas({
   }, [locationResults, crepResults])
 
   const eventObservations = useMemo(() => {
-    if (!events || !Array.isArray(events)) return []
-    return (events as unknown as Array<Record<string, unknown>>).map((ev) => ({
+    if (!eventsForWidgets || !Array.isArray(eventsForWidgets)) return []
+    return (eventsForWidgets as unknown as Array<Record<string, unknown>>).map((ev) => ({
       id: String(ev.id || Math.random().toString(36).slice(2)),
       title: String(ev.title || ev.type || "Event"),
       type: String(ev.type || "event"),
@@ -965,7 +998,7 @@ export function FluidSearchCanvas({
       timestamp: ev.timestamp ? String(ev.timestamp) : undefined,
       magnitude: ev.magnitude ? Number(ev.magnitude) : undefined,
     }))
-  }, [events])
+  }, [eventsForWidgets])
 
   // Handler to view an observation on the map
   const handleViewOnMap = useCallback((observation: MapObservation) => {
@@ -1072,8 +1105,8 @@ export function FluidSearchCanvas({
     }
 
     // 2. Events (earthquakes, volcanoes, storms)
-    if (events && len(events) > 0) {
-      for (const ev of (events as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
+    if (eventsForWidgets && len(eventsForWidgets) > 0) {
+      for (const ev of (eventsForWidgets as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `event-${ev.id || Math.random().toString(36).slice(2)}`,
           species: (ev.title as string) || (ev.type as string) || "Event",
@@ -1165,7 +1198,7 @@ export function FluidSearchCanvas({
       prevLiveCountRef.current = 0
       setLiveObservationsRef.current([])
     }
-  }, [liveResults, locationResults, events, aircraft, vessels, newsResults])
+  }, [liveResults, locationResults, eventsForWidgets, aircraft, vessels, newsResults])
 
   // Track history
   useEffect(() => {
@@ -1242,7 +1275,7 @@ export function FluidSearchCanvas({
                         firstKingdom === "animalia" ? "🐠" : "🔬"
 
     return [
-    { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: len(mycaMessages?.filter((m) => m.role !== "system")) > 0 || len(suggestions?.widgets) > 0 || len(suggestions?.queries) > 0, depth: getParallaxDepth("answers") },
+    { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: Boolean(aiAnswer) || len(mycaMessages?.filter((m) => m.role !== "system")) > 0 || len(suggestions?.widgets) > 0 || len(suggestions?.queries) > 0, depth: getParallaxDepth("answers") },
     { type: "species", label: "Species", icon: speciesIcon, gradient: "from-green-500/30 to-emerald-500/20", hasData: len(species) > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: len(compounds) > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: len(genetics) > 0, depth: getParallaxDepth("genetics") },
@@ -1251,9 +1284,9 @@ export function FluidSearchCanvas({
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(locationResults) > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: len(newsResults) > 0, depth: getParallaxDepth("news") },
     { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: mergedCrepData.length > 0, depth: getParallaxDepth("crep") },
-    { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || !!earth2Data, depth: getParallaxDepth("earth") },
+    { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || eventObservations.length > 0 || !!earth2Data, depth: getParallaxDepth("earth") },
     // Earth Intelligence widgets
-    { type: "events", label: "Events", icon: "⚡", gradient: "from-red-500/30 to-orange-500/20", hasData: len(events) > 0, depth: getParallaxDepth("events") },
+    { type: "events", label: "Events", icon: "⚡", gradient: "from-red-500/30 to-orange-500/20", hasData: len(eventsForWidgets) > 0, depth: getParallaxDepth("events") },
     { type: "aircraft", label: "Aircraft", icon: "✈️", gradient: "from-sky-500/30 to-indigo-500/20", hasData: len(aircraft) > 0, depth: getParallaxDepth("aircraft") },
     { type: "vessels", label: "Vessels", icon: "🚢", gradient: "from-blue-500/30 to-slate-500/20", hasData: len(vessels) > 0, depth: getParallaxDepth("vessels") },
     { type: "satellites", label: "Satellites", icon: "🛰️", gradient: "from-indigo-500/30 to-purple-500/20", hasData: len(satellites) > 0, depth: getParallaxDepth("satellites") },
@@ -1273,7 +1306,7 @@ export function FluidSearchCanvas({
     { type: "code", label: "Code", icon: "💻", gradient: "from-violet-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("code") },
     { type: "shopping", label: "Shopping", icon: "🛒", gradient: "from-fuchsia-500/30 to-pink-500/20", hasData: false, depth: getParallaxDepth("shopping") },
     { type: "recipe", label: "Recipes", icon: "📖", gradient: "from-amber-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("recipe") },
-  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
+  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), len(eventObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, aiAnswer, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   const activeWidgets = widgetConfigs.filter((widget) => !EARTH_SIMULATOR_RESULT_WIDGETS.has(widget.type))
 
@@ -1372,6 +1405,7 @@ export function FluidSearchCanvas({
       setWidgetSizes(prev => ({
         ...prev,
         [route.primaryWidget!]: route.primaryWidgetSize,
+        answers: { width: 2, height: 1 },
       }))
     }
 
@@ -1420,7 +1454,7 @@ export function FluidSearchCanvas({
       genetics: genetics.length,
       research: research.length,
       earth: (mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
-      events: len(events),
+      events: len(eventsForWidgets),
       aircraft: len(aircraft),
       vessels: len(vessels),
       satellites: len(satellites),
@@ -1444,6 +1478,7 @@ export function FluidSearchCanvas({
       setWidgetSizes(prev => ({
         ...prev,
         [route.primaryWidget!]: route.primaryWidgetSize,
+        answers: { width: 2, height: 1 },
       }))
     }
 
@@ -1493,7 +1528,7 @@ export function FluidSearchCanvas({
 
       return next
     })
-  }, [localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
+  }, [localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1761,8 +1796,12 @@ export function FluidSearchCanvas({
                       ? (config.hasData || expandedWidgets.has(config.type))
                       : expandedWidgets.has(config.type)) ? -1 : 0,
                   }}
-                  draggable
+                  draggable={config.type !== "earth"}
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                    if (config.type === "earth") {
+                      e.preventDefault()
+                      return
+                    }
                     const labels: Record<string, string> = {
                       species: species[0]?.commonName || species[0]?.scientificName || "Species",
                       chemistry: compounds[0]?.name || "Compounds",
@@ -1852,7 +1891,7 @@ export function FluidSearchCanvas({
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
-                        events={events} aircraft={aircraft} vessels={vessels} satellites={satellites} weather={weather} emissions={emissions} infrastructure={infrastructure} devices={devices} spaceWeather={spaceWeather} cameras={cameras}
+                        events={eventsForWidgets as any} aircraft={aircraft as any} vessels={vessels as any} satellites={satellites as any} weather={weather as any} emissions={emissions as any} infrastructure={infrastructure as any} devices={devices as any} spaceWeather={spaceWeather as any} cameras={cameras as any}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {

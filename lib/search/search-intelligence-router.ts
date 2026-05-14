@@ -202,6 +202,18 @@ function determinePrimaryWidget(
   primaryWidgetSize: { width: 1 | 2; height: 1 | 2 | 3 }
   secondaryWidgets: WidgetType[]
 } {
+  const isEarthquakeQuery =
+    intent.type === "event" &&
+    /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(intent.originalQuery)
+
+  if (isEarthquakeQuery) {
+    return {
+      primaryWidget: "earth",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: ["events", "answers", "news", "research"],
+    }
+  }
+
   /**
    * Flight / ship / orbit queries: domain widget must lead. `detectWorldviewIntent` also sets `crep`
    * for these phrases; the old branch made CREP primary without putting `aircraft` in secondaries,
@@ -339,6 +351,15 @@ function getSecondaryWidgets(intent: SearchIntent, primaryWidget: WidgetType): W
   // For earth intelligence, include related widgets
   if (["event", "aircraft", "vessel", "weather", "satellite", "emissions", "infrastructure", "device", "space_weather"].includes(intent.type)) {
     if (primaryWidget !== "earth") secondary.push("earth")
+  }
+
+  if (
+    intent.type === "event" &&
+    /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(intent.originalQuery)
+  ) {
+    for (const widget of ["events", "answers", "news", "research"] as WidgetType[]) {
+      if (widget !== primaryWidget && !secondary.includes(widget)) secondary.push(widget)
+    }
   }
 
   // Research always gets news

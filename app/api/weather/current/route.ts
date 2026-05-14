@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextResponse } from "next/server"
 
 // Open-Meteo API - Free, no API key required

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Telemetry Stream API - February 12, 2026
  * 

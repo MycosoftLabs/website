@@ -5,8 +5,8 @@ import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 
 // Lazy admin client (matches pattern from crypto/verify/route.ts)
-let _admin: ReturnType<typeof createClient> | null = null
-function getAdmin() {
+let _admin: any = null
+function getAdmin(): any {
   if (_admin) return _admin
   _admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

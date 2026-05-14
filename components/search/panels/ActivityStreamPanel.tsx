@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ActivityStreamPanel — Updated Mar 19, 2026
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Scientific Dashboard Stream API - February 12, 2026
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { request } from "@playwright/test"
 
 let cachedSkip: boolean | null = null

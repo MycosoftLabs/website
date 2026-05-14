@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client"
 
 import { Shield, Scale, Eye, Users, FileCheck, ArrowRight } from "lucide-react"

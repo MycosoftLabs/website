@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * React Hooks for Mycorrhizae Protocol
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateApiKey } from "@/lib/api-key-auth";

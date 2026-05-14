@@ -200,8 +200,8 @@ export async function GET(request: NextRequest) {
         })
 
         send("ingest", {
-          status: "queued-when-missing",
-          note: "Missing search buckets are recorded as MINDEX ETL improvement requests for MAS/MYCA enrichment.",
+          status: "live-source-check-complete",
+          note: "Live sources checked; any missing data will refresh automatically when available.",
         })
         send("done", { ok: true })
       } catch (e) {

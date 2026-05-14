@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: masServiceHeaders({
           'Content-Type': 'application/json',
-        }),
+        }, identity),
         body: JSON.stringify({
           query: body.query,
           user_id: identity.userId,

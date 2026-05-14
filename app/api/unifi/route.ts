@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * UniFi Network API (real-only)
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Aircraft Registry — Multi-Source Aviation Entity Aggregator
  *

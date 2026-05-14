@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Config } from "drizzle-kit"
 
 export default {

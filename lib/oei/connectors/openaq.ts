@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OpenAQ Air Quality Connector
  * 

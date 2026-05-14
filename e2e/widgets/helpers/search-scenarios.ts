@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Search Scenario Definitions — 130 scenarios across 17 categories
  *

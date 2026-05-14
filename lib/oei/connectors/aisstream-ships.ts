@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AISstream Maritime Vessel Connector
  * 

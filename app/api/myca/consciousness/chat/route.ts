@@ -99,6 +99,11 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: masServiceHeaders({
         "Content-Type": "application/json",
+      }, {
+        userId: resolvedUserId,
+        userRole: resolvedUserRole,
+        email: verifiedEmail,
+        authTrustLevel,
       }),
       body: JSON.stringify(payload),
     })

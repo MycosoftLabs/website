@@ -82,14 +82,15 @@ const RESPONSE_HEADERS = {
   "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };
 
-async function fetchUSGSEarthquakes(): Promise<GlobalEvent[]> {
+async function fetchUSGSEarthquakes(days = 7): Promise<GlobalEvent[]> {
   try {
     // Full USGS catalog — past 7 days, all magnitudes (down to M1.0 regional).
     // Earlier versions used 2.5_day.geojson (~150 quakes); the 1.0_week feed
     // returns every tracked global event (~8,000–15,000). Army-contract
     // deliverable requires all active seismic activity.
+    const feed = days >= 30 ? "all_month" : days >= 7 ? "1.0_week" : "1.0_day";
     const res = await fetch(
-      "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/1.0_week.geojson",
+      `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${feed}.geojson`,
       { signal: AbortSignal.timeout(20000) }
     );
     
@@ -101,7 +102,7 @@ async function fetchUSGSEarthquakes(): Promise<GlobalEvent[]> {
     return data.features.map((feature: any) => {
       const props = feature.properties;
       const coords = feature.geometry.coordinates;
-      const mag = props.mag;
+      const mag = Number.isFinite(Number(props.mag)) ? Number(props.mag) : 0;
       
       let severity: GlobalEvent["severity"] = "info";
       if (mag >= 7) severity = "extreme";
@@ -269,10 +270,14 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
 
 export async function GET(request: NextRequest) {
   const now = Date.now();
-  const limit = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("limit") || 10000), 10000));
+  const limit = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("limit") || 10000), 25000));
+  const requestedType = (request.nextUrl.searchParams.get("type") || "").toLowerCase();
+  const earthquakeOnly = requestedType === "earthquake" || requestedType === "earthquakes";
+  const days = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("days") || (earthquakeOnly ? 30 : 7)), 30));
+  const cacheKey = earthquakeOnly ? `earthquake:${days}` : "all:7";
   
   // Return cached data if still valid
-  if (cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
+  if ((cachedEvents as any).__cacheKey === cacheKey && cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
     return NextResponse.json(
       {
         events: cachedEvents.slice(0, limit),
@@ -288,12 +293,15 @@ export async function GET(request: NextRequest) {
     );
   }
   
-  // Fetch from all sources in parallel
-  const [earthquakes, spaceWeather, eonetEvents] = await Promise.all([
-    fetchUSGSEarthquakes(),
-    fetchNOAASpaceWeather(),
-    fetchNASAEONET(),
-  ]);
+  // Fetch from all sources in parallel. Earthquake search embeds use a deeper,
+  // earthquake-only feed so the globe never waits on unrelated layers.
+  const [earthquakes, spaceWeather, eonetEvents] = earthquakeOnly
+    ? [await fetchUSGSEarthquakes(days), [], []]
+    : await Promise.all([
+        fetchUSGSEarthquakes(days),
+        fetchNOAASpaceWeather(),
+        fetchNASAEONET(),
+      ]);
   
   // Combine and sort
   const allEvents = [
@@ -308,6 +316,7 @@ export async function GET(request: NextRequest) {
   
   // Update cache
   cachedEvents = allEvents;
+  (cachedEvents as any).__cacheKey = cacheKey;
   lastFetchTime = now;
   
   // Ingest events to MINDEX for persistent storage (non-blocking)

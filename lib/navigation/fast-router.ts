@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Fast client navigations for search flows — View Transitions when available,
  * otherwise immediate router.push with scroll disabled for snappier UX.

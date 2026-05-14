@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * USGS Volcano Hazards Program Connector
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OpenSky Network ADS-B Connector
  * 

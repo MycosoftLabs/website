@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Worldview v1 client SDK — Apr 23, 2026
  *

@@ -434,6 +434,44 @@ interface GlobalEvent {
     affectedPopulation?: number; // People affected
 }
 
+const EARTHQUAKE_QUERY_RE = /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i;
+
+function eventTimeMs(event: Pick<GlobalEvent, "timestamp">) {
+  if (!event.timestamp) return 0;
+  const t = new Date(event.timestamp).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function earthquakeSeverityRank(event: Pick<GlobalEvent, "severity" | "magnitude">) {
+  const mag = Number(event.magnitude);
+  if (Number.isFinite(mag)) return Math.max(0, Math.min(6, mag));
+  const ranks: Record<string, number> = { extreme: 6, critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+  return ranks[event.severity || "info"] ?? 0;
+}
+
+function applyEarthquakeSearchLOD(events: GlobalEvent[], zoom: number) {
+  const sorted = [...events].sort((a, b) => {
+    const dt = eventTimeMs(b) - eventTimeMs(a);
+    if (dt !== 0) return dt;
+    return earthquakeSeverityRank(b) - earthquakeSeverityRank(a);
+  });
+  const newest = sorted[0] ? [sorted[0]] : [];
+  const now = Date.now();
+  const tiers =
+    zoom < 3 ? { windowMs: 7 * 86400_000, minMag: 0, max: 3000 } :
+    zoom < 5 ? { windowMs: 14 * 86400_000, minMag: 0, max: 5000 } :
+    zoom < 7 ? { windowMs: 30 * 86400_000, minMag: 0, max: 8000 } :
+    zoom < 10 ? { windowMs: 30 * 86400_000, minMag: 0, max: 12000 } :
+    { windowMs: 30 * 86400_000, minMag: 0, max: 20000 };
+  const candidates = sorted.filter((event) => {
+    const mag = Number(event.magnitude);
+    return now - eventTimeMs(event) <= tiers.windowMs && (!Number.isFinite(mag) || mag >= tiers.minMag);
+  });
+  const merged = new Map<string, GlobalEvent>();
+  for (const event of [...newest, ...candidates]) merged.set(event.id, event);
+  return Array.from(merged.values()).slice(0, tiers.max);
+}
+
 interface Device {
     id: string;
     name: string;
@@ -1744,6 +1782,7 @@ export default function CREPDashboardPage({
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events" | "infra">("fungal"); // DEFAULT TO FUNGAL
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const isEmbeddedEarthquakeSearch = embedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
   
   // Map reference for auto-zoom and pan functionality
   const [mapRef, setMapRef] = useState<any>(null);
@@ -2673,6 +2712,38 @@ export default function CREPDashboardPage({
       })),
     );
   }, [embedded, embeddedLayerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!embedded) return;
+    const allowed = new Set(enabledLayerIds);
+    setGroundFilter((prev) => ({
+      ...prev,
+      showFungi: allowed.has("fungi"),
+      showPlants: allowed.has("organisms") || allowed.has("inat"),
+      showBirds: allowed.has("organisms") || allowed.has("inat"),
+      showMammals: allowed.has("organisms") || allowed.has("inat"),
+      showReptiles: allowed.has("organisms") || allowed.has("inat"),
+      showInsects: allowed.has("organisms") || allowed.has("inat"),
+      showMarineLife: allowed.has("organisms") || allowed.has("inat"),
+      showEarthquakes: allowed.has("earthquakes"),
+      showVolcanoes: allowed.has("volcanoes"),
+      showWildfires: allowed.has("wildfires"),
+      showStorms: allowed.has("storms"),
+      showLightning: allowed.has("lightning"),
+      showTornadoes: allowed.has("tornadoes"),
+      showFloods: allowed.has("floods"),
+      showFactories: allowed.has("factories"),
+      showPowerPlants: allowed.has("powerPlants") || allowed.has("powerPlantsG"),
+      showMining: allowed.has("metalOutput"),
+      showOilGas: allowed.has("oilGas"),
+      showWaterPollution: allowed.has("waterPollution"),
+      showMilitaryBases: allowed.has("militaryBases"),
+      showMycoBrain: allowed.has("mycobrain"),
+      showSporeBase: allowed.has("sporebase"),
+      showSmartFence: allowed.has("smartfence"),
+      showPartnerNetworks: allowed.has("partners"),
+    }));
+  }, [embedded, embeddedLayerKey]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
   
@@ -2822,7 +2893,10 @@ export default function CREPDashboardPage({
       try {
         // Fetch global events - wrapped in try/catch for graceful failure
         try {
-          const eventsRes = await fetch("/api/natureos/global-events");
+          const eventsUrl = isEmbeddedEarthquakeSearch
+            ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
+            : "/api/natureos/global-events";
+          const eventsRes = await fetch(eventsUrl);
           if (eventsRes.ok) {
             const data = await eventsRes.json();
             // Allow lat/lng of 0 (solar flares at Sun, geomagnetic at pole) - use typeof check
@@ -2852,7 +2926,7 @@ export default function CREPDashboardPage({
               
             // Filter by search query if it came from the overlay parent
             const urlQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q")?.toLowerCase() : null;
-            if (urlQuery) {
+            if (urlQuery && !isEmbeddedEarthquakeSearch) {
               formattedEvents = formattedEvents.filter((e: any) => 
                 (e.title && e.title.toLowerCase().includes(urlQuery)) ||
                 (e.description && e.description.toLowerCase().includes(urlQuery)) ||
@@ -3496,7 +3570,10 @@ export default function CREPDashboardPage({
   useEffect(() => {
     const refreshLiveEvents = async () => {
       try {
-        const eventsRes = await fetch("/api/natureos/global-events");
+        const eventsUrl = isEmbeddedEarthquakeSearch
+          ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
+          : "/api/natureos/global-events";
+        const eventsRes = await fetch(eventsUrl);
         if (!eventsRes.ok) return;
         const data = await eventsRes.json();
         const formattedEvents: GlobalEvent[] = (data.events || [])
@@ -3546,7 +3623,7 @@ export default function CREPDashboardPage({
       clearTimeout(t);
       clearInterval(interval);
     };
-  }, []);
+  }, [isEmbeddedEarthquakeSearch]);
 
   // Fullscreen handlers
   const toggleFullscreen = useCallback(() => {
@@ -4352,6 +4429,23 @@ export default function CREPDashboardPage({
 
   // LOD (Level of Detail) filtering for events - same system as fungal data
   const visibleEvents = useMemo(() => {
+    if (isEmbeddedEarthquakeSearch) {
+      const earthquakes = typeFilteredEvents.filter((event) => (event.type || "").toLowerCase() === "earthquake");
+      if (!mapBounds || mapZoom < 3) {
+        return applyEarthquakeSearchLOD(earthquakes, mapZoom);
+      }
+      const inViewport = earthquakes.filter(event => {
+        if (!Number.isFinite(event.lat) || !Number.isFinite(event.lng)) return false;
+        if (mapBounds.west > mapBounds.east) {
+          return event.lat >= mapBounds.south && event.lat <= mapBounds.north &&
+                 (event.lng >= mapBounds.west || event.lng <= mapBounds.east);
+        }
+        return event.lat >= mapBounds.south && event.lat <= mapBounds.north &&
+               event.lng >= mapBounds.west && event.lng <= mapBounds.east;
+      });
+      return applyEarthquakeSearchLOD(inViewport.length > 0 ? inViewport : earthquakes, mapZoom);
+    }
+
     // Early return with ALL events if no bounds yet — never hide events before map init
     if (!mapBounds || typeFilteredEvents.length === 0) {
       return typeFilteredEvents;
@@ -4396,7 +4490,7 @@ export default function CREPDashboardPage({
     //   • sorts by severity desc, then timestamp desc
     //   • slices to the tier's maxRendered budget
     return applyLODToEvents(inViewport, mapZoom);
-  }, [typeFilteredEvents, mapZoom, mapBounds]);
+  }, [typeFilteredEvents, mapZoom, mapBounds, isEmbeddedEarthquakeSearch]);
 
   // For backward compatibility - use visibleEvents for rendering
   const filteredEvents = visibleEvents;
@@ -5817,6 +5911,7 @@ export default function CREPDashboardPage({
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Floating Left Sidebar - Intel Feed - NATURE DATA PRIMARY */}
+        {!embedded && (
         <div 
           data-panel="left"
           className={cn(
@@ -6173,6 +6268,7 @@ export default function CREPDashboardPage({
             </div>
           </div>
         </div>
+        )}
 
         {/* Map Container - Full size, panels overlay it. data-crep-map used by click-away to avoid dismissing when clicking deck.gl icons. */}
         <div
@@ -9502,7 +9598,7 @@ export default function CREPDashboardPage({
               AND auto-enable the project's layer set so the user lands on
               a fully-painted view.
               ═══════════════════════════════════════════════════════════════ */}
-          <div data-panel="fly-to" className={cn(
+          {!embedded && <div data-panel="fly-to" className={cn(
             "absolute top-14 z-20 transition-all duration-300 flex flex-col gap-2",
             rightPanelOpen ? "right-[340px]" : "right-4"
           )}>
@@ -9530,12 +9626,12 @@ export default function CREPDashboardPage({
               }}
               compact
             />
-          </div>
+          </div>}
 
           {/* ═══════════════════════════════════════════════════════════════
               UNIFIED SEARCH (Cmd+K) (Apr 2026)
               ═══════════════════════════════════════════════════════════════ */}
-          <UnifiedSearch
+          {!embedded && <UnifiedSearch
             plants={powerPlants}
             aircraft={aircraft}
             vessels={vessels}
@@ -9571,16 +9667,16 @@ export default function CREPDashboardPage({
             }}
             onClose={() => setSearchOpen(false)}
             isOpen={searchOpen}
-          />
+          />}
 
           {/* Map Overlay - Corner Decorations */}
-          <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/40 pointer-events-none" />
-          <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-cyan-500/40 pointer-events-none" />
-          <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-cyan-500/40 pointer-events-none" />
-          <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-cyan-500/40 pointer-events-none" />
+          {!embedded && <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/40 pointer-events-none" />}
+          {!embedded && <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-cyan-500/40 pointer-events-none" />}
+          {!embedded && <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-cyan-500/40 pointer-events-none" />}
+          {!embedded && <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-cyan-500/40 pointer-events-none" />}
 
           {/* Map Status Overlay - Top Center - FUNGAL DATA PRIMARY */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[9px] font-mono pointer-events-none">
+          {!embedded && <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[9px] font-mono pointer-events-none">
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-green-400">LIVE</span>
@@ -9692,10 +9788,11 @@ export default function CREPDashboardPage({
                 {filteredSatellites.length}/{satellites.length}
               </div>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* Right Side Panel - Overlays Map with slide animation */}
+        {!embedded && (
         <div 
           data-panel="right"
           className={cn(
@@ -10159,10 +10256,11 @@ export default function CREPDashboardPage({
             </Tabs>
           </div>
         </div>
+        )}
       </div>
 
       {/* Bottom Status Bar */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-1 bg-black/80 border-t border-cyan-500/20 z-50">
+      {!embedded && <div className="flex-shrink-0 flex items-center justify-between px-4 py-1 bg-black/80 border-t border-cyan-500/20 z-50">
         <div className="flex items-center gap-4 text-[8px] font-mono">
           <span className="text-green-400">● SYSTEM OPERATIONAL</span>
           <span className="text-gray-600">|</span>
@@ -10178,7 +10276,7 @@ export default function CREPDashboardPage({
           <span>{clientDate || "Loading..."}</span>
           <span className="text-cyan-400 tabular-nums">{new Date().toLocaleTimeString()}</span>
         </div>
-      </div>
+      </div>}
 
       {/* Centered Entity Detail Panel - for transport entities only
           NOTE: Events and Fungal observations use attached MarkerPopup widgets instead of this centered modal.

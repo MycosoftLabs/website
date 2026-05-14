@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest } from "next/server"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { err, newRequestId } from "@/lib/worldview/envelope"

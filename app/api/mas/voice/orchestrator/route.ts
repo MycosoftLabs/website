@@ -1278,7 +1278,15 @@ async function callMasBrain(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders(
+        { "Content-Type": "application/json" },
+        {
+          userId: runtimeIdentity.userId,
+          userRole: runtimeIdentity.userRole,
+          email: runtimeIdentity.verifiedEmail || null,
+          authTrustLevel: runtimeIdentity.authTrustLevel,
+        }
+      ),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     })
@@ -1333,7 +1341,15 @@ async function callMycaConsciousness(
   const doFetch = async (): Promise<Response> => {
     return fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders(
+        { "Content-Type": "application/json" },
+        {
+          userId: runtimeIdentity.userId,
+          userRole: runtimeIdentity.userRole,
+          email: runtimeIdentity.verifiedEmail || null,
+          authTrustLevel: runtimeIdentity.authTrustLevel,
+        }
+      ),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     })

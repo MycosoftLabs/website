@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from "next/server"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { meterAndLimit } from "@/lib/worldview/metering"

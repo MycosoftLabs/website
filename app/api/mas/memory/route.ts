@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     try {
       const masResponse = await fetch(
         `${MAS_API_URL}/memory/conversations?user_id=${userId}&session_id=${sessionId || ""}&limit=${limit}`,
-        { cache: "no-store", headers: masServiceHeaders() }
+        { cache: "no-store", headers: masServiceHeaders({}, identity) }
       )
 
       if (masResponse.ok) {
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     try {
       const masResponse = await fetch(`${MAS_API_URL}/memory/store`, {
         method: "POST",
-        headers: masServiceHeaders({ "Content-Type": "application/json" }),
+        headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
         body: JSON.stringify({
           session_id,
           user_id: scopedUser.userId,
@@ -216,7 +216,7 @@ export async function DELETE(request: NextRequest) {
     try {
       const masResponse = await fetch(
         `${MAS_API_URL}/memory/clear?user_id=${userId}&session_id=${sessionId || ""}`,
-        { method: "DELETE", headers: masServiceHeaders() }
+        { method: "DELETE", headers: masServiceHeaders({}, identity) }
       )
 
       if (masResponse.ok) {

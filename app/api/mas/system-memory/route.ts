@@ -22,7 +22,7 @@ async function requirePrivilegedProxy() {
 }
 
 export async function GET(request: NextRequest) {
-  const { authError } = await requirePrivilegedProxy()
+  const { identity, authError } = await requirePrivilegedProxy()
   if (authError) return authError
 
   const path = sanitizePath(request.nextUrl.searchParams.get("path") || "")
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   const response = await fetch(`${MAS_API_URL}${path}`, {
     method: "GET",
-    headers: masServiceHeaders(),
+    headers: masServiceHeaders({}, identity),
     cache: "no-store",
     signal: AbortSignal.timeout(10000),
   })
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   const response = await fetch(`${MAS_API_URL}${path}`, {
     method: "POST",
-    headers: masServiceHeaders({ "Content-Type": "application/json" }),
+    headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
     body: JSON.stringify({
       ...(body.payload || {}),
       authorized_by: identity.userId,

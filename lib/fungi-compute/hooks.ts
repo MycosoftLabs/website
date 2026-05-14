@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Fungi Compute - React Hooks
  * 

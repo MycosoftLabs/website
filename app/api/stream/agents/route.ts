@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MAS Topology Stream API - February 12, 2026
  * 

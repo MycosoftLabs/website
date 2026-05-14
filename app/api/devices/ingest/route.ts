@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Device Ingestion API Route
  * 

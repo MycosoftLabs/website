@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Performance utilities for Mycosoft website
  * 

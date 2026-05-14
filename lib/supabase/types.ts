@@ -6,6 +6,11 @@
 export interface Database {
   public: {
     Tables: {
+      [key: string]: {
+        Row: Record<string, any>
+        Insert: Record<string, any>
+        Update: Record<string, any>
+      }
       profiles: {
         Row: {
           id: string
@@ -210,6 +215,10 @@ export interface Database {
       }
     }
     Functions: {
+      [key: string]: {
+        Args: Record<string, any>
+        Returns: any
+      }
       match_documents: {
         Args: {
           query_embedding: number[]

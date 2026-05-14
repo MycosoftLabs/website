@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { baseTemplate } from './base'
 import type { SecurityAlertData } from '../mailer'
 

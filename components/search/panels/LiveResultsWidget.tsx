@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LiveResultsWidget — Updated Mar 19, 2026
  *

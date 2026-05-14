@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
     }
     const response = await fetch(`${MAS_API_URL}/voice/brain/stream`, {
       method: "POST",
-      headers: masServiceHeaders({ "Content-Type": "application/json" }),
+      headers: masServiceHeaders({ "Content-Type": "application/json" }, {
+        userId: authUser?.id || "anonymous",
+        userRole: authUser ? verifiedRole : "guest",
+        email: verifiedEmail,
+        authTrustLevel: authUser ? "verified" : "anonymous",
+      }),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(60000),
     })

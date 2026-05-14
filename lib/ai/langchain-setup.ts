@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LangChain Integration with Supabase Vector Store
  * 

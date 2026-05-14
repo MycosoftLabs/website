@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(`${MAS_API_URL}/api/myca/awaken`, {
       method: "POST",
       headers: {
-        ...masServiceHeaders({ "Content-Type": "application/json" }),
+        ...masServiceHeaders({ "Content-Type": "application/json" }, identity),
       },
       body: JSON.stringify(payload),
     })

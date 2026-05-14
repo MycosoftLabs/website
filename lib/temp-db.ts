@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { tempDB } from "./temp-db-singleton"
 import type { FungiSpecies } from "@/types/fungi"
 

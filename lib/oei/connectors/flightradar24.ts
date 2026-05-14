@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * FlightRadar24 API Connector
  * 

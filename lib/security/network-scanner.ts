@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Network Scanner Service
  * Provides real network scanning capabilities

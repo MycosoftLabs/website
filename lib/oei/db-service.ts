@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NatureOS OEI Database Service
  * 

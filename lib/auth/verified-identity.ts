@@ -110,10 +110,21 @@ export function identityRuntimeContext(identity: VerifiedIdentity) {
   }
 }
 
-export function masServiceHeaders(base: HeadersInit = {}): HeadersInit {
+export function masServiceHeaders(
+  base: HeadersInit = {},
+  identity?: Pick<VerifiedIdentity, "userId" | "userRole" | "email" | "authTrustLevel">
+): HeadersInit {
   const token = process.env.MAS_INTERNAL_SERVICE_TOKEN || process.env.MYCA_MAS_SERVICE_TOKEN
   return {
     ...base,
-    ...(token ? { "X-MYCOSOFT-Service-Token": token } : {}),
+    ...(token ? { "X-MYCA-Service-Token": token } : {}),
+    ...(identity
+      ? {
+          "X-MYCA-Verified-User-Id": identity.userId,
+          "X-MYCA-Verified-Email": identity.email || "",
+          "X-MYCA-Verified-Role": identity.userRole,
+          "X-MYCA-Auth-Trust-Level": identity.authTrustLevel,
+        }
+      : {}),
   }
 }

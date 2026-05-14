@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
-import { masServiceHeaders, resolveScopedUserId, resolveVerifiedIdentity } from "@/lib/auth/verified-identity"
+import { masServiceHeaders, resolveScopedUserId, resolveVerifiedIdentity, type VerifiedIdentity } from "@/lib/auth/verified-identity"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -38,10 +38,16 @@ interface SearchAIStreamRequest {
   history?: Array<{ role: "user" | "assistant"; content: string }>
 }
 
-function recordIntention(query: string, source: string, sessionId?: string, userId?: string) {
+function recordIntention(
+  query: string,
+  source: string,
+  identity: VerifiedIdentity,
+  sessionId?: string,
+  userId?: string
+) {
   fetch(`${MAS_API_URL}/api/myca/intention`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...masServiceHeaders() },
+    headers: { "Content-Type": "application/json", ...masServiceHeaders({}, identity) },
     body: JSON.stringify({
       session_id: sessionId,
       user_id: userId,
@@ -101,7 +107,7 @@ export async function POST(request: NextRequest) {
   try {
     const upstream = await fetch(`${MAS_API_URL}/voice/brain/stream`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...masServiceHeaders() },
+      headers: { "Content-Type": "application/json", ...masServiceHeaders({}, identity) },
       body: JSON.stringify({
         message: query + contextPrompt,
         user_id: scoped.userId,
@@ -116,7 +122,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (upstream.ok && upstream.body) {
-      recordIntention(query, `MYCA Brain (${provider})`, body.sessionId, scoped.userId)
+      recordIntention(query, `MYCA Brain (${provider})`, identity, body.sessionId, scoped.userId)
       return new Response(upstream.body, {
         headers: {
           "Content-Type": "text/event-stream",
@@ -155,7 +161,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (groqRes.ok && groqRes.body) {
-        recordIntention(query, "MYCA (Groq stream)", body.sessionId, scoped.userId)
+        recordIntention(query, "MYCA (Groq stream)", identity, body.sessionId, scoped.userId)
         return new Response(groqRes.body, {
           headers: {
             "Content-Type": "text/event-stream",
@@ -236,7 +242,7 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        recordIntention(query, `MYCA (Ollama/${OLLAMA_MODEL} stream)`, body.sessionId, scoped.userId)
+        recordIntention(query, `MYCA (Ollama/${OLLAMA_MODEL} stream)`, identity, body.sessionId, scoped.userId)
         return new Response(stream, {
           headers: {
             "Content-Type": "text/event-stream",

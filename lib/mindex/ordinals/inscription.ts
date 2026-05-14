@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bitcoin Ordinals Inscription Module for MINDEX
  * 

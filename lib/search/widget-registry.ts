@@ -157,7 +157,7 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     id: "answers",
     label: "Answers",
     resultKey: "answers",
-    size: { width: 2, height: 2 },
+    size: { width: 2, height: 1 },
     emptyPolicy: "show_empty",
     autoExpand: true,
   },

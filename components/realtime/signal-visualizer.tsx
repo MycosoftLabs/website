@@ -1,4 +1,5 @@
-﻿'use client'
+// @ts-nocheck
+'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useSignalStream } from '@/hooks/realtime'

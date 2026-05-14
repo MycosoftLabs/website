@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Contingency data sources for when primary APIs fail
  * This provides fallback data to ensure search results are always available

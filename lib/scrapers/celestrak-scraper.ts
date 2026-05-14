@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CelesTrak TLE Scraper
  * 

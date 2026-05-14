@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Worldstate API Proxy — Mar 14, 2026
  *

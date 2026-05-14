@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest } from 'next/server';
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';

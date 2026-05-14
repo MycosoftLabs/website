@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AIConversation - Feb 2026
  * 

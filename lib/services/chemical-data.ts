@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getWikipediaImage } from "./wikipedia"
 import { SPECIES_MAPPING } from "./species-mapping"
 

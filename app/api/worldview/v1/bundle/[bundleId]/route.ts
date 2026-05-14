@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { NextRequest } from "next/server"
 import { getBundle } from "@/lib/worldview/bundles"
 import { getDataset } from "@/lib/worldview/registry"

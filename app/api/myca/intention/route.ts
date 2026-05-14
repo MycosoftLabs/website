@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
     const res = await fetch(`${MAS_API_URL}/api/myca/intention`, {
       method: "POST",
-      headers: masServiceHeaders({ "Content-Type": "application/json" }),
+      headers: masServiceHeaders({ "Content-Type": "application/json" }, identity),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(5000),
     })

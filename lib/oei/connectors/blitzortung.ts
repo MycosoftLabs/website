@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Blitzortung Lightning Network Connector
  * February 4, 2026

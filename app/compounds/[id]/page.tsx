@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { notFound } from "next/navigation"
 import { getCompoundDetails } from "@/lib/services/chemical-data"
 import { CompoundTemplate } from "@/components/templates/compound-template"

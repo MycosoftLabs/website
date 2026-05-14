@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       method,
       headers: masServiceHeaders({
         'Content-Type': 'application/json',
-      }),
+      }, identity),
       body: action !== 'widget' ? JSON.stringify(payload) : undefined,
     });
 
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       if (authError) return authError;
       const response = await fetch(
         `${MAS_API_URL}/api/search/memory/stats`,
-        { method: 'GET', headers: masServiceHeaders() }
+        { method: 'GET', headers: masServiceHeaders({}, identity) }
       );
 
       if (!response.ok) {
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(
       `${MAS_API_URL}/api/search/memory/active/${encodeURIComponent(userScope.userId)}`,
-      { method: 'GET', headers: masServiceHeaders() }
+      { method: 'GET', headers: masServiceHeaders({}, identity) }
     );
 
     if (!response.ok) {

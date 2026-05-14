@@ -142,7 +142,7 @@ export async function GET() {
 
   // MAS can be single-worker or temporarily slow after restarts, so avoid
   // fanning out several long-running probes at once.
-  const serviceHeaders = masServiceHeaders();
+  const serviceHeaders = masServiceHeaders({}, identity);
   const trainingRuns = await getJson(MAS_BASE_URL, ['/api/nlm/training/runs'], 15000, serviceHeaders);
   const checkpoints = await getJson(MAS_BASE_URL, ['/api/nlm/training/checkpoints'], 15000, serviceHeaders);
   const nlmHealth = await getJson(MAS_BASE_URL, ['/api/nlm/health'], 15000, serviceHeaders);
@@ -261,7 +261,7 @@ export async function POST(req: Request) {
 
     const masRes = await fetch(`${MAS_BASE_URL}/api/nlm/training/${action}`, {
       method: 'POST',
-      headers: masServiceHeaders({ 'Content-Type': 'application/json' }),
+      headers: masServiceHeaders({ 'Content-Type': 'application/json' }, identity),
       body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(12000),
     });

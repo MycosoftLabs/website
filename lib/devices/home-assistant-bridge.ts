@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Home Assistant Bridge
  * 

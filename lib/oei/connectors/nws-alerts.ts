@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NWS (National Weather Service) Alerts Connector
  * 

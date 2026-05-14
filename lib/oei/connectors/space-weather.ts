@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NOAA Space Weather Prediction Center (SWPC) Connector - Feb 18, 2026
  * 

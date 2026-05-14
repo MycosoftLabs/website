@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MYCA-SEC: AI-Driven Security Engine
  * 

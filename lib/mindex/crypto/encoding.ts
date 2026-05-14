@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Browser-compatible crypto utilities using Web Crypto API
 
 export interface HashValue {

@@ -71,7 +71,12 @@ export async function POST(request: NextRequest) {
 
     const upstream = await fetch(`${MAS_API_URL}/api/training/log`, {
       method: "POST",
-      headers: masServiceHeaders({ "Content-Type": "application/json" }),
+      headers: masServiceHeaders({ "Content-Type": "application/json" }, {
+        userId: authUser.id,
+        userRole: getVerifiedRole(authUser),
+        email: authUser.email || null,
+        authTrustLevel: "verified",
+      }),
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10000),
     })
@@ -118,7 +123,12 @@ export async function GET(request: NextRequest) {
 
     const upstream = await fetch(upstreamUrl.toString(), {
       cache: "no-store",
-      headers: masServiceHeaders(),
+      headers: masServiceHeaders({}, {
+        userId: auth.user.id,
+        userRole: getVerifiedRole(auth.user),
+        email: auth.user.email || null,
+        authTrustLevel: "verified",
+      }),
       signal: AbortSignal.timeout(10000),
     })
 

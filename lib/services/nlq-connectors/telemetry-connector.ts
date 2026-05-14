@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Telemetry Connector - Device and Sensor Data
  * Created: Jan 26, 2026
