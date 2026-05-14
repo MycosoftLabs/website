@@ -67,6 +67,7 @@ import {
 import { detectWorldviewIntent } from "@/lib/search/world-view-suggestions"
 import { classifyAndRoute, type SearchRoute } from "@/lib/search/search-intelligence-router"
 import { mergeSearchRouteWithMasSuggestions } from "@/lib/search/merge-intention-route"
+import { resolveEarthSearchRule } from "@/lib/search/earth-search-rules"
 import {
   searchRouteToFluidSnapshot,
   type FluidSearchContext,
@@ -110,6 +111,11 @@ const STREAMING_SEARCH_TYPES = [
   "devices",
   "space_weather",
   "cameras",
+] satisfies ResultBucketKey[]
+
+const EARTHQUAKE_STREAMING_SEARCH_TYPES = [
+  "research",
+  "events",
 ] satisfies ResultBucketKey[]
 
 const EARTH_SIMULATOR_RESULT_WIDGETS = new Set<WidgetType>([
@@ -308,14 +314,19 @@ export function FluidSearchCanvas({
   // Track previous results key to prevent infinite update loops
   const prevResultsKeyRef = useRef("")
   const [localQuery, setLocalQuery] = useState(initialQuery || "")
+  const [committedQuery, setCommittedQuery] = useState(initialQuery || "")
   // Multi-widget grid: track multiple expanded widgets instead of single focused
   const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(() => new Set(["species", "answers"]))
+  const [manuallyHiddenWidgets, setManuallyHiddenWidgets] = useState<Set<WidgetType>>(() => new Set())
+  const manuallyHiddenWidgetsRef = useRef<Set<WidgetType>>(new Set())
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+  const [earthFocusLocation, setEarthFocusLocation] = useState<{ lat: number; lng: number; name?: string; zoom?: number } | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showCrepDashboard, setShowCrepDashboard] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const activeUserLocation = userLocation || ctx.userLocation
   /** After mount: SWR cache + sessionStorage may differ from SSR — use for layout/icon to avoid hydration mismatch. */
   const [clientUiReady, setClientUiReady] = useState(false)
   useEffect(() => {
@@ -344,6 +355,8 @@ export function FluidSearchCanvas({
     if (containerWidth < 1180) return 3
     return 4
   }, [containerWidth])
+  const isPhoneStack = columns === 1
+  const hasPendingInput = localQuery.trim() !== committedQuery.trim()
 
   // Watch the grid container width with ResizeObserver
   useEffect(() => {
@@ -413,6 +426,7 @@ export function FluidSearchCanvas({
   const voiceSearch = useVoiceSearch({
     onSearch: (query) => {
       setLocalQuery(query)
+      setCommittedQuery(query)
       ctx.setQuery(query)
       trackVoice(query)
       trackSearch(query, undefined, { current_query: query })
@@ -459,12 +473,20 @@ export function FluidSearchCanvas({
       voiceSearch.stopListening()
       ctx.setVoiceListening(false)
     } else {
-      unifiedVoice.startListening()
-      voiceSearch.startListening()
+      try {
+        unifiedVoice.startListening()
+      } catch {}
+      try {
+        voiceSearch.startListening()
+      } catch {}
       ctx.setVoiceListening(true)
     }
   }
-  const handleMicClick = () => handleMicClickRef.current?.()
+  const handleMicClick = (event?: React.PointerEvent | React.MouseEvent) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    handleMicClickRef.current?.()
+  }
 
   // Sync voice state to context for MYCA panel
   useEffect(() => {
@@ -494,7 +516,10 @@ export function FluidSearchCanvas({
   // When MYCA triggers a search action, update localQuery so results refresh
   useEffect(() => {
     const unsub = ctx.on("search:execute", (payload: { query?: string }) => {
-      if (payload?.query) setLocalQuery(payload.query)
+      if (payload?.query) {
+        setLocalQuery(payload.query)
+        setCommittedQuery(payload.query)
+      }
     })
     return unsub
   }, [ctx])
@@ -503,23 +528,26 @@ export function FluidSearchCanvas({
   useEffect(() => {
     if (initialQuery) {
       setLocalQuery(initialQuery)
+      setCommittedQuery(initialQuery)
       ctx.setQuery(initialQuery)
     }
   }, [initialQuery]) // eslint-disable-line
 
   useEffect(() => {
-    ctx.setQuery(localQuery)
-  }, [localQuery]) // eslint-disable-line
+    ctx.setQuery(committedQuery)
+  }, [committedQuery]) // eslint-disable-line
 
   // Request user location for Earth2 and location-based features
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setUserLocation({
+        const loc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        })
+        }
+        setUserLocation(loc)
+        ctx.setUserLocation(loc)
       },
       () => {
         // Fall back to default if geolocation denied
@@ -531,17 +559,27 @@ export function FluidSearchCanvas({
 
   /** Merge MAS /api/myca/intention widget hints with classifyAndRoute */
   const effectiveSearchRoute = useMemo(() => {
-    const q = localQuery.trim()
+    const q = committedQuery.trim()
     if (q.length < 2) return null
     const base = classifyAndRoute(q)
     const w = suggestions.widgets
     if (w?.length) return mergeSearchRouteWithMasSuggestions(base, w)
     return base
-  }, [localQuery, suggestions.widgets])
+  }, [committedQuery, suggestions.widgets])
+  const isEarthquakeQuery = isEarthquakeSearch(committedQuery)
+  const earthSearchRule = useMemo(() => resolveEarthSearchRule(committedQuery), [committedQuery])
+  const earthSearchWidgets = useMemo(
+    () => earthSearchRule.widgets.filter((widget): widget is WidgetType => Boolean(WIDGET_REGISTRY[widget as WidgetType])),
+    [earthSearchRule.widgets],
+  )
+  const streamSearchTypes = useMemo(
+    () => (isEarthquakeQuery ? EARTHQUAKE_STREAMING_SEARCH_TYPES : STREAMING_SEARCH_TYPES),
+    [isEarthquakeQuery],
+  )
 
   /** Single contract for unified POST + MYCA Answers threading */
   const fluidSearchContext = useMemo((): FluidSearchContext | undefined => {
-    const q = localQuery.trim()
+    const q = committedQuery.trim()
     if (q.length < 2) return undefined
     const route = effectiveSearchRoute ?? classifyAndRoute(q)
     return {
@@ -552,7 +590,7 @@ export function FluidSearchCanvas({
       recentQueries: recentSearches.slice(0, 12),
     }
   }, [
-    localQuery,
+    committedQuery,
     effectiveSearchRoute,
     mycaSessionId,
     intentionSessionId,
@@ -574,14 +612,14 @@ export function FluidSearchCanvas({
     message,
     refresh: searchRefresh,
     intentPlan: streamingIntentPlan,
-  } = useStreamingSearch(localQuery, {
+  } = useStreamingSearch(committedQuery, {
     debounceMs: 250,
-    types: STREAMING_SEARCH_TYPES,
+    types: streamSearchTypes,
     /** Keep false for SSE/unified — extra narrative LLM can exceed stream timeout and leave earth widgets empty (E2E + cameras). */
     includeAI: false,
     limit: 20,
-    lat: userLocation?.lat,
-    lng: userLocation?.lng,
+    lat: activeUserLocation?.lat,
+    lng: activeUserLocation?.lng,
     fluidContext: fluidSearchContext,
     sessionId: mycaSessionId || intentionSessionId || undefined,
   })
@@ -606,18 +644,20 @@ export function FluidSearchCanvas({
   }, [ctx, searchRefresh])
 
   // Debounced query for additional endpoints
-  const debouncedQuery = useDebounce(localQuery, 180)
+  const debouncedQuery = useDebounce(committedQuery, 180)
   const debouncedRoute = useMemo(() => {
     const q = debouncedQuery?.trim()
     return q && q.length >= 2 ? classifyAndRoute(q) : null
   }, [debouncedQuery])
   const shouldFetchCrep =
+    !isEarthquakeQuery &&
     !!debouncedRoute &&
     (debouncedRoute.worldview.crep ||
       debouncedRoute.primaryWidget === "crep" ||
       debouncedRoute.secondaryWidgets.includes("crep") ||
       ["event", "aircraft", "vessel", "satellite", "emissions", "infrastructure", "device", "space_weather"].includes(debouncedRoute.intent.type))
   const shouldFetchEarth2 =
+    !isEarthquakeQuery &&
     !!debouncedRoute &&
     (debouncedRoute.worldview.earth2 ||
       debouncedRoute.primaryWidget === "earth" ||
@@ -798,7 +838,7 @@ export function FluidSearchCanvas({
   )
 
   // Earth2 weather/spore data fetcher - use user location or default to San Francisco
-  const earth2Coords = userLocation || { lat: 37.7749, lng: -122.4194 }
+  const earth2Coords = activeUserLocation || { lat: 37.7749, lng: -122.4194 }
   const { data: earth2RawData } = useSWR(
     shouldFetchEarth2 && debouncedQuery && debouncedQuery.length >= 2 ? `/api/earth2/forecast?lat=${earth2Coords.lat}&lon=${earth2Coords.lng}` : null,
     async (url) => { const res = await fetch(url); return res.json() },
@@ -822,14 +862,43 @@ export function FluidSearchCanvas({
         description: String(event.description || ""),
         lat: Number((event.location as Record<string, unknown> | undefined)?.latitude ?? event.lat ?? event.latitude ?? 0),
         lng: Number((event.location as Record<string, unknown> | undefined)?.longitude ?? event.lng ?? event.longitude ?? 0),
+        depth: Number((event.location as Record<string, unknown> | undefined)?.depth ?? event.depth ?? 0),
+        locationName: String((event.location as Record<string, unknown> | undefined)?.name ?? event.locationName ?? event.place ?? ""),
         magnitude: Number(event.magnitude || 0),
         severity: event.severity ? String(event.severity) : undefined,
         timestamp: String(event.timestamp || new Date().toISOString()),
         source: String(event.source || "USGS"),
+        sourceUrl: String(event.sourceUrl || "https://earthquake.usgs.gov"),
+        link: String(event.link || event.url || event.sourceUrl || "https://earthquake.usgs.gov"),
       })),
     [liveEarthquakeData]
   )
   const eventsForWidgets = liveEarthquakeEvents.length > 0 ? liveEarthquakeEvents : events
+  const earthquakeAnswer = useMemo(() => {
+    if (!isEarthquakeQuery) return undefined
+    if (liveEarthquakeEvents.length === 0) {
+      return "Live earthquake data is being acquired momentarily. The Earth and Events widgets will populate from the live USGS feed as soon as the current feed response arrives."
+    }
+
+    const sorted = [...liveEarthquakeEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    const strongest = [...liveEarthquakeEvents].sort((a, b) => Number(b.magnitude || 0) - Number(a.magnitude || 0))[0]
+    const latest = sorted[0]
+    const recent = sorted.slice(0, 3).map((event) => {
+      const mag = Number.isFinite(Number(event.magnitude)) ? `M${Number(event.magnitude).toFixed(1)}` : "M?"
+      const place = event.locationName || event.title
+      const depth = Number.isFinite(Number(event.depth)) ? `, depth ${Number(event.depth).toFixed(1)} km` : ""
+      return `${mag} ${place}${depth}`
+    })
+
+    return [
+      `Live USGS seismic feed is active for "${committedQuery}". ${liveEarthquakeEvents.length.toLocaleString()} earthquakes are loaded in the current global feed.`,
+      latest ? `Newest: ${recent[0]}.` : "",
+      strongest ? `Strongest in this feed: M${Number(strongest.magnitude || 0).toFixed(1)} ${strongest.locationName || strongest.title}.` : "",
+      recent.length > 1 ? `Recent events: ${recent.slice(1).join("; ")}.` : "",
+      "Use the Earth widget to inspect the live globe, tap any earthquake marker for magnitude, depth, latitude, longitude, imagery, timestamp, and source details, or open Events for a scrollable event list.",
+    ].filter(Boolean).join("\n\n")
+  }, [isEarthquakeQuery, liveEarthquakeEvents, committedQuery])
+  const answerForWidget = earthquakeAnswer || aiAnswer
   const crepResults = useMemo(() => {
     // Pass through full CREPSearchResult objects to preserve domain-specific properties
     // for the compartmentalized CrepWidget (aircraft speed/altitude, vessel heading, etc.)
@@ -997,58 +1066,80 @@ export function FluidSearchCanvas({
       lng: Number(ev.lng || ev.longitude || 0),
       timestamp: ev.timestamp ? String(ev.timestamp) : undefined,
       magnitude: ev.magnitude ? Number(ev.magnitude) : undefined,
+      depth: ev.depth ? Number(ev.depth) : undefined,
+      locationName: ev.locationName || ev.place || ev.location,
+      link: ev.link || ev.url || ev.sourceUrl,
     }))
   }, [eventsForWidgets])
 
   // Handler to view an observation on the map
-  const handleViewOnMap = useCallback((observation: MapObservation) => {
+  const handleViewOnMap = useCallback((observation: MapObservation | Record<string, unknown> | { lat?: number; lng?: number; title?: string; name?: string; location?: string; zoom?: number }) => {
     // Expand the map widget and set focus
     setExpandedWidgets((prev) => new Set(prev).add("earth"))
+    const lat = Number(observation?.lat)
+    const lng = Number(observation?.lng)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const row = observation as Record<string, unknown>
+      setEarthFocusLocation({
+        lat,
+        lng,
+        zoom: Number.isFinite(Number(row.zoom)) ? Number(row.zoom) : 8.5,
+        name: String(row.title || row.name || row.location || "Selected event"),
+      })
+    }
   }, [])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      handleViewOnMap(((event as CustomEvent).detail || {}) as any)
+    }
+    window.addEventListener("search:focus-earth-location", handler)
+    return () => window.removeEventListener("search:focus-earth-location", handler)
+  }, [handleViewOnMap])
 
   // Track search to MYCA intention when results arrive
   useEffect(() => {
     if (
       !isLoading &&
-      localQuery &&
+      committedQuery &&
       (species.length > 0 || compounds.length > 0 || genetics.length > 0 || research.length > 0)
     ) {
-      trackSearch(localQuery, totalCount, {
-        current_query: localQuery,
+      trackSearch(committedQuery, totalCount, {
+        current_query: committedQuery,
         focused_widget: [...expandedWidgets][0],
         recent_interactions: recentSearches.slice(0, 5),
       })
     }
-  }, [isLoading, localQuery, totalCount, species.length, compounds.length, genetics.length, research.length, expandedWidgets, recentSearches]) // eslint-disable-line
+  }, [isLoading, committedQuery, totalCount, species.length, compounds.length, genetics.length, research.length, expandedWidgets, recentSearches]) // eslint-disable-line
 
   // Record search query to MYCA memory system for long-term storage and personalization
   useEffect(() => {
     if (
       !isLoading &&
-      localQuery &&
-      localQuery.length >= 2 &&
+      committedQuery &&
+      committedQuery.length >= 2 &&
       (species.length > 0 || compounds.length > 0 || genetics.length > 0 || research.length > 0)
     ) {
       // Record the query with result counts by type
-      searchMemory.recordQuery(localQuery, totalCount, {
+      searchMemory.recordQuery(committedQuery, totalCount, {
         species: species.length,
         compounds: compounds.length,
         genetics: genetics.length,
         research: research.length,
       }, "text")
     }
-  }, [isLoading, localQuery, totalCount, species.length, compounds.length, genetics.length, research.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoading, committedQuery, totalCount, species.length, compounds.length, genetics.length, research.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push results to context - use a key to prevent infinite updates
   useEffect(() => {
     if (!isLoading && (species.length > 0 || compounds.length > 0 || research.length > 0)) {
       // Create a stable key from result counts and query to prevent re-triggering
-      const resultsKey = `${localQuery}-${species.length}-${compounds.length}-${genetics.length}-${research.length}-${aiAnswer ? "ai" : ""}`
+      const resultsKey = `${committedQuery}-${species.length}-${compounds.length}-${genetics.length}-${research.length}-${aiAnswer ? "ai" : ""}`
       if (resultsKey === prevResultsKeyRef.current) return
       prevResultsKeyRef.current = resultsKey
 
       ctx.setResults({
-        query: localQuery,
+        query: committedQuery,
         results: { species, compounds, genetics, research } as unknown as any,
         totalCount,
         timing: { total: 0, mindex: 0 },
@@ -1056,7 +1147,7 @@ export function FluidSearchCanvas({
         aiAnswer,
       })
     }
-  }, [species.length, compounds.length, genetics.length, research.length, aiAnswer, isLoading, localQuery]) // eslint-disable-line
+  }, [species.length, compounds.length, genetics.length, research.length, aiAnswer, isLoading, committedQuery]) // eslint-disable-line
 
   // Keep setLiveObservations ref updated
   useEffect(() => {
@@ -1104,28 +1195,30 @@ export function FluidSearchCanvas({
       }
     }
 
+    const isEarthquakeQueryLive = isEarthquakeSearch(committedQuery)
+
     // 2. Events (earthquakes, volcanoes, storms)
     if (eventsForWidgets && len(eventsForWidgets) > 0) {
-      for (const ev of (eventsForWidgets as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
+      for (const ev of (eventsForWidgets as unknown as Array<Record<string, unknown>>).slice(0, isEarthquakeQueryLive ? 30 : 5)) {
         allLiveItems.push({
           id: `event-${ev.id || Math.random().toString(36).slice(2)}`,
           species: (ev.title as string) || (ev.type as string) || "Event",
-          location: (ev.location as string) || (ev.place as string) || "",
+          location: (ev.locationName as string) || (ev.location as string) || (ev.place as string) || "",
           date: (ev.timestamp as string) || (ev.date as string) || "",
           photoUrl: ev.imageUrl as string,
           lat: ev.lat as number,
           lng: ev.lng as number,
           type: "event",
           title: (ev.title as string) || (ev.type as string) || "Event",
-          subtitle: ev.magnitude ? `Magnitude ${ev.magnitude}` : (ev.severity as string),
+          subtitle: ev.magnitude ? `M${Number(ev.magnitude).toFixed(1)} • depth ${Number(ev.depth ?? 0).toFixed(1)} km` : (ev.severity as string),
           source: (ev.source as string) || "EONET",
-          url: ev.url as string,
+          url: (ev.link as string) || (ev.url as string) || (ev.sourceUrl as string),
         })
       }
     }
 
     // 3. Aircraft
-    if (aircraft && len(aircraft) > 0) {
+    if (!isEarthquakeQueryLive && aircraft && len(aircraft) > 0) {
       for (const ac of (aircraft as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `aircraft-${ac.callsign || ac.id || Math.random().toString(36).slice(2)}`,
@@ -1143,7 +1236,7 @@ export function FluidSearchCanvas({
     }
 
     // 4. Vessels
-    if (vessels && len(vessels) > 0) {
+    if (!isEarthquakeQueryLive && vessels && len(vessels) > 0) {
       for (const v of (vessels as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `vessel-${v.mmsi || v.id || Math.random().toString(36).slice(2)}`,
@@ -1198,17 +1291,17 @@ export function FluidSearchCanvas({
       prevLiveCountRef.current = 0
       setLiveObservationsRef.current([])
     }
-  }, [liveResults, locationResults, eventsForWidgets, aircraft, vessels, newsResults])
+  }, [liveResults, locationResults, eventsForWidgets, aircraft, vessels, newsResults, committedQuery])
 
   // Track history
   useEffect(() => {
-    if (localQuery && totalCount > 0 && !isLoading) {
+    if (committedQuery && totalCount > 0 && !isLoading) {
       setRecentSearches((prev) => {
-        const d = prev.filter((q) => q !== localQuery)
-        return [localQuery, ...d].slice(0, 10)
+        const d = prev.filter((q) => q !== committedQuery)
+        return [committedQuery, ...d].slice(0, 10)
       })
     }
-  }, [localQuery, totalCount, isLoading])
+  }, [committedQuery, totalCount, isLoading])
 
   // Cross-widget focus from context (including notepad restore with id)
   useEffect(() => {
@@ -1275,7 +1368,7 @@ export function FluidSearchCanvas({
                         firstKingdom === "animalia" ? "🐠" : "🔬"
 
     return [
-    { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: Boolean(aiAnswer) || len(mycaMessages?.filter((m) => m.role !== "system")) > 0 || len(suggestions?.widgets) > 0 || len(suggestions?.queries) > 0, depth: getParallaxDepth("answers") },
+    { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: Boolean(answerForWidget) || len(mycaMessages?.filter((m) => m.role !== "system")) > 0 || len(suggestions?.widgets) > 0 || len(suggestions?.queries) > 0, depth: getParallaxDepth("answers") },
     { type: "species", label: "Species", icon: speciesIcon, gradient: "from-green-500/30 to-emerald-500/20", hasData: len(species) > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: len(compounds) > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: len(genetics) > 0, depth: getParallaxDepth("genetics") },
@@ -1306,7 +1399,7 @@ export function FluidSearchCanvas({
     { type: "code", label: "Code", icon: "💻", gradient: "from-violet-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("code") },
     { type: "shopping", label: "Shopping", icon: "🛒", gradient: "from-fuchsia-500/30 to-pink-500/20", hasData: false, depth: getParallaxDepth("shopping") },
     { type: "recipe", label: "Recipes", icon: "📖", gradient: "from-amber-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("recipe") },
-  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), len(eventObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, aiAnswer, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
+  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), len(eventObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, answerForWidget, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   const activeWidgets = widgetConfigs.filter((widget) => !EARTH_SIMULATOR_RESULT_WIDGETS.has(widget.type))
 
@@ -1340,8 +1433,16 @@ export function FluidSearchCanvas({
   /** Top-attract: primary route + data + larger tiles sort first for dense grid */
   const sortedGridWidgets = useMemo(() => {
     const route = streamingIntentPlan?.route ?? effectiveSearchRoute
+    const priorityOrder: Partial<Record<WidgetType, number>> = {
+      earth: 0,
+      events: 1,
+      answers: 2,
+      news: 3,
+      research: 4,
+    }
     const relScore = (w: (typeof gridWidgets)[number]) => {
       let s = 0
+      s += 10000 - (priorityOrder[w.type] ?? 100) * 100
       if (normalizeSearchWidget(route?.primaryWidget) === w.type) s += 1000
       if (route?.secondaryWidgets?.some((widget) => normalizeSearchWidget(widget) === w.type)) s += 120
       if (w.hasData) s += 80
@@ -1351,6 +1452,8 @@ export function FluidSearchCanvas({
     }
     return [...gridWidgets].sort((a, b) => relScore(b) - relScore(a))
   }, [gridWidgets, effectiveSearchRoute, streamingIntentPlan?.route, widgetSizes])
+
+  const phoneVisibleStackCount = Math.max(1, Math.min(sortedGridWidgets.length, 2))
 
   // Auto-expand Species and Answers on first load if nothing expanded (Answers is primary for conversational search)
   useEffect(() => {
@@ -1365,34 +1468,43 @@ export function FluidSearchCanvas({
   const prevAutoExpandKeyRef = useRef("")
   const [searchRoute, setSearchRoute] = useState<SearchRoute | null>(null)
 
-  // Classify query on change to show contextual suggestions, but DO NOT send to Myca yet
+  // Classify only committed searches. Typing in the top input must not open widgets
+  // or flip Earth filters until the user submits the query.
   useEffect(() => {
-    if (!localQuery || localQuery.length < 2) {
+    if (hasPendingInput) return
+    if (!committedQuery || committedQuery.length < 2) {
       setSearchRoute(null)
       return
     }
-    const route = classifyAndRoute(localQuery)
+    const route = classifyAndRoute(committedQuery)
     setSearchRoute(route)
-  }, [localQuery])
+  }, [committedQuery, hasPendingInput])
 
   const executeLocalSearch = useCallback((rawQuery?: string) => {
     const query = (rawQuery ?? searchInputRef.current?.value ?? "").trim()
     if (query.length < 2) return
 
     setIsInputFocused(false)
+    manuallyHiddenWidgetsRef.current = new Set()
+    setManuallyHiddenWidgets(new Set())
     const route = mergeSearchRouteWithMasSuggestions(
       classifyAndRoute(query),
       suggestions.widgets
     )
+    const submittedEarthRule = resolveEarthSearchRule(query)
     setSearchRoute(route)
 
     // Instantly layout widgets based on the predicted route before data even arrives
     setExpandedWidgets((prev) => {
+      if (submittedEarthRule.domain === "all") return new Set<WidgetType>(["earth"])
       const next = new Set<WidgetType>()
       addSearchWidget(next, route.primaryWidget as WidgetType | null)
       for (const sw of route.secondaryWidgets) addSearchWidget(next, sw as WidgetType)
       if (route.worldview.crep) addSearchWidget(next, "earth")
       if (route.worldview.earth2 || route.worldview.map) addSearchWidget(next, "earth")
+      for (const widget of submittedEarthRule.widgets) {
+        if (WIDGET_REGISTRY[widget as WidgetType]) addSearchWidget(next, widget as WidgetType)
+      }
       if (route.useMycaLLM) addSearchWidget(next, "answers")
       if (next.size === 0) {
         next.add("species" as WidgetType)
@@ -1429,13 +1541,25 @@ export function FluidSearchCanvas({
     })
 
     setLocalQuery(query)
+    setCommittedQuery(query)
     ctx.setQuery(query)
+    if (typeof window !== "undefined") {
+      const nextUrl = `/search?q=${encodeURIComponent(query)}`
+      if (window.location.pathname === "/search" && `${window.location.pathname}${window.location.search}` !== nextUrl) {
+        window.history.pushState(null, "", nextUrl)
+      }
+    }
   }, [species, compounds, sendMycaMessage, ctx, suggestions.widgets])
+
+  useEffect(() => {
+    manuallyHiddenWidgetsRef.current = new Set()
+    setManuallyHiddenWidgets(new Set())
+  }, [committedQuery])
 
   // Handle explicit search submit (Enter key or search button)
   const handleSubmitSearch = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    executeLocalSearch(localQuery || searchInputRef.current?.value)
+    executeLocalSearch(searchInputRef.current?.value ?? localQuery)
   }, [executeLocalSearch, localQuery])
 
   // Smart auto-expand: uses intelligence router + data availability.
@@ -1443,9 +1567,15 @@ export function FluidSearchCanvas({
   // Do not gate on `isLoading`: URL deep links (e.g. ?q=Planes+over+LA) otherwise keep the
   // default species+answers tiles until fetch completes — user sees empty wrong widgets first.
   useEffect(() => {
-    if (!localQuery || localQuery.length < 2) return
+    if (hasPendingInput) return
+    if (!committedQuery || committedQuery.length < 2) return
 
-    const route = effectiveSearchRoute ?? classifyAndRoute(localQuery)
+    const route = effectiveSearchRoute ?? classifyAndRoute(committedQuery)
+    if (earthSearchRule.domain === "all") {
+      setWidgetSizes((prev) => ({ ...prev, earth: { width: 2, height: 3 } }))
+      setExpandedWidgets(new Set<WidgetType>(["earth"]))
+      return
+    }
 
     // Build data signature including all Earth Intelligence domains
     const dataMap: Record<string, number> = {
@@ -1465,7 +1595,7 @@ export function FluidSearchCanvas({
       space_weather: len(spaceWeather),
       cameras: len(cameras),
     }
-    const key = `${localQuery}|${Object.values(dataMap).join(",")}`
+    const key = `${committedQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return
     prevAutoExpandKeyRef.current = key
 
@@ -1504,31 +1634,40 @@ export function FluidSearchCanvas({
       }
 
       // Expand primary widget from router
-      addSearchWidget(next, route.primaryWidget as WidgetType | null)
+      const hidden = manuallyHiddenWidgetsRef.current
+      const addIfVisible = (widget: WidgetType | null) => {
+        if (!widget || hidden.has(widget)) return
+        addSearchWidget(next, widget)
+      }
+
+      addIfVisible(route.primaryWidget as WidgetType | null)
 
       // Expand secondary widgets from router
       for (const sw of route.secondaryWidgets) {
-        addSearchWidget(next, sw as WidgetType)
+        addIfVisible(sw as WidgetType)
       }
 
       // Expand every type that has data
       for (const [wType, count] of Object.entries(dataMap)) {
-        if (count > 0) addSearchWidget(next, wType as WidgetType)
+        if (count > 0) addIfVisible(wType as WidgetType)
       }
 
       // Intent-based: expand worldview widgets even before data arrives
-      if (route.worldview.crep) next.add("earth" as WidgetType)
-      if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
+      if (route.worldview.crep && !hidden.has("earth")) next.add("earth" as WidgetType)
+      if ((route.worldview.earth2 || route.worldview.map) && !hidden.has("earth")) next.add("earth" as WidgetType)
+      for (const widget of earthSearchWidgets) {
+        if (!hidden.has(widget)) addSearchWidget(next, widget)
+      }
 
       // Always show Answers for conversational/hybrid queries
-      if (route.useMycaLLM) next.add("answers" as WidgetType)
+      if (route.useMycaLLM && !hidden.has("answers")) next.add("answers" as WidgetType)
 
       // If still empty, default to species and answers
       if (next.size === 0) next.add("species" as WidgetType).add("answers" as WidgetType)
 
       return next
     })
-  }, [localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
+  }, [hasPendingInput, committedQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, earthSearchWidgets, manuallyHiddenWidgets, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1536,13 +1675,19 @@ export function FluidSearchCanvas({
   const handleFocusWidget = useCallback(
     (target: { type: string; id?: string }) => {
       const t = target.type as WidgetType
+      manuallyHiddenWidgetsRef.current.delete(t)
+      setManuallyHiddenWidgets((prev) => {
+        const next = new Set(prev)
+        next.delete(t)
+        return next
+      })
       setExpandedWidgets((prev) => new Set(prev).add(t))
       if (target.id) setFocusedItemId(target.id)
       else setFocusedItemId(null)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SearchContext.focusWidget accepts a broader event payload
       ctx.focusWidget(target as any)
       trackWidgetFocus(t, target.id, {
-        current_query: localQuery,
+        current_query: committedQuery,
         focused_widget: t,
         recent_interactions: recentSearches.slice(0, 5),
       })
@@ -1561,10 +1706,12 @@ export function FluidSearchCanvas({
       setTimeout(scrollToWidget, 150)
       setTimeout(scrollToWidget, 450)
     },
-    [ctx, localQuery, recentSearches, trackWidgetFocus]
+    [ctx, committedQuery, recentSearches, trackWidgetFocus]
   )
 
   const handleCollapseWidget = useCallback((type: WidgetType) => {
+    manuallyHiddenWidgetsRef.current.add(type)
+    setManuallyHiddenWidgets((prev) => new Set(prev).add(type))
     // Remove from expanded; user can restore via Fast-Action radial
     setExpandedWidgets((prev) => {
       const n = new Set(prev)
@@ -1576,10 +1723,10 @@ export function FluidSearchCanvas({
   const handleAddToNotepad = useCallback(
     (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => {
       // meta carries the full article/paper data so notepad can re-open the reading modal
-      ctx.addNotepadItem({ ...item, type: item.type as any, searchQuery: localQuery })
+      ctx.addNotepadItem({ ...item, type: item.type as any, searchQuery: committedQuery })
       trackNotepadAdd(item.type || "note", item.title || item.content?.slice(0, 50) || "Item")
     },
-    [ctx, localQuery, trackNotepadAdd]
+    [ctx, committedQuery, trackNotepadAdd]
   )
 
   // State for re-opening news/research reading modals from the notepad
@@ -1654,15 +1801,15 @@ export function FluidSearchCanvas({
       e.dataTransfer.setData("application/search-widget", JSON.stringify({
         type: config.type === "chemistry" ? "compound" : config.type,
         title: labels[config.type] || config.label,
-        content: `${config.label} results from search "${localQuery}"`,
+        content: `${config.label} results from search "${committedQuery}"`,
         source: "Search",
-        searchQuery: localQuery,
+        searchQuery: committedQuery,
       }))
       e.dataTransfer.effectAllowed = "copy"
     } catch {
       // Ignore errors if dataTransfer methods fail
     }
-  }, [species, compounds, research, localQuery])
+  }, [species, compounds, research, committedQuery])
 
   return (
     <div
@@ -1680,12 +1827,10 @@ export function FluidSearchCanvas({
             ref={searchInputRef}
             value={localQuery ?? ""}
             onChange={(e) => setLocalQuery(e.currentTarget.value)}
-            onInput={(e) => setLocalQuery(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                executeLocalSearch(e.currentTarget.value)
-              }
+              if (e.key !== "Enter") return
+              e.preventDefault()
+              executeLocalSearch(e.currentTarget.value)
             }}
             onFocus={() => { setIsInputFocused(true); pause() }}
             onBlur={() => { setIsInputFocused(false); if (!localQuery) resume() }}
@@ -1700,10 +1845,10 @@ export function FluidSearchCanvas({
               title="Run search"
               aria-label="Run search"
               className={cn(
-                "h-8 w-8 sm:h-7 sm:w-7 rounded-full",
+                "search-glass-icon-button h-8 w-8 sm:h-7 sm:w-7 rounded-full",
                 localQuery.trim().length >= 2
-                  ? "bg-blue-600 text-white hover:bg-blue-500"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "is-active"
+                  : "",
               )}
             >
               <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
@@ -1712,7 +1857,7 @@ export function FluidSearchCanvas({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 sm:h-7 sm:w-7 rounded-full"
+              className="search-glass-icon-button h-8 w-8 sm:h-7 sm:w-7 rounded-full"
               onClick={() => setShowHistory(!showHistory)}
               title="Recent searches"
             >
@@ -1723,10 +1868,8 @@ export function FluidSearchCanvas({
               type="button"
               size="icon"
               className={cn(
-                "h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-all duration-200",
-                isMicActive
-                  ? "bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-600/40"
-                  : "bg-violet-600/80 text-white hover:bg-violet-600 shadow-sm"
+                "search-glass-icon-button h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-all duration-200",
+                isMicActive && "is-active is-listening"
               )}
               onClick={handleMicClick}
               title={isMicActive ? "Stop listening" : "Voice search (speak to search)"}
@@ -1774,7 +1917,16 @@ export function FluidSearchCanvas({
               {sortedGridWidgets.map((config) => {
                 const sizeClasses = getWidgetSizeClasses(config.type)
                 const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type as WidgetType] || { width: 1, height: 1 }
+                const isOnlyEarthWidget = sortedGridWidgets.length === 1 && config.type === "earth"
                 const widthSpan = (columns <= 1 ? 1 : Math.min(currentSize.width, 2)) as 1 | 2
+                const phoneAvailableHeight = "calc(100dvh - 8.25rem)"
+                const phoneEarthHeight = phoneVisibleStackCount === 1
+                  ? phoneAvailableHeight
+                  : "min(31rem, max(20rem, calc((100dvh - 8.25rem) * 0.62)))"
+                const phoneRegularHeight = phoneVisibleStackCount === 1
+                  ? phoneAvailableHeight
+                  : "min(20rem, max(14rem, calc((100dvh - 8.25rem) * 0.36)))"
+                const phoneHeight = config.type === "earth" ? phoneEarthHeight : phoneRegularHeight
 
                 return (
                 <div
@@ -1790,8 +1942,25 @@ export function FluidSearchCanvas({
                     ...magneticGridItemStyle({
                       columns,
                       widthSpan,
-                      heightSpan: currentSize.height,
+                      heightSpan: isPhoneStack ? 1 : currentSize.height,
                     }),
+                    ...(isOnlyEarthWidget && !isPhoneStack
+                      ? {
+                          gridColumn: "1 / -1",
+                          height: "calc(100dvh - 8.25rem)",
+                          maxHeight: "calc(100dvh - 8.25rem)",
+                          minHeight: "34rem",
+                          width: "100%",
+                        }
+                      : {}),
+                    ...(isPhoneStack
+                      ? {
+                          height: phoneHeight,
+                          maxHeight: phoneHeight,
+                          minHeight: config.type === "earth" ? "20rem" : "12rem",
+                          width: "100%",
+                        }
+                      : {}),
                     order: (clientUiReady
                       ? (config.hasData || expandedWidgets.has(config.type))
                       : expandedWidgets.has(config.type)) ? -1 : 0,
@@ -1817,9 +1986,9 @@ export function FluidSearchCanvas({
                     e.dataTransfer.setData("application/search-widget", JSON.stringify({
                       type: (config.type === "chemistry" ? "compound" : config.type) as any,
                       title: labels[config.type] || config.label,
-                      content: `${config.label} results from search "${localQuery}"`,
+                      content: `${config.label} results from search "${committedQuery}"`,
                       source: "Search",
-                      searchQuery: localQuery,
+                      searchQuery: committedQuery,
                     }))
                     e.dataTransfer.effectAllowed = "copy"
                     // Visual feedback
@@ -1834,6 +2003,7 @@ export function FluidSearchCanvas({
                   }}
                 >
                   <motion.div
+                    layout
                     initial={widgetEnterAnimation.initial}
                     animate={widgetEnterAnimation.animate}
                     exit={widgetEnterAnimation.exit}
@@ -1844,9 +2014,9 @@ export function FluidSearchCanvas({
                     className={cn(
                       "bg-card/90 backdrop-blur-md border border-border rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full flex flex-col",
                       // Height classes based on widget size
-                      currentSize.height === 1 && "min-h-[200px]",
-                      currentSize.height === 2 && "min-h-[350px]",
-                      currentSize.height === 3 && "min-h-[500px]",
+                      !isPhoneStack && currentSize.height === 1 && "min-h-[200px]",
+                      !isPhoneStack && currentSize.height === 2 && "min-h-[350px]",
+                      !isPhoneStack && currentSize.height === 3 && "min-h-[500px]",
                     )}
                   >
                     <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border shrink-0", `bg-gradient-to-r ${config.gradient}`)}>
@@ -1862,18 +2032,20 @@ export function FluidSearchCanvas({
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1">
                         {/* Resize button - cycles through sizes */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 sm:h-6 sm:w-6 rounded-full"
-                          onClick={() => cycleWidgetSize(config.type)}
-                          title={`Resize (current: ${currentSize.width}x${currentSize.height})`}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 sm:h-3 sm:w-3">
-                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-                          </svg>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Close widget">
+                        {!isPhoneStack && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="search-glass-icon-button h-6 w-6 rounded-full"
+                            onClick={() => cycleWidgetSize(config.type)}
+                            title={`Resize (current: ${currentSize.width}x${currentSize.height})`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                            </svg>
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="search-glass-icon-button h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Close widget">
                           <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                         </Button>
                       </div>
@@ -1882,15 +2054,26 @@ export function FluidSearchCanvas({
                       <WidgetContent
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
-                        research={research} aiAnswer={aiAnswer as any}
+                        research={research} aiAnswer={answerForWidget as any}
                         searchContext={{
                           species: species.slice(0, 5).map((s) => s.scientificName || s.commonName).filter(Boolean),
                           compounds: compounds.slice(0, 5).map((c) => c.name).filter(Boolean),
                           genetics: genetics.slice(0, 5).map((g) => g.speciesName || g.geneRegion).filter(Boolean),
                           research: research.slice(0, 5).map((r) => r.title).filter(Boolean),
+                          events: (eventsForWidgets as any[]).slice(0, 5).map((item) => String(item.title || item.name || item.type || "Event")),
+                          aircraft: (aircraft as any[]).slice(0, 5).map((item) => String(item.callsign || item.registration || item.title || "Aircraft")),
+                          vessels: (vessels as any[]).slice(0, 5).map((item) => String(item.name || item.mmsi || item.title || "Vessel")),
+                          satellites: (satellites as any[]).slice(0, 5).map((item) => String(item.name || item.noradId || item.title || "Satellite")),
+                          weather: (weather as any[]).slice(0, 5).map((item) => String(item.title || item.summary || item.type || "Weather")),
+                          infrastructure: (infrastructure as any[]).slice(0, 5).map((item) => String(item.name || item.title || item.type || "Infrastructure")),
+                          devices: (devices as any[]).slice(0, 5).map((item) => String(item.name || item.id || item.title || "Device")),
+                          spaceWeather: (spaceWeather as any[]).slice(0, 5).map((item) => String(item.title || item.type || "Space weather")),
+                          activeWidgets: sortedGridWidgets.map((w) => w.label),
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
+                        earthFocusLocation={earthFocusLocation}
+                        userLocation={activeUserLocation}
                         events={eventsForWidgets as any} aircraft={aircraft as any} vessels={vessels as any} satellites={satellites as any} weather={weather as any} emissions={emissions as any} infrastructure={infrastructure as any} devices={devices as any} spaceWeather={spaceWeather as any} cameras={cameras as any}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
@@ -1909,7 +2092,7 @@ export function FluidSearchCanvas({
                         openArticle={config.type === "news" ? notepadOpenArticle : undefined}
                         openPaper={config.type === "research" ? notepadOpenPaper : undefined}
                         pinnedSpeciesName={config.type === "species" ? pinnedSpeciesName : undefined}
-                        query={localQuery}
+                        query={committedQuery}
                       />
                     </div>
                   </motion.div>
@@ -1921,7 +2104,7 @@ export function FluidSearchCanvas({
         </div>
 
         {/* Empty state */}
-        {activeWidgets.length === 0 && !isLoading && localQuery.length >= 2 && (
+        {activeWidgets.length === 0 && !isLoading && committedQuery.length >= 2 && (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs sm:text-sm px-4 text-center">
             {message || error || "No results found."}
           </div>
@@ -1935,7 +2118,14 @@ export function FluidSearchCanvas({
             ? streamingIntentPlan.secondaryWidgets
             : effectiveSearchRoute?.secondaryWidgets ?? []
         }
-        onOpenWidget={(t) => handleFocusWidget({ type: t })}
+        activeWidgetTypes={expandedWidgets}
+        onOpenWidget={(t) => {
+          if (expandedWidgets.has(t)) {
+            handleCollapseWidget(t)
+            return
+          }
+          handleFocusWidget({ type: t })
+        }}
       />
 
       {/* CREP Widescreen Overlay */}
@@ -2003,6 +2193,8 @@ function WidgetContent({
   searchContext,
   media, mediaError, location, news, newsError, newsQueryUsed,
   crep, earth2, mapObservations, eventObservations,
+  earthFocusLocation,
+  userLocation,
   events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, spaceWeather, cameras,
   mycaSuggestions,
   onSelectSuggestionWidget,
@@ -2012,9 +2204,25 @@ function WidgetContent({
 }: {
   type: WidgetType
   species: SpeciesResult[]; compounds: CompoundResult[]; genetics: GeneticsResult[]; research: ResearchResult[]; aiAnswer: string | undefined
-  searchContext?: { species?: string[]; compounds?: string[]; genetics?: string[]; research?: string[] }
+  searchContext?: {
+    species?: string[]
+    compounds?: string[]
+    genetics?: string[]
+    research?: string[]
+    events?: string[]
+    aircraft?: string[]
+    vessels?: string[]
+    satellites?: string[]
+    weather?: string[]
+    infrastructure?: string[]
+    devices?: string[]
+    spaceWeather?: string[]
+    activeWidgets?: string[]
+  }
   media: Record<string, unknown>[]; mediaError?: string; location: Record<string, unknown>[]; news: Record<string, unknown>[]; newsError?: string; newsQueryUsed?: string
   crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]; eventObservations: any[]
+  earthFocusLocation?: { lat: number; lng: number; name?: string; zoom?: number } | null
+  userLocation?: { lat: number; lng: number } | null
   events?: Record<string, unknown>[]; aircraft?: Record<string, unknown>[]; vessels?: Record<string, unknown>[]; satellites?: Record<string, unknown>[]; weather?: Record<string, unknown>[]; emissions?: Record<string, unknown>[]; infrastructure?: Record<string, unknown>[]; devices?: Record<string, unknown>[]; spaceWeather?: Record<string, unknown>[]; cameras?: Record<string, unknown>[];
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
@@ -2027,7 +2235,7 @@ function WidgetContent({
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
-  onViewOnMap?: (observation: MapObservation) => void
+  onViewOnMap?: (observation: MapObservation | Record<string, unknown>) => void
   onExplore?: (type: string, id: string) => void
   onOpenDashboard?: () => void
   /** Article/paper to immediately open in the reading modal (from notepad restore) */
@@ -2101,6 +2309,8 @@ function WidgetContent({
           earth2Data={earth2}
           eventsData={eventObservations}
           searchQuery={searchQuery}
+          searchLocation={earthFocusLocation ?? undefined}
+          userLocation={userLocation ?? undefined}
           liveEntities={[
             ...(aircraft ?? []).map((item) => ({ ...item, type: "aircraft" })),
             ...(vessels ?? []).map((item) => ({ ...item, type: "vessel" })),
@@ -2115,31 +2325,31 @@ function WidgetContent({
       return <EmbeddingAtlasWidget query={searchQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "events":
       if (!events?.length) return <EmptyWidgetState type="events" label="Global Events" />
-      return <FallbackWidget bucketKey="events" title="Global Events" items={events} />
+      return <FallbackWidget bucketKey="events" title="Global Events" items={events} onViewOnMap={onViewOnMap} />
     case "aircraft":
       if (!aircraft?.length) return <EmptyWidgetState type="aircraft" label="Aircraft Tracker" />
-      return <FallbackWidget bucketKey="aircraft" title="Aircraft Tracker" items={aircraft} />
+      return <FallbackWidget bucketKey="aircraft" title="Aircraft Tracker" items={aircraft} onViewOnMap={onViewOnMap} />
     case "vessels":
       if (!vessels?.length) return <EmptyWidgetState type="vessels" label="Vessel Tracker" />
-      return <FallbackWidget bucketKey="vessels" title="Vessel Tracker" items={vessels} />
+      return <FallbackWidget bucketKey="vessels" title="Vessel Tracker" items={vessels} onViewOnMap={onViewOnMap} />
     case "satellites":
       if (!satellites?.length) return <EmptyWidgetState type="satellites" label="Satellites" />
-      return <FallbackWidget bucketKey="satellites" title="Satellites" items={satellites} />
+      return <FallbackWidget bucketKey="satellites" title="Satellites" items={satellites} onViewOnMap={onViewOnMap} />
     case "weather":
       if (!weather?.length) return <EmptyWidgetState type="weather" label="Weather" />
-      return <FallbackWidget bucketKey="weather" title="Weather" items={weather} />
+      return <FallbackWidget bucketKey="weather" title="Weather" items={weather} onViewOnMap={onViewOnMap} />
     case "emissions":
       if (!emissions?.length) return <EmptyWidgetState type="emissions" label="Emissions" />
-      return <FallbackWidget bucketKey="emissions" title="Emissions" items={emissions} />
+      return <FallbackWidget bucketKey="emissions" title="Emissions" items={emissions} onViewOnMap={onViewOnMap} />
     case "infrastructure":
       if (!infrastructure?.length) return <EmptyWidgetState type="infrastructure" label="Infrastructure" />
-      return <FallbackWidget bucketKey="infrastructure" title="Infrastructure" items={infrastructure} />
+      return <FallbackWidget bucketKey="infrastructure" title="Infrastructure" items={infrastructure} onViewOnMap={onViewOnMap} />
     case "devices":
       if (!devices?.length) return <EmptyWidgetState type="devices" label="MycoBrain Devices" />
-      return <FallbackWidget bucketKey="devices" title="MycoBrain Devices" items={devices} />
+      return <FallbackWidget bucketKey="devices" title="MycoBrain Devices" items={devices} onViewOnMap={onViewOnMap} />
     case "space_weather":
       if (!spaceWeather?.length) return <EmptyWidgetState type="space_weather" label="Space Weather" />
-      return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} />
+      return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} onViewOnMap={onViewOnMap} />
     case "cameras":
       if (searchPipelineBusy && !cameras?.length) {
         return (

@@ -58,6 +58,7 @@ interface Props {
     cctv?: boolean
   }
   bbox?: [number, number, number, number]
+  searchContextMode?: boolean
 }
 
 async function idleLoad<T>(fn: () => Promise<T>): Promise<T> {
@@ -71,7 +72,7 @@ async function idleLoad<T>(fn: () => Promise<T>): Promise<T> {
   })
 }
 
-export default function ProposalOverlays({ map, enabled, bbox }: Props) {
+export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
 
   // ─── 1. Global Seaports ────────────────────────────────────────────────
@@ -453,7 +454,11 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
 
     idleLoad(async () => {
       try {
-        const res = await fetch(`/api/oei/transmission-lines-global?bbox=${bbox.join(",")}&limit=10000&includeOSM=true`)
+        const zoom = typeof map.getZoom === "function" ? map.getZoom() : 5
+        const detailLimit = searchContextMode
+          ? zoom >= 9 ? 100000 : zoom >= 6 ? 50000 : 20000
+          : 10000
+        const res = await fetch(`/api/oei/transmission-lines-global?bbox=${bbox.join(",")}&limit=${detailLimit}&includeOSM=true`)
         if (!res.ok) return
         const j = await res.json()
         const features = (j.lines || [])
@@ -475,11 +480,11 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             minzoom: 3,
             paint: {
               "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
-                0, "#9ca3af", 100, "#fb923c", 230, "#ec4899",
+                0, "#facc15", 25, "#fde047", 69, "#fbbf24", 100, "#fb923c", 230, "#ec4899",
                 345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
               "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
-                0, 0.8, 230, 1.5, 500, 2.2, 735, 3],
-              "line-opacity": 0.75,
+                0, 0.9, 69, 1.05, 230, 1.5, 500, 2.2, 735, 3],
+              "line-opacity": searchContextMode ? 0.9 : 0.75,
             },
           })
         } else {
@@ -488,7 +493,7 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
         console.log(`[ProposalOverlays] tx lines (global): ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/txLinesGlobal]", e.message) }
     })
-  }, [map, enabled.txLinesGlobal, bbox])
+  }, [map, enabled.txLinesGlobal, bbox, searchContextMode])
 
   // ─── 7c. Global Cell Towers (bbox-scoped, supplements PMTiles bundle) ─
   // PMTiles archive paints the world-scale catalog; this fills in fresh

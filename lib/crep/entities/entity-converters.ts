@@ -288,9 +288,20 @@ export function convertSatelliteEntity(s: SatelliteEntity): UnifiedEntity | null
 export function convertGlobalEvent(e: GlobalEvent): UnifiedEntity | null {
   if (!isValidCoordinate(e.lng, e.lat)) return null
 
+  const event = e as GlobalEvent & Record<string, unknown>
+  const rawType = String(event.type || "weather").toLowerCase()
+  const type: UnifiedEntity["type"] =
+    rawType.includes("earthquake") || rawType.includes("quake") || rawType.includes("seismic")
+      ? "earthquake"
+      : rawType.includes("fire") || rawType.includes("wildfire")
+        ? "fire"
+        : rawType.includes("crisis") || rawType.includes("disaster")
+          ? "crisis"
+          : "weather"
+
   return {
     id: e.id,
-    type: "weather", // events are typed as weather/earthquake based on e.type
+    type,
     geometry: makePoint(e.lng, e.lat),
     state: {
       classification: e.type,
@@ -300,11 +311,24 @@ export function convertGlobalEvent(e: GlobalEvent): UnifiedEntity | null {
       valid_from: e.timestamp || new Date().toISOString(),
     },
     confidence: 0.9,
-    source: "global-events",
+    source: typeof event.source === "string" ? event.source : "global-events",
     properties: {
       title: e.title,
+      description: typeof event.description === "string" ? event.description : undefined,
       severity: e.severity,
       eventType: e.type,
+      magnitude: typeof event.magnitude === "number" ? event.magnitude : undefined,
+      depth: typeof event.depth === "number" ? event.depth : undefined,
+      latitude: e.lat,
+      longitude: e.lng,
+      locationName: typeof event.locationName === "string" ? event.locationName : undefined,
+      sourceUrl: typeof event.sourceUrl === "string" ? event.sourceUrl : undefined,
+      link: typeof event.link === "string" ? event.link : undefined,
+      timestamp: e.timestamp,
+      windSpeed: typeof event.windSpeed === "number" ? event.windSpeed : undefined,
+      containment: typeof event.containment === "number" ? event.containment : undefined,
+      affectedArea: typeof event.affectedArea === "number" ? event.affectedArea : undefined,
+      affectedPopulation: typeof event.affectedPopulation === "number" ? event.affectedPopulation : undefined,
     },
     s2_cell: "",
   }

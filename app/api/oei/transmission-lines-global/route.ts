@@ -60,15 +60,21 @@ async function fromStaticUS(_baseUrl?: string): Promise<TxLine[]> {
 async function fromOSMBBox(bbox: [number, number, number, number]): Promise<TxLine[]> {
   try {
     const [w, s, e, n] = bbox
-    const q = `[out:json][timeout:30];way["power"="line"]["voltage"](${s},${w},${n},${e});out geom 2000;`
+    const q = `[out:json][timeout:25];way["power"="line"](${s},${w},${n},${e});out geom 50000;`
     const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
-      signal: AbortSignal.timeout(35_000),
+      signal: AbortSignal.timeout(28_000),
     })
     if (!res.ok) return []
     const j = await res.json()
+    const parseVoltageKv = (raw: unknown) => {
+      const text = String(raw ?? "")
+      const first = text.split(/[;,]/).map((part) => Number(part.trim())).find((value) => Number.isFinite(value) && value > 0)
+      if (!first) return undefined
+      return first > 1000 ? first / 1000 : first
+    }
     return (j.elements || []).map((el: any) => ({
       id: `osm-way-${el.id}`, source: "OSM",
-      voltage_kv: parseFloat(el.tags?.voltage) / 1000 || undefined,
+      voltage_kv: parseVoltageKv(el.tags?.voltage),
       operator: el.tags?.operator,
       country: (el.tags?.["addr:country"] || "").slice(0, 2).toUpperCase(),
       coordinates: (el.geometry || []).map((g: any) => [g.lon, g.lat]),

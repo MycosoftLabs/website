@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { classifyAndRoute } from "@/lib/search/search-intelligence-router"
+import { resolveEarthSearchRule } from "@/lib/search/earth-search-rules"
 
 const SearchEarthDashboard = dynamic(
-  () => import("@/app/dashboard/crep/CREPDashboardLoader"),
+  () => import("@/app/dashboard/crep/CREPDashboardEmbedded"),
   {
     ssr: false,
     loading: () => (
@@ -61,7 +62,8 @@ interface EarthWidgetProps {
   data: MapObservation[]
   eventsData?: EventObservation[]
   earth2Data?: Earth2Data | null
-  searchLocation?: { lat: number; lng: number; name?: string }
+  searchLocation?: { lat: number; lng: number; name?: string; zoom?: number }
+  userLocation?: { lat: number; lng: number }
   searchQuery?: string
   liveEntities?: Array<Record<string, unknown>>
   isFocused?: boolean
@@ -86,6 +88,7 @@ export function EarthWidget({
   data = [],
   eventsData = [],
   searchLocation,
+  userLocation,
   searchQuery = "",
   liveEntities = [],
   isFocused = false,
@@ -111,7 +114,9 @@ export function EarthWidget({
           lng: routeLocation.lng,
           name: routeLocation.city || routeLocation.state || routeLocation.country || routeLocation.region,
         }
-      : null
+      : isEarthquakeQuery && userLocation
+        ? { ...userLocation, name: "your location" }
+        : null
   )
   const enabledFilters = useMemo(
     () => route?.earthContextFilters.enabledFilters ?? [],
@@ -125,60 +130,13 @@ export function EarthWidget({
     () => new Set(enabledFilters.map((filter) => filter.category)),
     [enabledFilters]
   )
+  const earthRule = useMemo(
+    () => resolveEarthSearchRule(searchQuery, enabledCategories),
+    [enabledCategories, searchQuery]
+  )
   const enabledLayerIds = useMemo(() => {
-    const layers = new Set<string>()
-    const q = searchQuery.toLowerCase()
-
-    for (const category of enabledCategories) {
-      if (category === "aircraft") {
-        layers.add("aviation")
-        layers.add("aviationRoutes")
-      }
-      if (category === "vessel") {
-        layers.add("ships")
-        layers.add("shipRoutes")
-        layers.add("fishing")
-        layers.add("containers")
-      }
-      if (category === "satellite") layers.add("satellites")
-      if (category === "species") layers.add("fungi")
-      if (category === "device") {
-        layers.add("mycobrain")
-        layers.add("devMushroom1")
-        layers.add("devHyphae1")
-        layers.add("sporebase")
-        layers.add("devMycoNode")
-        layers.add("devAlarm")
-        layers.add("devPsathyrella")
-      }
-      if (category === "weather") {
-        layers.add("weather")
-        layers.add("earth2Forecast")
-      }
-      if (category === "event") {
-        if (/\bquake|earthquake|seismic\b/.test(q)) layers.add("earthquakes")
-        else if (/\bfire|wildfire|smoke\b/.test(q)) layers.add("wildfires")
-        else if (/\bstorm|hurricane|tornado|lightning\b/.test(q)) {
-          layers.add("storms")
-          layers.add("tornadoes")
-          layers.add("lightning")
-        } else if (/\bvolcano|volcanic|eruption\b/.test(q)) layers.add("volcanoes")
-        else {
-          layers.add("earthquakes")
-          layers.add("wildfires")
-          layers.add("storms")
-        }
-      }
-      if (category === "infrastructure") {
-        layers.add("powerPlantsG")
-        layers.add("txLinesGlobal")
-        layers.add("dataCentersG")
-        layers.add("cellTowersG")
-      }
-    }
-
-    return [...layers]
-  }, [enabledCategories, searchQuery])
+    return earthRule.enabledLayerIds
+  }, [earthRule])
   const normalizedLiveEntities = useMemo(
     () => [
       ...liveEntities,
@@ -233,9 +191,10 @@ export function EarthWidget({
       name: enabledLabels[0] || "Search results",
     }
   }, [enabledLabels, filteredEntities])
-  const focusTarget = simulatorLocation || (isEarthquakeQuery ? null : entityFocus)
+  const focusTarget: { lat: number; lng: number; name?: string; zoom?: number } | null =
+    simulatorLocation || (isEarthquakeQuery ? null : entityFocus)
   const embeddedFocusTarget = focusTarget
-    ? { ...focusTarget, zoom: isEarthquakeQuery ? 2.2 : isFocused ? 8 : 6 }
+    ? { ...focusTarget, zoom: focusTarget.zoom ?? (isEarthquakeQuery ? 2.2 : isFocused ? 8 : 6) }
     : { lat: 20, lng: 0, name: "global view", zoom: 1.35 }
 
   if (error) {

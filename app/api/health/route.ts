@@ -105,7 +105,7 @@ export async function GET() {
   try {
     const mindexStart = Date.now()
     const mindexUrl = resolveMindexServerBaseUrl()
-    const mindexResponse = await fetch(`${mindexUrl}/api/mindex/health`, { 
+    const mindexResponse = await fetch(`${mindexUrl}/health`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)
     

@@ -12,65 +12,34 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { SearchContextProvider } from "@/components/search/SearchContextProvider"
 import { SearchLayout } from "@/components/search/SearchLayout"
 import { FluidSearchCanvas } from "@/components/search/fluid/FluidSearchCanvas"
-import { MobileSearchViewport } from "@/components/search/mobile/MobileSearchViewport"
-import { Loader2, Brain } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 export default function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const query = searchParams.get("q") || ""
-  const [isPhone, setIsPhone] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 639px)")
-    const sync = () => setIsPhone(media.matches)
-    sync()
-    media.addEventListener("change", sync)
-    return () => media.removeEventListener("change", sync)
-  }, [])
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual"
+    }
+    const scrollToHeader = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior })
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+    scrollToHeader()
+    const raf = window.requestAnimationFrame(scrollToHeader)
+    const timer = window.setTimeout(scrollToHeader, 250)
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
+  }, [query])
 
   const handleNavigate = (url: string) => {
     if (url.startsWith("/")) router.push(url)
     else window.location.href = url
-  }
-
-  if (isPhone === null) {
-    return (
-      <div
-        className="search-glass-page flex min-h-dvh items-center justify-center px-4"
-        suppressHydrationWarning
-      >
-        <div className="text-center space-y-3" suppressHydrationWarning>
-          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-          <p className="text-sm text-muted-foreground" suppressHydrationWarning>
-            Initializing search...
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isPhone) {
-    return (
-      <div className="search-glass-page min-h-dvh">
-        <SearchContextProvider>
-          <Suspense
-            fallback={
-              <div className="flex min-h-dvh flex-col items-center justify-center px-4">
-                <div className="text-center space-y-3">
-                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/10">
-                    <Brain className="h-8 w-8 text-violet-500 animate-pulse" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Loading MYCA...</p>
-                </div>
-              </div>
-            }
-          >
-            <MobileSearchViewport initialQuery={query} />
-          </Suspense>
-        </SearchContextProvider>
-      </div>
-    )
   }
 
   return (

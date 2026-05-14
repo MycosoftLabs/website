@@ -42,23 +42,24 @@ export function SuggestionChipsPanel() {
 
   return (
     <div className="border-t border-white/10 pt-3 mt-2" data-testid="suggestion-chips-panel">
-      <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
+      <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
         <Sparkles className="w-3 h-3" />
         Try next
       </h4>
-      <div className="flex flex-wrap gap-2">
+      <div className="natureos-glass-page flex flex-wrap gap-2 overflow-visible">
         {chips.map((label) => (
-          <button
-            key={label}
-            type="button"
-            className={cn(
-              "min-h-[44px] rounded-full border border-white/10 bg-white/5 px-3 py-2 text-base text-foreground/90",
-              "hover:bg-white/10 active:scale-[0.99] touch-manipulation text-left max-w-full",
-            )}
-            onClick={() => runSuggestedSearch(label)}
-          >
-            <span className="line-clamp-2">{label}</span>
-          </button>
+          <div key={label} className="petri-codepen-button-demo petri-codepen-button-demo-rect petri-codepen-button-demo-wide search-try-next-glass">
+            <div className="button-wrap">
+              <button
+                type="button"
+                onClick={() => runSuggestedSearch(label)}
+                className={cn("touch-manipulation")}
+              >
+                <span>{label}</span>
+              </button>
+              <div className="button-shadow" />
+            </div>
+          </div>
         ))}
       </div>
     </div>

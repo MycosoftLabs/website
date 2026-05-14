@@ -19,7 +19,7 @@ import { Shield, CheckCircle2, ArrowRight, Scale, Globe, Layers, Database, Radio
 export const metadata: Metadata = {
   title: "AVANI | Live Earth Substrate | Mycosoft",
   description:
-    "AVANI is the live Earth substrate for MYCA: planetary-scale sensing, environmental data, and continuous context so agents always act with environmental and societal awareness.",
+    "AVANI is Mycosoft's Earth-trained governance intelligence: the live WorldState and Worldview layer that grounds MYCA, agent customers, and human customers in governed planetary data.",
 }
 
 export default function AVANIPage() {
@@ -40,11 +40,18 @@ export default function AVANIPage() {
           <p className="text-base text-muted-foreground max-w-3xl mx-auto mb-8">
             AVANI is the live Earth substrate for MYCA: if MYCA is a hand with four fingers and a thumb,
             AVANI is the palm that feels the world and grounds every action in real, continuous data.
-            AVANI ingests, harmonizes, and serves planetary-scale signals — climate, sensor networks,
-            infrastructure telemetry, and remote sensing — so agents powered by MYCA always act with
-            environmental and societal awareness.
+            AVANI turns sensors, NLM frames, Earth Sim output, MINDEX records, device telemetry, public
+            science, and human-economic context into MAS WorldState, then governs what reaches the
+            MINDEX Worldview API so MYCA, agent customers, and human customers share one grounded picture
+            of the living planet.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
+            <Link href="/docs/ai/avani">
+              <Button size="lg" className="gap-2 min-h-[44px] min-w-[170px] px-6 touch-manipulation">
+                Read the article
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
             <Link href="/ai">
               <Button variant="outline" size="lg" className="gap-2 min-h-[44px] min-w-[160px] px-6 touch-manipulation">
                 AI Overview

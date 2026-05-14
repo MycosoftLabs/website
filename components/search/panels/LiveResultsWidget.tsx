@@ -53,6 +53,19 @@ interface LivePanelResult {
   photoUrl?: string
   url?: string
   source: string
+  lat?: number
+  lng?: number
+}
+
+function focusEventOnEarth(result: LivePanelResult) {
+  if (result.type !== "event") return false
+  const lat = Number(result.lat)
+  const lng = Number(result.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  window.dispatchEvent(new CustomEvent("search:focus-earth-location", {
+    detail: { lat, lng, zoom: 8.5, title: result.title, location: result.location },
+  }))
+  return true
 }
 
 function ResultTypeIcon({ type }: { type: LivePanelResult["type"] }) {
@@ -127,6 +140,8 @@ export function LiveResultsWidget() {
         photoUrl: obs.photoUrl || (meta.photoUrl as string) || undefined,
         url: (meta.url as string) || undefined,
         source: (meta.source as string) || "iNaturalist",
+        lat: typeof obs.lat === "number" ? obs.lat : Number(meta.lat),
+        lng: typeof obs.lng === "number" ? obs.lng : Number(meta.lng),
       }
     }).sort((a, b) => {
       // Photo-attached first, then newest
@@ -260,7 +275,18 @@ export function LiveResultsWidget() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="space-y-2"
+                  className="space-y-2 cursor-pointer rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  role={current.type === "event" ? "button" : undefined}
+                  tabIndex={current.type === "event" ? 0 : undefined}
+                  onClick={() => {
+                    if (!focusEventOnEarth(current) && current.url) window.open(current.url, "_blank")
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      if (!focusEventOnEarth(current) && current.url) window.open(current.url, "_blank")
+                    }
+                  }}
                 >
                   {current.photoUrl && (
                     <div className="relative w-full h-28 rounded-lg overflow-hidden bg-muted">
@@ -306,6 +332,7 @@ export function LiveResultsWidget() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                          onClick={(event) => event.stopPropagation()}
                         >
                           <ExternalLink className="h-2.5 w-2.5" />
                           View
@@ -329,7 +356,7 @@ export function LiveResultsWidget() {
                   key={item.id}
                   className="flex gap-2 p-1.5 rounded-md bg-white/[0.02] hover:bg-white/[0.05] transition-colors cursor-pointer"
                   onClick={() => {
-                    if (item.url) window.open(item.url, "_blank")
+                    if (!focusEventOnEarth(item) && item.url) window.open(item.url, "_blank")
                   }}
                 >
                   {item.photoUrl ? (

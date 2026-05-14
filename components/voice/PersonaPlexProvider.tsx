@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
-import { fetchWithTimeout } from "@/lib/fetch-with-timeout"
+import { fetchOrNull, fetchWithTimeout } from "@/lib/fetch-with-timeout"
 
 /** Pages with their own voice UI — PersonaPlexWidget is suppressed on these */
 const PAGES_WITH_OWN_MIC = ["/search", "/test-voice"]
@@ -456,9 +456,17 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   
   const runWorkflow = useCallback(async (name: string, data?: Record<string, unknown>) => {
     try {
-      const wfRes = await fetchWithTimeout("/api/myca/workflows", {
-        timeoutMs: 15_000,
+      const wfRes = await fetchOrNull("/api/myca/workflows", {
+        timeoutMs: 8_000,
       })
+      if (!wfRes) {
+        const result = {
+          success: false,
+          error: "Workflow list is taking too long. Try again in a moment.",
+        }
+        setLastResult(result)
+        return result
+      }
       if (!wfRes.ok) {
         const result = {
           success: false,

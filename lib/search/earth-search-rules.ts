@@ -1,0 +1,273 @@
+import type { EarthContextFilterCategory } from "./earth-context-filters"
+
+export type EarthSearchDomain =
+  | "earthquake"
+  | "wildfire"
+  | "storm"
+  | "volcano"
+  | "aircraft"
+  | "vessel"
+  | "satellite"
+  | "species"
+  | "infrastructure"
+  | "weather"
+  | "device"
+  | "all"
+  | "general"
+
+export interface EarthSearchRule {
+  domain: EarthSearchDomain
+  enabledLayerIds: string[]
+  entityTypes: string[]
+  widgets: string[]
+  lockLayerControls: boolean
+}
+
+const PHYSICAL_BASE_LAYERS = ["bathymetry", "topography", "satImagery", "mapboxSatelliteStreets"]
+
+const ALL_WORKING_LAYERS = [
+  "earthquakes",
+  "wildfires",
+  "storms",
+  "tornadoes",
+  "lightning",
+  "volcanoes",
+  "weather",
+  "aviation",
+  "aviationRoutes",
+  "ships",
+  "shipRoutes",
+  "fishing",
+  "containers",
+  "satellites",
+  "fungi",
+  "powerPlantsG",
+  "txLinesGlobal",
+  "dataCentersG",
+  "cellTowersG",
+  "ports",
+  "radar",
+  "radioStations",
+  "factoriesG",
+  "oilGas",
+  "submarineCables",
+  "mycobrain",
+  "devMushroom1",
+  "devHyphae1",
+  "sporebase",
+  "devMycoNode",
+  "devAlarm",
+  "devPsathyrella",
+  "cameras",
+  "railwayTracks",
+  "railwayTrains",
+  ...PHYSICAL_BASE_LAYERS,
+]
+
+const DOMAIN_RULES: Array<{
+  domain: EarthSearchDomain
+  patterns: RegExp[]
+  categories: EarthContextFilterCategory[]
+  enabledLayerIds: string[]
+  entityTypes: string[]
+  widgets: string[]
+}> = [
+  {
+    domain: "all",
+    patterns: [
+      /\b(show|display|turn\s+on|enable|include)\s+(me\s+)?everything\s+(on|in)\s+(the\s+)?(map|earth|globe)\b/i,
+      /\beverything\s+(on|in)\s+(the\s+)?(map|earth|globe)\b/i,
+      /\ball\s+(map|earth|globe)\s+(layers|filters|data)\b/i,
+    ],
+    categories: [],
+    enabledLayerIds: ALL_WORKING_LAYERS,
+    entityTypes: [
+      "earthquake",
+      "wildfire",
+      "storm",
+      "volcano",
+      "weather",
+      "aircraft",
+      "vessel",
+      "satellite",
+      "species",
+      "infrastructure",
+      "device",
+      "camera",
+      "train",
+    ],
+    widgets: ["earth"],
+  },
+  {
+    domain: "earthquake",
+    patterns: [/\b(active\s+)?earthquakes?\b/i, /\bseismic\b/i, /\bquake\b/i, /\btremors?\b/i],
+    categories: ["event"],
+    enabledLayerIds: ["earthquakes", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["earthquake"],
+    widgets: ["earth", "events", "answers", "news", "research"],
+  },
+  {
+    domain: "wildfire",
+    patterns: [/\bwildfires?\b/i, /\bfires?\b/i, /\bsmoke\b/i],
+    categories: ["event"],
+    enabledLayerIds: ["wildfires", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["wildfire", "fire"],
+    widgets: ["earth", "events", "answers", "news"],
+  },
+  {
+    domain: "storm",
+    patterns: [/\bstorms?\b/i, /\bhurricanes?\b/i, /\btornado(es)?\b/i, /\blightning\b/i],
+    categories: ["event", "weather"],
+    enabledLayerIds: ["storms", "tornadoes", "lightning", "weather", "earth2Forecast", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["storm", "hurricane", "tornado", "lightning", "weather"],
+    widgets: ["earth", "events", "weather", "answers", "news"],
+  },
+  {
+    domain: "volcano",
+    patterns: [/\bvolcano(es)?\b/i, /\bvolcanic\b/i, /\beruptions?\b/i],
+    categories: ["event"],
+    enabledLayerIds: ["volcanoes", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["volcano"],
+    widgets: ["earth", "events", "answers", "news", "research"],
+  },
+  {
+    domain: "aircraft",
+    patterns: [/\bplanes?\b/i, /\bflights?\b/i, /\baircraft\b/i, /\baviation\b/i],
+    categories: ["aircraft"],
+    enabledLayerIds: ["aviation", "aviationRoutes", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["aircraft"],
+    widgets: ["earth", "aircraft", "answers", "news"],
+  },
+  {
+    domain: "vessel",
+    patterns: [/\bships?\b/i, /\bvessels?\b/i, /\bboats?\b/i, /\bmarine traffic\b/i],
+    categories: ["vessel"],
+    enabledLayerIds: ["ships", "shipRoutes", "fishing", "containers", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["vessel"],
+    widgets: ["earth", "vessels", "answers", "news"],
+  },
+  {
+    domain: "satellite",
+    patterns: [/\bsatellites?\b/i, /\bstarlink\b/i, /\bISS\b/i, /\borbit\b/i],
+    categories: ["satellite"],
+    enabledLayerIds: ["satellites", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["satellite"],
+    widgets: ["earth", "satellites", "space_weather", "answers", "news"],
+  },
+  {
+    domain: "species",
+    patterns: [/\bspecies\b/i, /\bfungi\b/i, /\bmushrooms?\b/i, /\bplants?\b/i, /\banimals?\b/i],
+    categories: ["species"],
+    enabledLayerIds: ["fungi", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["species", "fungal"],
+    widgets: ["earth", "species", "answers", "research", "news"],
+  },
+  {
+    domain: "infrastructure",
+    patterns: [
+      /\binfrastructure\b/i,
+      /\bpower\s+plants?\b/i,
+      /\bpower\s+lines?\b/i,
+      /\btransmission\s+lines?\b/i,
+      /\belectrical\s+grid\b/i,
+      /\bsubstations?\b/i,
+      /\bdata\s+centers?\b/i,
+      /\bcell\s+towers?\b/i,
+    ],
+    categories: ["infrastructure"],
+    enabledLayerIds: ["powerPlantsG", "txLinesGlobal", "dataCentersG", "cellTowersG", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["infrastructure", "facility"],
+    widgets: ["earth", "infrastructure", "events", "answers", "news"],
+  },
+  {
+    domain: "weather",
+    patterns: [/\bweather\b/i, /\bforecast\b/i, /\btemperature\b/i, /\bprecipitation\b/i],
+    categories: ["weather"],
+    enabledLayerIds: ["weather", "earth2Forecast", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["weather"],
+    widgets: ["earth", "weather", "answers", "news"],
+  },
+  {
+    domain: "device",
+    patterns: [/\bdevices?\b/i, /\bmycobrain\b/i, /\bsporebase\b/i],
+    categories: ["device"],
+    enabledLayerIds: ["mycobrain", "devMushroom1", "devHyphae1", "sporebase", "devMycoNode", "devAlarm", "devPsathyrella", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["device"],
+    widgets: ["earth", "devices", "answers"],
+  },
+]
+
+const OFF_VERBS = "\\b(?:turn\\s+off|hide|remove|disable|without|no)\\b"
+const ON_VERBS = "\\b(?:turn\\s+on|show|display|enable|add|include|find|search|active)\\b"
+
+function domainMentionedAsDisabled(query: string, rule: (typeof DOMAIN_RULES)[number]) {
+  return rule.patterns.some((pattern) => patternMentionedAsDisabled(query, pattern))
+}
+
+function patternMentionedAsDisabled(query: string, pattern: RegExp) {
+    const source = pattern.source.replace(/^\\b/, "").replace(/\\b\/?[a-z]*$/i, "")
+    const disabled = new RegExp(`${OFF_VERBS}[^.?!;]{0,80}${source}`, "i")
+    return disabled.test(query)
+}
+
+function domainMentionedAsEnabled(query: string, rule: (typeof DOMAIN_RULES)[number]) {
+  return rule.patterns.some((pattern) => pattern.test(query)) || new RegExp(ON_VERBS, "i").test(query)
+}
+
+function domainStillHasEnabledPattern(query: string, rule: (typeof DOMAIN_RULES)[number]) {
+  return rule.patterns.some((pattern) => pattern.test(query) && !patternMentionedAsDisabled(query, pattern))
+}
+
+function applyExplicitLayerExclusions(query: string, layerIds: string[]) {
+  const exclusions = new Set<string>()
+  if (new RegExp(`${OFF_VERBS}[^.?!;]{0,80}(power\\s+lines?|transmission\\s+lines?|electrical\\s+grid)`, "i").test(query)) {
+    exclusions.add("txLinesGlobal")
+  }
+  if (new RegExp(`${OFF_VERBS}[^.?!;]{0,80}power\\s+plants?`, "i").test(query)) {
+    exclusions.add("powerPlantsG")
+  }
+  if (new RegExp(`${OFF_VERBS}[^.?!;]{0,80}(planes?|flights?|aircraft|aviation)`, "i").test(query)) {
+    exclusions.add("aviation")
+    exclusions.add("aviationRoutes")
+  }
+  if (new RegExp(`${OFF_VERBS}[^.?!;]{0,80}(ships?|vessels?|boats?)`, "i").test(query)) {
+    exclusions.add("ships")
+    exclusions.add("shipRoutes")
+    exclusions.add("fishing")
+    exclusions.add("containers")
+  }
+  return layerIds.filter((layerId) => !exclusions.has(layerId))
+}
+
+export function resolveEarthSearchRule(query: string, categories: Iterable<EarthContextFilterCategory> = []): EarthSearchRule {
+  const categorySet = new Set(categories)
+  const matches = DOMAIN_RULES.filter((rule) =>
+    (domainMentionedAsEnabled(query, rule) && rule.patterns.some((pattern) => pattern.test(query))) ||
+    rule.categories.some((category) => categorySet.has(category))
+  ).filter((rule) => !domainMentionedAsDisabled(query, rule) || domainStillHasEnabledPattern(query, rule))
+
+  const matched = matches.length > 0 ? matches : []
+
+  if (matched.length === 0) {
+    return {
+      domain: "general",
+      enabledLayerIds: applyExplicitLayerExclusions(query, [...PHYSICAL_BASE_LAYERS]),
+      entityTypes: [],
+      widgets: ["earth", "answers"],
+      lockLayerControls: true,
+    }
+  }
+
+  const domain = matched.length === 1 ? matched[0].domain : "general"
+  return {
+    domain,
+    enabledLayerIds: applyExplicitLayerExclusions(query, [...new Set(matched.flatMap((rule) => rule.enabledLayerIds))]),
+    entityTypes: [...new Set(matched.flatMap((rule) => rule.entityTypes))],
+    widgets: [...new Set(matched.flatMap((rule) => rule.widgets))],
+    lockLayerControls: true,
+  }
+}
+
+export function resolveEarthSearchRuleFromVoiceCommand(transcript: string): EarthSearchRule {
+  return resolveEarthSearchRule(transcript)
+}

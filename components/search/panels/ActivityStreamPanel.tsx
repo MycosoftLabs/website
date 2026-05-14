@@ -384,10 +384,10 @@ export function ActivityStreamPanel() {
   const latestEvent = events[0] || null
 
   return (
-    <div className="flex flex-col w-full relative z-[50]">
+    <div className="flex h-full min-h-0 flex-col w-full relative z-[50]">
       {/* Banner */}
       <div 
-        className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-violet-500/10 to-transparent border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors"
+        className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-violet-500/10 to-transparent border-b border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
         onClick={() => setShowDropdown(!showDropdown)}
       >
         <div className="flex items-center gap-3 w-full">
@@ -398,11 +398,11 @@ export function ActivityStreamPanel() {
             )}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-xs font-semibold text-white/90 truncate">
+            <span className="text-xs font-semibold text-foreground/90 truncate">
               {latestEvent ? latestEvent.title : "Myca is idling..."}
             </span>
             {latestEvent?.summary && (
-              <span className="text-[10px] text-white/50 truncate">
+              <span className="text-[10px] text-muted-foreground truncate">
                 {latestEvent.summary}
               </span>
             )}
@@ -413,27 +413,26 @@ export function ActivityStreamPanel() {
                 <Radio className="h-2 w-2 animate-pulse" /> Live
               </span>
             )}
-            <ChevronDown className={cn("h-4 w-4 text-white/50 transition-transform duration-200", showDropdown && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", showDropdown && "rotate-180")} />
           </div>
         </div>
       </div>
 
       {/* Dropdown container */}
-      <div className="absolute top-full left-0 right-0 overflow-hidden shadow-2xl">
       <AnimatePresence>
         {showDropdown && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-b border-white/5 bg-black/80 backdrop-blur-xl"
+            className="min-h-0 flex-1 overflow-hidden border-b border-white/10 bg-background/20 backdrop-blur-2xl dark:bg-background/10"
           >
-            <ScrollArea className="max-h-[350px]">
+            <ScrollArea className="h-full max-h-[calc(100vh-150px)]">
               <div className="p-3 space-y-4">
                 {/* Search History */}
                 {searchHistory.length > 0 && (
                   <div>
-                    <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
+                    <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                       <Search className="w-3 h-3" />
                       Search Hierarchy
                     </h4>
@@ -454,13 +453,13 @@ export function ActivityStreamPanel() {
 
                 {/* Event Stream */}
                 <div>
-                  <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
+                  <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                     <Zap className="w-3 h-3" />
                     Consciousness Trail
                   </h4>
                   <div className="space-y-1.5">
                     {events.slice(0, 20).map((ev) => (
-                      <div key={ev.id} className="flex gap-2 p-1.5 rounded-md hover:bg-white/5 transition-colors">
+                      <div key={ev.id} className="flex gap-2 p-1.5 rounded-md hover:bg-white/10 transition-colors">
                         <div className="mt-0.5 shrink-0"><EventIcon type={ev.type} /></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-medium text-foreground/80 truncate">{ev.title}</p>
@@ -478,7 +477,6 @@ export function ActivityStreamPanel() {
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </div>
   )
 }

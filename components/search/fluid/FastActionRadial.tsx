@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Button } from "@/components/ui/button"
 import { LayoutGrid, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { WidgetType } from "@/lib/search/widget-registry"
@@ -37,7 +36,7 @@ const FAB_PINNED: WidgetType[] = [
   "devices",
 ]
 
-function mergeRankedWidgets(ranked: WidgetType[], max = 16): WidgetType[] {
+function mergeRankedWidgets(ranked: WidgetType[], max = 28): WidgetType[] {
   const seen = new Set<WidgetType>()
   const out: WidgetType[] = []
   for (const t of FAB_PINNED) {
@@ -65,41 +64,159 @@ function mergeRankedWidgets(ranked: WidgetType[], max = 16): WidgetType[] {
 export interface FastActionRadialProps {
   rankedWidgets: WidgetType[]
   onOpenWidget: (type: WidgetType) => void
+  activeWidgetTypes?: ReadonlySet<WidgetType>
   className?: string
 }
 
 /**
  * Single FAB bottom-right; expands radial of widget shortcuts ranked by intent secondaryWidgets.
  */
-export function FastActionRadial({ rankedWidgets, onOpenWidget, className }: FastActionRadialProps) {
+export function FastActionRadial({ rankedWidgets, onOpenWidget, activeWidgetTypes, className }: FastActionRadialProps) {
   const [open, setOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  /** 16 slots: intent `secondaryWidgets` can list 10+ types; truncating at 12 hid chemistry/genetics on compound queries (E2E matrix). */
-  const slots = useMemo(() => mergeRankedWidgets(rankedWidgets, 16), [rankedWidgets])
+  const [viewport, setViewport] = useState({ width: 1024, height: 768 })
+  const [wheelAngle, setWheelAngle] = useState(0)
+  const spinDrag = useRef<{ pointerId: number; startPointerAngle: number; startWheelAngle: number; moved: boolean } | null>(
+    null,
+  )
+  const lastSpinMoved = useRef(false)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const lastFeedbackStepRef = useRef<number | null>(null)
+  /** Thumb-wheel can scale beyond today's defaults as search grows more widget families. */
+  const slots = useMemo(() => mergeRankedWidgets(rankedWidgets, 28), [rankedWidgets])
 
   useEffect(() => {
     setIsMounted(true)
+    const syncViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    window.addEventListener("orientationchange", syncViewport)
+    return () => {
+      window.removeEventListener("resize", syncViewport)
+      window.removeEventListener("orientationchange", syncViewport)
+    }
   }, [])
 
-  const pick = useCallback(
-    (t: WidgetType) => {
-      onOpenWidget(t)
+  useEffect(() => {
+    if (!open) return
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (target.closest("[data-fast-action-wheel='true']")) return
       setOpen(false)
+    }
+    window.addEventListener("pointerdown", dismissOutside, true)
+    return () => window.removeEventListener("pointerdown", dismissOutside, true)
+  }, [open])
+
+  const pick = useCallback(
+    (t: WidgetType, event?: React.MouseEvent<HTMLButtonElement>) => {
+      if (spinDrag.current?.moved) {
+        event?.preventDefault()
+        event?.stopPropagation()
+        return
+      }
+      if (lastSpinMoved.current) {
+        event?.preventDefault()
+        event?.stopPropagation()
+        return
+      }
+      onOpenWidget(t)
     },
     [onOpenWidget],
   )
 
-  /** Tighter circle when many slots so buttons stay inside the radial hit area (overflow-safe). */
-  const radius = slots.length > 12 ? 102 : slots.length > 8 ? 118 : 130
+  /** Hub-centered thumb-wheel: the FAB is the center; the visible upper-left arc is the tappable viewport. */
+  const isMobileViewport = viewport.width < 640
+  const radius = isMobileViewport ? (slots.length > 12 ? 108 : 96) : slots.length > 18 ? 138 : slots.length > 12 ? 126 : 112
   const step = (2 * Math.PI) / Math.max(slots.length, 1)
+  const wheelCenterRight = isMobileViewport ? 34 : 49
+  const wheelCenterBottom = isMobileViewport ? 88 : 45
+  const iconHalf = 22
+
+  const pointerAngle = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      const centerX = window.innerWidth - wheelCenterRight
+      const centerY = window.innerHeight - wheelCenterBottom
+      return Math.atan2(event.clientY - centerY, event.clientX - centerX)
+    },
+    [wheelCenterBottom, wheelCenterRight],
+  )
+
+  const tickFeedback = useCallback((angle: number) => {
+    if (typeof window === "undefined") return
+    const stepIndex = Math.round(angle / Math.max(step, 0.001))
+    if (lastFeedbackStepRef.current === stepIndex) return
+    lastFeedbackStepRef.current = stepIndex
+    try {
+      navigator.vibrate?.(8)
+    } catch {}
+    try {
+      const AudioCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AudioCtor) return
+      const ctx = audioContextRef.current ?? new AudioCtor()
+      audioContextRef.current = ctx
+      if (ctx.state === "suspended") void ctx.resume()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = "square"
+      osc.frequency.value = 920
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + 0.003)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.028)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.032)
+    } catch {}
+  }, [step])
+
+  const beginSpin = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const target = event.target
+      if (target instanceof Element && target.closest("[data-fast-action-hub-button='true']")) {
+        return
+      }
+      lastSpinMoved.current = false
+      lastFeedbackStepRef.current = Math.round(wheelAngle / Math.max(step, 0.001))
+      event.currentTarget.setPointerCapture(event.pointerId)
+      spinDrag.current = {
+        pointerId: event.pointerId,
+        startPointerAngle: pointerAngle(event),
+        startWheelAngle: wheelAngle,
+        moved: false,
+      }
+    },
+    [pointerAngle, wheelAngle],
+  )
+
+  const moveSpin = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = spinDrag.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+      const next = drag.startWheelAngle + pointerAngle(event) - drag.startPointerAngle
+      if (Math.abs(next - drag.startWheelAngle) > 0.015) drag.moved = true
+      if (drag.moved) tickFeedback(next)
+      setWheelAngle(next)
+    },
+    [pointerAngle, tickFeedback],
+  )
+
+  const endSpin = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (spinDrag.current?.pointerId === event.pointerId) {
+      lastSpinMoved.current = spinDrag.current.moved
+      spinDrag.current = null
+    }
+  }, [])
 
   const shell = (
     <div
       className={cn(
         // Portal to `body` escapes `overflow-hidden` + transform ancestors (framer-motion) that
         // break `fixed` hit-testing; z-stacking above consciousness / panel chrome (May 03 2026).
-        "pointer-events-none fixed z-[9999] flex flex-col items-end gap-2",
-        "bottom-[max(1rem,env(safe-area-inset-bottom,0px))] right-3 sm:bottom-5 sm:right-5 lg:right-6",
+        "pointer-events-none fixed z-[9999] h-[3.15rem] w-[3.15rem]",
+        "search-glass-floating natureos-glass-page",
+        "bottom-[calc(max(1rem,env(safe-area-inset-bottom,0px))+3.1rem)] right-3 sm:bottom-5 sm:right-5 lg:right-6",
         className,
       )}
       aria-label="Widget quick actions"
@@ -107,54 +224,94 @@ export function FastActionRadial({ rankedWidgets, onOpenWidget, className }: Fas
       {open && (
         <div
           data-testid="fast-action-radial-layer"
-          className="pointer-events-auto relative h-[300px] w-[300px] sm:h-[320px] sm:w-[320px]"
+          data-fast-action-wheel="true"
+          className="search-fab-wheel-layer pointer-events-auto fixed"
+          onPointerDown={beginSpin}
+          onPointerMove={moveSpin}
+          onPointerCancel={endSpin}
+          onPointerUp={endSpin}
         >
           {slots.map((type, i) => {
-            const angle = -Math.PI / 2 + i * step
+            const angle = -Math.PI / 2 + i * step + wheelAngle
             const x = Math.cos(angle) * radius
             const y = Math.sin(angle) * radius
             const meta = WIDGET_REGISTRY[type]
             const label = meta?.label ?? type
+            const isActive = activeWidgetTypes?.has(type) ?? false
             return (
-              <Button
+              <div
                 key={type}
-                type="button"
-                variant="secondary"
-                size="icon"
                 data-testid={`fast-action-${type}`}
+                data-fast-action-wheel="true"
+                data-active={isActive ? "true" : "false"}
                 title={label}
-                className="absolute h-11 w-11 min-h-[44px] min-w-[44px] rounded-full border bg-card/95 text-base shadow-lg touch-manipulation"
+                className="petri-codepen-button-demo petri-codepen-button-demo-reset search-fab-petri-icon pointer-events-auto fixed"
                 style={{
-                  left: `calc(50% + ${x}px)`,
-                  top: `calc(50% + ${y}px)`,
-                  transform: "translate(-50%, -50%)",
+                  right: `${wheelCenterRight - x - iconHalf}px`,
+                  bottom: `${wheelCenterBottom - y - iconHalf}px`,
                 }}
-                onClick={() => pick(type)}
               >
-                <span className="sr-only">{label}</span>
-                <span aria-hidden className="text-lg leading-none">
-                  {iconGlyph(type)}
-                </span>
-              </Button>
+                <div className="button-wrap">
+                  <button
+                    type="button"
+                    className="touch-manipulation"
+                    onPointerDown={(event) => {
+                      lastSpinMoved.current = false
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onOpenWidget(type)
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                  >
+                    <span>
+                      <span className="sr-only">{label}</span>
+                      <span aria-hidden className="search-fab-glyph">{iconGlyph(type)}</span>
+                    </span>
+                  </button>
+                  <div className="button-shadow" />
+                </div>
+              </div>
             )
           })}
         </div>
       )}
-      <Button
-        type="button"
-        size="icon"
+      <div
         data-testid="fast-action-fab"
-        variant="default"
-        className={cn(
-          "pointer-events-auto h-12 w-12 min-h-[48px] min-w-[48px] rounded-full shadow-xl border border-primary/30 bg-primary text-primary-foreground touch-manipulation",
-          open && "ring-2 ring-primary/40",
-        )}
+        data-fast-action-wheel="true"
         title={open ? "Close widget picker" : "Add widget"}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "petri-codepen-button-demo petri-codepen-button-demo-reset search-fab-petri-main pointer-events-auto absolute bottom-0 right-0",
+          open && "search-fab-petri-open",
+        )}
+        onPointerDown={open ? beginSpin : undefined}
+        onPointerMove={open ? moveSpin : undefined}
+        onPointerCancel={open ? endSpin : undefined}
+        onPointerUp={open ? endSpin : undefined}
       >
-        {open ? <X className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />}
-      </Button>
+        <div className="button-wrap">
+          <button
+            data-fast-action-hub-button="true"
+            type="button"
+            className="touch-manipulation"
+            aria-expanded={open}
+            onClick={(event) => {
+              if (lastSpinMoved.current) {
+                event.preventDefault()
+                event.stopPropagation()
+                lastSpinMoved.current = false
+                return
+              }
+              setOpen((v) => !v)
+            }}
+          >
+            <span>{open ? <X className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />}</span>
+          </button>
+          <div className="button-shadow" />
+        </div>
+      </div>
     </div>
   )
 

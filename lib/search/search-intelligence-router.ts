@@ -13,6 +13,7 @@ import { parseSearchIntent, type SearchIntent, type EntityType } from "./intent-
 import { detectWorldviewIntent } from "./world-view-suggestions"
 import type { WidgetType } from "./widget-registry"
 import { buildEarthContextFilters, type EarthContextFilters } from "./earth-context-filters"
+import { resolveEarthSearchRule } from "./earth-search-rules"
 
 // =============================================================================
 // QUERY CLASSIFICATION
@@ -51,6 +52,10 @@ export type LiveResultType =
   | "events"         // earthquakes, storms, volcanoes
   | "aircraft"       // flights
   | "vessels"        // ships
+  | "satellites"     // satellites / orbital assets
+  | "infrastructure" // infrastructure facilities and lines
+  | "devices"        // MycoBrain / devices
+  | "space_weather"  // solar / geomagnetic conditions
   | "news"           // news articles
   | "research"       // research papers
   | "weather"        // weather alerts
@@ -98,9 +103,14 @@ export function classifyAndRoute(query: string): SearchRoute {
   // Determine what live results to fetch
   const liveResultTypes = determineLiveResultTypes(intent, normalizedQuery)
   const earthContextFilters = buildEarthContextFilters(intent)
+  const earthSearchRule = resolveEarthSearchRule(
+    normalizedQuery,
+    earthContextFilters.enabledFilters.map((filter) => filter.category),
+  )
 
   // Is this a map-primary query?
-  const isMapPrimary = worldview.map || worldview.crep || worldview.earth2 ||
+  const hasEarthSearchRule = earthSearchRule.domain !== "general"
+  const isMapPrimary = worldview.map || worldview.crep || worldview.earth2 || hasEarthSearchRule ||
     intent.type === "location" || intent.type === "event" ||
     intent.type === "aircraft" || intent.type === "vessel" ||
     earthContextFilters.isContextual
@@ -108,28 +118,48 @@ export function classifyAndRoute(query: string): SearchRoute {
   let resolvedPrimaryWidget = primaryWidget
   let resolvedPrimaryWidgetSize = primaryWidgetSize
   let contextualSecondaryWidgets: WidgetType[] = [...secondaryWidgets]
-  if (earthContextFilters.isContextual && primaryWidget !== "earth") {
+  if ((earthContextFilters.isContextual || hasEarthSearchRule) && primaryWidget !== "earth") {
     resolvedPrimaryWidget = "earth"
     resolvedPrimaryWidgetSize = { width: 2, height: 3 }
-    contextualSecondaryWidgets = [primaryWidget, ...secondaryWidgets].filter(
+    contextualSecondaryWidgets = [primaryWidget, ...secondaryWidgets, ...earthSearchRule.widgets].filter(
       (widget, index, widgets): widget is WidgetType =>
         Boolean(widget) && widget !== "earth" && widgets.indexOf(widget) === index
+    )
+  } else if (earthSearchRule.widgets.length > 0) {
+    contextualSecondaryWidgets = [...contextualSecondaryWidgets, ...earthSearchRule.widgets].filter(
+      (widget, index, widgets): widget is WidgetType =>
+        Boolean(widget) && widget !== primaryWidget && widgets.indexOf(widget) === index
     )
   }
 
   return {
     classification,
     intent,
-    useMycaLLM: classification === "conversational" || classification === "hybrid",
+    useMycaLLM: hasEarthSearchRule ? false : classification === "conversational" || classification === "hybrid",
     useUnifiedSearch: classification !== "conversational",
     primaryWidget: resolvedPrimaryWidget,
     primaryWidgetSize: resolvedPrimaryWidgetSize,
     secondaryWidgets: contextualSecondaryWidgets,
-    liveResultTypes,
+    liveResultTypes: [...new Set([...liveResultTypes, ...earthRuleToLiveResultTypes(earthSearchRule.entityTypes)])],
     worldview,
     isMapPrimary,
     earthContextFilters,
   }
+}
+
+function earthRuleToLiveResultTypes(entityTypes: string[]): LiveResultType[] {
+  const types: LiveResultType[] = []
+  for (const entityType of entityTypes) {
+    if (["earthquake", "wildfire", "fire", "storm", "hurricane", "tornado", "lightning", "volcano"].includes(entityType)) types.push("events")
+    if (entityType === "aircraft") types.push("aircraft")
+    if (entityType === "vessel") types.push("vessels")
+    if (entityType === "satellite") types.push("satellites", "space_weather")
+    if (["species", "fungal"].includes(entityType)) types.push("all_species", "specific_species")
+    if (["infrastructure", "facility"].includes(entityType)) types.push("infrastructure")
+    if (entityType === "weather") types.push("weather")
+    if (entityType === "device") types.push("devices")
+  }
+  return types
 }
 
 function classifyQuery(query: string, intent: SearchIntent): QueryClassification {
@@ -394,6 +424,10 @@ function determineLiveResultTypes(intent: SearchIntent, query: string): LiveResu
   // Aircraft/vessel queries
   if (intent.type === "aircraft") types.push("aircraft")
   if (intent.type === "vessel") types.push("vessels")
+  if (intent.type === "satellite") types.push("satellites", "space_weather")
+  if (intent.type === "infrastructure") types.push("infrastructure", "events")
+  if (intent.type === "device") types.push("devices")
+  if (intent.type === "space_weather") types.push("space_weather")
 
   // News for everything
   types.push("news")

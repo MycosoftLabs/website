@@ -25,6 +25,15 @@ export interface AnswersSearchContext {
   compounds?: string[]
   genetics?: string[]
   research?: string[]
+  events?: string[]
+  aircraft?: string[]
+  vessels?: string[]
+  satellites?: string[]
+  weather?: string[]
+  infrastructure?: string[]
+  devices?: string[]
+  spaceWeather?: string[]
+  activeWidgets?: string[]
 }
 
 export interface AnswersSuggestions {
@@ -49,6 +58,7 @@ interface AnswersWidgetProps {
 export function AnswersWidget({
   isFocused,
   getContextText,
+  searchContext,
   suggestions = { widgets: [], queries: [] },
   activeQuery,
   aiAnswer,
@@ -115,7 +125,7 @@ export function AnswersWidget({
     if (!message) return
     setInput("")
     await sendMessage(message, {
-      contextText: getContextText?.(),
+      contextText: [getContextText?.(), contextualSummary].filter(Boolean).join("\n\n"),
       source: "web",
       wantAudio: false,
     })
@@ -140,6 +150,26 @@ export function AnswersWidget({
   const widgets = suggestions.widgets || []
   const queries = suggestions.queries || []
   const hasSuggestions = widgets.length > 0 || queries.length > 0
+  const contextualSummary = useMemo(() => {
+    const lines: string[] = []
+    const activeWidgets = searchContext?.activeWidgets?.filter(Boolean) ?? widgets
+    if (activeQuery) lines.push(`Search context: ${activeQuery}`)
+    if (activeWidgets.length) lines.push(`Visible widgets: ${activeWidgets.slice(0, 8).join(", ")}`)
+    const add = (label: string, values?: string[]) => {
+      if (!values?.length) return
+      lines.push(`${label}: ${values.slice(0, 4).join("; ")}`)
+    }
+    add("Events", searchContext?.events)
+    add("Infrastructure", searchContext?.infrastructure)
+    add("Aircraft", searchContext?.aircraft)
+    add("Vessels", searchContext?.vessels)
+    add("Satellites", searchContext?.satellites)
+    add("Weather", searchContext?.weather)
+    add("Species", searchContext?.species)
+    add("Devices", searchContext?.devices)
+    add("Research", searchContext?.research)
+    return lines.join("\n")
+  }, [activeQuery, searchContext, widgets])
 
   return (
     <div className={cn("flex flex-col h-full min-h-0", className)}>
@@ -184,8 +214,12 @@ export function AnswersWidget({
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-xs text-muted-foreground text-center py-6">
-              {aiAnswer ? (
-                <AnswerMessageContent content={aiAnswer} className="text-foreground text-left" onFocusWidget={(widgetType) => onFocusWidget?.({ type: widgetType })} />
+              {aiAnswer || contextualSummary ? (
+                <AnswerMessageContent
+                  content={[aiAnswer, contextualSummary && !(aiAnswer || "").includes("Visible widgets:") ? `\n\n${contextualSummary}` : ""].filter(Boolean).join("")}
+                  className="text-foreground text-left"
+                  onFocusWidget={(widgetType) => onFocusWidget?.({ type: widgetType })}
+                />
               ) : (
                 "Ask a question. Answers uses MYCA to converse and show related search results."
               )}

@@ -211,6 +211,11 @@ const DEVICE_KEYWORDS = [
   "environmental sensor", "observation",
 ]
 
+function containsKeyword(query: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")
+  return new RegExp(`\\b${escaped}\\b`, "i").test(query)
+}
+
 // Space weather keywords
 const SPACE_WEATHER_KEYWORDS = [
   "solar flare", "solar wind", "geomagnetic", "aurora", "northern lights",
@@ -298,7 +303,7 @@ export function parseSearchIntent(query: string): SearchIntent {
 
   // Extract species/genus entities
   for (const speciesKw of SPECIES_KEYWORDS) {
-    if (normalizedQuery.includes(speciesKw)) {
+    if (containsKeyword(normalizedQuery, speciesKw)) {
       keywords.push(speciesKw)
       // Add as entity if it's a specific genus/species name
       if (!["mushroom", "mushrooms", "fungi", "fungus", "mycelium"].includes(speciesKw)) {

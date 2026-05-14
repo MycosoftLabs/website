@@ -83,7 +83,7 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
             e.stopPropagation()
             onToggle()
           }}
-          className="p-2 hover:bg-accent rounded-md transition-colors"
+          className="mobile-nav-glass-button p-2 rounded-md transition-colors"
           aria-label={isOpen ? `Collapse ${title} submenu` : `Expand ${title} submenu`}
         >
           <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
@@ -194,7 +194,7 @@ export function MobileNav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[99998] bg-black/70 backdrop-blur-md"
+            className="mobile-nav-glass-backdrop fixed inset-0 z-[99998]"
             onClick={closeMenu}
             aria-hidden="true"
           />
@@ -205,7 +205,7 @@ export function MobileNav() {
             animate="open"
             exit="closed"
             variants={menuVariants}
-            className="fixed inset-y-0 right-0 z-[99999] bg-background w-80 border-l border-gray-800 shadow-2xl overflow-y-auto"
+            className="mobile-nav-glass-drawer fixed inset-y-0 right-0 z-[99999] w-80 overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
               <Link href="/" prefetch={false} className="flex items-center gap-2 font-semibold" onClick={closeMenu}>
@@ -223,7 +223,7 @@ export function MobileNav() {
                   />
                 </div>
               </Link>
-              <Button variant="ghost" size="icon" onClick={closeMenu}>
+              <Button variant="ghost" size="icon" className="mobile-nav-glass-button" onClick={closeMenu}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -356,7 +356,7 @@ export function MobileNav() {
 
   return (
     <>
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleMenu} aria-label="Menu">
+      <Button variant="ghost" size="icon" className="mobile-hamburger-glass md:hidden" onClick={toggleMenu} aria-label="Menu">
         <Menu className="h-5 w-5" />
       </Button>
       {mobileMenuContent}

@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
@@ -436,6 +437,31 @@ interface GlobalEvent {
 
 const EARTHQUAKE_QUERY_RE = /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i;
 
+function entityString(entity: UnifiedEntity, keys: string[], fallback = "") {
+  for (const key of keys) {
+    const value = entity.properties?.[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return fallback;
+}
+
+function entityNumber(entity: UnifiedEntity, keys: string[]) {
+  for (const key of keys) {
+    const value = entity.properties?.[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function entityLink(entity: UnifiedEntity) {
+  return entityString(entity, ["sourceUrl", "link", "url"]);
+}
+
 function eventTimeMs(event: Pick<GlobalEvent, "timestamp">) {
   if (!event.timestamp) return 0;
   const t = new Date(event.timestamp).getTime();
@@ -737,16 +763,20 @@ const layerCategories = {
 };
 
 // Event marker component with detailed popup
-function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: { 
+function EventMarker({ event, isSelected, isNew, onClick, onDoubleClick, onClose, onFlyTo }: { 
   event: GlobalEvent; 
   isSelected: boolean;
   isNew?: boolean;
   onClick: () => void;
+  onDoubleClick?: () => void;
   onClose: () => void;
   onFlyTo?: (lat: number, lng: number, zoom?: number) => void;
 }) {
   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
   const isCritical = event.severity === "critical" || event.severity === "extreme";
+  const isEarthquake = event.type === "earthquake";
+  const formatNumber = (value: number | undefined, digits = 1) =>
+    typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "N/A";
   
   // Guard against missing coordinates
   if (event.lat === undefined || event.lng === undefined || isNaN(event.lat) || isNaN(event.lng)) {
@@ -758,8 +788,8 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
     switch (event.type) {
       case "earthquake":
         return [
-          { label: "Magnitude", value: event.magnitude ? `M${event.magnitude.toFixed(1)}` : "N/A", icon: <Activity className="w-3 h-3" /> },
-          { label: "Depth", value: event.depth ? `${event.depth.toFixed(1)} km` : "N/A", icon: <ArrowDown className="w-3 h-3" /> },
+          { label: "Magnitude", value: typeof event.magnitude === "number" ? `M${event.magnitude.toFixed(1)}` : "N/A", icon: <Activity className="w-3 h-3" /> },
+          { label: "Depth", value: typeof event.depth === "number" ? `${event.depth.toFixed(1)} km` : "N/A", icon: <ArrowDown className="w-3 h-3" /> },
           { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
         ];
       case "wildfire":
@@ -823,6 +853,9 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
 
   const sourceInfo = getSourceInfo();
   const eventData = getEventSpecificData();
+  const mapPreviewUrl = isEarthquake
+    ? `/api/search/map-preview?lat=${encodeURIComponent(String(event.lat))}&lng=${encodeURIComponent(String(event.lng))}&mag=${encodeURIComponent(String(event.magnitude ?? 0))}&depth=${encodeURIComponent(String(event.depth ?? ""))}&zoom=8&title=${encodeURIComponent(event.title)}`
+    : null;
   
   return (
     <MapMarker 
@@ -830,7 +863,22 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
       latitude={event.lat}
       onClick={onClick}
     >
-      <MarkerContent className="relative" data-marker="event">
+      <MarkerContent className="relative cursor-pointer" data-marker="event">
+        <div
+          role="button"
+          tabIndex={0}
+          onDoubleClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onDoubleClick?.();
+          }}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              onDoubleClick?.();
+            }
+          }}
+        >
         <div className={cn(
           "relative flex items-center justify-center transition-transform",
           isSelected ? "scale-150" : "scale-100"
@@ -867,6 +915,7 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
           >
             <span className="text-[8px] text-white">{config.icon}</span>
           </div>
+        </div>
         </div>
       </MarkerContent>
       
@@ -911,6 +960,47 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
             </div>
           </div>
         </div>
+
+        {isEarthquake && mapPreviewUrl && (
+          <div className="border-b border-gray-700/30 bg-black/30">
+            <img
+              src={mapPreviewUrl}
+              alt={`Satellite map preview for ${event.title}`}
+              className="h-28 w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        {isEarthquake && (
+          <div className="px-3 py-2 border-b border-gray-700/30">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-black/45 rounded p-2 border border-amber-500/25">
+                <div className="text-[8px] text-gray-400 uppercase">Magnitude</div>
+                <div className="text-sm font-bold text-amber-300">
+                  {typeof event.magnitude === "number" ? `M${event.magnitude.toFixed(1)}` : "N/A"}
+                </div>
+              </div>
+              <div className="bg-black/45 rounded p-2 border border-amber-500/25">
+                <div className="text-[8px] text-gray-400 uppercase">Depth</div>
+                <div className="text-sm font-bold text-white">
+                  {typeof event.depth === "number" ? `${event.depth.toFixed(1)} km` : "N/A"}
+                </div>
+              </div>
+              <div className="bg-black/45 rounded p-2 border border-gray-700/40">
+                <div className="text-[8px] text-gray-400 uppercase">Latitude</div>
+                <div className="text-[11px] font-mono text-cyan-300">{formatNumber(event.lat, 5)}</div>
+              </div>
+              <div className="bg-black/45 rounded p-2 border border-gray-700/40">
+                <div className="text-[8px] text-gray-400 uppercase">Longitude</div>
+                <div className="text-[11px] font-mono text-cyan-300">{formatNumber(event.lng, 5)}</div>
+              </div>
+            </div>
+            <div className="mt-2 rounded bg-black/35 px-2 py-1.5 text-[10px] text-gray-300">
+              <span className="text-gray-500">Location:</span> {event.locationName || event.title}
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         {event.description && (
@@ -1033,6 +1123,161 @@ function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: {
       )}
     </MapMarker>
   );
+}
+
+function EarthquakeEventPopupOverlay({
+  map,
+  event,
+  onClose,
+  onFlyTo,
+}: {
+  map: any;
+  event: GlobalEvent | null;
+  onClose: () => void;
+  onFlyTo: (event: GlobalEvent) => void;
+}) {
+  const [point, setPoint] = useState<{ x: number; y: number; viewportX: number; viewportY: number } | null>(null);
+
+  useEffect(() => {
+    if (!map || !event) {
+      setPoint(null);
+      return;
+    }
+
+    const updatePoint = () => {
+      try {
+        const p = map.project([event.lng, event.lat]);
+        const rect = map.getContainer?.().getBoundingClientRect?.();
+        setPoint({
+          x: p.x,
+          y: p.y,
+          viewportX: (rect?.left ?? 0) + p.x,
+          viewportY: (rect?.top ?? 0) + p.y,
+        });
+      } catch {
+        setPoint(null);
+      }
+    };
+
+    updatePoint();
+    map.on?.("move", updatePoint);
+    map.on?.("zoom", updatePoint);
+    map.on?.("resize", updatePoint);
+
+    return () => {
+      map.off?.("move", updatePoint);
+      map.off?.("zoom", updatePoint);
+      map.off?.("resize", updatePoint);
+    };
+  }, [map, event]);
+
+  if (!event || !point) return null;
+
+  const magnitude = typeof event.magnitude === "number" ? `M${event.magnitude.toFixed(1)}` : "N/A";
+  const depth = typeof event.depth === "number" ? `${event.depth.toFixed(1)} km` : "N/A";
+  const mapPreviewUrl = `/api/search/map-preview?lat=${encodeURIComponent(String(event.lat))}&lng=${encodeURIComponent(String(event.lng))}&mag=${encodeURIComponent(String(event.magnitude ?? 0))}&depth=${encodeURIComponent(String(event.depth ?? ""))}&zoom=8&title=${encodeURIComponent(event.title)}`;
+  const sourceLink = event.sourceUrl || event.link;
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 420;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 720;
+  const isMobilePopup = viewportWidth < 640;
+  const popupWidth = isMobilePopup ? Math.min(320, viewportWidth - 28) : Math.min(380, viewportWidth - 24);
+  const sideInset = isMobilePopup ? 14 : 12;
+  const left = Math.max(sideInset, Math.min(point.viewportX - popupWidth / 2, viewportWidth - popupWidth - sideInset));
+  const top = isMobilePopup
+    ? Math.max(92, Math.min(point.viewportY - 196, viewportHeight - 330))
+    : Math.max(78, Math.min(point.viewportY - 260, viewportHeight - 440));
+
+  const popup = (
+    <div
+      className="pointer-events-auto fixed z-[999] max-h-[min(430px,calc(100vh-96px))] overflow-y-auto rounded-xl border border-amber-300/35 bg-[#07111f]/95 text-white shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:max-h-[min(430px,calc(100vh-96px))]"
+      style={{
+        width: popupWidth,
+        left,
+        top,
+      }}
+      data-testid="earthquake-map-popup"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-start justify-between gap-2 border-b border-white/10 bg-amber-500/10 px-2.5 py-2 sm:gap-3 sm:px-3">
+        <div className="min-w-0">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-amber-200 sm:text-[10px]">Earthquake</div>
+          <h3 className="mt-0.5 line-clamp-2 text-xs font-bold leading-tight text-white sm:text-sm">{event.title}</h3>
+          <p className="mt-0.5 truncate text-[11px] text-white/65">{event.locationName || event.title}</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Close earthquake details"
+          onClick={onClose}
+          className="search-glass-icon-button h-8 w-8 flex-shrink-0"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <img
+        src={mapPreviewUrl}
+        alt={`Satellite map preview for ${event.title}`}
+        className="h-20 w-full border-b border-white/10 object-cover sm:h-28"
+        loading="lazy"
+      />
+
+      <div className="space-y-1.5 p-2.5 sm:space-y-2 sm:p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-amber-300/20 bg-black/35 px-2 py-1 sm:py-1.5">
+            <div className="text-[9px] uppercase text-white/45">Richter scale</div>
+            <div className="text-sm font-bold text-amber-200 sm:text-base">{magnitude}</div>
+          </div>
+          <div className="rounded-lg border border-cyan-300/20 bg-black/35 px-2 py-1 sm:py-1.5">
+            <div className="text-[9px] uppercase text-white/45">Depth</div>
+            <div className="text-sm font-bold text-cyan-100 sm:text-base">{depth}</div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 sm:py-1.5">
+            <div className="text-[9px] uppercase text-white/45">Latitude</div>
+            <div className="font-mono text-[12px] text-cyan-200">{event.lat.toFixed(5)}</div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 px-2 py-1 sm:py-1.5">
+            <div className="text-[9px] uppercase text-white/45">Longitude</div>
+            <div className="font-mono text-[12px] text-cyan-200">{event.lng.toFixed(5)}</div>
+          </div>
+        </div>
+
+        {event.description && (
+          <p className="line-clamp-3 rounded-lg border border-white/10 bg-black/25 px-2 py-1.5 text-[11px] leading-snug text-white/75">
+            {event.description}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between gap-2 text-[11px] text-white/65">
+          <span>{event.timestamp ? new Date(event.timestamp).toLocaleString() : "Time unavailable"}</span>
+          <span className="font-semibold text-amber-200">{event.source || "USGS"}</span>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onFlyTo(event)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-cyan-300/25 bg-cyan-400/10 px-2 py-1.5 text-[10px] font-semibold text-cyan-100 hover:bg-cyan-400/20 sm:px-3 sm:py-2 sm:text-[11px]"
+          >
+            <Crosshair className="h-3.5 w-3.5" />
+            Zoom to county
+          </button>
+          {sourceLink && (
+            <a
+              href={sourceLink}
+              target="_blank"
+              rel="noreferrer"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-300/25 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-100 hover:bg-amber-400/20"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Source
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document === "undefined" ? null : createPortal(popup, document.body);
 }
 
 // Device marker component - uses device-widget-mapper for type-specific visuals (Feb 12, 2026)
@@ -1783,6 +2028,20 @@ export default function CREPDashboardPage({
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const isEmbeddedEarthquakeSearch = embedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
+  const embeddedAllowsInfrastructure = embedded && enabledLayerIds.some((id) =>
+    [
+      "powerPlants",
+      "powerPlantsG",
+      "txLines",
+      "txLinesGlobal",
+      "substations",
+      "cellTowersG",
+      "dataCentersG",
+      "factories",
+      "factoriesG",
+      "oilGas",
+    ].includes(id),
+  );
   
   // Map reference for auto-zoom and pan functionality
   const [mapRef, setMapRef] = useState<any>(null);
@@ -2712,6 +2971,62 @@ export default function CREPDashboardPage({
       })),
     );
   }, [embedded, embeddedLayerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!isEmbeddedEarthquakeSearch) return;
+    setEoImageryFilter((prev) => ({
+      ...prev,
+      showModis: true,
+      showViirs: true,
+      showLandsat: true,
+    }));
+    setBasemap("satellite");
+  }, [isEmbeddedEarthquakeSearch]);
+
+  useEffect(() => {
+    if (!isEmbeddedEarthquakeSearch) return;
+    const map = mapNativeRef.current;
+    if (!map) return;
+    const hideLayerIds = [
+      "crep-live-aircraft-glow", "crep-live-aircraft-dot",
+      "crep-live-vessels-glow", "crep-live-vessels-dot",
+      "crep-live-satellites-glow", "crep-live-satellites-dot", "crep-live-satellite-orbits-line",
+      "crep-cables-line-glow", "crep-cables-line",
+      ...(!embeddedAllowsInfrastructure ? [
+        "crep-plants-circle", "crep-subs-glow", "crep-subs-circle", "crep-substations-label",
+        "crep-txlines-line", "crep-txlines-full-line", "crep-txlines-global-line",
+        "crep-celltowers-circle", "crep-celltowers-global-circle", "crep-celltowers-bbox-dot",
+        "crep-dcs-global-halo", "crep-dcs-global-glow", "crep-dcs-global-dot",
+        "crep-pp-global-dot", "crep-factories-dot", "crep-ports-global-dot",
+      ] : []),
+      "crep-radio-dot", "crep-radar-dot", "crep-mycosoft-devices-glow", "crep-mycosoft-devices-core",
+      "crep-railway-raster", "crep-orbital-debris-dot", "crep-debris-cloud-heat",
+      "crep-volcanoes-dot", "crep-wildfires-dot", "crep-storms-dot", "crep-lightning-dot", "crep-tornadoes-dot",
+      "crep-search-earthquake-events-glow", "crep-search-earthquake-events-dot", "crep-search-earthquake-events-hotspot",
+    ];
+    const clearSources = [
+      "crep-live-aircraft",
+      "crep-live-vessels",
+      "crep-live-satellites",
+      "crep-live-satellite-orbits",
+      "crep-mycosoft-devices",
+      "crep-volcanoes",
+      "crep-wildfires",
+      "crep-storms",
+      "crep-lightning",
+      "crep-tornadoes",
+      "crep-search-earthquake-events",
+    ];
+    try {
+      for (const id of hideLayerIds) {
+        if (map.getLayer?.(id)) map.setLayoutProperty(id, "visibility", "none");
+      }
+      const emptyFC = { type: "FeatureCollection", features: [] };
+      for (const id of clearSources) {
+        (map.getSource?.(id) as any)?.setData?.(emptyFC);
+      }
+    } catch {}
+  }, [isEmbeddedEarthquakeSearch, embeddedAllowsInfrastructure, mapRef, layers]);
 
   useEffect(() => {
     if (!embedded) return;
@@ -3665,9 +3980,9 @@ export default function CREPDashboardPage({
       if (Date.now() - lastEntityPickTimeRef.current < 400) return;
       
       // Check if click is on the map (MapLibre canvas, deck.gl overlay, etc.) - never dismiss
-      // when clicking map area; map's own click handler handles empty-map dismiss with delay.
+      // in full CREP; map's own click handler handles empty-map dismiss with delay.
       const isOnMap = target.closest('[data-crep-map]') !== null;
-      if (isOnMap) return;
+      if (isOnMap && !embedded) return;
       
       // Check if click is inside any popup (content + close button + tip)
       const isInsidePopup = target.closest(".maplibregl-popup") !== null;
@@ -3696,7 +4011,7 @@ export default function CREPDashboardPage({
     // marker stopPropagation() can prevent this handler from running
     document.addEventListener('click', handleClickAway, false);
     return () => document.removeEventListener('click', handleClickAway, false);
-  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther]);
+  }, [embedded, selectedEvent, selectedFungal, selectedInfraAsset, selectedOther]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ESC KEY HANDLER: Dismiss all popups/selections on Escape
@@ -3773,6 +4088,57 @@ export default function CREPDashboardPage({
     (window as any).__crep_selectAsset = (payload: any) => {
       if (!payload || payload.lat == null || payload.lng == null) return;
       lastEntityPickTimeRef.current = Date.now();
+      const payloadType = String(payload.type || payload.properties?.type || "").toLowerCase();
+      if (isEmbeddedEarthquakeSearch) {
+        if (payloadType === "earthquake") {
+          const p = payload.properties || {};
+          const magnitude = Number(payload.magnitude ?? p.magnitude ?? p.mag);
+          const depth = Number(payload.depth ?? p.depth ?? p.depthKm);
+          const timestamp = payload.timestamp || p.timestamp || p.time || p.updated || "";
+          setSelectedOther(null);
+          setSelectedInfraAsset(null);
+          setSelectedEvent({
+            id: String(payload.id ?? p.id ?? `earthquake-${payload.lat}-${payload.lng}-${timestamp}`),
+            type: "earthquake",
+            title: String(payload.name || p.title || p.name || `M${Number.isFinite(magnitude) ? magnitude.toFixed(1) : ""} Earthquake`).trim(),
+            description: p.description || p.locationName || p.place || "",
+            severity: p.severity || (Number.isFinite(magnitude) && magnitude >= 5 ? "high" : "moderate"),
+            lat: Number(payload.lat),
+            lng: Number(payload.lng),
+            timestamp,
+            link: payload.link || payload.sourceUrl || p.url || p.sourceUrl,
+            source: payload.source || p.source || "USGS",
+            sourceUrl: payload.sourceUrl || payload.link || p.url || p.sourceUrl,
+            magnitude: Number.isFinite(magnitude) ? magnitude : undefined,
+            locationName: p.locationName || p.place || payload.name,
+            depth: Number.isFinite(depth) ? depth : undefined,
+          });
+          return;
+        }
+
+        const normalizedPayloadType = payloadType.replace(/[\s_-]/g, "");
+        const isAllowedInfraPayload = [
+          "powerplant",
+          "powerplants",
+          "powerplantg",
+          "powerplantsg",
+          "txline",
+          "txlines",
+          "txlinesglobal",
+          "transmission",
+          "transmissionline",
+          "substation",
+          "datacenter",
+          "celltower",
+          "facility",
+          "infrastructure",
+        ].includes(normalizedPayloadType);
+        if (!embeddedAllowsInfrastructure || !isAllowedInfraPayload) {
+          setSelectedOther(null);
+          setSelectedInfraAsset(null);
+          return;
+        }
+      }
       // Apr 23, 2026 — Morgan: "none of these green dots in dc are
       // selectable i dont know what they are and i see no nature data".
       // Baked iNat layers (crep-{region}-inat) were routing through
@@ -3845,7 +4211,7 @@ export default function CREPDashboardPage({
       try { delete (window as any).__crep_selectAsset; } catch { /* noop */ }
       try { delete (window as any).__crep_selectFungal; } catch { /* noop */ }
     };
-  }, [layers]);
+  }, [embeddedAllowsInfrastructure, isEmbeddedEarthquakeSearch, layers]);
 
   const handleApplyMapPreferences = useCallback((prefs: CrepMapPreferences) => {
     if (mapRef) {
@@ -4376,17 +4742,21 @@ export default function CREPDashboardPage({
   // Clear all selections when clicking on empty map area
   const handleMapClick = useCallback(() => {
     // Only clear if something is selected
-    if (selectedEvent || selectedFungal || selectedInfraAsset || selectedOther) {
+    if (selectedEvent || selectedFungal || selectedInfraAsset || selectedOther || selectedAircraft || selectedVessel || selectedSatellite || selectedPlant) {
       setSelectedEvent(null);
       setSelectedFungal(null);
       setSelectedInfraAsset(null);
       setSelectedOther(null);
+      setSelectedAircraft(null);
+      setSelectedVessel(null);
+      setSelectedSatellite(null);
+      setSelectedPlant(null);
       // Clear OpenGridWorks-style highlight glow
       if (mapRef) {
         clearHighlight(mapRef);
       }
     }
-  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther, mapRef]);
+  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther, selectedAircraft, selectedVessel, selectedSatellite, selectedPlant, mapRef]);
 
   // MYCA message handler
   // (MYCA chat is now handled by real MYCAProvider + CREPMycaPanel)
@@ -4494,6 +4864,263 @@ export default function CREPDashboardPage({
 
   // For backward compatibility - use visibleEvents for rendering
   const filteredEvents = visibleEvents;
+  const filteredEventsRef = useRef<GlobalEvent[]>([]);
+  const selectEventRef = useRef(handleSelectEvent);
+
+  useEffect(() => {
+    filteredEventsRef.current = filteredEvents;
+  }, [filteredEvents]);
+
+  useEffect(() => {
+    selectEventRef.current = handleSelectEvent;
+  }, [handleSelectEvent]);
+
+  useEffect(() => {
+    if (!isEmbeddedEarthquakeSearch || focusLocation?.lat == null || focusLocation?.lng == null) return;
+    const nearest = filteredEvents
+      .filter((event) => (event.type || "").toLowerCase() === "earthquake")
+      .filter((event) => Number.isFinite(event.lat) && Number.isFinite(event.lng))
+      .map((event) => ({
+        event,
+        distance: Math.hypot(event.lat - focusLocation.lat!, event.lng - focusLocation.lng!),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+
+    if (nearest && nearest.distance < 1.5 && selectedEvent?.id !== nearest.event.id) {
+      setSelectedEvent(nearest.event);
+      setNewEventIds((prev) => (prev.has(nearest.event.id) ? new Set([...prev].filter((id) => id !== nearest.event.id)) : prev));
+    }
+  }, [
+    filteredEvents,
+    focusLocation?.lat,
+    focusLocation?.lng,
+    isEmbeddedEarthquakeSearch,
+    selectedEvent?.id,
+  ]);
+
+  useEffect(() => {
+    if (!mapRef || !isEmbeddedEarthquakeSearch) return;
+
+    const map = mapRef;
+    const sourceId = "crep-search-earthquake-events";
+    const glowLayerId = "crep-search-earthquake-events-glow";
+    const dotLayerId = "crep-search-earthquake-events-dot";
+    const hotspotLayerId = "crep-search-earthquake-events-hotspot";
+    for (const id of [hotspotLayerId, dotLayerId, glowLayerId]) {
+      try {
+        if (map.getLayer?.(id)) map.removeLayer(id);
+      } catch {}
+    }
+    try {
+      if (map.getSource?.(sourceId)) map.removeSource(sourceId);
+    } catch {}
+    return;
+    const toFeatureCollection = () => ({
+      type: "FeatureCollection" as const,
+      features: filteredEventsRef.current
+        .filter((event) => (event.type || "").toLowerCase() === "earthquake")
+        .filter((event) => Number.isFinite(event.lat) && Number.isFinite(event.lng))
+        .map((event) => ({
+          type: "Feature" as const,
+          id: event.id,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [event.lng, event.lat],
+          },
+          properties: {
+            id: event.id,
+            title: event.title,
+            magnitude: event.magnitude ?? 0,
+            depth: event.depth ?? null,
+            source: event.source || "USGS",
+            timestamp: event.timestamp || "",
+          },
+        })),
+    });
+
+    const ensureLayers = () => {
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, { type: "geojson", data: toFeatureCollection() });
+      }
+
+      if (!map.getLayer(glowLayerId)) {
+        map.addLayer({
+          id: glowLayerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 3, 5, 6, 9, 12, 13, 20],
+            "circle-color": "#f59e0b",
+            "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1, 0.18, 8, 0.28],
+            "circle-blur": 0.75,
+          },
+        });
+      }
+
+      if (!map.getLayer(dotLayerId)) {
+        map.addLayer({
+          id: dotLayerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              1,
+              ["interpolate", ["linear"], ["get", "magnitude"], 0, 1.6, 5, 3.2, 8, 4.8],
+              6,
+              ["interpolate", ["linear"], ["get", "magnitude"], 0, 2.4, 5, 4.8, 8, 7.2],
+              10,
+              ["interpolate", ["linear"], ["get", "magnitude"], 0, 3.2, 5, 6.4, 8, 10],
+            ],
+            "circle-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "magnitude"],
+              0,
+              "#f59e0b",
+              3,
+              "#fb923c",
+              5,
+              "#ef4444",
+              7,
+              "#dc2626",
+            ],
+            "circle-opacity": 0.95,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 1, 0.7, 8, 1.4],
+            "circle-stroke-opacity": 0.8,
+          },
+        });
+      }
+
+      if (!map.getLayer(hotspotLayerId)) {
+        map.addLayer({
+          id: hotspotLayerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 12, 8, 18],
+            "circle-color": "#ffffff",
+            "circle-opacity": 0,
+          },
+        });
+      }
+    };
+
+    const updateData = () => {
+      ensureLayers();
+      const source = map.getSource(sourceId) as { setData?: (data: unknown) => void } | undefined;
+      source?.setData?.(toFeatureCollection());
+    };
+
+    const selectFromFeature = (feature: any, shouldFlyTo = false) => {
+      const eventId = feature?.properties?.id;
+      const event = filteredEventsRef.current.find((candidate) => candidate.id === eventId);
+      if (!event) return;
+      selectEventRef.current(event, shouldFlyTo);
+    };
+
+    const handleClick = (e: any) => {
+      e.preventDefault?.();
+      const feature = e.features?.[0];
+      selectFromFeature(feature, true);
+    };
+
+    const handleMapClick = (e: any) => {
+      const point = e.point;
+      if (!point || !map.queryRenderedFeatures) return;
+      const pad = 22;
+      const features = map.queryRenderedFeatures(
+        [
+          [point.x - pad, point.y - pad],
+          [point.x + pad, point.y + pad],
+        ],
+        { layers: [hotspotLayerId, dotLayerId, glowLayerId].filter((id) => map.getLayer(id)) },
+      );
+      if (!features?.length) {
+        setSelectedEvent(null);
+        setSelectedFungal(null);
+        setSelectedInfraAsset(null);
+        setSelectedOther(null);
+        setSelectedAircraft(null);
+        setSelectedVessel(null);
+        setSelectedSatellite(null);
+        setSelectedPlant(null);
+        clearHighlight(map);
+        return;
+      }
+      e.preventDefault?.();
+      e.originalEvent?.stopPropagation?.();
+      lastEntityPickTimeRef.current = Date.now();
+      selectFromFeature(features[0], true);
+    };
+
+    const handleDblClick = (e: any) => {
+      e.preventDefault?.();
+      const feature = e.features?.[0];
+      selectFromFeature(feature, true);
+    };
+
+    const handleMouseEnter = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+    const handleMouseLeave = () => {
+      map.getCanvas().style.cursor = "";
+    };
+
+    const bindHandlers = () => {
+      updateData();
+      map.on("click", handleMapClick);
+      map.on("click", hotspotLayerId, handleClick);
+      map.on("dblclick", hotspotLayerId, handleDblClick);
+      map.on("mouseenter", hotspotLayerId, handleMouseEnter);
+      map.on("mouseleave", hotspotLayerId, handleMouseLeave);
+    };
+
+    if (map.isStyleLoaded?.()) {
+      bindHandlers();
+    } else {
+      map.once("load", bindHandlers);
+    }
+
+    return () => {
+      try {
+        map.off("click", handleMapClick);
+        map.off("click", hotspotLayerId, handleClick);
+        map.off("dblclick", hotspotLayerId, handleDblClick);
+        map.off("mouseenter", hotspotLayerId, handleMouseEnter);
+        map.off("mouseleave", hotspotLayerId, handleMouseLeave);
+        map.off("load", bindHandlers);
+      } catch {}
+    };
+  }, [mapRef, isEmbeddedEarthquakeSearch]);
+
+  useEffect(() => {
+    if (!mapRef || !isEmbeddedEarthquakeSearch) return;
+    const source = mapRef.getSource?.("crep-search-earthquake-events") as { setData?: (data: unknown) => void } | undefined;
+    if (!source?.setData) return;
+    source.setData({
+      type: "FeatureCollection",
+      features: filteredEvents
+        .filter((event) => (event.type || "").toLowerCase() === "earthquake")
+        .filter((event) => Number.isFinite(event.lat) && Number.isFinite(event.lng))
+        .map((event) => ({
+          type: "Feature",
+          id: event.id,
+          geometry: { type: "Point", coordinates: [event.lng, event.lat] },
+          properties: {
+            id: event.id,
+            title: event.title,
+            magnitude: event.magnitude ?? 0,
+            depth: event.depth ?? null,
+            source: event.source || "USGS",
+            timestamp: event.timestamp || "",
+          },
+        })),
+    });
+  }, [mapRef, filteredEvents, isEmbeddedEarthquakeSearch]);
 
   // Stats
   const criticalCount = globalEvents.filter(e => e.severity === "critical" || e.severity === "extreme").length;
@@ -4577,6 +5204,7 @@ export default function CREPDashboardPage({
   // Uses intelligent sampling to prevent map clutter while maintaining coverage
   // ===========================================================================
   const filteredAircraft = useMemo(() => {
+    if (isEmbeddedEarthquakeSearch) return [];
     let filtered = aircraft.filter(ac => {
       const isOnGround = ac.onGround === true;
       // When showAirborne OFF: exclude planes that are airborne (!isOnGround)
@@ -4624,7 +5252,7 @@ export default function CREPDashboardPage({
       filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
     }
     return applyLODToMovers(filtered, "aircraft", mapZoom);
-  }, [aircraft, aircraftFilter, mapZoom, mapBounds]);
+  }, [aircraft, aircraftFilter, mapZoom, mapBounds, isEmbeddedEarthquakeSearch]);
 
   // ===========================================================================
   // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
@@ -4632,6 +5260,7 @@ export default function CREPDashboardPage({
   // shipType 0 = unknown (position-only AIS) → treat as other/pleasure
   // ===========================================================================
   const filteredVessels = useMemo(() => {
+    if (isEmbeddedEarthquakeSearch) return [];
     let filtered = vessels.filter(v => {
       const shipType = typeof v.shipType === "number" ? v.shipType : (v as any).properties?.shipTypeNum ?? 0;
       const shipTypeStr = (
@@ -4673,13 +5302,14 @@ export default function CREPDashboardPage({
     filtered = applyLODToMovers(filtered, "vessels", mapZoom);
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vessels, vesselFilter, mapZoom]);
+  }, [vessels, vesselFilter, mapZoom, isEmbeddedEarthquakeSearch]);
 
   // ===========================================================================
   // FILTER SATELLITES: show only if sat matches at least one enabled category
   // (Fixes discrepancies when combining Stations / Comms / Starlink toggles)
   // ===========================================================================
   const filteredSatellites = useMemo(() => {
+    if (isEmbeddedEarthquakeSearch) return [];
     let filtered = satellites.filter(sat => {
       const objectType = (sat.objectType || sat.properties?.objectType || "").toLowerCase();
       const name = (sat.name || "").toLowerCase();
@@ -4715,7 +5345,7 @@ export default function CREPDashboardPage({
     // Recency-first LOD (Fix D): satellites are orbit-wide, so bbox culling
     // isn't meaningful — always use the tier's budget.
     return applyLODToMovers(filtered, "satellites", mapZoom);
-  }, [satellites, satelliteFilter, mapZoom]);
+  }, [satellites, satelliteFilter, mapZoom, isEmbeddedEarthquakeSearch]);
 
   // Refs used by the rAF dead-reckoning loop to tag entities by kind.
   // (Declared here so both the sync-below useEffect AND the animation
@@ -5040,6 +5670,15 @@ export default function CREPDashboardPage({
   useEffect(() => {
     const map = mapNativeRef.current
     if (!map || typeof map.getSource !== "function") return
+    if (isEmbeddedEarthquakeSearch) {
+      const emptyFC = { type: "FeatureCollection", features: [] }
+      try {
+        ;(map.getSource("crep-live-aircraft") as any)?.setData?.(emptyFC)
+        ;(map.getSource("crep-live-vessels") as any)?.setData?.(emptyFC)
+        ;(map.getSource("crep-live-satellites") as any)?.setData?.(emptyFC)
+      } catch {}
+      return
+    }
     const build = <T extends { id?: string }>(items: T[], pick: (t: any) => { lng: number; lat: number; heading?: number; is_helo?: boolean }) => {
       const feats: any[] = []
       for (const item of items) {
@@ -5078,7 +5717,7 @@ export default function CREPDashboardPage({
     } catch {
       // source missing / map torn down — rAF backstop retries next frame
     }
-  }, [filteredAircraft, filteredVessels, mapZoom, mapBounds])
+  }, [filteredAircraft, filteredVessels, mapZoom, mapBounds, isEmbeddedEarthquakeSearch])
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 — Morgan: "i dont see any planes or
@@ -5367,7 +6006,7 @@ export default function CREPDashboardPage({
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     const map = mapNativeRef.current;
-    if (!map) return;
+    if (!map || isEmbeddedEarthquakeSearch) return;
     const timer = setTimeout(() => {
       const m = mapNativeRef.current;
       if (!m) return;
@@ -5595,7 +6234,7 @@ export default function CREPDashboardPage({
       fetchAndPaint()
     }, 30_000)
     return () => clearInterval(poll);
-  }, [layers]);
+  }, [layers, isEmbeddedEarthquakeSearch]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PER-LAYER VISIBILITY SYNC (Apr 19, 2026)
@@ -8594,7 +9233,9 @@ export default function CREPDashboardPage({
 
               // Load permanent infra IMMEDIATELY — no delay.
               // Style is already loaded (we're in onLoad callback which fires after style.load).
-              loadPermanentInfra();
+              if (!isEmbeddedEarthquakeSearch) {
+                loadPermanentInfra();
+              }
               
               // Initialize zoom and bounds
               setMapZoom(map.getZoom());
@@ -8673,7 +9314,7 @@ export default function CREPDashboardPage({
             />
 
             {/* ═══ ON-MAP LAYERS POPUP — OpenGridWorks-style basemap + overlay selector ═══ */}
-            <div className={cn(
+            {!embedded && <div className={cn(
               "absolute bottom-16 z-20 transition-all duration-300",
               leftPanelOpen ? "left-[310px]" : "left-4"
             )}>
@@ -8711,7 +9352,7 @@ export default function CREPDashboardPage({
                   }
                 }}
               />
-            </div>
+            </div>}
 
             {/* Apr 19, 2026 (Morgan: "popup that says new events on map
                 needs to never show up again its useless"). Toast deleted.
@@ -8741,9 +9382,9 @@ export default function CREPDashboardPage({
                 only show when one is selected like how seacable or
                 powerlines show when selected"). Passing selectedAircraftId
                 / selectedVesselId limits rendering to that single asset. */}
-            <TrajectoryLines
-              aircraft={filteredAircraft}
-              vessels={filteredVessels}
+          <TrajectoryLines
+              aircraft={isEmbeddedEarthquakeSearch ? [] : filteredAircraft}
+              vessels={isEmbeddedEarthquakeSearch ? [] : filteredVessels}
               selectedAircraftId={selectedAircraft?.id ?? null}
               selectedVesselId={selectedVessel?.id ?? null}
             />
@@ -8896,8 +9537,23 @@ export default function CREPDashboardPage({
               opacity={0.5}
             />
 
+            {isEmbeddedEarthquakeSearch && (
+              <EarthquakeEventPopupOverlay
+                map={mapRef}
+                event={selectedEvent}
+                onClose={() => handleSelectEvent(null)}
+                onFlyTo={(event) => {
+                  mapRef?.flyTo({
+                    center: [event.lng, event.lat],
+                    zoom: Math.max(mapRef?.getZoom?.() || 8, 9),
+                    duration: 800,
+                  });
+                }}
+              />
+            )}
+
             {/* Event Markers - Only render if corresponding layer is enabled */}
-            {filteredEvents.map(event => {
+            {!isEmbeddedEarthquakeSearch && filteredEvents.map(event => {
               // Check if the specific event type layer is enabled
               // COMPREHENSIVE MAP: All event types must be mapped to correct layers
               const layerMap: Record<string, string> = {
@@ -8938,6 +9594,7 @@ export default function CREPDashboardPage({
                   isSelected={selectedEvent?.id === event.id}
                   isNew={newEventIds.has(event.id)}
                   onClick={() => handleSelectEvent(selectedEvent?.id === event.id ? null : event)}
+                  onDoubleClick={() => handleSelectEvent(event, true)}
                   onClose={() => handleSelectEvent(null)}
                   onFlyTo={(lat, lng, zoom) => {
                     mapRef?.flyTo({
@@ -8951,7 +9608,7 @@ export default function CREPDashboardPage({
             })}
 
             {/* Device Markers - deduplicated; hide devices with no valid position (0,0 = ocean) */}
-            {layers.find(l => l.id === "mycobrain")?.enabled && (() => {
+            {!isEmbeddedEarthquakeSearch && layers.find(l => l.id === "mycobrain")?.enabled && (() => {
               const seen = new Set<string>();
               return devices.filter(device => {
                 if (seen.has(device.id)) return false;
@@ -9033,7 +9690,7 @@ export default function CREPDashboardPage({
                   </button>
                 </MarkerContent>
                 <MarkerPopup
-                  className="min-w-[240px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden border border-cyan-500/40"
+                  className="min-w-[280px] max-w-[360px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden border border-cyan-500/40"
                   closeButton
                   closeOnClick={false}
                   anchor="bottom"
@@ -9041,10 +9698,53 @@ export default function CREPDashboardPage({
                   onClose={() => setSelectedOther(null)}
                 >
                   <div className="px-3 py-2 border-b border-cyan-500/40 bg-cyan-900/40">
-                    <h3 className="text-sm font-bold text-white capitalize">{selectedOther.type}</h3>
-                    <p className="text-[10px] text-gray-400 font-mono">{selectedOther.id}</p>
+                    <h3 className="text-sm font-bold text-white">
+                      {entityString(selectedOther, ["title", "name"], selectedOther.type)}
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-mono">
+                      {entityString(selectedOther, ["locationName", "eventType"], selectedOther.id)}
+                    </p>
                   </div>
                   <div className="p-2 space-y-1.5">
+                    {(selectedOther.type === "earthquake" || entityString(selectedOther, ["eventType"]).toLowerCase().includes("earthquake")) && (
+                      <>
+                        <img
+                          src={`/api/search/map-preview?lat=${encodeURIComponent(String(selectedOther.geometry.coordinates[1]))}&lng=${encodeURIComponent(String(selectedOther.geometry.coordinates[0]))}&mag=${encodeURIComponent(String(entityNumber(selectedOther, ["magnitude"]) ?? 0))}&depth=${encodeURIComponent(String(entityNumber(selectedOther, ["depth"]) ?? ""))}&zoom=8&title=${encodeURIComponent(entityString(selectedOther, ["title"], "Earthquake"))}`}
+                          alt={entityString(selectedOther, ["title"], "Earthquake location map")}
+                          className="h-24 w-full rounded border border-cyan-500/30 object-cover"
+                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                            <div className="text-[8px] text-gray-500 uppercase mb-0.5">Magnitude</div>
+                            <div className="text-[11px] text-amber-300 font-semibold">
+                              {entityNumber(selectedOther, ["magnitude"]) !== undefined ? `M${entityNumber(selectedOther, ["magnitude"])!.toFixed(1)}` : "N/A"}
+                            </div>
+                          </div>
+                          <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                            <div className="text-[8px] text-gray-500 uppercase mb-0.5">Depth</div>
+                            <div className="text-[11px] text-cyan-300 font-semibold">
+                              {entityNumber(selectedOther, ["depth"]) !== undefined ? `${entityNumber(selectedOther, ["depth"])!.toFixed(1)} km` : "N/A"}
+                            </div>
+                          </div>
+                          <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                            <div className="text-[8px] text-gray-500 uppercase mb-0.5">Latitude</div>
+                            <div className="text-[10px] text-cyan-400 font-mono">{selectedOther.geometry.coordinates[1].toFixed(4)}</div>
+                          </div>
+                          <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                            <div className="text-[8px] text-gray-500 uppercase mb-0.5">Longitude</div>
+                            <div className="text-[10px] text-cyan-400 font-mono">{selectedOther.geometry.coordinates[0].toFixed(4)}</div>
+                          </div>
+                        </div>
+                        {entityString(selectedOther, ["description"]) && (
+                          <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                            <div className="text-[8px] text-gray-500 uppercase mb-0.5">Details</div>
+                            <div className="text-[10px] text-gray-200 leading-snug line-clamp-3">
+                              {entityString(selectedOther, ["description"])}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                     <div className="grid grid-cols-2 gap-1.5">
                       <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
                         <div className="text-[8px] text-gray-500 uppercase mb-0.5">Source</div>
@@ -9057,10 +9757,24 @@ export default function CREPDashboardPage({
                         </div>
                       </div>
                     </div>
+                    {entityLink(selectedOther) && (
+                      <a
+                        href={entityLink(selectedOther)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-[10px] font-semibold text-cyan-200 hover:bg-cyan-500/20"
+                      >
+                        Source record
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                     {Object.keys(selectedOther.properties || {}).length > 0 && (
                       <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50 space-y-1">
                         <div className="text-[8px] text-gray-500 uppercase mb-1">Properties</div>
-                        {Object.entries(selectedOther.properties!).slice(0, 6).map(([k, v]) => (
+                        {Object.entries(selectedOther.properties!)
+                          .filter(([, v]) => v !== undefined && v !== null && v !== "")
+                          .slice(0, 8)
+                          .map(([k, v]) => (
                           <div key={k} className="flex justify-between gap-2 text-[10px]">
                             <span className="text-gray-500 truncate">{k}</span>
                             <span className="text-white truncate">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
@@ -9074,7 +9788,7 @@ export default function CREPDashboardPage({
             )}
 
             {/* Ground Station Location Marker */}
-            {showGroundStation && gsState.activeLocation && (
+            {!isEmbeddedEarthquakeSearch && showGroundStation && gsState.activeLocation && (
               <MapMarker
                 latitude={gsState.activeLocation.lat}
                 longitude={gsState.activeLocation.lon ?? 0}
@@ -9088,7 +9802,7 @@ export default function CREPDashboardPage({
             )}
 
             {/* Ground Station Tracked Satellite Positions */}
-            {showGroundStation && Object.values(gsState.positions).map((pos) => {
+            {!isEmbeddedEarthquakeSearch && showGroundStation && Object.values(gsState.positions).map((pos) => {
               if (!pos.lat || !pos.lon) return null;
               const sat = gsState.satellites.find(s => s.norad_id === pos.norad_id);
               const isTracking = gsState.trackingState?.norad_id === pos.norad_id;
@@ -9114,7 +9828,7 @@ export default function CREPDashboardPage({
             })}
 
             {/* Infrastructure Markers from Overpass API */}
-            {infraFeatures.map((feat) => (
+            {!isEmbeddedEarthquakeSearch && infraFeatures.map((feat) => (
               <MapMarker key={feat.id} latitude={feat.lat} longitude={feat.lng}>
                 <MarkerContent>
                   <button
@@ -9154,22 +9868,22 @@ export default function CREPDashboardPage({
           <ProposalOverlays
             map={mapRef}
             enabled={{
-              ports:          layers.find(l => l.id === "ports")?.enabled ?? false,
-              radar:          layers.find(l => l.id === "radar")?.enabled ?? false,
-              radioStations:  layers.find(l => l.id === "radioStations")?.enabled ?? false,
-              powerPlantsG:   layers.find(l => l.id === "powerPlantsG")?.enabled ?? false,
-              factories:      layers.find(l => l.id === "factoriesG")?.enabled ?? false,
-              orbitalDebris:  layers.find(l => l.id === "orbitalDebris")?.enabled ?? false,
-              debrisCloud:    layers.find(l => l.id === "debrisCloud")?.enabled ?? false,
-              txLinesGlobal:  layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false,
-              cellTowersG:    layers.find(l => l.id === "cellTowersG")?.enabled ?? false,
+              ports:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
+              radar:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
+              radioStations:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? false),
+              powerPlantsG:   (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
+              factories:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
+              orbitalDebris:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
+              debrisCloud:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
+              txLinesGlobal:  (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
+              cellTowersG:    (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? false),
               bathymetry:     layers.find(l => l.id === "bathymetry")?.enabled ?? false,
               topography:     layers.find(l => l.id === "topography")?.enabled ?? false,
               satImagery:     layers.find(l => l.id === "satImagery")?.enabled ?? false,
-              railwayTracks:  layers.find(l => l.id === "railwayTracks")?.enabled ?? false,
-              railwayTrains:  layers.find(l => l.id === "railwayTrains")?.enabled ?? false,
-              droneNoFly:     layers.find(l => l.id === "droneNoFly")?.enabled ?? false,
-              cctv:           layers.find(l => l.id === "cctv")?.enabled ?? false,
+              railwayTracks:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? false),
+              railwayTrains:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
+              droneNoFly:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
+              cctv:           !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
             }}
             bbox={mapZoom > 5 ? (() => {
               try {
@@ -9178,6 +9892,7 @@ export default function CREPDashboardPage({
                 return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
               } catch { return undefined }
             })() : undefined}
+            searchContextMode={isEmbeddedEarthquakeSearch}
           />
 
           {/* Eagle Eye VideoWallWidget — universal player (hls.js / WebRTC
@@ -9185,16 +9900,16 @@ export default function CREPDashboardPage({
               Listens for crep:eagle:{camera,event}-click CustomEvents
               dispatched by EagleEyeOverlay, resolves the source via
               /api/eagle/stream/[sourceId], mounts the right player. */}
-          <VideoWallWidget />
+          {!isEmbeddedEarthquakeSearch && <VideoWallWidget />}
 
           {/* Eagle Eye TimelineScrubber — bottom-left bar for 24h
               ephemeral-event filtering. Polls /api/eagle/events + paints
               per-provider tick density; window selector 1/6/12/24 h;
               broadcasts crep:eagle:time-window so overlays pick up the
               window. Wrapped so it can be hidden on mobile viewports.  */}
-          <div data-panel="timeline">
+          {!isEmbeddedEarthquakeSearch && <div data-panel="timeline">
             <TimelineScrubber />
-          </div>
+          </div>}
 
           {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
               Cursor applied eagle.* MINDEX schema on VM 189 + deployed
@@ -9202,7 +9917,7 @@ export default function CREPDashboardPage({
               /api/eagle/events, /api/eagle/stream, + YouTube Live geo
               search connector. See components/crep/layers/eagle-eye-overlay.tsx.
               Phases 2-9 queued per docs/EAGLE_EYE_PLAN.md. */}
-          <EagleEyeOverlay
+          {!isEmbeddedEarthquakeSearch && <EagleEyeOverlay
             map={mapRef}
             enabled={{
               eagleEyeCameras:      layers.find(l => l.id === "eagleEyeCameras")?.enabled ?? false,
@@ -9224,7 +9939,7 @@ export default function CREPDashboardPage({
                 return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
               } catch { return undefined }
             })() : undefined}
-          />
+          />}
 
           {/* Realistic Cloud Layer — Three.js-bound 2D scaffold (Apr 20, 2026).
               Three stacked sources: NASA GIBS MODIS True Color cloud texture,
@@ -9291,25 +10006,25 @@ export default function CREPDashboardPage({
               Right-click the map → context menu → save / drop pin / copy
               lat-lng / "what's here" lookup. Persists to localStorage +
               best-effort to MINDEX so waypoints survive across devices. */}
-          <WaypointSystem map={mapRef} />
+          {!isEmbeddedEarthquakeSearch && <WaypointSystem map={mapRef} />}
           {/* Apr 22, 2026 — Morgan: "the right click whats here search
               does not work needs to be fixed". WaypointSystem dispatches
               crep:lookup-here when the menu item is clicked; this widget
               listens, calls /api/crep/reverse-geocode, and renders the
               address + nearby MINDEX infrastructure in a floating panel. */}
-          <LookupHereWidget />
+          {!isEmbeddedEarthquakeSearch && <LookupHereWidget />}
           {/* Apr 22, 2026 — MYCA waypoint→verify→auto-add live feed.
               Subscribes to SSE /api/myca/entity-feed and paints
               verified entities (Navy depots etc.) on the map within
               100ms of confirmation. Also shows a toast when an entity
               lands. */}
-          <MycaVerifiedEntityFeed map={mapRef} />
+          {!isEmbeddedEarthquakeSearch && <MycaVerifiedEntityFeed map={mapRef} />}
 
           {/* Project Oyster (MYCODAO + MYCOSOFT) — Tijuana Estuary
               pollution showcase (Apr 20, 2026). Federated overlay of
               IBWC river discharge + SDAPCD H₂S hotspot + beach closures
               + Navy training waters + oyster restoration sites. */}
-          <TijuanaEstuaryLayer
+          {!isEmbeddedEarthquakeSearch && <TijuanaEstuaryLayer
             map={mapRef}
             enabled={{
               tijuanaEstuary:         layers.find(l => l.id === "tijuanaEstuary")?.enabled ?? true,
@@ -9337,43 +10052,47 @@ export default function CREPDashboardPage({
               oysterCrossBorder:      layers.find(l => l.id === "oysterCrossBorder")?.enabled ?? true,
               oysterHeatmap:          layers.find(l => l.id === "oysterHeatmap")?.enabled   ?? true,
             }}
-          />
+          />}
           {/* Tijuana station detail widget — legacy crep:tijuana:station-click handler. */}
-          <TijuanaStationWidget />
+          {!isEmbeddedEarthquakeSearch && <TijuanaStationWidget />}
           {/* Apr 21, 2026 v2 — OysterSiteWidget mirrors MojaveSiteWidget.
               Listens for crep:oyster:site-click from the v2 anchor + 11
               new sub-layer click handlers. Shows project thesis metadata
               (owner: Morgan MYCODAO), UCSD PFM / Scripps / NASA EMIT
               deep-links, and category-color-coded glass panels. */}
-          <OysterSiteWidget />
+          {!isEmbeddedEarthquakeSearch && <OysterSiteWidget />}
 
           {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) —
               Apr 21, 2026. NPS MOJA boundary + Goffs anchor marker +
               wilderness POIs + ASOS/RAWS climate + iNat observations.
               Source: /api/crep/mojave (NPS Land Resources ArcGIS +
               api.weather.gov + iNaturalist, 1 h edge cache). */}
-          <MojavePreserveLayer
-            map={mapRef}
-            enabled={{
-              mojavePreserve:   layers.find(l => l.id === "mojavePreserve")?.enabled   ?? true,
-              mojaveGoffs:      layers.find(l => l.id === "mojaveGoffs")?.enabled      ?? true,
-              mojaveWilderness: layers.find(l => l.id === "mojaveWilderness")?.enabled ?? true,
-              mojaveClimate:    layers.find(l => l.id === "mojaveClimate")?.enabled    ?? true,
-              mojaveINat:       layers.find(l => l.id === "mojaveINat")?.enabled       ?? false,
-              // Apr 21, 2026 v2 expansion toggles:
-              mojaveCameras:    layers.find(l => l.id === "mojaveCameras")?.enabled    ?? true,
-              mojaveBroadcast:  layers.find(l => l.id === "mojaveBroadcast")?.enabled  ?? false,
-              mojaveCell:       layers.find(l => l.id === "mojaveCell")?.enabled       ?? false,
-              mojavePower:      layers.find(l => l.id === "mojavePower")?.enabled      ?? true,
-              mojaveRails:      layers.find(l => l.id === "mojaveRails")?.enabled      ?? true,
-              mojaveCaves:      layers.find(l => l.id === "mojaveCaves")?.enabled      ?? true,
-              mojaveGovernment: layers.find(l => l.id === "mojaveGovernment")?.enabled ?? true,
-              mojaveTourism:    layers.find(l => l.id === "mojaveTourism")?.enabled    ?? true,
-              mojaveSensors:    layers.find(l => l.id === "mojaveSensors")?.enabled    ?? true,
-              mojaveHeatmap:    layers.find(l => l.id === "mojaveHeatmap")?.enabled    ?? true,
-            }}
-          />
-          <MojaveSiteWidget />
+          {!isEmbeddedEarthquakeSearch && (
+            <>
+              <MojavePreserveLayer
+                map={mapRef}
+                enabled={{
+                  mojavePreserve:   layers.find(l => l.id === "mojavePreserve")?.enabled   ?? true,
+                  mojaveGoffs:      layers.find(l => l.id === "mojaveGoffs")?.enabled      ?? true,
+                  mojaveWilderness: layers.find(l => l.id === "mojaveWilderness")?.enabled ?? true,
+                  mojaveClimate:    layers.find(l => l.id === "mojaveClimate")?.enabled    ?? true,
+                  mojaveINat:       layers.find(l => l.id === "mojaveINat")?.enabled       ?? false,
+                  // Apr 21, 2026 v2 expansion toggles:
+                  mojaveCameras:    layers.find(l => l.id === "mojaveCameras")?.enabled    ?? true,
+                  mojaveBroadcast:  layers.find(l => l.id === "mojaveBroadcast")?.enabled  ?? false,
+                  mojaveCell:       layers.find(l => l.id === "mojaveCell")?.enabled       ?? false,
+                  mojavePower:      layers.find(l => l.id === "mojavePower")?.enabled      ?? true,
+                  mojaveRails:      layers.find(l => l.id === "mojaveRails")?.enabled      ?? true,
+                  mojaveCaves:      layers.find(l => l.id === "mojaveCaves")?.enabled      ?? true,
+                  mojaveGovernment: layers.find(l => l.id === "mojaveGovernment")?.enabled ?? true,
+                  mojaveTourism:    layers.find(l => l.id === "mojaveTourism")?.enabled    ?? true,
+                  mojaveSensors:    layers.find(l => l.id === "mojaveSensors")?.enabled    ?? true,
+                  mojaveHeatmap:    layers.find(l => l.id === "mojaveHeatmap")?.enabled    ?? true,
+                }}
+              />
+              <MojaveSiteWidget />
+            </>
+          )}
 
           {/* Apr 22, 2026 — SD + TJ coverage expansion layers. Morgan:
               "massive amount of missing data from TIJUANA including
@@ -9382,18 +10101,20 @@ export default function CREPDashboardPage({
               with san diego missing data". Pulls OSM Overpass into 7
               category-specific geojsons refreshed weekly by
               .github/workflows/sdtj-coverage-weekly.yml. */}
-          <SdtjCoverageLayer
-            map={mapRef}
-            enabled={{
-              sdtjHospitals:    layers.find(l => l.id === "sdtjHospitals")?.enabled    ?? true,
-              sdtjPolice:       layers.find(l => l.id === "sdtjPolice")?.enabled       ?? true,
-              sdtjSewage:       layers.find(l => l.id === "sdtjSewage")?.enabled       ?? true,
-              sdtjCellTowers:   layers.find(l => l.id === "sdtjCellTowers")?.enabled   ?? true,
-              sdtjAmFmAntennas: layers.find(l => l.id === "sdtjAmFmAntennas")?.enabled ?? true,
-              sdtjMilitary:     layers.find(l => l.id === "sdtjMilitary")?.enabled     ?? true,
-              sdtjDataCenters:  layers.find(l => l.id === "sdtjDataCenters")?.enabled  ?? true,
-            }}
-          />
+          {!isEmbeddedEarthquakeSearch && (
+            <SdtjCoverageLayer
+              map={mapRef}
+              enabled={{
+                sdtjHospitals:    layers.find(l => l.id === "sdtjHospitals")?.enabled    ?? true,
+                sdtjPolice:       layers.find(l => l.id === "sdtjPolice")?.enabled       ?? true,
+                sdtjSewage:       layers.find(l => l.id === "sdtjSewage")?.enabled       ?? true,
+                sdtjCellTowers:   layers.find(l => l.id === "sdtjCellTowers")?.enabled   ?? true,
+                sdtjAmFmAntennas: layers.find(l => l.id === "sdtjAmFmAntennas")?.enabled ?? true,
+                sdtjMilitary:     layers.find(l => l.id === "sdtjMilitary")?.enabled     ?? true,
+                sdtjDataCenters:  layers.find(l => l.id === "sdtjDataCenters")?.enabled  ?? true,
+              }}
+            />
+          )}
           {/* Apr 23, 2026 — Project NYC + Project DC layers (anchor +
               perimeter + 11 regional OSM layers per region). Morgan:
               "massive amount of missing data from ... whitehouse and dc
@@ -9402,24 +10123,29 @@ export default function CREPDashboardPage({
           {/* Live Transit — Apr 23 2026 (Morgan: "still no trains rendering").
               Aggregates MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/Amtrak/
               SEPTA/Metrolink/DART into a single MapLibre circle layer. */}
-          <LiveTransitLayer
-            map={mapRef}
-            visible={layers.find(l => l.id === "liveTransit")?.enabled ?? true}
-            bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
-          />
+          {!isEmbeddedEarthquakeSearch && (
+            <LiveTransitLayer
+              map={mapRef}
+              visible={layers.find(l => l.id === "liveTransit")?.enabled ?? true}
+              bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
+            />
+          )}
 
           {/* Live AQI — Apr 23 2026 (Morgan: "all aqi live feeds not working
               fix them"). AIRNOW_API_KEY synced to sandbox; this paints every
               monitor in viewport color-coded by EPA AQI category. */}
-          <LiveAqiLayer
-            map={mapRef}
-            visible={layers.find(l => l.id === "liveAqi")?.enabled ?? true}
-            bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
-          />
+          {!isEmbeddedEarthquakeSearch && (
+            <LiveAqiLayer
+              map={mapRef}
+              visible={layers.find(l => l.id === "liveAqi")?.enabled ?? true}
+              bbox={mapBounds ? [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north] : null}
+            />
+          )}
 
-          <ProjectNycDcLayer
-            map={mapRef}
-            enabled={{
+          {!isEmbeddedEarthquakeSearch && (
+            <ProjectNycDcLayer
+              map={mapRef}
+              enabled={{
               projectNyc:        layers.find(l => l.id === "projectNyc")?.enabled        ?? true,
               nycHospitals:      layers.find(l => l.id === "nycHospitals")?.enabled      ?? true,
               nycPolice:         layers.find(l => l.id === "nycPolice")?.enabled         ?? true,
@@ -9456,8 +10182,9 @@ export default function CREPDashboardPage({
               vegasTransitRail:  layers.find(l => l.id === "vegasTransitRail")?.enabled  ?? true,
               vegasAirports:     layers.find(l => l.id === "vegasAirports")?.enabled     ?? true,
               vegasGovtEmbassy:  layers.find(l => l.id === "vegasGovtEmbassy")?.enabled  ?? true,
-            }}
-          />
+              }}
+            />
+          )}
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
@@ -9482,33 +10209,33 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={{
               earthquakes:     layers.find(l => l.id === "earthquakes")?.enabled ?? false,
-              volcanoes:       layers.find(l => l.id === "volcanoes")?.enabled ?? false,
-              wildfires:       layers.find(l => l.id === "wildfires")?.enabled ?? false,
-              storms:          layers.find(l => l.id === "storms")?.enabled ?? false,
-              lightning:       layers.find(l => l.id === "lightning")?.enabled ?? false,
-              tornadoes:       layers.find(l => l.id === "tornadoes")?.enabled ?? false,
-              hospitals:       layers.find(l => l.id === "hospitals")?.enabled ?? false,
-              fireStations:    layers.find(l => l.id === "fireStations")?.enabled ?? false,
-              universities:    layers.find(l => l.id === "universities")?.enabled ?? false,
-              oilGas:          layers.find(l => l.id === "oilGas")?.enabled ?? false,
-              methaneSources:  layers.find(l => l.id === "methaneSources")?.enabled ?? false,
-              metalOutput:     layers.find(l => l.id === "metalOutput")?.enabled ?? false,
-              waterPollution:  layers.find(l => l.id === "waterPollution")?.enabled ?? false,
-              population:      layers.find(l => l.id === "population")?.enabled ?? false,
-              humanMovement:   layers.find(l => l.id === "humanMovement")?.enabled ?? false,
-              events_human:    layers.find(l => l.id === "events_human")?.enabled ?? false,
-              signalHeatmap:   layers.find(l => l.id === "signalHeatmap")?.enabled ?? false,
-              militaryAir:     layers.find(l => l.id === "militaryAir")?.enabled ?? false,
-              militaryNavy:    layers.find(l => l.id === "militaryNavy")?.enabled ?? false,
-              tanks:           layers.find(l => l.id === "tanks")?.enabled ?? false,
-              militaryDrones:  layers.find(l => l.id === "militaryDrones")?.enabled ?? false,
-              aviationRoutes:  layers.find(l => l.id === "aviationRoutes")?.enabled ?? false,
-              shipRoutes:      layers.find(l => l.id === "shipRoutes")?.enabled ?? false,
-              fishing:         layers.find(l => l.id === "fishing")?.enabled ?? false,
-              containers:      layers.find(l => l.id === "containers")?.enabled ?? false,
-              vehicles:        layers.find(l => l.id === "vehicles")?.enabled ?? false,
-              drones:          layers.find(l => l.id === "drones")?.enabled ?? false,
-              biodiversity:    layers.find(l => l.id === "biodiversity")?.enabled ?? false,
+              volcanoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "volcanoes")?.enabled ?? false),
+              wildfires:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "wildfires")?.enabled ?? false),
+              storms:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "storms")?.enabled ?? false),
+              lightning:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "lightning")?.enabled ?? false),
+              tornadoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tornadoes")?.enabled ?? false),
+              hospitals:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "hospitals")?.enabled ?? false),
+              fireStations:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fireStations")?.enabled ?? false),
+              universities:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "universities")?.enabled ?? false),
+              oilGas:          (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "oilGas")?.enabled ?? false),
+              methaneSources:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "methaneSources")?.enabled ?? false),
+              metalOutput:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "metalOutput")?.enabled ?? false),
+              waterPollution:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "waterPollution")?.enabled ?? false),
+              population:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "population")?.enabled ?? false),
+              humanMovement:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "humanMovement")?.enabled ?? false),
+              events_human:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "events_human")?.enabled ?? false),
+              signalHeatmap:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? false),
+              militaryAir:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryAir")?.enabled ?? false),
+              militaryNavy:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryNavy")?.enabled ?? false),
+              tanks:           !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tanks")?.enabled ?? false),
+              militaryDrones:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryDrones")?.enabled ?? false),
+              aviationRoutes:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "aviationRoutes")?.enabled ?? false),
+              shipRoutes:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "shipRoutes")?.enabled ?? false),
+              fishing:         !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fishing")?.enabled ?? false),
+              containers:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "containers")?.enabled ?? false),
+              vehicles:        !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "vehicles")?.enabled ?? false),
+              drones:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "drones")?.enabled ?? false),
+              biodiversity:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "biodiversity")?.enabled ?? false),
             }}
             bbox={mapZoom > 3 ? (() => {
               try {
