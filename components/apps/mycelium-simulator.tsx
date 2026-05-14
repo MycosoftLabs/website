@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { 
-  Play, Pause, RotateCcw, Download, Video, VideoOff, 
+  RotateCcw, Download, Video, VideoOff, 
   Droplets, Thermometer, FlaskConical, Timer
 } from "lucide-react"
 
@@ -59,6 +59,7 @@ const CONTAMINANT_PROPERTIES: Record<string, SpeciesProps> = {
 }
 
 const AGAR_TYPES = {
+  transparent: { label: "Transparent Agar", nutrientLevel: 70 },
   charcoal: { label: "Charcoal Agar", nutrientLevel: 80 },
   blood: { label: "Blood Agar", nutrientLevel: 120 },
   dextrose: { label: "Dextrose Pine Wood Agar", nutrientLevel: 100 },
@@ -148,6 +149,8 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const selectedSpeciesRef = useRef(selectedSpecies)
   const selectedContaminantRef = useRef(selectedContaminant)
   const virtualHoursRef = useRef(virtualHours)
+  const isSwabbingRef = useRef(false)
+  const lastSwabPointRef = useRef<{ x: number; y: number } | null>(null)
   
   // Simulation refs (mutable during animation)
   const samplesRef = useRef<Organism[]>([])
@@ -317,16 +320,9 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
 
     const cx = CANVAS_SIZE / 2
     const cy = CANVAS_SIZE / 2
-    const plateGradient = ctx.createRadialGradient(cx - 95, cy - 110, 20, cx, cy, DISH_RADIUS)
-    plateGradient.addColorStop(0, "rgba(255, 255, 255, 0.58)")
-    plateGradient.addColorStop(0.34, "rgba(226, 232, 240, 0.42)")
-    plateGradient.addColorStop(0.76, "rgba(148, 163, 184, 0.28)")
-    plateGradient.addColorStop(1, "rgba(71, 85, 105, 0.28)")
-    
     ctx.beginPath()
     ctx.arc(cx, cy, DISH_RADIUS, 0, 2 * Math.PI)
-    ctx.fillStyle = plateGradient
-    ctx.fill()
+    ctx.clip()
 
   }, [])
 
@@ -392,7 +388,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   }, [humidity, pH, temperature])
   
   // Place sample on canvas
-  const placeSample = useCallback((x: number, y: number, isContaminant: boolean = false) => {
+  const placeSample = useCallback((x: number, y: number, isContaminant: boolean = false, logPlacement: boolean = true, emitUpdate: boolean = true) => {
     if (!isInsideGrowthArea(x, y)) return
     
     const ctx = canvasRef.current?.getContext("2d")
@@ -436,8 +432,10 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     }
     
     if (!isRunning) setIsRunning(true)
-    logToConsole(`Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
-    emitMetricsAndCompounds()
+    if (logPlacement) {
+      logToConsole(`Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
+    }
+    if (emitUpdate) emitMetricsAndCompounds()
   }, [isRunning, logToConsole, emitMetricsAndCompounds])
   
   // Draw filament
@@ -540,10 +538,6 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     samplesRef.current = samplesRef.current.filter(s => s.branches.length > 0)
     contaminantsRef.current = contaminantsRef.current.filter(c => c.branches.length > 0)
     
-    if (samplesRef.current.length === 0 && contaminantsRef.current.length === 0) {
-      setIsRunning(false)
-    }
-
     emitMetricsAndCompounds(nextVirtualHours)
   }, [agarType, emitMetricsAndCompounds, getGrowthFactors, renderChemicalOverlay, selectedChemicalOverlay])
   
@@ -585,36 +579,117 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     overlayCtx?.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
   }, [selectedChemicalOverlay])
   
-  const placeFromClientPoint = (clientX: number, clientY: number) => {
+  const clientPointToDishPoint = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) return null
     
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
-    const x = (clientX - rect.left) * scaleX
-    const y = (clientY - rect.top) * scaleY
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    }
+  }
+
+  const placeScalpelTissueChunk = (x: number, y: number) => {
+    if (!isInsideGrowthArea(x, y)) return
+
+    const ctx = canvasRef.current?.getContext("2d")
+    const species = selectedSpeciesRef.current
+    const props = SPECIES_PROPERTIES[species]
+    if (ctx && props) {
+      ctx.save()
+      const tissueGradient = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 18)
+      tissueGradient.addColorStop(0, `${props.color}f2`)
+      tissueGradient.addColorStop(0.56, `${props.color}a8`)
+      tissueGradient.addColorStop(1, `${props.color}1f`)
+      ctx.beginPath()
+      ctx.ellipse(x, y, 18, 12, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.fillStyle = tissueGradient
+      ctx.fill()
+      ctx.restore()
+    }
+
+    const numPoints = 18
+    for (let i = 0; i < numPoints; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const dist = Math.sqrt(Math.random()) * 12
+      placeSample(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, false, false, false)
+    }
+    logToConsole(`Placed tissue chunk: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
+    emitMetricsAndCompounds()
+  }
+
+  const swabToPoint = (x: number, y: number) => {
+    if (!isInsideGrowthArea(x, y)) return
+    const last = lastSwabPointRef.current
+    const spacing = 18
+    if (!last) {
+      placeSample(x, y, false, false, false)
+      lastSwabPointRef.current = { x, y }
+      return
+    }
+
+    const dx = x - last.x
+    const dy = y - last.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    if (distance < spacing) return
+
+    const steps = Math.max(1, Math.floor(distance / spacing))
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps
+      placeSample(last.x + dx * t, last.y + dy * t, false, false, false)
+    }
+    lastSwabPointRef.current = { x, y }
+  }
+
+  const placeFromClientPoint = (clientX: number, clientY: number) => {
+    const point = clientPointToDishPoint(clientX, clientY)
+    if (!point) return
+    const { x, y } = point
     
     const activeTool = selectedToolRef.current
     if (activeTool === "sporeSwab") {
-      placeSample(x, y, false)
+      swabToPoint(x, y)
     } else if (activeTool === "contamination") {
       placeSample(x, y, true)
     } else if (activeTool === "scalpel") {
-      // Place tissue sample (multiple points)
-      const numPoints = 5
-      for (let i = 0; i < numPoints; i++) {
-        const angle = Math.random() * 2 * Math.PI
-        const dist = Math.random() * 15
-        placeSample(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, false)
-      }
+      placeScalpelTissueChunk(x, y)
     }
   }
 
   // Handle canvas placement with pointer events so it works while the simulation is running.
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const activeTool = selectedToolRef.current
+    if (activeTool === "sporeSwab") {
+      isSwabbingRef.current = true
+      lastSwabPointRef.current = null
+    }
     placeFromClientPoint(e.clientX, e.clientY)
+  }
+
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isSwabbingRef.current || selectedToolRef.current !== "sporeSwab") return
+    e.preventDefault()
+    const point = clientPointToDishPoint(e.clientX, e.clientY)
+    if (!point) return
+    swabToPoint(point.x, point.y)
+  }
+
+  const endCanvasPointerAction = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    if (isSwabbingRef.current) {
+      const species = selectedSpeciesRef.current
+      logToConsole(`Swabbed ${species} across dish`)
+      emitMetricsAndCompounds()
+    }
+    isSwabbingRef.current = false
+    lastSwabPointRef.current = null
   }
   
   // Reset simulation
@@ -707,11 +782,16 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       <div className="flex min-w-0 flex-1 flex-col items-center gap-4 overflow-hidden">
         <div className="petri-canvas-glass flex w-full max-w-[650px] items-center justify-center overflow-hidden rounded-2xl border p-2">
           <div className="petri-dish-stage relative aspect-square w-full overflow-hidden rounded-xl">
+          <div className={`petri-agar-layer petri-agar-${agarType}`} aria-hidden="true" />
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
             onPointerDown={handleCanvasPointerDown}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={endCanvasPointerAction}
+            onPointerCancel={endCanvasPointerAction}
+            onPointerLeave={endCanvasPointerAction}
             className={`relative z-10 block h-full w-full touch-none bg-transparent ${getCursorClass()}`}
           />
           <canvas
@@ -738,6 +818,8 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
               aria-hidden="true"
             />
           )}
+          <div className="petri-dish-button-shadow" aria-hidden="true" />
+          <div className="petri-dish-hover-glass" aria-hidden="true" />
           </div>
         </div>
         
@@ -761,8 +843,8 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
       </div>
       
       {/* Controls Panel */}
-      <Card className="petri-controls-glass w-full min-w-0 shrink-0 overflow-hidden xl:w-80">
-        <CardHeader className="py-3">
+      <Card className="petri-controls-glass w-full min-w-0 shrink-0 xl:w-80">
+        <CardHeader className="pb-1 pt-3">
           <CardTitle className="flex items-center justify-between text-base">
             Controls
             <Badge variant="outline">
@@ -771,134 +853,158 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
             </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="max-h-[min(80dvh,760px)] space-y-4 overflow-y-auto overflow-x-hidden">
+        <CardContent className="space-y-4 overflow-visible pt-0">
           {/* Playback Controls */}
-          <div className="flex gap-2">
-            <Button 
-              variant={isRunning ? "destructive" : "default"} 
-              size="sm" 
-              className="flex-1"
-              onPointerDown={() => setIsRunning((running) => !running)}
-            >
-              {isRunning ? <Pause className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-              {isRunning ? "Pause" : "Start"}
-            </Button>
-            <Button variant="outline" size="sm" onPointerDown={resetSimulation}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
+          <div className="relative flex h-[5.75rem] items-center justify-center overflow-visible pt-3">
+            <div className="petri-codepen-button-demo">
+              <div className="button-wrap">
+                <button
+                  type="button"
+                  aria-pressed={isRunning}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setIsRunning((running) => !running)
+                  }}
+                >
+                  <span>{isRunning ? "Pause" : "Start"}</span>
+                </button>
+                <div className="button-shadow" />
+              </div>
+            </div>
+            <div className="petri-codepen-button-demo petri-codepen-button-demo-reset absolute right-0 top-1/2 -translate-y-1/2">
+              <div className="button-wrap">
+                <button
+                  type="button"
+                  aria-label="Reset simulation"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    resetSimulation()
+                  }}
+                >
+                  <span>
+                    <RotateCcw className="h-[1em] w-[1em]" />
+                  </span>
+                </button>
+                <div className="button-shadow" />
+              </div>
+            </div>
           </div>
           
           <Separator />
           
-          {/* Species Selection */}
-          <div className="space-y-2">
-            <Label className="text-xs">Mushroom Species</Label>
-            <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(SPECIES_PROPERTIES).map(species => (
-                  <SelectItem key={species} value={species} className="text-xs">
-                    {species.charAt(0).toUpperCase() + species.slice(1).replace(/([A-Z])/g, " $1")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Tools */}
-          <div className="space-y-2">
-            <Label className="text-xs">Tool</Label>
-            <div className="grid grid-cols-3 gap-1">
-              <Button 
-                variant={selectedTool === "sporeSwab" ? "default" : "outline"} 
-                size="sm" 
-                className="text-xs h-7"
-                onPointerDown={() => setSelectedTool("sporeSwab")}
-              >
-                Swab
-              </Button>
-              <Button 
-                variant={selectedTool === "scalpel" ? "default" : "outline"} 
-                size="sm"
-                className="text-xs h-7"
-                onPointerDown={() => setSelectedTool("scalpel")}
-              >
-                Scalpel
-              </Button>
-              <Button 
-                variant={selectedTool === "contamination" ? "destructive" : "outline"} 
-                size="sm"
-                className="text-xs h-7"
-                onPointerDown={() => setSelectedTool("contamination")}
-              >
-                Contam
-              </Button>
-            </div>
-          </div>
-          
-          {/* Contaminant Type */}
-          {selectedTool === "contamination" && (
+          <div className="petri-control-layer-card petri-control-layer-card-top space-y-3">
+            {/* Species Selection */}
             <div className="space-y-2">
-              <Label className="text-xs">Contaminant</Label>
-              <Select value={selectedContaminant} onValueChange={setSelectedContaminant}>
-                <SelectTrigger className="h-8 text-xs">
+              <Label className="text-xs">Mushroom Species</Label>
+              <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
+                <SelectTrigger className="petri-glass-select-trigger h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.keys(CONTAMINANT_PROPERTIES).map(c => (
-                    <SelectItem key={c} value={c} className="text-xs capitalize">{c}</SelectItem>
+                  {Object.keys(SPECIES_PROPERTIES).map(species => (
+                    <SelectItem key={species} value={species} className="text-xs">
+                      {species.charAt(0).toUpperCase() + species.slice(1).replace(/([A-Z])/g, " $1")}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-          
-          {/* Agar Type */}
-          <div className="space-y-2">
-            <Label className="text-xs flex items-center gap-1">
-              <FlaskConical className="h-3 w-3" /> Agar Type
-            </Label>
-            <Select value={agarType} onValueChange={(v) => { setAgarType(v); initializeGrids(v); }}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(AGAR_TYPES).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Chemical Overlay */}
-          <div className="space-y-2">
-            <Label className="text-xs">Chemical Overlay</Label>
-            <Select value={selectedChemicalOverlay} onValueChange={setSelectedChemicalOverlay}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" className="text-xs">None</SelectItem>
-                {CHEMICAL_FIELDS.map(field => (
-                  <SelectItem key={field} value={field} className="text-xs">
-                    {field.replace(/_/g, " ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            
+            {/* Tools */}
+            <div className="space-y-2">
+              <Label className="text-xs">Tool</Label>
+              <div className="grid grid-cols-3 gap-1">
+                <div className="petri-codepen-button-demo petri-codepen-button-demo-rect" data-active={selectedTool === "sporeSwab"}>
+                  <div className="button-wrap">
+                    <button type="button" aria-pressed={selectedTool === "sporeSwab"} onClick={() => setSelectedTool("sporeSwab")}>
+                      <span>Swab</span>
+                    </button>
+                    <div className="button-shadow" />
+                  </div>
+                </div>
+                <div className="petri-codepen-button-demo petri-codepen-button-demo-rect" data-active={selectedTool === "scalpel"}>
+                  <div className="button-wrap">
+                    <button type="button" aria-pressed={selectedTool === "scalpel"} onClick={() => setSelectedTool("scalpel")}>
+                      <span>Scalpel</span>
+                    </button>
+                    <div className="button-shadow" />
+                  </div>
+                </div>
+                <div className="petri-codepen-button-demo petri-codepen-button-demo-rect" data-active={selectedTool === "contamination"}>
+                  <div className="button-wrap">
+                    <button type="button" aria-pressed={selectedTool === "contamination"} onClick={() => setSelectedTool("contamination")}>
+                      <span>Contam</span>
+                    </button>
+                    <div className="button-shadow" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Contaminant Type */}
+            {selectedTool === "contamination" && (
+              <div className="space-y-2">
+                <Label className="text-xs">Contaminant</Label>
+                <Select value={selectedContaminant} onValueChange={setSelectedContaminant}>
+                  <SelectTrigger className="petri-glass-select-trigger h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(CONTAMINANT_PROPERTIES).map(c => (
+                      <SelectItem key={c} value={c} className="text-xs capitalize">{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Agar Type */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1">
+                <FlaskConical className="h-3 w-3" /> Agar Type
+              </Label>
+              <Select value={agarType} onValueChange={(v) => { setAgarType(v); initializeGrids(v); }}>
+                <SelectTrigger className="petri-glass-select-trigger h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(AGAR_TYPES).map(([key, { label }]) => (
+                    <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Chemical Overlay */}
+            <div className="space-y-2">
+              <Label className="text-xs">Chemical Overlay</Label>
+              <Select value={selectedChemicalOverlay} onValueChange={setSelectedChemicalOverlay}>
+                <SelectTrigger className="petri-glass-select-trigger h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs">None</SelectItem>
+                  {CHEMICAL_FIELDS.map(field => (
+                    <SelectItem key={field} value={field} className="text-xs">
+                      {field.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           <Separator />
           
           {/* Environment Sliders */}
-          <div className="space-y-3">
+          <div className="petri-control-layer-card petri-control-layer-card-sliders space-y-3">
             <div className="space-y-1">
               <Label className="text-xs flex items-center justify-between">
-                Speed <span className="font-mono">{speed}x</span>
+                Speed <span className="font-mono">{speed.toFixed(1)}x</span>
               </Label>
-              <Slider value={[speed]} onValueChange={([v]) => setSpeed(v)} min={1} max={10} step={1} />
+              <Slider value={[speed]} onValueChange={([v]) => setSpeed(v)} min={1} max={10} step={0.1} />
             </div>
             
             <div className="space-y-1">
@@ -929,18 +1035,28 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
           
           {/* Save/Record */}
           <div className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full text-xs" onClick={saveSimulation}>
-              <Download className="h-3 w-3 mr-1" /> Save Data
-            </Button>
-            <Button 
-              variant={isRecording ? "destructive" : "outline"} 
-              size="sm" 
-              className="w-full text-xs"
-              onClick={toggleRecording}
-            >
-              {isRecording ? <VideoOff className="h-3 w-3 mr-1" /> : <Video className="h-3 w-3 mr-1" />}
-              {isRecording ? "Stop Recording" : "Record"}
-            </Button>
+            <div className="petri-codepen-button-demo petri-codepen-button-demo-rect petri-codepen-button-demo-wide">
+              <div className="button-wrap">
+                <button type="button" onClick={saveSimulation}>
+                  <span>
+                    <Download className="h-[1em] w-[1em]" />
+                    Save Data
+                  </span>
+                </button>
+                <div className="button-shadow" />
+              </div>
+            </div>
+            <div className="petri-codepen-button-demo petri-codepen-button-demo-rect petri-codepen-button-demo-wide" data-active={isRecording}>
+              <div className="button-wrap">
+                <button type="button" aria-pressed={isRecording} onClick={toggleRecording}>
+                  <span>
+                    {isRecording ? <VideoOff className="h-[1em] w-[1em]" /> : <Video className="h-[1em] w-[1em]" />}
+                    {isRecording ? "Stop Recording" : "Record"}
+                  </span>
+                </button>
+                <div className="button-shadow" />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
