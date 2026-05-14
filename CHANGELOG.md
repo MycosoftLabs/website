@@ -539,6 +539,7 @@ All notable changes to this project will be documented in this file.
 - Clarify device ownership model (Mycosoft-owned, hosted on partner property; DoD exception) (#163)
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -829,6 +830,7 @@ All notable changes to this project will be documented in this file.
 ### Checkpoint
 
 - Save glass site state and petri dish baseline
+- Save petri dish glass and agar baseline
 
 ### Crep
 
@@ -868,6 +870,10 @@ All notable changes to this project will be documented in this file.
 ### Crep+nav
 
 - Mobile Earth Simulator shell, sidebar collapse fix, home video perf (#138)
+
+### Deploy
+
+- Trigger fast site deployment [fast]
 
 ### Diag
 
