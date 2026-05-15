@@ -8,7 +8,7 @@ import { mergeSearchRouteWithMasSuggestions } from "../merge-intention-route"
 import { parseSearchIntent } from "../intent-parser"
 
 describe("classifyAndRoute — aircraft + LA (May 03, 2026)", () => {
-  it("Planes over LA: Earth is primary, aircraft + CREP remain supporting context", () => {
+  it("Planes over LA: Earth is primary, aircraft + transport remain supporting context", () => {
     const intent = parseSearchIntent("Planes over LA")
     expect(intent.type).toBe("aircraft")
     expect(intent.filters.location?.city).toBe("Los Angeles")
@@ -16,7 +16,7 @@ describe("classifyAndRoute — aircraft + LA (May 03, 2026)", () => {
     const route = classifyAndRoute("Planes over LA")
     expect(route.primaryWidget).toBe("earth")
     expect(route.secondaryWidgets).toContain("aircraft")
-    expect(route.secondaryWidgets).toContain("crep")
+    expect(route.secondaryWidgets).toContain("transport")
     expect(route.worldview.crep).toBe(true)
   })
 })
@@ -46,15 +46,15 @@ describe("mergeSearchRouteWithMasSuggestions", () => {
     const base = classifyAndRoute("psilocybin")
     const merged = mergeSearchRouteWithMasSuggestions(base, ["genetics", "crep", "unknown_token"])
     expect(merged.secondaryWidgets).toContain("genetics")
-    expect(merged.secondaryWidgets).toContain("crep")
+    expect(merged.secondaryWidgets).toContain("earth")
   })
 })
 
 describe("earthContextFilters", () => {
   it("dolphins enables only dolphin organism context", () => {
     const route = classifyAndRoute("dolphins")
-    expect(route.primaryWidget).toBe("earth")
-    expect(route.secondaryWidgets).toContain("species")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual([
       expect.objectContaining({ category: "species", key: "dolphin" }),
     ])
@@ -65,7 +65,8 @@ describe("earthContextFilters", () => {
 
   it("dolphins near bases enables dolphins and military bases", () => {
     const route = classifyAndRoute("dolphins near bases")
-    expect(route.primaryWidget).toBe("earth")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "dolphin" }),
@@ -77,7 +78,8 @@ describe("earthContextFilters", () => {
 
   it("dolphins near sea cables enables submarine cable context", () => {
     const route = classifyAndRoute("dolphins near sea cables")
-    expect(route.primaryWidget).toBe("earth")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "dolphin" }),
@@ -88,7 +90,8 @@ describe("earthContextFilters", () => {
 
   it("bees near power plants includes related power lines", () => {
     const route = classifyAndRoute("bees near power plants")
-    expect(route.primaryWidget).toBe("earth")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "bee" }),

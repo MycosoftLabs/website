@@ -34,6 +34,9 @@ export interface AnswersSearchContext {
   devices?: string[]
   spaceWeather?: string[]
   activeWidgets?: string[]
+  earthLayers?: string[]
+  entityFamilies?: string[]
+  etlRequests?: string[]
 }
 
 export interface AnswersSuggestions {
@@ -168,6 +171,9 @@ export function AnswersWidget({
     add("Species", searchContext?.species)
     add("Devices", searchContext?.devices)
     add("Research", searchContext?.research)
+    add("Earth layers", searchContext?.earthLayers)
+    add("Entity families", searchContext?.entityFamilies)
+    add("Acquisition queue", searchContext?.etlRequests)
     return lines.join("\n")
   }, [activeQuery, searchContext, widgets])
 

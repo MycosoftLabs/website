@@ -121,15 +121,24 @@ const EARTHQUAKE_STREAMING_SEARCH_TYPES = [
 const EARTH_SIMULATOR_RESULT_WIDGETS = new Set<WidgetType>([
   "crep",
   "location",
-  "aircraft",
-  "vessels",
-  "satellites",
-  "weather",
-  "emissions",
-  "infrastructure",
-  "devices",
-  "space_weather",
   "flights",
+])
+
+const STRATEGIC_WIDGET_TYPES = new Set<WidgetType>([
+  "risk",
+  "power_grid",
+  "supply_chain",
+  "biosecurity",
+  "conservation",
+  "geology",
+  "hydrology",
+  "wildfire",
+  "air_quality",
+  "space_assets",
+  "marine",
+  "transport",
+  "source_health",
+  "qa_trace",
 ])
 
 function normalizeSearchWidget(widget: WidgetType | null | undefined): WidgetType | null {
@@ -1390,6 +1399,20 @@ export function FluidSearchCanvas({
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
     { type: "cameras", label: "Cameras", icon: "📹", gradient: "from-slate-500/30 to-cyan-500/20", hasData: len(cameras) > 0, depth: getParallaxDepth("cameras") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
+    { type: "risk", label: "Risk", icon: "!", gradient: "from-red-500/30 to-yellow-500/20", hasData: false, depth: getParallaxDepth("events") },
+    { type: "power_grid", label: "Power Grid", icon: "grid", gradient: "from-yellow-500/30 to-cyan-500/20", hasData: false, depth: getParallaxDepth("infrastructure") },
+    { type: "supply_chain", label: "Supply Chain", icon: "route", gradient: "from-blue-500/30 to-amber-500/20", hasData: false, depth: getParallaxDepth("infrastructure") },
+    { type: "biosecurity", label: "Biosecurity", icon: "bio", gradient: "from-lime-500/30 to-emerald-500/20", hasData: false, depth: getParallaxDepth("species") },
+    { type: "conservation", label: "Conservation", icon: "leaf", gradient: "from-green-500/30 to-teal-500/20", hasData: false, depth: getParallaxDepth("species") },
+    { type: "geology", label: "Geology", icon: "geo", gradient: "from-stone-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("events") },
+    { type: "hydrology", label: "Hydrology", icon: "H2O", gradient: "from-cyan-500/30 to-blue-500/20", hasData: false, depth: getParallaxDepth("weather") },
+    { type: "wildfire", label: "Wildfire", icon: "fire", gradient: "from-orange-500/30 to-red-500/20", hasData: false, depth: getParallaxDepth("events") },
+    { type: "air_quality", label: "Air Quality", icon: "AQ", gradient: "from-sky-500/30 to-emerald-500/20", hasData: false, depth: getParallaxDepth("weather") },
+    { type: "space_assets", label: "Space Assets", icon: "orb", gradient: "from-indigo-500/30 to-violet-500/20", hasData: false, depth: getParallaxDepth("satellites") },
+    { type: "marine", label: "Marine", icon: "sea", gradient: "from-blue-500/30 to-cyan-500/20", hasData: false, depth: getParallaxDepth("vessels") },
+    { type: "transport", label: "Transport", icon: "move", gradient: "from-slate-500/30 to-sky-500/20", hasData: false, depth: getParallaxDepth("aircraft") },
+    { type: "source_health", label: "Source Health", icon: "src", gradient: "from-emerald-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("answers") },
+    { type: "qa_trace", label: "QA Trace", icon: "QA", gradient: "from-fuchsia-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("answers") },
     { type: "traffic", label: "Traffic", icon: "🚦", gradient: "from-slate-500/30 to-amber-500/20", hasData: false, depth: getParallaxDepth("traffic") },
     { type: "food", label: "Food", icon: "🍽️", gradient: "from-orange-500/30 to-rose-500/20", hasData: false, depth: getParallaxDepth("food") },
     { type: "flights", label: "Flights", icon: "✈️", gradient: "from-sky-500/30 to-violet-500/20", hasData: false, depth: getParallaxDepth("flights") },
@@ -1436,12 +1459,20 @@ export function FluidSearchCanvas({
     const priorityOrder: Partial<Record<WidgetType, number>> = {
       earth: 0,
       events: 1,
-      answers: 2,
-      news: 3,
-      research: 4,
+      infrastructure: 2,
+      risk: 3,
+      power_grid: 4,
+      species: 5,
+      weather: 6,
+      answers: 20,
+      news: 21,
+      research: 22,
     }
+    const planOrder = route?.searchPlan?.widgetOrder ?? []
     const relScore = (w: (typeof gridWidgets)[number]) => {
       let s = 0
+      const planIndex = planOrder.indexOf(w.type)
+      if (planIndex >= 0) s += 20000 - planIndex * 500
       s += 10000 - (priorityOrder[w.type] ?? 100) * 100
       if (normalizeSearchWidget(route?.primaryWidget) === w.type) s += 1000
       if (route?.secondaryWidgets?.some((widget) => normalizeSearchWidget(widget) === w.type)) s += 120
@@ -1496,8 +1527,8 @@ export function FluidSearchCanvas({
 
     // Instantly layout widgets based on the predicted route before data even arrives
     setExpandedWidgets((prev) => {
-      if (submittedEarthRule.domain === "all") return new Set<WidgetType>(["earth"])
       const next = new Set<WidgetType>()
+      for (const widget of route.searchPlan?.widgetOrder ?? []) addSearchWidget(next, widget)
       addSearchWidget(next, route.primaryWidget as WidgetType | null)
       for (const sw of route.secondaryWidgets) addSearchWidget(next, sw as WidgetType)
       if (route.worldview.crep) addSearchWidget(next, "earth")
@@ -1518,6 +1549,7 @@ export function FluidSearchCanvas({
         ...prev,
         [route.primaryWidget!]: route.primaryWidgetSize,
         answers: { width: 2, height: 1 },
+        earth: route.searchPlan?.primaryWidget === "earth" ? { width: 2, height: 3 } : (prev.earth ?? { width: 2, height: 3 }),
       }))
     }
 
@@ -1573,7 +1605,7 @@ export function FluidSearchCanvas({
     const route = effectiveSearchRoute ?? classifyAndRoute(committedQuery)
     if (earthSearchRule.domain === "all") {
       setWidgetSizes((prev) => ({ ...prev, earth: { width: 2, height: 3 } }))
-      setExpandedWidgets(new Set<WidgetType>(["earth"]))
+      setExpandedWidgets(new Set<WidgetType>(["earth", "answers"]))
       return
     }
 
@@ -1594,6 +1626,20 @@ export function FluidSearchCanvas({
       devices: len(devices),
       space_weather: len(spaceWeather),
       cameras: len(cameras),
+      risk: route.searchPlan?.widgetOrder.includes("risk") ? 1 : 0,
+      power_grid: route.searchPlan?.widgetOrder.includes("power_grid") ? 1 : 0,
+      supply_chain: route.searchPlan?.widgetOrder.includes("supply_chain") ? 1 : 0,
+      biosecurity: route.searchPlan?.widgetOrder.includes("biosecurity") ? 1 : 0,
+      conservation: route.searchPlan?.widgetOrder.includes("conservation") ? 1 : 0,
+      geology: route.searchPlan?.widgetOrder.includes("geology") ? 1 : 0,
+      hydrology: route.searchPlan?.widgetOrder.includes("hydrology") ? 1 : 0,
+      wildfire: route.searchPlan?.widgetOrder.includes("wildfire") ? 1 : 0,
+      air_quality: route.searchPlan?.widgetOrder.includes("air_quality") ? 1 : 0,
+      space_assets: route.searchPlan?.widgetOrder.includes("space_assets") ? 1 : 0,
+      marine: route.searchPlan?.widgetOrder.includes("marine") ? 1 : 0,
+      transport: route.searchPlan?.widgetOrder.includes("transport") ? 1 : 0,
+      source_health: route.searchPlan?.widgetOrder.includes("source_health") ? 1 : 0,
+      qa_trace: route.searchPlan?.widgetOrder.includes("qa_trace") ? 1 : 0,
     }
     const key = `${committedQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return
@@ -1641,6 +1687,9 @@ export function FluidSearchCanvas({
       }
 
       addIfVisible(route.primaryWidget as WidgetType | null)
+      for (const widget of route.searchPlan?.widgetOrder ?? []) {
+        addIfVisible(widget as WidgetType)
+      }
 
       // Expand secondary widgets from router
       for (const sw of route.secondaryWidgets) {
@@ -2069,6 +2118,9 @@ export function FluidSearchCanvas({
                           devices: (devices as any[]).slice(0, 5).map((item) => String(item.name || item.id || item.title || "Device")),
                           spaceWeather: (spaceWeather as any[]).slice(0, 5).map((item) => String(item.title || item.type || "Space weather")),
                           activeWidgets: sortedGridWidgets.map((w) => w.label),
+                          earthLayers: effectiveSearchRoute?.searchPlan?.earth?.enabledLayers ?? [],
+                          entityFamilies: effectiveSearchRoute?.searchPlan?.entityFamilies ?? [],
+                          etlRequests: effectiveSearchRoute?.searchPlan?.etlRequests?.map((request) => `${request.widget}: ${request.missingDataKind}`) ?? [],
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
@@ -2114,9 +2166,11 @@ export function FluidSearchCanvas({
       {/* FAB outside flex-1 overflow-hidden so radial is not clipped (pairs with `fixed` in FastActionRadial). */}
       <FastActionRadial
         rankedWidgets={
-          streamingIntentPlan?.secondaryWidgets?.length
-            ? streamingIntentPlan.secondaryWidgets
-            : effectiveSearchRoute?.secondaryWidgets ?? []
+          effectiveSearchRoute?.searchPlan?.widgetOrder?.length
+            ? effectiveSearchRoute.searchPlan.widgetOrder
+            : streamingIntentPlan?.secondaryWidgets?.length
+              ? streamingIntentPlan.secondaryWidgets
+              : effectiveSearchRoute?.secondaryWidgets ?? []
         }
         activeWidgetTypes={expandedWidgets}
         onOpenWidget={(t) => {
@@ -2169,7 +2223,14 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
     embedding_atlas: "🔮",
     traffic: "🚦", food: "🍽️", flights: "✈️", stocks: "📈",
     sports: "🏀", people: "👤", code: "💻", shopping: "🛒", recipe: "📖",
+    risk: "!", power_grid: "grid", supply_chain: "route", biosecurity: "bio",
+    conservation: "leaf", geology: "geo", hydrology: "H2O", wildfire: "fire",
+    air_quality: "AQ", space_assets: "orb", marine: "sea", transport: "move",
+    source_health: "src", qa_trace: "QA",
   }
+  const acquisitionCopy = STRATEGIC_WIDGET_TYPES.has(type as WidgetType)
+    ? "Data is being acquired momentarily."
+    : "No data available yet"
   return (
     <div
       className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4"
@@ -2177,7 +2238,126 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
     >
       <span className="text-3xl mb-2">{icons[type] || "📦"}</span>
       <p className="text-sm font-medium">{label}</p>
-      <p className="text-xs opacity-70">No data available yet</p>
+      <p className="text-xs opacity-70">{acquisitionCopy}</p>
+    </div>
+  )
+}
+
+function StrategicContextWidget({
+  type,
+  label,
+  searchContext,
+}: {
+  type: WidgetType
+  label: string
+  searchContext?: {
+    events?: string[]
+    aircraft?: string[]
+    vessels?: string[]
+    satellites?: string[]
+    weather?: string[]
+    infrastructure?: string[]
+    devices?: string[]
+    spaceWeather?: string[]
+    species?: string[]
+    research?: string[]
+    earthLayers?: string[]
+    entityFamilies?: string[]
+    etlRequests?: string[]
+  }
+}) {
+  const contextByType: Partial<Record<WidgetType, Array<{ label: string; values?: string[] }>>> = {
+    risk: [
+      { label: "Events", values: searchContext?.events },
+      { label: "Infrastructure", values: searchContext?.infrastructure },
+      { label: "Weather", values: searchContext?.weather },
+    ],
+    power_grid: [
+      { label: "Infrastructure", values: searchContext?.infrastructure },
+      { label: "Earth layers", values: searchContext?.earthLayers?.filter((layer) => /power|txLines|substation/i.test(layer)) },
+    ],
+    supply_chain: [
+      { label: "Vessels", values: searchContext?.vessels },
+      { label: "Aircraft", values: searchContext?.aircraft },
+      { label: "Infrastructure", values: searchContext?.infrastructure },
+    ],
+    biosecurity: [
+      { label: "Species", values: searchContext?.species },
+      { label: "Events", values: searchContext?.events },
+      { label: "Research", values: searchContext?.research },
+    ],
+    conservation: [
+      { label: "Species", values: searchContext?.species },
+      { label: "Research", values: searchContext?.research },
+      { label: "Earth layers", values: searchContext?.earthLayers },
+    ],
+    geology: [
+      { label: "Events", values: searchContext?.events },
+      { label: "Research", values: searchContext?.research },
+    ],
+    hydrology: [
+      { label: "Weather", values: searchContext?.weather },
+      { label: "Events", values: searchContext?.events },
+    ],
+    wildfire: [
+      { label: "Events", values: searchContext?.events },
+      { label: "Weather", values: searchContext?.weather },
+    ],
+    air_quality: [
+      { label: "Weather", values: searchContext?.weather },
+      { label: "Events", values: searchContext?.events },
+    ],
+    space_assets: [
+      { label: "Satellites", values: searchContext?.satellites },
+      { label: "Space weather", values: searchContext?.spaceWeather },
+    ],
+    marine: [
+      { label: "Vessels", values: searchContext?.vessels },
+      { label: "Infrastructure", values: searchContext?.infrastructure },
+    ],
+    transport: [
+      { label: "Aircraft", values: searchContext?.aircraft },
+      { label: "Vessels", values: searchContext?.vessels },
+      { label: "Infrastructure", values: searchContext?.infrastructure },
+    ],
+    source_health: [
+      { label: "Entity families", values: searchContext?.entityFamilies },
+      { label: "Acquisition queue", values: searchContext?.etlRequests },
+    ],
+    qa_trace: [
+      { label: "Entity families", values: searchContext?.entityFamilies },
+      { label: "Earth layers", values: searchContext?.earthLayers },
+    ],
+  }
+  const groups = contextByType[type] ?? []
+  const hasValues = groups.some((group) => group.values?.length)
+  if (!hasValues) return <EmptyWidgetState type={type} label={label} />
+
+  return (
+    <div className="h-full min-h-0 overflow-auto rounded-xl border border-white/10 bg-slate-950/55 p-3 text-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-200/80">{label}</p>
+          <h3 className="text-lg font-semibold text-white">Search context</h3>
+        </div>
+        <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs text-cyan-100">live plan</span>
+      </div>
+      <div className="space-y-2">
+        {groups.map((group) => (
+          <div key={group.label} className="rounded-lg border border-white/10 bg-white/5 p-2">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-slate-300">{group.label}</p>
+            {group.values?.length ? (
+              <ul className="space-y-1 text-slate-100">
+                {group.values.slice(0, 5).map((value) => (
+                  <li key={`${group.label}-${value}`} className="truncate">{value}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-400">Data is being acquired momentarily.</p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -2218,6 +2398,9 @@ function WidgetContent({
     devices?: string[]
     spaceWeather?: string[]
     activeWidgets?: string[]
+    earthLayers?: string[]
+    entityFamilies?: string[]
+    etlRequests?: string[]
   }
   media: Record<string, unknown>[]; mediaError?: string; location: Record<string, unknown>[]; news: Record<string, unknown>[]; newsError?: string; newsQueryUsed?: string
   crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]; eventObservations: any[]
@@ -2382,6 +2565,21 @@ function WidgetContent({
       return <EmptyWidgetState type="shopping" label={WIDGET_REGISTRY.shopping.label} />
     case "recipe":
       return <EmptyWidgetState type="recipe" label={WIDGET_REGISTRY.recipe.label} />
+    case "risk":
+    case "power_grid":
+    case "supply_chain":
+    case "biosecurity":
+    case "conservation":
+    case "geology":
+    case "hydrology":
+    case "wildfire":
+    case "air_quality":
+    case "space_assets":
+    case "marine":
+    case "transport":
+    case "source_health":
+    case "qa_trace":
+      return <StrategicContextWidget type={type} label={WIDGET_REGISTRY[type].label} searchContext={searchContext} />
     case "fallback":
       return (
         <FallbackWidget

@@ -37,6 +37,20 @@ export type WidgetType =
   | "space_weather"
   | "cameras"
   | "embedding_atlas"
+  | "risk"
+  | "power_grid"
+  | "supply_chain"
+  | "biosecurity"
+  | "conservation"
+  | "geology"
+  | "hydrology"
+  | "wildfire"
+  | "air_quality"
+  | "space_assets"
+  | "marine"
+  | "transport"
+  | "source_health"
+  | "qa_trace"
   | "fallback"
 
 export interface WidgetRegistryEntry {
@@ -84,6 +98,20 @@ export const WIDGET_TYPE_IDS: WidgetType[] = [
   "space_weather",
   "cameras",
   "embedding_atlas",
+  "risk",
+  "power_grid",
+  "supply_chain",
+  "biosecurity",
+  "conservation",
+  "geology",
+  "hydrology",
+  "wildfire",
+  "air_quality",
+  "space_assets",
+  "marine",
+  "transport",
+  "source_health",
+  "qa_trace",
 ]
 
 /** Map result bucket keys (from API) to widget type. Unknown buckets use "fallback". */
@@ -112,6 +140,20 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   space_weather: "space_weather",
   cameras: "cameras",
   embeddings: "embedding_atlas",
+  risk: "risk",
+  power_grid: "power_grid",
+  supply_chain: "supply_chain",
+  biosecurity: "biosecurity",
+  conservation: "conservation",
+  geology: "geology",
+  hydrology: "hydrology",
+  wildfire: "wildfire",
+  air_quality: "air_quality",
+  space_assets: "space_assets",
+  marine: "marine",
+  transport: "transport",
+  source_health: "source_health",
+  qa_trace: "qa_trace",
   traffic: "traffic",
   food: "food",
   flights: "flights",
@@ -344,6 +386,105 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     size: { width: 2, height: 2 },
     emptyPolicy: "show_empty",
     autoExpand: true,
+  },
+  risk: {
+    id: "risk",
+    label: "Risk",
+    resultKey: "risk",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+    autoExpand: true,
+  },
+  power_grid: {
+    id: "power_grid",
+    label: "Power Grid",
+    resultKey: "power_grid",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  supply_chain: {
+    id: "supply_chain",
+    label: "Supply Chain",
+    resultKey: "supply_chain",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  biosecurity: {
+    id: "biosecurity",
+    label: "Biosecurity",
+    resultKey: "biosecurity",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  conservation: {
+    id: "conservation",
+    label: "Conservation",
+    resultKey: "conservation",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  geology: {
+    id: "geology",
+    label: "Geology",
+    resultKey: "geology",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  hydrology: {
+    id: "hydrology",
+    label: "Hydrology",
+    resultKey: "hydrology",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  wildfire: {
+    id: "wildfire",
+    label: "Wildfire",
+    resultKey: "wildfire",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  air_quality: {
+    id: "air_quality",
+    label: "Air Quality",
+    resultKey: "air_quality",
+    size: { width: 2, height: 1 },
+    emptyPolicy: "show_empty",
+  },
+  space_assets: {
+    id: "space_assets",
+    label: "Space Assets",
+    resultKey: "space_assets",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  marine: {
+    id: "marine",
+    label: "Marine",
+    resultKey: "marine",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  transport: {
+    id: "transport",
+    label: "Transport",
+    resultKey: "transport",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+  },
+  source_health: {
+    id: "source_health",
+    label: "Source Health",
+    resultKey: "source_health",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "show_empty",
+  },
+  qa_trace: {
+    id: "qa_trace",
+    label: "QA Trace",
+    resultKey: "qa_trace",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "hide",
   },
   fallback: {
     id: "fallback",

@@ -243,6 +243,7 @@ interface CrepMobileShellProps {
   rightPanel?: React.ReactNode
   liveEntityCount?: number
   onProjectSelect?: (code: string) => void
+  disabled?: boolean
 }
 
 export function CrepMobileShell({
@@ -251,6 +252,7 @@ export function CrepMobileShell({
   rightPanel,
   liveEntityCount,
   onProjectSelect,
+  disabled = false,
 }: CrepMobileShellProps) {
   const isPhone = useIsPhone()
   const [leftOpen, setLeftOpen] = useState(false)
@@ -288,7 +290,7 @@ export function CrepMobileShell({
   )
 
   // On non-phone viewports we render children untouched — no chrome at all.
-  if (!isPhone) return <>{children}</>
+  if (disabled || !isPhone) return <>{children}</>
 
   return (
     <>

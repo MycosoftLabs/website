@@ -151,7 +151,7 @@ export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
       <CREPProvider>
         <GroundStationProvider>
           <CREPErrorBoundary componentName="CREP Dashboard">
-            <CrepMobileShell>
+            <CrepMobileShell disabled={props.embedded}>
               <CREPDashboardClient {...props} />
             </CrepMobileShell>
           </CREPErrorBoundary>
