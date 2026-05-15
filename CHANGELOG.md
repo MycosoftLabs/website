@@ -330,6 +330,7 @@ All notable changes to this project will be documented in this file.
 - *(docs)* Correct devices section to ship-realistic lineup (#157)
 - *(docs)* Rewrite overview docs with accurate stack — correct devices, MYCA scope, AVANI, CREP, protocols (#159)
 - *(tos,docs)* Replace broken prose-* modifiers with Tailwind v4 child selectors (#160)
+- Petri glass controls and MYCA identity gates [fast]
 
 ### CREP
 
@@ -540,6 +541,12 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Publish MYCA docs page [fast]
+- Expand MYCA article [fast]
+- Publish AVANI article [fast]
+- Publish AVANI article [fast]
+- Publish NLM technical article [fast]
 
 ### Features
 
@@ -716,6 +723,8 @@ All notable changes to this project will be documented in this file.
 - *(footer)* Add LinkedIn and Crunchbase to Connect column (#155)
 - *(docs)* Rebuild /docs as catalog-driven portal with 41 stubs (#156)
 - *(docs)* Add full Overview docs (What is Mycosoft / Quickstart / Glossary) + TOS formatting pass (#158)
+- Add petri artifact storage workflow [fast]
+- Add search intelligence orchestration
 
 ### Fix
 
@@ -787,6 +796,7 @@ All notable changes to this project will be documented in this file.
 - Free ~30GB before docker build to prevent 'No space left on device' (#135)
 - *(website)* Lint and production build on push/PR
 - *(terms)* Publish 2026-05-11 Terms of Service (#151)
+- Fast deploy search earth fixes [fast]
 
 ### Performance
 
