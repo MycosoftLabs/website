@@ -124,6 +124,31 @@ const INFRASTRUCTURE_ALIASES: Array<{
     label: "Pipelines",
     terms: [/\bpipelines?\b/i, /\boil\s+pipelines?\b/i, /\bgas\s+pipelines?\b/i],
   },
+  {
+    key: "port",
+    label: "Ports",
+    terms: [/\bports?\b/i, /\bharbors?\b/i, /\bharbours?\b/i],
+  },
+  {
+    key: "factory",
+    label: "Factories",
+    terms: [/\bfactories?\b/i, /\bindustrial\s+facilit(?:y|ies)\b/i],
+  },
+  {
+    key: "rail",
+    label: "Rail",
+    terms: [/\brail(?:way)?\b/i, /\btrains?\b/i],
+  },
+  {
+    key: "data_center",
+    label: "Data centers",
+    terms: [/\bdata\s+centers?\b/i],
+  },
+  {
+    key: "cell_tower",
+    label: "Cell towers",
+    terms: [/\bcell\s+towers?\b/i, /\btelecom\s+towers?\b/i],
+  },
 ]
 
 const SPECIES_STOP_WORDS = new Set([
@@ -142,7 +167,44 @@ const SPECIES_STOP_WORDS = new Set([
   "fungus",
   "mushrooms",
   "mushroom",
+  "earthquake",
+  "earthquakes",
+  "quake",
+  "quakes",
+  "wildfire",
+  "wildfires",
+  "fire",
+  "fires",
+  "storm",
+  "storms",
+  "weather",
+  "aircraft",
+  "planes",
+  "plane",
+  "ships",
+  "ship",
+  "vessels",
+  "vessel",
+  "satellites",
+  "satellite",
+  "devices",
+  "device",
+  "power",
+  "infrastructure",
 ])
+
+const COMMON_SPECIES_TERMS = [
+  /\bdolphins?\b/i,
+  /\bbees?\b/i,
+  /\bwolves?\b/i,
+  /\beagles?\b/i,
+  /\bwhales?\b/i,
+  /\bsharks?\b/i,
+  /\bturtles?\b/i,
+  /\bcorals?\b/i,
+  /\bamanita\b/i,
+  /\bpsilocybe\b/i,
+]
 
 function singularize(term: string): string {
   const normalized = term.trim().toLowerCase().replace(/[^a-z0-9\s'-]/g, "").replace(/\s+/g, " ")
@@ -155,6 +217,11 @@ function titleize(value: string): string {
   return value.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function isSpeciesStop(value: string): boolean {
+  if (SPECIES_STOP_WORDS.has(value)) return true
+  return value.split(/\s+/).some((part) => SPECIES_STOP_WORDS.has(part))
+}
+
 function addUniqueFilter(filters: EarthContextFilter[], filter: EarthContextFilter) {
   if (!filters.some((f) => f.category === filter.category && f.key === filter.key && f.value === filter.value)) {
     filters.push(filter)
@@ -165,11 +232,25 @@ function speciesTermsFromIntent(intent: SearchIntent): string[] {
   const terms = new Set<string>()
   for (const entity of intent.entities) {
     const value = singularize(entity)
-    if (value && !SPECIES_STOP_WORDS.has(value)) terms.add(value)
+    if (value && !isSpeciesStop(value)) terms.add(value)
   }
   for (const keyword of intent.keywords) {
     const value = singularize(keyword)
-    if (value && !SPECIES_STOP_WORDS.has(value)) terms.add(value)
+    if (value && !isSpeciesStop(value)) terms.add(value)
+  }
+  const q = intent.normalizedQuery || intent.originalQuery.toLowerCase()
+  const leadingEntity = q.match(/^([a-z][a-z\s'-]{1,40}?)\s+(?:near|in|around|over|by|at)\b/i)?.[1]
+  if (leadingEntity) {
+    const value = singularize(leadingEntity.split(/\s+/).slice(-2).join(" "))
+    if (value && !isSpeciesStop(value) && !INFRASTRUCTURE_ALIASES.some((alias) => alias.terms.some((term) => term.test(value)))) {
+      terms.add(value)
+    }
+  }
+  for (const pattern of COMMON_SPECIES_TERMS) {
+    const match = q.match(pattern)
+    if (!match) continue
+    const value = singularize(match[0])
+    if (value && !isSpeciesStop(value)) terms.add(value)
   }
   return [...terms].slice(0, 4)
 }

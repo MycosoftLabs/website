@@ -18,8 +18,9 @@ describe("earth search rules", () => {
     const rule = resolveEarthSearchRule("earthquakes near power lines and power plants")
 
     expect(rule.enabledLayerIds).toEqual(
-      expect.arrayContaining(["earthquakes", "powerPlantsG", "txLinesGlobal", "dataCentersG", "cellTowersG"]),
+      expect.arrayContaining(["earthquakes", "powerPlantsG", "txLinesGlobal"]),
     )
+    expect(rule.enabledLayerIds).not.toEqual(expect.arrayContaining(["dataCentersG", "cellTowersG", "ports"]))
     expect(rule.entityTypes).toEqual(expect.arrayContaining(["earthquake", "infrastructure", "facility"]))
     expect(rule.widgets).toEqual(expect.arrayContaining(["earth", "events", "infrastructure", "answers"]))
   })
@@ -45,7 +46,7 @@ describe("earth search rules", () => {
       ]),
     )
     expect(rule.enabledLayerIds).not.toEqual(expect.arrayContaining(["earth2Forecast"]))
-    expect(rule.widgets).toEqual(["earth"])
+    expect(rule.widgets).toEqual(["earth", "answers"])
   })
 
   it("supports disabling a domain inside a combined search", () => {

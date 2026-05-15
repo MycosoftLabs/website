@@ -21,6 +21,7 @@ export interface FluidSearchRouteSnapshot {
   worldview: SearchRoute["worldview"]
   isMapPrimary: boolean
   earthContextFilters: EarthContextFilters
+  searchPlan: SearchRoute["searchPlan"]
 }
 
 /** Client bundle: threading + routing for unified search + MYCA Answers */
@@ -48,6 +49,7 @@ export function searchRouteToFluidSnapshot(route: SearchRoute): FluidSearchRoute
     worldview: route.worldview,
     isMapPrimary: route.isMapPrimary,
     earthContextFilters: route.earthContextFilters,
+    searchPlan: route.searchPlan,
   }
 }
 

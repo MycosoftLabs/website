@@ -14,6 +14,7 @@ import { detectWorldviewIntent } from "./world-view-suggestions"
 import type { WidgetType } from "./widget-registry"
 import { buildEarthContextFilters, type EarthContextFilters } from "./earth-context-filters"
 import { resolveEarthSearchRule } from "./earth-search-rules"
+import { buildSearchPlan, type SearchPlan } from "./search-plan"
 
 // =============================================================================
 // QUERY CLASSIFICATION
@@ -44,6 +45,8 @@ export interface SearchRoute {
   isMapPrimary: boolean
   /** Context-resolved Earth Simulator filters. All contextual layers default off except these. */
   earthContextFilters: EarthContextFilters
+  /** Canonical committed-query orchestration plan used by widgets, answers, ETL, and QA. */
+  searchPlan: SearchPlan | null
 }
 
 export type LiveResultType =
@@ -118,7 +121,11 @@ export function classifyAndRoute(query: string): SearchRoute {
   let resolvedPrimaryWidget = primaryWidget
   let resolvedPrimaryWidgetSize = primaryWidgetSize
   let contextualSecondaryWidgets: WidgetType[] = [...secondaryWidgets]
-  if ((earthContextFilters.isContextual || hasEarthSearchRule) && primaryWidget !== "earth") {
+  const keepSpeciesPrimary =
+    intent.type === "species" ||
+    earthSearchRule.domain === "species" ||
+    earthContextFilters.enabledFilters.some((filter) => filter.category === "species")
+  if ((earthContextFilters.isContextual || hasEarthSearchRule) && primaryWidget !== "earth" && !keepSpeciesPrimary) {
     resolvedPrimaryWidget = "earth"
     resolvedPrimaryWidgetSize = { width: 2, height: 3 }
     contextualSecondaryWidgets = [primaryWidget, ...secondaryWidgets, ...earthSearchRule.widgets].filter(
@@ -132,7 +139,7 @@ export function classifyAndRoute(query: string): SearchRoute {
     )
   }
 
-  return {
+  const route: SearchRoute = {
     classification,
     intent,
     useMycaLLM: hasEarthSearchRule ? false : classification === "conversational" || classification === "hybrid",
@@ -144,20 +151,31 @@ export function classifyAndRoute(query: string): SearchRoute {
     worldview,
     isMapPrimary,
     earthContextFilters,
+    searchPlan: null,
   }
+  route.searchPlan = buildSearchPlan(normalizedQuery, route, earthSearchRule)
+  if (route.searchPlan.primaryWidget && route.searchPlan.primaryWidget !== route.primaryWidget) {
+    route.secondaryWidgets = [route.primaryWidget, ...route.secondaryWidgets, ...route.searchPlan.widgetOrder].filter(
+      (widget, index, widgets): widget is WidgetType =>
+        Boolean(widget) && widget !== route.searchPlan?.primaryWidget && widgets.indexOf(widget) === index
+    )
+    route.primaryWidget = route.searchPlan.primaryWidget
+    route.primaryWidgetSize = route.primaryWidget === "earth" ? { width: 2, height: 3 } : route.primaryWidgetSize
+  }
+  return route
 }
 
 function earthRuleToLiveResultTypes(entityTypes: string[]): LiveResultType[] {
   const types: LiveResultType[] = []
   for (const entityType of entityTypes) {
-    if (["earthquake", "wildfire", "fire", "storm", "hurricane", "tornado", "lightning", "volcano"].includes(entityType)) types.push("events")
+    if (["earthquake", "wildfire", "fire", "storm", "hurricane", "tornado", "lightning", "volcano", "flood", "drought", "oil_spill", "disease"].includes(entityType)) types.push("events")
     if (entityType === "aircraft") types.push("aircraft")
     if (entityType === "vessel") types.push("vessels")
     if (entityType === "satellite") types.push("satellites", "space_weather")
     if (["species", "fungal"].includes(entityType)) types.push("all_species", "specific_species")
     if (["infrastructure", "facility"].includes(entityType)) types.push("infrastructure")
     if (entityType === "weather") types.push("weather")
-    if (entityType === "device") types.push("devices")
+    if (entityType === "device" || entityType === "camera") types.push("devices")
   }
   return types
 }
@@ -298,14 +316,6 @@ function determinePrimaryWidget(
   }
 
   // Conservation / threatened taxa groups → synthesis first, multi-widget context (not one species hero)
-  if (intent.type === "species" && intent.filters.location) {
-    return {
-      primaryWidget: "earth",
-      primaryWidgetSize: { width: 2, height: 3 },
-      secondaryWidgets: getSecondaryWidgets(intent, "earth"),
-    }
-  }
-
   if (
     isConservationThematicQuery(intent.originalQuery) &&
     (classification === "hybrid" || classification === "data_query")
@@ -374,6 +384,8 @@ function getSecondaryWidgets(intent: SearchIntent, primaryWidget: WidgetType): W
   // Always include species for biology queries
   if (intent.type === "species" || intent.type === "compound" || intent.type === "location") {
     if (primaryWidget !== "species") secondary.push("species")
+    if (intent.type === "species" && primaryWidget !== "earth") secondary.push("earth")
+    if (intent.type === "species" && primaryWidget !== "genetics") secondary.push("genetics")
     if (primaryWidget !== "chemistry") secondary.push("chemistry")
     if (primaryWidget !== "research") secondary.push("research")
   }
@@ -409,14 +421,14 @@ function determineLiveResultTypes(intent: SearchIntent, query: string): LiveResu
 
   // Species queries → specific species observations
   if (intent.type === "species" || intent.type === "compound") {
-    types.push("specific_species")
+    types.push("all_species", "specific_species")
   }
 
-  // Always include general species observations as baseline
-  types.push("all_species")
-
   // Event-related
-  if (["event", "weather", "emissions", "infrastructure"].includes(intent.type)) {
+  if (["event", "emissions", "infrastructure"].includes(intent.type)) {
+    types.push("events")
+  }
+  if (intent.type === "weather") {
     types.push("events")
     types.push("weather")
   }
@@ -480,6 +492,7 @@ function createEmptyRoute(): SearchRoute {
       normalizedQuery: "",
       confidence: 0,
     }),
+    searchPlan: null,
   }
 }
 

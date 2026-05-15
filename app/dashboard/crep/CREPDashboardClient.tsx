@@ -2027,7 +2027,36 @@ export default function CREPDashboardPage({
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events" | "infra">("fungal"); // DEFAULT TO FUNGAL
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const isEmbeddedEarthquakeSearch = embedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
+  const isSearchEmbedded = embedded || enabledLayerIds.length > 0;
+  const isEmbeddedEarthquakeSearch = isSearchEmbedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
+  const embeddedLayerIdKey = enabledLayerIds.slice().sort().join("|");
+  const embeddedLayerIdSet = useMemo(() => new Set(enabledLayerIds), [embeddedLayerIdKey]);
+  const embeddedAllowsAny = (...ids: string[]) => !isSearchEmbedded || ids.some((id) => embeddedLayerIdSet.has(id));
+  const embeddedAllowsEvents = embeddedAllowsAny(
+    "earthquakes",
+    "wildfires",
+    "storms",
+    "tornadoes",
+    "lightning",
+    "volcanoes",
+    "floods",
+    "droughts",
+    "oilGas",
+  );
+  const embeddedAllowsNature = embeddedAllowsAny("fungi", "organisms", "inat");
+  const embeddedAllowsAircraft = embeddedAllowsAny("aviation", "aviationRoutes");
+  const embeddedAllowsVessels = embeddedAllowsAny("ships", "shipRoutes", "fishing", "containers", "ports");
+  const embeddedAllowsSatellites = embeddedAllowsAny("satellites", "orbitalDebris", "debrisCloud");
+  const embeddedAllowsSpaceWeather = embeddedAllowsAny("spaceWeather", "aurora", "solarWind", "satellites");
+  const embeddedAllowsDevices = embeddedAllowsAny("mycobrain", "devMushroom1", "devHyphae1", "sporebase", "devMycoNode", "devAlarm", "devPsathyrella");
+  const embeddedAllowsMarine = embeddedAllowsAny("ships", "shipRoutes", "fishing", "containers", "ports");
+  const embeddedAllowsMilitary = embeddedAllowsAny("militaryBases");
+  const embeddedAllowsLiveEntityStream =
+    embeddedAllowsAircraft ||
+    embeddedAllowsVessels ||
+    embeddedAllowsSatellites ||
+    embeddedAllowsDevices ||
+    embeddedAllowsNature;
   const embeddedAllowsInfrastructure = embedded && enabledLayerIds.some((id) =>
     [
       "powerPlants",
@@ -2290,6 +2319,7 @@ export default function CREPDashboardPage({
   // removes that failure mode entirely.
   // ════════════════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!embeddedAllowsAircraft && !embeddedAllowsVessels && !embeddedAllowsSatellites) return;
     let cancelled = false;
 
     const pumpLive = async () => {
@@ -2322,7 +2352,7 @@ export default function CREPDashboardPage({
 
       await Promise.allSettled([
         (async () => {
-          if (breakerSkip("__crep_pump_aircraft_breaker")) return
+          if (!embeddedAllowsAircraft || breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
             const res = await fetch("/api/oei/flightradar24", { signal: AbortSignal.timeout(25000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
@@ -2344,7 +2374,7 @@ export default function CREPDashboardPage({
           }
         })(),
         (async () => {
-          if (breakerSkip("__crep_pump_vessels_breaker")) return
+          if (!embeddedAllowsVessels || breakerSkip("__crep_pump_vessels_breaker")) return
           // Apr 22, 2026 (Morgan: "dont stop until all vessel satelite and
           // planes are showing animated and live on globe"). Default
           // /api/oei/aisstream goes through the multi-source vessel
@@ -2389,7 +2419,7 @@ export default function CREPDashboardPage({
           }
         })(),
         (async () => {
-          if (breakerSkip("__crep_pump_satellites_breaker")) return
+          if (!embeddedAllowsSatellites || breakerSkip("__crep_pump_satellites_breaker")) return
           // Apr 22, 2026 (Morgan: "dont stop until all vessel satelite and
           // planes are showing animated and live on globe"). Registry mode
           // was returning 0 and category=active legacy also 0 on the
@@ -2460,7 +2490,7 @@ export default function CREPDashboardPage({
       clearInterval(interval)
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible)
     }
-  }, []);
+  }, [embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites]);
 
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>({
@@ -2959,7 +2989,7 @@ export default function CREPDashboardPage({
     { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ]);
 
-  const embeddedLayerKey = useMemo(() => enabledLayerIds.slice().sort().join("|"), [enabledLayerIds]);
+  const embeddedLayerKey = embeddedLayerIdKey;
 
   useEffect(() => {
     if (!embedded) return;
@@ -3113,6 +3143,7 @@ export default function CREPDashboardPage({
   // EARTH-2 STATUS CHECK - Fetch status on mount
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
+    if (isSearchEmbedded && !embeddedAllowsSpaceWeather && !embeddedAllowsAny("earth2Forecast", "earth2Nowcast", "earth2Spore", "earth2Wind", "earth2Clouds")) return;
     const checkEarth2Status = async () => {
       try {
         const response = await fetch('/api/earth2');
@@ -3136,7 +3167,7 @@ export default function CREPDashboardPage({
       }, 60000)
       return () => clearInterval(interval);
     }
-  }, [mounted]);
+  }, [embeddedAllowsSpaceWeather, embeddedLayerKey, isSearchEmbedded, mounted]);
   
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // AUTO-ZOOM TO USER LOCATION ON PAGE LOAD
@@ -3207,7 +3238,7 @@ export default function CREPDashboardPage({
       setIsLoading(true);
       try {
         // Fetch global events - wrapped in try/catch for graceful failure
-        try {
+        if (embeddedAllowsEvents) try {
           const eventsUrl = isEmbeddedEarthquakeSearch
             ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
             : "/api/natureos/global-events";
@@ -3267,7 +3298,7 @@ export default function CREPDashboardPage({
         // failures. Was retrying every fetch cycle forever → spam.
         const mbKey = "__crep_mycobrain_fails";
         const failCount = (window as any)[mbKey] ?? 0;
-        if (failCount >= 3) {
+        if (!embeddedAllowsDevices || failCount >= 3) {
           // Skip silently — endpoint is dead, don't burn retries
         } else try {
           const devicesRes = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(8000) });
@@ -3333,7 +3364,7 @@ export default function CREPDashboardPage({
 
         const [aircraftResult, vesselResult, satelliteResult, spaceWxResult] = await Promise.allSettled([
           // Aircraft (all sources via registry)
-          fetchWithTimeout("/api/oei/flightradar24").then(async (res) => {
+          embeddedAllowsAircraft ? fetchWithTimeout("/api/oei/flightradar24").then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.aircraft && Array.isArray(data.aircraft) && data.aircraft.length > 0) {
@@ -3348,9 +3379,9 @@ export default function CREPDashboardPage({
               syncToMINDEX("aircraft", data.aircraft);
             }
             return data;
-          }),
+          }) : Promise.resolve(null),
           // Vessels (all sources via registry)
-          fetchWithTimeout("/api/oei/aisstream").then(async (res) => {
+          embeddedAllowsVessels ? fetchWithTimeout("/api/oei/aisstream").then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.vessels && Array.isArray(data.vessels) && data.vessels.length > 0) {
@@ -3363,9 +3394,9 @@ export default function CREPDashboardPage({
               syncToMINDEX("vessels", data.vessels);
             }
             return data;
-          }),
+          }) : Promise.resolve(null),
           // Satellites (all sources via registry)
-          fetchWithTimeout("/api/oei/satellites?category=active&mode=registry").then(async (res) => {
+          embeddedAllowsSatellites ? fetchWithTimeout("/api/oei/satellites?category=active&mode=registry").then(async (res) => {
             if (!res.ok) return null;
             initialSatelliteLoadDoneRef.current = true;
             const data = await res.json();
@@ -3379,9 +3410,9 @@ export default function CREPDashboardPage({
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);
             }
             return data;
-          }),
+          }) : Promise.resolve(null),
           // Space weather
-          fetchWithTimeout("/api/oei/space-weather").then(async (res) => {
+          embeddedAllowsSpaceWeather ? fetchWithTimeout("/api/oei/space-weather").then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.scales) {
@@ -3392,7 +3423,7 @@ export default function CREPDashboardPage({
               });
             }
             return data;
-          }),
+          }) : Promise.resolve(null),
         ]);
 
         // Log any failures (non-blocking)
@@ -3410,7 +3441,7 @@ export default function CREPDashboardPage({
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // FUNGAL: Viewport-based fetching happens in the bounds effect below.
         // Pre-load: seed the species catalog from MINDEX, fall back to search API.
-        try {
+        if (embeddedAllowsNature) try {
           const proxyRes = await fetch("/api/mindex/proxy/species?limit=500");
           const proxyData = proxyRes.ok ? await proxyRes.json() : null;
           const proxyEntities = proxyData?.entities || proxyData?.results || proxyData?.data || [];
@@ -3443,13 +3474,23 @@ export default function CREPDashboardPage({
       fetchData()
     }, 60000)
     return () => clearInterval(interval)
-  }, []);
+  }, [
+    embeddedAllowsAircraft,
+    embeddedAllowsDevices,
+    embeddedAllowsEvents,
+    embeddedAllowsNature,
+    embeddedAllowsSatellites,
+    embeddedAllowsSpaceWeather,
+    embeddedAllowsVessels,
+    isEmbeddedEarthquakeSearch,
+  ]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BUOY DATA FETCH — NOAA NDBC ocean buoys (every 5 minutes)
   // ~1300 active stations worldwide with wave, wind, temp, pressure data
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!embeddedAllowsMarine) return;
     const fetchBuoys = async () => {
       try {
         const res = await fetch("/api/oei/buoys");
@@ -3473,13 +3514,14 @@ export default function CREPDashboardPage({
       fetchBuoys()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, []);
+  }, [embeddedAllowsMarine]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MILITARY BASES FETCH — OSM + MINDEX military installations (every 5 minutes)
   // Fetches military bases, airfields, ranges, barracks, training areas globally
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!embeddedAllowsMilitary) return;
     const fetchMilitary = async () => {
       try {
         const res = await fetch("/api/oei/military");
@@ -3501,7 +3543,7 @@ export default function CREPDashboardPage({
       fetchMilitary()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval);
-  }, []);
+  }, [embeddedAllowsMilitary]);
 
   // Infrastructure data fetched via map onLoad + moveend handler above (not useEffect)
   // This avoids React strict mode double-render abort issues with AbortController
@@ -3514,6 +3556,10 @@ export default function CREPDashboardPage({
   // wait users saw before ANY species dots appeared.
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!embeddedAllowsNature) {
+      setFungalLoading(false);
+      return;
+    }
     const ctrl = new AbortController();
     (async () => {
       try {
@@ -3560,7 +3606,7 @@ export default function CREPDashboardPage({
       }
     })();
     return () => ctrl.abort();
-  }, []); // mount only
+  }, [embeddedAllowsNature]); // mount only when search-controlled nature layers are enabled
 
   // ═══════════════════════════════════════════════════════════════════════════
   // BAKED HISTORICAL iNAT — Apr 23, 2026
@@ -3586,6 +3632,7 @@ export default function CREPDashboardPage({
     // Apr 23, 2026 — Morgan (Vegas demo): "naturedata live in las vegas".
     // Baked Vegas iNat geojson added to BAKED_REGIONS; flows through the
     // same fungalObservations state as NYC/DC and live SSE.
+    if (!embeddedAllowsNature) return;
     const BAKED_REGIONS = ["nyc", "dc", "vegas", "sdtj", "la", "sf"] as const;
     let cancelled = false;
     (async () => {
@@ -3651,7 +3698,7 @@ export default function CREPDashboardPage({
       }
     })();
     return () => { cancelled = true; };
-  }, []); // mount only
+  }, [embeddedAllowsNature]); // mount only when search-controlled nature layers are enabled
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIVE NATURE STREAM (SSE) — dots pop onto the map as iNat publishes them
@@ -3660,6 +3707,7 @@ export default function CREPDashboardPage({
   // the CREP-live stream and MINDEX persistence happen at the same moment.
   // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
+    if (!embeddedAllowsNature) return;
     let es: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
@@ -3772,11 +3820,12 @@ export default function CREPDashboardPage({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (es) { try { es.close(); } catch {} }
     };
-  }, []); // mount only
+  }, [embeddedAllowsNature]); // mount only when search-controlled nature layers are enabled
 
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
   // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
   useEffect(() => {
+    if (!embeddedAllowsNature) return;
     if (!mapBounds) return;
     const { north, south, east, west } = mapBounds;
     if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
@@ -3878,7 +3927,7 @@ export default function CREPDashboardPage({
       ctrl.abort();
       clearTimeout(t);
     };
-  }, [mapBounds, mapZoom]);
+  }, [embeddedAllowsNature, mapBounds, mapZoom]);
 
   // Periodic refresh of live events (earthquakes, lightning, fire, etc.) – new events pop up and blink
   const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
@@ -6352,7 +6401,7 @@ export default function CREPDashboardPage({
   }, []);
 
   useEffect(() => {
-    if (!isStreaming) {
+    if (isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
       entityStreamClientRef.current?.disconnect();
       entityStreamClientRef.current = null;
       return;
@@ -6404,7 +6453,7 @@ export default function CREPDashboardPage({
       entityStreamClientRef.current?.disconnect();
       entityStreamClientRef.current = null;
     };
-  }, [isStreaming]);
+  }, [embeddedAllowsLiveEntityStream, isSearchEmbedded, isStreaming]);
 
   useEffect(() => {
     if (!entityStreamClientRef.current || !mapBounds) return;
