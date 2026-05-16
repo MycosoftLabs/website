@@ -167,8 +167,14 @@ jobs:
           ssh-retry production bash -s <<'SCRIPT'
             set -e
             cd /opt/mycosoft/website
+            TARGET_REF="${{ inputs.ref || 'main' }}"
             git fetch origin
-            git checkout ${{ inputs.ref || 'main' }} -- \
+            if git rev-parse --verify --quiet "origin/${TARGET_REF}" >/dev/null; then
+              CHECKOUT_REF="origin/${TARGET_REF}"
+            else
+              CHECKOUT_REF="${TARGET_REF}"
+            fi
+            git checkout "${CHECKOUT_REF}" -- \
               docker-compose.production.yml \
               docker-compose.production.blue-green.yml \
               deploy/nginx/nginx.conf \
