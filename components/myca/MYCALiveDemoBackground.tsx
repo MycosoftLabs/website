@@ -23,7 +23,13 @@ interface ActivityRefs {
   flowDirection: FlowDirection
 }
 
-export function MYCALiveDemoBackground({ className }: { className?: string }) {
+export function MYCALiveDemoBackground({
+  className,
+  transparent = false,
+}: {
+  className?: string
+  transparent?: boolean
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const activityRef = useRef<ActivityRefs>({
     isLoading: false,
@@ -86,6 +92,9 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
   useEffect(() => {
     if (!containerRef.current || typeof window === "undefined") return
 
+    let disposed = false
+    let cleanupFn: (() => void) | undefined
+
     const init = async () => {
       const THREE = await import("three")
       const { EffectComposer } = await import(
@@ -98,13 +107,15 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
         "three/examples/jsm/postprocessing/UnrealBloomPass.js"
       )
 
-      const container = containerRef.current!
+      if (disposed || !containerRef.current) return
+
+      const container = containerRef.current
       const width = container.clientWidth
       const height = container.clientHeight
 
       const scene = new THREE.Scene()
-      scene.background = new THREE.Color("#080808")
-      scene.fog = new THREE.FogExp2("#080808", 0.002)
+      scene.background = transparent ? null : new THREE.Color("#080808")
+      scene.fog = transparent ? null : new THREE.FogExp2("#080808", 0.002)
 
       const camera = new THREE.OrthographicCamera(
         -width / 2,
@@ -120,7 +131,13 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
       renderer.setSize(width, height)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-      renderer.setClearColor(0x080808, 0.4)
+      renderer.setClearColor(0x080808, transparent ? 0 : 0.4)
+
+      if (disposed || !containerRef.current) {
+        renderer.dispose()
+        return
+      }
+
       container.appendChild(renderer.domElement)
 
       const contentGroup = new THREE.Group()
@@ -277,6 +294,7 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       let frameId: number
 
       function animate() {
+        if (disposed) return
         frameId = requestAnimationFrame(animate)
         const time = clock.getElapsedTime()
         const act = activityRef.current
@@ -404,7 +422,11 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       const ro = new ResizeObserver(onResize)
       ro.observe(container)
 
+      let cleaned = false
       return () => {
+        if (cleaned) return
+        cleaned = true
+        disposed = true
         cancelAnimationFrame(frameId)
         window.removeEventListener("resize", onResize)
         ro.disconnect()
@@ -414,22 +436,27 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
           s.mesh.geometry.dispose()
         })
         renderer.dispose()
-        if (container.contains(renderer.domElement)) {
-          container.removeChild(renderer.domElement)
+        if (renderer.domElement.parentNode) {
+          renderer.domElement.parentNode.removeChild(renderer.domElement)
         }
       }
     }
 
-    const initPromise = init()
+    init()
+      .then((cleanup) => {
+        if (disposed) {
+          if (typeof cleanup === "function") cleanup()
+          return
+        }
+        cleanupFn = cleanup
+      })
+      .catch(() => {})
 
     return () => {
-      initPromise
-        .then((cleanup) => {
-          if (typeof cleanup === "function") cleanup()
-        })
-        .catch(() => {})
+      disposed = true
+      cleanupFn?.()
     }
-  }, [])
+  }, [transparent])
 
   return (
     <div

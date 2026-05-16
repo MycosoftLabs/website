@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowUpRight, Database, Globe2, Layers3, Radar, Shield, Sparkles } from "lucide-react"
+import dynamic from "next/dynamic"
+import { AnimatePresence, motion } from "framer-motion"
+import { ArrowUpRight, Database, Globe2, Layers3, Radar, Search, Shield, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { HeroSearch } from "@/components/home/hero-search"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
@@ -11,6 +13,15 @@ import { cn } from "@/lib/utils"
 
 const HOME_HERO_SOURCES = homeHeroVideoSources()
 const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
+const PROD_ASSET_ORIGIN = "https://mycosoft.com"
+const HomeMYCADemoPanel = dynamic(
+  () => import("@/components/home/home-myca-demo-panel").then((mod) => mod.HomeMYCADemoPanel),
+  { ssr: false }
+)
+const HomeMYCABackdrop = dynamic(
+  () => import("@/components/home/home-myca-demo-panel").then((mod) => mod.HomeMYCABackdrop),
+  { ssr: false }
+)
 
 type HomeTile = {
   title: string
@@ -126,13 +137,41 @@ const TILES: HomeTile[] = [
 function TileMedia({ tile }: { tile: HomeTile }) {
   const mediaRef = useRef<HTMLDivElement>(null)
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false)
+  const tileSources = getTileVideoSources(tile)
 
   useEffect(() => {
     const node = mediaRef.current
     if (!node) return
+
+    let frame = 0
+    const loadWhenNearViewport = () => {
+      const rect = node.getBoundingClientRect()
+      const margin = Math.max(640, window.innerHeight * 0.75)
+      if (rect.bottom >= -margin && rect.top <= window.innerHeight + margin) {
+        setShouldLoadVideo(true)
+      }
+    }
+    const scheduleVisibilityCheck = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        loadWhenNearViewport()
+      })
+    }
+
+    loadWhenNearViewport()
+    window.addEventListener("scroll", scheduleVisibilityCheck, { passive: true })
+    window.addEventListener("resize", scheduleVisibilityCheck)
+    const settleCheck = window.setTimeout(loadWhenNearViewport, 250)
+
     if (typeof IntersectionObserver === "undefined") {
       setShouldLoadVideo(true)
-      return
+      return () => {
+        if (frame) window.cancelAnimationFrame(frame)
+        window.clearTimeout(settleCheck)
+        window.removeEventListener("scroll", scheduleVisibilityCheck)
+        window.removeEventListener("resize", scheduleVisibilityCheck)
+      }
     }
 
     const observer = new IntersectionObserver(
@@ -141,21 +180,28 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         setShouldLoadVideo(true)
         observer.disconnect()
       },
-      { rootMargin: "0px" }
+      { rootMargin: "900px 0px" }
     )
 
     observer.observe(node)
-    return () => observer.disconnect()
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.clearTimeout(settleCheck)
+      window.removeEventListener("scroll", scheduleVisibilityCheck)
+      window.removeEventListener("resize", scheduleVisibilityCheck)
+      observer.disconnect()
+    }
   }, [])
 
   return (
     <div ref={mediaRef} className="absolute inset-0 overflow-hidden bg-neutral-950">
       {shouldLoadVideo && (tile.video || tile.sources?.length) ? (
         <AutoplayVideo
-          src={tile.video}
-          sources={tile.sources}
-          preload="metadata"
-          stallTimeoutMs={9000}
+          sources={tileSources}
+          poster={tile.poster}
+          preload="auto"
+          stallTimeoutMs={1800}
+          probeEmptyMp4={false}
           className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
           encodeSrc
         />
@@ -166,29 +212,156 @@ function TileMedia({ tile }: { tile: HomeTile }) {
   )
 }
 
+function getTileVideoSources(tile: HomeTile): string[] | undefined {
+  const localSources = tile.sources?.length ? tile.sources : tile.video ? [tile.video] : []
+  if (process.env.NODE_ENV !== "development") return localSources
+
+  const withDevFallbacks: string[] = []
+  for (const source of localSources) {
+    if (source.startsWith("/assets/")) {
+      withDevFallbacks.push(`${PROD_ASSET_ORIGIN}${source}`)
+    }
+    withDevFallbacks.push(source)
+  }
+  return withDevFallbacks
+}
+
 export function HomeCommandPage() {
+  const [showMYCADemo, setShowMYCADemo] = useState(false)
+  const mycaPreloadStartedRef = useRef(false)
+
+  useEffect(() => {
+    if (mycaPreloadStartedRef.current) return
+    mycaPreloadStartedRef.current = true
+
+    const preloadMYCA = () => {
+      void Promise.allSettled([
+        import("@/components/home/home-myca-demo-panel"),
+        import("@/components/myca/MYCALiveDemoBackground"),
+        import("three"),
+        import("three/examples/jsm/postprocessing/EffectComposer.js"),
+        import("three/examples/jsm/postprocessing/RenderPass.js"),
+        import("three/examples/jsm/postprocessing/UnrealBloomPass.js"),
+      ])
+    }
+
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(preloadMYCA, { timeout: 1800 })
+      return () => window.cancelIdleCallback(id)
+    }
+
+    const timeout = window.setTimeout(preloadMYCA, 500)
+    return () => window.clearTimeout(timeout)
+  }, [])
+
+  useEffect(() => {
+    if (!showMYCADemo) return
+    const keepHeroPinned = () => window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+    keepHeroPinned()
+    const frame = window.requestAnimationFrame(keepHeroPinned)
+    const settle = window.setTimeout(keepHeroPinned, 360)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(settle)
+    }
+  }, [showMYCADemo])
+
   return (
     <div className="home-command-page-light min-h-dvh bg-white text-slate-950 dark:bg-black dark:text-white">
-      <section data-over-video className="relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10">
+      <section data-over-video className="home-hero-glass-field relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10">
         <div className="absolute inset-0">
-          {HOME_HERO_SOURCES[0] ? (
-            <AutoplayVideo
-              src={HOME_HERO_SOURCES[0]}
-              sources={HOME_HERO_SOURCES}
-              poster={HOME_HERO_POSTER}
-              preload="auto"
-              stallTimeoutMs={18000}
-              className="absolute inset-0 h-full w-full object-cover"
-              encodeSrc
-            />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70" />
+          <motion.div
+            className="absolute inset-0"
+            initial={false}
+            animate={{ opacity: showMYCADemo ? 0 : 1, scale: showMYCADemo ? 1.018 : 1 }}
+            transition={{ duration: 0.62, ease: [0.22, 0.61, 0.36, 1] }}
+          >
+            {HOME_HERO_SOURCES[0] ? (
+              <AutoplayVideo
+                src={HOME_HERO_SOURCES[0]}
+                sources={HOME_HERO_SOURCES}
+                poster={HOME_HERO_POSTER}
+                preload="auto"
+                stallTimeoutMs={18000}
+                className="absolute inset-0 h-full w-full object-cover"
+                encodeSrc
+              />
+            ) : null}
+          </motion.div>
+          <AnimatePresence>
+            {showMYCADemo ? (
+              <motion.div
+                key="myca-backdrop"
+                className="absolute inset-0 bg-[#080d12]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.62, ease: [0.22, 0.61, 0.36, 1] }}
+                aria-hidden="true"
+              >
+                <HomeMYCABackdrop />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70"
+            initial={false}
+            animate={{ opacity: showMYCADemo ? 0.42 : 1 }}
+            transition={{ duration: 0.62, ease: [0.22, 0.61, 0.36, 1] }}
+          />
         </div>
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-3rem)] max-w-7xl flex-col justify-center px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-3xl">
-            <HeroSearch showBackground={false} embedded className="w-full" />
-          </div>
+        <div className="relative z-10 mx-auto min-h-[calc(100dvh-3rem)] w-full max-w-7xl">
+          <AnimatePresence mode="wait">
+            {!showMYCADemo ? (
+              <motion.div
+                key="home-search"
+                className="absolute inset-0 flex items-center justify-center px-4 py-20 sm:px-6 lg:px-8"
+                initial={false}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -48, scale: 0.96, filter: "blur(10px)" }}
+                transition={{ duration: 0.46, ease: [0.22, 0.61, 0.36, 1] }}
+              >
+                <div className="mx-auto w-full max-w-3xl">
+                  <HeroSearch
+                    showBackground={false}
+                    embedded
+                    className="w-full"
+                    onOpenMYCADemo={() => setShowMYCADemo(true)}
+                  />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="myca-demo"
+                className="absolute inset-0 flex items-start justify-center px-4 sm:px-6 lg:px-8"
+                initial={{ opacity: 0, y: 56, scale: 0.985, filter: "blur(12px)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: 32, scale: 0.985, filter: "blur(8px)" }}
+                transition={{ duration: 0.58, ease: [0.22, 0.61, 0.36, 1] }}
+              >
+                <HomeMYCADemoPanel />
+                <div className="natureos-glass-page myco-home-return-search-glass absolute bottom-8 right-4 z-30 sm:right-7 lg:bottom-16 lg:right-10">
+                  <div className="petri-codepen-button-demo petri-codepen-button-demo-reset myco-hero-petri-icon myco-home-return-search-button">
+                    <div className="button-wrap">
+                      <button
+                        type="button"
+                        aria-label="Return to search panels"
+                        title="Search"
+                        onClick={() => setShowMYCADemo(false)}
+                        onPointerDown={() => setShowMYCADemo(false)}
+                      >
+                        <span>
+                          <Search className="h-[1em] w-[1em]" />
+                        </span>
+                      </button>
+                      <div className="button-shadow" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
 

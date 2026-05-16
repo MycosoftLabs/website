@@ -117,6 +117,13 @@ function generateSessionId(userId: string | null) {
   return `myca_${userId || "anon"}_${Date.now()}_${suffix}`
 }
 
+function clearAnonymousMYCAStorage() {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(buildStorageKey(SESSION_KEY_PREFIX, null))
+  localStorage.removeItem(buildStorageKey(CONVERSATION_KEY_PREFIX, null))
+  localStorage.removeItem(buildStorageKey(MESSAGES_KEY_PREFIX, null))
+}
+
 function normalizeMessages(rawMessages: Array<Record<string, any>>): MYCAMessage[] {
   return rawMessages.map((msg) => ({
     id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -166,6 +173,18 @@ export function MYCAProvider({
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (!userId) {
+      clearAnonymousMYCAStorage()
+      setSessionId(generateSessionId(null))
+      setConversationId(null)
+      setMessages([])
+      setMemoryEnabled(false)
+      setLastResponseMetadata(null)
+      hasInitializedRef.current = true
+      return
+    }
+
+    setMemoryEnabled(true)
     const sessionKey = buildStorageKey(SESSION_KEY_PREFIX, userId)
     const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
     const messagesKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
@@ -178,14 +197,15 @@ export function MYCAProvider({
     setSessionId(resolvedSession)
 
     if (storedConversation) setConversationId(storedConversation)
-    if (storedMessages && messages.length === 0) {
-      setMessages(JSON.parse(storedMessages) as MYCAMessage[])
+    if (storedMessages) {
+      const parsedMessages = JSON.parse(storedMessages) as MYCAMessage[]
+      setMessages((prev) => (prev.length === 0 ? parsedMessages : prev))
     }
     hasInitializedRef.current = true
-  }, [userId, messages.length])
+  }, [userId])
 
   useEffect(() => {
-    if (!conversationId || typeof window === "undefined") return
+    if (!conversationId || !userId || typeof window === "undefined") return
     const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
     localStorage.setItem(conversationKey, conversationId)
   }, [conversationId, userId])
@@ -196,7 +216,7 @@ export function MYCAProvider({
 
   const storeMemory = useCallback(
     async (message: MYCAMessage) => {
-      if (!memoryEnabled || !sessionId) return
+      if (!memoryEnabled || !sessionId || !userId) return
       try {
         // Apr 23, 2026 audit: was `fetch()` without timeout. If MAS
         // restarts mid-session, every user message would block the
@@ -207,7 +227,7 @@ export function MYCAProvider({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: sessionId,
-            user_id: userId || "anonymous",
+            user_id: userId,
             message: message.content,
             role: message.role,
             agent: message.agent,
@@ -261,14 +281,22 @@ export function MYCAProvider({
             message: requestMessage,
             user_id: userId || undefined,
             user_role: userRole || undefined,
-            conversation_id: conversationId || undefined,
-            session_id: sessionId || undefined,
+            conversation_id: userId ? conversationId || undefined : undefined,
+            session_id: userId ? sessionId || undefined : undefined,
             want_audio: options?.wantAudio ?? false,
             actor: options?.actor || "user",
             source: options?.source || "web",
             context: {
               ...(options?.context || {}),
-              user_id: userId || "anonymous",
+              ...(!userId
+                ? {
+                    include_memory_context: false,
+                    isolate_from_chat_memory: true,
+                    platform: "myca-anonymous-live-demo",
+                    anonymous_session: true,
+                  }
+                : {}),
+              ...(userId ? { user_id: userId } : {}),
             },
           }),
         })
@@ -286,8 +314,8 @@ export function MYCAProvider({
         }
 
         const data = await response.json()
-        const nextConversationId = data.conversation_id || conversationId || `conv-${Date.now()}`
-        if (nextConversationId && nextConversationId !== conversationId) {
+        const nextConversationId = userId ? data.conversation_id || conversationId || `conv-${Date.now()}` : null
+        if (userId && nextConversationId && nextConversationId !== conversationId) {
           setConversationId(nextConversationId)
         }
 
@@ -299,7 +327,7 @@ export function MYCAProvider({
           agent: data.agent,
           audio_base64: data.audio_base64,
           requires_confirmation: data.requires_confirmation,
-          confirmation_id: data.conversation_id,
+          confirmation_id: userId ? data.conversation_id : undefined,
           nlqData: data.nlq_data,
           nlqActions: data.nlq_actions,
           nlqSources: data.nlq_sources,
@@ -332,7 +360,7 @@ export function MYCAProvider({
           setPendingConfirmationId(null)
         }
 
-        if (memoryEnabled) {
+        if (userId && memoryEnabled) {
           await Promise.all([storeMemory(userMessage), storeMemory(assistantMessage)])
         }
       } catch (error) {
@@ -407,13 +435,15 @@ export function MYCAProvider({
     setLastResponseMetadata(null)
     if (typeof window !== "undefined") {
       const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
+      const messagesKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
       localStorage.removeItem(conversationKey)
+      localStorage.removeItem(messagesKey)
     }
   }, [userId])
 
   const loadConversation = useCallback(
     async (targetConversationId: string) => {
-      if (!targetConversationId) return
+      if (!targetConversationId || !userId) return
       try {
         // Apr 23, 2026 audit: conversation loader had no timeout. The
         // "Load conversation" menu would hang silently when MAS is busy.
@@ -459,7 +489,7 @@ export function MYCAProvider({
   }, [conversationId, loadConversation])
 
   const syncToMAS = useCallback(async () => {
-    if (!sessionId || messages.length === 0) return
+    if (!sessionId || !userId || messages.length === 0) return
     try {
       // Apr 23, 2026 audit: MAS sync had no timeout. Best-effort write
       // so a 10 s cap is fine — if MAS is down the messages persist in
@@ -469,7 +499,7 @@ export function MYCAProvider({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          user_id: userId || "anonymous",
+          user_id: userId,
           conversation_id: conversationId,
           messages,
         }),
@@ -487,7 +517,7 @@ export function MYCAProvider({
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (messages.length === 0) return
+    if (!userId || messages.length === 0) return
     const localKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
     const trimmed = messages.slice(-200)
     localStorage.setItem(localKey, JSON.stringify(trimmed))
@@ -596,6 +626,7 @@ export function MYCAProvider({
       consciousness,
       grounding,
       lastResponseMetadata,
+      isActive,
     ]
   )
 

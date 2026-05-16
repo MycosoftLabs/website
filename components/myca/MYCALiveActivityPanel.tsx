@@ -102,11 +102,9 @@ function useActivityLog() {
     messages.forEach((m, i) => {
       const ts = new Date(m.timestamp).getTime()
       if (m.role === "user") {
-        const content = (m.content || "").slice(0, 60)
-        msgEntries.push({ id: "u-" + i, type: "user", text: `You: ${content}${(m.content || "").length > 60 ? "…" : ""}`, ts })
+        msgEntries.push({ id: "u-" + i, type: "route", text: "Input received", ts })
       } else {
-        const agent = m.agent ? ` (${m.agent})` : ""
-        msgEntries.push({ id: "a-" + i, type: "reply", text: `MYCA${agent}: replied`, ts })
+        msgEntries.push({ id: "a-" + i, type: "reply", text: "Response composed", ts })
       }
     })
     const sorted = [...msgEntries].sort((a, b) => b.ts - a.ts).slice(0, 18)
@@ -117,6 +115,65 @@ function useActivityLog() {
     }
     if (lastResponseMetadata?.routed_to || lastResponseMetadata?.agent) {
       prefix.push({ id: "route", type: "route", text: "Using MYCA", ts: Date.now() })
+    }
+    if (consciousness?.is_conscious) {
+      prefix.push({ id: "conscious", type: "conscious", text: "Consciousness active", ts: Date.now() - 1 })
+    }
+    return [...prefix, ...sorted].slice(0, 20)
+  }, [messages, lastResponseMetadata, isLoading, consciousness?.is_conscious])
+}
+
+/** Build operational activity entries without duplicating chat transcript lines. */
+function useOperationalActivityLog() {
+  const { messages, lastResponseMetadata, isLoading, consciousness } = useMYCA()
+
+  return useMemo(() => {
+    type ActivityLogEntry = {
+      id: string
+      type: "input" | "reply" | "route" | "processing" | "conscious" | "tool" | "service" | "agent"
+      text: string
+      ts: number
+    }
+    const labelAgent = (raw?: string) => {
+      if (!raw || raw === "myca-local-fallback") return "MYCA"
+      return raw
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    }
+
+    const msgEntries: ActivityLogEntry[] = []
+    messages.forEach((m, i) => {
+      const ts = new Date(m.timestamp).getTime()
+      if (m.role === "user") {
+        msgEntries.push({ id: "input-" + i, type: "input", text: "Input received", ts })
+        msgEntries.push({ id: "route-" + i, type: "route", text: "Routing request through MYCA", ts: ts + 1 })
+      } else {
+        const agent = labelAgent(m.agent || String(m.metadata?.routed_to || ""))
+        if (Array.isArray(m.nlqActions) && m.nlqActions.length > 0) {
+          msgEntries.push({ id: "tool-" + i, type: "tool", text: "Tool actions prepared", ts: ts + 1 })
+        }
+        if (Array.isArray(m.nlqSources) && m.nlqSources.length > 0) {
+          msgEntries.push({ id: "service-" + i, type: "service", text: "Service data checked", ts: ts + 2 })
+        }
+        msgEntries.push({ id: "reply-" + i, type: "reply", text: `Response composed by ${agent}`, ts: ts + 3 })
+      }
+    })
+    const sorted = [...msgEntries].sort((a, b) => b.ts - a.ts).slice(0, 18)
+
+    const prefix: ActivityLogEntry[] = []
+    if (isLoading) {
+      prefix.push({ id: "proc", type: "processing", text: "Processing request", ts: Date.now() + 2 })
+      prefix.push({ id: "think", type: "processing", text: "Thinking through route", ts: Date.now() + 1 })
+    }
+    if (lastResponseMetadata?.routed_to || lastResponseMetadata?.agent) {
+      prefix.push({
+        id: "route",
+        type: "agent",
+        text: `Response from ${labelAgent(lastResponseMetadata.routed_to || lastResponseMetadata.agent)}`,
+        ts: Date.now(),
+      })
     }
     if (consciousness?.is_conscious) {
       prefix.push({ id: "conscious", type: "conscious", text: "Consciousness active", ts: Date.now() - 1 })
@@ -150,7 +207,7 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
   const { isLoading, consciousness, lastResponseMetadata } = useMYCA()
   const { connected, connecting, error, agentStatus } = useTopologyWebSocketSimple()
   const conversationAgents = useConversationAgents()
-  const activityLog = useActivityLog()
+  const activityLog = useOperationalActivityLog()
 
   const highlightAgent = lastResponseMetadata?.routed_to || lastResponseMetadata?.agent
   const prevHighlightRef = useRef<string | undefined>(undefined)
@@ -298,15 +355,21 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
                 ) : (
                   activityLog.map((entry) => {
                     const Icon =
-                      entry.type === "user" ? User
+                      entry.type === "input" ? User
                       : entry.type === "reply" ? MessageSquare
                       : entry.type === "route" ? Route
+                      : entry.type === "tool" ? Cog
+                      : entry.type === "service" ? Database
+                      : entry.type === "agent" ? Sparkles
                       : entry.type === "processing" ? Cpu
                       : Brain
                     const colorClass =
-                      entry.type === "user" ? "text-blue-500"
+                      entry.type === "input" ? "text-blue-500"
                       : entry.type === "reply" ? "text-green-600 dark:text-green-400"
                       : entry.type === "route" ? "text-amber-500"
+                      : entry.type === "tool" ? "text-cyan-500"
+                      : entry.type === "service" ? "text-purple-500"
+                      : entry.type === "agent" ? "text-green-500"
                       : entry.type === "processing" ? "text-amber-500 animate-pulse"
                       : entry.type === "conscious" ? "text-green-500"
                       : "text-muted-foreground"

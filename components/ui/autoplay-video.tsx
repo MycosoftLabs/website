@@ -129,6 +129,8 @@ interface AutoplayVideoProps {
   preload?: "auto" | "metadata" | "none"
   /** Still image until first frame decodes (faster perceived hero load). */
   poster?: string
+  /** Skip the same-origin empty-file HEAD probe for hot, visible media. */
+  probeEmptyMp4?: boolean
   /**
    * When true (default), the video does not receive pointer events so full-bleed heroes
    * do not sit above the footer/header stack and eat the first tap/click.
@@ -148,6 +150,7 @@ export function AutoplayVideo({
   preload = "metadata",
   pointerEventsNone = true,
   poster,
+  probeEmptyMp4 = true,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const lazyProbeRef = useRef<HTMLDivElement>(null)
@@ -161,8 +164,10 @@ export function AutoplayVideo({
   const [playing, setPlaying] = useState(false)
   const [allFailed, setAllFailed] = useState(false)
   const [shouldLoad, setShouldLoad] = useState(preload === "auto")
+  const [retryToken, setRetryToken] = useState(0)
   const activeSrc = list[index] ?? ""
   const listRef = useRef(list)
+  const retryCountRef = useRef(0)
   listRef.current = list
 
   useEffect(() => {
@@ -170,7 +175,13 @@ export function AutoplayVideo({
     setPlaying(false)
     setAllFailed(false)
     setShouldLoad(preload === "auto")
+    setRetryToken(0)
+    retryCountRef.current = 0
   }, [sourcesKey, preload])
+
+  useEffect(() => {
+    retryCountRef.current = 0
+  }, [activeSrc])
 
   useEffect(() => {
     if (preload === "auto" || shouldLoad) return
@@ -197,7 +208,7 @@ export function AutoplayVideo({
   // Runs in parallel with video load — does NOT block playback. If the probe
   // detects CL:0 before the video element loads, we advance immediately.
   useEffect(() => {
-    if (!shouldLoad || !activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
+    if (!probeEmptyMp4 || !shouldLoad || !activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
     let cancelled = false
     const ctrl = new AbortController()
     ;(async () => {
@@ -224,44 +235,81 @@ export function AutoplayVideo({
       cancelled = true
       ctrl.abort()
     }
-  }, [activeSrc, shouldLoad])
+  }, [activeSrc, shouldLoad, probeEmptyMp4])
 
   useEffect(() => {
     const v = videoRef.current
     if (!shouldLoad || !v || !activeSrc) return
 
     const tryPlay = () => {
+      if (v.readyState === HTMLMediaElement.HAVE_NOTHING) {
+        v.load()
+      }
       v.play().catch(() => {})
+    }
+    const restartLoopIfNeeded = () => {
+      const dur = v.duration
+      if (!Number.isFinite(dur) || dur <= 0) return false
+      if (v.currentTime < Math.max(0, dur - 0.18)) return false
+      try {
+        v.currentTime = 0
+      } catch {
+        return false
+      }
+      tryPlay()
+      return true
     }
     tryPlay()
     const onTouch = () => tryPlay()
     document.addEventListener("touchstart", onTouch, { once: true })
 
     let stallTimer: ReturnType<typeof setTimeout> | undefined
+    let progressTimer: ReturnType<typeof setInterval> | undefined
+    let lastProgressTime = v.currentTime
+    let stalledTicks = 0
     const clearStall = () => {
       if (stallTimer) clearTimeout(stallTimer)
       stallTimer = undefined
     }
     const scheduleStall = () => {
       clearStall()
+      const startTime = v.currentTime
       stallTimer = setTimeout(() => {
-        if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && v.currentTime === 0) {
-          const L = listRef.current
-          setIndex((i) => {
-            if (i + 1 < L.length) return i + 1
-            if (hideUntilPlaying) setAllFailed(true)
-            return i
-          })
+        if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && v.currentTime <= startTime + 0.04) {
+          if (restartLoopIfNeeded()) return
+          advanceOrRetry()
         }
       }, stallTimeoutMs)
+    }
+    const advanceOrRetry = () => {
+      clearStall()
+      const L = listRef.current
+      setPlaying(false)
+      setIndex((i) => {
+        if (i + 1 < L.length) {
+          retryCountRef.current = 0
+          return i + 1
+        }
+        if (retryCountRef.current < 2) {
+          retryCountRef.current += 1
+          setRetryToken((token) => token + 1)
+          return i
+        }
+        if (hideUntilPlaying) setAllFailed(true)
+        return i
+      })
     }
 
     const onCanPlay = () => clearStall()
     const onPlaying = () => {
       clearStall()
+      retryCountRef.current = 0
       if (hideUntilPlaying) setPlaying(true)
     }
     const onWaiting = () => scheduleStall()
+    const onEnded = () => {
+      if (!restartLoopIfNeeded()) advanceOrRetry()
+    }
     // Only advance on terminal media errors (MEDIA_ERR_SRC_NOT_SUPPORTED /
     // MEDIA_ERR_NETWORK). Aborted requests during navigation show up as
     // generic `error` events too — advancing on those causes a remount loop
@@ -272,43 +320,57 @@ export function AutoplayVideo({
         code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
         code === MediaError.MEDIA_ERR_NETWORK
       if (!terminal) return
-      clearStall()
-      const L = listRef.current
-      setIndex((i) => {
-        if (i + 1 < L.length) return i + 1
-        if (hideUntilPlaying) setAllFailed(true)
-        return i
-      })
+      advanceOrRetry()
     }
     const onLoadedMetadata = () => {
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
-        const L = listRef.current
-        setIndex((i) => {
-          if (i + 1 < L.length) return i + 1
-          if (hideUntilPlaying) setAllFailed(true)
-          return i
-        })
+        advanceOrRetry()
       }
+    }
+    const monitorProgress = () => {
+      if (v.paused || v.seeking) {
+        lastProgressTime = v.currentTime
+        stalledTicks = 0
+        return
+      }
+      if (restartLoopIfNeeded()) {
+        lastProgressTime = 0
+        stalledTicks = 0
+        return
+      }
+      if (Math.abs(v.currentTime - lastProgressTime) < 0.03) {
+        stalledTicks += 1
+        if (stalledTicks >= 2 && v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+          advanceOrRetry()
+        }
+        return
+      }
+      lastProgressTime = v.currentTime
+      stalledTicks = 0
     }
 
     v.addEventListener("canplay", onCanPlay)
     v.addEventListener("playing", onPlaying)
     v.addEventListener("waiting", onWaiting)
+    v.addEventListener("ended", onEnded)
     v.addEventListener("error", onError)
     v.addEventListener("loadedmetadata", onLoadedMetadata)
     scheduleStall()
+    progressTimer = setInterval(monitorProgress, 700)
 
     return () => {
       clearStall()
+      if (progressTimer) clearInterval(progressTimer)
       document.removeEventListener("touchstart", onTouch)
       v.removeEventListener("canplay", onCanPlay)
       v.removeEventListener("playing", onPlaying)
       v.removeEventListener("waiting", onWaiting)
+      v.removeEventListener("ended", onEnded)
       v.removeEventListener("error", onError)
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
     }
-  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, retryToken])
 
   if (!activeSrc) return null
   const derivedPoster = sidecarPosterForVideo(activeSrc)
@@ -347,7 +409,7 @@ export function AutoplayVideo({
   return (
     shouldLoad ? (
     <video
-      key={activeSrc}
+      key={`${activeSrc}:${retryToken}`}
       ref={videoRef}
       autoPlay
       muted

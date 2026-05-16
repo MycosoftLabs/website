@@ -1057,6 +1057,27 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
     inset 0 -14px 24px rgba(255, 255, 255, 0.05) !important;
 }
 
+.natureos-glass-page .crep-species-marker-dot,
+.dark .natureos-glass-page .crep-species-marker-dot,
+.crep-map-container .crep-species-marker-dot {
+  background: var(--species-bg) !important;
+  background-color: var(--species-bg) !important;
+  border-color: var(--species-border) !important;
+  color: var(--species-icon) !important;
+  box-shadow: 0 0 6px var(--species-glow) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.natureos-glass-page .crep-species-marker-dot svg,
+.dark .natureos-glass-page .crep-species-marker-dot svg,
+.crep-map-container .crep-species-marker-dot svg {
+  color: var(--species-icon) !important;
+  stroke: var(--species-icon) !important;
+  opacity: 1 !important;
+}
+
 .dark .natureos-glass-page [data-sidebar="menu-button"][data-active="true"] {
   color: #ffffff !important;
   border-color: rgba(96, 165, 250, 0.54) !important;
@@ -4729,4 +4750,729 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     radial-gradient(circle at 34% 22%, rgba(255, 255, 255, 0.24), transparent 28%),
     radial-gradient(circle at 68% 78%, rgba(225, 170, 80, 0.12), transparent 34%),
     linear-gradient(135deg, rgba(238, 207, 141, 0.5), rgba(255, 231, 170, 0.42) 52%, rgba(196, 145, 72, 0.4));
+}
+
+.myco-petri-glass-scope {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: visible;
+  line-height: 1;
+}
+
+.myco-hero-petri-icon {
+  font-size: clamp(0.68rem, 0.8vw, 0.86rem) !important;
+}
+
+.natureos-glass-page .myco-hero-petri-icon button span {
+  display: grid !important;
+  place-items: center !important;
+  min-width: 2.7em !important;
+  min-height: 2.7em !important;
+  padding: 0.68em !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  letter-spacing: 0 !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.36),
+    0 0 1em rgba(255, 255, 255, 0.08) !important;
+}
+
+.natureos-glass-page .myco-hero-petri-icon svg {
+  position: relative !important;
+  z-index: 4 !important;
+  width: 1.2em !important;
+  height: 1.2em !important;
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+.natureos-glass-page .myco-hero-petri-icon button:disabled {
+  cursor: default !important;
+  opacity: 0.58 !important;
+}
+
+.natureos-glass-page .myco-hero-petri-earth button span {
+  color: rgba(186, 230, 253, 0.96) !important;
+}
+
+.natureos-glass-page .myco-hero-petri-myca button span {
+  color: rgba(237, 233, 254, 0.98) !important;
+}
+
+.natureos-glass-page .myco-hero-petri-submit[data-active="true"] button,
+.natureos-glass-page .myco-hero-petri-listening button {
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.08),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.14),
+    0 0.18em 0.1em -0.1em rgba(0, 0, 0, 0.46),
+    0 0 0.06em 0.12em inset rgba(255, 255, 255, 0.16),
+    0 0 0.75em rgba(96, 165, 250, 0.2) !important;
+}
+
+.myco-hero-petri-chip-wrap {
+  display: inline-flex;
+}
+
+.natureos-glass-page .myco-hero-petri-chip,
+.natureos-glass-page .myco-hero-petri-chip .button-wrap,
+.natureos-glass-page .myco-hero-petri-chip button {
+  width: auto !important;
+}
+
+.natureos-glass-page .myco-hero-petri-chip {
+  font-size: clamp(0.72rem, 1.4vw, 0.86rem) !important;
+}
+
+.natureos-glass-page .myco-hero-petri-chip button span {
+  display: grid !important;
+  min-height: 2.45em !important;
+  place-items: center !important;
+  padding: 0.56em 1em !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.34),
+    0 0 1em rgba(255, 255, 255, 0.08) !important;
+}
+
+.myco-home-return-search-glass {
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.myco-home-return-search-button {
+  font-size: clamp(0.78rem, 1.1vw, 1rem) !important;
+}
+
+/* Sensing package public pages */
+.sensing-glass-page .neu-raised,
+.sensing-glass-page .neu-btn {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.34) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.11) 42%, rgba(255, 255, 255, 0.055)) !important;
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.18),
+    0 8px 22px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    inset 0 -24px 40px rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.18);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.dark .sensing-glass-page .neu-raised,
+.dark .sensing-glass-page .neu-btn {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.055) 44%, rgba(255, 255, 255, 0.025)) !important;
+  box-shadow:
+    0 24px 72px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -24px 40px rgba(255, 255, 255, 0.035) !important;
+}
+
+.sensing-glass-page .neu-raised::before,
+.sensing-glass-page .neu-btn::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 1px 2px auto;
+  height: 42%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
+}
+
+.sensing-glass-page .neu-raised > *,
+.sensing-glass-page .neu-btn > * {
+  position: relative;
+  z-index: 1;
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-petri-glass-scope,
+html .home-command-page-light .home-hero-glass-field .myco-home-return-search-glass {
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon .button-wrap:has(button:hover) button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip .button-wrap:has(button:hover) button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon .button-wrap:has(button:active) button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip .button-wrap:has(button:active) button {
+  border: 1px solid rgba(255, 255, 255, 0.36) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.28), transparent 32%),
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.255), rgba(255, 255, 255, 0.075)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.12),
+    0 0.2em 0.18em -0.12em rgba(0, 0, 0, 0.42),
+    0 0 0.08em 0.12em inset rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:hover,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:hover,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:active,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:active,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:hover,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:hover,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:active,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:active,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:hover,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:hover,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button:active,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button:active {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.34), transparent 34%),
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.31), rgba(255, 255, 255, 0.09)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.14),
+    0 0.18em 0.14em -0.1em rgba(0, 0, 0, 0.4),
+    0 0 0.08em 0.12em inset rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button::after,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button::after {
+  background:
+    conic-gradient(
+      from var(--angle-1) at 50% 50%,
+      rgba(255, 255, 255, 0.58),
+      rgba(255, 255, 255, 0.04) 5% 40%,
+      rgba(255, 255, 255, 0.62) 50%,
+      rgba(255, 255, 255, 0.04) 60% 95%,
+      rgba(255, 255, 255, 0.58)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1)) !important;
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button span,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button span,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-earth button span,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-myca button span,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button span,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button span,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-earth button span,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-myca button span,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon button span,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip button span,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-earth button span,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-myca button span {
+  color: rgba(255, 255, 255, 0.96) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.96) !important;
+  letter-spacing: 0 !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.34),
+    0 0 1em rgba(255, 255, 255, 0.1) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon svg,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip svg,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon svg,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon .button-shadow::after,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip .button-shadow::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon .button-shadow::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip .button-shadow::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-icon .button-shadow::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .petri-codepen-button-demo.myco-hero-petri-chip .button-shadow::after {
+  background:
+    radial-gradient(ellipse at 50% 70%, rgba(255, 255, 255, 0.24), transparent 62%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.1)) !important;
+  opacity: 0.7 !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo .button-wrap:has(button:hover) button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo .button-wrap:has(button:hover) button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo .button-wrap:has(button:active) button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo .button-wrap:has(button:active) button {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.31), transparent 33%),
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.29), rgba(255, 255, 255, 0.08)) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.22),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.16),
+    0 0.2em 0.16em -0.1em rgba(0, 0, 0, 0.44),
+    0 0 0.08em 0.13em inset rgba(255, 255, 255, 0.13),
+    0 0 0 0 rgba(255, 255, 255, 0) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-submit[data-active="true"] button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-listening button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-submit[data-active="true"] button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-listening button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-submit[data-active="true"] button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-hero-petri-listening button {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.34), transparent 33%),
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.1)) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.24),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.18),
+    0 0.2em 0.16em -0.1em rgba(0, 0, 0, 0.44),
+    0 0 0.08em 0.14em inset rgba(255, 255, 255, 0.15),
+    0 0 0.75em rgba(255, 255, 255, 0.12) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button *,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button *,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button *,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button *,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button *,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button * {
+  color: rgba(255, 255, 255, 0.97) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.97) !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.36),
+    0 0 1em rgba(255, 255, 255, 0.12) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button svg,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button svg,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button svg,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button svg {
+  color: rgba(255, 255, 255, 0.97) !important;
+  stroke: rgba(255, 255, 255, 0.97) !important;
+  filter: drop-shadow(0 0.09em 0.08em rgba(0, 0, 0, 0.34)) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button span::after,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button span::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button span::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button span::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button span::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button span::after {
+  background:
+    linear-gradient(
+      var(--angle-2),
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.58) 40% 50%,
+      rgba(255, 255, 255, 0) 56%
+    ) !important;
+  mix-blend-mode: screen !important;
+  opacity: 0.94 !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button::after,
+html .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button::after,
+html.dark .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-petri-glass-scope .petri-codepen-button-demo button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .natureos-glass-page .myco-home-return-search-glass .petri-codepen-button-demo button::after {
+  background:
+    conic-gradient(
+      from var(--angle-1) at 50% 50%,
+      rgba(255, 255, 255, 0.66),
+      rgba(255, 255, 255, 0.05) 5% 40%,
+      rgba(255, 255, 255, 0.7) 50%,
+      rgba(255, 255, 255, 0.05) 60% 95%,
+      rgba(255, 255, 255, 0.66)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12)) !important;
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.2) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:hover) button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:active) button {
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.31), transparent 33%),
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.29), rgba(255, 255, 255, 0.08)) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.22),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.16),
+    0 0.2em 0.16em -0.1em rgba(0, 0, 0, 0.44),
+    0 0 0.08em 0.13em inset rgba(255, 255, 255, 0.13),
+    0 0 0 0 rgba(255, 255, 255, 0) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button *,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button *,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button * {
+  color: rgba(255, 255, 255, 0.98) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.98) !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.36),
+    0 0 1em rgba(255, 255, 255, 0.12) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button svg,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button svg {
+  color: rgba(255, 255, 255, 0.98) !important;
+  stroke: rgba(255, 255, 255, 0.98) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.98) !important;
+  filter: drop-shadow(0 0.09em 0.08em rgba(0, 0, 0, 0.34)) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after {
+  background:
+    linear-gradient(
+      var(--angle-2),
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.58) 40% 50%,
+      rgba(255, 255, 255, 0) 56%
+    ) !important;
+  mix-blend-mode: screen !important;
+  opacity: 0.94 !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after {
+  background:
+    conic-gradient(
+      from var(--angle-1) at 50% 50%,
+      rgba(255, 255, 255, 0.66),
+      rgba(255, 255, 255, 0.05) 5% 40%,
+      rgba(255, 255, 255, 0.7) 50%,
+      rgba(255, 255, 255, 0.05) 60% 95%,
+      rgba(255, 255, 255, 0.66)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12)) !important;
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.2) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:hover) button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:active) button {
+  border: 1px solid rgba(255, 255, 255, 0.34) !important;
+  background: rgba(255, 255, 255, 0.125) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(16px) saturate(1.16) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.16) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover {
+  background: rgba(255, 255, 255, 0.17) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow::after,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after {
+  display: none !important;
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Homepage hero glass: final no-haze overrides, shared across light/dark modes. */
+html .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  background: rgba(15, 23, 42, 0.08) !important;
+  outline: 0 !important;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:hover) button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:active) button {
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  background: rgba(15, 23, 42, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.12),
+    0 10px 24px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(15px) saturate(1.12) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(1.12) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover {
+  background: rgba(15, 23, 42, 0.19) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(148, 163, 184, 0.14),
+    0 12px 28px rgba(0, 0, 0, 0.26) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::before,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::before,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after {
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button {
+  border-color: rgba(45, 212, 191, 0.46) !important;
+  background: rgba(8, 88, 79, 0.28) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(45, 212, 191, 0.18),
+    0 10px 24px rgba(0, 0, 0, 0.22),
+    0 0 28px rgba(45, 212, 191, 0.22) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button {
+  border-color: rgba(167, 139, 250, 0.5) !important;
+  background: rgba(88, 28, 135, 0.29) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.2),
+    0 10px 24px rgba(0, 0, 0, 0.22),
+    0 0 30px rgba(167, 139, 250, 0.24) !important;
+}
+
+@keyframes myco-hero-robot-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-1.5px) rotate(-4deg);
+  }
+  70% {
+    transform: translateY(1px) rotate(3deg);
+  }
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca svg,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca svg,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca svg {
+  animation: myco-hero-robot-float 2.4s ease-in-out infinite !important;
+  transform-origin: 50% 54% !important;
+  filter:
+    drop-shadow(0 0.08em 0.08em rgba(0, 0, 0, 0.34))
+    drop-shadow(0 0 0.5em rgba(167, 139, 250, 0.32)) !important;
+}
+
+.home-myca-demo-neu .myca-live-demo,
+.home-myca-demo-neu .myca-live-demo * {
+  scrollbar-color: rgba(71, 85, 105, 0.82) transparent !important;
+}
+
+.home-myca-demo-neu .myca-live-demo *::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.home-myca-demo-neu .myca-live-demo *::-webkit-scrollbar-track {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.home-myca-demo-neu .myca-live-demo *::-webkit-scrollbar-thumb {
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(71, 85, 105, 0.82) !important;
+  box-shadow: none !important;
+}
+
+.home-myca-demo-neu .myca-data-bridge {
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.26), transparent) !important;
+}
+
+.home-myca-demo-neu .myca-data-bridge-line {
+  border-left-color: rgba(51, 65, 85, 0.72) !important;
+}
+
+.home-myca-demo-neu .myca-data-bridge-status {
+  color: rgba(203, 213, 225, 0.9) !important;
+  border-color: rgba(51, 65, 85, 0.72) !important;
+  background: rgba(8, 13, 18, 0.86) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.home-myca-demo-neu .myca-data-bridge-idle-dot {
+  background: rgba(71, 85, 105, 0.82) !important;
+}
+
+/* Homepage hero glass final restore: these controls stay glass before hover in light and dark mode. */
+html .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-input-glass,
+html .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-input-glass:focus-within {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background:
+    linear-gradient(
+      45deg,
+      rgba(133, 213, 231, 0.22),
+      rgba(122, 158, 210, 0.2),
+      rgba(186, 106, 201, 0.16),
+      rgba(222, 84, 194, 0.1),
+      rgba(248, 107, 45, 0.18)
+    ),
+    rgba(255, 255, 255, 0.1) !important;
+  background-size: 120% 120% !important;
+  animation: mycoHeroGlassGradient 10s linear infinite !important;
+  box-shadow:
+    5px -30px 30px -20px rgba(255, 255, 255, 0.28),
+    5px 10px 30px -20px rgba(255, 255, 255, 0.24),
+    0.5px 1px 1.1px rgba(0, 0, 0, 0.22),
+    3.9px 8.4px 9.3px -1.1px rgba(0, 0, 0, 0.2),
+    13.4px 28.9px 32px -2.2px rgba(0, 0, 0, 0.18),
+    inset 0 -8px 3px -5px rgba(255, 255, 255, 0.2),
+    inset 0 -20px 10px -15px rgba(255, 255, 255, 0.3),
+    inset -40px 50px 7px -55px rgba(0, 0, 0, 0.26) !important;
+  backdrop-filter: blur(10px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.2) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html.dark .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button:hover,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-wrap:has(button:active) button {
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.26), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07) 48%, rgba(255, 255, 255, 0.035)),
+    rgba(10, 16, 24, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 28px rgba(0, 0, 0, 0.24) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button *,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button svg {
+  color: rgba(255, 255, 255, 0.98) !important;
+  stroke: rgba(255, 255, 255, 0.98) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.98) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo .button-shadow::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::before,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button::after,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::before,
+html .home-command-page-light .home-hero-glass-field :is(.natureos-glass-page.myco-petri-glass-scope, .natureos-glass-page.myco-home-return-search-glass) .petri-codepen-button-demo button span::after {
+  display: none !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-petri-earth button {
+  border-color: rgba(45, 212, 191, 0.5) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(153, 246, 228, 0.26), transparent 34%),
+    linear-gradient(135deg, rgba(45, 212, 191, 0.34), rgba(8, 88, 79, 0.18) 50%, rgba(255, 255, 255, 0.035)),
+    rgba(8, 88, 79, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(153, 246, 228, 0.24),
+    inset 0 -1px 0 rgba(45, 212, 191, 0.12),
+    0 12px 28px rgba(0, 0, 0, 0.24),
+    0 0 28px rgba(45, 212, 191, 0.24) !important;
+}
+
+html .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button,
+html.dark .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button,
+html:not(.dark) .home-command-page-light .home-hero-glass-field .myco-hero-petri-myca button {
+  border-color: rgba(167, 139, 250, 0.52) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(216, 180, 254, 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(167, 139, 250, 0.34), rgba(88, 28, 135, 0.2) 50%, rgba(255, 255, 255, 0.035)),
+    rgba(88, 28, 135, 0.13) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(216, 180, 254, 0.24),
+    inset 0 -1px 0 rgba(167, 139, 250, 0.12),
+    0 12px 28px rgba(0, 0, 0, 0.24),
+    0 0 30px rgba(167, 139, 250, 0.26) !important;
 }

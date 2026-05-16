@@ -4,12 +4,14 @@ import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { MYCAConsciousnessStatus } from "@/components/mas/myca-consciousness-status"
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget"
 import { MYCALiveActivityPanel } from "@/components/myca/MYCALiveActivityPanel"
 import { MYCADataBridge } from "@/components/myca/MYCADataBridge"
+import { MYCALiveDemoGlassStyles } from "@/components/myca/MYCALiveDemoGlassStyles"
 import { useMYCA } from "@/contexts/myca-context"
 
 const MYCALiveDemoBackground = dynamic(
@@ -19,7 +21,7 @@ const MYCALiveDemoBackground = dynamic(
 import { Brain, Globe2, MessageSquare, Users, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const CHAT_PANEL_HEIGHT = 680
+const CHAT_PANEL_HEIGHT = "clamp(430px, calc(100dvh - 360px), 560px)"
 
 interface AgentInfo {
   agent_id: string
@@ -164,7 +166,17 @@ interface WorldState {
 
 type FlowDirection = "user-to-myca" | "myca-to-user" | "idle"
 
-export function LiveDemo({ className }: { className?: string }) {
+export function LiveDemo({
+  className,
+  showDemoBackground = true,
+  demoBackgroundTransparent = false,
+  showIntro = true,
+}: {
+  className?: string
+  showDemoBackground?: boolean
+  demoBackgroundTransparent?: boolean
+  showIntro?: boolean
+}) {
   const [world, setWorld] = useState<WorldState | null>(null)
   const [worldLoading, setWorldLoading] = useState(true)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -216,18 +228,35 @@ export function LiveDemo({ className }: { className?: string }) {
   }, [])
 
   return (
-    <section className={cn("myca-live-demo relative w-screen max-w-none left-1/2 -translate-x-1/2 py-16 md:py-24 overflow-hidden", className)}>
-      <div className="absolute inset-0 w-full pointer-events-none">
-        <MYCALiveDemoBackground className="w-full h-full" />
-      </div>
-      <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">
-        <div className="text-center mb-12">
-          <p className="text-sm font-medium text-green-500 mb-2">Live Demo</p>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Experience MYCA</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Real-time consciousness, world perception, and conversation.
-          </p>
+    <section
+      data-over-video={!showDemoBackground || demoBackgroundTransparent ? true : undefined}
+      className={cn("myca-live-demo relative w-screen max-w-none left-1/2 -translate-x-1/2 py-4 md:py-6 lg:py-8 overflow-hidden", className)}
+    >
+      <MYCALiveDemoGlassStyles />
+      {showDemoBackground ? (
+        <div className={cn("absolute inset-0 w-full pointer-events-none", demoBackgroundTransparent && "home-myca-demo-flow-blend")}>
+          <MYCALiveDemoBackground className="w-full h-full" transparent={demoBackgroundTransparent} />
         </div>
+      ) : null}
+      <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">
+        {showIntro ? (
+          <div className="text-center mb-5 md:mb-6">
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <h2 className="text-3xl md:text-4xl font-bold">Experience MYCA</h2>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="border-green-500/40 bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+              >
+                <a href="#live-demo">Live Demo</a>
+              </Button>
+            </div>
+            <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+              Talk to the worlds first nature based intelligence that can understand the world,
+            </p>
+          </div>
+        ) : null}
 
         <Tabs defaultValue="chat" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2 p-2 touch-manipulation">
@@ -249,7 +278,7 @@ export function LiveDemo({ className }: { className?: string }) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="chat" className="mt-6">
+          <TabsContent value="chat" className="mt-3 md:mt-4">
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-0 items-stretch">
               {/* LEFT: User stream — chat aligned with Live Activity */}
               <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 flex flex-col">
@@ -297,11 +326,11 @@ export function LiveDemo({ className }: { className?: string }) {
             </div>
           </TabsContent>
 
-          <TabsContent value="consciousness" className="mt-6">
+          <TabsContent value="consciousness" className="mt-3 md:mt-4">
             <MYCAConsciousnessStatus variant="full" refreshInterval={30000} />
           </TabsContent>
 
-          <TabsContent value="world" className="mt-6">
+          <TabsContent value="world" className="mt-3 md:mt-4">
             <Card>
               <CardContent className="pt-6">
                 <h3 className="font-bold mb-4">World Perception</h3>
@@ -326,7 +355,7 @@ export function LiveDemo({ className }: { className?: string }) {
             </Card>
           </TabsContent>
 
-          <TabsContent value="agents" className="mt-6">
+          <TabsContent value="agents" className="mt-3 md:mt-4">
             <LiveDemoAgentsTab />
           </TabsContent>
         </Tabs>

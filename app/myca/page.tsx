@@ -27,7 +27,7 @@ export default function MYCAPage() {
       <div className="min-h-dvh myca-page">
       {/* Section 1: Live Demo */}
       <div id="live-demo">
-        <LiveDemo className="min-h-[80dvh] flex items-center" />
+        <LiveDemo className="min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-start" />
       </div>
 
       {/* Section 2: Hero */}

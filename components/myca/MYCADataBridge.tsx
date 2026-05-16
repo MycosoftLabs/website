@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 export type FlowDirection = "user-to-myca" | "myca-to-user" | "idle"
 
 interface MYCADataBridgeProps {
-  height?: number
+  height?: number | string
   flowDirection?: FlowDirection
   className?: string
 }
@@ -32,7 +32,7 @@ export function MYCADataBridge({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center w-14 xl:w-16 shrink-0",
+        "myca-data-bridge relative flex flex-col items-center justify-center w-14 xl:w-16 shrink-0",
         "bg-gradient-to-r from-transparent via-border/30 to-transparent",
         className
       )}
@@ -43,7 +43,7 @@ export function MYCADataBridge({
         className="absolute inset-0 flex items-center justify-center"
         style={{ height, minHeight: 320 }}
       >
-        <div className="w-px h-full border-l border-dashed border-border/60" />
+        <div className="myca-data-bridge-line w-px h-full border-l border-dashed border-border/60" />
       </div>
 
       {/* Directional data flow */}
@@ -112,7 +112,7 @@ export function MYCADataBridge({
               key="idle"
               animate={{ opacity: [0.2, 0.4, 0.2] }}
               transition={{ duration: 3, repeat: Infinity }}
-              className="absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/50"
+              className="myca-data-bridge-idle-dot absolute left-1/2 top-1/2 w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/50"
             />
           )}
         </AnimatePresence>
@@ -120,7 +120,7 @@ export function MYCADataBridge({
 
       {/* Center icon — state indicator */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center rounded-full bg-background/90 border border-border p-2 shadow-sm"
+        className="myca-data-bridge-status absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center rounded-full bg-background/90 border border-border p-2 shadow-sm"
       >
         {flowDirection === "user-to-myca" ? (
           <Loader2 className="h-5 w-5 animate-spin text-amber-500" />

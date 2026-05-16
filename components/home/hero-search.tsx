@@ -12,7 +12,14 @@
  * - Session memory integration
  */
 
-import { useState, useEffect, useRef } from "react"
+import {
+  useState,
+  useEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
@@ -33,6 +40,7 @@ import {
   X,
   Command,
   Brain,
+  Bot,
   Globe2,
 } from "lucide-react"
 
@@ -54,12 +62,60 @@ interface HeroSearchProps {
   showBackground?: boolean
   embedded?: boolean
   className?: string
+  onOpenMYCADemo?: () => void
+}
+
+function PetriGlassButton({
+  children,
+  type = "button",
+  ariaLabel,
+  title,
+  onClick,
+  onPointerDown,
+  active,
+  disabled,
+  wrapperClassName,
+  demoClassName,
+  labelClassName,
+}: {
+  children: ReactNode
+  type?: "button" | "submit"
+  ariaLabel?: string
+  title?: string
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void
+  onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  active?: boolean
+  disabled?: boolean
+  wrapperClassName?: string
+  demoClassName?: string
+  labelClassName?: string
+}) {
+  return (
+    <span className={cn("natureos-glass-page myco-petri-glass-scope", wrapperClassName)}>
+      <span className={cn("petri-codepen-button-demo", demoClassName)} data-active={active ? "true" : undefined}>
+        <span className="button-wrap">
+          <button
+            type={type}
+            aria-label={ariaLabel}
+            title={title}
+            onClick={onClick}
+            onPointerDown={onPointerDown}
+            disabled={disabled}
+          >
+            <span className={labelClassName}>{children}</span>
+          </button>
+          <span className="button-shadow" />
+        </span>
+      </span>
+    </span>
+  )
 }
 
 export function HeroSearch({
   showBackground = true,
   embedded = false,
   className,
+  onOpenMYCADemo,
 }: HeroSearchProps) {
   const router = useRouter()
   const { resolvedTheme } = useTheme()
@@ -212,7 +268,7 @@ export function HeroSearch({
   // Click outside handler — use `click` (not `mousedown`) so link navigations
   // aren't intercepted before React's event delegation.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsFocused(false)
       }
@@ -528,21 +584,14 @@ export function HeroSearch({
                 </AnimatePresence>
 
                 {/* Voice Button */}
-                <motion.button
+                <PetriGlassButton
                   type="button"
-                  aria-label={isListening ? "Stop voice search" : "Start voice search"}
+                  ariaLabel={isListening ? "Stop voice search" : "Start voice search"}
                   onClick={toggleVoice}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={cn(
-                    "relative p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
-                    isListening
-                      ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50"
-                      : (isConnected || hasWebSpeech)
-                        ? "bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 text-white"
-                        : "bg-white/5 dark:bg-white/5 text-white/55",
-                    connectionState === "connecting" && !hasWebSpeech && "animate-pulse"
-                  )}
+                  active={isListening}
+                  disabled={!isListening && !hasWebSpeech && !isConnected && connectionState !== "connecting"}
+                  wrapperClassName={connectionState === "connecting" && !hasWebSpeech ? "animate-pulse" : undefined}
+                  demoClassName={cn("petri-codepen-button-demo-reset myco-hero-petri-icon", isListening && "myco-hero-petri-listening")}
                   title={
                     isListening
                       ? "Stop listening"
@@ -557,55 +606,54 @@ export function HeroSearch({
                     <>
                       <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />
                       {/* Pulse animation */}
-                      <span className="absolute inset-0 rounded-lg sm:rounded-xl bg-red-500/30 animate-ping" />
+                      <span className="absolute inset-0 rounded-full bg-red-500/25 animate-ping" />
                     </>
                   ) : (
                     <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
-                </motion.button>
+                </PetriGlassButton>
 
                 {/* Earth Simulator — public NatureOS tool route (same CREP loader as /dashboard/crep). */}
-                <a
-                  href="/natureos/earth-simulator"
-                  aria-label="Earth Simulator"
+                <PetriGlassButton
+                  ariaLabel="Earth Simulator"
                   title="Earth Simulator — live 3D globe"
-                  className={cn(
-                    "group relative z-10 flex items-center justify-center p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
-                    "bg-gradient-to-br from-cyan-500/15 via-sky-500/15 to-emerald-500/15",
-                    "dark:from-cyan-500/25 dark:via-sky-500/25 dark:to-emerald-500/25",
-                    "border border-cyan-500/30 dark:border-cyan-400/40",
-                    "text-cyan-700 dark:text-cyan-200",
-                    "hover:shadow-[0_0_18px_rgba(6,182,212,0.35)] hover:border-cyan-400/60",
-                  )}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.location.assign("/natureos/earth-simulator")
+                    }
+                  }}
+                  demoClassName="petri-codepen-button-demo-reset myco-hero-petri-icon myco-hero-petri-earth"
                 >
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl bg-cyan-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
-                  <Globe2 className="relative z-[1] h-4 w-4 sm:h-5 sm:w-5 animate-[spin_24s_linear_infinite] group-hover:text-cyan-400" />
-                </a>
+                  <Globe2 className="h-4 w-4 animate-[spin_24s_linear_infinite] sm:h-5 sm:w-5" />
+                </PetriGlassButton>
+
+                {/* MYCA Robot — swaps the homepage hero into the live MYCA demo. */}
+                {onOpenMYCADemo ? (
+                  <PetriGlassButton
+                    type="button"
+                    ariaLabel="Open MYCA live demo"
+                    title="MYCA Robot - live demo"
+                    onClick={() => onOpenMYCADemo()}
+                    onPointerDown={() => onOpenMYCADemo()}
+                    demoClassName="petri-codepen-button-demo-reset myco-hero-petri-icon myco-hero-petri-myca"
+                  >
+                    <Bot className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </PetriGlassButton>
+                ) : null}
 
                 {/* Submit Button — onClick via form submit (handleSearch), no onMouseDown race */}
-                <motion.button
+                <PetriGlassButton
                   type="submit"
-                  aria-label="Search Mycosoft"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={cn(
-                    "p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
-                    query.trim()
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : embedded
-                        ? "bg-white/10 text-white/70"
-                        : "bg-background/40 dark:bg-white/10 text-muted-foreground"
-                  )}
+                  ariaLabel="Search Mycosoft"
+                  active={Boolean(query.trim()) || isSearching}
+                  demoClassName="petri-codepen-button-demo-reset myco-hero-petri-icon myco-hero-petri-submit"
                 >
                   {isSearching ? (
                     <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                   ) : (
                     <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
-                </motion.button>
+                </PetriGlassButton>
               </div>
 
               {/* Voice Feedback */}
@@ -687,24 +735,18 @@ export function HeroSearch({
         >
           <span className={cn("text-xs flex-shrink-0 whitespace-nowrap", embedded ? "text-white/70" : "text-muted-foreground")}>Try:</span>
           {trySuggestions.slice(0, 4).map(({ term, phoneVisible }) => (
-            <a
+            <PetriGlassButton
               key={term}
-              href={searchHref(term)}
+              ariaLabel={`Search ${term}`}
               onClick={(event) => {
                 event.preventDefault()
                 navigateToSearch(term)
               }}
-              className={cn(
-                "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
-                embedded
-                  ? "myco-hero-chip-glass text-white"
-                  : "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground border border-border dark:border-white/10 dark:hover:border-white/25",
-                "transition-all duration-200 cursor-pointer select-none min-h-[36px]",
-                !phoneVisible && "hidden sm:inline-flex"
-              )}
+              wrapperClassName={cn("myco-hero-petri-chip-wrap", !phoneVisible && "hidden sm:inline-flex")}
+              demoClassName="petri-codepen-button-demo-rect myco-hero-petri-chip"
             >
               {term}
-            </a>
+            </PetriGlassButton>
           ))}
           <div className={cn("hidden md:flex items-center gap-1 text-xs ml-2 flex-shrink-0 whitespace-nowrap", embedded ? "text-white/55" : "text-muted-foreground")}>
             <Command className="h-3 w-3" />

@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
-import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
-import { GroundingStatusBadge } from "./GroundingStatusBadge"
+import { Brain, Loader2, Play, Send } from "lucide-react"
 
 interface MYCAChatWidgetProps {
   className?: string
@@ -27,13 +26,9 @@ export function MYCAChatWidget({
     messages,
     isLoading,
     sendMessage,
-    clearMessages,
-    memoryEnabled,
-    setMemoryEnabled,
     pendingConfirmationId,
     confirmAction,
     consciousness,
-    grounding,
     setIsActive,
   } = useMYCA()
   const [input, setInput] = useState("")
@@ -169,33 +164,8 @@ export function MYCAChatWidget({
                 conscious
               </Badge>
             )}
-            <GroundingStatusBadge
-              isLoading={isLoading}
-              isGrounded={grounding?.is_grounded}
-              thoughtCount={grounding?.thought_count}
-            />
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={memoryEnabled ? "default" : "outline"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setMemoryEnabled(!memoryEnabled)}
-            >
-              Memory
-            </Button>
-            {visibleMessages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={clearMessages}
-                title="Clear chat"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+          <div className="h-7" aria-hidden="true" />
         </div>
       )}
 
