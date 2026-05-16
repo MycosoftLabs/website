@@ -227,14 +227,14 @@ jobs:
             echo "=== First-run bootstrap (idempotent) ==="
             if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
               echo "Blue/green not yet bootstrapped — running bootstrap"
-              ./scripts/blue-green-bootstrap.sh
+              bash ./scripts/blue-green-bootstrap.sh
             fi
 
             echo "=== Blue/green cutover ==="
             export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
             export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
             export PUBLIC_HOST='mycosoft.com'
-            ./scripts/blue-green-deploy.sh
+            bash ./scripts/blue-green-deploy.sh
           BUILD
 
       - name: Health check (origin)
