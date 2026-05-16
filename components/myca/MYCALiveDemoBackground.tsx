@@ -19,6 +19,7 @@ interface ActivityRefs {
   messageCount: number
   lastUserLength: number
   lastResponseLength: number
+  draftLength: number
   burstRequested: boolean
   flowDirection: FlowDirection
 }
@@ -36,6 +37,7 @@ export function MYCALiveDemoBackground({
     messageCount: 0,
     lastUserLength: 0,
     lastResponseLength: 0,
+    draftLength: 0,
     burstRequested: false,
     flowDirection: "idle",
   })
@@ -43,8 +45,16 @@ export function MYCALiveDemoBackground({
     messageCount: 0,
     responseKey: "",
     wasLoading: false,
+    draftVersion: 0,
   })
-  const { isLoading, messages, lastResponseMetadata } = useMYCA()
+  const { isLoading, messages, lastResponseMetadata, draftActivity } = useMYCA()
+  const activityMode = isLoading
+    ? "loading"
+    : draftActivity.length > 0
+      ? "typing"
+      : lastResponseMetadata
+        ? "responding"
+        : "idle"
 
   // Update activity ref when MYCA state changes; burst only on transitions
   // flowDirection: user→MYCA when sending/thinking, MYCA→user when responding
@@ -58,9 +68,10 @@ export function MYCALiveDemoBackground({
     const newMessage = messages.length > prev.messageCount
     const newResponse = responseKey && responseKey !== prev.responseKey
     const loadingStarted = isLoading && !prev.wasLoading
+    const typingChanged = draftActivity.length > 0 && draftActivity.version !== prev.draftVersion
 
     let flowDirection: FlowDirection = "idle"
-    if (isLoading) {
+    if (isLoading || draftActivity.length > 0) {
       flowDirection = "user-to-myca"
     } else if (lastResponseMetadata) {
       flowDirection = "myca-to-user"
@@ -70,14 +81,16 @@ export function MYCALiveDemoBackground({
       messageCount: messages.length,
       responseKey,
       wasLoading: isLoading,
+      draftVersion: draftActivity.version,
     }
 
     activityRef.current = {
       isLoading,
       messageCount: messages.length,
-      lastUserLength: lastUser?.content?.length ?? 0,
+      lastUserLength: Math.max(lastUser?.content?.length ?? 0, draftActivity.length),
       lastResponseLength: lastAssistant?.content?.length ?? 0,
-      burstRequested: newMessage || newResponse || loadingStarted,
+      draftLength: draftActivity.length,
+      burstRequested: newMessage || newResponse || loadingStarted || typingChanged,
       flowDirection,
     }
 
@@ -87,7 +100,7 @@ export function MYCALiveDemoBackground({
       }, 3000)
       return () => clearTimeout(t)
     }
-  }, [isLoading, messages, lastResponseMetadata])
+  }, [draftActivity, isLoading, messages, lastResponseMetadata])
 
   useEffect(() => {
     if (!containerRef.current || typeof window === "undefined") return
@@ -301,17 +314,21 @@ export function MYCALiveDemoBackground({
 
         // Derive params from chat activity
         const baseSpeed = 0.25
-        const activeSpeed = act.isLoading ? 0.8 + (act.lastUserLength / 500) * 0.5 : baseSpeed
+        const typingActive = act.draftLength > 0
+        const activeSpeed =
+          act.isLoading || typingActive
+            ? 0.9 + (act.lastUserLength / 360) * 0.65
+            : baseSpeed
         const responseBoost = act.lastResponseLength > 0 ? Math.min(1.5, 0.5 + act.lastResponseLength / 800) : 1
         const speedGlobal = activeSpeed * responseBoost
 
         const baseSignals = 50
-        const activeSignals = act.isLoading ? 120 : baseSignals
+        const activeSignals = act.isLoading || typingActive ? 130 : baseSignals
         const messageBoost = Math.min(80, act.messageCount * 4)
         const targetSignalCount = Math.min(180, activeSignals + messageBoost)
 
         if (act.burstRequested) {
-          const toAdd = Math.min(15, Math.max(3, Math.floor(act.lastResponseLength / 100) || 3))
+          const toAdd = Math.min(18, Math.max(5, Math.floor(Math.max(act.lastResponseLength, act.draftLength) / 80) || 5))
           for (let i = 0; i < toAdd; i++) createSignal()
           act.burstRequested = false
         }
@@ -328,9 +345,9 @@ export function MYCALiveDemoBackground({
           }
         }
 
-        const trailLength = Math.min(20, Math.max(3, Math.floor(5 + act.lastUserLength / 50)))
-        const waveHeightVal = 0.1 + (act.isLoading ? 0.08 : 0)
-        const waveSpeedVal = waveSpeed + (act.isLoading ? 1.5 : 0)
+        const trailLength = Math.min(26, Math.max(4, Math.floor(6 + act.lastUserLength / 42)))
+        const waveHeightVal = 0.1 + (act.isLoading || typingActive ? 0.12 : 0)
+        const waveSpeedVal = waveSpeed + (act.isLoading || typingActive ? 1.8 : 0)
 
         // Update lines
         backgroundLines.forEach((line) => {
@@ -466,6 +483,8 @@ export function MYCALiveDemoBackground({
         "opacity-60",
         className
       )}
+      data-myca-bg-mode={activityMode}
+      data-myca-draft-length={draftActivity.length}
       aria-hidden
     />
   )

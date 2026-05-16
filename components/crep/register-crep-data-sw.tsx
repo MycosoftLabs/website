@@ -13,7 +13,7 @@ export function RegisterCrepDataServiceWorker() {
       // Avoid stale GeoJSON while iterating locally
       return
     }
-    void navigator.serviceWorker.register("/sw-crep-data.js", { scope: "/" }).catch(() => {})
+    void navigator.serviceWorker.register("/sw-crep-data.js", { scope: "/dashboard/crep/" }).catch(() => {})
   }, [])
   return null
 }

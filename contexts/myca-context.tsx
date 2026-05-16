@@ -77,6 +77,11 @@ export interface MYCALastResponseMetadata {
   routed_to?: string
 }
 
+export interface MYCADraftActivity {
+  length: number
+  version: number
+}
+
 export interface MYCAContextValue {
   sessionId: string
   userId: string | null
@@ -85,6 +90,8 @@ export interface MYCAContextValue {
   messages: MYCAMessage[]
   isLoading: boolean
   lastResponseMetadata: MYCALastResponseMetadata | null
+  draftActivity: MYCADraftActivity
+  setDraftActivity: (length: number) => void
   memoryEnabled: boolean
   setMemoryEnabled: (enabled: boolean) => void
   pendingConfirmationId: string | null
@@ -157,7 +164,16 @@ export function MYCAProvider({
   const [isUserActive, setIsUserActive] = useState(false)
   const isActive = initialConsciousnessActive || isUserActive
   const [lastResponseMetadata, setLastResponseMetadata] = useState<MYCALastResponseMetadata | null>(null)
+  const [draftActivity, setDraftActivityState] = useState<MYCADraftActivity>({ length: 0, version: 0 })
   const hasInitializedRef = useRef(false)
+
+  const setDraftActivity = useCallback((length: number) => {
+    const safeLength = Math.max(0, Math.min(2000, Math.floor(length || 0)))
+    setDraftActivityState((prev) => ({
+      length: safeLength,
+      version: safeLength === prev.length ? prev.version : prev.version + 1,
+    }))
+  }, [])
 
   const executeSearchAction = useCallback((action: MYCASearchAction) => {
     if (typeof window === "undefined") return
@@ -180,6 +196,7 @@ export function MYCAProvider({
       setMessages([])
       setMemoryEnabled(false)
       setLastResponseMetadata(null)
+      setDraftActivityState({ length: 0, version: 0 })
       hasInitializedRef.current = true
       return
     }
@@ -257,6 +274,7 @@ export function MYCAProvider({
       }
       appendMessage(userMessage)
       setIsUserActive(true)
+      setDraftActivity(0)
       setIsLoading(true)
 
       const contextText = options?.contextText?.trim()
@@ -384,7 +402,7 @@ export function MYCAProvider({
         setIsLoading(false)
       }
     },
-    [appendMessage, conversationId, executeSearchAction, executeCREPAction, memoryEnabled, sessionId, storeMemory, userId, userRole]
+    [appendMessage, conversationId, executeSearchAction, executeCREPAction, memoryEnabled, sessionId, setDraftActivity, storeMemory, userId, userRole]
   )
 
   const confirmAction = useCallback(
@@ -433,13 +451,14 @@ export function MYCAProvider({
     setConversationId(null)
     setPendingConfirmationId(null)
     setLastResponseMetadata(null)
+    setDraftActivity(0)
     if (typeof window !== "undefined") {
       const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
       const messagesKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
       localStorage.removeItem(conversationKey)
       localStorage.removeItem(messagesKey)
     }
-  }, [userId])
+  }, [setDraftActivity, userId])
 
   const loadConversation = useCallback(
     async (targetConversationId: string) => {
@@ -592,6 +611,8 @@ export function MYCAProvider({
       isLoading,
       memoryEnabled,
       setMemoryEnabled,
+      draftActivity,
+      setDraftActivity,
       pendingConfirmationId,
       sendMessage,
       confirmAction,
@@ -614,6 +635,8 @@ export function MYCAProvider({
       messages,
       isLoading,
       memoryEnabled,
+      draftActivity,
+      setDraftActivity,
       pendingConfirmationId,
       sendMessage,
       confirmAction,

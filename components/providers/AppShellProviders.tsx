@@ -73,12 +73,54 @@ function hasNativeMycaInterface(pathname: string): boolean {
   return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
 }
 
+function useRetireRootCrepServiceWorkers(pathname: string) {
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard/crep")) return
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return
+
+    let cancelled = false
+    const retire = async () => {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        let removedRootWorker = false
+
+        for (const registration of registrations) {
+          const scriptUrl =
+            registration.active?.scriptURL ||
+            registration.waiting?.scriptURL ||
+            registration.installing?.scriptURL ||
+            ""
+          const scriptPath = scriptUrl ? new URL(scriptUrl).pathname : ""
+          const scopePath = new URL(registration.scope).pathname
+          const isCrepWorker = scriptPath === "/crep-sw.js" || scriptPath === "/sw-crep-data.js"
+          if (!isCrepWorker || scopePath !== "/") continue
+          removedRootWorker = (await registration.unregister()) || removedRootWorker
+        }
+
+        if (cancelled || !removedRootWorker || !navigator.serviceWorker.controller) return
+        const reloadKey = "mycosoft-root-crep-sw-retired"
+        if (window.sessionStorage.getItem(reloadKey) === "1") return
+        window.sessionStorage.setItem(reloadKey, "1")
+        window.location.reload()
+      } catch {
+        /* non-critical cleanup */
+      }
+    }
+
+    void retire()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+}
+
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
 
   useEffect(() => {
     document.body.classList.remove("hub-silo")
   }, [])
+  useRetireRootCrepServiceWorkers(pathname)
 
   const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)

@@ -1965,7 +1965,7 @@ export default function CREPDashboardPage({
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return
     // Register the SW but don't block the page on it.
     navigator.serviceWorker
-      .register("/crep-sw.js", { scope: "/" })
+      .register("/crep-sw.js", { scope: "/dashboard/crep/" })
       .then((reg) => {
         // eslint-disable-next-line no-console
         console.log(`[CREP/SW] registered scope=${reg.scope}`)

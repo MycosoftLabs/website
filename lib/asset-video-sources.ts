@@ -1,8 +1,8 @@
 /**
  * Build ordered MP4 URL lists for first-party hero/device assets.
  *
- * Prefer `-web` first when present for faster start-to-play; fall back to the
- * full file if the smaller variant is missing on NAS.
+ * Prefer web variants for small loop tiles. The homepage hero intentionally
+ * prefers the canonical full file so it does not play a shortened preview.
  *
  * Asset policy:
  * - Large hero/device videos should resolve from `/assets/...` so production
@@ -77,30 +77,27 @@ function orderedHomeHeroCanonicalPaths(): string[] {
  * Homepage hero: `NEXT_PUBLIC_HOME_HERO_MP4` first (exact NAS filename), then common aliases.
  * NO mushroom/waterfall fallback — only the homepage's own video plays here.
  *
- * Default: web variants first for fast start-to-play, then canonical homepage
- * files only as an emergency fallback. The full file should rarely load in
- * production because the NAS should provide `Mycosoft Background-web.mp4`.
+ * Default: canonical full file first, then web variants only as a fallback.
+ * The homepage hero must play the full background video, not a shortened web
+ * preview.
  */
 export function homeHeroVideoSources(): string[] {
   const paths = orderedHomeHeroCanonicalPaths()
-  if (process.env.NEXT_PUBLIC_HOME_HERO_ALLOW_FULL_MP4 === "true") {
-    return withMediaCdn(mergeMp4SourceGroups(...paths))
-  }
-  const webOut: string[] = []
-  const fullOut: string[] = []
+  const out: string[] = []
   const seen = new Set<string>()
-  const add = (target: string[], p: string) => {
+  const add = (p: string) => {
+    if (!p) return
     if (seen.has(p)) return
     seen.add(p)
-    target.push(p)
+    out.push(p)
   }
   for (const p of paths) {
-    add(webOut, webVariantPath(p))
+    add(p)
   }
   for (const p of paths) {
-    add(fullOut, p)
+    add(webVariantPath(p))
   }
-  return withMediaCdn([...webOut, ...fullOut])
+  return withMediaCdn(out)
 }
 
 export function primaryHomeHeroPosterPath(): string {

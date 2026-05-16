@@ -40,9 +40,10 @@
 // hit the site with a stale SW. Let the browser HTTP cache + Next's
 // own hashing handle `_next/static/`; the SW only cares about the
 // big geojson / icon / asset payloads.
-// Bumping to v3 also forces the activate event to purge v2 on next
-// load, so everyone gets fresh `_next/static/` fetches.
-const CACHE_VERSION = "crep-v4"
+// May 16, 2026: v5 bypasses video/range requests entirely. A root-scoped
+// cache-first worker must never answer MP4 Range requests; doing so can make
+// homepage/device videos stutter, restart, or play stale cached media.
+const CACHE_VERSION = "crep-v5"
 const CACHE_NAME = `mycosoft-${CACHE_VERSION}`
 const API_CACHE_NAME = `${CACHE_NAME}-api`
 
@@ -54,6 +55,22 @@ const STATIC_PREFIXES = [
   "/crep/icons/",
   "/assets/",
 ]
+
+const MEDIA_PATH_RE = /\.(?:mp4|webm|mov|m4v|m3u8|mpd)(?:[?#]|$)/i
+
+function isMediaRequest(req) {
+  try {
+    const u = new URL(req.url)
+    return (
+      req.headers.has("range") ||
+      req.destination === "video" ||
+      req.destination === "audio" ||
+      MEDIA_PATH_RE.test(u.pathname)
+    )
+  } catch {
+    return req.headers.has("range")
+  }
+}
 
 // Map API GETs are network-first with stale fallback. This keeps live data
 // fresh when MINDEX/MYCA/website routes are healthy, while avoiding blank
@@ -159,6 +176,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request
   if (req.method !== "GET") return
+  if (isMediaRequest(req)) return
   if (isMapApiCacheable(req)) {
     event.respondWith(networkFirstWithStaleFallback(req))
     return

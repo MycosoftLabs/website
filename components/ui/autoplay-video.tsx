@@ -131,6 +131,8 @@ interface AutoplayVideoProps {
   poster?: string
   /** Skip the same-origin empty-file HEAD probe for hot, visible media. */
   probeEmptyMp4?: boolean
+  /** Keep automatic stall retries for tiles/device loops. Disable for full-length hero media. */
+  recoverStalledPlayback?: boolean
   /**
    * When true (default), the video does not receive pointer events so full-bleed heroes
    * do not sit above the footer/header stack and eat the first tap/click.
@@ -151,6 +153,7 @@ export function AutoplayVideo({
   pointerEventsNone = true,
   poster,
   probeEmptyMp4 = true,
+  recoverStalledPlayback = true,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const lazyProbeRef = useRef<HTMLDivElement>(null)
@@ -248,6 +251,7 @@ export function AutoplayVideo({
       v.play().catch(() => {})
     }
     const restartLoopIfNeeded = () => {
+      if (!recoverStalledPlayback) return false
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) return false
       if (v.currentTime < Math.max(0, dur - 0.18)) return false
@@ -272,6 +276,7 @@ export function AutoplayVideo({
       stallTimer = undefined
     }
     const scheduleStall = () => {
+      if (!recoverStalledPlayback) return
       clearStall()
       const startTime = v.currentTime
       stallTimer = setTimeout(() => {
@@ -308,6 +313,7 @@ export function AutoplayVideo({
     }
     const onWaiting = () => scheduleStall()
     const onEnded = () => {
+      if (!recoverStalledPlayback) return
       if (!restartLoopIfNeeded()) advanceOrRetry()
     }
     // Only advance on terminal media errors (MEDIA_ERR_SRC_NOT_SUPPORTED /
@@ -323,12 +329,14 @@ export function AutoplayVideo({
       advanceOrRetry()
     }
     const onLoadedMetadata = () => {
+      if (!recoverStalledPlayback) return
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
         advanceOrRetry()
       }
     }
     const monitorProgress = () => {
+      if (!recoverStalledPlayback) return
       if (v.paused || v.seeking) {
         lastProgressTime = v.currentTime
         stalledTicks = 0
@@ -356,8 +364,10 @@ export function AutoplayVideo({
     v.addEventListener("ended", onEnded)
     v.addEventListener("error", onError)
     v.addEventListener("loadedmetadata", onLoadedMetadata)
-    scheduleStall()
-    progressTimer = setInterval(monitorProgress, 700)
+    if (recoverStalledPlayback) {
+      scheduleStall()
+      progressTimer = setInterval(monitorProgress, 700)
+    }
 
     return () => {
       clearStall()
@@ -370,7 +380,7 @@ export function AutoplayVideo({
       v.removeEventListener("error", onError)
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
     }
-  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, retryToken])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, retryToken, recoverStalledPlayback])
 
   if (!activeSrc) return null
   const derivedPoster = sidecarPosterForVideo(activeSrc)

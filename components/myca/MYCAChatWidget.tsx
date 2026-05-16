@@ -30,6 +30,7 @@ export function MYCAChatWidget({
     confirmAction,
     consciousness,
     setIsActive,
+    setDraftActivity,
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
@@ -110,6 +111,7 @@ export function MYCAChatWidget({
     const message = input.trim()
     if (!message) return
     setInput("")
+    setDraftActivity(0)
     // Fire-and-forget intent parse — don't block the LLM send.
     void tryFastIntent(message)
     await sendMessage(message, {
@@ -137,8 +139,11 @@ export function MYCAChatWidget({
 
   useEffect(() => {
     setIsActive(true)
-    return () => setIsActive(false)
-  }, [setIsActive])
+    return () => {
+      setIsActive(false)
+      setDraftActivity(0)
+    }
+  }, [setDraftActivity, setIsActive])
 
   // Auto-scroll within the widget only (never scroll the page)
   useEffect(() => {
@@ -256,7 +261,11 @@ export function MYCAChatWidget({
         <div className="flex items-center gap-2">
           <Input
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value
+              setInput(value)
+              setDraftActivity(value.trim().length)
+            }}
             placeholder="Ask MYCA..."
             className="myca-chat-input h-11 text-base"
             onKeyDown={(event) => {

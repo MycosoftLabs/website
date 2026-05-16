@@ -4,22 +4,19 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowUpRight, Database, Globe2, Layers3, Radar, Search, Shield, Sparkles } from "lucide-react"
+import { ArrowUpRight, Database, Globe2, Layers3, Radar, Shield, Sparkles } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { HeroSearch } from "@/components/home/hero-search"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
+import { primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { cn } from "@/lib/utils"
 
-const HOME_HERO_SOURCES = homeHeroVideoSources()
-const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
+const HOME_HERO_VIDEO = encodeAssetUrl(process.env.NEXT_PUBLIC_HOME_HERO_MP4?.trim() || "/assets/homepage/Mycosoft Background.mp4")
+const HOME_HERO_POSTER = encodeAssetUrl(primaryHomeHeroPosterPath())
 const PROD_ASSET_ORIGIN = "https://mycosoft.com"
-const HomeMYCADemoPanel = dynamic(
-  () => import("@/components/home/home-myca-demo-panel").then((mod) => mod.HomeMYCADemoPanel),
-  { ssr: false }
-)
-const HomeMYCABackdrop = dynamic(
-  () => import("@/components/home/home-myca-demo-panel").then((mod) => mod.HomeMYCABackdrop),
+const HomeMYCAExperience = dynamic(
+  () => import("@/components/home/home-myca-demo-panel").then((mod) => mod.HomeMYCAExperience),
   { ssr: false }
 )
 
@@ -276,33 +273,25 @@ export function HomeCommandPage() {
             animate={{ opacity: showMYCADemo ? 0 : 1, scale: showMYCADemo ? 1.018 : 1 }}
             transition={{ duration: 0.62, ease: [0.22, 0.61, 0.36, 1] }}
           >
-            {HOME_HERO_SOURCES[0] ? (
-              <AutoplayVideo
-                src={HOME_HERO_SOURCES[0]}
-                sources={HOME_HERO_SOURCES}
-                poster={HOME_HERO_POSTER}
-                preload="auto"
-                stallTimeoutMs={18000}
+            {HOME_HERO_VIDEO ? (
+              <video
+                aria-hidden="true"
+                data-testid="home-hero-full-video"
                 className="absolute inset-0 h-full w-full object-cover"
-                encodeSrc
+                src={HOME_HERO_VIDEO}
+                poster={HOME_HERO_POSTER}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                onCanPlay={(event) => {
+                  event.currentTarget.play().catch(() => {})
+                }}
               />
             ) : null}
           </motion.div>
-          <AnimatePresence>
-            {showMYCADemo ? (
-              <motion.div
-                key="myca-backdrop"
-                className="absolute inset-0 bg-[#080d12]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.62, ease: [0.22, 0.61, 0.36, 1] }}
-                aria-hidden="true"
-              >
-                <HomeMYCABackdrop />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
           <motion.div
             className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70"
             initial={false}
@@ -331,38 +320,24 @@ export function HomeCommandPage() {
                   />
                 </div>
               </motion.div>
-            ) : (
-              <motion.div
-                key="myca-demo"
-                className="absolute inset-0 flex items-start justify-center px-4 sm:px-6 lg:px-8"
-                initial={{ opacity: 0, y: 56, scale: 0.985, filter: "blur(12px)" }}
-                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: 32, scale: 0.985, filter: "blur(8px)" }}
-                transition={{ duration: 0.58, ease: [0.22, 0.61, 0.36, 1] }}
-              >
-                <HomeMYCADemoPanel />
-                <div className="natureos-glass-page myco-home-return-search-glass absolute bottom-8 right-4 z-30 sm:right-7 lg:bottom-16 lg:right-10">
-                  <div className="petri-codepen-button-demo petri-codepen-button-demo-reset myco-hero-petri-icon myco-home-return-search-button">
-                    <div className="button-wrap">
-                      <button
-                        type="button"
-                        aria-label="Return to search panels"
-                        title="Search"
-                        onClick={() => setShowMYCADemo(false)}
-                        onPointerDown={() => setShowMYCADemo(false)}
-                      >
-                        <span>
-                          <Search className="h-[1em] w-[1em]" />
-                        </span>
-                      </button>
-                      <div className="button-shadow" />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {showMYCADemo ? (
+            <motion.div
+              key="myca-demo"
+              className="absolute inset-0 z-20"
+              initial={{ opacity: 0, y: 56, scale: 0.985, filter: "blur(12px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 32, scale: 0.985, filter: "blur(8px)" }}
+              transition={{ duration: 0.58, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+              <HomeMYCAExperience onReturnToSearch={() => setShowMYCADemo(false)} />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </section>
 
       <section className="border-b border-slate-200 bg-white px-4 py-6 sm:px-6 lg:px-8 dark:border-white/10 dark:bg-black">
