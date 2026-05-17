@@ -9,7 +9,6 @@
  */
 
 import { useRef, useEffect, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
 import {
   Brain,
   User,
@@ -50,14 +49,7 @@ function ActivityNode({
   const raised = isActive || isHighlight
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0.6, scale: 0.95 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-      }}
-      transition={{ duration: 0.2 }}
+    <div
       className={cn(
         "flex items-center gap-2 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-all border",
         neuromorphic && raised && "neu-raised-sm",
@@ -71,24 +63,16 @@ function ActivityNode({
     >
       <span className="shrink-0 text-current opacity-90 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
       <span className="truncate max-w-[90px]">{label}</span>
-    </motion.div>
+    </div>
   )
 }
 
 function FlowDot({ visible }: { visible: boolean }) {
   return (
     <div className="relative w-7 h-px bg-border/60 shrink-0 overflow-visible flex items-center justify-center">
-      <AnimatePresence>
-        {visible && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute h-2.5 w-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
-          />
-        )}
-      </AnimatePresence>
+      {visible ? (
+        <div className="absolute h-2.5 w-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]" />
+      ) : null}
     </div>
   )
 }
@@ -102,11 +86,9 @@ function useActivityLog() {
     messages.forEach((m, i) => {
       const ts = new Date(m.timestamp).getTime()
       if (m.role === "user") {
-        const content = (m.content || "").slice(0, 60)
-        msgEntries.push({ id: "u-" + i, type: "user", text: `You: ${content}${(m.content || "").length > 60 ? "…" : ""}`, ts })
+        msgEntries.push({ id: "u-" + i, type: "route", text: "Input received", ts })
       } else {
-        const agent = m.agent ? ` (${m.agent})` : ""
-        msgEntries.push({ id: "a-" + i, type: "reply", text: `MYCA${agent}: replied`, ts })
+        msgEntries.push({ id: "a-" + i, type: "reply", text: "Response composed", ts })
       }
     })
     const sorted = [...msgEntries].sort((a, b) => b.ts - a.ts).slice(0, 18)
@@ -117,6 +99,65 @@ function useActivityLog() {
     }
     if (lastResponseMetadata?.routed_to || lastResponseMetadata?.agent) {
       prefix.push({ id: "route", type: "route", text: "Using MYCA", ts: Date.now() })
+    }
+    if (consciousness?.is_conscious) {
+      prefix.push({ id: "conscious", type: "conscious", text: "Consciousness active", ts: Date.now() - 1 })
+    }
+    return [...prefix, ...sorted].slice(0, 20)
+  }, [messages, lastResponseMetadata, isLoading, consciousness?.is_conscious])
+}
+
+/** Build operational activity entries without duplicating chat transcript lines. */
+function useOperationalActivityLog() {
+  const { messages, lastResponseMetadata, isLoading, consciousness } = useMYCA()
+
+  return useMemo(() => {
+    type ActivityLogEntry = {
+      id: string
+      type: "input" | "reply" | "route" | "processing" | "conscious" | "tool" | "service" | "agent"
+      text: string
+      ts: number
+    }
+    const labelAgent = (raw?: string) => {
+      if (!raw || raw === "myca-local-fallback") return "MYCA"
+      return raw
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    }
+
+    const msgEntries: ActivityLogEntry[] = []
+    messages.forEach((m, i) => {
+      const ts = new Date(m.timestamp).getTime()
+      if (m.role === "user") {
+        msgEntries.push({ id: "input-" + i, type: "input", text: "Input received", ts })
+        msgEntries.push({ id: "route-" + i, type: "route", text: "Routing request through MYCA", ts: ts + 1 })
+      } else {
+        const agent = labelAgent(m.agent || String(m.metadata?.routed_to || ""))
+        if (Array.isArray(m.nlqActions) && m.nlqActions.length > 0) {
+          msgEntries.push({ id: "tool-" + i, type: "tool", text: "Tool actions prepared", ts: ts + 1 })
+        }
+        if (Array.isArray(m.nlqSources) && m.nlqSources.length > 0) {
+          msgEntries.push({ id: "service-" + i, type: "service", text: "Service data checked", ts: ts + 2 })
+        }
+        msgEntries.push({ id: "reply-" + i, type: "reply", text: `Response composed by ${agent}`, ts: ts + 3 })
+      }
+    })
+    const sorted = [...msgEntries].sort((a, b) => b.ts - a.ts).slice(0, 18)
+
+    const prefix: ActivityLogEntry[] = []
+    if (isLoading) {
+      prefix.push({ id: "proc", type: "processing", text: "Processing request", ts: Date.now() + 2 })
+      prefix.push({ id: "think", type: "processing", text: "Thinking through route", ts: Date.now() + 1 })
+    }
+    if (lastResponseMetadata?.routed_to || lastResponseMetadata?.agent) {
+      prefix.push({
+        id: "route",
+        type: "agent",
+        text: `Response from ${labelAgent(lastResponseMetadata.routed_to || lastResponseMetadata.agent)}`,
+        ts: Date.now(),
+      })
     }
     if (consciousness?.is_conscious) {
       prefix.push({ id: "conscious", type: "conscious", text: "Consciousness active", ts: Date.now() - 1 })
@@ -146,11 +187,11 @@ function useConversationAgents() {
   }, [messages, lastResponseMetadata])
 }
 
-export function MYCALiveActivityPanel({ className }: { className?: string }) {
+export function MYCALiveActivityPanel({ active = true, className }: { active?: boolean; className?: string }) {
   const { isLoading, consciousness, lastResponseMetadata } = useMYCA()
-  const { connected, connecting, error, agentStatus } = useTopologyWebSocketSimple()
+  const { connected, connecting, error, agentStatus } = useTopologyWebSocketSimple(active)
   const conversationAgents = useConversationAgents()
-  const activityLog = useActivityLog()
+  const activityLog = useOperationalActivityLog()
 
   const highlightAgent = lastResponseMetadata?.routed_to || lastResponseMetadata?.agent
   const prevHighlightRef = useRef<string | undefined>(undefined)
@@ -260,29 +301,19 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
                 Active in conversation
               </div>
                 <div className="flex flex-wrap gap-2">
-                  <AnimatePresence mode="popLayout">
-                    {conversationAgents.map((agent) => (
-                      <motion.div
-                        key={agent.id}
-                        layout
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.2 }}
-                        className="shrink-0"
-                      >
-                        <ActivityNode
-                          id={agent.id}
-                          label={agent.label}
-                          icon={<MessageSquare />}
-                          isActive={showFlow}
-                          isHighlight={isAgentHighlighted(agent.id)}
-                          status={agentStatus[agent.id]}
-                          neuromorphic
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                  {conversationAgents.map((agent) => (
+                    <div key={agent.id} className="shrink-0">
+                      <ActivityNode
+                        id={agent.id}
+                        label={agent.label}
+                        icon={<MessageSquare />}
+                        isActive={showFlow}
+                        isHighlight={isAgentHighlighted(agent.id)}
+                        status={agentStatus[agent.id]}
+                        neuromorphic
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -298,15 +329,21 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
                 ) : (
                   activityLog.map((entry) => {
                     const Icon =
-                      entry.type === "user" ? User
+                      entry.type === "input" ? User
                       : entry.type === "reply" ? MessageSquare
                       : entry.type === "route" ? Route
+                      : entry.type === "tool" ? Cog
+                      : entry.type === "service" ? Database
+                      : entry.type === "agent" ? Sparkles
                       : entry.type === "processing" ? Cpu
                       : Brain
                     const colorClass =
-                      entry.type === "user" ? "text-blue-500"
+                      entry.type === "input" ? "text-blue-500"
                       : entry.type === "reply" ? "text-green-600 dark:text-green-400"
                       : entry.type === "route" ? "text-amber-500"
+                      : entry.type === "tool" ? "text-cyan-500"
+                      : entry.type === "service" ? "text-purple-500"
+                      : entry.type === "agent" ? "text-green-500"
                       : entry.type === "processing" ? "text-amber-500 animate-pulse"
                       : entry.type === "conscious" ? "text-green-500"
                       : "text-muted-foreground"

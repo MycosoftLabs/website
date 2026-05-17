@@ -13,6 +13,8 @@ import { useStreamingSearch } from "@/hooks/use-streaming-search"
 import { classifyAndRoute } from "@/lib/search/search-intelligence-router"
 import { searchRouteToFluidSnapshot } from "@/lib/search/fluid-search-context"
 import { WIDGET_REGISTRY, type WidgetType } from "@/lib/search/widget-registry"
+import { getRememberedSearchLocation, requestRememberedSearchLocation } from "@/lib/search/browser-location"
+import { nearestCoastalFocus, queryNeedsCoastalFocus } from "@/lib/search/coastal-focus"
 import type { EarthContextFilters } from "@/lib/search/earth-context-filters"
 import type { ResearchResult, SpeciesResult } from "@/lib/search/unified-search-sdk"
 import { useSearchContext } from "../SearchContextProvider"
@@ -140,6 +142,7 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
   const { messages, isLoading: mycaLoading, sendMessage, consciousness } = useMYCA()
   const [query, setQuery] = useState(initialQuery)
   const [activeSlide, setActiveSlide] = useState(0)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const didSendInitialRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -154,6 +157,8 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
     debounceMs: 350,
     limit: 12,
     includeAI: false,
+    lat: userLocation?.lat,
+    lng: userLocation?.lng,
     fluidContext,
   })
   const route = search.intentPlan?.route ?? predictedRoute
@@ -169,6 +174,23 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
       document.body.style.overflow = previousBodyOverflow
     }
   }, [])
+
+  useEffect(() => {
+    const remembered = getRememberedSearchLocation()
+    if (remembered) {
+      const loc = { lat: remembered.lat, lng: remembered.lng }
+      setUserLocation(loc)
+      ctx.setUserLocation(loc)
+      return
+    }
+
+    void requestRememberedSearchLocation().then((loc) => {
+      if (!loc) return
+      const next = { lat: loc.lat, lng: loc.lng }
+      setUserLocation(next)
+      ctx.setUserLocation(next)
+    })
+  }, [ctx])
 
   useEffect(() => {
     if (!initialQuery || didSendInitialRef.current) return
@@ -352,6 +374,7 @@ export function MobileSearchViewport({ initialQuery = "" }: MobileSearchViewport
                   mapObservations={mapObservations}
                   eventObservations={eventObservations}
                   earthContextFilters={earthContextFilters}
+                  userLocation={userLocation}
                   buckets={{
                     events: search.events,
                     aircraft: search.aircraft.slice(0, 25),
@@ -431,6 +454,7 @@ function MobileTopWidget({
   mapObservations,
   eventObservations,
   earthContextFilters,
+  userLocation,
   buckets,
 }: {
   widget: WidgetType
@@ -441,6 +465,7 @@ function MobileTopWidget({
   mapObservations: MapObservation[]
   eventObservations: EventObservation[]
   earthContextFilters: EarthContextFilters | null
+  userLocation: { lat: number; lng: number } | null
   buckets: Record<string, any[]>
 }) {
   const bodyClass = "h-full overflow-y-auto p-2"
@@ -452,6 +477,7 @@ function MobileTopWidget({
         filters={earthContextFilters}
         mapObservations={mapObservations}
         eventObservations={eventObservations}
+        userLocation={userLocation}
         buckets={buckets}
         isLoading={isLoading}
       />
@@ -499,6 +525,7 @@ function MobileEarthSummary({
   filters,
   mapObservations,
   eventObservations,
+  userLocation,
   buckets,
   isLoading,
 }: {
@@ -506,6 +533,7 @@ function MobileEarthSummary({
   filters: EarthContextFilters | null
   mapObservations: MapObservation[]
   eventObservations: EventObservation[]
+  userLocation: { lat: number; lng: number } | null
   buckets: Record<string, any[]>
   isLoading: boolean
 }) {
@@ -522,6 +550,10 @@ function MobileEarthSummary({
     ...(buckets.emissions ?? []).map((item) => ({ ...item, type: "event" })),
     ...(buckets.space_weather ?? []).map((item) => ({ ...item, type: "event" })),
   ], [buckets])
+  const coastalFocus = useMemo(
+    () => queryNeedsCoastalFocus(query) ? nearestCoastalFocus(userLocation) : null,
+    [query, userLocation]
+  )
 
   return (
     <div className="h-full min-h-0 overflow-hidden flex flex-col">
@@ -557,6 +589,8 @@ function MobileEarthSummary({
         <EarthWidget
           data={mapObservations}
           eventsData={eventObservations}
+          searchLocation={coastalFocus ?? undefined}
+          userLocation={userLocation ?? undefined}
           searchQuery={query}
           liveEntities={liveEntities}
           isFocused

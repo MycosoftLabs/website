@@ -4,12 +4,14 @@ import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { MYCAConsciousnessStatus } from "@/components/mas/myca-consciousness-status"
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget"
 import { MYCALiveActivityPanel } from "@/components/myca/MYCALiveActivityPanel"
 import { MYCADataBridge } from "@/components/myca/MYCADataBridge"
+import { MYCALiveDemoGlassStyles } from "@/components/myca/MYCALiveDemoGlassStyles"
 import { useMYCA } from "@/contexts/myca-context"
 
 const MYCALiveDemoBackground = dynamic(
@@ -19,7 +21,7 @@ const MYCALiveDemoBackground = dynamic(
 import { Brain, Globe2, MessageSquare, Users, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const CHAT_PANEL_HEIGHT = 680
+const CHAT_PANEL_HEIGHT = "clamp(430px, calc(100dvh - 360px), 560px)"
 
 interface AgentInfo {
   agent_id: string
@@ -164,12 +166,28 @@ interface WorldState {
 
 type FlowDirection = "user-to-myca" | "myca-to-user" | "idle"
 
-export function LiveDemo({ className }: { className?: string }) {
+export function LiveDemo({
+  active = true,
+  className,
+  showDemoBackground = true,
+  demoBackgroundTransparent = false,
+  showIntro = true,
+  forceMountPanels = false,
+}: {
+  active?: boolean
+  className?: string
+  showDemoBackground?: boolean
+  demoBackgroundTransparent?: boolean
+  showIntro?: boolean
+  forceMountPanels?: boolean
+}) {
   const [world, setWorld] = useState<WorldState | null>(null)
   const [worldLoading, setWorldLoading] = useState(true)
   const [activityOpen, setActivityOpen] = useState(false)
   const [flowDirection, setFlowDirection] = useState<FlowDirection>("idle")
+  const [activeTab, setActiveTab] = useState("chat")
   const { isLoading, lastResponseMetadata } = useMYCA()
+  const forceMountProps = forceMountPanels ? { forceMount: true as const } : {}
 
   // Derive flow direction: user→MYCA when sending/thinking, MYCA→user when responding
   useEffect(() => {
@@ -185,21 +203,35 @@ export function LiveDemo({ className }: { className?: string }) {
   }, [isLoading, lastResponseMetadata])
 
   useEffect(() => {
+    if (!active || activeTab !== "world") {
+      setWorldLoading(false)
+      return
+    }
+
+    let mounted = true
+    let controller: AbortController | null = null
+    let timeout: ReturnType<typeof setTimeout> | null = null
+
     const fetchWorld = async () => {
       try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 10000)
+        controller?.abort()
+        if (timeout) clearTimeout(timeout)
+        controller = new AbortController()
+        timeout = setTimeout(() => controller?.abort(), 10000)
         const res = await fetch("/api/myca/consciousness/world", {
           signal: controller.signal,
         })
-        clearTimeout(timeout)
+        if (timeout) clearTimeout(timeout)
+        timeout = null
+        if (!mounted) return
         if (res.ok) {
           const data = await res.json()
-          setWorld(data)
+          if (mounted) setWorld(data)
         } else {
           setWorld({ error: "Unable to load world state" })
         }
       } catch (e) {
+        if (!mounted) return
         setWorld({
           error:
             e instanceof Error && e.name === "AbortError"
@@ -207,29 +239,52 @@ export function LiveDemo({ className }: { className?: string }) {
               : "Failed to connect to consciousness API",
         })
       } finally {
-        setWorldLoading(false)
+        if (mounted) setWorldLoading(false)
       }
     }
+    setWorldLoading(true)
     fetchWorld()
     const interval = setInterval(fetchWorld, 15000)
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      mounted = false
+      clearInterval(interval)
+      if (timeout) clearTimeout(timeout)
+      controller?.abort()
+    }
+  }, [active, activeTab])
 
   return (
-    <section className={cn("myca-live-demo relative w-screen max-w-none left-1/2 -translate-x-1/2 py-16 md:py-24 overflow-hidden", className)}>
-      <div className="absolute inset-0 w-full pointer-events-none">
-        <MYCALiveDemoBackground className="w-full h-full" />
-      </div>
-      <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">
-        <div className="text-center mb-12">
-          <p className="text-sm font-medium text-green-500 mb-2">Live Demo</p>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Experience MYCA</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Real-time consciousness, world perception, and conversation.
-          </p>
+    <section
+      data-over-video={!showDemoBackground || demoBackgroundTransparent ? true : undefined}
+      className={cn("myca-live-demo relative w-screen max-w-none left-1/2 -translate-x-1/2 py-4 md:py-6 lg:py-8 overflow-hidden", className)}
+    >
+      <MYCALiveDemoGlassStyles />
+      {showDemoBackground ? (
+        <div className={cn("absolute inset-0 w-full pointer-events-none", demoBackgroundTransparent && "home-myca-demo-flow-blend")}>
+          <MYCALiveDemoBackground className="w-full h-full" transparent={demoBackgroundTransparent} />
         </div>
+      ) : null}
+      <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">
+        {showIntro ? (
+          <div className="text-center mb-5 md:mb-6">
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <h2 className="text-3xl md:text-4xl font-bold">Experience MYCA</h2>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="border-green-500/40 bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400"
+              >
+                <a href="#live-demo">Live Demo</a>
+              </Button>
+            </div>
+            <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+              Talk to the worlds first nature based intelligence that can understand the world,
+            </p>
+          </div>
+        ) : null}
 
-        <Tabs defaultValue="chat" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-2 p-2 touch-manipulation">
             <TabsTrigger value="chat" className="min-h-[44px] gap-2 text-sm touch-manipulation">
               <MessageSquare className="h-4 w-4" />
@@ -249,7 +304,7 @@ export function LiveDemo({ className }: { className?: string }) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="chat" className="mt-6">
+          <TabsContent {...forceMountProps} value="chat" className="mt-3 md:mt-4">
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-0 items-stretch">
               {/* LEFT: User stream — chat aligned with Live Activity */}
               <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 flex flex-col">
@@ -261,7 +316,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   className="myca-live-panel overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
                   style={{ height: CHAT_PANEL_HEIGHT }}
                 >
-                  <MYCAChatWidget showHeader title="Chat with MYCA" className="h-full min-h-0" />
+                  <MYCAChatWidget active={active} showHeader title="Chat with MYCA" className="h-full min-h-0" />
                 </div>
               </div>
 
@@ -280,7 +335,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   <span className="text-xs text-muted-foreground">— multiple streams, all interactions</span>
                 </div>
                 <div className="myca-live-panel hidden lg:block min-h-0 overflow-hidden shrink-0 rounded-xl border border-border/50" style={{ height: CHAT_PANEL_HEIGHT }}>
-                  <MYCALiveActivityPanel className="h-full min-h-0" />
+                  <MYCALiveActivityPanel active={active} className="h-full min-h-0" />
                 </div>
                 <Collapsible open={activityOpen} onOpenChange={setActivityOpen} className="lg:hidden">
                   <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors min-h-[44px] touch-manipulation">
@@ -289,7 +344,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-3" style={{ minHeight: 360 }}>
-                      <MYCALiveActivityPanel className="h-full min-h-[320px]" />
+                      <MYCALiveActivityPanel active={active} className="h-full min-h-[320px]" />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -297,11 +352,11 @@ export function LiveDemo({ className }: { className?: string }) {
             </div>
           </TabsContent>
 
-          <TabsContent value="consciousness" className="mt-6">
+          <TabsContent {...forceMountProps} value="consciousness" className="mt-3 md:mt-4">
             <MYCAConsciousnessStatus variant="full" refreshInterval={30000} />
           </TabsContent>
 
-          <TabsContent value="world" className="mt-6">
+          <TabsContent {...forceMountProps} value="world" className="mt-3 md:mt-4">
             <Card>
               <CardContent className="pt-6">
                 <h3 className="font-bold mb-4">World Perception</h3>
@@ -326,7 +381,7 @@ export function LiveDemo({ className }: { className?: string }) {
             </Card>
           </TabsContent>
 
-          <TabsContent value="agents" className="mt-6">
+          <TabsContent {...forceMountProps} value="agents" className="mt-3 md:mt-4">
             <LiveDemoAgentsTab />
           </TabsContent>
         </Tabs>

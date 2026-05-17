@@ -10,7 +10,7 @@
 
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
-import { useMYCA } from "@/contexts/myca-context"
+import { useOptionalMYCA } from "@/contexts/myca-context"
 import { 
   Brain, 
   Sparkles, 
@@ -40,7 +40,7 @@ interface MYCAConsciousnessStatusProps {
   refreshInterval?: number
 }
 
-function toConsciousnessStatus(ctx: NonNullable<ReturnType<typeof useMYCA>["consciousness"]>): ConsciousnessStatus {
+function toConsciousnessStatus(ctx: NonNullable<NonNullable<ReturnType<typeof useOptionalMYCA>>["consciousness"]>): ConsciousnessStatus {
   return {
     is_conscious: ctx.is_conscious ?? false,
     state: ctx.state ?? "unknown",
@@ -54,7 +54,7 @@ export function MYCAConsciousnessStatus({
   variant = "full",
   refreshInterval = 30000,
 }: MYCAConsciousnessStatusProps) {
-  const ctx = useMYCA()
+  const ctx = useOptionalMYCA()
   const inProvider = ctx != null
   const contextConsciousness = ctx?.consciousness ?? null
   const [status, setStatus] = useState<ConsciousnessStatus | null>(null)

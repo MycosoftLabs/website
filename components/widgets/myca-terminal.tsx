@@ -85,7 +85,7 @@ export function MYCATerminal({
   const [showNlqInput, setShowNlqInput] = useState(false);
   const nlqInputRef = useRef<HTMLInputElement>(null);
   
-  // Handle query submission - tries consciousness API first, then NLQ
+  // Handle query submission - tries canonical MYCA orchestrator first, then NLQ
   const handleNlqSubmit = useCallback(async () => {
     if (!nlqQuery.trim() || nlqLoading) return;
     
@@ -105,26 +105,33 @@ export function MYCATerminal({
     setNlqQuery("");
     
     try {
-      // Try consciousness API first for conversational queries
-      const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+      // Try fast MYCA orchestrator first for conversational queries
+      const consciousnessResponse = await fetch("/api/mas/voice/orchestrator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: queryText,
           session_id: `terminal-${Date.now()}`,
+          source: "web",
+          want_audio: false,
         }),
       });
       
       if (consciousnessResponse.ok) {
         const consciousnessData = await consciousnessResponse.json();
-        if (consciousnessData.reply) {
+        const reply =
+          consciousnessData.response_text ||
+          consciousnessData.reply ||
+          consciousnessData.message ||
+          consciousnessData.response;
+        if (reply) {
           const responseEvent: MYCAEvent = {
             id: `consciousness-response-${Date.now()}`,
             timestamp: new Date(),
             level: "success",
             source: "MYCA",
-            message: consciousnessData.reply,
-            agent: "consciousness",
+            message: reply,
+            agent: consciousnessData.provider || "orchestrator",
           };
           setEvents(prev => [responseEvent, ...prev].slice(0, maxEvents));
           

@@ -254,41 +254,32 @@ export function UnifiedVoiceProvider({
     }
   }, [mode, masApiUrl, onResponse])
   
-  // Send command to MYCA - consciousness first, then voice orchestrator
+  // Send command to MYCA - canonical Website orchestrator first
   const sendCommand = useCallback(async (command: string): Promise<string> => {
     try {
-      // Step 1: Try MYCA consciousness chat first
+      // Step 1: Try canonical fast MYCA route.
       try {
-        const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+        const consciousnessResponse = await fetch("/api/mas/voice/orchestrator", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: command }),
-          signal: AbortSignal.timeout(35000),
+          body: JSON.stringify({
+            message: command,
+            source: "web",
+            want_audio: false,
+          }),
+          signal: AbortSignal.timeout(8000),
         })
         
         if (consciousnessResponse.ok) {
           const data = await consciousnessResponse.json()
-          if (data.message) {
-            onResponse?.(data.message)
-            return data.message
+          const responseText = data.response_text || data.message || data.reply || data.response
+          if (responseText) {
+            onResponse?.(responseText)
+            return responseText
           }
         }
       } catch {
-        // Consciousness API not available, fall back to voice orchestrator
-      }
-      
-      // Step 2: Fall back to voice orchestrator
-      const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: command }),
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const responseText = data.response_text || data.response || "Command processed"
-        onResponse?.(responseText)
-        return responseText
+        // Website orchestrator not available.
       }
       
       return "Command failed"
@@ -297,7 +288,7 @@ export function UnifiedVoiceProvider({
       setError(errorMsg)
       return errorMsg
     }
-  }, [masApiUrl, onResponse])
+  }, [onResponse])
   
   // Register command handler
   const registerHandler = useCallback((pattern: string | RegExp, handler: (match: RegExpMatchArray) => void) => {

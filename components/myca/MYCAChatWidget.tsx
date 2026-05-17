@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
-import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
-import { GroundingStatusBadge } from "./GroundingStatusBadge"
+import { Brain, Loader2, Play, Send } from "lucide-react"
 
 interface MYCAChatWidgetProps {
+  active?: boolean
   className?: string
   title?: string
   getContextText?: () => string
@@ -18,6 +18,7 @@ interface MYCAChatWidgetProps {
 }
 
 export function MYCAChatWidget({
+  active = true,
   className,
   title = "MYCA",
   getContextText,
@@ -27,14 +28,11 @@ export function MYCAChatWidget({
     messages,
     isLoading,
     sendMessage,
-    clearMessages,
-    memoryEnabled,
-    setMemoryEnabled,
     pendingConfirmationId,
     confirmAction,
     consciousness,
-    grounding,
     setIsActive,
+    setDraftActivity,
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
@@ -115,6 +113,7 @@ export function MYCAChatWidget({
     const message = input.trim()
     if (!message) return
     setInput("")
+    setDraftActivity(0)
     // Fire-and-forget intent parse — don't block the LLM send.
     void tryFastIntent(message)
     await sendMessage(message, {
@@ -141,9 +140,13 @@ export function MYCAChatWidget({
   }
 
   useEffect(() => {
-    setIsActive(true)
-    return () => setIsActive(false)
-  }, [setIsActive])
+    setIsActive(active)
+    if (!active) setDraftActivity(0)
+    return () => {
+      setIsActive(false)
+      setDraftActivity(0)
+    }
+  }, [active, setDraftActivity, setIsActive])
 
   // Auto-scroll within the widget only (never scroll the page)
   useEffect(() => {
@@ -169,33 +172,8 @@ export function MYCAChatWidget({
                 conscious
               </Badge>
             )}
-            <GroundingStatusBadge
-              isLoading={isLoading}
-              isGrounded={grounding?.is_grounded}
-              thoughtCount={grounding?.thought_count}
-            />
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={memoryEnabled ? "default" : "outline"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setMemoryEnabled(!memoryEnabled)}
-            >
-              Memory
-            </Button>
-            {visibleMessages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={clearMessages}
-                title="Clear chat"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+          <div className="h-7" aria-hidden="true" />
         </div>
       )}
 
@@ -286,7 +264,11 @@ export function MYCAChatWidget({
         <div className="flex items-center gap-2">
           <Input
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value
+              setInput(value)
+              setDraftActivity(value.trim().length)
+            }}
             placeholder="Ask MYCA..."
             className="myca-chat-input h-11 text-base"
             onKeyDown={(event) => {
