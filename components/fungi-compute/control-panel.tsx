@@ -174,19 +174,21 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
     setMycaResponse("Processing...")
     
     try {
-      // Try consciousness API first
-      const response = await fetch("/api/myca/consciousness/chat", {
+      // Try canonical MYCA orchestrator first
+      const response = await fetch("/api/mas/voice/orchestrator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: `[FCI Context: Device ${deviceId || "unknown"}] ${mycaQuery}`,
           session_id: `fci-${Date.now()}`,
+          source: "web",
+          want_audio: false,
         }),
       })
       
       if (response.ok) {
         const data = await response.json()
-        const reply = data.reply
+        const reply = data.response_text || data.reply || data.message || data.response
         const replyText = typeof reply === "string" ? reply : (reply?.text ?? reply?.content ?? (reply && typeof reply === "object" ? JSON.stringify(reply) : null))
         if (replyText) {
           setMycaResponse(replyText)

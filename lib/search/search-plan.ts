@@ -13,6 +13,7 @@ export type SearchEntityFamily =
   | "weather"
   | "devices"
   | "space"
+  | "emissions"
   | "marine"
   | "transport"
   | "economy_content"
@@ -108,12 +109,15 @@ const TAXONOMY_RULES: TaxonomyRule[] = [
       /\bplants?\s+(?:species|habitat|range|biology|near|in)\b/i,
       /\banimals?\b/i,
       /\bbirds?\b/i,
+      /\bmigration\b/i,
       /\bfishes?\b/i,
+      /\binsects?\b/i,
+      /\bpopulation(s)?\b/i,
       /\binvasive\b/i,
       /\bendangered\b/i,
       /\bhabitat\b/i,
     ],
-    preferredWidgets: ["species", "earth", "genetics", "chemistry", "research", "news", "answers"],
+    preferredWidgets: ["earth", "species", "research", "news", "answers"],
     sourcePriority: ["iNaturalist", "GBIF", "IUCN", "NCBI", "MycoBank", "MINDEX"],
     missingDataKind: "species observation, range, or taxonomy data",
   },
@@ -146,12 +150,16 @@ const TAXONOMY_RULES: TaxonomyRule[] = [
       /\bcell\s+towers?\b/i,
       /\bports?\b/i,
       /\bfactories?\b/i,
+      /\bdams?\b/i,
       /\bpipelines?\b/i,
       /\bsea\s+cables?\b/i,
       /\bsubmarine\s+cables?\b/i,
+      /\bmilitary\s+bases?\b/i,
+      /\bnaval\s+bases?\b/i,
+      /\bbases?\b/i,
       /\brail(?:way)?\b/i,
     ],
-    preferredWidgets: ["earth", "infrastructure", "power_grid", "risk", "supply_chain", "answers", "news"],
+    preferredWidgets: ["earth", "infrastructure", "answers", "news"],
     sourcePriority: ["OpenStreetMap", "EIA", "WRI", "Overpass", "MINDEX", "CREP"],
     missingDataKind: "infrastructure geometry or asset metadata",
   },
@@ -170,6 +178,14 @@ const TAXONOMY_RULES: TaxonomyRule[] = [
     preferredWidgets: ["earth", "weather", "air_quality", "events", "answers", "news"],
     sourcePriority: ["NOAA", "NWS", "NASA GIBS", "OpenAQ", "MINDEX"],
     missingDataKind: "weather, radar, or air-quality data",
+  },
+  {
+    family: "emissions",
+    tags: ["emissions", "earth"],
+    patterns: [/\bco2\b/i, /\bcarbon\b/i, /\bmethane\b/i, /\bemissions?\b/i, /\bgreenhouse\b/i, /\bcarbon\s+mapper\b/i],
+    preferredWidgets: ["earth", "emissions", "infrastructure", "air_quality", "answers", "news"],
+    sourcePriority: ["Carbon Mapper", "OpenAQ", "WRI", "EIA", "MINDEX"],
+    missingDataKind: "emissions plume, source asset, or air-quality data",
   },
   {
     family: "devices",
@@ -202,6 +218,7 @@ const PRIORITY_WIDGET_ORDER: WidgetType[] = [
   "earth",
   "events",
   "infrastructure",
+  "emissions",
   "risk",
   "power_grid",
   "weather",
@@ -296,7 +313,7 @@ export function buildWidgetOrderFromFamilies(
 }
 
 export function buildSearchPlan(query: string, route: SearchRoute, earthRule: EarthSearchRule): SearchPlan {
-  const families = detectSearchEntityFamilies(query)
+  let families = detectSearchEntityFamilies(query)
   if (
     route.earthContextFilters.enabledFilters.some((filter) => filter.category === "species") &&
     !families.includes("species")
@@ -304,10 +321,22 @@ export function buildSearchPlan(query: string, route: SearchRoute, earthRule: Ea
     if (families.length === 1 && families[0] === "general") families.splice(0, 1, "species")
     else families.unshift("species")
   }
-  const widgetOrder = orderSearchWidgets(
+  if (
+    families.includes("infrastructure") &&
+    families.includes("species") &&
+    /\b(power|nuclear|water|wastewater|treatment|industrial)\s+plants?\b/i.test(query)
+  ) {
+    families = families.filter((family) => family !== "species")
+  }
+  const scopedWidgetOrder = orderSearchWidgets(
     scopeWidgetOrderToEarthEntities(buildWidgetOrderFromFamilies(route, families, earthRule), earthRule, query, families),
     families,
   )
+  const isSpatialContext = /\b(near|around|by|over|in|at|with)\b/i.test(query) &&
+    (earthRule.domain !== "species" || families.some((family) => family !== "species"))
+  const widgetOrder = isSpatialContext && scopedWidgetOrder.includes("earth")
+    ? (["earth", ...scopedWidgetOrder.filter((widget) => widget !== "earth")] as WidgetType[])
+    : scopedWidgetOrder
   const isGeospatial = earthRule.domain !== "general" || route.isMapPrimary || widgetOrder.includes("earth")
 
   return {
@@ -347,7 +376,26 @@ function scopeWidgetOrderToEarthEntities(
   const entityTypes = new Set(earthRule.entityTypes)
   const normalizedQuery = query.toLowerCase()
   const hasExplicitPowerGrid = /\b(power\s*(?:lines?|plants?|grid)|transmission|substations?|electric(?:al)?\s+grid)\b/i.test(query)
+  const hasExplicitRisk = /\brisk|impact|hazard|threat|exposure\b/i.test(query)
+  const hasExplicitSupply = /\bsupply\s+chain|logistics|shipping\s+route|distribution\b/i.test(query)
+  const hasExplicitBiosecurity = /\bbiosecurity|disease|outbreak|pathogen|invasive\b/i.test(query)
+  const hasSpecificSpecies = /\b[A-Z][a-z]+\s+[a-z][a-z-]+\b/.test(query) ||
+    /\b(genetics?|genes?|genome|sequence|compounds?|chemistry|molecules?|toxins?)\b/i.test(query)
+  const isMigrationOrPopulationQuery = /\b(migration|population(s)?|abundance|decline|trend|202\d)\b/i.test(query)
   const hasExplicitEvent = families.includes("events")
+  if (families.includes("emissions")) {
+    return widgetOrder.filter((widget) =>
+      ["earth", "emissions", "infrastructure", "air_quality", "answers", "news"].includes(widget)
+    )
+  }
+  if (families.includes("infrastructure") && !families.includes("vehicles") && !families.includes("events")) {
+    return widgetOrder.filter((widget) =>
+      ["earth", "infrastructure", "answers", "news", "hydrology", "weather"].includes(widget) ||
+      (hasExplicitPowerGrid && (widget === "power_grid" || widget === "risk")) ||
+      (hasExplicitRisk && widget === "risk") ||
+      (hasExplicitSupply && widget === "supply_chain")
+    )
+  }
   if (entityTypes.has("aircraft") && !entityTypes.has("vessel")) {
     return widgetOrder.filter((widget) => widget !== "vessels" && widget !== "marine")
   }
@@ -360,7 +408,12 @@ function scopeWidgetOrderToEarthEntities(
     )
   }
   if ((earthRule.domain === "species" || families.includes("species")) && !hasExplicitEvent) {
-    return widgetOrder.filter((widget) => widget !== "events" && widget !== "biosecurity")
+    return widgetOrder.filter((widget) => {
+      if (widget === "events" || widget === "biosecurity") return hasExplicitBiosecurity
+      if ((widget === "genetics" || widget === "chemistry") && !hasSpecificSpecies) return false
+      if (isMigrationOrPopulationQuery && (widget === "genetics" || widget === "chemistry")) return false
+      return true
+    })
   }
   return widgetOrder
 }

@@ -15,6 +15,7 @@ export type EarthSearchDomain =
   | "species"
   | "infrastructure"
   | "weather"
+  | "emissions"
   | "air_quality"
   | "marine"
   | "transport"
@@ -200,7 +201,15 @@ const DOMAIN_RULES: Array<{
     categories: ["satellite"],
     enabledLayerIds: ["satellites", ...PHYSICAL_BASE_LAYERS],
     entityTypes: ["satellite"],
-    widgets: ["earth", "satellites", "space_assets", "space_weather", "answers", "news"],
+    widgets: ["earth", "satellites", "space_assets", "space_weather", "answers", "news", "research"],
+  },
+  {
+    domain: "emissions",
+    patterns: [/\bco2\b/i, /\bcarbon\b/i, /\bmethane\b/i, /\bemissions?\b/i, /\bgreenhouse\b/i, /\bcarbon\s+mapper\b/i],
+    categories: ["emissions"],
+    enabledLayerIds: ["satImagery", "mapboxSatelliteStreets", "oilGas", "factoriesG", "powerPlantsG", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["emissions", "infrastructure"],
+    widgets: ["earth", "emissions", "infrastructure", "air_quality", "answers", "news"],
   },
   {
     domain: "species",
@@ -211,6 +220,10 @@ const DOMAIN_RULES: Array<{
       /\b(?:native|invasive|endangered|wild|medicinal|poisonous|crop)\s+plants?\b/i,
       /\bplants?\s+(?:species|habitat|range|biology|near|in)\b/i,
       /\banimals?\b/i,
+      /\bbirds?\b/i,
+      /\binsects?\b/i,
+      /\bmigration\b/i,
+      /\bpopulation(s)?\b/i,
     ],
     categories: ["species"],
     enabledLayerIds: ["fungi", ...PHYSICAL_BASE_LAYERS],
@@ -227,6 +240,7 @@ const DOMAIN_RULES: Array<{
       /\belectrical\s+grid\b/i,
       /\bsubstations?\b/i,
       /\bdata\s+centers?\b/i,
+      /\bdams?\b/i,
       /\bcell\s+towers?\b/i,
       /\bports?\b/i,
       /\bfactories?\b/i,
@@ -245,6 +259,7 @@ const DOMAIN_RULES: Array<{
       "ports",
       "factoriesG",
       "oilGas",
+      "weather",
       "submarineCables",
       "railwayTracks",
       "railwayTrains",

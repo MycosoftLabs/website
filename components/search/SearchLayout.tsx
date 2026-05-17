@@ -82,8 +82,8 @@ export function SearchLayout({ children }: SearchLayoutProps) {
           )}
         </div>
 
-        {/* Content -- allow vertical scroll on mobile */}
-        <div className="flex-1 overflow-y-auto sm:overflow-hidden">
+        {/* Content stays in one viewport; widgets/chat manage their own internal scrolling. */}
+        <div className="flex-1 overflow-hidden">
           {children}
         </div>
       </div>

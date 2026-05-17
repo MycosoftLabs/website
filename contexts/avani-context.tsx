@@ -47,7 +47,7 @@ export interface AvaniContextValue {
 
 const AvaniContext = createContext<AvaniContextValue | null>(null)
 
-export function AvaniProvider({ children }: { children: React.ReactNode }) {
+export function AvaniProvider({ children, enabled = true }: { children: React.ReactNode; enabled?: boolean }) {
   const [status, setStatus] = useState<AvaniGovernanceStatus | null>(null)
 
   const fetchStatus = useCallback(async () => {
@@ -67,10 +67,11 @@ export function AvaniProvider({ children }: { children: React.ReactNode }) {
 
   // Poll governance status every 30 seconds (matches MYCA consciousness polling)
   useEffect(() => {
+    if (!enabled) return
     fetchStatus()
     const interval = setInterval(fetchStatus, 30000)
     return () => clearInterval(interval)
-  }, [fetchStatus])
+  }, [enabled, fetchStatus])
 
   const value = useMemo<AvaniContextValue>(
     () => ({

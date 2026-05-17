@@ -96,6 +96,9 @@ describe("MYCA identity impersonation hardening", () => {
         trainingCalls.push({ url: target, body: parsedBody })
         return Response.json({ ok: true })
       }
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({ response_text: "MYCA fast orchestrator response", agent: "mas-orchestrator-test" })
+      }
       if (target.includes("/voice/brain/chat")) {
         return Response.json({ response: "MYCA test response", provider: "brain-test" })
       }
@@ -213,6 +216,46 @@ describe("MYCA identity impersonation hardening", () => {
 
     expect(response.status).toBe(200)
     expect(trainingCalls).toHaveLength(1)
+  })
+
+  it("uses the fast MAS orchestrator before the slow Brain path", async () => {
+    setAnonymous()
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("MYCA fast orchestrator response")
+    expect(data.provider).toBe("mas-orchestrator-test")
+    expect(fetchBodies[0].url).toContain("/voice/orchestrator/chat")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/brain/chat"))).toBe(false)
+  })
+
+  it("falls back to MAS MYCA chat when the fast orchestrator is unavailable", async () => {
+    setAnonymous()
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const target = String(url)
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : null
+      fetchBodies.push({ url: target, body: parsedBody })
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({ error: "down" }, { status: 503 })
+      }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "MYCA consciousness response" })
+      }
+      return Response.json({ ok: true })
+    }) as jest.Mock
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("MYCA consciousness response")
+    expect(data.provider).toBe("myca")
+    expect(data.fallback_reason).toBe("mas_orchestrator_unavailable_or_degraded")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/brain/chat"))).toBe(false)
   })
 })
 

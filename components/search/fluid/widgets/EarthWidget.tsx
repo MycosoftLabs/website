@@ -191,8 +191,28 @@ export function EarthWidget({
       name: enabledLabels[0] || "Search results",
     }
   }, [enabledLabels, filteredEntities])
+  const trackedFocusAsset = useMemo(() => {
+    const mover = filteredEntities.find((entity) => {
+      const type = String((entity as Record<string, unknown>).type ?? "").toLowerCase()
+      return type === "aircraft" || type === "vessel" || type === "satellite"
+    }) as Record<string, unknown> | undefined
+    if (!mover) return null
+    const type = String(mover.type).toLowerCase() as "aircraft" | "vessel" | "satellite"
+    const lat = readNumber(mover, ["lat", "latitude", "location.lat", "location.latitude", "location.coordinates.1"])
+    const lng = readNumber(mover, ["lng", "lon", "longitude", "location.lng", "location.lon", "location.longitude", "location.coordinates.0"])
+    return {
+      type,
+      id: String(mover.id ?? mover.icao24 ?? mover.mmsi ?? mover.noradId ?? mover.name ?? ""),
+      name: String(mover.callsign ?? mover.flightNumber ?? mover.name ?? mover.registration ?? mover.mmsi ?? mover.noradId ?? type),
+      lat: lat ?? undefined,
+      lng: lng ?? undefined,
+      zoom: type === "satellite" ? 5 : 9,
+    }
+  }, [filteredEntities])
   const focusTarget: { lat: number; lng: number; name?: string; zoom?: number } | null =
-    simulatorLocation || (isEarthquakeQuery ? null : entityFocus)
+    simulatorLocation || (trackedFocusAsset?.lat != null && trackedFocusAsset.lng != null
+      ? { lat: trackedFocusAsset.lat, lng: trackedFocusAsset.lng, name: trackedFocusAsset.name, zoom: trackedFocusAsset.zoom }
+      : isEarthquakeQuery ? null : entityFocus)
   const embeddedFocusTarget = focusTarget
     ? { ...focusTarget, zoom: focusTarget.zoom ?? (isEarthquakeQuery ? 2.2 : isFocused ? 8 : 6) }
     : { lat: 20, lng: 0, name: "global view", zoom: 1.35 }
@@ -223,6 +243,7 @@ export function EarthWidget({
         initialQuery={searchQuery}
         enabledLayerIds={enabledLayerIds}
         focusLocation={embeddedFocusTarget}
+        focusAsset={trackedFocusAsset}
       />
       <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/65 px-3 py-2 text-xs text-white shadow-xl backdrop-blur-md">
         <div className="font-semibold">Earth Simulator</div>

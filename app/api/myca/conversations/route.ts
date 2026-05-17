@@ -70,10 +70,13 @@ async function fetchMASConversations(
 // Fetch agent runs and convert to conversation format
 async function fetchAgentRunsAsConversations(
   identity: VerifiedIdentity,
+  userId?: string,
   limit: number = 50
 ): Promise<Conversation[]> {
   try {
-    const response = await fetch(`${MAS_API_URL}/api/runs?page_size=${limit}`, {
+    const params = new URLSearchParams({ page_size: String(limit) })
+    if (userId) params.set("user_id", userId)
+    const response = await fetch(`${MAS_API_URL}/api/runs?${params}`, {
       headers: masServiceHeaders({
         "Content-Type": "application/json",
       }, identity),
@@ -107,10 +110,13 @@ async function fetchAgentRunsAsConversations(
 // Try to get chat threads from the MAS database directly
 async function fetchChatThreads(
   identity: VerifiedIdentity,
+  userId?: string,
   limit: number = 50
 ): Promise<Conversation[]> {
   try {
-    const response = await fetch(`${MAS_API_URL}/api/threads?page_size=${limit}`, {
+    const params = new URLSearchParams({ page_size: String(limit) })
+    if (userId) params.set("user_id", userId)
+    const response = await fetch(`${MAS_API_URL}/api/threads?${params}`, {
       headers: masServiceHeaders({
         "Content-Type": "application/json",
       }, identity),
@@ -194,10 +200,11 @@ export async function GET(request: NextRequest) {
     const effectiveUserId = scoped.userId
 
     // Try multiple endpoints to get conversation data
+    const canUseBroadFallbacks = identity.isSuperuser
     const [masConversations, agentRuns, chatThreads] = await Promise.all([
       fetchMASConversations(identity, effectiveUserId, limit),
-      fetchAgentRunsAsConversations(identity, limit),
-      fetchChatThreads(identity, limit),
+      canUseBroadFallbacks ? fetchAgentRunsAsConversations(identity, effectiveUserId, limit) : Promise.resolve([]),
+      canUseBroadFallbacks ? fetchChatThreads(identity, effectiveUserId, limit) : Promise.resolve([]),
     ])
     
     // Combine all sources and deduplicate
