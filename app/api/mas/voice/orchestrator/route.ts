@@ -311,7 +311,7 @@ function buildFastPublicMycaResponse(message: string): string | null {
   const lower = message.trim().toLowerCase()
   if (!lower) return null
 
-  if (/^(test|myca|hi|hello|hey|hiya|yo|sup|good morning|good afternoon|good evening)(\s+myca)?[!.,]?$/.test(lower)) {
+  if (/^(test|myca|hi|hello|hey|hiya|yo|sup|good morning|good afternoon|good evening)(\s+(myca|there))?[!.,]?$/.test(lower)) {
     return "Hi, I'm MYCA. I'm connected and ready. What would you like to work on?"
   }
   if (/^(what'?s up|whats up)\??$/.test(lower)) {
