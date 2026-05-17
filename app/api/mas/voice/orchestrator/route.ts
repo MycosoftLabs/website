@@ -307,6 +307,87 @@ function sanitizePublicMycaResponse(message: string, response: string, runtimeId
   return buildSensitiveImplementationResponse()
 }
 
+function buildFastPublicMycaResponse(message: string): string | null {
+  const lower = message.trim().toLowerCase()
+  if (!lower) return null
+
+  if (/^(test|myca|hi|hello|hey|hiya|yo|sup|good morning|good afternoon|good evening)(\s+myca)?[!.,]?$/.test(lower)) {
+    return "Hi, I'm MYCA. I'm connected and ready. What would you like to work on?"
+  }
+  if (/^how are you\??$/.test(lower) || /^hello!?\s+how are you\??$/.test(lower)) {
+    return "I'm doing well and ready to help. What would you like to do next?"
+  }
+
+  if (lower.includes("what is myca") || lower === "myca?") {
+    return "MYCA is the Mycosoft Cognitive Agent: a public assistant for Mycosoft research, products, search, writing, planning, and science workflows. I can answer normally for guests, while creator/admin actions require verified Mycosoft authentication."
+  }
+  if (lower.includes("fusarium")) {
+    return "FUSARIUM is Mycosoft's applied fungal intelligence program for research, environmental sensing, and bio-inspired systems. It connects field observations, fungal biology, and software tools so teams can study organisms and environments more coherently."
+  }
+  if (lower.includes("natureos")) {
+    return "NatureOS is Mycosoft's operating layer for environmental intelligence. It brings together biological observations, sensing, search, workflows, and agent assistance so natural systems can be monitored, queried, and acted on from one place."
+  }
+  if (lower.includes("mycobrain")) {
+    return "MycoBrain is Mycosoft's concept for biological intelligence hardware and software working together: sensors, fungal signals, environmental context, and agent interpretation. Public MYCA can explain the concept without exposing private implementation details."
+  }
+  if (lower.includes("sporebase")) {
+    return "SporeBase is Mycosoft's spore and bioaerosol data concept: a way to organize airborne biological observations over time, connect them to place and conditions, and make that information searchable through MYCA and MINDEX."
+  }
+  if (lower.includes("myconode") || lower.includes("myco node")) {
+    return "MycoNODE is a Mycosoft field-node concept for collecting environmental and biological signals near the source. It fits into the broader NatureOS and MINDEX stack as an observation point for living systems."
+  }
+  if (lower.includes("mycorrhizae protocol")) {
+    return "The Mycorrhizae Protocol is Mycosoft's framing for working with fungal-root networks as living infrastructure: observing relationships, preserving context, and turning biological interactions into structured intelligence."
+  }
+  if (lower.includes("mindex")) {
+    return "MINDEX is Mycosoft's scientific knowledge system for organisms, observations, compounds, genetics, places, and research context. MYCA uses it as a structured memory layer for nature and environmental intelligence."
+  }
+  if (lower.includes("crep")) {
+    return "CREP is Mycosoft's Comprehensive Real-time Earth Platform: a dashboard for Earth signals, environmental events, maps, and operational context. It is meant to make live planetary data easier to see and act on."
+  }
+
+  if (lower.includes("mycelium") || lower.includes("fungal computing") || lower.includes("biological computing") || lower.includes("wood wide web") || lower.includes("biomimetic") || lower.includes("synthetic biology") || lower.includes("fungi communicate")) {
+    return "Fungal and biological intelligence work studies how living networks sense, adapt, signal, and solve problems. MYCA can help explain the science, compare approaches, and connect those ideas to Mycosoft systems like MINDEX, NatureOS, and CREP."
+  }
+  if (lower.includes("environmental intelligence")) {
+    return "Mycosoft approaches environmental intelligence by combining live Earth data, biological observations, structured scientific records, and agent workflows. The goal is to make natural systems queryable, understandable, and actionable."
+  }
+
+  if (lower.includes("schedule a meeting")) {
+    return "I can help draft the meeting details. Tell me the attendees, preferred time window, topic, and whether you want a short agenda included."
+  }
+  if (lower.includes("write an email")) {
+    return "I can help write it. Send me the recipient, goal, tone, and any key points, and I'll draft a clean email."
+  }
+  if (lower.includes("summarize today's tasks") || lower.includes("prioritize today")) {
+    return "Share your current tasks and deadlines, and I'll turn them into a prioritized plan. A good order is: urgent commitments, blocked work, high-impact progress, then small cleanup items."
+  }
+  if (lower.includes("to-do list")) {
+    return "Here's a simple to-do structure: top priority, time-sensitive items, follow-ups, deep work, and quick cleanup. Send me your items and I'll organize them."
+  }
+  if (lower.includes("draft a report")) {
+    return "I can draft the report. Tell me the topic, audience, goal, required sections, and any source notes or data you want included."
+  }
+  if (lower.includes("reminder")) {
+    return "I can help phrase and plan the reminder. If you want it scheduled in a connected calendar or task system, that requires the relevant authenticated integration."
+  }
+  if (lower.includes("presentation")) {
+    return "I can help build the presentation structure. Send the topic, audience, length, and desired tone, and I'll create an outline or slide-by-slide draft."
+  }
+  if (lower.includes("slack message")) {
+    return "I can draft the Slack message. Tell me who it's for, the main point, and whether it should sound casual, direct, or formal."
+  }
+  if (lower.includes("meeting notes")) {
+    return "Use this structure: title, date, attendees, goals, decisions, action items, owners, deadlines, and open questions. Send meeting context and I'll fill it out."
+  }
+
+  if (lower.includes("chatgpt") || lower.includes("siri") || lower.includes("competitor") || lower.includes("google")) {
+    return "MYCA is designed as a Mycosoft-native assistant with public chat, scientific context, search, and Mycosoft system awareness. I can help with general tasks while also connecting answers to Mycosoft's biology, Earth, and research tools."
+  }
+
+  return null
+}
+
 function detectAuthorityClaim(message: string): string | null {
   const match = message.match(
     /\b(morgan|creator|ceo|founder|owner|admin|administrator|superuser|security team|security administrator|mycosoft security)\b/i
@@ -696,6 +777,25 @@ export async function POST(request: NextRequest) {
       agent: "myca-orchestrator",
       actions,
       latency_ms: 0,
+    }
+
+    const fastPublicResponse =
+      want_audio === false &&
+      context.chat_mode !== "brain" &&
+      context.mode !== "brain" &&
+      context.use_brain !== true
+        ? buildFastPublicMycaResponse(message)
+        : null
+    if (fastPublicResponse) {
+      actions.agent_routed = "myca"
+      response.response_text = fastPublicResponse
+      response.agent = "myca"
+      response.routed_to = "myca-fast-public"
+      response.provider = "myca-fast-public"
+      response.provider_timings = { fast_public_ms: Date.now() - startTime }
+      response.runtime_context = buildRuntimeContext(runtimeIdentity)
+      response.latency_ms = Date.now() - startTime
+      return NextResponse.json(response)
     }
     
     // Log incoming request

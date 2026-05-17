@@ -245,7 +245,7 @@ describe("MYCA identity impersonation hardening", () => {
     setAnonymous()
     const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
 
-    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const response = await POST(makeRequest({ message: "explain something useful", want_audio: false }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -274,7 +274,7 @@ describe("MYCA identity impersonation hardening", () => {
     }) as jest.Mock
     const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
 
-    const response = await POST(makeRequest({ message: "Hello", want_audio: false }))
+    const response = await POST(makeRequest({ message: "Give me a runtime greeting", want_audio: false }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -301,7 +301,7 @@ describe("MYCA identity impersonation hardening", () => {
     }) as jest.Mock
     const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
 
-    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const response = await POST(makeRequest({ message: "Tell me something useful", want_audio: false }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -340,7 +340,7 @@ describe("MYCA identity impersonation hardening", () => {
     }) as jest.Mock
     const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
 
-    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const response = await POST(makeRequest({ message: "diagnostic request", want_audio: false }))
     const data = await response.json()
 
     expect(response.status).toBe(200)
