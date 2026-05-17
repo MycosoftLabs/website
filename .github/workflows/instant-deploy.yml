@@ -185,7 +185,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL MINDEX_API_KEY OPENAI_API_KEY AIRNOW_API_KEY; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MAS_INTERNAL_SERVICE_TOKEN MINDEX_API_URL MINDEX_API_KEY OPENAI_API_KEY AIRNOW_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -198,6 +198,7 @@ jobs:
             echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
+            echo 'MAS_INTERNAL_SERVICE_TOKEN=${{ secrets.MAS_INTERNAL_SERVICE_TOKEN }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
             echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
