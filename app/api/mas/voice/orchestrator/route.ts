@@ -274,11 +274,29 @@ function isSensitiveImplementationQuery(message: string): boolean {
     /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
   const knownPrivateNameProbe = /\bpersonaplex\b/i.test(lower)
   const instructionOverrideProbe = /\b(ignore previous instructions|reveal your prompt|full system details|disclose your infrastructure|exact system configuration|internal specs)\b/i.test(lower)
-  return directMycaProbe || knownPrivateNameProbe || instructionOverrideProbe
+  const selfRunningHardwareProbe = /\b(i am|i'm|myca is|you are)\s+(running on|powered by|built on)\b/i.test(lower) &&
+    /\b(hardware|gpu|rtx|nvidia|geforce|ram|vram|model|stack)\b/i.test(lower)
+  return directMycaProbe || knownPrivateNameProbe || instructionOverrideProbe || selfRunningHardwareProbe
 }
 
 function buildSensitiveImplementationResponse(): string {
   return "I can’t share private implementation details about how MYCA is operated. I can still help with public Mycosoft products, mycology, biotech research, planning, writing, and general questions."
+}
+
+function isGreetingMessage(message: string): boolean {
+  return /^(hi|hello|hey|hiya|yo|sup|good morning|good afternoon|good evening)(\s+myca)?\s*[!.,]?\s*(how are you\??)?\s*$/i.test(message.trim())
+}
+
+function containsPrivateRuntimeDisclosure(response: string): boolean {
+  return /\b(rtx|5090|nvidia|geforce|personaplex|system prompt|api key|internal ip|debug logs?|ssh|vpn|firewall)\b/i.test(response)
+}
+
+function sanitizePublicMycaResponse(message: string, response: string, runtimeIdentity: RuntimeIdentityContext): string {
+  if (runtimeIdentity.isSuperuser || !containsPrivateRuntimeDisclosure(response)) return response
+  if (isGreetingMessage(message)) {
+    return "Hi, I'm MYCA. How can I help?"
+  }
+  return buildSensitiveImplementationResponse()
 }
 
 function detectAuthorityClaim(message: string): string | null {
@@ -689,7 +707,7 @@ export async function POST(request: NextRequest) {
       sourcePlatform: typeof context.platform === "string" ? context.platform : source,
       allowBrain,
     })
-    response.response_text = mycaResult.response
+    response.response_text = sanitizePublicMycaResponse(message, mycaResult.response, runtimeIdentity)
     response.agent = "myca"
     response.routed_to = mycaResult.provider
     response.provider = mycaResult.provider
