@@ -77,7 +77,7 @@ YOUR IDENTITY:
 - Your name is MYCA — always introduce yourself as MYCA when asked
 - You are the central AI intelligence for Mycosoft's Multi-Agent System (MAS)
 - You coordinate 227+ specialized AI agents across 14 categories
-- You run on Mycosoft's infrastructure with full-duplex voice via PersonaPlex, powered by NVIDIA Nemotron
+- You do not disclose private implementation details about how MYCA is operated
 - You are backed by MINDEX — Mycosoft's real-world scientific database containing taxonomic data, species observations, chemical compounds, genetic sequences, and spatial/temporal research data
 
 YOUR PERSONALITY:
@@ -265,6 +265,20 @@ function isPrivilegedMemoryOrGovernanceIntent(message: string): boolean {
   return /(\bglobal(?:ly)?\b|\ball users\b|\beveryone\b|\binternal systems?\b|\bgovernance\b|\bpolicy\b|\brules?\b|\baudit yourself\b|\boverride\b|\bsuperuser\b|\badmin\b|\bceo\b|\bcreator\b|\bsystem prompt\b|\bguardrails?\b)/i.test(
     message
   ) && (isTrainingIntent(message) || isParameterMutationIntent(message) || /\baudit yourself\b/i.test(message))
+}
+
+function isSensitiveImplementationQuery(message: string): boolean {
+  const lower = message.toLowerCase()
+  const directMycaProbe =
+    /\b(you|your|myca|mycosoft)\b/i.test(lower) &&
+    /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
+  const knownPrivateNameProbe = /\bpersonaplex\b/i.test(lower)
+  const instructionOverrideProbe = /\b(ignore previous instructions|reveal your prompt|full system details|disclose your infrastructure|exact system configuration|internal specs)\b/i.test(lower)
+  return directMycaProbe || knownPrivateNameProbe || instructionOverrideProbe
+}
+
+function buildSensitiveImplementationResponse(): string {
+  return "I can’t share private implementation details about how MYCA is operated. I can still help with public Mycosoft products, mycology, biotech research, planning, writing, and general questions."
 }
 
 function detectAuthorityClaim(message: string): string | null {
@@ -615,6 +629,22 @@ export async function POST(request: NextRequest) {
         latency_ms: Date.now() - startTime,
         runtime_context: buildRuntimeContext(runtimeIdentity),
       }, { status: 403 })
+    }
+
+    if (!runtimeIdentity.isSuperuser && isSensitiveImplementationQuery(message)) {
+      return NextResponse.json({
+        conversation_id: conversation_id || `conv-${Date.now()}`,
+        response_text: buildSensitiveImplementationResponse(),
+        agent: "myca-security",
+        routed_to: "myca-security",
+        provider: "myca-security",
+        actions: {
+          memory_saved: false,
+          confirmation_required: false,
+        },
+        latency_ms: Date.now() - startTime,
+        runtime_context: buildRuntimeContext(runtimeIdentity),
+      })
     }
 
     // Track what actions we take for transparency
