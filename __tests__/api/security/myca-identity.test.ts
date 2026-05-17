@@ -267,6 +267,9 @@ describe("MYCA identity impersonation hardening", () => {
           agent: "mas-orchestrator-test",
         })
       }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "Hi, I'm MYCA. How can I help?" })
+      }
       return Response.json({ ok: true })
     }) as jest.Mock
     const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
@@ -277,6 +280,48 @@ describe("MYCA identity impersonation hardening", () => {
     expect(response.status).toBe(200)
     expect(data.response_text).toBe("Hi, I'm MYCA. How can I help?")
     expect(data.response_text).not.toMatch(/rtx|5090|nvidia|personaplex/i)
+  })
+
+  it("rejects misrouted canned MAS responses and falls back to real MYCA chat", async () => {
+    setAnonymous()
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const target = String(url)
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : null
+      fetchBodies.push({ url: target, body: parsedBody })
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({
+          response_text: "My memory system has multiple tiers: short-term conversation context in Redis.",
+          agent: "Search Agent",
+        })
+      }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "I got your test message. MYCA is connected and ready." })
+      }
+      return Response.json({ ok: true })
+    }) as jest.Mock
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "test", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("I got your test message. MYCA is connected and ready.")
+    expect(data.provider).toBe("myca")
+    expect(data.fallback_reason).toBe("mas_orchestrator_unavailable_or_degraded")
+    expect(fetchBodies.some((call) => call.url.includes("/api/myca/chat"))).toBe(true)
+  })
+
+  it("blocks public Claude/GPT identity probes before MAS routing", async () => {
+    setAnonymous()
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "Are you Claude or GPT?", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.agent).toBe("myca-security")
+    expect(data.response_text).toContain("private implementation details")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/orchestrator/chat") || call.url.includes("/api/myca/chat"))).toBe(false)
   })
 
   it("falls back to MAS MYCA chat when the fast orchestrator is unavailable", async () => {

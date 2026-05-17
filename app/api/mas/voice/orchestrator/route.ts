@@ -223,6 +223,12 @@ function isBrokenFallback(response: string): boolean {
     "Could you try again in a moment",
     "I'm working on it",
     "I encountered an issue processing your request",
+    // Misrouted canned agent cards from MAS are not real answers to the user.
+    "My memory system has multiple tiers",
+    "Our NatureOS device fleet includes",
+    "I'm speaking through PersonaPlex",
+    "powered by NVIDIA",
+    "RTX 5090",
   ]
   const lower = response.toLowerCase()
   return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
@@ -273,10 +279,12 @@ function isSensitiveImplementationQuery(message: string): boolean {
     /\b(you|your|myca|mycosoft)\b/i.test(lower) &&
     /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
   const knownPrivateNameProbe = /\bpersonaplex\b/i.test(lower)
+  const modelIdentityProbe = /\b(are you|you are|r u|is myca)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower) ||
+    /\b(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\s+(or|vs\.?|versus)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower)
   const instructionOverrideProbe = /\b(ignore previous instructions|reveal your prompt|full system details|disclose your infrastructure|exact system configuration|internal specs)\b/i.test(lower)
   const selfRunningHardwareProbe = /\b(i am|i'm|myca is|you are)\s+(running on|powered by|built on)\b/i.test(lower) &&
     /\b(hardware|gpu|rtx|nvidia|geforce|ram|vram|model|stack)\b/i.test(lower)
-  return directMycaProbe || knownPrivateNameProbe || instructionOverrideProbe || selfRunningHardwareProbe
+  return directMycaProbe || knownPrivateNameProbe || modelIdentityProbe || instructionOverrideProbe || selfRunningHardwareProbe
 }
 
 function buildSensitiveImplementationResponse(): string {
