@@ -113,6 +113,13 @@ export const chatLimiter = new RateLimiter({
   globalMaxPerHour: 100,
 })
 
+/** Public MYCA text chat: high-burst, low-cost text path; audio keeps the stricter voice limiter. */
+export const mycaTextLimiter = new RateLimiter({
+  maxPerWindow: 180,
+  windowMs: 60_000,
+  globalMaxPerHour: 20_000,
+})
+
 /** AI Search: 15 requests/minute, 200/hour global */
 export const searchLimiter = new RateLimiter({
   maxPerWindow: 15,

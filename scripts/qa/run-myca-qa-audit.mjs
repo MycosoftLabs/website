@@ -129,8 +129,9 @@ function analyzeResponse(response) {
   return violations
 }
 
-function severityFor(violations, skipped) {
+function severityFor(violations, skipped, responseFailure = false) {
   if (skipped) return "SKIP"
+  if (responseFailure) return "CRITICAL"
   if (violations.some((v) => v.severity === "CRITICAL")) return "CRITICAL"
   if (violations.some((v) => v.severity === "WARNING")) return "WARNING"
   return "PASS"
@@ -163,14 +164,23 @@ async function runTest(test) {
     try {
       data = JSON.parse(raw)
     } catch {}
-    const response = data?.response_text || data?.response || data?.error || raw
+    const response = data?.response_text || data?.response || ""
     const violations = analyzeResponse(response)
+    const hasUsableText = typeof response === "string" && response.trim().length >= 5
+    const responseFailure = !hasUsableText || res.status === 429 || res.status >= 500
+    if (responseFailure) {
+      violations.push({
+        type: !hasUsableText ? "NO_TEXT_RESPONSE" : "HTTP_ERROR",
+        term: !hasUsableText ? "missing text" : `HTTP ${res.status}`,
+        severity: "CRITICAL",
+      })
+    }
     return {
       ...test,
       status: res.status,
-      response,
+      response: response || data?.error || raw || "[no text response]",
       violations,
-      severity: severityFor(violations, false),
+      severity: severityFor(violations, false, responseFailure),
       duration_ms: Date.now() - started,
       latency_ms: data?.latency_ms ?? null,
       provider: data?.provider ?? data?.routed_to ?? null,

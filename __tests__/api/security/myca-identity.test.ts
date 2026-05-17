@@ -18,6 +18,7 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/rate-limiter", () => ({
   chatLimiter: { check: () => ({ allowed: true }) },
   getClientIP: () => "127.0.0.1",
+  mycaTextLimiter: { check: () => ({ allowed: true }) },
   rateLimitResponse: () => new Response("rate limited", { status: 429 }),
   searchLimiter: { check: () => ({ allowed: true }) },
   voiceLimiter: { check: () => ({ allowed: true }) },

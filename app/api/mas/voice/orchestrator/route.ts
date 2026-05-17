@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 import { createClient } from "@/lib/supabase/server"
-import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { mycaTextLimiter, voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-governance"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
@@ -574,11 +574,7 @@ export async function GET() {
  * - Action transparency in responses
  */
 export async function POST(request: NextRequest) {
-  // Rate limit: 5 requests/min per IP, 50/hour global (voice is expensive)
   const ip = getClientIP(request)
-  const rl = voiceLimiter.check(ip)
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
-
   const startTime = Date.now()
 
   try {
@@ -594,6 +590,10 @@ export async function POST(request: NextRequest) {
       source = "api",
       context = {},
     } = body
+
+    const limiter = want_audio ? voiceLimiter : mycaTextLimiter
+    const rl = limiter.check(ip)
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
 
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
