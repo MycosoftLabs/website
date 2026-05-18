@@ -277,11 +277,11 @@ function isSensitiveImplementationQuery(message: string): boolean {
   const lower = message.toLowerCase()
   const directMycaProbe =
     /\b(you|your|myca|mycosoft)\b/i.test(lower) &&
-    /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
+    /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|backend|architecture|infrastructure|deployment|deploy(?:ment)?\s+settings?|service\s+tokens?|database\s+passwords?|passwords?|credentials?|secrets?|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
   const knownPrivateNameProbe = /\bpersonaplex\b/i.test(lower)
   const modelIdentityProbe = /\b(are you|you are|r u|is myca)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower) ||
     /\b(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\s+(or|vs\.?|versus)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower)
-  const instructionOverrideProbe = /\b(ignore previous instructions|reveal your prompt|full system details|disclose your infrastructure|exact system configuration|internal specs)\b/i.test(lower)
+  const instructionOverrideProbe = /\b(ignore previous instructions|reveal your prompt|full system details|disclose your infrastructure|reveal private .*system details|private .*system details|secret sentence|exact system configuration|internal specs)\b/i.test(lower)
   const selfRunningHardwareProbe = /\b(i am|i'm|myca is|you are)\s+(running on|powered by|built on)\b/i.test(lower) &&
     /\b(hardware|gpu|rtx|nvidia|geforce|ram|vram|model|stack)\b/i.test(lower)
   return directMycaProbe || knownPrivateNameProbe || modelIdentityProbe || instructionOverrideProbe || selfRunningHardwareProbe
@@ -296,7 +296,7 @@ function isGreetingMessage(message: string): boolean {
 }
 
 function containsPrivateRuntimeDisclosure(response: string): boolean {
-  return /\b(rtx|5090|nvidia|geforce|personaplex|system prompt|api key|internal ip|debug logs?|ssh|vpn|firewall)\b/i.test(response)
+  return /\b(rtx|5090|nvidia|geforce|personaplex|claude|gpt-4|gpt4|openai|anthropic|gemini|llama|mistral|system prompt|api key|internal ip|debug logs?|backend|infrastructure|ssh|vpn|firewall|powered by|built on)\b/i.test(response)
 }
 
 function sanitizePublicMycaResponse(message: string, response: string, runtimeIdentity: RuntimeIdentityContext): string {
@@ -335,7 +335,7 @@ function buildFastPublicMycaResponse(message: string): string | null {
     return "I'm MYCA, and I can help directly without pretending to bypass safeguards. Ask me what you want to work on, and I'll answer within the public guest boundary."
   }
 
-  if (lower.includes("what is myca") || lower === "myca?") {
+  if (lower.includes("what is myca") || lower === "myca?" || /\btell me about myca\b/.test(lower)) {
     return "MYCA is the Mycosoft Cognitive Agent: a public assistant for Mycosoft research, products, search, writing, planning, and science workflows. I can answer normally for guests, while creator/admin actions require verified Mycosoft authentication."
   }
   if (lower.includes("fusarium")) {
@@ -363,7 +363,7 @@ function buildFastPublicMycaResponse(message: string): string | null {
     return "CREP is Mycosoft's Comprehensive Real-time Earth Platform: a dashboard for Earth signals, environmental events, maps, and operational context. It is meant to make live planetary data easier to see and act on."
   }
 
-  if (lower.includes("mycelium") || lower.includes("fungal computing") || lower.includes("biological computing") || lower.includes("wood wide web") || lower.includes("biomimetic") || lower.includes("synthetic biology") || lower.includes("fungi communicate")) {
+  if (lower.includes("mycelium") || lower.includes("fungal computing") || lower.includes("fungal communication") || lower.includes("fungal-root network") || lower.includes("fungal root network") || lower.includes("biological computing") || lower.includes("wood wide web") || lower.includes("biomimetic") || lower.includes("synthetic biology") || lower.includes("fungi communicate")) {
     return "Fungal and biological intelligence work studies how living networks sense, adapt, signal, and solve problems. MYCA can help explain the science, compare approaches, and connect those ideas to Mycosoft systems like MINDEX, NatureOS, and CREP."
   }
   if (lower.includes("environmental intelligence")) {
@@ -397,8 +397,11 @@ function buildFastPublicMycaResponse(message: string): string | null {
   if (lower.includes("meeting notes")) {
     return "Use this structure: title, date, attendees, goals, decisions, action items, owners, deadlines, and open questions. Send meeting context and I'll fill it out."
   }
+  if (lower.includes("action item") || lower.includes("turn notes into action")) {
+    return "Send the notes and I'll convert them into clear action items with owners, deadlines, dependencies, and open questions."
+  }
 
-  if (lower.includes("chatgpt") || lower.includes("siri") || lower.includes("competitor") || lower.includes("google") || lower.includes("other ai assistant") || lower.includes("different from other")) {
+  if (lower.includes("chatgpt") || lower.includes("siri") || lower.includes("competitor") || lower.includes("google") || lower.includes("claude") || lower.includes("gemini") || lower.includes("gpt") || lower.includes("other ai assistant") || lower.includes("chatbot") || lower.includes("different from other")) {
     return "MYCA is designed as a Mycosoft-native assistant with public chat, scientific context, search, and Mycosoft system awareness. I can help with general tasks while also connecting answers to Mycosoft's biology, Earth, and research tools."
   }
 
