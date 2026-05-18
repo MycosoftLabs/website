@@ -83,7 +83,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || 'main' }}
-          lfs: true
+          lfs: false
 
       - name: Resolve deploy SHA
         id: sha
