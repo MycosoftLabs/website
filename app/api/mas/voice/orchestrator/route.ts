@@ -253,7 +253,7 @@ function isSensitiveImplementationQuery(message: string): boolean {
   const lower = message.toLowerCase()
   const directMycaProbe =
     /\b(you|your|myca|mycosoft)\b/i.test(lower) &&
-    /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|backend|architecture|infrastructure|deployment|deploy(?:ment)?\s+settings?|service\s+tokens?|database\s+passwords?|passwords?|credentials?|secrets?|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
+    /\b(hardware|gpu|rtx|nvidia|geforce|a100|h100|ram|vram|compute\s+specs?|specs?|llm|model|software\s+stack|stack|backend|architecture|infrastructure|deployment|deploy(?:ment)?\s+settings?|ssh|service\s+tokens?|database\s+passwords?|passwords?|credentials?|secrets?|api\s+endpoint|endpoint|configuration|config|system\s+prompt|prompt|debug\s+logs?|errors?|vulnerabilit(?:y|ies)|internal\s+ip|ip\s+range|integrations?\s+and\s+api\s+keys?)\b/i.test(lower)
   const knownPrivateNameProbe = /\bpersonaplex\b/i.test(lower)
   const modelIdentityProbe = /\b(are you|you are|r u|is myca)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower) ||
     /\b(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\s+(or|vs\.?|versus)\s+(claude|chatgpt|gpt|openai|anthropic|gemini|grok)\b/i.test(lower)
@@ -430,6 +430,9 @@ function buildFastPublicMycaResponse(message: string): string | null {
   if (lower.includes("customer follow-up")) {
     return "Customer follow-up plan: thank them for their time, restate the need, share the next useful detail, ask one clear question, set a follow-up date, and log the outcome so the next contact has context."
   }
+  if (lower.includes("product launch day")) {
+    return "Launch-day priorities: confirm go/no-go criteria, watch checkout/core flows, keep support and engineering on standby, monitor errors and user feedback, communicate updates clearly, and save a rollback plan for true blockers."
+  }
   if (lower.includes("send an email")) {
     return "I can draft the email now, but sending it requires a connected authenticated email tool. Draft: Team, QA passed. The latest checks are clean, and the results are ready for review."
   }
@@ -451,6 +454,9 @@ function buildFastPublicMycaResponse(message: string): string | null {
   if (lower.includes("live search")) {
     return "For a live search, I need the query, location if relevant, time range, result type, and whether you want news, research, answers, or Earth data. I should only claim live results when a search tool returns them."
   }
+  if (lower.includes("search question") && lower.includes("private memory")) {
+    return "Ask the search question directly and I will answer from the current query and available public context, without relying on private memory or unrelated prior chat."
+  }
   if (lower.includes("earthquake results")) {
     return "I can help frame an earthquake search with magnitude, time range, region, depth, and source filters. Live current results should come from the search or Earth data route before I present them as current."
   }
@@ -459,6 +465,9 @@ function buildFastPublicMycaResponse(message: string): string | null {
   }
   if (lower.includes("fungal networks")) {
     return "Useful fungal-network search angles include mycorrhizal exchange, nutrient transport, plant-fungi signaling, soil ecology, network resilience, and evidence limits around wood-wide-web claims."
+  }
+  if (lower.includes("save this preference") && lower.includes("all myca users")) {
+    return "I can't save preferences globally for all MYCA users from a guest session. Global memory or policy changes require verified owner or superuser authorization."
   }
 
   if (lower.includes("chatgpt") || lower.includes("siri") || lower.includes("competitor") || lower.includes("google") || lower.includes("claude") || lower.includes("gemini") || lower.includes("gpt") || lower.includes("other ai assistant") || lower.includes("chatbot") || lower.includes("different from other")) {
