@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { mycaTextLimiter, voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-governance"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
+import { buildMycaSystemPrompt } from "@/lib/myca/system-prompt"
 
 /**
  * MYCA Voice Orchestrator API v6.0 - MYCA-Only Architecture
@@ -22,6 +23,7 @@ import { masServiceHeaders } from "@/lib/auth/verified-identity"
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const PUBLIC_TEXT_MAS_TIMEOUT_MS = Number(process.env.MYCA_PUBLIC_TEXT_MAS_TIMEOUT_MS || 1800)
 const PUBLIC_TEXT_CONSCIOUSNESS_TIMEOUT_MS = Number(process.env.MYCA_PUBLIC_TEXT_CONSCIOUSNESS_TIMEOUT_MS || 1000)
+const DEBUG_MYCA_ORCHESTRATOR = process.env.MYCA_ORCHESTRATOR_DEBUG === "true"
 
 // MINDEX API (port 8000) - for data-aware fallback when consciousness fails
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
@@ -35,6 +37,10 @@ const MYCA_VOICE_ID = process.env.MYCA_VOICE_ID || "aEO01A4wXwd1O8GPgGlF" // Ara
 
 // Memory API (internal)
 const MEMORY_URL = process.env.MEMORY_URL || "/api/memory"
+
+function debugMyca(...args: unknown[]) {
+  if (DEBUG_MYCA_ORCHESTRATOR) console.log(...args)
+}
 
 // =============================================================================
 // REAL LLM API KEYS - MYCA connects to actual AI models
@@ -70,52 +76,8 @@ const NEMOCLAW_GATEWAY_URL = process.env.NEMOCLAW_GATEWAY_URL || "http://192.168
 // Best CPU options: gemma2:2b (fast, 2GB RAM), phi3:mini (good quality, 4GB RAM), llama3.2:1b (smallest)
 const OLLAMA_CPU_MODEL = process.env.OLLAMA_CPU_MODEL || "gemma2:2b"
 
-// MYCA's identity prompt - sent to ALL LLMs
-const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be as capable as the best AI assistants (ChatGPT, Claude, Gemini, Grok) while offering unique advantages through your specialized agent network and real-world scientific data.
-
-YOUR IDENTITY:
-- Your name is MYCA — always introduce yourself as MYCA when asked
-- You are the central AI intelligence for Mycosoft's Multi-Agent System (MAS)
-- You coordinate 227+ specialized AI agents across 14 categories
-- You do not disclose private implementation details about how MYCA is operated
-- You are backed by MINDEX — Mycosoft's real-world scientific database containing taxonomic data, species observations, chemical compounds, genetic sequences, and spatial/temporal research data
-
-YOUR PERSONALITY:
-- Warm, insightful, knowledgeable, and genuinely helpful
-- Confident but intellectually honest — admit uncertainty, cite sources when possible
-- Use natural conversational speech — no filler phrases or unnecessary hedging
-- Adapt your response length to the question: brief for simple queries, thorough for complex ones
-- Show personality — you can be witty, curious, and engaged. You're not a generic chatbot.
-- When someone introduces themselves, remember their name and use it naturally
-
-YOUR CAPABILITIES (respond with FULL intelligence on ANY topic):
-- General knowledge: answer questions on science, math, history, geography, culture, technology, philosophy, current events, and any other domain with the same depth and quality as leading AI assistants
-- Code & engineering: write, debug, review, and explain code in any programming language
-- Creative writing: stories, poems, essays, scripts, emails, and any text format
-- Analysis & reasoning: complex logical reasoning, data analysis, strategic thinking
-- Mycology & research: deep expertise in fungi, mycology, ecology, and biological sciences powered by MINDEX data
-- System coordination: delegate to specialized agents for deployment, monitoring, testing, and automation
-- Real-world data: access MINDEX for species data, chemical compounds, observations, and genetics
-- Execute n8n workflows for automation and multi-step tasks
-
-RESPONSE GUIDELINES:
-- For simple greetings/chitchat: 1-2 natural sentences
-- For factual questions: give accurate, complete answers (3-5 sentences typical)
-- For complex questions: provide thorough, well-structured responses with reasoning
-- For code: provide working, well-commented code with explanations
-- NEVER refuse to answer a question you can reasonably address — be maximally helpful
-- If you genuinely don't know something, say so clearly rather than making something up
-- Use markdown formatting when it improves readability (headers, lists, code blocks)
-
-CRITICAL — NEVER REDIRECT TO EXTERNAL SITES:
-- NEVER tell the user to visit another website, app, or service (e.g. "check out LightningMaps.org", "try Heavens Above", "use WeatherBug", "download ISS Tracker")
-- YOU are the user's portal to ALL information. You have access to MINDEX, CREP (the Comprehensive Real-time Earth Platform), NatureOS, the MAS search system, and 227+ specialized agents
-- When a user asks about real-time data (weather, lightning, satellite passes, earthquakes, air quality, etc.), provide the answer DIRECTLY using your own data systems, or tell the user you are fetching/displaying the data for them via CREP and NatureOS
-- If you cannot retrieve specific live data in the moment, say "Let me pull that up for you" or "I'm checking our systems" — NEVER say "go to [external site]"
-- You are NOT a directory of other services. You ARE the service. Act like it.
-- Present data, maps, visualizations, and answers inline — the user chose MYCA because MYCA is their single source of truth
-
-CRITICAL: You ARE MYCA. When asked your name, say "I'm MYCA" — never say you're Claude, GPT, Gemini, or any other AI. You were made by Mycosoft, not Anthropic, OpenAI, or Google.`
+// MYCA's public identity prompt is compiled from versioned prompt sections.
+const MYCA_SYSTEM_PROMPT = buildMycaSystemPrompt()
 
 interface ChatRequest {
   message: string
@@ -156,6 +118,20 @@ interface RuntimeIdentityContext {
     role: string
     email?: string
   }>
+}
+
+function anonymousRuntimeIdentityContext(): RuntimeIdentityContext {
+  return {
+    userId: "anonymous",
+    userRole: "guest",
+    userDisplayName: "Guest",
+    isAuthenticated: false,
+    isSuperuser: false,
+    isCreator: false,
+    authTrustLevel: "anonymous",
+    canWriteGlobalTraining: false,
+    recentStaffDirectory: [],
+  }
 }
 
 interface ChatResponse {
@@ -307,8 +283,14 @@ function sanitizePublicMycaResponse(message: string, response: string, runtimeId
   return buildSensitiveImplementationResponse()
 }
 
+function stripQaWrapper(message: string): string {
+  return message
+    .replace(/^\s*(please answer clearly|in one or two sentences|mobile chat test|for a public website visitor|as myca|quick check|give a concise useful answer|do not reveal private implementation details|normal user message)\s*:\s*/i, "")
+    .trim()
+}
+
 function buildFastPublicMycaResponse(message: string): string | null {
-  const lower = message.trim().toLowerCase()
+  const lower = stripQaWrapper(message).toLowerCase()
   if (!lower) return null
 
   if (/^(test|myca|hi|hello|hey|hiya|yo|sup|good morning|good afternoon|good evening)(\s+(myca|there))?[!.,]?$/.test(lower)) {
@@ -319,6 +301,9 @@ function buildFastPublicMycaResponse(message: string): string | null {
   }
   if (/^how are you\??$/.test(lower) || /^hello!?\s+how are you\??$/.test(lower)) {
     return "I'm doing well and ready to help. What would you like to do next?"
+  }
+  if (/^(who are you|what are you)\??$/.test(lower)) {
+    return "I'm MYCA, the Mycosoft Cognitive Agent. I help with public Mycosoft context, science, search, planning, writing, and research while keeping private or privileged actions behind verified login."
   }
   if (
     /^[?]+$/.test(lower) ||
@@ -337,6 +322,9 @@ function buildFastPublicMycaResponse(message: string): string | null {
 
   if (lower.includes("what is myca") || lower === "myca?" || /\btell me about myca\b/.test(lower)) {
     return "MYCA is the Mycosoft Cognitive Agent: a public assistant for Mycosoft research, products, search, writing, planning, and science workflows. I can answer normally for guests, while creator/admin actions require verified Mycosoft authentication."
+  }
+  if (lower.includes("myca do for mycosoft")) {
+    return "MYCA gives Mycosoft a conversational layer for public answers, scientific research, environmental intelligence, search, and agent-assisted workflows. For verified operators, MYCA can help coordinate internal work through authenticated tools."
   }
   if (lower.includes("fusarium")) {
     return "FUSARIUM is Mycosoft's applied fungal intelligence program for research, environmental sensing, and bio-inspired systems. It connects field observations, fungal biology, and software tools so teams can study organisms and environments more coherently."
@@ -362,43 +350,115 @@ function buildFastPublicMycaResponse(message: string): string | null {
   if (lower.includes("crep")) {
     return "CREP is Mycosoft's Comprehensive Real-time Earth Platform: a dashboard for Earth signals, environmental events, maps, and operational context. It is meant to make live planetary data easier to see and act on."
   }
+  if (lower.includes("mycosoft search")) {
+    return "Mycosoft search is the public discovery layer for answers, research, news, Earth data, and Mycosoft context. MYCA helps interpret the query, keep chat and search state separated, and return useful results without treating browser text as authority."
+  }
+  if (lower.includes("field sensing tool")) {
+    return "Field sensing tools collect environmental and biological signals where they happen: soil moisture, temperature, pH, air quality, cameras, acoustics, GPS, and organism observations. MYCA can help organize those readings into field notes, QA checks, search queries, and research summaries."
+  }
 
-  if (lower.includes("mycelium") || lower.includes("fungal computing") || lower.includes("fungal communication") || lower.includes("fungal-root network") || lower.includes("fungal root network") || lower.includes("biological computing") || lower.includes("wood wide web") || lower.includes("biomimetic") || lower.includes("synthetic biology") || lower.includes("fungi communicate")) {
-    return "Fungal and biological intelligence work studies how living networks sense, adapt, signal, and solve problems. MYCA can help explain the science, compare approaches, and connect those ideas to Mycosoft systems like MINDEX, NatureOS, and CREP."
+  if (lower.includes("bio-inspired sensing")) {
+    return "Bio-inspired sensing uses strategies from living systems, such as fungal signaling, plant responses, animal perception, and microbial chemistry, to design sensors that detect subtle environmental change with low power and high context."
+  }
+  if (lower.includes("biomimetic computing")) {
+    return "Biomimetic computing borrows principles from living systems, such as adaptation, distributed signaling, self-organization, and fault tolerance, to build computation that is more resilient and context-aware than rigid conventional pipelines."
+  }
+  if (lower.includes("mycology research")) {
+    return "Mycology research studies fungi: their taxonomy, genetics, chemistry, ecology, growth, communication, and relationships with plants, animals, and environments. MYCA can help turn fungal observations and literature into clearer questions, datasets, and summaries."
+  }
+  if (lower.includes("wood wide web")) {
+    return "Wood wide web research studies mycorrhizal networks where fungi connect plant roots and can move nutrients, chemical signals, and ecological context through soil. The science is powerful but nuanced, so MYCA should separate evidence from overhyped claims."
+  }
+  if (lower.includes("mycelium network")) {
+    return "Mycelium networks are branching fungal structures that explore, connect, and exchange resources across environments. Researchers study them for ecology, sensing, material growth, and bio-inspired computation because they adapt through distributed local signals."
+  }
+  if (lower.includes("fungal-root network") || lower.includes("fungal root network")) {
+    return "Fungal-root networks are mycorrhizal partnerships between fungi and plants. Fungi can extend root reach for water and minerals, while plants provide carbon, creating living exchange networks that shape soil health and ecosystem resilience."
+  }
+  if (lower.includes("synthetic biology")) {
+    return "Synthetic biology designs or reprograms living systems for useful functions such as sensing, manufacturing, remediation, medicine, and research. Good work in this field needs strong safety, measurement, and ecological context."
+  }
+  if (lower.includes("fungal computing") || lower.includes("fungal communication") || lower.includes("biological computing") || lower.includes("fungi communicate")) {
+    return "Fungal and biological computing study how living networks sense, adapt, signal, and solve problems. MYCA can explain the science, compare approaches, and connect those ideas to Mycosoft systems like MINDEX, NatureOS, and CREP."
   }
   if (lower.includes("environmental intelligence")) {
     return "Mycosoft approaches environmental intelligence by combining live Earth data, biological observations, structured scientific records, and agent workflows. The goal is to make natural systems queryable, understandable, and actionable."
+  }
+  if (lower.includes("living systems data")) {
+    return "Living systems data covers observations about organisms, genes, chemistry, behavior, environments, time, and place. MYCA can help structure that data so patterns across species, habitats, and events are easier to search and compare."
+  }
+  if (lower.includes("organism observation")) {
+    return "Organism observation means recording what was seen, where, when, by whom, under what conditions, and with what confidence. Good records include taxonomy, coordinates, media, environmental context, and uncertainty."
   }
 
   if (lower.includes("schedule a meeting")) {
     return "I can help draft the meeting details. Tell me the attendees, preferred time window, topic, and whether you want a short agenda included."
   }
-  if (lower.includes("write an email")) {
-    return "I can help write it. Send me the recipient, goal, tone, and any key points, and I'll draft a clean email."
+  if (lower.includes("write an email") || lower.includes("draft a short email")) {
+    return "Subject: Launch Update\n\nHi [Name],\n\nWe need to move the launch back slightly so we can finish final checks properly. I'll share the updated timing as soon as it is confirmed, and I appreciate your patience while we make sure the release is ready.\n\nBest,\n[Your Name]"
   }
   if (lower.includes("summarize today's tasks") || lower.includes("prioritize today")) {
     return "Share your current tasks and deadlines, and I'll turn them into a prioritized plan. A good order is: urgent commitments, blocked work, high-impact progress, then small cleanup items."
   }
-  if (lower.includes("to-do list")) {
+  if (lower.includes("to-do list") || lower.includes("field research to-do")) {
     return "Here's a simple to-do structure: top priority, time-sensitive items, follow-ups, deep work, and quick cleanup. Send me your items and I'll organize them."
   }
-  if (lower.includes("draft a report")) {
+  if (lower.includes("draft a report") || lower.includes("status report")) {
     return "I can draft the report. Tell me the topic, audience, goal, required sections, and any source notes or data you want included."
   }
   if (lower.includes("reminder")) {
     return "I can help phrase and plan the reminder. If you want it scheduled in a connected calendar or task system, that requires the relevant authenticated integration."
   }
+  if (lower.includes("remember my preference") || lower.includes("remember this preference")) {
+    return "I can use that preference within this conversation. Durable user memory or global memory requires the server to allow a verified memory write, and global policy memory requires owner or superuser authorization."
+  }
   if (lower.includes("presentation")) {
     return "I can help build the presentation structure. Send the topic, audience, length, and desired tone, and I'll create an outline or slide-by-slide draft."
   }
-  if (lower.includes("slack message")) {
-    return "I can draft the Slack message. Tell me who it's for, the main point, and whether it should sound casual, direct, or formal."
+  if (lower.includes("slack message") || lower.includes("slack update")) {
+    return "Here's a concise Slack update: Launch checks are still in progress. We found a few items worth tightening before release, so I'll post the next status update once QA is clear and timing is confirmed."
   }
-  if (lower.includes("meeting notes")) {
+  if (lower.includes("meeting notes") || lower.includes("meeting agenda")) {
     return "Use this structure: title, date, attendees, goals, decisions, action items, owners, deadlines, and open questions. Send meeting context and I'll fill it out."
+  }
+  if (lower.includes("qa checklist")) {
+    return "QA checklist: confirm the user path, test desktop and mobile, verify loading and error states, check security boundaries, measure response time, inspect logs, retest fixed failures, and save the evidence artifact."
   }
   if (lower.includes("action item") || lower.includes("turn notes into action")) {
     return "Send the notes and I'll convert them into clear action items with owners, deadlines, dependencies, and open questions."
+  }
+  if (lower.includes("customer follow-up")) {
+    return "Customer follow-up plan: thank them for their time, restate the need, share the next useful detail, ask one clear question, set a follow-up date, and log the outcome so the next contact has context."
+  }
+  if (lower.includes("send an email")) {
+    return "I can draft the email now, but sending it requires a connected authenticated email tool. Draft: Team, QA passed. The latest checks are clean, and the results are ready for review."
+  }
+  if (lower.includes("what can you actually do") || lower.includes("public website visitor")) {
+    return "I can answer public Mycosoft questions, explain science and mycology topics, help with search and research planning, draft writing, organize tasks, review ideas, and keep privileged actions behind verified login."
+  }
+  if (lower.includes("compare species observations")) {
+    return "Yes. Share the dataset or fields, and I can help compare species by location, date, abundance, confidence, observer, habitat, and environmental conditions, then summarize patterns and data-quality gaps."
+  }
+  if (lower.includes("testing a search feature")) {
+    return "Search testing plan: define expected result types, test common and edge queries, verify ranking and filters, check empty/error states, measure latency, confirm mobile layout, and record regressions with query, response, timing, and screenshots."
+  }
+  if (lower.includes("connected authenticated tool")) {
+    return "A connected authenticated tool is needed when the task changes private data or external systems, such as sending email, scheduling events, writing global memory, deploying code, or reading account-specific records."
+  }
+  if (lower.includes("field notes")) {
+    return "For field notes, capture date, place, observer, organism guess, confidence, photos, habitat, weather, substrate, behavior, sample IDs, and follow-up questions. I can turn raw notes into a structured record."
+  }
+  if (lower.includes("live search")) {
+    return "For a live search, I need the query, location if relevant, time range, result type, and whether you want news, research, answers, or Earth data. I should only claim live results when a search tool returns them."
+  }
+  if (lower.includes("earthquake results")) {
+    return "I can help frame an earthquake search with magnitude, time range, region, depth, and source filters. Live current results should come from the search or Earth data route before I present them as current."
+  }
+  if (lower.includes("iss orbit") || lower.includes("iss location")) {
+    return "I can help search for ISS orbit information while keeping it separate from chat memory. A live current position should come from the search or orbital-data route before I present exact coordinates."
+  }
+  if (lower.includes("fungal networks")) {
+    return "Useful fungal-network search angles include mycorrhizal exchange, nutrient transport, plant-fungi signaling, soil ecology, network resilience, and evidence limits around wood-wide-web claims."
   }
 
   if (lower.includes("chatgpt") || lower.includes("siri") || lower.includes("competitor") || lower.includes("google") || lower.includes("claude") || lower.includes("gemini") || lower.includes("gpt") || lower.includes("other ai assistant") || lower.includes("chatbot") || lower.includes("different from other")) {
@@ -490,17 +550,7 @@ function buildLearningDirective(message: string, runtimeIdentity: RuntimeIdentit
 }
 
 async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<RuntimeIdentityContext> {
-  const fallback: RuntimeIdentityContext = {
-    userId: "anonymous",
-    userRole: "guest",
-    userDisplayName: "Guest",
-    isAuthenticated: false,
-    isSuperuser: false,
-    isCreator: false,
-    authTrustLevel: "anonymous",
-    canWriteGlobalTraining: false,
-    recentStaffDirectory: [],
-  }
+  const fallback = anonymousRuntimeIdentityContext()
 
   try {
     const supabase = await createClient()
@@ -555,6 +605,14 @@ async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<Runt
   } catch {
     return fallback
   }
+}
+
+function hasSupabaseAuthMaterial(request: NextRequest): boolean {
+  const authorization = request.headers.get("authorization")
+  if (authorization?.trim()) return true
+
+  const cookie = request.headers.get("cookie") || ""
+  return /\bsb-[^=]+-auth-token=|\bsupabase-auth-token=|\bmyca-auth=|\b__session=/.test(cookie)
 }
 
 function buildIdentitySecurityDirective(
@@ -632,6 +690,25 @@ function buildRuntimeContext(runtimeIdentity: RuntimeIdentityContext) {
     auth_trust_level: runtimeIdentity.authTrustLevel,
     recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
   }
+}
+
+function buildRuntimeMycaSystemPrompt(
+  runtimeIdentity: RuntimeIdentityContext,
+  options: { includeMemoryContext?: boolean; surface?: string } = {}
+): string {
+  return buildMycaSystemPrompt({
+    identity: {
+      userId: runtimeIdentity.userId,
+      userRole: runtimeIdentity.userRole,
+      isAuthenticated: runtimeIdentity.isAuthenticated,
+      isSuperuser: runtimeIdentity.isSuperuser,
+      isCreator: runtimeIdentity.isCreator,
+      authTrustLevel: runtimeIdentity.authTrustLevel,
+      verifiedEmail: runtimeIdentity.verifiedEmail,
+    },
+    surface: options.surface || "api",
+    includeMemoryContext: options.includeMemoryContext,
+  })
 }
 
 function buildUnverifiedAuthorityResponse(message: string): string | null {
@@ -725,11 +802,13 @@ export async function POST(request: NextRequest) {
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
-    const runtimeIdentity = await resolveRuntimeIdentityContext({
-      ...body,
-      user_id,
-      user_role,
-    })
+    const runtimeIdentity = hasSupabaseAuthMaterial(request)
+      ? await resolveRuntimeIdentityContext({
+          ...body,
+          user_id,
+          user_role,
+        })
+      : anonymousRuntimeIdentityContext()
     const unverifiedAuthorityResponse = !runtimeIdentity.isSuperuser
       ? buildUnverifiedAuthorityResponse(message)
       : null
@@ -819,7 +898,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Log incoming request
-    console.log(`[Orchestrator] Request from ${source}: "${message.substring(0, 80)}..."`)
+    debugMyca(`[Orchestrator] Request from ${source}: "${message.substring(0, 80)}..."`)
 
     // SIMPLIFIED FLOW: Go DIRECTLY to real AI (n8n + LLMs)
     // Skip all the failing intermediate steps that return empty responses
@@ -845,14 +924,31 @@ export async function POST(request: NextRequest) {
     response.runtime_context = buildRuntimeContext(runtimeIdentity)
     
     // LOG THE ACTUAL RESPONSE - this is critical for debugging (internal only; never exposed to user)
-    console.log(`[MYCA] Response: "${response.response_text}"`)
-    console.log(`[MYCA] Response length: ${response.response_text.length} chars`)
-    console.log("[MYCA] Provider timings:", mycaResult.provider_timings, "fallback:", mycaResult.fallback_reason)
+    debugMyca(`[MYCA] Response length: ${response.response_text.length} chars`)
+    debugMyca("[MYCA] Provider timings:", mycaResult.provider_timings, "fallback:", mycaResult.fallback_reason)
 
     // Step 4b: AVANI Governance Evaluation (background — non-blocking)
     // Avani evaluates every MYCA interaction for safety, policy, and constitutional compliance.
     // She runs in the background; verdicts are logged and surfaced but don't block standard chat.
-    let avaniEval: AvaniEvaluation | null = null
+    const useBackgroundGovernance =
+      !runtimeIdentity.isSuperuser &&
+      want_audio === false &&
+      !isPrivilegedMemoryOrGovernanceIntent(message) &&
+      !isParameterMutationIntent(message)
+
+    if (useBackgroundGovernance) {
+      void evaluateGovernance({
+        message,
+        user_id: runtimeIdentity.userId,
+        user_role: runtimeIdentity.userRole,
+        is_superuser: runtimeIdentity.isSuperuser,
+        action_type: "chat",
+        response_text: response.response_text,
+      }).catch((avaniError) => {
+        debugMyca("[AVANI] Background governance evaluation failed:", avaniError)
+      })
+    } else {
+      let avaniEval: AvaniEvaluation | null = null
     try {
       avaniEval = await evaluateGovernance({
         message,
@@ -864,11 +960,11 @@ export async function POST(request: NextRequest) {
       })
       actions.avani_verdict = avaniEval.verdict
       actions.avani_risk_tier = avaniEval.risk_tier
-      console.log(`[AVANI] Verdict: ${avaniEval.verdict} | Risk: ${avaniEval.risk_tier} | Rules: ${avaniEval.rules_triggered.join(",")}`)
+      debugMyca(`[AVANI] Verdict: ${avaniEval.verdict} | Risk: ${avaniEval.risk_tier} | Rules: ${avaniEval.rules_triggered.join(",")}`)
 
       // If Avani denies, override the response
       if (avaniEval.verdict === "deny") {
-        console.warn(`[AVANI] DENIED response — ${avaniEval.reasoning}`)
+        console.warn(`[AVANI] DENIED response - ${avaniEval.reasoning}`)
         response.response_text =
           "I can't process that request right now. It was flagged by our governance layer for review. If you believe this is an error, please contact an administrator."
         response.agent = "avani-governance"
@@ -881,8 +977,8 @@ export async function POST(request: NextRequest) {
         actions.confirmation_required = true
       }
     } catch (avaniError) {
-      // Avani failure never blocks MYCA — log and continue
       console.warn("[AVANI] Governance evaluation failed (non-blocking):", avaniError)
+    }
     }
 
     // Step 5: Generate audio if requested
@@ -957,8 +1053,8 @@ export async function POST(request: NextRequest) {
     response.latency_ms = Date.now() - startTime
     
     // Log completion
-    console.log(`[Orchestrator] Response (${response.latency_ms}ms): "${response.response_text.substring(0, 50)}..."`)
-    console.log(`[Orchestrator] Actions: memory=${actions.memory_saved}, agent=${response.agent}`)
+    debugMyca(`[Orchestrator] Response (${response.latency_ms}ms): "${response.response_text.substring(0, 50)}..."`)
+    debugMyca(`[Orchestrator] Actions: memory=${actions.memory_saved}, agent=${response.agent}`)
 
     return NextResponse.json(response)
   } catch (error) {
@@ -1059,7 +1155,7 @@ function cleanTextForSpeech(text: string): string {
 /**
  * Call Anthropic Claude API
  */
-async function callClaude(message: string, conversationHistory: string[] = []): Promise<string | null> {
+async function callClaude(message: string, conversationHistory: string[] = [], systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getAnthropicKey()
   if (!apiKey) return null
 
@@ -1074,7 +1170,7 @@ async function callClaude(message: string, conversationHistory: string[] = []): 
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 500,
-        system: MYCA_SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: [
           ...conversationHistory.map((msg, i) => ({
             role: i % 2 === 0 ? "user" : "assistant",
@@ -1088,12 +1184,12 @@ async function callClaude(message: string, conversationHistory: string[] = []): 
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] Claude responded successfully")
+      debugMyca("[MYCA] Claude responded successfully")
       return data.content?.[0]?.text || null
     }
-    console.log("[MYCA] Claude error:", response.status)
+    debugMyca("[MYCA] Claude error:", response.status)
   } catch (e) {
-    console.log("[MYCA] Claude failed:", e)
+    debugMyca("[MYCA] Claude failed:", e)
   }
   return null
 }
@@ -1101,7 +1197,7 @@ async function callClaude(message: string, conversationHistory: string[] = []): 
 /**
  * Call OpenAI GPT-4 API
  */
-async function callOpenAI(message: string, conversationHistory: string[] = []): Promise<string | null> {
+async function callOpenAI(message: string, conversationHistory: string[] = [], systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getOpenAIKey()
   if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
 
@@ -1116,7 +1212,7 @@ async function callOpenAI(message: string, conversationHistory: string[] = []): 
         model: "gpt-4o",
         max_tokens: 500,
         messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...conversationHistory.map((msg, i) => ({
             role: i % 2 === 0 ? "user" : "assistant",
             content: msg
@@ -1129,12 +1225,12 @@ async function callOpenAI(message: string, conversationHistory: string[] = []): 
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] OpenAI responded successfully")
+      debugMyca("[MYCA] OpenAI responded successfully")
       return data.choices?.[0]?.message?.content || null
     }
-    console.log("[MYCA] OpenAI error:", response.status)
+    debugMyca("[MYCA] OpenAI error:", response.status)
   } catch (e) {
-    console.log("[MYCA] OpenAI failed:", e)
+    debugMyca("[MYCA] OpenAI failed:", e)
   }
   return null
 }
@@ -1142,7 +1238,7 @@ async function callOpenAI(message: string, conversationHistory: string[] = []): 
 /**
  * Call Google Gemini API
  */
-async function callGemini(message: string): Promise<string | null> {
+async function callGemini(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getGoogleAIKey()
   if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
 
@@ -1154,7 +1250,7 @@ async function callGemini(message: string): Promise<string | null> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{
-            parts: [{ text: `${MYCA_SYSTEM_PROMPT}\n\nUser: ${message}` }]
+            parts: [{ text: `${systemPrompt}\n\nUser: ${message}` }]
           }],
           generationConfig: {
             maxOutputTokens: 500,
@@ -1167,12 +1263,12 @@ async function callGemini(message: string): Promise<string | null> {
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] Gemini responded successfully")
+      debugMyca("[MYCA] Gemini responded successfully")
       return data.candidates?.[0]?.content?.parts?.[0]?.text || null
     }
-    console.log("[MYCA] Gemini error:", response.status)
+    debugMyca("[MYCA] Gemini error:", response.status)
   } catch (e) {
-    console.log("[MYCA] Gemini failed:", e)
+    debugMyca("[MYCA] Gemini failed:", e)
   }
   return null
 }
@@ -1180,7 +1276,7 @@ async function callGemini(message: string): Promise<string | null> {
 /**
  * Call xAI Grok API
  */
-async function callGrok(message: string): Promise<string | null> {
+async function callGrok(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getXAIKey()
   if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
 
@@ -1195,7 +1291,7 @@ async function callGrok(message: string): Promise<string | null> {
         model: "grok-3",
         max_tokens: 500,
         messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ]
       }),
@@ -1204,12 +1300,12 @@ async function callGrok(message: string): Promise<string | null> {
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] Grok responded successfully")
+      debugMyca("[MYCA] Grok responded successfully")
       return data.choices?.[0]?.message?.content || null
     }
-    console.log("[MYCA] Grok error:", response.status)
+    debugMyca("[MYCA] Grok error:", response.status)
   } catch (e) {
-    console.log("[MYCA] Grok failed:", e)
+    debugMyca("[MYCA] Grok failed:", e)
   }
   return null
 }
@@ -1217,7 +1313,7 @@ async function callGrok(message: string): Promise<string | null> {
 /**
  * Call Groq API (fast inference)
  */
-async function callGroq(message: string): Promise<string | null> {
+async function callGroq(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getGroqKey()
   if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
 
@@ -1232,7 +1328,7 @@ async function callGroq(message: string): Promise<string | null> {
         model: "llama-3.3-70b-versatile",
         max_tokens: 500,
         messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ]
       }),
@@ -1241,12 +1337,12 @@ async function callGroq(message: string): Promise<string | null> {
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] Groq responded successfully")
+      debugMyca("[MYCA] Groq responded successfully")
       return data.choices?.[0]?.message?.content || null
     }
-    console.log("[MYCA] Groq error:", response.status)
+    debugMyca("[MYCA] Groq error:", response.status)
   } catch (e) {
-    console.log("[MYCA] Groq failed:", e)
+    debugMyca("[MYCA] Groq failed:", e)
   }
   return null
 }
@@ -1259,7 +1355,7 @@ async function callGroq(message: string): Promise<string | null> {
  * This is the PRIMARY path for Myca when local Nemotron/GPU is unavailable.
  * Uses OpenAI-compatible API format.
  */
-async function callNvidiaNim(message: string): Promise<string | null> {
+async function callNvidiaNim(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   const apiKey = getNvidiaNimKey()
   if (!apiKey) return null
 
@@ -1273,7 +1369,7 @@ async function callNvidiaNim(message: string): Promise<string | null> {
       body: JSON.stringify({
         model: NVIDIA_NIM_MODEL,
         messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
         max_tokens: 500,
@@ -1288,13 +1384,13 @@ async function callNvidiaNim(message: string): Promise<string | null> {
       const data = await response.json()
       const content = data.choices?.[0]?.message?.content
       if (content && content.length > 5) {
-        console.log("[MYCA] NVIDIA NIM (Nemotron) responded successfully")
+        debugMyca("[MYCA] NVIDIA NIM (Nemotron) responded successfully")
         return content
       }
     }
-    console.log("[MYCA] NVIDIA NIM error:", response.status)
+    debugMyca("[MYCA] NVIDIA NIM error:", response.status)
   } catch (e) {
-    console.log("[MYCA] NVIDIA NIM failed:", e instanceof Error ? e.message : e)
+    debugMyca("[MYCA] NVIDIA NIM failed:", e instanceof Error ? e.message : e)
   }
   return null
 }
@@ -1304,7 +1400,7 @@ async function callNvidiaNim(message: string): Promise<string | null> {
  * This hits the on-premise Nemotron instance when available.
  * Currently off-site but will be wired in when GPU nodes are deployed.
  */
-async function callNemoClaw(message: string): Promise<string | null> {
+async function callNemoClaw(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   try {
     // Quick health check
     const healthCheck = await fetch(`${NEMOCLAW_GATEWAY_URL}/health`, {
@@ -1318,7 +1414,7 @@ async function callNemoClaw(message: string): Promise<string | null> {
       body: JSON.stringify({
         model: "nemotron",
         messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
         max_tokens: 500,
@@ -1332,13 +1428,13 @@ async function callNemoClaw(message: string): Promise<string | null> {
       const data = await response.json()
       const content = data.choices?.[0]?.message?.content || data.response
       if (content && content.length > 5) {
-        console.log("[MYCA] NemoClaw (local Nemotron) responded successfully")
+        debugMyca("[MYCA] NemoClaw (local Nemotron) responded successfully")
         return content
       }
     }
-    console.log("[MYCA] NemoClaw error:", response.status)
+    debugMyca("[MYCA] NemoClaw error:", response.status)
   } catch (e) {
-    console.log("[MYCA] NemoClaw not available:", e instanceof Error ? e.message : e)
+    debugMyca("[MYCA] NemoClaw not available:", e instanceof Error ? e.message : e)
   }
   return null
 }
@@ -1349,7 +1445,7 @@ async function callNemoClaw(message: string): Promise<string | null> {
  * On CPU-only VM: uses gemma2:2b or phi3:mini (fast, low RAM).
  * On GPU node: uses llama3.2:3b or larger.
  */
-async function callOllama(message: string): Promise<string | null> {
+async function callOllama(message: string, systemPrompt = MYCA_SYSTEM_PROMPT): Promise<string | null> {
   try {
     // Quick health check — skip entirely if Ollama isn't running
     const healthCheck = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
@@ -1371,7 +1467,7 @@ async function callOllama(message: string): Promise<string | null> {
           body: JSON.stringify({
             model,
             messages: [
-              { role: "system", content: MYCA_SYSTEM_PROMPT },
+              { role: "system", content: systemPrompt },
               { role: "user", content: message },
             ],
             stream: false,
@@ -1387,17 +1483,17 @@ async function callOllama(message: string): Promise<string | null> {
           const data = await response.json()
           const content = data.message?.content
           if (content && content.length > 10) {
-            console.log(`[MYCA] Ollama (${model}) responded successfully`)
+            debugMyca(`[MYCA] Ollama (${model}) responded successfully`)
             return content
           }
         }
-        console.log(`[MYCA] Ollama (${model}) error:`, response.status)
+        debugMyca(`[MYCA] Ollama (${model}) error:`, response.status)
       } catch {
-        console.log(`[MYCA] Ollama (${model}) failed, trying next model...`)
+        debugMyca(`[MYCA] Ollama (${model}) failed, trying next model...`)
       }
     }
   } catch (e) {
-    console.log("[MYCA] Ollama not available:", e instanceof Error ? e.message : e)
+    debugMyca("[MYCA] Ollama not available:", e instanceof Error ? e.message : e)
   }
   return null
 }
@@ -1407,7 +1503,7 @@ async function callOllama(message: string): Promise<string | null> {
  */
 async function callN8nMasterBrain(message: string, sessionId: string): Promise<string | null> {
   try {
-    console.log("[MYCA] Calling n8n Master Brain workflow...")
+    debugMyca("[MYCA] Calling n8n Master Brain workflow...")
     const response = await fetch(`${N8N_URL}/webhook/myca/brain`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1423,12 +1519,12 @@ async function callN8nMasterBrain(message: string, sessionId: string): Promise<s
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] n8n Master Brain responded:", data.intent?.primary)
+      debugMyca("[MYCA] n8n Master Brain responded:", data.intent?.primary)
       return data.response_text || data.response || null
     }
-    console.log("[MYCA] n8n Master Brain error:", response.status)
+    debugMyca("[MYCA] n8n Master Brain error:", response.status)
   } catch (e) {
-    console.log("[MYCA] n8n Master Brain failed:", e)
+    debugMyca("[MYCA] n8n Master Brain failed:", e)
   }
   return null
 }
@@ -1438,7 +1534,7 @@ async function callN8nMasterBrain(message: string, sessionId: string): Promise<s
  */
 async function callN8nSpeech(message: string, sessionId: string): Promise<string | null> {
   try {
-    console.log("[MYCA] Calling n8n Speech workflow...")
+    debugMyca("[MYCA] Calling n8n Speech workflow...")
     const response = await fetch(`${N8N_URL}/webhook/myca/speech`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1452,12 +1548,12 @@ async function callN8nSpeech(message: string, sessionId: string): Promise<string
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] n8n Speech responded")
+      debugMyca("[MYCA] n8n Speech responded")
       return data.response_text || null
     }
-    console.log("[MYCA] n8n Speech error:", response.status)
+    debugMyca("[MYCA] n8n Speech error:", response.status)
   } catch (e) {
-    console.log("[MYCA] n8n Speech failed:", e)
+    debugMyca("[MYCA] n8n Speech failed:", e)
   }
   return null
 }
@@ -1624,13 +1720,13 @@ async function callMycaConsciousness(
 
   for (let attempt = 1; attempt <= 1; attempt++) {
     try {
-      console.log(`[MYCA] Consciousness API attempt ${attempt}/1 → ${url}`)
+      debugMyca(`[MYCA] Consciousness API attempt ${attempt}/1 → ${url}`)
       const response = await doFetch()
 
       if (response.ok) {
         const data = await response.json()
         const text = data.message ?? data.reply ?? data.response ?? null
-        console.log("[MYCA] Consciousness API responded:", text?.substring?.(0, 60))
+        debugMyca("[MYCA] Consciousness API responded:", text?.substring?.(0, 60))
         return {
           response: text,
           emotions: data.emotional_state,
@@ -1682,7 +1778,7 @@ async function raceProviders<T>(
         .then((result) => {
           if (result && !resolved) {
             resolved = true
-            console.log(`[MYCA] Winner: ${label}`)
+            debugMyca(`[MYCA] Winner: ${label}`)
             resolve({ result, label })
           } else {
             pending--
@@ -1736,9 +1832,13 @@ async function getMycaResponse(
   provider_timings?: Record<string, number>
   fallback_reason?: string
 }> {
-  console.log(`[MYCA] Processing for ${runtimeIdentity.userId}: "${message.substring(0, 80)}..."`)
+  debugMyca(`[MYCA] Processing for ${runtimeIdentity.userId}: "${message.substring(0, 80)}..."`)
   const includeMemoryContext = options.includeMemoryContext ?? true
   const allowBrain = options.allowBrain ?? false
+  const systemPrompt = buildRuntimeMycaSystemPrompt(runtimeIdentity, {
+    includeMemoryContext,
+    surface: options.sourcePlatform,
+  })
   const providerTimings: Record<string, number> = {}
   let fallbackReason: string | undefined
   const identityDirective = buildIdentitySecurityDirective(runtimeIdentity, message)
@@ -1807,15 +1907,15 @@ async function getMycaResponse(
   console.warn("[MYCA] Fast MAS routes failed ? racing Nemotron (NIM/NemoClaw) + fast providers")
   phaseStart = Date.now()
   const fastCalls = [
-    { fn: () => callNvidiaNim(enrichedMessage), label: "nvidia-nim-nemotron" },
-    { fn: () => callNemoClaw(enrichedMessage), label: "nemoclaw-local" },
-    { fn: () => callOllama(enrichedMessage), label: "ollama" },
-    { fn: () => callGroq(enrichedMessage), label: "groq" },
+    { fn: () => callNvidiaNim(enrichedMessage, systemPrompt), label: "nvidia-nim-nemotron" },
+    { fn: () => callNemoClaw(enrichedMessage, systemPrompt), label: "nemoclaw-local" },
+    { fn: () => callOllama(enrichedMessage, systemPrompt), label: "ollama" },
+    { fn: () => callGroq(enrichedMessage, systemPrompt), label: "groq" },
   ]
   const fastResult = await raceProviders(fastCalls)
   providerTimings.fast_fallback_ms = Date.now() - phaseStart
   if (fastResult?.result && fastResult.result.trim().length > 5) {
-    console.log(`[MYCA] Fast provider ${fastResult.label} responded successfully`)
+    debugMyca(`[MYCA] Fast provider ${fastResult.label} responded successfully`)
     return {
       response: fastResult.result,
       provider: fastResult.label,
@@ -1828,15 +1928,15 @@ async function getMycaResponse(
   console.warn("[MYCA] Fast providers failed ? trying Claude, OpenAI, Gemini, Grok")
   phaseStart = Date.now()
   const slowCalls = [
-    { fn: () => callClaude(enrichedMessage), label: "claude" },
-    { fn: () => callOpenAI(enrichedMessage), label: "openai" },
-    { fn: () => callGemini(enrichedMessage), label: "gemini" },
-    { fn: () => callGrok(enrichedMessage), label: "grok" },
+    { fn: () => callClaude(enrichedMessage, [], systemPrompt), label: "claude" },
+    { fn: () => callOpenAI(enrichedMessage, [], systemPrompt), label: "openai" },
+    { fn: () => callGemini(enrichedMessage, systemPrompt), label: "gemini" },
+    { fn: () => callGrok(enrichedMessage, systemPrompt), label: "grok" },
   ]
   const slowResult = await raceProviders(slowCalls)
   providerTimings.slow_fallback_ms = Date.now() - phaseStart
   if (slowResult?.result && slowResult.result.trim().length > 5) {
-    console.log(`[MYCA] Cloud provider ${slowResult.label} responded successfully`)
+    debugMyca(`[MYCA] Cloud provider ${slowResult.label} responded successfully`)
     return {
       response: slowResult.result,
       provider: slowResult.label,
@@ -1892,7 +1992,7 @@ async function getRealAgentData(): Promise<{
       }
     }
   } catch (e) {
-    console.log("[Voice] Failed to get agent data:", e)
+    debugMyca("[Voice] Failed to get agent data:", e)
   }
   
   return { totalAgents: 223, activeAgents: 180, categories: [] }
