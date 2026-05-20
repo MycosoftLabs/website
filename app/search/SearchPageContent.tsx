@@ -7,7 +7,7 @@
 
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { SearchContextProvider } from "@/components/search/SearchContextProvider"
 import { SearchLayout } from "@/components/search/SearchLayout"

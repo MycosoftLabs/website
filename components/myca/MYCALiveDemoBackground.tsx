@@ -9,6 +9,10 @@
  */
 
 import { useEffect, useRef } from "react"
+import * as THREE from "three"
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js"
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js"
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js"
 import { useMYCA } from "@/contexts/myca-context"
 import { cn } from "@/lib/utils"
 
@@ -19,17 +23,29 @@ interface ActivityRefs {
   messageCount: number
   lastUserLength: number
   lastResponseLength: number
+  draftLength: number
   burstRequested: boolean
   flowDirection: FlowDirection
 }
 
-export function MYCALiveDemoBackground({ className }: { className?: string }) {
+export function MYCALiveDemoBackground({
+  className,
+  transparent = false,
+  active = true,
+}: {
+  className?: string
+  transparent?: boolean
+  active?: boolean
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const animationActiveRef = useRef(active)
+  const wakeAnimationRef = useRef<() => void>(() => {})
   const activityRef = useRef<ActivityRefs>({
     isLoading: false,
     messageCount: 0,
     lastUserLength: 0,
     lastResponseLength: 0,
+    draftLength: 0,
     burstRequested: false,
     flowDirection: "idle",
   })
@@ -37,8 +53,21 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
     messageCount: 0,
     responseKey: "",
     wasLoading: false,
+    draftVersion: 0,
   })
-  const { isLoading, messages, lastResponseMetadata } = useMYCA()
+  const { isLoading, messages, lastResponseMetadata, draftActivity } = useMYCA()
+  const activityMode = isLoading
+    ? "loading"
+    : draftActivity.length > 0
+      ? "typing"
+      : lastResponseMetadata
+        ? "responding"
+        : "idle"
+
+  useEffect(() => {
+    animationActiveRef.current = active
+    if (active) wakeAnimationRef.current()
+  }, [active])
 
   // Update activity ref when MYCA state changes; burst only on transitions
   // flowDirection: user→MYCA when sending/thinking, MYCA→user when responding
@@ -52,9 +81,10 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
     const newMessage = messages.length > prev.messageCount
     const newResponse = responseKey && responseKey !== prev.responseKey
     const loadingStarted = isLoading && !prev.wasLoading
+    const typingChanged = draftActivity.length > 0 && draftActivity.version !== prev.draftVersion
 
     let flowDirection: FlowDirection = "idle"
-    if (isLoading) {
+    if (isLoading || draftActivity.length > 0) {
       flowDirection = "user-to-myca"
     } else if (lastResponseMetadata) {
       flowDirection = "myca-to-user"
@@ -64,14 +94,16 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       messageCount: messages.length,
       responseKey,
       wasLoading: isLoading,
+      draftVersion: draftActivity.version,
     }
 
     activityRef.current = {
       isLoading,
       messageCount: messages.length,
-      lastUserLength: lastUser?.content?.length ?? 0,
+      lastUserLength: Math.max(lastUser?.content?.length ?? 0, draftActivity.length),
       lastResponseLength: lastAssistant?.content?.length ?? 0,
-      burstRequested: newMessage || newResponse || loadingStarted,
+      draftLength: draftActivity.length,
+      burstRequested: newMessage || newResponse || loadingStarted || typingChanged,
       flowDirection,
     }
 
@@ -81,30 +113,24 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       }, 3000)
       return () => clearTimeout(t)
     }
-  }, [isLoading, messages, lastResponseMetadata])
+  }, [draftActivity, isLoading, messages, lastResponseMetadata])
 
   useEffect(() => {
     if (!containerRef.current || typeof window === "undefined") return
 
-    const init = async () => {
-      const THREE = await import("three")
-      const { EffectComposer } = await import(
-        "three/examples/jsm/postprocessing/EffectComposer.js"
-      )
-      const { RenderPass } = await import(
-        "three/examples/jsm/postprocessing/RenderPass.js"
-      )
-      const { UnrealBloomPass } = await import(
-        "three/examples/jsm/postprocessing/UnrealBloomPass.js"
-      )
+    let disposed = false
+    let cleanupFn: (() => void) | undefined
 
-      const container = containerRef.current!
+    const init = () => {
+      if (disposed || !containerRef.current) return
+
+      const container = containerRef.current
       const width = container.clientWidth
       const height = container.clientHeight
 
       const scene = new THREE.Scene()
-      scene.background = new THREE.Color("#080808")
-      scene.fog = new THREE.FogExp2("#080808", 0.002)
+      scene.background = transparent ? null : new THREE.Color("#080808")
+      scene.fog = transparent ? null : new THREE.FogExp2("#080808", 0.002)
 
       const camera = new THREE.OrthographicCamera(
         -width / 2,
@@ -120,7 +146,13 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
       renderer.setSize(width, height)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-      renderer.setClearColor(0x080808, 0.4)
+      renderer.setClearColor(0x080808, transparent ? 0 : 0.4)
+
+      if (disposed || !containerRef.current) {
+        renderer.dispose()
+        return
+      }
+
       container.appendChild(renderer.domElement)
 
       const contentGroup = new THREE.Group()
@@ -274,26 +306,38 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       composer.addPass(bloomPass)
 
       const clock = new THREE.Clock()
-      let frameId: number
+      let frameId: number | null = null
+      let frameScheduled = false
+
+      const scheduleFrame = () => {
+        if (disposed || frameScheduled || !animationActiveRef.current) return
+        frameScheduled = true
+        frameId = requestAnimationFrame(animate)
+      }
 
       function animate() {
-        frameId = requestAnimationFrame(animate)
+        frameScheduled = false
+        if (disposed) return
         const time = clock.getElapsedTime()
         const act = activityRef.current
 
         // Derive params from chat activity
         const baseSpeed = 0.25
-        const activeSpeed = act.isLoading ? 0.8 + (act.lastUserLength / 500) * 0.5 : baseSpeed
+        const typingActive = act.draftLength > 0
+        const activeSpeed =
+          act.isLoading || typingActive
+            ? 0.9 + (act.lastUserLength / 360) * 0.65
+            : baseSpeed
         const responseBoost = act.lastResponseLength > 0 ? Math.min(1.5, 0.5 + act.lastResponseLength / 800) : 1
         const speedGlobal = activeSpeed * responseBoost
 
         const baseSignals = 50
-        const activeSignals = act.isLoading ? 120 : baseSignals
+        const activeSignals = act.isLoading || typingActive ? 130 : baseSignals
         const messageBoost = Math.min(80, act.messageCount * 4)
         const targetSignalCount = Math.min(180, activeSignals + messageBoost)
 
         if (act.burstRequested) {
-          const toAdd = Math.min(15, Math.max(3, Math.floor(act.lastResponseLength / 100) || 3))
+          const toAdd = Math.min(18, Math.max(5, Math.floor(Math.max(act.lastResponseLength, act.draftLength) / 80) || 5))
           for (let i = 0; i < toAdd; i++) createSignal()
           act.burstRequested = false
         }
@@ -310,9 +354,9 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
           }
         }
 
-        const trailLength = Math.min(20, Math.max(3, Math.floor(5 + act.lastUserLength / 50)))
-        const waveHeightVal = 0.1 + (act.isLoading ? 0.08 : 0)
-        const waveSpeedVal = waveSpeed + (act.isLoading ? 1.5 : 0)
+        const trailLength = Math.min(26, Math.max(4, Math.floor(6 + act.lastUserLength / 42)))
+        const waveHeightVal = 0.1 + (act.isLoading || typingActive ? 0.12 : 0)
+        const waveSpeedVal = waveSpeed + (act.isLoading || typingActive ? 1.8 : 0)
 
         // Update lines
         backgroundLines.forEach((line) => {
@@ -376,8 +420,10 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
         })
 
         composer.render()
+        scheduleFrame()
       }
 
+      wakeAnimationRef.current = scheduleFrame
       animate()
 
       const onResize = () => {
@@ -404,8 +450,13 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       const ro = new ResizeObserver(onResize)
       ro.observe(container)
 
+      let cleaned = false
       return () => {
-        cancelAnimationFrame(frameId)
+        if (cleaned) return
+        cleaned = true
+        disposed = true
+        if (frameId !== null) cancelAnimationFrame(frameId)
+        wakeAnimationRef.current = () => {}
         window.removeEventListener("resize", onResize)
         ro.disconnect()
         backgroundLines.forEach((l) => l.geometry.dispose())
@@ -414,22 +465,28 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
           s.mesh.geometry.dispose()
         })
         renderer.dispose()
-        if (container.contains(renderer.domElement)) {
-          container.removeChild(renderer.domElement)
+        if (renderer.domElement.parentNode) {
+          renderer.domElement.parentNode.removeChild(renderer.domElement)
         }
       }
     }
 
-    const initPromise = init()
+    try {
+      const cleanup = init()
+      if (disposed) {
+        if (typeof cleanup === "function") cleanup()
+      } else {
+        cleanupFn = cleanup
+      }
+    } catch {
+      cleanupFn = undefined
+    }
 
     return () => {
-      initPromise
-        .then((cleanup) => {
-          if (typeof cleanup === "function") cleanup()
-        })
-        .catch(() => {})
+      disposed = true
+      cleanupFn?.()
     }
-  }, [])
+  }, [transparent])
 
   return (
     <div
@@ -439,6 +496,8 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
         "opacity-60",
         className
       )}
+      data-myca-bg-mode={activityMode}
+      data-myca-draft-length={draftActivity.length}
       aria-hidden
     />
   )

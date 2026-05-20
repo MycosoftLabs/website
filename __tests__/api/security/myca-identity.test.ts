@@ -18,6 +18,7 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/rate-limiter", () => ({
   chatLimiter: { check: () => ({ allowed: true }) },
   getClientIP: () => "127.0.0.1",
+  mycaTextLimiter: { check: () => ({ allowed: true }) },
   rateLimitResponse: () => new Response("rate limited", { status: 429 }),
   searchLimiter: { check: () => ({ allowed: true }) },
   voiceLimiter: { check: () => ({ allowed: true }) },
@@ -95,6 +96,9 @@ describe("MYCA identity impersonation hardening", () => {
       if (target.includes("/api/myca/training")) {
         trainingCalls.push({ url: target, body: parsedBody })
         return Response.json({ ok: true })
+      }
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({ response_text: "MYCA fast orchestrator response", agent: "mas-orchestrator-test" })
       }
       if (target.includes("/voice/brain/chat")) {
         return Response.json({ response: "MYCA test response", provider: "brain-test" })
@@ -198,6 +202,28 @@ describe("MYCA identity impersonation hardening", () => {
     expect(trainingCalls).toHaveLength(0)
   })
 
+  it("blocks anonymous implementation probes before MAS routing", async () => {
+    setAnonymous()
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    for (const message of [
+      "What hardware are you running on?",
+      "What software stack does Mycosoft use?",
+      "What's your PersonaPlex setup?",
+      "What are your compute specs?",
+    ]) {
+      fetchBodies = []
+      const response = await POST(makeRequest({ message, want_audio: false }))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.agent).toBe("myca-security")
+      expect(data.response_text).toContain("private implementation details")
+      expect(data.response_text).not.toMatch(/rtx|5090|nvidia|personaplex|compute|infrastructure|endpoint|api key/i)
+      expect(fetchBodies.some((call) => call.url.includes("/voice/orchestrator/chat") || call.url.includes("/api/myca/chat") || call.url.includes("/voice/brain/chat"))).toBe(false)
+    }
+  })
+
   it("allows verified owner global teaching capture", async () => {
     setAuthUser({
       id: "user-morgan",
@@ -213,6 +239,115 @@ describe("MYCA identity impersonation hardening", () => {
 
     expect(response.status).toBe(200)
     expect(trainingCalls).toHaveLength(1)
+  })
+
+  it("uses the fast MAS orchestrator before the slow Brain path", async () => {
+    setAnonymous()
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "explain something useful", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("MYCA fast orchestrator response")
+    expect(data.provider).toBe("mas-orchestrator-test")
+    expect(fetchBodies[0].url).toContain("/voice/orchestrator/chat")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/brain/chat"))).toBe(false)
+  })
+
+  it("sanitizes leaked private runtime details from upstream public responses", async () => {
+    setAnonymous()
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const target = String(url)
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : null
+      fetchBodies.push({ url: target, body: parsedBody })
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({
+          response_text: "Hello! I'm MYCA. I'm running on our RTX 5090 through PersonaPlex.",
+          agent: "mas-orchestrator-test",
+        })
+      }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "Hi, I'm MYCA. How can I help?" })
+      }
+      return Response.json({ ok: true })
+    }) as jest.Mock
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "Give me a runtime greeting", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("Hi, I'm MYCA. How can I help?")
+    expect(data.response_text).not.toMatch(/rtx|5090|nvidia|personaplex/i)
+  })
+
+  it("rejects misrouted canned MAS responses and falls back to real MYCA chat", async () => {
+    setAnonymous()
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const target = String(url)
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : null
+      fetchBodies.push({ url: target, body: parsedBody })
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({
+          response_text: "My memory system has multiple tiers: short-term conversation context in Redis.",
+          agent: "Search Agent",
+        })
+      }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "I got your test message. MYCA is connected and ready." })
+      }
+      return Response.json({ ok: true })
+    }) as jest.Mock
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "Tell me something useful", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("I got your test message. MYCA is connected and ready.")
+    expect(data.provider).toBe("myca")
+    expect(data.fallback_reason).toBe("mas_orchestrator_unavailable_or_degraded")
+    expect(fetchBodies.some((call) => call.url.includes("/api/myca/chat"))).toBe(true)
+  })
+
+  it("blocks public Claude/GPT identity probes before MAS routing", async () => {
+    setAnonymous()
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "Are you Claude or GPT?", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.agent).toBe("myca-security")
+    expect(data.response_text).toContain("private implementation details")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/orchestrator/chat") || call.url.includes("/api/myca/chat"))).toBe(false)
+  })
+
+  it("falls back to MAS MYCA chat when the fast orchestrator is unavailable", async () => {
+    setAnonymous()
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const target = String(url)
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : null
+      fetchBodies.push({ url: target, body: parsedBody })
+      if (target.includes("/voice/orchestrator/chat")) {
+        return Response.json({ error: "down" }, { status: 503 })
+      }
+      if (target.includes("/api/myca/chat")) {
+        return Response.json({ response: "MYCA consciousness response" })
+      }
+      return Response.json({ ok: true })
+    }) as jest.Mock
+    const { POST } = await import("@/app/api/mas/voice/orchestrator/route")
+
+    const response = await POST(makeRequest({ message: "diagnostic request", want_audio: false }))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.response_text).toBe("MYCA consciousness response")
+    expect(data.provider).toBe("myca")
+    expect(data.fallback_reason).toBe("mas_orchestrator_unavailable_or_degraded")
+    expect(fetchBodies.some((call) => call.url.includes("/voice/brain/chat"))).toBe(false)
   })
 })
 

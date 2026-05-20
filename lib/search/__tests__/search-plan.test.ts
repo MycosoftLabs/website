@@ -26,12 +26,12 @@ describe("SearchPlan orchestration", () => {
     expect(plan?.etlRequests.map((request) => request.entityFamily)).toEqual(expect.arrayContaining(["events", "infrastructure"]))
   })
 
-  it("species searches keep species first while still requiring Earth and science widgets", () => {
+  it("spatial species searches prioritize Earth while keeping science widgets", () => {
     const route = classifyAndRoute("Amanita muscaria near Oregon")
     const plan = route.searchPlan
 
-    expect(plan?.primaryWidget).toBe("species")
-    expect(plan?.widgetOrder.slice(0, 2)).toEqual(["species", "earth"])
+    expect(plan?.primaryWidget).toBe("earth")
+    expect(plan?.widgetOrder.slice(0, 2)).toEqual(["earth", "species"])
     expect(plan?.widgetOrder).toEqual(expect.arrayContaining(["genetics", "chemistry", "research", "news", "answers"]))
     expect(plan?.earth?.lockedLayerControls).toBe(true)
   })

@@ -81,6 +81,7 @@ import { useMYCA } from "@/contexts/myca-context"
 import { useAuth } from "@/contexts/auth-context"
 import type { WidgetType } from "@/lib/search/widget-registry"
 import { DEFAULT_WIDGET_SIZES, WIDGET_REGISTRY } from "@/lib/search/widget-registry"
+import { getRememberedSearchLocation, requestRememberedSearchLocation } from "@/lib/search/browser-location"
 import type { ResultBucketKey } from "@/lib/search/unified-search-sdk"
 import { AnswersWidget } from "./widgets/AnswersWidget"
 import { CameraWidget } from "./widgets/CameraWidget"
@@ -549,22 +550,20 @@ export function FluidSearchCanvas({
   // Request user location for Earth2 and location-based features
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }
-        setUserLocation(loc)
-        ctx.setUserLocation(loc)
-      },
-      () => {
-        // Fall back to default if geolocation denied
-        // Don't set anything - let the Earth2 fetcher use default coords
-      },
-      { timeout: 5000, maximumAge: 300000 } // 5s timeout, cache for 5 min
-    )
-  }, [])
+    const remembered = getRememberedSearchLocation()
+    if (remembered) {
+      const loc = { lat: remembered.lat, lng: remembered.lng }
+      setUserLocation(loc)
+      ctx.setUserLocation(loc)
+      return
+    }
+    void requestRememberedSearchLocation().then((rememberedLoc) => {
+      if (!rememberedLoc) return
+      const loc = { lat: rememberedLoc.lat, lng: rememberedLoc.lng }
+      setUserLocation(loc)
+      ctx.setUserLocation(loc)
+    })
+  }, [ctx])
 
   /** Merge MAS /api/myca/intention widget hints with classifyAndRoute */
   const effectiveSearchRoute = useMemo(() => {
@@ -1460,10 +1459,15 @@ export function FluidSearchCanvas({
       earth: 0,
       events: 1,
       infrastructure: 2,
-      risk: 3,
-      power_grid: 4,
-      species: 5,
-      weather: 6,
+      emissions: 3,
+      satellites: 4,
+      space_assets: 5,
+      space_weather: 6,
+      risk: 7,
+      power_grid: 8,
+      species: 9,
+      weather: 10,
+      air_quality: 11,
       answers: 20,
       news: 21,
       research: 22,
@@ -1528,13 +1532,16 @@ export function FluidSearchCanvas({
     // Instantly layout widgets based on the predicted route before data even arrives
     setExpandedWidgets((prev) => {
       const next = new Set<WidgetType>()
-      for (const widget of route.searchPlan?.widgetOrder ?? []) addSearchWidget(next, widget)
       addSearchWidget(next, route.primaryWidget as WidgetType | null)
-      for (const sw of route.secondaryWidgets) addSearchWidget(next, sw as WidgetType)
+      for (const widget of route.searchPlan?.widgetOrder ?? []) {
+        if (widget === "earth" || widget === "answers") addSearchWidget(next, widget)
+      }
       if (route.worldview.crep) addSearchWidget(next, "earth")
       if (route.worldview.earth2 || route.worldview.map) addSearchWidget(next, "earth")
       for (const widget of submittedEarthRule.widgets) {
-        if (WIDGET_REGISTRY[widget as WidgetType]) addSearchWidget(next, widget as WidgetType)
+        if ((widget === "earth" || widget === "answers") && WIDGET_REGISTRY[widget as WidgetType]) {
+          addSearchWidget(next, widget as WidgetType)
+        }
       }
       if (route.useMycaLLM) addSearchWidget(next, "answers")
       if (next.size === 0) {
@@ -1626,20 +1633,20 @@ export function FluidSearchCanvas({
       devices: len(devices),
       space_weather: len(spaceWeather),
       cameras: len(cameras),
-      risk: route.searchPlan?.widgetOrder.includes("risk") ? 1 : 0,
-      power_grid: route.searchPlan?.widgetOrder.includes("power_grid") ? 1 : 0,
-      supply_chain: route.searchPlan?.widgetOrder.includes("supply_chain") ? 1 : 0,
-      biosecurity: route.searchPlan?.widgetOrder.includes("biosecurity") ? 1 : 0,
-      conservation: route.searchPlan?.widgetOrder.includes("conservation") ? 1 : 0,
-      geology: route.searchPlan?.widgetOrder.includes("geology") ? 1 : 0,
-      hydrology: route.searchPlan?.widgetOrder.includes("hydrology") ? 1 : 0,
-      wildfire: route.searchPlan?.widgetOrder.includes("wildfire") ? 1 : 0,
-      air_quality: route.searchPlan?.widgetOrder.includes("air_quality") ? 1 : 0,
-      space_assets: route.searchPlan?.widgetOrder.includes("space_assets") ? 1 : 0,
-      marine: route.searchPlan?.widgetOrder.includes("marine") ? 1 : 0,
-      transport: route.searchPlan?.widgetOrder.includes("transport") ? 1 : 0,
-      source_health: route.searchPlan?.widgetOrder.includes("source_health") ? 1 : 0,
-      qa_trace: route.searchPlan?.widgetOrder.includes("qa_trace") ? 1 : 0,
+      risk: len(eventsForWidgets) + len(infrastructure),
+      power_grid: len(infrastructure),
+      supply_chain: len(vessels) + len(aircraft) + len(infrastructure),
+      biosecurity: /\bbiosecurity|disease|outbreak|pathogen|invasive\b/i.test(committedQuery) ? species.length + research.length + len(eventsForWidgets) : 0,
+      conservation: /\bconservation|endangered|threatened|migration|population|decline\b/i.test(committedQuery) ? species.length + research.length + mapObservations.length : 0,
+      geology: len(eventsForWidgets),
+      hydrology: len(weather) + len(eventsForWidgets) + len(infrastructure),
+      wildfire: len(eventsForWidgets) + len(weather),
+      air_quality: len(weather) + len(emissions),
+      space_assets: len(satellites),
+      marine: len(vessels) + len(infrastructure),
+      transport: len(aircraft) + len(vessels),
+      source_health: 0,
+      qa_trace: 0,
     }
     const key = `${committedQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return
@@ -1683,6 +1690,7 @@ export function FluidSearchCanvas({
       const hidden = manuallyHiddenWidgetsRef.current
       const addIfVisible = (widget: WidgetType | null) => {
         if (!widget || hidden.has(widget)) return
+        if (dataMap[widget] === 0 && !["earth", "answers", "news", "research"].includes(widget)) return
         addSearchWidget(next, widget)
       }
 
@@ -1697,22 +1705,28 @@ export function FluidSearchCanvas({
       }
 
       // Expand every type that has data
+      const allowedDataWidgets = new Set<WidgetType>([
+        route.primaryWidget as WidgetType,
+        ...(route.secondaryWidgets as WidgetType[]),
+        ...((route.searchPlan?.widgetOrder ?? []) as WidgetType[]),
+      ].filter(Boolean))
       for (const [wType, count] of Object.entries(dataMap)) {
-        if (count > 0) addIfVisible(wType as WidgetType)
+        const widget = wType as WidgetType
+        if (count > 0 && allowedDataWidgets.has(widget)) addIfVisible(widget)
       }
 
       // Intent-based: expand worldview widgets even before data arrives
       if (route.worldview.crep && !hidden.has("earth")) next.add("earth" as WidgetType)
       if ((route.worldview.earth2 || route.worldview.map) && !hidden.has("earth")) next.add("earth" as WidgetType)
       for (const widget of earthSearchWidgets) {
-        if (!hidden.has(widget)) addSearchWidget(next, widget)
+        addIfVisible(widget)
       }
 
       // Always show Answers for conversational/hybrid queries
       if (route.useMycaLLM && !hidden.has("answers")) next.add("answers" as WidgetType)
 
       // If still empty, default to species and answers
-      if (next.size === 0) next.add("species" as WidgetType).add("answers" as WidgetType)
+      if (next.size === 0) next.add("answers" as WidgetType)
 
       return next
     })
@@ -2484,6 +2498,9 @@ function WidgetContent({
         !vessels?.length &&
         !satellites?.length &&
         !devices?.length &&
+        !emissions?.length &&
+        !infrastructure?.length &&
+        !weather?.length &&
         !searchQuery
       ) return <EmptyWidgetState type="earth" label="Earth Simulator" />
       return (
@@ -2499,6 +2516,9 @@ function WidgetContent({
             ...(vessels ?? []).map((item) => ({ ...item, type: "vessel" })),
             ...(satellites ?? []).map((item) => ({ ...item, type: "satellite" })),
             ...(devices ?? []).map((item) => ({ ...item, type: "device" })),
+            ...(emissions ?? []).map((item) => ({ ...item, type: "event" })),
+            ...(infrastructure ?? []).map((item) => ({ ...item, type: "event" })),
+            ...(weather ?? []).map((item) => ({ ...item, type: "event" })),
           ]}
           isFocused={isFocused}
           onAddToNotepad={onAddToNotepad}

@@ -191,11 +191,26 @@ const SPECIES_STOP_WORDS = new Set([
   "device",
   "power",
   "infrastructure",
+  "migration",
+  "population",
+  "populations",
+  "status",
+  "climate",
+  "forecast",
+  "drought",
+  "dam",
+  "dams",
+  "flight",
+  "flights",
+  "near",
+  "me",
 ])
 
 const COMMON_SPECIES_TERMS = [
   /\bdolphins?\b/i,
   /\bbees?\b/i,
+  /\binsects?\b/i,
+  /\bbirds?\b/i,
   /\bwolves?\b/i,
   /\beagles?\b/i,
   /\bwhales?\b/i,
@@ -208,6 +223,7 @@ const COMMON_SPECIES_TERMS = [
 
 function singularize(term: string): string {
   const normalized = term.trim().toLowerCase().replace(/[^a-z0-9\s'-]/g, "").replace(/\s+/g, " ")
+  if (normalized === "species") return normalized
   if (normalized.endsWith("ies") && normalized.length > 4) return `${normalized.slice(0, -3)}y`
   if (normalized.endsWith("s") && !normalized.endsWith("ss") && normalized.length > 3) return normalized.slice(0, -1)
   return normalized
@@ -230,19 +246,27 @@ function addUniqueFilter(filters: EarthContextFilter[], filter: EarthContextFilt
 
 function speciesTermsFromIntent(intent: SearchIntent): string[] {
   const terms = new Set<string>()
-  for (const entity of intent.entities) {
-    const value = singularize(entity)
-    if (value && !isSpeciesStop(value)) terms.add(value)
-  }
-  for (const keyword of intent.keywords) {
-    const value = singularize(keyword)
-    if (value && !isSpeciesStop(value)) terms.add(value)
-  }
   const q = intent.normalizedQuery || intent.originalQuery.toLowerCase()
+  const allowBroadSpeciesExtraction = intent.type === "species"
+  const addSpeciesTerm = (raw: string) => {
+    const original = raw.trim().toLowerCase()
+    if (!original || isSpeciesStop(original)) return
+    const value = singularize(original)
+    if (value && !isSpeciesStop(value)) terms.add(value)
+  }
+  if (allowBroadSpeciesExtraction) {
+    for (const entity of intent.entities) addSpeciesTerm(entity)
+    for (const keyword of intent.keywords) addSpeciesTerm(keyword)
+  }
   const leadingEntity = q.match(/^([a-z][a-z\s'-]{1,40}?)\s+(?:near|in|around|over|by|at)\b/i)?.[1]
   if (leadingEntity) {
     const value = singularize(leadingEntity.split(/\s+/).slice(-2).join(" "))
-    if (value && !isSpeciesStop(value) && !INFRASTRUCTURE_ALIASES.some((alias) => alias.terms.some((term) => term.test(value)))) {
+    if (
+      value &&
+      !isSpeciesStop(value) &&
+      COMMON_SPECIES_TERMS.some((pattern) => pattern.test(value)) &&
+      !INFRASTRUCTURE_ALIASES.some((alias) => alias.terms.some((term) => term.test(value)))
+    ) {
       terms.add(value)
     }
   }

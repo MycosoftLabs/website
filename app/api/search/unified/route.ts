@@ -137,7 +137,7 @@ function isGenericLifeSearchQuery(q: string): boolean {
  */
 function queryLooksThematicForBiodiversitySearch(q: string): boolean {
   const s = q.toLowerCase()
-  return /\b(endangered|threatened|vulnerable|critically|extinct|extinction|\bcr\b|red\s*list|iucn|cites|conservation|rewild|re-?wild|poach|poaching|habitat\s+loss|biodiversity|invasive\s+species|native\s+species|endemic|rare\b)\b/i.test(s)
+  return /\b(endangered|threatened|vulnerable|critically|extinct|extinction|\bcr\b|red\s*list|iucn|cites|conservation|rewild|re-?wild|poach|poaching|habitat\s+loss|biodiversity|invasive\s+species|native\s+species|endemic|rare\b|migration|migratory|population(s)?|abundance|decline|trend|insects?|birds?)\b/i.test(s)
 }
 
 /** Ecology English — not genus/species names for derivedTaxonHintForLifeQuery */
@@ -152,6 +152,8 @@ const NON_TAXON_HINT_WORDS = new Set([
 const INAT_AVES_ID = "3"
 /** Class Mammalia */
 const INAT_MAMMALIA_CLASS_ID = "40151"
+/** Class Insecta */
+const INAT_INSECTA_CLASS_ID = "47158"
 
 // ---------------------------------------------------------------------------
 // Shared interfaces for API response shapes
@@ -1030,7 +1032,15 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
 function thematicObservationTaxonId(fullQuery: string, lifeScope: LifeScienceScope): string | undefined {
   if (/\bmammals?\b/i.test(fullQuery)) return INAT_MAMMALIA_CLASS_ID
   if (/\b(birds?)\b/i.test(fullQuery)) return INAT_AVES_ID
+  if (/\binsects?\b/i.test(fullQuery)) return INAT_INSECTA_CLASS_ID
   return inatTaxonIdForLifeScope(lifeScope)
+}
+
+function thematicObservationText(fullQuery: string, lifeScope: LifeScienceScope): string {
+  return stripLifeScienceEnglishNoise(fullQuery, lifeScope)
+    .replace(/\b(population(s)?|migration|migratory|abundance|decline|trend|near\s+me|nearby|local|202\d|now|current|live)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /** When taxon autocomplete returns nothing (thematic English queries), derive species cards from observation taxa */
@@ -1146,7 +1156,7 @@ async function searchINaturalistLiveObservations(
       const scopeId = thematicObservationTaxonId(full, lifeScope)
       if (scopeId) params.set("taxon_id", scopeId)
       else params.set("iconic_taxa", iconicTaxaParamForLifeScope(lifeScope))
-      const qText = stripLifeScienceEnglishNoise(full, lifeScope).trim() || full
+      const qText = thematicObservationText(full, lifeScope)
       if (qText.length >= 2) params.set("q", qText)
     } else if (query && !isGenericLifeSearchQuery(query)) {
       params.set("taxon_name", query)
@@ -1586,7 +1596,10 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
       // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
       // infrastructure, devices, space weather — all searched in parallel internally
-      searchEarthIntelligence(baseQuery, origin, limit).catch(() => null),
+      searchEarthIntelligence(baseQuery, origin, limit, {
+        lat: lat != null ? Number(lat) : undefined,
+        lng: lng != null ? Number(lng) : undefined,
+      }).catch(() => null),
       USE_MAS_SEARCH && !skipHeavyStackForEarthOnly && !isEarthquakeSearch
         ? callMASSearchExecute(
             {
@@ -1706,11 +1719,24 @@ export async function GET(request: NextRequest) {
       satellites: earthSatellites = [],
       weather: earthWeather = [],
       emissions: earthEmissions = [],
-      infrastructure: earthInfrastructure = [],
+      infrastructure: rawEarthInfrastructure = [],
       devices: earthDevices = [],
       space_weather: earthSpaceWeather = [],
       cameras: earthCameras = [],
     } = earthResults || {}
+    const emissionsSourceAssets = earthEmissions.map((row: Record<string, unknown>) => ({
+      id: `emission-source-${row.id}`,
+      type: "factory",
+      name: String(row.title || row.sourceType || "Emission source"),
+      description: String(row.description || `${row.type || "CO2"} emissions source`),
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      operator: String(row.sourceType || row.source || "Carbon Mapper"),
+      source: String(row.source || "Carbon Mapper"),
+    })).filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng))
+    const earthInfrastructure = rawEarthInfrastructure.length > 0
+      ? rawEarthInfrastructure
+      : emissionsSourceAssets
 
     const resultBuckets = {
       species,

@@ -4,6 +4,19 @@ import { searchElsevierArticles } from "@/lib/services/elsevier"
 import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
 import { searchCompounds } from "@/lib/data/compounds"
 import type { SearchSuggestion } from "@/types/search"
+import { getTrendReadinessPlans } from "@/lib/search/trend-readiness"
+
+function suggestionTypeFromWidgets(widgets: string[]): SearchSuggestion["type"] {
+  if (widgets.includes("satellites") || widgets.includes("space_assets")) return "satellite"
+  if (widgets.includes("vessels")) return "vessel"
+  if (widgets.includes("aircraft")) return "aircraft"
+  if (widgets.includes("weather")) return "weather"
+  if (widgets.includes("emissions")) return "emissions"
+  if (widgets.includes("infrastructure")) return "infrastructure"
+  if (widgets.includes("events")) return "event"
+  if (widgets.includes("space_weather")) return "space_weather"
+  return "category"
+}
 
 // Update the GET function to include compound search
 export async function GET(request: Request) {
@@ -13,18 +26,15 @@ export async function GET(request: Request) {
     const limit = Number(searchParams.get("limit")) || 10
 
     if (!query.trim()) {
-      // Return popular/featured items when no query
-      const featuredSuggestions = Object.values(SPECIES_MAPPING)
-        .slice(0, 5)
-        .map(
-          (species): SearchSuggestion => ({
-            id: species.iNaturalistId,
-            title: species.commonNames[0],
-            type: "fungi",
-            scientificName: species.scientificName,
-            url: `/species/${species.iNaturalistId}`,
-          }),
-        )
+      const readiness = await getTrendReadinessPlans({ geos: ["US", "GLOBAL"], limit: Math.max(limit, 8) })
+      const featuredSuggestions: SearchSuggestion[] = readiness.slice(0, limit).map((plan, index) => ({
+        id: `trend-ready-${index}-${plan.normalizedQuery.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        title: plan.normalizedQuery,
+        type: suggestionTypeFromWidgets(plan.widgetOrder),
+        description: `${plan.widgetOrder.slice(0, 4).join(" + ")} ready from ${plan.source.replace(/_/g, " ")}`,
+        url: `/search?q=${encodeURIComponent(plan.normalizedQuery)}`,
+        category: plan.categories[0] || "trend",
+      }))
 
       return NextResponse.json({ suggestions: featuredSuggestions })
     }

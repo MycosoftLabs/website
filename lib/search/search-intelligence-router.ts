@@ -121,10 +121,12 @@ export function classifyAndRoute(query: string): SearchRoute {
   let resolvedPrimaryWidget = primaryWidget
   let resolvedPrimaryWidgetSize = primaryWidgetSize
   let contextualSecondaryWidgets: WidgetType[] = [...secondaryWidgets]
+  const hasSpeciesFilter = earthContextFilters.enabledFilters.some((filter) => filter.category === "species")
+  const hasNonSpeciesFilter = earthContextFilters.enabledFilters.some((filter) => filter.category !== "species")
   const keepSpeciesPrimary =
-    intent.type === "species" ||
-    earthSearchRule.domain === "species" ||
-    earthContextFilters.enabledFilters.some((filter) => filter.category === "species")
+    hasSpeciesFilter &&
+    !hasNonSpeciesFilter &&
+    (intent.type === "species" || earthSearchRule.domain === "species")
   if ((earthContextFilters.isContextual || hasEarthSearchRule) && primaryWidget !== "earth" && !keepSpeciesPrimary) {
     resolvedPrimaryWidget = "earth"
     resolvedPrimaryWidgetSize = { width: 2, height: 3 }
@@ -137,6 +139,9 @@ export function classifyAndRoute(query: string): SearchRoute {
       (widget, index, widgets): widget is WidgetType =>
         Boolean(widget) && widget !== primaryWidget && widgets.indexOf(widget) === index
     )
+  }
+  if (hasSpeciesFilter && resolvedPrimaryWidget !== "species" && !contextualSecondaryWidgets.includes("species")) {
+    contextualSecondaryWidgets.unshift("species")
   }
 
   const route: SearchRoute = {
