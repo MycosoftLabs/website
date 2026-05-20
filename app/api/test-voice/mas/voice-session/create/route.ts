@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 export async function POST(req: NextRequest) {
   const masBaseUrl =
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${masBaseUrl.replace(/\/$/, "")}/api/voice/session/create`, {
       method: "POST",
       signal: AbortSignal.timeout(12000),
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body ?? {}),
       cache: "no-store",
     })

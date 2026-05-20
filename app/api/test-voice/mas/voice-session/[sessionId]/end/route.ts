@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 interface RouteContext {
   params: Promise<{ sessionId: string }>
@@ -26,6 +27,7 @@ export async function POST(_req: NextRequest, context: RouteContext) {
       {
         method: "POST",
         signal: AbortSignal.timeout(12000),
+        headers: masServiceHeaders(),
         cache: "no-store",
       }
     )

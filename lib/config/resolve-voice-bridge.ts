@@ -28,6 +28,9 @@ export function resolvePersonaplexBridgeBaseUrl(): string {
   if (fromEnv) {
     return fromEnv.replace(/\/$/, "")
   }
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:8999"
+  }
   return `http://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
 }
 
@@ -57,5 +60,34 @@ export function resolvePersonaplexBridgeWsBaseDefault(): string {
   if (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL) {
     return process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws").replace(/\/$/, "")
   }
+  if (process.env.NODE_ENV !== "production") {
+    return "ws://localhost:8999"
+  }
   return `ws://${process.env.NEXT_PUBLIC_GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
+}
+
+/**
+ * Ollama on Voice Legion (11434). When local GPU mode is active, Ollama binds to
+ * localhost only on this host — do not probe the LAN IP (241) or diagnostics false-fail.
+ */
+export function resolveVoiceOllamaTagsUrl(): string {
+  const host = isUseLocalVoiceForBridge()
+    ? process.env.OLLAMA_HOST || "localhost"
+    : process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE
+  return `http://${host}:11434/api/tags`
+}
+
+/**
+ * Earth-2 API health URL. Default doc IP 249 may be offline; on the combined Legion
+ * desktop, Earth-2 runs in WSL on localhost:8220 when USE_LOCAL_GPU is set.
+ */
+export function resolveEarth2HealthUrl(): string {
+  if (process.env.EARTH2_API_URL?.trim()) {
+    return `${process.env.EARTH2_API_URL.replace(/\/$/, "")}/health`
+  }
+  if (isUseLocalVoiceForBridge()) {
+    return "http://localhost:8220/health"
+  }
+  const ip = process.env.GPU_EARTH2_IP || GPU_LEGION_DEFAULTS.EARTH2
+  return `http://${ip}:8220/health`
 }

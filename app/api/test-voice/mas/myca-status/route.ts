@@ -3,6 +3,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 export async function GET() {
   const masBaseUrl =
@@ -14,7 +15,7 @@ export async function GET() {
     const res = await fetch(`${masBaseUrl.replace(/\/$/, "")}/api/myca/status`, {
       method: "GET",
       signal: AbortSignal.timeout(8000),
-      headers: { "Accept": "application/json" },
+      headers: masServiceHeaders({ "Accept": "application/json" }),
       cache: "no-store",
     })
 

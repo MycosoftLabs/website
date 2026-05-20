@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 export async function POST(req: NextRequest) {
   const masBaseUrl =
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       const res = await fetch(`${base}/a2a/v1/message/send`, {
         method: "POST",
         signal: AbortSignal.timeout(30000),
-        headers: { "Content-Type": "application/json" },
+        headers: masServiceHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(a2aBody),
         cache: "no-store",
       })
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${base}/voice/orchestrator/chat`, {
       method: "POST",
       signal: AbortSignal.timeout(12000),
-      headers: { "Content-Type": "application/json" },
+      headers: masServiceHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body ?? {}),
       cache: "no-store",
     })

@@ -78,6 +78,7 @@ import {
 import { cn } from "@/lib/utils"
 import { GPU_LEGION_DEFAULTS } from "@/lib/config/api-urls"
 import { resolvePersonaplexBridgeWsBaseDefault } from "@/lib/config/resolve-voice-bridge"
+import { VoiceSystemAuditPanel } from "@/components/voice/VoiceSystemAuditPanel"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 declare global {
@@ -118,7 +119,7 @@ interface TestLog {
 
 interface MASEvent {
   id: string
-  type: "tool_call" | "memory_write" | "memory_read" | "agent_invoke" | "system" | "feedback"
+  type: "tool_call" | "memory_write" | "memory_read" | "memory" | "agent_invoke" | "system" | "feedback" | "injection"
   source: string
   message: string
   timestamp: string
@@ -247,7 +248,8 @@ export default function VoiceTestPage() {
   const [protocolMode, setProtocolMode] = useState<"legacy" | "a2a">("legacy")
   const [lastProtocolMode, setLastProtocolMode] = useState<string | null>(null)
   /** PersonaPlex / Moshi voice id for Bridge `POST /session` (see MAS `SessionCreate.voice`). */
-  const [bridgeVoiceId, setBridgeVoiceId] = useState<"myca" | "moshika">("myca")
+  const [bridgeVoiceId, setBridgeVoiceId] = useState<"myca" | "moshika">("moshika")
+  const [moshiPending, setMoshiPending] = useState(false)
   
   // v9 Diagnostics - unified session rail for voice v9 architecture
   const [useV9Diagnostics, setUseV9Diagnostics] = useState(false)
@@ -561,13 +563,13 @@ export default function VoiceTestPage() {
       const diagRes = await fetch("/api/test-voice/diagnostics", {
         method: "GET",
         cache: "no-store",
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(5000),
       })
 
       if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
 
       const diag = await diagRes.json()
-      const serviceResults = (diag?.services || []) as { ok?: boolean; latencyMs?: number; data?: { version?: string; features?: Record<string, boolean> } }[]
+      const serviceResults = (diag?.services || []) as { ok?: boolean; latencyMs?: number; sloOk?: boolean; data?: { version?: string; features?: Record<string, boolean> } }[]
 
       const updatedServices: ServiceStatus[] = SERVICE_DEFS.map((def, i) => {
         const result = serviceResults[i]
@@ -586,7 +588,7 @@ export default function VoiceTestPage() {
         const s = updatedServices[i]
         addLog(
           s.status === "online" ? "success" : "error",
-          `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms)` : ""}`
+          `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms${result?.sloOk === false ? " SLOW" : ""})` : ""}`
         )
         if (i === 1 && serviceResults[i]?.data?.features) setBridgeFeatures(serviceResults[i].data!.features)
       }
@@ -767,6 +769,17 @@ export default function VoiceTestPage() {
           if (typeof event.data === "string") {
             const msg = JSON.parse(event.data)
             
+            if (msg.type === "bridge_ready") {
+              addLog("success", `Bridge ready — voice=${msg.voice}, prompt=${msg.voice_prompt}`)
+              setMoshiPending(true)
+              setJarvisMessage("Bridge connected. Waiting for Moshi CUDA graphs — do not speak until handshake completes.")
+              return
+            }
+            if (msg.type === "moshi_ready") {
+              addLog("success", `Moshi CUDA ready — ${msg.voice_prompt}`)
+              setMoshiPending(false)
+              return
+            }
             if (msg.type === "text") {
               // Text from Moshi (MYCA speaking)
               const text = msg.text?.trim()
@@ -864,7 +877,8 @@ export default function VoiceTestPage() {
               warmupIntervalRef.current = null
             }
             wsConnectedRef.current = true
-            addLog("success", "Moshi handshake OK! Full-duplex + MAS Event Engine active.")
+            addLog("success", "Moshi CUDA handshake OK — full-duplex + MAS Event Engine active.")
+            setMoshiPending(false)
             setWsConnected(true)
             setTestPhase("listening")
             setJarvisMessage("Connected! Speak naturally. MAS Event Engine is listening.")
@@ -1434,12 +1448,51 @@ export default function VoiceTestPage() {
     }
   }, [])
   
+  // Warm LAN TCP connections so probes stay in double-digit ms
+  useEffect(() => {
+    const warm = () => {
+      fetch("/api/test-voice/ping", { cache: "no-store" }).catch(() => {})
+    }
+    warm()
+    const id = setInterval(warm, 30000)
+    return () => clearInterval(id)
+  }, [])
+
   useEffect(() => {
     addLog("info", "MYCA Voice Suite v9.0.0 - Full Consciousness Integration")
     addLog("info", "February 12, 2026")
     addLog("info", "CUDA graphs warmup support + Consciousness modules + Memory bridge")
+    addLog("info", "Default voice: Moshika / NATF2 (PersonaPlex female) — ElevenLabs not used")
     checkServices()
   }, [addLog, checkServices])
+
+  // Persist debug logs for agent review (artifacts/voice-debug/latest.jsonl)
+  useEffect(() => {
+    const syncLogs = () => {
+      if (logs.length === 0) return
+      fetch("/api/test-voice/debug-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logs: logs.slice(-40).map((l) => ({
+            level: l.level,
+            message: l.message,
+            details: l.details,
+            timestamp: l.timestamp.toISOString(),
+          })),
+          meta: {
+            sessionId: sessionIdRef.current,
+            phase: testPhase,
+            wsConnected,
+            moshiPending,
+            bridgeVoiceId,
+          },
+        }),
+      }).catch(() => {})
+    }
+    const id = setInterval(syncLogs, 15000)
+    return () => clearInterval(id)
+  }, [logs, testPhase, wsConnected, moshiPending, bridgeVoiceId])
   
   // Waveform component
   const Waveform = ({ data, color, label }: { data: number[], color: string, label: string }) => (
@@ -1478,8 +1531,14 @@ export default function VoiceTestPage() {
         <div className="rounded-xl p-3 mb-4 border bg-cyan-900/20 border-cyan-800/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
+              <div className={cn(
+                "w-3 h-3 rounded-full",
+                wsConnected ? "bg-green-400" : moshiPending ? "bg-amber-400 animate-pulse" : "bg-cyan-400 animate-pulse"
+              )} />
               <p className="text-sm">{jarvisMessage}</p>
+              {moshiPending && !wsConnected && (
+                <Badge variant="outline" className="text-amber-400 border-amber-700 text-[10px]">Moshi warmup</Badge>
+              )}
             </div>
             {/* Text Clone Status */}
             {textCloneStatus !== "idle" && (
@@ -1499,6 +1558,11 @@ export default function VoiceTestPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left Column: Controls + Conversation */}
           <div className="lg:col-span-3 space-y-4">
+            <VoiceSystemAuditPanel
+              onLog={(level, message, details) => addLog(level, message, details)}
+              pollMs={10000}
+              autoStartWhenOffline
+            />
             {/* Services */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
               <div className="flex items-center justify-between mb-2">
@@ -1520,7 +1584,12 @@ export default function VoiceTestPage() {
                        <RefreshCw className="w-3 h-3 text-zinc-400 animate-spin" />}
                       <span className="truncate">{service.name}</span>
                     </div>
-                    {service.latency && <span className="text-green-400">{service.latency}ms</span>}
+                    {service.latency && (
+                      <span className={cn(
+                        service.latency <= 50 ? "text-emerald-400" :
+                        service.latency <= 100 ? "text-yellow-400" : "text-orange-400"
+                      )}>{service.latency}ms</span>
+                    )}
                   </div>
                 ))}
                 <p className="text-[10px] text-zinc-500 mt-2 pt-2 border-t border-zinc-800 truncate" title={bridgeWsBaseUrl}>
@@ -1592,7 +1661,7 @@ export default function VoiceTestPage() {
             <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-3 text-xs">
               <h3 className="font-semibold text-amber-400 mb-1">Before first use</h3>
               <p className="text-amber-200/90">
-                Run <code className="px-1 py-0.5 bg-zinc-800 rounded">python START_VOICE_SYSTEM.py</code> from the <strong>MAS repo</strong> and wait for &quot;VOICE SYSTEM READY&quot;. First run can take 2–3 minutes (CUDA graph compilation).
+                Voice stack auto-starts via <code className="px-1 py-0.5 bg-zinc-800 rounded">START_VOICE_SYSTEM.py</code> when Moshi/Bridge ports are closed. First run: 2–3 min CUDA graph compile. Voice: <strong>Moshika / NATF2</strong> (PersonaPlex female).
               </p>
             </div>
             
@@ -1614,8 +1683,8 @@ export default function VoiceTestPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="myca" className="min-h-[44px]">MYCA (default)</SelectItem>
-                    <SelectItem value="moshika" className="min-h-[44px]">Moshika / Nat2 (female)</SelectItem>
+                    <SelectItem value="moshika" className="min-h-[44px]">Moshika / NATF2 (female, recommended)</SelectItem>
+                    <SelectItem value="myca" className="min-h-[44px]">MYCA alias</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-zinc-500">
