@@ -18,6 +18,7 @@ import {
   resolveMoshiHostForProbe,
   resolvePersonaplexBridgeBaseUrl,
 } from "@/lib/config/resolve-voice-bridge"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 interface CheckResult {
   ok: boolean
@@ -44,14 +45,18 @@ function tcpPing(host: string, port: number, timeoutMs = 3000): Promise<boolean>
 async function checkUrl(
   url: string,
   tcpFallback = false,
-  timeoutMs = 9000
+  timeoutMs = 9000,
+  extraHeaders: HeadersInit = {}
 ): Promise<CheckResult> {
   const startedAt = Date.now()
   try {
     const res = await fetch(url, {
       method: "GET",
       signal: AbortSignal.timeout(timeoutMs),
-      headers: { "Accept": "application/json, text/plain, */*" },
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        ...extraHeaders,
+      },
       cache: "no-store",
     })
 
@@ -111,11 +116,12 @@ export async function GET() {
   const BRIDGE_TIMEOUT_MS = 5000
   // MAS memory/health can exceed 5s on cold VM; align with voice path (bridge uses same host).
   const MAS_HTTP_TIMEOUT_MS = 12000
+  const masAuthHeaders = masServiceHeaders()
   const [bridge, myca, memory, mycaBrain, mindex, ollama, earth2] = await Promise.all([
     checkUrl(bridgeHealthUrl, true, BRIDGE_TIMEOUT_MS),
     checkUrl(masLiveUrl, false, MAS_HTTP_TIMEOUT_MS),
-    checkUrl(masMemoryHealthUrl, false, MAS_HTTP_TIMEOUT_MS),
-    checkUrl(mycaBrainStatusUrl, false, MAS_HTTP_TIMEOUT_MS),
+    checkUrl(masMemoryHealthUrl, false, MAS_HTTP_TIMEOUT_MS, masAuthHeaders),
+    checkUrl(mycaBrainStatusUrl, false, MAS_HTTP_TIMEOUT_MS, masAuthHeaders),
     checkUrl(MINDEX_ENDPOINTS.HEALTH, false, MAS_HTTP_TIMEOUT_MS),
     checkUrl(voiceOllamaUrl, false, 6000),
     checkUrl(earth2HealthUrl, false, 6000),

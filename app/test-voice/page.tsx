@@ -561,7 +561,7 @@ export default function VoiceTestPage() {
       const diagRes = await fetch("/api/test-voice/diagnostics", {
         method: "GET",
         cache: "no-store",
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(35000),
       })
 
       if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
@@ -1793,10 +1793,10 @@ export default function VoiceTestPage() {
                     outputActive={isSpeaking}
                     onMicToggle={() => {
                       if (isRecognizing) stopAudioCapture()
-                      else if (testPhase === "voice" && wsRef.current) startAudioCapture(wsRef.current)
+                      else if (testPhase === "listening" && wsRef.current) startAudioCapture(wsRef.current)
                     }}
                     onOutputToggle={() => {}}
-                    disabled={testPhase !== "voice"}
+                    disabled={testPhase !== "listening"}
                   />
                 </div>
                 <LiveTranscriptPane
