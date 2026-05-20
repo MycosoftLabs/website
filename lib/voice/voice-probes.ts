@@ -6,7 +6,9 @@ import * as net from "net"
 import { MINDEX_ENDPOINTS, GPU_LEGION_DEFAULTS } from "@/lib/config/api-urls"
 import {
   isUseLocalVoiceForBridge,
+  normalizeProbeHost,
   resolveEarth2HealthUrl,
+  resolveLocalLoopbackHost,
   resolveMoshiHostForProbe,
   resolvePersonaplexBridgeBaseUrl,
   resolveVoiceOllamaTagsUrl,
@@ -38,6 +40,7 @@ function masBaseUrl(): string {
 }
 
 export function tcpPing(host: string, port: number, timeoutMs = 800): Promise<{ ok: boolean; latencyMs: number }> {
+  const probeHost = normalizeProbeHost(host)
   const started = Date.now()
   return new Promise((resolve) => {
     const socket = new net.Socket()
@@ -49,7 +52,7 @@ export function tcpPing(host: string, port: number, timeoutMs = 800): Promise<{ 
     socket.once("connect", () => done(true))
     socket.once("error", () => done(false))
     socket.once("timeout", () => done(false))
-    socket.connect(port, host)
+    socket.connect(port, probeHost)
   })
 }
 
@@ -148,6 +151,7 @@ export async function runCriticalVoiceProbes(): Promise<{
   const masBase = masBaseUrl()
   const bridgeBase = resolvePersonaplexBridgeBaseUrl().replace(/\/$/, "")
   const moshiHost = resolveMoshiHostForProbe()
+  const bridgeHost = normalizeProbeHost(new URL(bridgeBase).hostname)
   const masAuth = masServiceHeaders()
 
   const [bridge, masLive, mindex, moshiTcp, bridgeTcp] = await Promise.all([
@@ -166,7 +170,7 @@ export async function runCriticalVoiceProbes(): Promise<{
       sloOk: r.ok && r.latencyMs <= LAN_SLO_MS,
       critical: true,
     })),
-    tcpPing(new URL(bridgeBase).hostname, 8999, 800).then((r) => ({
+    tcpPing(bridgeHost, 8999, 800).then((r) => ({
       id: "bridge_tcp",
       name: "Bridge TCP :8999",
       ok: r.ok,

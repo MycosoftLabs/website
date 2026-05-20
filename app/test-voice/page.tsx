@@ -193,6 +193,7 @@ export default function VoiceTestPage() {
   const logsEndRef = useRef<HTMLDivElement>(null)
   
   const [testPhase, setTestPhase] = useState<"idle" | "checking" | "ready" | "listening" | "complete">("idle")
+  const [voiceReady, setVoiceReady] = useState(false)
   const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v9.0.0 - Consciousness Active...")
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown")
   
@@ -550,57 +551,92 @@ export default function VoiceTestPage() {
     }
   }, [addLog])
   
-  // Check services — uses SERVICE_DEFS (not services state) to avoid dependency loop
+  // Check services — retry on HMR/compile timeout; fall back to fast ping
   const checkServices = useCallback(async () => {
     setTestPhase("checking")
     addLog("info", "Running diagnostics...")
-    setJarvisMessage("Running full diagnostics on voice systems...")
+    setJarvisMessage("Running voice diagnostics...")
 
     const fallbackOffline: ServiceStatus[] = SERVICE_DEFS.map((d) => ({ ...d, status: "offline" as const }))
     let finalServices = fallbackOffline
+    let diagVoiceReady = false
 
-    try {
-      const diagRes = await fetch("/api/test-voice/diagnostics", {
-        method: "GET",
-        cache: "no-store",
-        signal: AbortSignal.timeout(5000),
-      })
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const diagRes = await fetch("/api/test-voice/diagnostics", {
+          method: "GET",
+          cache: "no-store",
+          signal: AbortSignal.timeout(12000),
+        })
+        if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
+        const diag = await diagRes.json()
+        diagVoiceReady = Boolean(diag?.voiceReady)
+        const serviceResults = (diag?.services || []) as {
+          ok?: boolean
+          latencyMs?: number
+          sloOk?: boolean
+          data?: { version?: string; features?: Record<string, boolean> }
+        }[]
 
-      if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
+        const updatedServices: ServiceStatus[] = SERVICE_DEFS.map((def, i) => {
+          const result = serviceResults[i]
+          const latency = typeof result?.latencyMs === "number" ? result.latencyMs : undefined
+          const isOnline = Boolean(result?.ok)
+          return {
+            ...def,
+            status: isOnline ? "online" : "offline",
+            latency,
+            version: result?.data?.version,
+            features: result?.data?.features,
+          }
+        })
 
-      const diag = await diagRes.json()
-      const serviceResults = (diag?.services || []) as { ok?: boolean; latencyMs?: number; sloOk?: boolean; data?: { version?: string; features?: Record<string, boolean> } }[]
-
-      const updatedServices: ServiceStatus[] = SERVICE_DEFS.map((def, i) => {
-        const result = serviceResults[i]
-        const latency = typeof result?.latencyMs === "number" ? result.latencyMs : undefined
-        const isOnline = Boolean(result?.ok)
-        return {
-          ...def,
-          status: isOnline ? "online" : "offline",
-          latency,
-          version: result?.data?.version,
-          features: result?.data?.features,
+        for (let i = 0; i < updatedServices.length; i++) {
+          const s = updatedServices[i]
+          const result = serviceResults[i]
+          if (attempt === 1) {
+            addLog(
+              s.status === "online" ? "success" : "error",
+              `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms${result?.sloOk === false ? " SLOW" : ""})` : ""}`
+            )
+          }
+          if (i === 1 && result?.data?.features) setBridgeFeatures(result.data.features)
         }
-      })
 
-      for (let i = 0; i < updatedServices.length; i++) {
-        const s = updatedServices[i]
-        addLog(
-          s.status === "online" ? "success" : "error",
-          `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms${result?.sloOk === false ? " SLOW" : ""})` : ""}`
-        )
-        if (i === 1 && serviceResults[i]?.data?.features) setBridgeFeatures(serviceResults[i].data!.features)
+        finalServices = updatedServices
+        setServices(updatedServices)
+        break
+      } catch (error) {
+        if (attempt < 3) {
+          addLog("warn", `Diagnostics attempt ${attempt} failed, retrying...`)
+          await new Promise((r) => setTimeout(r, 1500))
+          continue
+        }
+        addLog("error", `Diagnostics error: ${error}`)
+        try {
+          const pingRes = await fetch("/api/test-voice/ping", { cache: "no-store", signal: AbortSignal.timeout(8000) })
+          if (pingRes.ok) {
+            const ping = await pingRes.json()
+            diagVoiceReady = Boolean(ping?.voiceReady)
+            if (diagVoiceReady) {
+              addLog("success", "Fast ping fallback: voice stack ready")
+              finalServices = SERVICE_DEFS.map((d, i) => ({
+                ...d,
+                status: i <= 2 ? ("online" as const) : ("offline" as const),
+              }))
+              setServices(finalServices)
+            } else {
+              setServices(fallbackOffline)
+            }
+          } else {
+            setServices(fallbackOffline)
+          }
+        } catch {
+          setServices(fallbackOffline)
+        }
       }
-
-      finalServices = updatedServices
-      setServices(updatedServices)
-    } catch (error) {
-      addLog("error", `Diagnostics error: ${error}`)
-      setServices(fallbackOffline)
     }
 
-    // Check microphone
     try {
       const permission = await navigator.permissions.query({ name: "microphone" as PermissionName })
       setMicPermission(permission.state === "granted" ? "granted" : permission.state === "denied" ? "denied" : "unknown")
@@ -609,17 +645,20 @@ export default function VoiceTestPage() {
     const bridgeOnline = finalServices[1].status === "online"
     const moshiOnline = finalServices[0].status === "online"
     const masOnline = finalServices[2].status === "online"
+    const ready = diagVoiceReady || (bridgeOnline && moshiOnline && masOnline)
+    setVoiceReady(ready)
 
-    if (bridgeOnline && moshiOnline && masOnline) {
+    if (ready) {
       setTestPhase("ready")
-      setJarvisMessage("All systems ready. MYCA Consciousness active. Click Start to talk!")
+      setJarvisMessage("All systems ready. Click Start MYCA Voice to talk with Moshika!")
       setIsPollingConsciousness(true)
     } else if (bridgeOnline) {
       setTestPhase("ready")
-      setJarvisMessage("Bridge ready. Consciousness loading...")
+      setJarvisMessage("Bridge ready. Waiting for MAS/Moshi...")
+      setVoiceReady(true)
     } else {
       setTestPhase("idle")
-      setJarvisMessage("PersonaPlex Bridge offline. Bring the bridge online, then re-run diagnostics.")
+      setJarvisMessage("Voice stack offline — click Start Stack in the probe panel.")
     }
   }, [addLog])
   
@@ -1560,6 +1599,7 @@ export default function VoiceTestPage() {
           <div className="lg:col-span-3 space-y-4">
             <VoiceSystemAuditPanel
               onLog={(level, message, details) => addLog(level, message, details)}
+              onVoiceReadyChange={setVoiceReady}
               pollMs={10000}
               autoStartWhenOffline
             />
@@ -1659,9 +1699,10 @@ export default function VoiceTestPage() {
             
             {/* Prerequisites - visible before first use */}
             <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-3 text-xs">
-              <h3 className="font-semibold text-amber-400 mb-1">Before first use</h3>
+              <h3 className="font-semibold text-amber-400 mb-1">Voice stack</h3>
               <p className="text-amber-200/90">
-                Voice stack auto-starts via <code className="px-1 py-0.5 bg-zinc-800 rounded">START_VOICE_SYSTEM.py</code> when Moshi/Bridge ports are closed. First run: 2–3 min CUDA graph compile. Voice: <strong>Moshika / NATF2</strong> (PersonaPlex female).
+                Moshi + Bridge run locally on <code className="px-1 py-0.5 bg-zinc-800 rounded">127.0.0.1:8998/8999</code>.
+                Use <strong>Start Stack</strong> above if ports are closed. Voice: <strong>Moshika / NATF2</strong>.
               </p>
             </div>
             
@@ -1700,7 +1741,7 @@ export default function VoiceTestPage() {
               ) : (
                 <Button 
                   onClick={startMycaVoice}
-                  disabled={services[1].status !== "online"}
+                  disabled={!voiceReady && services[1].status !== "online"}
                   className="w-full bg-green-600 hover:bg-green-700"
                   size="sm"
                 >

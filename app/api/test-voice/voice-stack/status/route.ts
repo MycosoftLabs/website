@@ -5,11 +5,12 @@ import { NextResponse } from "next/server"
 import * as net from "net"
 import {
   isUseLocalVoiceForBridge,
+  normalizeProbeHost,
   resolveMoshiHostForProbe,
   resolvePersonaplexBridgeBaseUrl,
 } from "@/lib/config/resolve-voice-bridge"
 
-function tcpOpen(host: string, port: number, timeoutMs = 800): Promise<boolean> {
+function tcpOpen(host: string, port: number, timeoutMs = 1200): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket()
     const done = (ok: boolean) => {
@@ -20,7 +21,7 @@ function tcpOpen(host: string, port: number, timeoutMs = 800): Promise<boolean> 
     socket.once("connect", () => done(true))
     socket.once("error", () => done(false))
     socket.once("timeout", () => done(false))
-    socket.connect(port, host)
+    socket.connect(port, normalizeProbeHost(host))
   })
 }
 

@@ -32,22 +32,10 @@ type PingPayload = {
   sloTargetMs: number
   totalMs: number
   slow?: { id: string; latencyMs: number }[]
+  offline?: { id: string; error?: string }[]
   probes: PingProbe[]
+  config?: { bridgeBase?: string; moshiHost?: string }
   timestamp?: string
-}
-
-type StackStatus = {
-  readyForVoice?: boolean
-  moshiAvailable?: boolean
-  ports?: {
-    moshi8998?: { open: boolean; host: string }
-    bridge8999?: { open: boolean; host: string }
-  }
-  cuda?: {
-    handshakeTimeoutSec?: number
-    expectedCompileSec?: string
-    noCudaGraphEnv?: string
-  }
 }
 
 function latencyClass(ms: number, ok: boolean): string {
@@ -59,19 +47,21 @@ function latencyClass(ms: number, ok: boolean): string {
 
 interface VoiceSystemAuditPanelProps {
   onLog?: (level: "info" | "success" | "error" | "warn", message: string, details?: string) => void
+  onVoiceReadyChange?: (ready: boolean) => void
   pollMs?: number
   autoStartWhenOffline?: boolean
 }
 
 export function VoiceSystemAuditPanel({
   onLog,
+  onVoiceReadyChange,
   pollMs = 10000,
   autoStartWhenOffline = true,
 }: VoiceSystemAuditPanelProps) {
   const [ping, setPing] = useState<PingPayload | null>(null)
-  const [stack, setStack] = useState<StackStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [startMessage, setStartMessage] = useState<string | null>(null)
   const [autoStartDone, setAutoStartDone] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
 
@@ -79,15 +69,20 @@ export function VoiceSystemAuditPanel({
     setLoading(true)
     setLastError(null)
     try {
-      const [pingRes, stackRes] = await Promise.all([
-        fetch("/api/test-voice/ping?optional=1", { cache: "no-store", signal: AbortSignal.timeout(4000) }),
-        fetch("/api/test-voice/voice-stack/status", { cache: "no-store", signal: AbortSignal.timeout(3000) }),
-      ])
-      if (pingRes.ok) setPing((await pingRes.json()) as PingPayload)
-      else setLastError(`Ping HTTP ${pingRes.status}`)
-      if (stackRes.ok) setStack((await stackRes.json()) as StackStatus)
+      const pingRes = await fetch("/api/test-voice/ping?optional=1", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(12000),
+      })
+      if (!pingRes.ok) {
+        setLastError(`Ping HTTP ${pingRes.status}`)
+        return
+      }
+      setPing((await pingRes.json()) as PingPayload)
     } catch (e) {
-      setLastError(String(e))
+      const msg = String(e)
+      setLastError(msg.includes("TimeoutError") || msg.includes("timeout")
+        ? "Probe timed out — Next.js may be compiling; retry in a few seconds"
+        : msg)
     } finally {
       setLoading(false)
     }
@@ -95,26 +90,39 @@ export function VoiceSystemAuditPanel({
 
   const startVoiceStack = useCallback(async () => {
     setStarting(true)
+    setStartMessage("Launching START_VOICE_SYSTEM.py…")
     onLog?.("info", "Starting voice stack via START_VOICE_SYSTEM.py...")
     try {
-      const res = await fetch("/api/test-voice/voice-stack/start", { method: "POST" })
+      const res = await fetch("/api/test-voice/voice-stack/start", {
+        method: "POST",
+        signal: AbortSignal.timeout(15000),
+      })
       const data = (await res.json()) as {
         ok?: boolean
         error?: string
         pid?: number
         logFile?: string
         message?: string
+        alreadyRunning?: boolean
       }
       if (data.ok) {
-        onLog?.("success", data.message || `Voice stack PID ${data.pid}`, data.logFile)
+        const msg = data.alreadyRunning
+          ? "Voice stack already running on ports 8998/8999"
+          : data.message || `Voice stack PID ${data.pid}`
+        setStartMessage(msg)
+        onLog?.("success", msg, data.logFile)
       } else {
-        onLog?.("error", data.error || "Voice stack start failed")
+        const err = data.error || `Start failed (HTTP ${res.status})`
+        setStartMessage(err)
+        onLog?.("error", err)
       }
     } catch (e) {
-      onLog?.("error", "Voice stack start failed", String(e))
+      const err = `Voice stack start failed: ${e}`
+      setStartMessage(err)
+      onLog?.("error", err)
     } finally {
       setStarting(false)
-      setTimeout(refresh, 3000)
+      setTimeout(refresh, 2000)
     }
   }, [onLog, refresh])
 
@@ -124,20 +132,25 @@ export function VoiceSystemAuditPanel({
     return () => clearInterval(id)
   }, [refresh, pollMs])
 
+  const moshiTcp = ping?.probes.find((p) => p.id === "moshi_tcp")
+  const bridgeTcp = ping?.probes.find((p) => p.id === "bridge_tcp")
+  const portsOpen = Boolean(moshiTcp?.ok && bridgeTcp?.ok)
+
   useEffect(() => {
-    if (!autoStartWhenOffline || autoStartDone || !stack) return
-    const bridgeDown = !stack.ports?.bridge8999?.open
-    const moshiDown = !stack.ports?.moshi8998?.open
-    if (bridgeDown || moshiDown) {
+    if (!autoStartWhenOffline || autoStartDone || !ping) return
+    if (!portsOpen) {
       setAutoStartDone(true)
       startVoiceStack()
     }
-  }, [stack, autoStartWhenOffline, autoStartDone, startVoiceStack])
+  }, [ping, portsOpen, autoStartWhenOffline, autoStartDone, startVoiceStack])
 
-  const criticalProbes = ping?.probes.filter((p) => p.critical !== false) ?? []
-  const criticalPass = criticalProbes.filter((p) => p.ok).length
+  const criticalProbes = ping?.probes.filter((p) => p.critical !== false && !p.id.endsWith("_tcp")) ?? []
   const voiceReady = ping?.voiceReady ?? false
   const sloPass = ping?.sloPass ?? false
+
+  useEffect(() => {
+    if (ping) onVoiceReadyChange?.(ping.voiceReady)
+  }, [ping, onVoiceReadyChange])
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
@@ -151,19 +164,25 @@ export function VoiceSystemAuditPanel({
             variant="outline"
             size="sm"
             className="h-7 text-xs"
-            onClick={startVoiceStack}
+            onClick={() => void startVoiceStack()}
             disabled={starting}
           >
             <Play className={cn("w-3 h-3 mr-1", starting && "animate-pulse")} />
-            {starting ? "Starting…" : "Start Stack"}
+            {starting ? "Starting…" : portsOpen ? "Restart Stack" : "Start Stack"}
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={refresh} disabled={loading}>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => void refresh()} disabled={loading}>
             <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
           </Button>
         </div>
       </div>
 
       <div className="p-3 space-y-3">
+        {startMessage && (
+          <div className="text-[10px] text-cyan-300 bg-cyan-950/30 border border-cyan-800/40 rounded px-2 py-1">
+            {startMessage}
+          </div>
+        )}
+
         <div
           className={cn(
             "rounded-lg px-3 py-2 flex items-center gap-2 text-xs",
@@ -183,12 +202,12 @@ export function VoiceSystemAuditPanel({
             <div className="font-medium">
               {voiceReady
                 ? sloPass
-                  ? `All services online — under ${SLO_MS}ms SLO`
-                  : `Online but slow — target ≤${SLO_MS}ms per probe`
+                  ? `Voice suite ready — click Start MYCA Voice`
+                  : `Online — some probes over ${SLO_MS}ms`
                 : "Voice suite not ready"}
             </div>
             <div className="text-[10px] opacity-80 truncate">
-              Batch {ping?.totalMs ?? "—"}ms • {criticalPass}/{criticalProbes.length} critical • Moshika/NATF2
+              Batch {ping?.totalMs ?? "—"}ms • Moshika/NATF2 via PersonaPlex
             </div>
           </div>
         </div>
@@ -202,19 +221,17 @@ export function VoiceSystemAuditPanel({
         <div className="grid grid-cols-2 gap-2 text-[10px]">
           <div className="bg-zinc-950 rounded-lg p-2 border border-zinc-800">
             <div className="flex items-center gap-1 text-zinc-400 mb-1">
-              <Server className="w-3 h-3" /> Ports
+              <Server className="w-3 h-3" /> Ports (127.0.0.1)
             </div>
-            <PortLine label="Moshi :8998" ok={stack?.ports?.moshi8998?.open} host={stack?.ports?.moshi8998?.host} />
-            <PortLine label="Bridge :8999" ok={stack?.ports?.bridge8999?.open} host={stack?.ports?.bridge8999?.host} />
+            <PortLine label="Moshi :8998" ok={moshiTcp?.ok} ms={moshiTcp?.latencyMs} />
+            <PortLine label="Bridge :8999" ok={bridgeTcp?.ok} ms={bridgeTcp?.latencyMs} />
           </div>
           <div className="bg-zinc-950 rounded-lg p-2 border border-zinc-800">
             <div className="flex items-center gap-1 text-zinc-400 mb-1">
-              <Cpu className="w-3 h-3" /> LAN SLO
+              <Cpu className="w-3 h-3" /> CUDA
             </div>
-            <p className="text-zinc-300">≤{SLO_MS}ms per health probe (Cat8 LAN)</p>
-            <p className="text-zinc-500 mt-0.5">
-              CUDA inference ~30ms/step • one-time compile 60–180s
-            </p>
+            <p className="text-zinc-300">NO_CUDA_GRAPH=0</p>
+            <p className="text-zinc-500 mt-0.5">First connect: 60–180s compile</p>
           </div>
         </div>
 
@@ -258,9 +275,7 @@ export function VoiceSystemAuditPanel({
         )}
 
         <div className="text-[10px] text-zinc-600 flex justify-between pt-1 border-t border-zinc-800">
-          <span>
-            {sloPass ? "SLO pass" : ping?.slow?.length ? `${ping.slow.length} slow` : "warming…"}
-          </span>
+          <span>{portsOpen ? "Ports open" : "Ports closed — use Start Stack"}</span>
           <span>{ping?.timestamp ? new Date(ping.timestamp).toLocaleTimeString() : "—"}</span>
         </div>
       </div>
@@ -268,13 +283,12 @@ export function VoiceSystemAuditPanel({
   )
 }
 
-function PortLine({ label, ok, host }: { label: string; ok?: boolean; host?: string }) {
+function PortLine({ label, ok, ms }: { label: string; ok?: boolean; ms?: number }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <span className="text-zinc-300">{label}</span>
       <span className={ok ? "text-green-400" : "text-red-400"}>
-        {ok ? "OPEN" : "CLOSED"}
-        {host ? ` (${host})` : ""}
+        {ok ? `OPEN${ms != null ? ` ${ms}ms` : ""}` : "CLOSED"}
       </span>
     </div>
   )
