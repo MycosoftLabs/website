@@ -10,7 +10,7 @@
 #   3. Pull new image from GHCR into the idle slot's image env var
 #   4. Start idle slot container
 #   5. Wait for idle /api/health to pass 3× in a row (max 180s)
-#   6. Render nginx conf.d pointing at idle slot + `nginx -s reload` inside proxy
+#   6. Sync nginx.conf, render conf.d pointing at idle slot + `nginx -s reload` inside proxy
 #   7. Flip /opt/mycosoft/state/active-slot to the new slot
 #   8. Purge Cloudflare cache (purge_everything)
 #   9. Public verification: mycosoft.com must serve the new slot (check header)
@@ -93,6 +93,18 @@ cd "$DEPLOY_DIR"
 
 # ───── Helpers ──────────────────────────────────────────────────────────────
 compose() { docker compose "${COMPOSE_FILES[@]}" "$@"; }
+
+install_nginx_base_conf() {
+  local src="$DEPLOY_DIR/deploy/nginx/nginx.conf"
+  local dst="$NGINX_DIR/nginx.conf"
+  [[ -f "$src" ]] || { err "Missing nginx base config: $src"; return 1; }
+  if [[ ! -f "$dst" ]] || ! cmp -s "$src" "$dst"; then
+    cp "$src" "$dst"
+    ok "Installed nginx base config ($dst)"
+  else
+    log "nginx base config already current"
+  fi
+}
 
 render_nginx_conf_for() {
   local target="$1" # "blue" or "green"
@@ -217,6 +229,7 @@ if [[ "$MODE" == "rollback" ]]; then
     fi
     wait_healthy "$IDLE" || { err "Rollback failed — idle slot didn't come back"; exit 6; }
   fi
+  install_nginx_base_conf
   render_nginx_conf_for "$IDLE"
   reload_proxy
   echo "$IDLE" > "$ACTIVE_FILE"
@@ -277,6 +290,7 @@ if ! wait_healthy "$IDLE"; then
 fi
 
 # 4. Render nginx conf.d pointing at idle slot + graceful reload
+install_nginx_base_conf
 render_nginx_conf_for "$IDLE"
 if ! reload_proxy; then
   err "nginx reload failed — REVERTING conf"
