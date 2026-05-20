@@ -50,6 +50,21 @@ PUBLIC_HOST="${PUBLIC_HOST:-mycosoft.com}"
 CF_ZONE_ID="${CF_ZONE_ID:-}"
 CF_API_TOKEN="${CF_API_TOKEN:-}"
 
+# VM-local secrets for manual / SSH deploys (CI passes CF_* via workflow env).
+# File is NOT in git — install with scripts/install-vm-deploy-env.sh on the VM.
+load_deploy_env() {
+  local f="${DEPLOY_ENV_FILE:-/opt/mycosoft/deploy.env}"
+  if [[ -f "$f" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$f"
+    set +a
+  fi
+  CF_ZONE_ID="${CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID_PRODUCTION:-${CLOUDFLARE_ZONE_ID:-}}}"
+  CF_API_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
+}
+load_deploy_env
+
 # ───── Logging ──────────────────────────────────────────────────────────────
 c_red=$'\033[0;31m'; c_grn=$'\033[0;32m'; c_ylw=$'\033[1;33m'; c_blu=$'\033[0;34m'; c_clr=$'\033[0m'
 _ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
