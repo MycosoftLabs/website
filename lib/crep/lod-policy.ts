@@ -252,18 +252,27 @@ export function applyLODToNature<T extends { observed_on?: string | null; qualit
 }
 
 /**
- * Moving assets are culled by viewport, not by zoom budgets.
- * A plane, vessel, or satellite already visible in the viewport must not
- * disappear just because the user zooms or moves the mouse.
+ * Moving assets are culled by viewport AND by the per-tier render budget.
+ *
+ * May 21 2026 (Morgan): the original implementation was a no-op so that
+ * planes/vessels/sats already visible would never vanish mid-pan. But the
+ * caller already does the bbox cull upstream (cullByBbox + expandedBbox)
+ * before handing us the filtered set, so by the time items reach this
+ * function they're all "in viewport". Enforcing the policy's per-tier cap
+ * here gives Morgan the level-of-detail behavior they expected — globe
+ * view caps at 2500 aircraft, continent at 3500, region at 5000, etc.
+ * Items are kept in entry order, which is the upstream's recency-ranked
+ * order, so the freshest assets always survive the cap.
  */
 export function applyLODToMovers<T>(
   items: T[],
   kind: "aircraft" | "vessels" | "satellites",
   zoom: number,
 ): T[] {
-  void kind
-  void zoom
-  return items
+  const lod = getLODForZoom(zoom)
+  const cap = lod.movers[kind]
+  if (!Number.isFinite(cap) || cap <= 0 || items.length <= cap) return items
+  return items.slice(0, cap)
 }
 
 /**

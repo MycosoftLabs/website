@@ -4977,6 +4977,18 @@ export default function CREPDashboardPage({
     { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both. OFF by default (Morgan: too much on load) — stacked raster layers + 5-min weather poll add up. Toggle on when you want cloud cover in the view." },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay). OFF by default (Morgan: too much on load) — polls DONKI + NOAA SWPC + aurora oval APIs on mount. Toggle on when space-weather view is the focus." },
 
+    // May 21 2026 (Morgan: "where are the filters for the FEMA regions and
+    // everything else that is on the map?"). addJurisdictionLayers used to
+    // paint country/state/county borders + FEMA region overlays
+    // unconditionally with no filter. Now each is a first-class layer entry
+    // with a real toggle. A useEffect downstream maps these to
+    // map.setLayoutProperty calls on the corresponding crep-boundaries-*
+    // and crep-fema-regions-* maplibre layer ids.
+    { id: "jurisdictionCountry", name: "Country Borders", category: "infrastructure", icon: <Globe className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#4ade80", description: "Country-level admin boundaries from the basemap vector tiles. Dashed green lines, always visible at zoom 1+." },
+    { id: "jurisdictionState", name: "State / Province Borders", category: "infrastructure", icon: <Landmark className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#60a5fa", description: "State / province admin boundaries from the basemap vector tiles. Dashed blue lines, visible at zoom 3+." },
+    { id: "jurisdictionCounty", name: "County / District Borders", category: "infrastructure", icon: <MapPin className="w-3 h-3" />, enabled: true, opacity: 0.3, color: "#a78bfa", description: "County / district admin boundaries from the basemap vector tiles. Dashed purple lines, visible at zoom 7+." },
+    { id: "jurisdictionFema", name: "FEMA Regions", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#f59e0b", description: "FEMA 10-region overlay with HQ city + state list. Coloured polygon fill + colored region borders + center labels (zoom ≥ 3)." },
+
     // ═══════════════════════════════════════════════════════════════
     // MYCOSOFT PROJECTS — dedicated category (Apr 21, 2026)
     // Morgan: "both need to be there in their own area on the filters
@@ -7081,6 +7093,30 @@ export default function CREPDashboardPage({
     }
   }, [auditAllOffMode, mapRef]);
 
+  // May 21 2026 (Morgan): jurisdiction boundaries (country / state / county
+  // / FEMA) now obey their layer toggles. addJurisdictionLayers paints them
+  // unconditionally on map onLoad; this effect runs after each layer state
+  // change and flips the MapLibre layer's `visibility` property so the user
+  // can hide them via the left Intel Feed Infrastructure tab.
+  useEffect(() => {
+    const map: any = mapNativeRef.current || mapRef;
+    if (!map?.getLayer || !map?.setLayoutProperty) return;
+    const findLayer = (id: string) => layers.find(l => l.id === id);
+    const setVis = (mapLayerIds: string[], visible: boolean) => {
+      for (const id of mapLayerIds) {
+        try {
+          if (map.getLayer(id)) {
+            map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+          }
+        } catch { /* ignore style churn */ }
+      }
+    };
+    setVis(["crep-boundaries-country"], !auditAllOffMode && (findLayer("jurisdictionCountry")?.enabled ?? false));
+    setVis(["crep-boundaries-state"], !auditAllOffMode && (findLayer("jurisdictionState")?.enabled ?? false));
+    setVis(["crep-boundaries-county"], !auditAllOffMode && (findLayer("jurisdictionCounty")?.enabled ?? false));
+    setVis(["crep-fema-regions-fill", "crep-fema-regions-line", "crep-fema-labels"], !auditAllOffMode && (findLayer("jurisdictionFema")?.enabled ?? false));
+  }, [layers, auditAllOffMode, mapRef]);
+
   // Sync ground filter toggles with layer visibility.
   //
   // May 21, 2026 (Morgan): this effect used to rewrite the entire layers array
@@ -7304,12 +7340,14 @@ export default function CREPDashboardPage({
     return list;
   };
   const visibleFungalObservations = useMemo(() => {
-    // Early return with ALL markers if no bounds yet — never hide data before the map initializes
-    if (fungalObservations.length === 0) {
+    // May 21 2026 (Morgan): same "one by one disappearing on reload"
+    // root cause as visibleEvents. Until mapBounds is set, we used to LOD
+    // the entire global fungalObservations array and render everything,
+    // then once bounds arrived React unmounted the markers outside the
+    // viewport one at a time. Return [] until bounds exist — first paint
+    // is then the only paint.
+    if (fungalObservations.length === 0 || !mapBounds) {
       return stabilizeNatureResult([]);
-    }
-    if (!mapBounds) {
-      return stabilizeNatureResult(applyLODToNature(fungalObservations as any, Math.max(0, mapZoom)) as any[]);
     }
 
     // Validate bounds are reasonable (Feb 12, 2026 - prevent NaN/Infinity issues)
@@ -7351,23 +7389,36 @@ export default function CREPDashboardPage({
       : kingdomFiltered;
 
     // Step 1: Filter to viewport bounds FIRST (fast culling)
-    // Add small padding to prevent markers at exact edges from disappearing (Feb 12, 2026)
-    const padding = 0.001; // ~100m at equator
+    //
+    // May 21 2026 (Morgan: "nature data disappears to zero when I zoom in").
+    // The original 0.001° padding (~100 m) was too tight: when the user
+    // zoomed in, every observation that wasn't dead-center of the new
+    // viewport fell outside the bbox and the count crashed to 0. Match the
+    // event memo's pattern — pad 25 % of the viewport span on each side,
+    // capped at 15° lat / 30° lng so we don't pull half the planet at
+    // globe view. Same approach keeps already-visible observations alive
+    // through a zoom or a small pan.
+    const latSpanRaw = Math.abs(mapBounds.north - mapBounds.south);
+    const lngSpanRaw = mapBounds.west <= mapBounds.east
+      ? Math.abs(mapBounds.east - mapBounds.west)
+      : 360 - Math.abs(mapBounds.west - mapBounds.east);
+    const latPad = Math.min(15, latSpanRaw * 0.25);
+    const lngPad = Math.min(30, lngSpanRaw * 0.25);
     const inViewport = speciesFiltered.filter(obs => {
       const lat = obs.latitude;
       const lng = obs.longitude;
-      
+
       // Skip observations with invalid coordinates
       if (!isFinite(lat) || !isFinite(lng)) return false;
-      
+
       // Handle international date line crossing
       if (mapBounds.west > mapBounds.east) {
-        return lat >= (mapBounds.south - padding) && lat <= (mapBounds.north + padding) &&
-               (lng >= (mapBounds.west - padding) || lng <= (mapBounds.east + padding));
+        return lat >= (mapBounds.south - latPad) && lat <= (mapBounds.north + latPad) &&
+               (lng >= (mapBounds.west - lngPad) || lng <= (mapBounds.east + lngPad));
       }
-      
-      return lat >= (mapBounds.south - padding) && lat <= (mapBounds.north + padding) &&
-             lng >= (mapBounds.west - padding) && lng <= (mapBounds.east + padding);
+
+      return lat >= (mapBounds.south - latPad) && lat <= (mapBounds.north + latPad) &&
+             lng >= (mapBounds.west - lngPad) && lng <= (mapBounds.east + lngPad);
     });
     
     // Recency-first LOD for nature (Fix D — Apr 18, 2026)
@@ -7401,47 +7452,64 @@ export default function CREPDashboardPage({
       return stabilizeNatureResult(inViewport);
     }
     
-    // Step 4: Spatial grid sampling for even geographic distribution (Feb 12, 2026 - added safeguards)
-    const gridSize = Math.max(2, Math.ceil(Math.sqrt(maxMarkers)));
-    const latRange = Math.max(0.0001, mapBounds.north - mapBounds.south); // Prevent div-by-zero
-    const lngRange = Math.max(0.0001, mapBounds.east > mapBounds.west 
-      ? mapBounds.east - mapBounds.west 
+    // May 21 2026 (Morgan: "nature data flickering when I zoom"). Two
+    // changes here:
+    //   1. Grid origin is now ABSOLUTE (anchored at lat=0, lng=0) instead of
+    //      relative to mapBounds.south/west. That way the same observation
+    //      always falls in the same cell across pans — pan-induced cell-
+    //      key changes were the original flicker source.
+    //   2. Sticky LOD: observations that were visible last frame and are
+    //      still in the (padded) viewport stay visible. Only fresh
+    //      candidates fight for the remaining slots. Result: per-pan
+    //      visible set is stable, no marker churn, no flicker.
+    //
+    // Cell SIZE still scales with zoom so coverage is even, but the GRID
+    // ORIGIN is fixed. cellSizeDeg ~ map span / sqrt(maxMarkers).
+    const lngRange = Math.max(0.0001, mapBounds.east > mapBounds.west
+      ? mapBounds.east - mapBounds.west
       : (360 - mapBounds.west + mapBounds.east));
-    
-    const cellWidth = lngRange / gridSize;
-    const cellHeight = latRange / gridSize;
-    
-    // Skip grid sampling if cells would be too small (very high zoom) - just return subset
-    if (cellWidth < 0.00001 || cellHeight < 0.00001) {
-      console.log(`[CREP/LOD] Grid cells too small at zoom ${mapZoom.toFixed(1)}, returning first ${maxMarkers}`);
+    const latRange = Math.max(0.0001, mapBounds.north - mapBounds.south);
+    const gridSize = Math.max(2, Math.ceil(Math.sqrt(maxMarkers)));
+    const cellSizeDeg = Math.max(0.00001, Math.max(lngRange, latRange) / gridSize);
+
+    if (cellSizeDeg < 0.00001) {
       return stabilizeNatureResult(inViewport.slice(0, maxMarkers));
     }
-    
-    // Grid-based sampling: one representative per cell
+
     const grid = new Map<string, typeof inViewport[0]>();
-    
+    const prevIds = new Set(visibleFungalObservationsStableRef.current.list.map((o: any) => String(o.id ?? "")));
+    // First pass: lock in any prior-visible obs that's still in viewport.
+    // This is the "sticky" half — markers don't blink in/out as the grid
+    // origin shifts across panning.
     for (const obs of inViewport) {
-      // Clamp cell coordinates to valid range (Feb 12, 2026 - prevent overflow)
-      const rawCellX = (obs.longitude - mapBounds.west + (mapBounds.west > mapBounds.east ? 360 : 0)) / cellWidth;
-      const rawCellY = (obs.latitude - mapBounds.south) / cellHeight;
-      const cellX = Math.max(0, Math.min(gridSize - 1, Math.floor(rawCellX)));
-      const cellY = Math.max(0, Math.min(gridSize - 1, Math.floor(rawCellY)));
+      if (!prevIds.has(String((obs as any).id ?? ""))) continue;
+      const cellX = Math.floor((obs.longitude + 180) / cellSizeDeg);
+      const cellY = Math.floor((obs.latitude + 90) / cellSizeDeg);
       const cellKey = `${cellX},${cellY}`;
-      
-      // Keep the newest observation in each cell; research grade wins only
-      // as a tie-breaker so zoom-out remains recency-first.
+      if (!grid.has(cellKey)) grid.set(cellKey, obs);
+    }
+    // Second pass: fill remaining empty cells with newest/highest-quality
+    // candidate.
+    for (const obs of inViewport) {
+      const cellX = Math.floor((obs.longitude + 180) / cellSizeDeg);
+      const cellY = Math.floor((obs.latitude + 90) / cellSizeDeg);
+      const cellKey = `${cellX},${cellY}`;
       const existing = grid.get(cellKey);
+      if (!existing) {
+        grid.set(cellKey, obs);
+        continue;
+      }
+      // If existing is sticky-locked from prevIds, do not displace it.
+      if (prevIds.has(String((existing as any).id ?? ""))) continue;
       const obsTime = obs.observed_on ? new Date(obs.observed_on).getTime() : 0;
-      const existingTime = existing?.observed_on ? new Date(existing.observed_on).getTime() : 0;
+      const existingTime = existing.observed_on ? new Date(existing.observed_on).getTime() : 0;
       if (
-        !existing ||
         obsTime > existingTime ||
         (obsTime === existingTime && obs.quality_grade === "research" && existing.quality_grade !== "research")
       ) {
         grid.set(cellKey, obs);
       }
     }
-    
     const sampled = Array.from(grid.values())
       .sort((a, b) => {
         const at = a.observed_on ? new Date(a.observed_on).getTime() : 0;
@@ -7449,10 +7517,8 @@ export default function CREPDashboardPage({
         return bt - at;
       })
       .slice(0, maxMarkers);
-    
-    // Log sampling info
     if (Math.random() < 0.05) {
-      console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) â†’ Sampled ${sampled.length}/${inViewport.length} in viewport`);
+      console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) sticky-sampled ${sampled.length}/${inViewport.length} in viewport`);
     }
 
     return stabilizeNatureResult(sampled);
@@ -7724,7 +7790,21 @@ export default function CREPDashboardPage({
       };
     };
 
+    // May 21 2026 (Morgan): "earthquakes and fires disappear one by one on
+    // reload". Root cause: until MapLibre fires moveend and sets mapBounds,
+    // mapBounds is null and we used to return EVERY event in
+    // typeFilteredEvents. That mounted ~6000 React <EventMarker> components
+    // globally, then when bounds finally arrived ~500ms later the in-NA
+    // filter dropped that to a few hundred — and React unmounted the other
+    // ~5500 sequentially. The user saw markers fade out one-by-one until
+    // none were left in the viewport. Returning [] until bounds exist means
+    // no marker is mounted before we know which ones actually belong, and
+    // the first paint after bounds set is the only mount. No flicker decay.
     let computed: GlobalEvent[];
+    if (!mapBounds) {
+      visibleEventsStableRef.current = { idKey: "", events: [] };
+      return [];
+    }
     if (assetIsolationMode || isEmbeddedEarthquakeSearch) {
       const earthquakes = typeFilteredEvents.filter((event) => (event.type || "").toLowerCase() === "earthquake");
       if (!mapBounds || mapZoom < 3) {
@@ -7742,7 +7822,7 @@ export default function CREPDashboardPage({
         });
         computed = applyEarthquakeSearchLOD(inViewport.length > 0 ? inViewport : earthquakes, mapZoom);
       }
-    } else if (!mapBounds || typeFilteredEvents.length === 0) {
+    } else if (typeFilteredEvents.length === 0) {
       computed = typeFilteredEvents;
     } else {
       const SPACE_WEATHER_TYPES = ["solar_flare", "geomagnetic_storm", "aurora"];
@@ -7764,10 +7844,45 @@ export default function CREPDashboardPage({
         return lat >= padded.south && lat <= padded.north &&
                lng >= padded.west && lng <= padded.east;
       });
+      // May 21 2026 (Morgan: "events are flickering on and off with every
+      // level of detail move"). Sticky LOD for events:
+      //   1. Find events that were ALREADY visible last frame AND are still
+      //      in the padded viewport — these stay, no matter what.
+      //   2. Fill remaining cap slots with new in-viewport candidates,
+      //      sorted severity desc + recency desc.
+      //
+      // Why this beats the "sort+slice top N every frame" cap: with a hard
+      // sort+slice, a tiny pan that shifts ONE event past the cap boundary
+      // (the 1801st sneaking into the top 1800) yanks that boundary event
+      // in and out on every mouse move. Sticky LOD makes once-visible
+      // events stay visible until they actually leave the viewport, so the
+      // user-visible set is stable across moves within a zoom tier.
+      const lod = getLODForZoom(mapZoom);
+      const cap = lod.events.maxRendered;
+      if (Number.isFinite(cap) && cap > 0) {
+        const prevIds = new Set(visibleEventsStableRef.current.events.map(e => String(e.id ?? "")));
+        const sticky: GlobalEvent[] = [];
+        const candidates: GlobalEvent[] = [];
+        for (const e of computed) {
+          if (prevIds.has(String(e.id ?? ""))) sticky.push(e);
+          else candidates.push(e);
+        }
+        const sevRank: Record<string, number> = { extreme: 6, critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+        candidates.sort((a, b) => {
+          const sa = sevRank[(a.severity || "info").toLowerCase()] ?? 0;
+          const sb = sevRank[(b.severity || "info").toLowerCase()] ?? 0;
+          if (sa !== sb) return sb - sa;
+          const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return tb - ta;
+        });
+        const slotsLeft = Math.max(0, cap - sticky.length);
+        computed = [...sticky, ...candidates.slice(0, slotsLeft)];
+      }
     }
 
-    // Stability hash: sorted ids joined with a delimiter. O(n log n) per memo
-    // run is cheap compared to the cost of a full React tree re-render.
+    // Stability hash: when sticky LOD keeps the same set across panning,
+    // this returns the prior array reference and skips the React rerender.
     const ids = computed.map(e => e.id || "").sort();
     const idKey = ids.join("|");
     const cached = visibleEventsStableRef.current;
@@ -10506,6 +10621,32 @@ export default function CREPDashboardPage({
                 }
               };
 
+              // May 21 2026 (Morgan: "aircraft and satellites are tracked but
+              // not rendered"). Root cause was an icon race: loadDetailedIcon
+              // tries safeAddImage immediately, retries once at 250 ms — but
+              // if the style still wasn't ready at 250 ms the icon was lost
+              // for the session. Symbol layers using "aircraft-icon" /
+              // "satellite-icon" then rendered NOTHING. Fix: register a
+              // styleimagemissing listener so MapLibre asks for the icon
+              // exactly when it needs one, and we serve it from a per-name
+              // pending cache populated by loadDetailedIcon. Layers paint
+              // as soon as the icon arrives — no fixed-delay races.
+              const pendingIconData = ((window as any).__crep_pending_icons ??= new Map<string, { data: ImageData; options?: any }>());
+              try { map.off("styleimagemissing", (window as any).__crep_style_image_missing_handler); } catch { /* ignore */ }
+              const onStyleImageMissing = (e: { id?: string }) => {
+                try {
+                  if (!e?.id || safeHasImage(e.id)) return;
+                  const pending = pendingIconData.get(e.id);
+                  if (pending) {
+                    map.addImage(e.id, pending.data as any, pending.options);
+                  }
+                } catch (err) {
+                  console.warn(`[CREP/icons] styleimagemissing handler failed for ${e?.id}:`, err);
+                }
+              };
+              (window as any).__crep_style_image_missing_handler = onStyleImageMissing;
+              map.on("styleimagemissing", onStyleImageMissing);
+
               // ─────────────────────────────────────────────────────────────
               // Helper: rasterize an SVG URL into an HTMLImageElement, then
               // register with map.addImage(). Using non-SDF mode preserves
@@ -10525,9 +10666,20 @@ export default function CREPDashboardPage({
                       ctx.clearRect(0, 0, size, size);
                       ctx.drawImage(img, 0, 0, size, size);
                       const data = ctx.getImageData(0, 0, size, size);
-                      if (!safeAddImage(name, data, { pixelRatio: 2 })) {
-                        window.setTimeout(() => safeAddImage(name, data, { pixelRatio: 2 }), 250);
+                      const options = { pixelRatio: 2 };
+                      // Cache the rasterized data for the styleimagemissing
+                      // handler — that's how MapLibre asks for an icon mid-
+                      // render when it discovers a symbol layer needs one
+                      // that hasn't been registered yet. Without this, the
+                      // 250 ms retry below was the only fallback and any
+                      // icon that lost the race silently never painted.
+                      pendingIconData.set(name, { data, options });
+                      if (!safeAddImage(name, data, options)) {
+                        window.setTimeout(() => safeAddImage(name, data, options), 250);
                       }
+                      // Re-trigger a paint so the symbol layer picks up the
+                      // newly-registered image even if no other state changed.
+                      try { map.triggerRepaint?.(); } catch { /* ignore */ }
                     } catch (e) { console.warn(`[CREP/icons] rasterize failed for ${name}:`, e); }
                     resolve();
                   };
@@ -13109,8 +13261,20 @@ export default function CREPDashboardPage({
               />
             )}
 
-            {/* Event Markers - Only render if corresponding layer is enabled */}
-            {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && filteredEvents.map(event => {
+            {/* Event Markers - Only render if corresponding layer is enabled.
+              *
+              * May 21 2026 (Morgan): hard cap at 500 React DOM event markers.
+              * The dashboard was OOM-killing the tab when 3k+ EventMarker
+              * components were mounted at once (each ships its own popup,
+              * charts, click handlers). Cap is sorted by visibleEvents'
+              * existing severity/recency order so we keep the most-important
+              * ones; events past the cap stay in the data store and side
+              * panel counts but don't render as DOM. A proper fix is to
+              * move events to a MapLibre GeoJSON source + circle layer, but
+              * that's a bigger refactor — this cap stops the tab restarts
+              * today.
+              */}
+            {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && filteredEvents.slice(0, 500).map(event => {
               // Check if the specific event type layer is enabled
               // COMPREHENSIVE MAP: All event types must be mapped to correct layers
               const layerMap: Record<string, string> = {
@@ -13441,7 +13605,21 @@ export default function CREPDashboardPage({
               protected: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.protected,
               uncertainty: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.uncertainty,
               fci: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.fci,
-              samples: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.samples,
+              // May 21 2026 (Morgan: "no AM fungi or ECM fungi on the map").
+              // The dedicated heat raster tiles for AM/EcM/Mycelium still
+              // return transparent PNGs until the native MINDEX surface
+              // pipeline lands. Until then, treat AM / EcM / Mycelium /
+              // Samples as a single "show real GlobalFungi sample dots"
+              // signal — the dots themselves carry per-sample mycorrhizal
+              // classification (am/ecm/mixed) and paint in distinct colors
+              // (cyan / magenta / violet), so toggling AM on still produces
+              // visibly AM data on the map.
+              samples: !isEmbeddedEarthquakeSearch && (
+                fungalAtlasLayerState.samples ||
+                fungalAtlasLayerState.am ||
+                fungalAtlasLayerState.ecm ||
+                fungalAtlasLayerState.mycelium
+              ),
             }}
             bbox={liveOverlayBbox}
             zoom={mapZoom}
@@ -14087,20 +14265,22 @@ export default function CREPDashboardPage({
         >
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
+            {/*
+             * May 21 2026 (Morgan): the right-hand "Data Layers" tab was
+             * removed. Every filter that used to live in it has been
+             * consolidated into the left Intel Feed (Nature / Infra /
+             * Events tabs) and the new ALL ON / ALL OFF chips in the top
+             * toolbar. The right panel was "walking all over" the left
+             * controls and producing duplicate filter authorities. Now
+             * 4 tabs: mission / intel / environment / myca.
+             */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-5 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+              <TabsList className="w-full grid grid-cols-4 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
                 <TabsTrigger
                   value="mission"
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Target className="w-3 h-3" />
-                </TabsTrigger>
-                <TabsTrigger
-                  value="data"
-                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
-                  title="Data Filters — all layer on/off toggles"
-                >
-                  <Filter className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger
                   value="intel"
@@ -14134,265 +14314,6 @@ export default function CREPDashboardPage({
                   />
                 </TabsContent>
 
-                <TabsContent value="data" className="h-full m-0 p-2 overflow-auto">
-                  <ScrollArea className="h-full">
-                    <div className="space-y-3">
-                      {/* ═══════════════════════════════════════════════════════════
-                          ALL-LAYER TOGGLE GRID — single source of truth for every
-                          data layer on/off. MYCA drives these via window.__crep_setLayer.
-                          Advanced per-filter controls (altitude bands, vessel types,
-                          NOAA severity) live below in OEIMapControls and apply on top
-                          of whichever layers are enabled here.
-                          ═══════════════════════════════════════════════════════════ */}
-                      <div className="flex items-center justify-between px-1 pt-1">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="text-[10px] font-bold text-white">DATA LAYERS</span>
-                        </div>
-                        <Badge variant="outline" className="text-[8px] border-cyan-600 text-cyan-400">
-                          {layers.filter(l => l.enabled).length}/{layers.length}
-                        </Badge>
-                      </div>
-                      <LayerControlPanel
-                        layers={layers}
-                        onToggleLayer={toggleLayer}
-                        onOpacityChange={setLayerOpacity}
-                        onFungaMode={activateFungaAtlasMode}
-                        onAssetsOff={disableAllAuditFilters}
-                        assetIsolationMode={assetIsolationMode}
-                      />
-
-                      {/* Ground Station Toggle (Mar 2026) */}
-                      <div className="rounded-lg bg-black/40 border border-cyan-500/20 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-black/30">
-                          <div className="flex items-center gap-2">
-                            <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                            <span className="text-[11px] font-semibold text-white">Ground Station</span>
-                          </div>
-                          <Switch
-                            checked={showGroundStation}
-                            onCheckedChange={setShowGroundStation}
-                            className="h-4 w-7 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-600"
-                          />
-                        </div>
-                        {showGroundStation && (
-                          <div className="p-2 space-y-1">
-                            <div className="text-[9px] text-gray-500 px-2">
-                              Satellite tracking, SDR control, observation scheduling.
-                              Data syncs bi-directionally with Mindex and the Agent Worldview API.
-                            </div>
-                            <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
-                              className="block text-center text-[9px] text-cyan-400 hover:text-cyan-300 py-1 mx-2 border border-cyan-500/20 rounded mt-1">
-                              Open Full Dashboard
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Conservation Widget Toggles (Feb 17, 2026) */}
-                      <div className="rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-black/30">
-                          <div className="flex items-center gap-2">
-                            <Leaf className="w-3.5 h-3.5 text-green-400" />
-                            <span className="text-[11px] font-semibold text-white">Conservation Widgets</span>
-                          </div>
-                          <Badge variant="outline" className="text-[8px] border-green-600 text-green-400">
-                            {(showSmartFenceWidget ? 1 : 0) + (showPresenceWidget ? 1 : 0)}/2
-                          </Badge>
-                        </div>
-                        <div className="p-2 space-y-1">
-                          <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
-                            <div className="flex items-center gap-2">
-                              <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500/20">
-                                <Zap className="w-3 h-3 text-amber-400" />
-                              </div>
-                              <span className="text-[10px] text-gray-300">SmartFence Network</span>
-                            </div>
-                            <Switch
-                              checked={showSmartFenceWidget}
-                              onCheckedChange={setShowSmartFenceWidget}
-                              className="h-4 w-7 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-600"
-                            />
-                          </div>
-                          <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
-                            <div className="flex items-center gap-2">
-                              <div className="w-5 h-5 rounded flex items-center justify-center bg-purple-500/20">
-                                <Radio className="w-3 h-3 text-purple-400" />
-                              </div>
-                              <span className="text-[10px] text-gray-300">Presence Detection</span>
-                            </div>
-                            <Switch
-                              checked={showPresenceWidget}
-                              onCheckedChange={setShowPresenceWidget}
-                              className="h-4 w-7 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-600"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ═══════════════════════════════════════════════════════════
-                          LIVE DATA FEEDS — streaming status + granular sub-filters.
-                          Sits below DATA LAYERS so the on/off grid stays the primary
-                          control; these advanced filters only apply once a layer is on.
-                          ═══════════════════════════════════════════════════════════ */}
-                      {false && (
-                        <>
-                      <div className="flex items-center justify-between px-1 pt-2 border-t border-gray-800/50">
-                        <div className="flex items-center gap-2">
-                          <Signal className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="text-[10px] font-bold text-white">LIVE DATA FEEDS</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StreamingStatusBar
-                            statuses={[
-                              { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
-                              { type: "vessels", connected: isStreaming, messageCount: vessels.length },
-                              { type: "satellites", connected: isStreaming, messageCount: satellites.length },
-                            ]}
-                            isLive={isStreaming}
-                            onToggle={() => setIsStreaming(!isStreaming)}
-                          />
-                          <WorldstateSourcesBadge />
-                        </div>
-                      </div>
-                      
-                      {/* Map Controls - Filter Panel */}
-                      <OEIMapControls
-                        aircraftFilter={aircraftFilter}
-                        vesselFilter={vesselFilter}
-                        satelliteFilter={satelliteFilter}
-                        spaceWeatherFilter={spaceWeatherFilter}
-                        groundFilter={groundFilter}
-                        streamStatuses={[
-                          { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
-                          { type: "vessels", connected: isStreaming, messageCount: vessels.length },
-                          { type: "satellites", connected: isStreaming, messageCount: satellites.length },
-                        ]}
-                        isStreaming={isStreaming}
-                        noaaScales={noaaScales}
-                        onAircraftFilterChange={(f) => { leaveAssetIsolationMode(); setAuditAllOffMode(false); setAircraftFilter({ ...aircraftFilter, ...f }); }}
-                        onVesselFilterChange={(f) => { leaveAssetIsolationMode(); setAuditAllOffMode(false); setVesselFilter({ ...vesselFilter, ...f }); }}
-                        onSatelliteFilterChange={(f) => { leaveAssetIsolationMode(); setAuditAllOffMode(false); setSatelliteFilter({ ...satelliteFilter, ...f }); }}
-                        onSpaceWeatherFilterChange={(f) => setSpaceWeatherFilter({ ...spaceWeatherFilter, ...f })}
-                        onGroundFilterChange={(f) => { leaveAssetIsolationMode(); setAuditAllOffMode(false); setGroundFilter(prev => ({ ...prev, ...f })); }}
-                        eoImageryFilter={eoImageryFilter}
-                        onEoImageryFilterChange={(f) => setEoImageryFilter(prev => ({ ...prev, ...f }))}
-                        onToggleStreaming={() => setIsStreaming(!isStreaming)}
-                        onRefresh={() => setManualRefreshNonce((value) => value + 1)}
-                      />
-                      <CrepMapPreferencesPanel
-                        mapRef={mapRef}
-                        mapBounds={mapBounds}
-                        mapZoom={mapZoom}
-                        layers={layers.map(l => ({ id: l.id, enabled: l.enabled }))}
-                        groundFilter={groundFilter}
-                        eoImageryFilter={eoImageryFilter}
-                        basemap={basemap}
-                        onApply={handleApplyMapPreferences}
-                        className="mt-2"
-                      />
-                      
-                      {rightPanelTab === "data" && (
-                        <>
-                          {/* Space Weather Widget */}
-                          <SpaceWeatherWidget compact />
-                          
-                          {/* Flight Tracker Widget */}
-                          <FlightTrackerWidget compact limit={10} />
-                          
-                          {/* Vessel Tracker Widget */}
-                          <VesselTrackerWidget compact limit={10} />
-                          
-                          {/* Satellite Tracker Widget */}
-                          <SatelliteTrackerWidget compact limit={10} />
-                          
-                          {/* Ground Station Overlay (Mar 2026) */}
-                          {showGroundStation && (
-                            <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span className="text-[10px] font-bold text-white">GROUND STATION</span>
-                                  <div className={cn("w-1.5 h-1.5 rounded-full", gsState.connected ? "bg-green-400" : "bg-red-500")} />
-                                </div>
-                                <span className="text-[8px] text-gray-500">{gsState.satellites.length} sats</span>
-                              </div>
-                              <select
-                                value={gsState.selectedGroupId || ""}
-                                onChange={(e) => selectGroup(e.target.value || null)}
-                                className="w-full h-6 text-[10px] bg-black/40 border border-gray-700/50 rounded px-1.5 text-white"
-                              >
-                                <option value="">Select group...</option>
-                                {gsState.groups.map((g) => (
-                                  <option key={g.id} value={g.id}>{g.name} ({g.satellite_ids?.length ?? 0})</option>
-                                ))}
-                              </select>
-                              {gsState.passes.length > 0 && (
-                                <div className="space-y-0.5">
-                                  {gsState.passes.slice(0, 3).map((p, i) => (
-                                    <div key={i} className="flex justify-between text-[8px]">
-                                      <span className="text-gray-300 truncate">{p.satellite_name}</span>
-                                      <span className="text-cyan-400">{p.max_elevation.toFixed(0)}°</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
-                                className="block text-center text-[8px] text-cyan-400 hover:text-cyan-300 py-1 border border-cyan-500/20 rounded">
-                                Open Full Dashboard
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Conservation Demo Widgets (Feb 05, 2026) - Individual toggles (Feb 17, 2026) */}
-                          {/* Smart Fence Network Widget - toggled individually */}
-                          {showSmartFenceWidget && fenceSegments.length > 0 && (
-                            <SmartFenceWidget 
-                              fenceSegments={fenceSegments}
-                              onSegmentClick={(segment) => {
-                                const midLat = (segment.startLat + segment.endLat) / 2;
-                                const midLng = (segment.startLng + segment.endLng) / 2;
-                                mapRef?.flyTo({
-                                  center: [midLng, midLat],
-                                  zoom: 13,
-                                  duration: 1500,
-                                });
-                              }}
-                            />
-                          )}
-                          
-                          {/* Presence Detection Widget - toggled individually */}
-                          {showPresenceWidget && presenceReadings.length > 0 && (
-                            <PresenceDetectionWidget 
-                              readings={presenceReadings}
-                              onMonitorClick={(reading) => {
-                                mapRef?.flyTo({
-                                  center: [reading.lng, reading.lat],
-                                  zoom: 14,
-                                  duration: 1500,
-                                });
-                              }}
-                            />
-                          )}
-                        </>
-                      )}
-                      
-                      {/* Data Sources Footer */}
-                      <div className="pt-2 border-t border-gray-700/30">
-                        <div className="flex flex-wrap gap-1 text-[7px]">
-                          <Badge variant="outline" className="px-1 py-0 h-3 border-amber-500/30 text-amber-400">SWPC</Badge>
-                          <Badge variant="outline" className="px-1 py-0 h-3 border-sky-500/30 text-sky-400">FR24</Badge>
-                          <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
-                          <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
-                          {(showSmartFenceWidget || showPresenceWidget) && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
-                          {showGroundStation && <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400">GS</Badge>}
-                        </div>
-                      </div>
-                        </>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
 
                 <TabsContent value="intel" className="h-full m-0 p-3 overflow-auto">
                   <ScrollArea className="h-full">

@@ -434,7 +434,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           type: "circle",
           source: cfg.sourceId,
           ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
-          minzoom: 3,
+          // May 21 2026 (Morgan): permanent infrastructure must be visible
+          // at every zoom level. Was minzoom: 3 which hid power plants at
+          // globe view. Dropped to 0.
+          minzoom: 0,
           paint,
         } as any)
         // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY
@@ -514,7 +517,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           map.addSource("crep-factories", { type: "geojson", data: fc })
           map.addLayer({
             id: "crep-factories-dot", type: "circle", source: "crep-factories",
-            minzoom: 5,
+            // May 21 2026 (Morgan): infrastructure visible at all zooms.
+            minzoom: 0,
             paint: {
               "circle-radius": 3, "circle-color": "#f97316",
               "circle-opacity": 0.6, "circle-stroke-width": 0.3, "circle-stroke-color": "#7c2d12",
@@ -626,7 +630,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           map.addSource("crep-txlines-global", { type: "geojson", data: fc })
           map.addLayer({
             id: "crep-txlines-global-line", type: "line", source: "crep-txlines-global",
-            minzoom: 3,
+            // May 21 2026 (Morgan): infrastructure visible at all zooms.
+            minzoom: 0,
             paint: {
               "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
                 0, "#facc15", 25, "#fde047", 69, "#fbbf24", 100, "#fb923c", 230, "#ec4899",
@@ -679,7 +684,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           map.addSource("crep-celltowers-bbox", { type: "geojson", data: fc })
           map.addLayer({
             id: "crep-celltowers-bbox-dot", type: "circle", source: "crep-celltowers-bbox",
-            minzoom: 5,
+            // May 21 2026 (Morgan): infrastructure visible at all zooms.
+            minzoom: 0,
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 10, 3.5, 14, 6],
               "circle-color": "#c084fc", "circle-opacity": 0.85,

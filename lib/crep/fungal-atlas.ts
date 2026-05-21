@@ -775,9 +775,21 @@ export async function getFungalAtlasSamples(opts: {
 } = {}) {
   const cache = await getAtlasCache()
   const zoom = opts.zoom ?? 2
-  const hardLimit = zoom < 5 ? 0 : zoom < 8 ? 80 : zoom < 10 ? 160 : zoom < 13 ? 420 : 900
+  // May 21 2026 (Morgan: "no AM fungi or ECM fungi on the map"). The old
+  // ladder was `zoom < 5 ? 0` — at the default North America zoom 4 view
+  // the endpoint returned ZERO samples, so the FungalAtlasLayer painted
+  // nothing. Real GlobalFungi data exists for 85k samples globally; we
+  // just need a reasonable cap per zoom tier. Bigger numbers at lower
+  // zoom because the viewport covers more ground.
+  const hardLimit =
+    zoom < 3 ? 1800 :
+    zoom < 5 ? 4000 :
+    zoom < 8 ? 2500 :
+    zoom < 10 ? 1500 :
+    zoom < 13 ? 900 :
+    600
   const requestedLimit = opts.limit ?? hardLimit
-  const limit = hardLimit <= 0 ? 0 : Math.max(0, Math.min(requestedLimit, hardLimit))
+  const limit = Math.max(0, Math.min(requestedLimit, hardLimit))
   const groupSet = opts.groups?.length ? new Set(opts.groups) : null
   const samples = samplesInBounds(cache, opts.bounds)
     .filter((sample) => !groupSet || groupSet.has(sample.group))
@@ -794,28 +806,51 @@ export async function getFungalAtlasSamples(opts: {
 export function samplesToGeoJson(samples: FungalAtlasSample[]): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
-    features: samples.map((sample) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [sample.lng, sample.lat] },
-      properties: {
-        id: sample.id,
-        name: sample.sampleType || "Fungal sample",
-        source: sample.source,
-        group: sample.group,
-        glyph: sample.group === "mushroom" || sample.group === "mycelium" || sample.group === "fungi" ? "\u{1F344}" : sample.group.slice(0, 1).toUpperCase(),
-        color: colorForSampleGroup(sample.group),
-        observed_on: sample.observed_on,
-        country: sample.country,
-        location: sample.location,
-        environment_type: sample.environmentType,
-        ecosystem: sample.ecosystem,
-        barcode_region: sample.barcodeRegion,
-        sequence_total: sample.sequenceTotal,
-        confidence: sample.confidence,
-        source_resolution: sample.sourceResolution,
-        native_resolution_m: sample.nativeResolutionMeters,
-      },
-    })),
+    features: samples.map((sample) => {
+      // May 21 2026 (Morgan): classify each sample as AM vs EcM vs mixed
+      // so the FungalAtlasLayer can color them distinctly. amScore/ecmScore
+      // come from the same heuristics used to build the heat surfaces
+      // (dominant plant + ecosystem keywords). Sample-level classification
+      // means a real AM toggle paints cyan dots, EcM paints magenta dots —
+      // no more "no AM/EcM fungi on the map".
+      const amScore = estimateAmScore(sample)
+      const ecmScore = estimateEcmScore(sample)
+      const mycorrhiza: "am" | "ecm" | "mixed" | "other" =
+        amScore > 0.55 && amScore > ecmScore + 0.1 ? "am" :
+        ecmScore > 0.55 && ecmScore > amScore + 0.1 ? "ecm" :
+        amScore > 0.4 || ecmScore > 0.4 ? "mixed" :
+        "other"
+      const myColor =
+        mycorrhiza === "am" ? "#22d3ee" :       // cyan — arbuscular
+        mycorrhiza === "ecm" ? "#d946ef" :      // magenta — ectomycorrhizal
+        mycorrhiza === "mixed" ? "#a78bfa" :    // violet — both
+        colorForSampleGroup(sample.group)
+      return {
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [sample.lng, sample.lat] },
+        properties: {
+          id: sample.id,
+          name: sample.sampleType || "Fungal sample",
+          source: sample.source,
+          group: sample.group,
+          mycorrhiza,
+          am_score: amScore,
+          ecm_score: ecmScore,
+          glyph: sample.group === "mushroom" || sample.group === "mycelium" || sample.group === "fungi" ? "\u{1F344}" : sample.group.slice(0, 1).toUpperCase(),
+          color: myColor,
+          observed_on: sample.observed_on,
+          country: sample.country,
+          location: sample.location,
+          environment_type: sample.environmentType,
+          ecosystem: sample.ecosystem,
+          barcode_region: sample.barcodeRegion,
+          sequence_total: sample.sequenceTotal,
+          confidence: sample.confidence,
+          source_resolution: sample.sourceResolution,
+          native_resolution_m: sample.nativeResolutionMeters,
+        },
+      }
+    }),
   }
 }
 

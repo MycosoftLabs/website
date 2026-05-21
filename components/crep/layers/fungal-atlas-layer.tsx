@@ -829,15 +829,26 @@ const UNCERTAINTY_AREAS_GEOJSON = {
 } as const
 
 function colorExpression() {
+  // May 21 2026 (Morgan: "no AM fungi or ECM fungi in any way on the map").
+  // Each sample feature now carries a `color` property pre-computed in
+  // samplesToGeoJson() — AM = cyan, EcM = magenta, mixed = violet, other
+  // falls back to the group color. Use it directly so the AM/EcM split is
+  // visible on the map. Keep the old group->color match as a fallback for
+  // features without the new mycorrhizal classification.
   return [
-    "match",
-    ["get", "group"],
-    "mushroom", "#f59e0b",
-    "mycelium", "#22c55e",
-    "mold", "#84cc16",
-    "mildew", "#a3e635",
-    "yeast", "#f472b6",
-    "#b45309",
+    "case",
+    ["has", "color"],
+    ["get", "color"],
+    [
+      "match",
+      ["get", "group"],
+      "mushroom", "#f59e0b",
+      "mycelium", "#22c55e",
+      "mold", "#84cc16",
+      "mildew", "#a3e635",
+      "yeast", "#f472b6",
+      "#b45309",
+    ],
   ]
 }
 
@@ -1391,16 +1402,22 @@ export function FungalAtlasLayer({
     if (!activeBbox) return
     const activeBboxStr = activeBbox.map((n) => n.toFixed(6)).join(",")
     let cancelled = false
+    // May 21 2026 (Morgan: "no AM or ECM fungi on the map"). The previous
+    // 600 ms setTimeout meant React Strict Mode's mount → unmount → mount
+    // cycle in dev cancelled the first scheduled poll. The second mount
+    // re-scheduled, but if any dep then changed inside 600 ms we'd lose
+    // that one too — and at startup mapZoom/mapBounds settle through a
+    // few values fast. Drop the delay: fire the fetch on the next
+    // microtask. Cancellation still works via the `cancelled` closure
+    // for in-flight requests.
     const poll = async () => {
       if (cancelled) return
       try {
         const q = new URLSearchParams({
           bbox: activeBboxStr,
-          // May 21 2026 (Morgan): bumped continental + region limits so the
-          // real GlobalFungi point cloud is visible at default zoom. 120
-          // dots at z<10 covered the whole continent with sparse confetti;
-          // 4000 gives a meaningful density without overloading MapLibre.
           zoom: String(currentZoom),
+          // Bigger caps at lower zoom because the viewport covers more
+          // ground. Backend hardLimit ladder matches.
           limit: currentZoom < 4 ? "2500" : currentZoom < 7 ? "4000" : currentZoom < 10 ? "5000" : currentZoom < 13 ? "1500" : "800",
         })
         if (sampleGroupStr) q.set("groups", sampleGroupStr)
@@ -1421,7 +1438,7 @@ export function FungalAtlasLayer({
       }
     }
     if (sampleTimerRef.current) clearTimeout(sampleTimerRef.current)
-    sampleTimerRef.current = setTimeout(poll, 600)
+    void poll()
     return () => {
       cancelled = true
       if (sampleTimerRef.current) clearTimeout(sampleTimerRef.current)
