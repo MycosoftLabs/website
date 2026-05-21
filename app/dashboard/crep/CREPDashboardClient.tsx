@@ -1713,7 +1713,12 @@ function EventMarker({ event, isSelected, isNew, onClick, onDoubleClick, onClose
           }}
         >
         <div className={cn(
-          "relative flex items-center justify-center transition-transform",
+          // May 21 2026 (Morgan: "events flicker on every zoom"). Dropped
+          // `transition-transform` — the CSS transition was firing on every
+          // re-render of the markers during zoom and made every marker
+          // visibly scale, looking like a blink. Plain scale class with no
+          // transition is snappier and stable.
+          "relative flex items-center justify-center",
           isSelected ? "scale-150" : "scale-100"
         )}>
           {/* Blinking "NEW" ring – event just appeared on map (within viewport) */}
@@ -2173,7 +2178,12 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
     >
       <MarkerContent className="relative" data-marker="device">
         <div className={cn(
-          "relative flex items-center justify-center transition-transform",
+          // May 21 2026 (Morgan: "events flicker on every zoom"). Dropped
+          // `transition-transform` — the CSS transition was firing on every
+          // re-render of the markers during zoom and made every marker
+          // visibly scale, looking like a blink. Plain scale class with no
+          // transition is snappier and stable.
+          "relative flex items-center justify-center",
           isSelected ? "scale-150" : "scale-100"
         )}>
           {isOnline && (

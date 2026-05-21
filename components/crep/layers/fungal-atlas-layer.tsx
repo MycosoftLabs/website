@@ -976,13 +976,18 @@ function ensureSampleOverlayLayers(map: maplibregl.Map, visible: boolean) {
       id: SAMPLE_DOT_LAYER,
       type: "circle",
       source: SAMPLE_SOURCE,
-      minzoom: 5,
+      // May 21 2026 (Morgan: "no AM or EcM fungi on the map"). minzoom was
+      // hardcoded to 5 here AND in the paint interpolations, so at the
+      // default North America zoom 4 view MapLibre culled the entire layer
+      // before ever drawing a dot. Now uses the SAMPLE_MIN_ZOOM constant
+      // (2) so sample dots paint at continental view too.
+      minzoom: SAMPLE_MIN_ZOOM,
       layout: { visibility: visible ? "visible" : "none" },
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 9, 4, 13, 6, 17, 8],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.5, 5, 2, 9, 4, 13, 6, 17, 8],
         "circle-color": colorExpression(),
         "circle-stroke-color": "#08111f",
-        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 5, 0.6, 12, 1.1],
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.3, 5, 0.6, 12, 1.1],
         "circle-opacity": 0.92,
       } as any,
     })
@@ -1044,13 +1049,37 @@ export function FungalAtlasLayer({
 
   useEffect(() => {
     if (!map) return
+    // May 21 2026 (Morgan: "events / nature / infra blink on every zoom").
+    // viewportTick used to fire on EVERY moveend / zoomend, then
+    // downstream effects removed and re-added heat layers + flipped
+    // visibility properties even when the visible set hadn't actually
+    // changed. The visible result was a marker / surface flash on every
+    // pan or zoom click. Throttle: only tick when the zoom INTEGER
+    // tier or the bbox quadrant actually changed. Continuous pan/zoom
+    // inside the same tier no longer triggers a refresh.
     let timer: ReturnType<typeof setTimeout> | null = null
+    let lastSignature = ""
+    const computeSignature = () => {
+      try {
+        const z = Math.floor(map.getZoom?.() ?? 0)
+        const b = map.getBounds?.()
+        if (!b) return `z${z}`
+        const cx = Math.round(((b.getWest() + b.getEast()) / 2) * 4) / 4
+        const cy = Math.round(((b.getSouth() + b.getNorth()) / 2) * 4) / 4
+        return `z${z}|${cx}|${cy}`
+      } catch {
+        return "?"
+      }
+    }
     const schedule = () => {
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {
         timer = null
+        const sig = computeSignature()
+        if (sig === lastSignature) return
+        lastSignature = sig
         setViewportTick((tick) => (tick + 1) % 100_000)
-      }, 80)
+      }, 250)
     }
     map.on("moveend", schedule)
     map.on("zoomend", schedule)
@@ -1204,13 +1233,16 @@ export function FungalAtlasLayer({
           id: SAMPLE_DOT_LAYER,
           type: "circle",
           source: SAMPLE_SOURCE,
+          // May 21 2026 (Morgan): paint interpolation low-end pinned at
+          // zoom 2 so the layer paints something visible at continental
+          // zoom (was starting at zoom 5).
           minzoom: SAMPLE_MIN_ZOOM,
           layout: { visibility: latest.enabled.samples ? "visible" : "none" },
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 9, 4, 13, 6, 17, 8],
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.5, 5, 2, 9, 4, 13, 6, 17, 8],
             "circle-color": colorExpression(),
             "circle-stroke-color": "#08111f",
-            "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 5, 0.6, 12, 1.1],
+            "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.3, 5, 0.6, 12, 1.1],
             "circle-opacity": 0.92,
           } as any,
         })
@@ -1326,13 +1358,26 @@ export function FungalAtlasLayer({
       enabled: liveEnabledSnapshot(latestRef.current.enabled),
       zoom: map.getZoom?.() ?? latestRef.current.zoom,
     }
+    // May 21 2026 (Morgan: "EcM and AM should look like the exact SPUN
+    // map model — colored cell grid, not dots"). The composite raster
+    // path returns transparent PNGs today (native MINDEX tile pipeline
+    // not shipped), and the per-layer rasters were also blank. Replaced
+    // with the cell-fill polygon path that uses the MINDEX-aggregated
+    // GlobalFungi cells from /api/crep/fungal-atlas (cells already
+    // carry amScore / ecmScore / richness / endemicity / fci-priority
+    // and ATLAS_CELL_DEGREES geometry). Per-layer cells fetched + set
+    // by the dedicated effect below; this pass just ensures the layer
+    // shells exist with the right visibility for the current zoom.
     for (const heat of HEAT_LAYERS) {
       removeVectorHeatLayer(map, heat)
       removeImageHeatLayer(map, heat)
-      removeCellHeatLayer(map, heat)
       removeHeatLayer(map, heat)
+      const visible = isHeatVisible(heat.id, latest.enabled[heat.id], latest.zoom)
+      ensureCellHeatLayer(map, heat, visible)
+      setVisibility(map, cellFillLayerId(heat.id), visible)
+      setVisibility(map, cellLineLayerId(heat.id), visible)
     }
-    ensureCompositeHeatLayer(map, latest, activeHeatLayerIds(latest.enabled, latest.zoom))
+    removeCompositeHeatLayer(map)
     moveFungalLayersToTop(map)
     setTimeout(() => moveFungalLayersToTop(map), 700)
     const showProtected = Boolean(latest.enabled.protected) && latest.zoom >= 1.2
@@ -1356,13 +1401,67 @@ export function FungalAtlasLayer({
     } catch {}
   }, [map, enabledKey, opacity, zoom, bboxStr, viewportTick])
 
+  // May 21 2026 (Morgan): cell-fetch — pulls real cells from
+  // /api/crep/fungal-atlas?layer={id}&bbox=... for every enabled
+  // heat layer and pushes the result into its cell GeoJSON source.
+  // cellsToGeoJson() builds polygon features pre-coloured by the
+  // layer's RICHNESS_STOPS / RARITY_STOPS ramp, so MapLibre paints
+  // a true choropleth (blue→green→yellow for richness). One fetch
+  // per enabled layer per significant viewport change (throttled via
+  // viewportTick).
   useEffect(() => {
     if (!mapReady(map)) return
-    for (const heat of HEAT_LAYERS) {
-      removeCellHeatLayer(map, heat)
-      removeHeatLayer(map, heat)
+    const latest = {
+      ...latestRef.current,
+      enabled: liveEnabledSnapshot(latestRef.current.enabled),
+      zoom: map.getZoom?.() ?? latestRef.current.zoom,
     }
-  }, [map, enabledKey, zoom, viewportTick])
+    const activeBbox = getCurrentMapBbox(map) ?? parseBboxString(bboxStr)
+    if (!activeBbox) return
+    const [west, south, east, north] = activeBbox
+    const bboxParam = `${west.toFixed(4)},${south.toFixed(4)},${east.toFixed(4)},${north.toFixed(4)}`
+    let cancelled = false
+    const fetchCellsFor = async (heat: { id: HeatLayer; name: string; opacity: number; minZoom: number }) => {
+      if (cancelled) return
+      const enabledFlag = latest.enabled[heat.id]
+      if (!enabledFlag) {
+        try {
+          const src = map.getSource(cellSourceId(heat.id)) as maplibregl.GeoJSONSource | undefined
+          src?.setData?.({ type: "FeatureCollection", features: [] } as any)
+        } catch { /* ignore */ }
+        return
+      }
+      try {
+        const q = new URLSearchParams({
+          layer: heat.id,
+          bbox: bboxParam,
+          limit: latest.zoom < 4 ? "1500" : latest.zoom < 7 ? "2500" : latest.zoom < 10 ? "1800" : "1200",
+        })
+        const res = await fetch(`/api/crep/fungal-atlas?${q}`, {
+          signal: AbortSignal.timeout(15_000),
+          cache: "default",
+        })
+        if (!res.ok || cancelled) return
+        const body = await res.json()
+        const cells = Array.isArray(body?.cells) ? body.cells : []
+        const fc = cellsToGeoJson(cells, heat.id)
+        const setData = (attempt = 0) => {
+          if (cancelled) return
+          const src = map.getSource(cellSourceId(heat.id)) as maplibregl.GeoJSONSource | undefined
+          if (!src?.setData) {
+            if (attempt < 30) window.setTimeout(() => setData(attempt + 1), 100)
+            return
+          }
+          src.setData(fc as any)
+        }
+        setData()
+      } catch (error) {
+        console.warn(`[CREP/FungalAtlas] cells fetch failed for ${heat.id}:`, (error as Error)?.message)
+      }
+    }
+    for (const heat of HEAT_LAYERS) void fetchCellsFor(heat)
+    return () => { cancelled = true }
+  }, [map, enabledKey, bboxStr, viewportTick])
 
   useEffect(() => {
     if (!mapReady(map)) return
@@ -1410,6 +1509,26 @@ export function FungalAtlasLayer({
     // few values fast. Drop the delay: fire the fetch on the next
     // microtask. Cancellation still works via the `cancelled` closure
     // for in-flight requests.
+    const applyData = (features: any[], attempt = 0): boolean => {
+      if (cancelled) return true
+      const src = map.getSource(SAMPLE_SOURCE) as maplibregl.GeoJSONSource | undefined
+      if (!src?.setData) {
+        // May 21 2026 (Morgan: "no AM/EcM fungi on the map"). The sample
+        // source is added 120 ms after mount by the layer's main add()
+        // pass, but this fetch fires immediately. Without a retry, the
+        // first setData was a no-op (src undefined) and the sample
+        // points never painted. Poll the source up to ~3 s.
+        if (attempt < 30) {
+          window.setTimeout(() => applyData(features, attempt + 1), 100)
+        }
+        return false
+      }
+      src.setData({
+        type: "FeatureCollection",
+        features: Array.isArray(features) ? features : [],
+      } as any)
+      return true
+    }
     const poll = async () => {
       if (cancelled) return
       try {
@@ -1428,11 +1547,7 @@ export function FungalAtlasLayer({
         if (!res.ok) return
         const fc = await res.json()
         if (cancelled) return
-        const src = map.getSource(SAMPLE_SOURCE) as maplibregl.GeoJSONSource | undefined
-        src?.setData({
-          type: "FeatureCollection",
-          features: Array.isArray(fc.features) ? fc.features : [],
-        } as any)
+        applyData(fc.features)
       } catch (error) {
         console.warn("[CREP/FungalAtlas] sample fetch failed:", (error as Error)?.message)
       }
