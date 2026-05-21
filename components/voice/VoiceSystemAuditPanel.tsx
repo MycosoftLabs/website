@@ -28,6 +28,7 @@ type PingProbe = {
 
 type PingPayload = {
   voiceReady: boolean
+  voiceStackReady?: boolean
   sloPass: boolean
   sloTargetMs: number
   totalMs: number
@@ -48,6 +49,8 @@ function latencyClass(ms: number, ok: boolean): string {
 interface VoiceSystemAuditPanelProps {
   onLog?: (level: "info" | "success" | "error" | "warn", message: string, details?: string) => void
   onVoiceReadyChange?: (ready: boolean) => void
+  /** Moshi+Bridge ports only — enables Start MYCA Voice even when MINDEX is slow */
+  onVoiceStackReadyChange?: (ready: boolean) => void
   pollMs?: number
   autoStartWhenOffline?: boolean
 }
@@ -55,7 +58,8 @@ interface VoiceSystemAuditPanelProps {
 export function VoiceSystemAuditPanel({
   onLog,
   onVoiceReadyChange,
-  pollMs = 10000,
+  onVoiceStackReadyChange,
+  pollMs = 45000,
   autoStartWhenOffline = true,
 }: VoiceSystemAuditPanelProps) {
   const [ping, setPing] = useState<PingPayload | null>(null)
@@ -69,20 +73,36 @@ export function VoiceSystemAuditPanel({
     setLoading(true)
     setLastError(null)
     try {
-      const pingRes = await fetch("/api/test-voice/ping?optional=1", {
-        cache: "no-store",
-        signal: AbortSignal.timeout(12000),
-      })
-      if (!pingRes.ok) {
-        setLastError(`Ping HTTP ${pingRes.status}`)
-        return
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const pingRes = await fetch("/api/test-voice/ping?optional=1", {
+            cache: "no-store",
+            signal: AbortSignal.timeout(attempt === 1 ? 12000 : 20000),
+          })
+          if (!pingRes.ok) {
+            setLastError(`Ping HTTP ${pingRes.status}`)
+            if (attempt < 3) {
+              await new Promise((r) => setTimeout(r, 1500))
+              continue
+            }
+            return
+          }
+          setPing((await pingRes.json()) as PingPayload)
+          setLastError(null)
+          return
+        } catch (e) {
+          const msg = String(e)
+          setLastError(
+            msg.includes("TimeoutError") || msg.includes("timeout")
+              ? "Probe timed out — Next.js may be compiling; retrying…"
+              : msg
+          )
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1500))
+            continue
+          }
+        }
       }
-      setPing((await pingRes.json()) as PingPayload)
-    } catch (e) {
-      const msg = String(e)
-      setLastError(msg.includes("TimeoutError") || msg.includes("timeout")
-        ? "Probe timed out — Next.js may be compiling; retry in a few seconds"
-        : msg)
     } finally {
       setLoading(false)
     }
@@ -149,8 +169,10 @@ export function VoiceSystemAuditPanel({
   const sloPass = ping?.sloPass ?? false
 
   useEffect(() => {
-    if (ping) onVoiceReadyChange?.(ping.voiceReady)
-  }, [ping, onVoiceReadyChange])
+    if (!ping) return
+    onVoiceReadyChange?.(ping.voiceReady)
+    onVoiceStackReadyChange?.(Boolean(ping.voiceStackReady ?? (moshiTcp?.ok && bridgeTcp?.ok)))
+  }, [ping, onVoiceReadyChange, onVoiceStackReadyChange, moshiTcp?.ok, bridgeTcp?.ok])
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">

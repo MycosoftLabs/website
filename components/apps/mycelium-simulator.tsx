@@ -21,6 +21,8 @@ import {
   RotateCcw, Download, Video, VideoOff, 
   Droplets, Thermometer, FlaskConical, Timer, Trash2, Cloud
 } from "lucide-react"
+import type { BlueSightObservation } from "@/lib/bluesight/types"
+import { bluesightLatestObservation, submitPetriFrameObservation, upsertPetriTruthState } from "@/lib/bluesight/api"
 
 const CHEMICAL_FIELDS = [
   "glucose",
@@ -211,6 +213,12 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   const [isRunning, setIsRunning] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [mindexLive, setMindexLive] = useState<boolean | null>(null)
+  const [blueSightEnabled, setBlueSightEnabled] = useState(false)
+  const [showBlueSightDetections, setShowBlueSightDetections] = useState(true)
+  const [showBlueSightConfidence, setShowBlueSightConfidence] = useState(true)
+  const [showBlueSightNodeIds, setShowBlueSightNodeIds] = useState(false)
+  const [showBlueSightReconciliation, setShowBlueSightReconciliation] = useState(true)
+  const [blueSightObservation, setBlueSightObservation] = useState<BlueSightObservation | null>(null)
   const [consoleLog, setConsoleLog] = useState<string[]>([])
   const [pendingArtifactSave, setPendingArtifactSave] = useState<PendingArtifactSave | null>(null)
   const [artifactSaveStatus, setArtifactSaveStatus] = useState<string | null>(null)
@@ -921,6 +929,92 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     }
   }, [agarType, humidity, pH, selectedChemicalOverlay, selectedContaminant, selectedSpecies, selectedTool, speed, temperature])
 
+  const buildPetriTruthState = useCallback(() => {
+    const colonies = samplesRef.current.map((sample) => ({
+      id: sample.id,
+      x: sample.branches[0]?.x ?? 0,
+      y: sample.branches[0]?.y ?? 0,
+      class_name: "colony",
+      label: sample.species,
+    }))
+    const spores = samplesRef.current.map((sample) => ({
+      id: `${sample.id}-spore`,
+      x: sample.branches[0]?.x ?? 0,
+      y: sample.branches[0]?.y ?? 0,
+      class_name: "spore",
+      label: sample.species,
+    }))
+    const tips = samplesRef.current.flatMap((sample) =>
+      sample.branches.map((branch, index) => ({
+        id: `${sample.id}-tip-${index}`,
+        x: branch.x,
+        y: branch.y,
+        class_name: "hypha_tip",
+        label: sample.species,
+      }))
+    )
+    const nodes = samplesRef.current.flatMap((sample) =>
+      sample.branches
+        .filter((branch) => (branch.age ?? 0) > 20)
+        .map((branch, index) => ({
+          id: `${sample.id}-node-${index}`,
+          x: branch.x,
+          y: branch.y,
+          class_name: "branch_node",
+          label: sample.species,
+        }))
+    )
+    return {
+      tick: virtualHoursRef.current,
+      colonies,
+      spores,
+      tips,
+      segments: [],
+      nodes,
+      chemical_fields_summary: {},
+      events_since_last_frame: [],
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!blueSightEnabled) return
+    const runId = experimentIdRef.current
+    const interval = window.setInterval(async () => {
+      const truth = buildPetriTruthState()
+      await upsertPetriTruthState(runId, truth)
+      const frameId = `f_${Date.now()}`
+      const obs = await submitPetriFrameObservation(runId, {
+        frame_id: frameId,
+        width: CANVAS_SIZE,
+        height: CANVAS_SIZE,
+        source: "screen_capture",
+        provider: "truth_bootstrap",
+        dish: {
+          center_x: CANVAS_SIZE / 2,
+          center_y: CANVAS_SIZE / 2,
+          radius_px: DISH_RADIUS,
+        },
+        metadata: {
+          width: CANVAS_SIZE,
+          height: CANVAS_SIZE,
+          frame_ref: `local://${runId}/${frameId}`,
+        },
+      })
+      if (obs) setBlueSightObservation(obs)
+    }, 2500)
+    return () => window.clearInterval(interval)
+  }, [CANVAS_SIZE, DISH_RADIUS, blueSightEnabled, buildPetriTruthState])
+
+  useEffect(() => {
+    if (!blueSightEnabled) return
+    const interval = window.setInterval(async () => {
+      const runId = experimentIdRef.current
+      const obs = await bluesightLatestObservation("petri", runId)
+      if (obs) setBlueSightObservation(obs)
+    }, 2000)
+    return () => window.clearInterval(interval)
+  }, [blueSightEnabled])
+
   const drawRecordingAgarLayer = useCallback((ctx: CanvasRenderingContext2D) => {
     const cx = CANVAS_SIZE / 2
     const cy = CANVAS_SIZE / 2
@@ -1198,6 +1292,42 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
               aria-hidden="true"
             />
           )}
+          {blueSightEnabled && showBlueSightDetections && blueSightObservation ? (
+            <svg
+              className="pointer-events-none absolute inset-0 z-[25] h-full w-full"
+              viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+              aria-hidden="true"
+            >
+              {blueSightObservation.detections.map((detection) => {
+                const bbox = detection.bbox_xyxy
+                if (bbox) {
+                  const [x1, y1, x2, y2] = bbox
+                  const label = `${detection.class_name}${showBlueSightConfidence ? ` ${detection.confidence.toFixed(2)}` : ""}${showBlueSightNodeIds && detection.linked_entity?.id ? ` ${detection.linked_entity.id}` : ""}`
+                  return (
+                    <g key={detection.detection_id}>
+                      <rect x={x1} y={y1} width={Math.max(1, x2 - x1)} height={Math.max(1, y2 - y1)} fill="none" stroke="#22c55e" strokeWidth={1.2} />
+                      <text x={x1} y={Math.max(8, y1 - 2)} fill="#22c55e" fontSize={7}>
+                        {label}
+                      </text>
+                    </g>
+                  )
+                }
+                if (detection.centroid_xy) {
+                  const [cx, cy] = detection.centroid_xy
+                  const label = `${detection.class_name}${showBlueSightConfidence ? ` ${detection.confidence.toFixed(2)}` : ""}`
+                  return (
+                    <g key={detection.detection_id}>
+                      <circle cx={cx} cy={cy} r={2.5} fill="#22c55e" />
+                      <text x={cx + 3} y={cy - 3} fill="#22c55e" fontSize={7}>
+                        {label}
+                      </text>
+                    </g>
+                  )
+                }
+                return null
+              })}
+            </svg>
+          ) : null}
           <div className="petri-dish-button-shadow" aria-hidden="true" />
           <div className="petri-dish-hover-glass" aria-hidden="true" />
           </div>
@@ -1415,6 +1545,63 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
             </div>
           </div>
           
+          <Separator />
+
+          <div className="petri-control-layer-card space-y-2">
+            <Label className="text-xs">MYCA Eyes / BlueSight</Label>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={blueSightEnabled} onChange={(event) => setBlueSightEnabled(event.target.checked)} />
+                Enable
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={showBlueSightDetections} onChange={(event) => setShowBlueSightDetections(event.target.checked)} />
+                Detections
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={showBlueSightConfidence} onChange={(event) => setShowBlueSightConfidence(event.target.checked)} />
+                Confidence
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={showBlueSightNodeIds} onChange={(event) => setShowBlueSightNodeIds(event.target.checked)} />
+                Node IDs
+              </label>
+              <label className="col-span-2 flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={showBlueSightReconciliation}
+                  onChange={(event) => setShowBlueSightReconciliation(event.target.checked)}
+                />
+                Truth-state reconciliation
+              </label>
+            </div>
+            {blueSightObservation ? (
+              <div className="space-y-1 rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px]">
+                <div>Detections: {blueSightObservation.detections.length}</div>
+                <div>Tracks: {blueSightObservation.tracks.length}</div>
+                {showBlueSightReconciliation ? (
+                  <>
+                    <div>Matched: {blueSightObservation.reconciliation.matched_sim_entities}</div>
+                    <div>Unmatched: {blueSightObservation.reconciliation.unmatched_visual_entities}</div>
+                    <div>Disagreement: {blueSightObservation.reconciliation.visual_truth_disagreement_score.toFixed(3)}</div>
+                  </>
+                ) : null}
+                {blueSightObservation.detections[0] ? (
+                  <div className="mt-2 rounded border border-emerald-500/20 bg-black/10 p-1 text-[10px]">
+                    <div>Inspect: {blueSightObservation.detections[0].detection_id}</div>
+                    <div>Type: {blueSightObservation.detections[0].class_name}</div>
+                    <div>Confidence: {blueSightObservation.detections[0].confidence.toFixed(2)}</div>
+                    {blueSightObservation.detections[0].linked_entity?.id ? (
+                      <div>Linked: {blueSightObservation.detections[0].linked_entity?.id}</div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">No BlueSight observation yet.</p>
+            )}
+          </div>
+
           <Separator />
           
           {/* Save/Record */}

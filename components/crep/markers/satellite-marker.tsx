@@ -124,7 +124,7 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick, onClos
         )}>
           {/* Orbital ring effect */}
           <div 
-            className="absolute w-6 h-6 rounded-full border border-dashed opacity-50 animate-spin"
+            className="absolute w-6 h-6 rounded-full border border-dashed opacity-50"
             style={{ 
               borderColor: orbitColor,
               animationDuration: '10s'
@@ -150,7 +150,7 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick, onClos
           
           {/* Tracking ping animation */}
           <div 
-            className="absolute w-5 h-5 rounded-full animate-ping opacity-20"
+            className="absolute w-5 h-5 rounded-full opacity-20"
             style={{ backgroundColor: orbitColor }}
           />
         </div>

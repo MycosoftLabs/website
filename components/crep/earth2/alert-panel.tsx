@@ -277,12 +277,18 @@ export function AlertPanel({
 }
 
 // Hook to fetch alerts from API - NO MOCK DATA (per Mycosoft policy)
-export function useEarth2Alerts(refreshInterval = 60000) {
+export function useEarth2Alerts(refreshInterval = 60000, enabled = true) {
   const [alerts, setAlerts] = useState<Earth2Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setAlerts([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     const fetchAlerts = async () => {
       try {
         // Fetch from real API endpoint
@@ -322,10 +328,10 @@ export function useEarth2Alerts(refreshInterval = 60000) {
         setAlerts(validAlerts);
         setError(null);
       } catch (error) {
-        console.error("[Earth2 Alerts] Failed to fetch alerts:", error);
+        console.warn("[Earth2 Alerts] Alerts unavailable, showing empty state:", error instanceof Error ? error.message : error);
         // Return empty array - NO MOCK DATA per Mycosoft policy
         setAlerts([]);
-        setError("Failed to fetch alerts");
+        setError("Earth-2 alerts unavailable");
       } finally {
         setLoading(false);
       }
@@ -335,7 +341,7 @@ export function useEarth2Alerts(refreshInterval = 60000) {
     const interval = setInterval(fetchAlerts, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [refreshInterval]);
+  }, [enabled, refreshInterval]);
 
   return { alerts, loading, error };
 }

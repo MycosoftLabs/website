@@ -19,6 +19,13 @@ import {
   type ResearchStatus,
 } from "@/lib/science-publications"
 import {
+  ENDANGERED_SPECIES_DIGEST,
+  ENDANGERED_SPECIES_PROJECTS,
+  ENDANGERED_SPECIES_SIGNALS,
+  ENDANGERED_SPECIES_SOURCES,
+  type EndangeredSpeciesTone,
+} from "@/lib/science-endangered-species"
+import {
   Activity,
   ArrowRight,
   Atom,
@@ -70,6 +77,52 @@ function StatusPill({ status, className = "" }: StatusPillProps) {
       {status}
     </span>
   )
+}
+
+const ENDANGERED_SPECIES_TONE_CLASSES: Record<
+  EndangeredSpeciesTone,
+  {
+    card: string
+    icon: string
+    text: string
+    rule: string
+  }
+> = {
+  marine: {
+    card: "border-cyan-400/25 bg-cyan-500/[0.05]",
+    icon:
+      "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:border-cyan-300/35 dark:bg-cyan-400/10 dark:text-cyan-100",
+    text: "text-cyan-700 dark:text-cyan-100",
+    rule: "from-cyan-300 via-emerald-300 to-transparent",
+  },
+  habitat: {
+    card: "border-emerald-400/25 bg-emerald-500/[0.05]",
+    icon:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-300/35 dark:bg-emerald-400/10 dark:text-emerald-100",
+    text: "text-emerald-700 dark:text-emerald-100",
+    rule: "from-emerald-300 via-lime-300 to-transparent",
+  },
+  field: {
+    card: "border-amber-300/25 bg-amber-400/[0.05]",
+    icon:
+      "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-300/35 dark:bg-amber-300/10 dark:text-amber-100",
+    text: "text-amber-700 dark:text-amber-100",
+    rule: "from-amber-200 via-orange-300 to-transparent",
+  },
+  learning: {
+    card: "border-rose-300/25 bg-rose-400/[0.05]",
+    icon:
+      "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-300/35 dark:bg-rose-300/10 dark:text-rose-100",
+    text: "text-rose-700 dark:text-rose-100",
+    rule: "from-rose-200 via-fuchsia-300 to-transparent",
+  },
+}
+
+const ENDANGERED_SPECIES_ICONS: Record<EndangeredSpeciesTone, typeof Leaf> = {
+  marine: Globe,
+  habitat: Leaf,
+  field: Radar,
+  learning: Database,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -475,6 +528,15 @@ export default function SciencePage() {
                   <ArrowRight className="h-4 w-4" />
                 </NeuButton>
               </Link>
+              <Link href="#endangered-species">
+                <NeuButton
+                  variant="default"
+                  className="gap-2 min-h-[44px] px-6 py-3 border border-white/30 bg-white/5 !text-white hover:bg-white/15"
+                >
+                  Endangered Species Day
+                  <ArrowRight className="h-4 w-4" />
+                </NeuButton>
+              </Link>
             </div>
           </div>
         </section>
@@ -517,7 +579,185 @@ export default function SciencePage() {
           </div>
         </section>
 
-        {/* ── Section 3: Research domains atlas ── */}
+        {/* Section 3: Endangered Species Day research digest */}
+        <section
+          id="endangered-species"
+          className="relative overflow-hidden border-b border-white/10 py-16 md:py-24"
+        >
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(56,189,248,0.18),transparent_28%),radial-gradient(circle_at_86%_28%,rgba(244,114,182,0.14),transparent_26%),linear-gradient(180deg,#020617,#03130c_48%,#000)]"
+          />
+          <div className="relative z-10 container max-w-7xl mx-auto px-4 md:px-6">
+            <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+              <div className="max-w-3xl">
+                <NeuBadge
+                  variant="default"
+                  className="mb-4 border border-emerald-500/25 bg-emerald-500/10 !text-slate-900 dark:border-white/25 dark:bg-white/10 dark:!text-white"
+                >
+                  Endangered Species Day
+                </NeuBadge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Conservation science, recovery signals, and field projects
+                </h2>
+                <p className="text-base md:text-lg leading-relaxed text-white/75">
+                  {ENDANGERED_SPECIES_DIGEST.deck}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-5 backdrop-blur-xl">
+                <div className="text-xs uppercase tracking-wider text-white/55">
+                  Static digest
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-white/50">Event date</div>
+                    <div className="font-semibold text-white">
+                      {ENDANGERED_SPECIES_DIGEST.eventDate}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-white/50">Cadence</div>
+                    <div className="font-semibold text-white">
+                      {ENDANGERED_SPECIES_DIGEST.cadence}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-white/50">Curated</div>
+                    <div className="font-semibold text-white">
+                      {ENDANGERED_SPECIES_DIGEST.lastCurated}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-white/50">Next review</div>
+                    <div className="font-semibold text-white">
+                      {ENDANGERED_SPECIES_DIGEST.nextReview}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {ENDANGERED_SPECIES_SIGNALS.map((signal) => {
+                const tone = ENDANGERED_SPECIES_TONE_CLASSES[signal.tone]
+                const Icon = ENDANGERED_SPECIES_ICONS[signal.tone]
+                return (
+                  <a
+                    key={signal.id}
+                    href={signal.sourceHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`group block h-full rounded-2xl border p-5 transition hover:bg-white/[0.08] ${tone.card}`}
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className={`rounded-xl border p-2.5 ${tone.icon}`}>
+                        <Icon className="h-5 w-5" aria-hidden />
+                      </div>
+                      <ExternalLink
+                        className="h-4 w-4 text-white/40 transition group-hover:text-white/75"
+                        aria-hidden
+                      />
+                    </div>
+                    <div className={`text-3xl font-bold ${tone.text}`}>
+                      {signal.value}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-white">
+                      {signal.label}
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-white/70">
+                      {signal.detail}
+                    </p>
+                    <div className="mt-4 text-xs uppercase tracking-wider text-white/45">
+                      {signal.sourceName}
+                    </div>
+                  </a>
+                )
+              })}
+            </div>
+
+            <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {ENDANGERED_SPECIES_PROJECTS.map((project) => {
+                const tone = ENDANGERED_SPECIES_TONE_CLASSES[project.tone]
+                const Icon = ENDANGERED_SPECIES_ICONS[project.tone]
+                return (
+                  <NeuCard key={project.id} className="h-full">
+                    <NeuCardContent className="flex h-full flex-col gap-5 p-6">
+                      <div className="space-y-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className={`rounded-xl border p-3 ${tone.icon}`}>
+                            <Icon className="h-5 w-5" aria-hidden />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-lg font-bold text-white sm:text-xl">
+                              {project.title}
+                            </h3>
+                            <p className={`mt-1 text-xs font-medium ${tone.text}`}>
+                              {project.focus}
+                            </p>
+                          </div>
+                        </div>
+                        <StatusPill status={project.status} className="self-start" />
+                      </div>
+
+                      <div
+                        aria-hidden="true"
+                        className={`h-px w-full bg-gradient-to-r ${tone.rule}`}
+                      />
+
+                      <p className="text-sm leading-relaxed text-white/75">
+                        {project.detail}
+                      </p>
+
+                      <ul className="space-y-2 text-sm text-white/80">
+                        {project.evidence.map((item) => (
+                          <li key={item} className="flex items-start gap-2">
+                            <ChevronRight
+                              className={`mt-0.5 h-4 w-4 shrink-0 ${tone.text}`}
+                              aria-hidden
+                            />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <a
+                        href={project.sourceHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-auto inline-flex items-center gap-2 text-sm font-medium text-emerald-200 hover:text-white"
+                      >
+                        Source: {project.sourceName}
+                        <ExternalLink className="h-4 w-4" aria-hidden />
+                      </a>
+                    </NeuCardContent>
+                  </NeuCard>
+                )
+              })}
+            </div>
+
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <span className="text-xs uppercase tracking-wider text-white/50">
+                Sources tracked
+              </span>
+              {ENDANGERED_SPECIES_SOURCES.map((source) => (
+                <a
+                  key={source.href}
+                  href={source.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:bg-white/[0.08]"
+                >
+                  <span className="font-medium text-white">{source.name}</span>
+                  <span className="text-white/50">{source.label}</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-white/45" aria-hidden />
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Section 4: Research domains atlas */}
         <section
           id="atlas"
           className="relative overflow-hidden border-b border-white/10 py-16 md:py-24"

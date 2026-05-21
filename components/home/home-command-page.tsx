@@ -9,10 +9,12 @@ import { HeroSearch } from "@/components/home/hero-search"
 import { HomeMYCAExperience } from "@/components/home/home-myca-demo-panel"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
+import { homeHeroYoutubeId } from "@/lib/hero-youtube"
 import { cn } from "@/lib/utils"
 
 const HOME_HERO_SOURCES = homeHeroVideoSources()
 const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
+const HOME_HERO_YOUTUBE_ID = homeHeroYoutubeId()
 
 type HomeTile = {
   title: string
@@ -137,7 +139,10 @@ function TileMedia({ tile }: { tile: HomeTile }) {
         <AutoplayVideo
           src={tile.video}
           sources={tile.sources}
-          preload="auto"
+          preload="none"
+          lazyRootMargin="0px 0px"
+          pauseWhenOutsideViewport
+          unloadWhenOutsideViewport
           stallTimeoutMs={1800}
           className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
           encodeSrc
@@ -151,7 +156,7 @@ function TileMedia({ tile }: { tile: HomeTile }) {
 
 export function HomeCommandPage() {
   const [showMYCADemo, setShowMYCADemo] = useState(false)
-  const [hasMountedMYCADemo, setHasMountedMYCADemo] = useState(true)
+  const [hasMountedMYCADemo, setHasMountedMYCADemo] = useState(false)
   const showMYCADemoRef = useRef(false)
 
   const pinHero = () => {
@@ -178,6 +183,9 @@ export function HomeCommandPage() {
     window.dispatchEvent(new Event("myca-home-demo-close"))
     setShowMYCADemo(false)
     window.requestAnimationFrame(pinHero)
+    window.setTimeout(() => {
+      if (!showMYCADemoRef.current) setHasMountedMYCADemo(false)
+    }, 80)
   }
 
   useEffect(() => {
@@ -206,7 +214,10 @@ export function HomeCommandPage() {
               sources={HOME_HERO_SOURCES}
               poster={HOME_HERO_POSTER}
               preload="auto"
-              stallTimeoutMs={18000}
+              stallTimeoutMs={6000}
+              fallbackAfterFreezeMs={5000}
+              youtubeFallbackId={HOME_HERO_YOUTUBE_ID}
+              smoothLoop
               className="absolute inset-0 h-full w-full object-cover"
               encodeSrc
             />
@@ -261,10 +272,6 @@ export function HomeCommandPage() {
                       aria-label="Return to search panels"
                       title="Search"
                       onClick={returnToSearch}
-                      onPointerDown={(event) => {
-                        event.preventDefault()
-                        returnToSearch()
-                      }}
                     >
                       <span>
                         <Search className="h-[1em] w-[1em]" />

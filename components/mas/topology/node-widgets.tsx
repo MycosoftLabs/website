@@ -50,6 +50,10 @@ import {
   Circle,
 } from "lucide-react"
 import type { TopologyNode } from "./types"
+import {
+  getMeshCoordinationSummary,
+  isDesktopMeshAgentId,
+} from "@/lib/myca/desktop-mesh-agents"
 
 // Widget size based on node type
 const WIDGET_SIZES = {
@@ -415,14 +419,23 @@ function AgentWidget({
   node,
   onClose,
   onAction,
+  meshCoordinationByAgent,
 }: {
   node: TopologyNode
   onClose: () => void
   onAction: (action: string, params?: Record<string, unknown>) => void
+  meshCoordinationByAgent?: Record<string, Record<string, unknown>>
 }) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
+  const meshSummary = isDesktopMeshAgentId(node.id)
+    ? getMeshCoordinationSummary(node.id, meshCoordinationByAgent || {})
+    : null
   
   useEffect(() => {
+    if (isDesktopMeshAgentId(node.id)) {
+      setActivities([])
+      return
+    }
     setActivities(generateMockActivity(node.id))
     const interval = setInterval(() => {
       setActivities(prev => {
@@ -508,7 +521,23 @@ function AgentWidget({
         </div>
       </div>
       
+      {meshSummary && (
+        <div className="px-3 py-2 border-t border-white/10 bg-emerald-950/20">
+          <h4 className="text-[10px] font-semibold text-emerald-300/80 uppercase mb-1.5">
+            Desktop mesh status
+          </h4>
+          <p className="text-xs text-white/80">
+            <span className="font-medium capitalize">{meshSummary.state}</span>
+            {meshSummary.summary ? ` — ${meshSummary.summary}` : " — No summary posted yet"}
+          </p>
+          {meshSummary.updatedAt && (
+            <p className="text-[10px] text-white/40 mt-1">Updated {meshSummary.updatedAt}</p>
+          )}
+        </div>
+      )}
+
       {/* Live Activity */}
+      {!meshSummary && (
       <div className="px-3 py-2">
         <h4 className="text-[10px] font-semibold text-white/50 uppercase mb-1.5 flex items-center gap-1">
           <Activity className="h-3 w-3" />
@@ -518,8 +547,9 @@ function AgentWidget({
           <ActivityStream activities={activities} />
         </ScrollArea>
       </div>
+      )}
       
-      {/* Controls */}
+      {!meshSummary && (
       <div className="flex gap-2 p-3 border-t border-white/10">
         <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => onAction("restart")}>
           <RotateCcw className="h-3 w-3 mr-1" />
@@ -534,6 +564,7 @@ function AgentWidget({
           {node.status === "active" ? "Stop" : "Start"}
         </Button>
       </div>
+      )}
     </div>
   )
 }
@@ -706,10 +737,12 @@ export function NodeWidgetContainer({
   node,
   onClose,
   onAction,
+  meshCoordinationByAgent,
 }: {
   node: TopologyNode | null
   onClose: () => void
   onAction: (nodeId: string, action: string, params?: Record<string, unknown>) => Promise<void>
+  meshCoordinationByAgent?: Record<string, Record<string, unknown>>
 }) {
   if (!node) return null
   
@@ -748,7 +781,12 @@ export function NodeWidgetContainer({
         transform: "translate(-50%, -50%)",
       }}
     >
-      <WidgetComponent node={node} onClose={onClose} onAction={handleAction} />
+      <WidgetComponent
+        node={node}
+        onClose={onClose}
+        onAction={handleAction}
+        meshCoordinationByAgent={meshCoordinationByAgent}
+      />
     </div>
   )
 }

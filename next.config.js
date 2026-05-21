@@ -42,6 +42,11 @@ for (const envFile of ['.env.local', '.env']) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep dev toasts from covering /test-voice controls (Start, diagnostics, protocol).
+  devIndicators: {
+    buildActivity: false,
+    appIsrStatus: false,
+  },
   // Disable X-Powered-By header for security
   poweredByHeader: false,
   // Enable standalone output for Docker deployment
@@ -94,13 +99,24 @@ const nextConfig = {
       '**/coverage/**',
       '**/tmp/**',
       '**/dist/**',
+      '**/screenshots/**',
+      '**/artifacts/**',
       '**/public/data/crep/**',
     ];
     if (dev) {
+      // layout.js can exceed 8MB on this app; default chunk load timeout is too short on cold compile.
+      config.output = {
+        ...config.output,
+        chunkLoadTimeout: 120000,
+      };
       config.watchOptions = {
         ...(process.platform === 'win32' ? { poll: 2000 } : {}),
         aggregateTimeout: 300,
-        ignored: watchIgnore,
+        ignored: [
+          ...watchIgnore,
+          '**/.codex-*',
+          '**/*.codex-*',
+        ],
       };
     }
     return config;
@@ -187,8 +203,8 @@ const nextConfig = {
             //     https: + wss: + 'self' are reachable. No more mixed-
             //     content flag, HSTS can now fully trust the page.
             value: (process.env.NODE_ENV === 'production'
-              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com https://cesium.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cesium.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss:; worker-src 'self' blob: https://unpkg.com https://cesium.com; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
-              : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com https://cesium.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cesium.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss: ws: http://localhost:8001 http://127.0.0.1:8001 ws://localhost:8001 ws://127.0.0.1:8001 http://192.168.0.188:8001 ws://192.168.0.188:8001 http://192.168.0.189:8000 http://192.168.0.187:8002 ws://localhost:8999 ws://127.0.0.1:8999 http://localhost:8999 http://127.0.0.1:8999 ws://192.168.0.241:8999 http://192.168.0.241:8999 ws://192.168.0.190:8999 http://192.168.0.190:8999; worker-src 'self' blob: https://unpkg.com https://cesium.com; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"),
+              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com https://cesium.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cesium.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' blob: https: wss:; worker-src 'self' blob: https://unpkg.com https://cesium.com; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+              : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://unpkg.com https://cesium.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cesium.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' blob: https: wss: ws: http://localhost:8001 http://127.0.0.1:8001 ws://localhost:8001 ws://127.0.0.1:8001 http://192.168.0.188:8001 ws://192.168.0.188:8001 http://192.168.0.189:8000 http://192.168.0.187:8002 ws://localhost:8999 ws://127.0.0.1:8999 http://localhost:8999 http://127.0.0.1:8999 ws://192.168.0.241:8999 http://192.168.0.241:8999 ws://192.168.0.190:8999 http://192.168.0.190:8999; worker-src 'self' blob: https://unpkg.com https://cesium.com; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"),
           },
         ],
       },

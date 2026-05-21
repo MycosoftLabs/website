@@ -397,7 +397,7 @@ export function VoiceMapControls({
           }}
           className={cn(
             "h-8 w-8 rounded-full",
-            isListening && "animate-pulse shadow-lg shadow-red-500/30"
+            isListening && "shadow-lg shadow-red-500/30"
           )}
           title={isListening ? "Stop listening" : voiceConnected ? "Start voice control" : "Open voice controls"}
         >
@@ -469,17 +469,17 @@ export function VoiceMapControls({
         >
           {isListening ? (
             <>
-              <Mic className="h-4 w-4 animate-pulse" />
+              <Mic className="h-4 w-4" />
               Listening...
             </>
           ) : isSpeaking ? (
             <>
-              <Volume2 className="h-4 w-4 animate-pulse" />
+              <Volume2 className="h-4 w-4" />
               Speaking...
             </>
           ) : connectionState === "connecting" ? (
             <>
-              <Mic className="h-4 w-4 animate-pulse" />
+              <Mic className="h-4 w-4" />
               Connecting...
             </>
           ) : !voiceConnected ? (

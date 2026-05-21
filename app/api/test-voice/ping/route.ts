@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   return NextResponse.json(
     {
       voiceReady: critical.voiceReady,
+      voiceStackReady: critical.voiceStackReady,
       sloPass: critical.sloPass,
       sloTargetMs: LAN_SLO_MS,
       totalMs: critical.totalMs,

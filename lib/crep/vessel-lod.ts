@@ -92,6 +92,8 @@ export function selectForZoom<T extends { geometry?: { type?: string; coordinate
   pad = 2,
 ): T[] {
   if (!all?.length) return []
+  void zoom
+  return bbox ? cullToViewport(all, bbox, pad) : all
 
   // World zoom — stratified global sample with ≥ 30% coverage.
   if (!Number.isFinite(zoom) || zoom <= 2) {

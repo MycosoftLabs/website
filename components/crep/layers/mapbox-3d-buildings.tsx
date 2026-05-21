@@ -19,7 +19,7 @@
  * spot is shadowed by a building.
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
 
 interface Props {
@@ -35,8 +35,40 @@ const MAPBOX_TOKEN =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
   ""
 
+// May 21 2026 (Morgan): style-readiness guard. Without it, this component
+// raced MapLibre on first mount and tripped the "Style is not done loading"
+// error sequence the user saw in dev.
+function isMapStyleReady(map: MapLibreMap | null): map is MapLibreMap {
+  try {
+    return !!(map && map.isStyleLoaded?.() && (map as any).style && typeof map.getSource === "function")
+  } catch {
+    return false
+  }
+}
+
 export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSatelliteStreets }: Props) {
   const loadedRef = useRef<{ buildings?: boolean; satstreets?: boolean }>({})
+  const [styleReadyTick, setStyleReadyTick] = useState(0)
+
+  useEffect(() => {
+    if (!map) return
+    let frame: number | null = null
+    const bump = () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => setStyleReadyTick((value) => value + 1))
+    }
+    if (isMapStyleReady(map)) bump()
+    const events = ["load", "style.load", "styledata", "idle"] as const
+    events.forEach((eventName) => {
+      try { map.on(eventName, bump) } catch { /* ignore */ }
+    })
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      events.forEach((eventName) => {
+        try { map.off(eventName, bump) } catch { /* ignore */ }
+      })
+    }
+  }, [map])
 
   // 3D buildings
   useEffect(() => {
@@ -54,6 +86,7 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
       } catch { /* ignore */ }
       return
     }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.buildings = true
 
     try {
@@ -100,7 +133,7 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
       )
       console.log("[Mapbox3D] 3D buildings attached (crep-mapbox-3d-buildings), zoom ≥ 14")
     } catch (e: any) { console.warn("[Mapbox3D/buildings]", e.message) }
-  }, [map, enabled3dBuildings])
+  }, [map, enabled3dBuildings, styleReadyTick])
 
   // Satellite Streets raster as alternative basemap
   useEffect(() => {
@@ -118,6 +151,7 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
       } catch { /* ignore */ }
       return
     }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.satstreets = true
 
     try {
@@ -176,7 +210,7 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
       )
       console.log("[Mapbox3D] Satellite Streets basemap attached (crep-mapbox-satstreets)")
     } catch (e: any) { console.warn("[Mapbox3D/satstreets]", e.message) }
-  }, [map, enabledSatelliteStreets])
+  }, [map, enabledSatelliteStreets, styleReadyTick])
 
   return null
 }

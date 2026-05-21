@@ -32,6 +32,8 @@ export interface GlobalEvent {
     | "lightning"
     | "tornado"
     | "hurricane"
+    | "typhoon"
+    | "cyclone"
     | "blizzard"
     | "heatwave"
     | "coldwave"
@@ -91,7 +93,7 @@ async function fetchUSGSEarthquakes(days = 7): Promise<GlobalEvent[]> {
     const feed = days >= 30 ? "all_month" : days >= 7 ? "1.0_week" : "1.0_day";
     const res = await fetch(
       `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${feed}.geojson`,
-      { signal: AbortSignal.timeout(20000) }
+      { signal: AbortSignal.timeout(20000), cache: "no-store" }
     );
     
     if (!res.ok) throw new Error("USGS API error");
@@ -143,7 +145,7 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
     // Solar Flare data
     const flareRes = await fetch(
       "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
-      { signal: AbortSignal.timeout(10000) }
+      { signal: AbortSignal.timeout(10000), cache: "no-store" }
     );
     
     if (flareRes.ok) {
@@ -180,7 +182,7 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
     // Geomagnetic storms - K-index
     const kpRes = await fetch(
       "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
-      { signal: AbortSignal.timeout(10000) }
+      { signal: AbortSignal.timeout(10000), cache: "no-store" }
     );
     
     if (kpRes.ok) {
@@ -221,25 +223,119 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
   return events;
 }
 
+function severityFromNws(value?: string | null): GlobalEvent["severity"] {
+  switch ((value || "").toLowerCase()) {
+    case "extreme":
+      return "extreme";
+    case "severe":
+      return "high";
+    case "moderate":
+      return "medium";
+    case "minor":
+      return "low";
+    default:
+      return "info";
+  }
+}
+
+function normalizeWeatherEventType(...parts: Array<string | undefined | null>): GlobalEvent["type"] {
+  const text = parts.filter(Boolean).join(" ").toLowerCase();
+
+  if (/\btornado|twister\b/.test(text)) return "tornado";
+  if (/\btyphoon\b/.test(text)) return "typhoon";
+  if (/\bhurricane\b/.test(text)) return "hurricane";
+  if (/\b(cyclone|tropical storm|tropical depression)\b/.test(text)) return "cyclone";
+  if (/\bflood|flash flood|coastal flood|inundation\b/.test(text)) return "flood";
+  if (/\blightning\b/.test(text)) return "lightning";
+  if (/\b(thunderstorm|supercell|squall|hail|storm surge|storm warning|storm watch)\b/.test(text)) return "storm";
+  if (/\bwildfire|red flag|fire weather|forest fire|brush fire\b/.test(text)) return "wildfire";
+  if (/\bblizzard|winter storm|ice storm|snow squall|snow storm\b/.test(text)) return "blizzard";
+  if (/\bheat|excessive heat|hot weather\b/.test(text)) return "heatwave";
+  if (/\bcold|freeze|frost|wind chill|hard freeze\b/.test(text)) return "coldwave";
+  if (/\bair quality|smoke|dust|ashfall|volcanic ash\b/.test(text)) return "air_quality";
+  if (/\btsunami\b/.test(text)) return "tsunami";
+  if (/\blandslide|mudslide|debris flow\b/.test(text)) return "landslide";
+  if (/\bdrought\b/.test(text)) return "drought";
+
+  return "storm";
+}
+
+function collectCoordinatePairs(value: unknown, pairs: Array<[number, number]>) {
+  if (!Array.isArray(value)) return;
+  if (
+    value.length >= 2 &&
+    typeof value[0] === "number" &&
+    typeof value[1] === "number" &&
+    Number.isFinite(value[0]) &&
+    Number.isFinite(value[1])
+  ) {
+    const lng = value[0];
+    const lat = value[1];
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      pairs.push([lng, lat]);
+    }
+    return;
+  }
+
+  for (const item of value) collectCoordinatePairs(item, pairs);
+}
+
+function centroidFromGeometry(geometry: any): { latitude: number; longitude: number } | null {
+  if (!geometry) return null;
+  const pairs: Array<[number, number]> = [];
+  collectCoordinatePairs(geometry.coordinates, pairs);
+  if (pairs.length === 0) return null;
+
+  const sums = pairs.reduce(
+    (acc, [lng, lat]) => {
+      acc.lng += lng;
+      acc.lat += lat;
+      return acc;
+    },
+    { lng: 0, lat: 0 },
+  );
+
+  return {
+    latitude: sums.lat / pairs.length,
+    longitude: sums.lng / pairs.length,
+  };
+}
+
+function extractWindMph(...parts: Array<string | undefined | null>) {
+  const text = parts.filter(Boolean).join(" ");
+  const matches = Array.from(text.matchAll(/\b(\d{2,3})\s*(mph|kt|kts|knots)\b/gi));
+  const values = matches
+    .map((match) => {
+      const value = Number(match[1]);
+      if (!Number.isFinite(value)) return undefined;
+      return /kt|kts|knots/i.test(match[2]) ? Math.round(value * 1.15078) : value;
+    })
+    .filter((value): value is number => typeof value === "number");
+  return values.length > 0 ? Math.max(...values) : undefined;
+}
+
 async function fetchNASAEONET(): Promise<GlobalEvent[]> {
   try {
     const res = await fetch(
       "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=5000",
-      { signal: AbortSignal.timeout(15000) }
+      { signal: AbortSignal.timeout(15000), cache: "no-store" }
     );
     
     if (!res.ok) throw new Error("NASA EONET API error");
     
     const data = await res.json();
     
-    return data.events.map((event: any) => {
-      const category = event.categories[0]?.id || "other";
-      const geometry = event.geometry[0];
+    return data.events
+      .map((event: any): GlobalEvent | null => {
+      const category = event.categories?.[0]?.id || "other";
+      const geometry = Array.isArray(event.geometry) ? event.geometry[0] : null;
+      const centroid = centroidFromGeometry(geometry);
+      if (!centroid) return null;
       
       let type: GlobalEvent["type"] = "other";
       if (category === "wildfires") type = "wildfire";
       else if (category === "volcanoes") type = "volcano";
-      else if (category === "severeStorms") type = "storm";
+      else if (category === "severeStorms") type = normalizeWeatherEventType(event.title, event.description);
       else if (category === "floods") type = "flood";
       else if (category === "earthquakes") type = "earthquake";
       else if (category === "landslides") type = "landslide";
@@ -253,17 +349,86 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
         severity: "medium" as const,
         timestamp: new Date(geometry?.date || Date.now()).toISOString(),
         location: {
-          latitude: geometry?.coordinates?.[1] || 0,
-          longitude: geometry?.coordinates?.[0] || 0,
+          latitude: centroid.latitude,
+          longitude: centroid.longitude,
           name: event.title,
         },
         source: "NASA EONET",
         sourceUrl: "https://eonet.gsfc.nasa.gov",
         link: event.link,
       };
-    });
+    })
+    .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
   } catch (error) {
-    console.error("NASA EONET fetch error:", error);
+    // May 21 2026 (Morgan): downgraded from console.error to console.warn.
+    // The Next.js dev error overlay treats console.error() as a runtime
+    // error and pops a "1 error" badge on the page, even when the calling
+    // route swallows the failure and returns []. EONET is a single source
+    // among many — its 5xx / timeout is the upstream's problem, not a
+    // dashboard bug. Same goes for the other upstream catches below.
+    console.warn("[global-events] NASA EONET upstream unavailable:", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+async function fetchNWSActiveWeatherAlerts(): Promise<GlobalEvent[]> {
+  try {
+    const res = await fetch(
+      "https://api.weather.gov/alerts/active?status=actual&message_type=alert",
+      {
+        headers: {
+          Accept: "application/geo+json",
+          "User-Agent": "Mycosoft NatureOS Earth Simulator (https://mycosoft.com)",
+        },
+        signal: AbortSignal.timeout(15000),
+        cache: "no-store",
+      },
+    );
+
+    if (!res.ok) throw new Error(`NWS API error: ${res.status}`);
+
+    const data = await res.json();
+    const features = Array.isArray(data.features) ? data.features : [];
+
+    return features
+      .map((feature: any): GlobalEvent | null => {
+        const props = feature.properties || {};
+        const centroid = centroidFromGeometry(feature.geometry);
+        if (!centroid) return null;
+
+        const type = normalizeWeatherEventType(props.event, props.headline, props.description, props.instruction);
+        const windMph = extractWindMph(props.headline, props.description, props.instruction);
+        const id = String(props.id || feature.id || `${props.event || "alert"}-${props.sent || props.effective || props.areaDesc}`);
+        const timestamp = props.effective || props.sent || props.onset || props.updated || new Date().toISOString();
+        const description = [props.headline, props.description, props.instruction].filter(Boolean).join("\n\n");
+
+        return {
+          id: `nws-${id.replace(/[^a-zA-Z0-9_-]+/g, "-")}`,
+          type,
+          title: props.event || props.headline || "NWS Weather Alert",
+          description: description || `Active ${type.replace("_", " ")} alert from the National Weather Service.`,
+          severity: severityFromNws(props.severity),
+          timestamp: new Date(timestamp).toISOString(),
+          location: {
+            latitude: centroid.latitude,
+            longitude: centroid.longitude,
+            name: props.areaDesc || props.senderName || "NWS Alert Area",
+          },
+          magnitude: windMph,
+          source: "NWS",
+          sourceUrl: "https://api.weather.gov",
+          link: props["@id"] || props.id,
+          affected: {
+            countries: ["US"],
+          },
+          updates: props.instruction
+            ? [{ timestamp: new Date(timestamp).toISOString(), message: props.instruction }]
+            : undefined,
+        };
+      })
+      .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
+  } catch (error) {
+    console.error("NWS alerts fetch error:", error);
     return [];
   }
 }
@@ -274,7 +439,7 @@ export async function GET(request: NextRequest) {
   const requestedType = (request.nextUrl.searchParams.get("type") || "").toLowerCase();
   const earthquakeOnly = requestedType === "earthquake" || requestedType === "earthquakes";
   const days = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("days") || (earthquakeOnly ? 30 : 7)), 30));
-  const cacheKey = earthquakeOnly ? `earthquake:${days}` : "all:7";
+  const cacheKey = earthquakeOnly ? `earthquake:${days}` : `all:${days}`;
   
   // Return cached data if still valid
   if ((cachedEvents as any).__cacheKey === cacheKey && cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
@@ -287,6 +452,7 @@ export async function GET(request: NextRequest) {
           usgs: "online",
           noaa: "online",
           nasa_eonet: "online",
+          nws: "online",
         },
       },
       { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "hit" } }
@@ -295,12 +461,13 @@ export async function GET(request: NextRequest) {
   
   // Fetch from all sources in parallel. Earthquake search embeds use a deeper,
   // earthquake-only feed so the globe never waits on unrelated layers.
-  const [earthquakes, spaceWeather, eonetEvents] = earthquakeOnly
-    ? [await fetchUSGSEarthquakes(days), [], []]
+  const [earthquakes, spaceWeather, eonetEvents, nwsWeather] = earthquakeOnly
+    ? [await fetchUSGSEarthquakes(days), [], [], []]
     : await Promise.all([
         fetchUSGSEarthquakes(days),
         fetchNOAASpaceWeather(),
         fetchNASAEONET(),
+        fetchNWSActiveWeatherAlerts(),
       ]);
   
   // Combine and sort
@@ -308,6 +475,7 @@ export async function GET(request: NextRequest) {
     ...earthquakes,
     ...spaceWeather,
     ...eonetEvents,
+    ...nwsWeather,
   ];
   
   allEvents.sort((a, b) => 
@@ -320,7 +488,7 @@ export async function GET(request: NextRequest) {
   lastFetchTime = now;
   
   // Ingest events to MINDEX for persistent storage (non-blocking)
-  const realEvents = [...earthquakes, ...spaceWeather, ...eonetEvents].map(e => ({
+  const realEvents = [...earthquakes, ...spaceWeather, ...eonetEvents, ...nwsWeather].map(e => ({
     ...e,
     latitude: e.location?.latitude,
     longitude: e.location?.longitude,
@@ -338,6 +506,7 @@ export async function GET(request: NextRequest) {
         usgs: earthquakes.length > 0 ? "online" : "offline",
         noaa: spaceWeather.length > 0 ? "online" : "degraded",
         nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
+        nws: nwsWeather.length > 0 ? "online" : "offline",
       },
     },
     { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "miss" } }

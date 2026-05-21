@@ -136,7 +136,7 @@ export function AircraftMarker({ aircraft, isSelected = false, onClick, onClose 
           {/* Transponder ping animation for ADS-B equipped */}
           {aircraft.transponder && (
             <div 
-              className="absolute w-6 h-6 rounded-full animate-ping opacity-30"
+              className="absolute w-6 h-6 rounded-full opacity-30"
               style={{ backgroundColor: altitudeColor }}
             />
           )}

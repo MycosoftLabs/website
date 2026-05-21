@@ -26,6 +26,20 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 const MINDEX_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 const INATURALIST_API = "https://api.inaturalist.org/v1"
+const configuredMindexTimeout = Number(process.env.CREP_MINDEX_PROXY_TIMEOUT_MS)
+const MINDEX_PROXY_TIMEOUT_MS =
+  Number.isFinite(configuredMindexTimeout) && configuredMindexTimeout > 0
+    ? configuredMindexTimeout
+    : process.env.NODE_ENV === "development"
+      ? 1500
+      : 8000
+const configuredFallbackTimeout = Number(process.env.CREP_MINDEX_PROXY_FALLBACK_TIMEOUT_MS)
+const FALLBACK_TIMEOUT_MS =
+  Number.isFinite(configuredFallbackTimeout) && configuredFallbackTimeout > 0
+    ? configuredFallbackTimeout
+    : process.env.NODE_ENV === "development"
+      ? 6000
+      : 12000
 
 function mindexHeaders(): HeadersInit {
   const h: Record<string, string> = { Accept: "application/json" }
@@ -222,6 +236,10 @@ export async function GET(
   const lng_min = searchParams.get("lng_min") || searchParams.get("west") || "-180"
   const lng_max = searchParams.get("lng_max") || searchParams.get("east") || "180"
   const limit = searchParams.get("limit") || "500"
+  const liveFallbackEnabled =
+    searchParams.get("liveFallback") === "true" ||
+    searchParams.get("fallbackLive") === "true" ||
+    process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK === "1"
 
   try {
     // Primary: Query MINDEX earth/map/bbox endpoint (PostGIS spatial query + Redis cache)
@@ -229,7 +247,7 @@ export async function GET(
 
     const res = await fetch(mindexUrl, {
       cache: "no-store",
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(MINDEX_PROXY_TIMEOUT_MS),
       headers: mindexHeaders(),
     })
 
@@ -258,6 +276,27 @@ export async function GET(
   if (fallbackRoute) {
     try {
       if (mindexLayer === "species") {
+        if (!liveFallbackEnabled) {
+          return NextResponse.json(
+            {
+              available: false,
+              source,
+              layer: mindexLayer,
+              entities: [],
+              observations: [],
+              features: [],
+              total: 0,
+              message: "MINDEX species cache unavailable; live fallback disabled for low-latency map loading",
+            },
+            {
+              headers: {
+                "Cache-Control": "no-store",
+                "X-MINDEX-Source": "unavailable",
+                "X-MINDEX-Layer": mindexLayer,
+              },
+            },
+          )
+        }
         const body = await fetchLiveSpeciesFallback({ lat_min, lat_max, lng_min, lng_max }, limit)
         if (body.total > 0) {
           return NextResponse.json(body, {
@@ -288,7 +327,7 @@ export async function GET(
 
       const fallbackRes = await fetch(fallbackUrl.toString(), {
         cache: "no-store",
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
       })
 
       if (fallbackRes.ok) {

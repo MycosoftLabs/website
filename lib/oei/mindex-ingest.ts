@@ -38,6 +38,10 @@ const TYPE_TO_PROXY_SOURCE: Partial<Record<IngestType, string>> = {
   satellites: "satellites",
 }
 
+const ENABLE_OEI_MINDEX_WRITEBACK =
+  process.env.OEI_ENABLE_LIVE_MINDEX_WRITEBACK === "1" ||
+  (process.env.NODE_ENV === "production" && process.env.OEI_DISABLE_LIVE_MINDEX_WRITEBACK !== "1")
+
 /**
  * Non-blocking ingestion of data to MINDEX
  * Fires and forgets - errors are logged but don't block the main request.
@@ -50,6 +54,10 @@ export function ingestToMINDEX(options: IngestOptions): void {
 
   // Don't ingest empty data
   if (!data || (Array.isArray(data) && data.length === 0)) {
+    return
+  }
+
+  if (!ENABLE_OEI_MINDEX_WRITEBACK) {
     return
   }
 

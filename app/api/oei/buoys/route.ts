@@ -221,10 +221,15 @@ async function fetchMINDEXBuoys(): Promise<BuoyObservation[]> {
   }
 }
 
+const ENABLE_BUOY_MINDEX_WRITEBACK =
+  process.env.OEI_ENABLE_LIVE_MINDEX_WRITEBACK === "1" ||
+  (process.env.NODE_ENV === "production" && process.env.OEI_DISABLE_LIVE_MINDEX_WRITEBACK !== "1")
+
 // ── MINDEX ingest (fire-and-forget) ──────────────────────────────────────────
 
 function ingestBuoysToMINDEX(buoys: BuoyObservation[]): void {
   if (!buoys || buoys.length === 0) return
+  if (!ENABLE_BUOY_MINDEX_WRITEBACK) return
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010"
   const now = new Date().toISOString()
 

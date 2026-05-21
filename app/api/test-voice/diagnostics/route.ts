@@ -2,6 +2,7 @@
  * Test Voice Diagnostics — fast parallel LAN probes (double-digit ms SLO after warm-up).
  */
 import { NextResponse } from "next/server"
+import { MINDEX_ENDPOINTS } from "@/lib/config/api-urls"
 import {
   LAN_SLO_MS,
   runCriticalVoiceProbes,
@@ -30,6 +31,7 @@ export async function GET() {
   return NextResponse.json(
     {
       voiceReady: critical.voiceReady,
+      voiceStackReady: critical.voiceStackReady,
       sloPass: critical.sloPass,
       sloTargetMs: LAN_SLO_MS,
       totalMs: critical.totalMs,
@@ -83,7 +85,7 @@ export async function GET() {
         {
           key: "mindex",
           name: "MINDEX API (health)",
-          target: critical.config.masBase.replace(":8001", ":8000") + "/health",
+          target: MINDEX_ENDPOINTS.HEALTH,
           ok: mindex?.ok,
           status: mindex?.status,
           latencyMs: mindex?.latencyMs,

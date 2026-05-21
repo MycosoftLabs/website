@@ -31,6 +31,7 @@ import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
+import { homeHeroYoutubeId } from "@/lib/hero-youtube"
 import {
   Search,
   Mic,
@@ -50,6 +51,7 @@ import {
  */
 /** Poster served from the same NAS-backed asset path as the homepage hero video. */
 const HOME_HERO_POSTER = primaryHomeHeroPosterPath()
+const HOME_HERO_YOUTUBE_ID = homeHeroYoutubeId()
 interface HeroSuggestion {
   id: string
   title: string
@@ -453,7 +455,10 @@ export function HeroSearch({
               sources={homeNasHeroSources}
               poster={HOME_HERO_POSTER}
               preload="auto"
-              stallTimeoutMs={18000}
+              stallTimeoutMs={6000}
+              fallbackAfterFreezeMs={5000}
+              youtubeFallbackId={HOME_HERO_YOUTUBE_ID}
+              smoothLoop
               className="absolute inset-0 z-0 h-full w-full object-cover"
               encodeSrc
             />

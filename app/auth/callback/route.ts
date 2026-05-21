@@ -7,6 +7,46 @@
 import { createClient, createClientForRedirect } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+function getSupabaseStorageKey(): string | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return null
+
+  try {
+    const host = new URL(supabaseUrl).hostname
+    const projectRef = host.split('.')[0]
+    return projectRef ? `sb-${projectRef}-auth-token` : null
+  } catch {
+    return null
+  }
+}
+
+function hasPkceVerifierCookie(request: Request): boolean {
+  const storageKey = getSupabaseStorageKey()
+  if (!storageKey) return false
+
+  const verifierName = `${storageKey}-code-verifier`
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  return parseCookieString(cookieHeader).some((cookie) => cookie.name === verifierName)
+}
+
+function parseCookieString(cookieHeader: string): { name: string; value: string }[] {
+  if (!cookieHeader) return []
+  return cookieHeader
+    .split(';')
+    .map((pair) => {
+      const [name, ...valueParts] = pair.trim().split('=')
+      return { name: name?.trim() ?? '', value: valueParts.join('=').trim() ?? '' }
+    })
+    .filter((cookie) => cookie.name)
+}
+
+function createClientCallbackUrl(origin: string, code: string, next: string): string {
+  const url = new URL('/auth/client-callback', origin)
+  url.searchParams.set('code', code)
+  url.searchParams.set('next', next)
+  return url.toString()
+}
+
 function getOrigin(request: Request): string {
   const requestUrl = new URL(request.url)
   const requestHost = request.headers.get('host') || requestUrl.host
@@ -66,6 +106,10 @@ export async function GET(request: Request) {
   }
 
   if (code) {
+    if (!hasPkceVerifierCookie(request)) {
+      return NextResponse.redirect(createClientCallbackUrl(origin, code, next))
+    }
+
     // Create redirect response first - session cookies MUST be set on this response
     // so they are sent when user lands on the target page (e.g. /ethics-training)
     const redirectUrl = `${origin}${next}`

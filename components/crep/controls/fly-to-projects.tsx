@@ -14,6 +14,8 @@
  * picks them up automatically.
  */
 
+import { useState, type ReactNode } from "react"
+import { Building2, FolderKanban, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface MycosoftProject {
@@ -273,6 +275,9 @@ interface FlyToProjectsProps {
 }
 
 export function FlyToProjects({ onFlyTo, onEnableLayers, className, compact = false }: FlyToProjectsProps) {
+  const [projectsOpen, setProjectsOpen] = useState(false)
+  const [metrosOpen, setMetrosOpen] = useState(false)
+
   const chip = (p: MycosoftProject) => (
     <button
       key={p.id}
@@ -293,27 +298,62 @@ export function FlyToProjects({ onFlyTo, onEnableLayers, className, compact = fa
     </button>
   )
 
+  const rowShell = (
+    open: boolean,
+    setOpen: (value: boolean) => void,
+    Icon: LucideIcon,
+    label: string,
+    accentClass: string,
+    children: ReactNode,
+  ) => (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center justify-center rounded-lg border bg-black/55 shadow-lg backdrop-blur-sm transition-all",
+          compact ? "h-8 w-8" : "h-9 w-9",
+          accentClass,
+        )}
+        title={open ? `Hide ${label}` : `Show ${label}`}
+        aria-label={open ? `Hide ${label}` : `Show ${label}`}
+        aria-expanded={open}
+      >
+        <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
+      </button>
+      {open && (
+        <div className="flex max-w-[380px] flex-wrap justify-end gap-1 rounded-lg border border-white/10 bg-black/70 p-1.5 shadow-xl backdrop-blur-md">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <div>
-        <div className="text-[9px] uppercase tracking-[0.15em] text-white/40 font-mono px-1 mb-1">
-          Projects
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {MYCOSOFT_PROJECTS.map(chip)}
-        </div>
-      </div>
+    <div className={cn("flex flex-col items-end gap-1", className)}>
+      {rowShell(
+        projectsOpen,
+        setProjectsOpen,
+        FolderKanban,
+        "project fly-to buttons",
+        projectsOpen
+          ? "border-teal-300 bg-teal-500/20 text-teal-100 hover:border-teal-200 hover:bg-teal-500/25"
+          : "border-teal-500/40 text-teal-200 hover:border-teal-300 hover:bg-teal-500/15",
+        MYCOSOFT_PROJECTS.map(chip),
+      )}
       {/* Apr 23, 2026 — Morgan: "every single environmental sensor and
           data source tool in nyc and cd and san diego los angeles ... and
           other large cities in the us". US major-metros fly-to strip. */}
-      <div>
-        <div className="text-[9px] uppercase tracking-[0.15em] text-white/40 font-mono px-1 mb-1">
-          US metros
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {US_MAJOR_CITIES.map(chip)}
-        </div>
-      </div>
+      {rowShell(
+        metrosOpen,
+        setMetrosOpen,
+        Building2,
+        "US metro fly-to buttons",
+        metrosOpen
+          ? "border-orange-300 bg-orange-500/20 text-orange-100 hover:border-orange-200 hover:bg-orange-500/25"
+          : "border-orange-500/40 text-orange-200 hover:border-orange-300 hover:bg-orange-500/15",
+        US_MAJOR_CITIES.map(chip),
+      )}
     </div>
   )
 }

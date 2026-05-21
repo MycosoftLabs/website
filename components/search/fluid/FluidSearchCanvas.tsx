@@ -618,6 +618,8 @@ export function FluidSearchCanvas({
     totalCount,
     error,
     message,
+    timing,
+    source,
     refresh: searchRefresh,
     intentPlan: streamingIntentPlan,
   } = useStreamingSearch(committedQuery, {
@@ -1733,6 +1735,66 @@ export function FluidSearchCanvas({
   }, [hasPendingInput, committedQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, earthSearchWidgets, manuallyHiddenWidgets, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const route = committedQuery.length >= 2 ? (effectiveSearchRoute ?? classifyAndRoute(committedQuery)) : null
+    const qaDataMap: Record<string, number> = {
+      species: species.length,
+      chemistry: compounds.length,
+      genetics: genetics.length,
+      research: research.length,
+      earth: (mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
+      events: len(eventsForWidgets),
+      aircraft: len(aircraft),
+      vessels: len(vessels),
+      satellites: len(satellites),
+      weather: len(weather),
+      emissions: len(emissions),
+      infrastructure: len(infrastructure),
+      devices: len(devices),
+      space_weather: len(spaceWeather),
+      cameras: len(cameras),
+      risk: len(eventsForWidgets) + len(infrastructure),
+      power_grid: len(infrastructure),
+      supply_chain: len(vessels) + len(aircraft) + len(infrastructure),
+      biosecurity: /\bbiosecurity|disease|outbreak|pathogen|invasive\b/i.test(committedQuery) ? species.length + research.length + len(eventsForWidgets) : 0,
+      conservation: /\bconservation|endangered|threatened|migration|population|decline\b/i.test(committedQuery) ? species.length + research.length + mapObservations.length : 0,
+      geology: len(eventsForWidgets),
+      hydrology: len(weather) + len(eventsForWidgets) + len(infrastructure),
+      wildfire: len(eventsForWidgets) + len(weather),
+      air_quality: len(weather) + len(emissions),
+      space_assets: len(satellites),
+      marine: len(vessels) + len(infrastructure),
+      transport: len(aircraft) + len(vessels),
+      source_health: 0,
+      qa_trace: 0,
+    }
+    ;(window as unknown as {
+      __MYCOSOFT_SEARCH_QA__?: Record<string, unknown>
+    }).__MYCOSOFT_SEARCH_QA__ = {
+      query: committedQuery,
+      localQuery,
+      hasPendingInput,
+      isLoading,
+      totalCount,
+      source,
+      timing,
+      plannedWidgets: route?.searchPlan?.widgetOrder ?? [],
+      primaryWidget: route?.searchPlan?.primaryWidget ?? route?.primaryWidget ?? null,
+      expandedWidgets: [...expandedWidgets],
+      hiddenWidgets: [...manuallyHiddenWidgets],
+      dataMap: qaDataMap,
+      earthLayers: route?.searchPlan?.earth?.enabledLayers ?? earthSearchRule.enabledLayerIds,
+      forbiddenEarthLayers: route?.searchPlan?.earth?.disabledLayers ?? [],
+      entityFamilies: route?.searchPlan?.entityFamilies ?? [],
+      liveResultTypes: route?.searchPlan?.liveResultTypes ?? route?.liveResultTypes ?? [],
+      etlRequests: route?.searchPlan?.etlRequests ?? [],
+      answerContext: route?.searchPlan?.answerContext ?? null,
+      error,
+      capturedAt: new Date().toISOString(),
+    }
+  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, source, timing, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
+
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
 
   const handleFocusWidget = useCallback(

@@ -10,9 +10,6 @@
 
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js"
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js"
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js"
 import { useMYCA } from "@/contexts/myca-context"
 import { cn } from "@/lib/utils"
 
@@ -143,9 +140,9 @@ export function MYCALiveDemoBackground({
       camera.position.set(0, 0, 90)
       camera.lookAt(0, 0, 0)
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" })
       renderer.setSize(width, height)
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25))
       renderer.setClearColor(0x080808, transparent ? 0 : 0.4)
 
       if (disposed || !containerRef.current) {
@@ -153,6 +150,7 @@ export function MYCALiveDemoBackground({
         return
       }
 
+      container.replaceChildren()
       container.appendChild(renderer.domElement)
 
       const contentGroup = new THREE.Group()
@@ -167,8 +165,8 @@ export function MYCALiveDemoBackground({
       contentGroup.scale.set(scale, scale, 1)
       scene.add(contentGroup)
 
-      const segmentCount = 150
-      const lineCount = 80
+      const segmentCount = 120
+      const lineCount = 56
       const curveLength = 50
       const straightLength = 100
       const spreadHeight = 30.33
@@ -233,8 +231,8 @@ export function MYCALiveDemoBackground({
         assignedColor: THREE.Color
       }
       let signals: Signal[] = []
-      let signalCount = 60
-      const maxTrail = 150
+      let signalCount = 48
+      const maxTrail = 96
 
       function createSignal(color?: THREE.Color) {
         const geometry = new THREE.BufferGeometry()
@@ -281,29 +279,14 @@ export function MYCALiveDemoBackground({
           s.mesh.geometry.dispose()
         })
         signals = []
-        signalCount = Math.max(20, Math.min(180, targetCount))
+        signalCount = Math.max(16, Math.min(120, targetCount))
         for (let i = 0; i < signalCount; i++) {
           createSignal()
         }
       }
 
       rebuildLines()
-      rebuildSignals(60)
-
-      const renderScene = new RenderPass(scene, camera)
-      const bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(width, height),
-        1.5,
-        0.4,
-        0.85
-      )
-      bloomPass.threshold = 0
-      bloomPass.strength = 2.0
-      bloomPass.radius = 0.5
-
-      const composer = new EffectComposer(renderer)
-      composer.addPass(renderScene)
-      composer.addPass(bloomPass)
+      rebuildSignals(48)
 
       const clock = new THREE.Clock()
       let frameId: number | null = null
@@ -331,10 +314,10 @@ export function MYCALiveDemoBackground({
         const responseBoost = act.lastResponseLength > 0 ? Math.min(1.5, 0.5 + act.lastResponseLength / 800) : 1
         const speedGlobal = activeSpeed * responseBoost
 
-        const baseSignals = 50
-        const activeSignals = act.isLoading || typingActive ? 130 : baseSignals
-        const messageBoost = Math.min(80, act.messageCount * 4)
-        const targetSignalCount = Math.min(180, activeSignals + messageBoost)
+        const baseSignals = 36
+        const activeSignals = act.isLoading || typingActive ? 96 : baseSignals
+        const messageBoost = Math.min(48, act.messageCount * 3)
+        const targetSignalCount = Math.min(120, activeSignals + messageBoost)
 
         if (act.burstRequested) {
           const toAdd = Math.min(18, Math.max(5, Math.floor(Math.max(act.lastResponseLength, act.draftLength) / 80) || 5))
@@ -419,7 +402,7 @@ export function MYCALiveDemoBackground({
           sig.mesh.geometry.attributes.color.needsUpdate = true
         })
 
-        composer.render()
+        renderer.render(scene, camera)
         scheduleFrame()
       }
 
@@ -436,8 +419,6 @@ export function MYCALiveDemoBackground({
         ;(camera as THREE.OrthographicCamera).bottom = -h / 2
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
-        composer.setSize(w, h)
-        bloomPass.resolution.set(w, h)
         const pathRightExtent = 50
         const newScale = Math.max(
           (w / 2 + 24) / pathRightExtent,
@@ -465,9 +446,6 @@ export function MYCALiveDemoBackground({
           s.mesh.geometry.dispose()
         })
         renderer.dispose()
-        if (renderer.domElement.parentNode) {
-          renderer.domElement.parentNode.removeChild(renderer.domElement)
-        }
       }
     }
 

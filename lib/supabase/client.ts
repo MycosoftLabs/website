@@ -26,7 +26,14 @@ export function createClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
     return null
   }
+  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:"
+
   return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      secure: isHttps,
+    },
     auth: {
       detectSessionInUrl: true,
       persistSession: true,

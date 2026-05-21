@@ -1,6 +1,6 @@
 "use client"
 
-import { useId, useMemo, useState, type KeyboardEvent } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import * as d3 from "d3"
 import {
   Activity,
@@ -50,6 +50,11 @@ export interface MYCAChordInteraction {
   status?: MYCAChordInteractionStatus
   detail: string
   latencyMs?: number
+  provenance?: {
+    source: string
+    endpoint?: string
+    timestamp?: string
+  }
 }
 
 interface MYCALiveActivityChordDiagramProps {
@@ -57,6 +62,46 @@ interface MYCALiveActivityChordDiagramProps {
   className?: string
   height?: number
   live?: boolean
+}
+
+type MYCALiveActivitySnapshot = {
+  timestamp?: string
+  session?: Record<string, unknown>
+  sources?: Array<{
+    key: string
+    label: string
+    endpoint: string
+    ok: boolean
+    status: number | "skipped" | "error"
+    latencyMs: number
+    error?: string
+  }>
+  systems?: Record<string, any>
+}
+
+type MYCAChordSignalKind =
+  | "heartbeat"
+  | "request"
+  | "response"
+  | "status"
+  | "tool"
+  | "agent"
+  | "device"
+  | "world"
+  | "guardrail"
+
+type MYCAChordSignalPacket = {
+  id: string
+  source: string
+  target: string
+  kind: MYCAChordInteractionKind
+  signalKind: MYCAChordSignalKind
+  status?: MYCAChordInteractionStatus
+  detail: string
+  timestamp: number
+  ttlMs: number
+  latencyMs?: number
+  provenance?: MYCAChordInteraction["provenance"]
 }
 
 type NodeMeta = {
@@ -190,6 +235,22 @@ function polarPoint(angle: number, radius: number, center: number) {
   }
 }
 
+function spreadLabels<T extends { y: number }>(labels: T[], minY: number, maxY: number, gap: number) {
+  const sorted = [...labels].sort((a, b) => a.y - b.y)
+  let previous = minY - gap
+  sorted.forEach((label) => {
+    label.y = Math.max(minY, Math.min(maxY, Math.max(label.y, previous + gap)))
+    previous = label.y
+  })
+
+  let next = maxY + gap
+  for (let index = sorted.length - 1; index >= 0; index -= 1) {
+    const label = sorted[index]
+    label.y = Math.max(minY, Math.min(label.y, next - gap))
+    next = label.y
+  }
+}
+
 function nodeSortValue(name: string) {
   const index = NODE_ORDER.indexOf(name)
   return index === -1 ? Number.MAX_SAFE_INTEGER : index
@@ -198,6 +259,170 @@ function nodeSortValue(name: string) {
 function describeStatus(status?: MYCAChordInteractionStatus) {
   if (!status) return "idle"
   return status
+}
+
+function visualWeightFromCount(count: unknown, minimum = 1) {
+  const value = Number(count)
+  if (!Number.isFinite(value) || value <= 0) return minimum
+  return minimum
+}
+
+function statusFromOk(ok: boolean, active = false): MYCAChordInteractionStatus {
+  if (!ok) return "error"
+  return active ? "active" : "complete"
+}
+
+const SOURCE_SIGNAL_EDGES: Record<
+  string,
+  {
+    source: string
+    target: string
+    kind: MYCAChordInteractionKind
+    signalKind: MYCAChordSignalKind
+  }
+> = {
+  router: {
+    source: "MYCA Router",
+    target: "Tool Router",
+    kind: "route",
+    signalKind: "heartbeat",
+  },
+  connectivity: {
+    source: "MYCA Router",
+    target: "Services",
+    kind: "service",
+    signalKind: "heartbeat",
+  },
+  consciousness: {
+    source: "MYCA Router",
+    target: "Consciousness",
+    kind: "consciousness",
+    signalKind: "heartbeat",
+  },
+  grounding: {
+    source: "MYCA Router",
+    target: "Grounding",
+    kind: "world",
+    signalKind: "heartbeat",
+  },
+  memory: {
+    source: "MYCA Router",
+    target: "Memory",
+    kind: "memory",
+    signalKind: "heartbeat",
+  },
+  agents: {
+    source: "MYCA Router",
+    target: "Agents",
+    kind: "agent",
+    signalKind: "heartbeat",
+  },
+  coordination: {
+    source: "Agents",
+    target: "Services",
+    kind: "agent",
+    signalKind: "heartbeat",
+  },
+  services: {
+    source: "Tool Router",
+    target: "Services",
+    kind: "service",
+    signalKind: "heartbeat",
+  },
+  devices: {
+    source: "Services",
+    target: "Devices",
+    kind: "device",
+    signalKind: "device",
+  },
+  telemetry: {
+    source: "Devices",
+    target: "World Model",
+    kind: "device",
+    signalKind: "device",
+  },
+  world: {
+    source: "World Model",
+    target: "Response",
+    kind: "world",
+    signalKind: "world",
+  },
+  "global-events": {
+    source: "World Model",
+    target: "Response",
+    kind: "world",
+    signalKind: "world",
+  },
+}
+
+function statusFromSource(source: NonNullable<MYCALiveActivitySnapshot["sources"]>[number]) {
+  if (source.status === "skipped") return "idle"
+  if (!source.ok) return "error"
+  if (source.latencyMs > 1800) return "busy"
+  return "complete"
+}
+
+function buildSignalPacketsFromSnapshot(snapshot: MYCALiveActivitySnapshot): MYCAChordSignalPacket[] {
+  const timestamp = Date.parse(snapshot.timestamp || "")
+  const observedAt = Number.isFinite(timestamp) ? timestamp : Date.now()
+
+  return (snapshot.sources || [])
+    .map((source) => {
+      const edge = SOURCE_SIGNAL_EDGES[source.key]
+      if (!edge) return null
+      const status = statusFromSource(source)
+      const health = source.status === "skipped" ? "policy skipped" : source.ok ? "ok" : "error"
+      return {
+        id: `source-${snapshot.timestamp || observedAt}-${source.key}-${source.status}-${source.latencyMs}`,
+        ...edge,
+        status,
+        detail: `${source.label} ${edge.signalKind} ${health} in ${source.latencyMs}ms.`,
+        timestamp: observedAt,
+        ttlMs: 16000,
+        latencyMs: source.latencyMs,
+        provenance: {
+          source: source.label,
+          endpoint: source.endpoint,
+          timestamp: snapshot.timestamp,
+        },
+      } satisfies MYCAChordSignalPacket
+    })
+    .filter((packet): packet is MYCAChordSignalPacket => Boolean(packet))
+}
+
+function signalKindFromInteraction(interaction: MYCAChordInteraction): MYCAChordSignalKind {
+  if (interaction.id.startsWith("draft-") || interaction.id.includes("-input-router")) return "request"
+  if (interaction.kind === "response") return "response"
+  if (interaction.kind === "guardrail") return "guardrail"
+  if (interaction.kind === "agent") return "agent"
+  if (interaction.kind === "tool" || interaction.kind === "service") return "tool"
+  if (interaction.kind === "device") return "device"
+  if (interaction.kind === "world") return "world"
+  return "status"
+}
+
+function timestampFromInteraction(interaction: MYCAChordInteraction) {
+  const timestamp = Date.parse(interaction.provenance?.timestamp || "")
+  return Number.isFinite(timestamp) ? timestamp : Date.now()
+}
+
+function buildSignalPacketsFromInteractions(
+  interactions: MYCAChordInteraction[],
+  origin: "provided" | "myca"
+): MYCAChordSignalPacket[] {
+  return interactions.map((interaction) => ({
+    id: `${origin}-${interaction.id}-${interaction.status || "idle"}`,
+    source: interaction.source,
+    target: interaction.target,
+    kind: interaction.kind,
+    signalKind: signalKindFromInteraction(interaction),
+    status: interaction.status,
+    detail: interaction.detail,
+    timestamp: timestampFromInteraction(interaction),
+    ttlMs: interaction.id.startsWith("draft-") ? 3600 : 14000,
+    latencyMs: interaction.latencyMs,
+    provenance: interaction.provenance,
+  }))
 }
 
 function formatTime(timestamp?: string) {
@@ -217,6 +442,29 @@ function metadataNumber(message: MYCAMessage, keys: string[]) {
   return undefined
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function metadataText(value: unknown) {
+  if (typeof value === "string" && value.trim()) return value.trim()
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return undefined
+}
+
+function summarizeRecord(record: Record<string, unknown> | null, limit = 5) {
+  if (!record) return ""
+  return Object.entries(record)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .slice(0, limit)
+    .map(([key, value]) => {
+      const text = metadataText(value)
+      return text ? `${key}: ${text}` : key
+    })
+    .join(", ")
+}
+
 function labelAgent(raw?: string) {
   if (!raw || raw === "myca-local-fallback") return "MYCA"
   return raw
@@ -234,6 +482,223 @@ function addInteraction(
     ...interaction,
     value: Math.max(1, Math.floor(interaction.value ?? 1)),
   })
+}
+
+function buildInteractionsFromSystems(snapshot: MYCALiveActivitySnapshot | null): MYCAChordInteraction[] {
+  const systems = snapshot?.systems
+  if (!systems) return []
+
+  const timestamp = snapshot?.timestamp
+  const interactions: MYCAChordInteraction[] = []
+  const addSystemInteraction = (
+    interaction: Omit<MYCAChordInteraction, "value"> & { value?: number },
+    sourceName: string,
+    endpoint?: string
+  ) => {
+    addInteraction(interactions, {
+      ...interaction,
+      provenance: {
+        source: sourceName,
+        endpoint,
+        timestamp,
+      },
+    })
+  }
+
+  const user = systems.user || {}
+  if (user.sessionIdProvided) {
+    addSystemInteraction(
+      {
+        id: "system-user-session-router",
+        source: "User",
+        target: "MYCA Router",
+        kind: "route",
+        status: "active",
+        detail: `Browser MYCA session is initialized${user.userIdProvided ? " with an authenticated user" : " as an anonymous isolated session"}.`,
+      },
+      "MYCAProvider session",
+      "contexts/myca-context.tsx"
+    )
+  }
+
+  const router = systems.router || {}
+  addSystemInteraction(
+    {
+      id: "system-router-tool-router",
+      source: "MYCA Router",
+      target: "Tool Router",
+      kind: "route",
+      status: statusFromOk(Boolean(router.ok), Boolean(router.ok)),
+      latencyMs: router.latencyMs,
+      detail: router.ok
+        ? `${router.service || "MYCA voice orchestrator"} is online${router.identity ? ` as ${router.identity}` : ""}.`
+        : `MYCA router is unreachable${router.status ? `: ${router.status}` : ""}.`,
+    },
+    "MYCA router health",
+    router.endpoint
+  )
+
+  const consciousness = systems.consciousness || {}
+  addSystemInteraction(
+    {
+      id: "system-router-consciousness",
+      source: "MYCA Router",
+      target: "Consciousness",
+      kind: "consciousness",
+      status: statusFromOk(Boolean(consciousness.ok), Boolean(consciousness.isConscious)),
+      latencyMs: consciousness.latencyMs,
+      detail: consciousness.ok
+        ? `Consciousness state is ${consciousness.state || "unknown"}${typeof consciousness.worldUpdates === "number" ? ` with ${consciousness.worldUpdates} world updates` : ""}.`
+        : `Consciousness endpoint returned ${consciousness.error || "an unavailable state"}.`,
+    },
+    "MYCA consciousness status",
+    consciousness.endpoint
+  )
+
+  const memory = systems.memory || {}
+  addSystemInteraction(
+    {
+      id: "system-router-memory",
+      source: "MYCA Router",
+      target: "Memory",
+      kind: "memory",
+      status: memory.persistenceAllowed ? statusFromOk(Boolean(memory.ok)) : "idle",
+      value: memory.persistenceAllowed ? visualWeightFromCount(memory.conversations) : 1,
+      latencyMs: memory.latencyMs,
+      detail: memory.persistenceAllowed
+        ? `Memory route checked ${memory.conversations ?? 0} persisted conversation records from ${memory.source || "configured memory store"}.`
+        : `Anonymous session memory is disabled by policy; no non-logged-in conversation is persisted.`,
+    },
+    "MYCA memory policy",
+    memory.endpoint
+  )
+
+  const grounding = systems.grounding || {}
+  addSystemInteraction(
+    {
+      id: "system-router-grounding",
+      source: "MYCA Router",
+      target: "Grounding",
+      kind: "world",
+      status: statusFromOk(Boolean(grounding.ok), Boolean(grounding.enabled)),
+      value: grounding.enabled ? visualWeightFromCount(grounding.thoughtCount) : 1,
+      latencyMs: grounding.latencyMs,
+      detail: grounding.ok
+        ? `Grounding is ${grounding.enabled ? "enabled" : "disabled"} with ${grounding.thoughtCount ?? 0} thoughts${grounding.lastEpId ? ` on ${grounding.lastEpId}` : ""}.`
+        : `Grounding endpoint returned ${grounding.error || "an unavailable state"}.`,
+    },
+    "MYCA grounding status",
+    grounding.endpoint
+  )
+
+  const agents = systems.agents || {}
+  addSystemInteraction(
+    {
+      id: "system-router-agents",
+      source: "MYCA Router",
+      target: "Agents",
+      kind: "agent",
+      status: statusFromOk(Boolean(agents.ok), Number(agents.active) > 0),
+      value: visualWeightFromCount(agents.total),
+      latencyMs: agents.latencyMs,
+      detail: `MAS agent registry returned ${agents.total ?? 0} agents, ${agents.active ?? 0} active, ${agents.busy ?? 0} busy, across ${agents.categories ?? 0} categories.`,
+    },
+    "MAS agent registry",
+    agents.endpoint
+  )
+
+  if (Number(agents.coordinationMessages) > 0) {
+    addSystemInteraction(
+      {
+        id: "system-agents-services-coordination",
+        source: "Agents",
+        target: "Services",
+        kind: "agent",
+        status: "active",
+        value: visualWeightFromCount(agents.coordinationMessages),
+        detail: `Agent coordination ledger exposed ${agents.coordinationMessages} recent coordination messages.`,
+      },
+      "Agent coordination ledger",
+      agents.coordinationEndpoint
+    )
+  }
+
+  const services = systems.services || {}
+  addSystemInteraction(
+    {
+      id: "system-tool-router-services",
+      source: "Tool Router",
+      target: "Services",
+      kind: "service",
+      status: statusFromOk(Boolean(services.ok), Number(services.online) > 0),
+      value: visualWeightFromCount(services.total),
+      latencyMs: services.latencyMs,
+      detail: `Service status returned ${services.online ?? 0}/${services.total ?? 0} online services${Array.isArray(services.names) && services.names.length ? `: ${services.names.join(", ")}` : ""}.`,
+    },
+    "Service status",
+    services.endpoint
+  )
+
+  const devices = systems.devices || {}
+  addSystemInteraction(
+    {
+      id: "system-services-devices",
+      source: "Services",
+      target: "Devices",
+      kind: "device",
+      status: statusFromOk(Boolean(devices.registryOk || devices.telemetryOk), Number(devices.online || devices.activeTelemetry) > 0),
+      value: visualWeightFromCount(Number(devices.registered || 0) + Number(devices.telemetry || 0)),
+      detail: `Device registry returned ${devices.registered ?? 0} devices (${devices.online ?? 0} online); telemetry returned ${devices.telemetry ?? 0} records (${devices.activeTelemetry ?? 0} active).`,
+    },
+    "Device registry and telemetry",
+    `${devices.registryEndpoint || ""}${devices.telemetryEndpoint ? ` + ${devices.telemetryEndpoint}` : ""}`
+  )
+
+  const world = systems.worldModel || {}
+  addSystemInteraction(
+    {
+      id: "system-devices-world",
+      source: "Devices",
+      target: "World Model",
+      kind: "world",
+      status: statusFromOk(Boolean(world.worldOk || world.globalEventsOk), Number(world.globalEvents) > 0),
+      value: visualWeightFromCount(world.globalEvents),
+      detail: `World model status is ${world.worldStatus || "unknown"}; global events returned ${world.globalEvents ?? 0} events with ${world.criticalEvents ?? 0} critical or extreme.`,
+    },
+    "MYCA world model and global events",
+    `${world.worldEndpoint || ""}${world.globalEventsEndpoint ? ` + ${world.globalEventsEndpoint}` : ""}`
+  )
+
+  if (world.latestEvent) {
+    addSystemInteraction(
+      {
+        id: "system-world-response-latest-event",
+        source: "World Model",
+        target: "Response",
+        kind: "world",
+        status: "complete",
+        detail: `Latest world event: ${world.latestEvent.title} (${world.latestEvent.severity || "unknown"} from ${world.latestEvent.source || "unknown source"}).`,
+      },
+      "Global event stream",
+      world.globalEventsEndpoint
+    )
+  }
+
+  const guardrails = systems.guardrails || {}
+  addSystemInteraction(
+    {
+      id: "system-router-guardrails",
+      source: "MYCA Router",
+      target: "Guardrails",
+      kind: "guardrail",
+      status: "idle",
+      detail: `Guardrail outcomes are wired from orchestrator response actions; they activate when a real response returns AVANI verdicts, risk tiers, denials, or confirmation requirements.`,
+    },
+    guardrails.source || "orchestrator_response_actions",
+    guardrails.endpoint
+  )
+
+  return interactions
 }
 
 function buildInteractionsFromMYCA(myca: MYCAContextValue | null): MYCAChordInteraction[] {
@@ -287,6 +752,22 @@ function buildInteractionsFromMYCA(myca: MYCAContextValue | null): MYCAChordInte
     const routedTo = String(message.metadata?.routed_to || myca.lastResponseMetadata?.routed_to || message.agent || "MYCA")
     const agentLabel = labelAgent(message.agent || routedTo)
     const activeResponse = myca.isLoading && message.id === latestAssistantId
+    const metadata = asRecord(message.metadata)
+    const provider = metadataText(metadata?.provider)
+    const fallbackReason = metadataText(metadata?.fallback_reason)
+    const providerTimings = asRecord(metadata?.provider_timings)
+    const providerTimingSummary = summarizeRecord(providerTimings)
+    const actions = asRecord(metadata?.actions)
+    const memorySaved = actions?.memory_saved === true || actions?.memory === "saved"
+    const guardrailSummary = summarizeRecord(
+      actions
+        ? Object.fromEntries(
+            Object.entries(actions).filter(([key]) =>
+              /avani|risk|guard|policy|deny|denied|confirm|safety/i.test(key)
+            )
+          )
+        : null
+    )
 
     addInteraction(interactions, {
       id: `${message.id}-router-agent`,
@@ -297,6 +778,50 @@ function buildInteractionsFromMYCA(myca: MYCAContextValue | null): MYCAChordInte
       detail: `Response event was routed through ${agentLabel} at ${timestamp}.`,
       latencyMs,
     })
+
+    if (provider || providerTimingSummary || fallbackReason) {
+      addInteraction(interactions, {
+        id: `${message.id}-orchestrator-provider`,
+        source: "MYCA Router",
+        target: "Tool Router",
+        kind: "tool",
+        status: fallbackReason ? "busy" : "complete",
+        detail: [
+          provider ? `Provider path: ${provider}.` : "",
+          providerTimingSummary ? `Provider timings: ${providerTimingSummary}.` : "",
+          fallbackReason ? `Fallback reason: ${fallbackReason}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+        latencyMs,
+      })
+    }
+
+    if (memorySaved) {
+      addInteraction(interactions, {
+        id: `${message.id}-orchestrator-memory`,
+        source: "MYCA Router",
+        target: "Memory",
+        kind: "memory",
+        status: "complete",
+        detail: "The orchestrator response reported a successful authenticated memory write.",
+        latencyMs,
+      })
+    }
+
+    if (guardrailSummary || message.requires_confirmation) {
+      addInteraction(interactions, {
+        id: `${message.id}-orchestrator-guardrails`,
+        source: "MYCA Router",
+        target: "Guardrails",
+        kind: "guardrail",
+        status: message.requires_confirmation ? "active" : "complete",
+        detail: guardrailSummary
+          ? `Orchestrator guardrail metadata: ${guardrailSummary}.`
+          : "The orchestrator marked this response for confirmation handling.",
+        latencyMs,
+      })
+    }
 
     if (Array.isArray(message.nlqSources) && message.nlqSources.length > 0) {
       addInteraction(interactions, {
@@ -430,13 +955,117 @@ export function MYCALiveActivityChordDiagram({
   const rawId = useId()
   const instanceId = rawId.replace(/[^a-zA-Z0-9_-]/g, "")
   const myca = useOptionalMYCA()
+  const snapshotRequestVersion = useRef(0)
+  const [systemSnapshot, setSystemSnapshot] = useState<MYCALiveActivitySnapshot | null>(null)
+  const [systemSnapshotError, setSystemSnapshotError] = useState<string | null>(null)
+  const systemInteractions = useMemo(
+    () => (interactions ? [] : buildInteractionsFromSystems(systemSnapshot)),
+    [interactions, systemSnapshot]
+  )
+  const mycaInteractions = useMemo(() => buildInteractionsFromMYCA(myca), [myca])
   const liveInteractions = useMemo(
-    () => interactions ?? buildInteractionsFromMYCA(myca),
-    [interactions, myca]
+    () => interactions ?? [...systemInteractions, ...mycaInteractions],
+    [interactions, systemInteractions, mycaInteractions]
   )
   const [selectedNode, setSelectedNode] = useState<string | null>("MYCA Router")
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
   const [detailsOpen, setDetailsOpen] = useState(true)
+  const [now, setNow] = useState(() => Date.now())
+  const [signalPackets, setSignalPackets] = useState<MYCAChordSignalPacket[]>([])
+  const signalPacketKeys = useRef<Set<string>>(new Set())
+
+  const addSignalPackets = useCallback((packets: MYCAChordSignalPacket[]) => {
+    if (packets.length === 0) return
+    setSignalPackets((current) => {
+      const next = [...current]
+      let changed = false
+      packets.forEach((packet) => {
+        if (signalPacketKeys.current.has(packet.id)) return
+        signalPacketKeys.current.add(packet.id)
+        next.push(packet)
+        changed = true
+      })
+      if (!changed) return current
+
+      const cutoff = Date.now() - 60000
+      const trimmed = next.filter((packet) => packet.timestamp >= cutoff).slice(-120)
+      if (signalPacketKeys.current.size > 360) {
+        signalPacketKeys.current = new Set(trimmed.map((packet) => packet.id))
+      }
+      return trimmed
+    })
+  }, [])
+
+  useEffect(() => {
+    const ticker = window.setInterval(() => setNow(Date.now()), 500)
+    return () => window.clearInterval(ticker)
+  }, [])
+
+  useEffect(() => {
+    const packetSource = interactions ? interactions : mycaInteractions
+    addSignalPackets(buildSignalPacketsFromInteractions(packetSource, interactions ? "provided" : "myca"))
+  }, [addSignalPackets, interactions, mycaInteractions])
+
+  useEffect(() => {
+    if (interactions || !systemSnapshot) return
+    addSignalPackets(buildSignalPacketsFromSnapshot(systemSnapshot))
+  }, [addSignalPackets, interactions, systemSnapshot])
+
+  useEffect(() => {
+    if (interactions) return
+
+    let cancelled = false
+    let nextRefresh: number | undefined
+    let activeController: AbortController | undefined
+
+    const loadSnapshot = async () => {
+      const requestVersion = snapshotRequestVersion.current + 1
+      snapshotRequestVersion.current = requestVersion
+      const params = new URLSearchParams()
+      if (myca?.sessionId) params.set("session_id", myca.sessionId)
+      if (myca?.userId) params.set("user_id", myca.userId)
+      if (myca?.conversationId) params.set("conversation_id", myca.conversationId)
+
+      const controller = new AbortController()
+      activeController = controller
+      const timeout = window.setTimeout(() => controller.abort(), 20000)
+
+      try {
+        const query = params.toString()
+        const response = await fetch(`/api/myca/live-activity${query ? `?${query}` : ""}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        })
+        const data = await response.json().catch(() => null)
+        if (cancelled || requestVersion !== snapshotRequestVersion.current) return
+        if (!response.ok || !data) {
+          setSystemSnapshotError(data?.error || `Live system audit returned HTTP ${response.status}`)
+          return
+        }
+        setSystemSnapshot(data)
+        addSignalPackets(buildSignalPacketsFromSnapshot(data))
+        setSystemSnapshotError(null)
+      } catch (error) {
+        if (!cancelled && requestVersion === snapshotRequestVersion.current) {
+          setSystemSnapshotError(error instanceof Error ? error.message : String(error))
+        }
+      } finally {
+        window.clearTimeout(timeout)
+        if (activeController === controller) activeController = undefined
+        if (!cancelled) {
+          nextRefresh = window.setTimeout(loadSnapshot, 10000)
+        }
+      }
+    }
+
+    loadSnapshot()
+
+    return () => {
+      cancelled = true
+      activeController?.abort()
+      if (nextRefresh) window.clearTimeout(nextRefresh)
+    }
+  }, [addSignalPackets, interactions, myca?.conversationId, myca?.sessionId, myca?.userId])
 
   const model = useMemo(() => {
     const visibleInteractions = liveInteractions.filter(
@@ -470,14 +1099,14 @@ export function MYCALiveActivityChordDiagram({
       if (name) groupByName.set(name, group)
     })
 
-    const totalValue = visibleInteractions.reduce((sum, interaction) => sum + interaction.value, 0)
+    const totalValue = visibleInteractions.length
     const byNode = nodeNames.map((name) => {
       const inbound = visibleInteractions
         .filter((interaction) => interaction.target === name)
-        .reduce((sum, interaction) => sum + interaction.value, 0)
+        .length
       const outbound = visibleInteractions
         .filter((interaction) => interaction.source === name)
-        .reduce((sum, interaction) => sum + interaction.value, 0)
+        .length
       return {
         name,
         inbound,
@@ -514,25 +1143,66 @@ export function MYCALiveActivityChordDiagram({
       .radius(innerRadius - 3)
       .padAngle(0.012) as unknown as (chord: d3.Chord) => string | null
 
-    const packets = model.visibleInteractions
+    const pathForEdge = (sourceName: string, targetName: string, index: number) => {
+      const sourceGroup = model.groupByName.get(sourceName)
+      const targetGroup = model.groupByName.get(targetName)
+      if (!sourceGroup || !targetGroup) return null
+      const sourceAngle = (sourceGroup.startAngle + sourceGroup.endAngle) / 2
+      const targetAngle = (targetGroup.startAngle + targetGroup.endAngle) / 2
+      const source = polarPoint(sourceAngle, innerRadius - 24, center)
+      const target = polarPoint(targetAngle, innerRadius - 24, center)
+      const middle = polarPoint((sourceAngle + targetAngle) / 2, 64 + (index % 3) * 18, center)
+      return `M ${source.x.toFixed(2)} ${source.y.toFixed(2)} Q ${middle.x.toFixed(2)} ${middle.y.toFixed(2)} ${target.x.toFixed(2)} ${target.y.toFixed(2)}`
+    }
+
+    const edgePaths = model.visibleInteractions
       .map((interaction, index) => {
-        const sourceGroup = model.groupByName.get(interaction.source)
-        const targetGroup = model.groupByName.get(interaction.target)
-        if (!sourceGroup || !targetGroup) return null
-        const sourceAngle = (sourceGroup.startAngle + sourceGroup.endAngle) / 2
-        const targetAngle = (targetGroup.startAngle + targetGroup.endAngle) / 2
-        const source = polarPoint(sourceAngle, innerRadius - 24, center)
-        const target = polarPoint(targetAngle, innerRadius - 24, center)
-        const middle = polarPoint((sourceAngle + targetAngle) / 2, 64 + (index % 3) * 18, center)
+        const path = pathForEdge(interaction.source, interaction.target, index)
+        if (!path) return null
         return {
           ...interaction,
           color: KIND_COLORS[interaction.kind],
-          path: `M ${source.x.toFixed(2)} ${source.y.toFixed(2)} Q ${middle.x.toFixed(2)} ${middle.y.toFixed(2)} ${target.x.toFixed(2)} ${target.y.toFixed(2)}`,
-          duration: Math.max(2.6, 7.2 - interaction.value * 0.28),
-          delay: index * 0.18,
+          path,
         }
       })
       .filter(Boolean)
+
+    const activeSignalPackets = signalPackets
+      .filter((packet) => {
+        const age = Math.max(0, now - packet.timestamp)
+        return age <= packet.ttlMs
+      })
+      .map((packet, index) => {
+        const path = pathForEdge(packet.source, packet.target, index)
+        if (!path) return null
+        const latency = Number.isFinite(packet.latencyMs) ? Number(packet.latencyMs) : 240
+        return {
+          ...packet,
+          color: KIND_COLORS[packet.kind],
+          path,
+          duration: Math.max(1.35, Math.min(4.8, 1.35 + latency / 950)),
+          delay: packet.signalKind === "heartbeat" ? Math.max(0, Math.min(2.8, latency / 1400)) : 0,
+        }
+      })
+      .filter(Boolean)
+    type SvgTextAnchor = "start" | "end" | "middle" | "inherit"
+    const labelRows = model.chords.groups.map((group) => {
+      const name = model.nodeNames[group.index]
+      const midAngle = (group.startAngle + group.endAngle) / 2
+      const label = polarPoint(midAngle, labelRadius, center)
+      const side = label.x < center ? "left" : "right"
+      const textAnchor: SvgTextAnchor = side === "left" ? "end" : "start"
+      return {
+        name,
+        x: side === "left" ? Math.min(label.x, center - 104) : Math.max(label.x, center + 104),
+        y: label.y,
+        textAnchor,
+      }
+    })
+
+    spreadLabels(labelRows.filter((label) => label.textAnchor === "start"), 34, center * 2 - 34, 20)
+    spreadLabels(labelRows.filter((label) => label.textAnchor === "end"), 34, center * 2 - 34, 20)
+    const labelByName = new Map(labelRows.map((label) => [label.name, label]))
 
     return {
       center,
@@ -541,9 +1211,11 @@ export function MYCALiveActivityChordDiagram({
       labelRadius,
       arc,
       ribbon,
-      packets,
+      edgePaths,
+      signalPackets: activeSignalPackets,
+      labelByName,
     }
-  }, [model])
+  }, [model, now, signalPackets])
 
   const selected = selectedNode
     ? {
@@ -678,7 +1350,7 @@ export function MYCALiveActivityChordDiagram({
       `}</style>
 
       <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.1),transparent_32%,rgba(255,255,255,0.035)_62%,transparent)] opacity-70 pointer-events-none" />
-      <div className="relative z-10 grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
+      <div className="relative z-10 grid gap-4 p-4 2xl:grid-cols-[minmax(0,1fr)_360px] lg:p-5">
         <div className="myca-chord-glass min-h-[560px] overflow-hidden rounded-[8px] p-3 md:p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -695,6 +1367,14 @@ export function MYCALiveActivityChordDiagram({
               {model.nodeNames.length} nodes
               <span className="h-1 w-1 rounded-full bg-white/36" />
               {model.visibleInteractions.length} interactions
+              <span className="h-1 w-1 rounded-full bg-white/36" />
+              {chart.signalPackets.length} real signals
+              {systemSnapshotError ? (
+                <>
+                  <span className="h-1 w-1 rounded-full bg-white/36" />
+                  audit degraded
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -743,7 +1423,7 @@ export function MYCALiveActivityChordDiagram({
               />
 
               <g data-testid="myca-chord-paths">
-                {chart.packets.map((packet) => {
+                {chart.edgePaths.map((packet) => {
                   const selectedMatch =
                     selectedNode === null || selectedNode === packet.source || selectedNode === packet.target
                   return (
@@ -791,21 +1471,36 @@ export function MYCALiveActivityChordDiagram({
               </g>
 
               {live &&
-                chart.packets.map((packet, index) => (
+                chart.signalPackets.map((packet) => (
                   <circle
                     key={packet.id}
-                    r={Math.max(3.5, Math.min(6, packet.value * 0.62))}
+                    r={packet.signalKind === "heartbeat" ? 4.2 : 5.2}
                     fill={packet.color}
                     className="myca-chord-packet"
                     style={{ color: packet.color }}
                     opacity={selectedNode && packet.source !== selectedNode && packet.target !== selectedNode ? 0.26 : 0.92}
                     data-kind={packet.kind}
+                    data-real-signal="true"
+                    data-signal-kind={packet.signalKind}
+                    data-signal-latency-ms={String(packet.latencyMs ?? "")}
+                    data-signal-source={packet.provenance?.source || packet.source}
+                    data-signal-endpoint={packet.provenance?.endpoint || ""}
+                    data-testid="myca-chord-signal-packet"
                   >
                     <animateMotion
                       dur={`${packet.duration}s`}
                       begin={`${packet.delay}s`}
-                      repeatCount="indefinite"
+                      repeatCount="1"
+                      fill="freeze"
                       path={packet.path}
+                    />
+                    <animate
+                      attributeName="opacity"
+                      dur={`${packet.duration}s`}
+                      begin={`${packet.delay}s`}
+                      values="0;0.96;0.96;0"
+                      keyTimes="0;0.16;0.84;1"
+                      fill="freeze"
                     />
                   </circle>
                 ))}
@@ -815,7 +1510,10 @@ export function MYCALiveActivityChordDiagram({
                   const name = model.nodeNames[group.index]
                   const meta = NODE_META[name]
                   const midAngle = (group.startAngle + group.endAngle) / 2
-                  const label = polarPoint(midAngle, chart.labelRadius, chart.center)
+                  const label = chart.labelByName.get(name) ?? {
+                    ...polarPoint(midAngle, chart.labelRadius, chart.center),
+                    textAnchor: "start",
+                  }
                   const selectedMatch = selectedNode === name
                   const dim = selectedNode !== null && !selectedMatch
 
@@ -849,9 +1547,9 @@ export function MYCALiveActivityChordDiagram({
                       <text
                         x={label.x}
                         y={label.y}
-                        className="myca-chord-node-label select-none text-[13px] font-semibold"
+                        className="myca-chord-node-label select-none text-[12px] font-semibold"
                         fill="#fff"
-                        textAnchor={label.x < chart.center ? "end" : "start"}
+                        textAnchor={label.textAnchor}
                         dominantBaseline="middle"
                         opacity={dim ? 0.52 : 0.94}
                       >
@@ -880,7 +1578,7 @@ export function MYCALiveActivityChordDiagram({
                   {model.totalValue}
                 </text>
                 <text y="11" fill="rgba(255,255,255,0.68)" className="text-[11px] uppercase tracking-[0.22em]">
-                  events
+                  live edges
                 </text>
               </g>
             </svg>
@@ -1022,6 +1720,12 @@ export function MYCALiveActivityChordDiagram({
                             {interaction.target}
                           </div>
                           <p className="mt-1 text-xs leading-5 text-white/62">{interaction.detail}</p>
+                          {interaction.provenance ? (
+                            <div className="mt-2 rounded-[6px] border border-white/10 bg-white/[0.025] px-2 py-1.5 text-[11px] leading-5 text-white/48">
+                              {interaction.provenance.source}
+                              {interaction.provenance.endpoint ? ` / ${interaction.provenance.endpoint}` : ""}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>

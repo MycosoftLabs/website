@@ -99,17 +99,12 @@ const MyceliumMap = dynamic(() => import("@/components/maps/mycelium-map").then(
   ),
 })
 
-const EarthSimulatorContainer = dynamic(() => import("@/components/earth-simulator/earth-simulator-container").then((mod) => mod.EarthSimulatorContainer), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full flex items-center justify-center bg-black rounded-lg">
-      <div className="text-center">
-        <Globe className="h-8 w-8 animate-pulse mx-auto mb-2 text-green-500" />
-        <p className="text-sm text-white">Loading Earth Simulator...</p>
-      </div>
-    </div>
-  ),
-})
+// May 21 2026 (Morgan): the standalone Cesium EarthSimulatorContainer was the
+// "secondary map" Codex created during the SPUN integration. It is being
+// retired in favor of the canonical CREP MapLibre Earth Simulator at
+// /natureos/earth-simulator. The dashboard never actually rendered this
+// import — it was dead code keeping the Cesium bundle in the module graph.
+// Dropping the import so HMR + tree-shaking stop pulling Cesium for nothing.
 
 // Real device interface for MycoBrain
 interface RealDevice {

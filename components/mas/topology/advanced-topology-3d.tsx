@@ -108,6 +108,10 @@ import { ConnectionLegend } from "./connection-legend"
 import { useLODSystem, LODIndicator, type DetailLevel } from "./lod-system"
 import { useTopologyWebSocket, executeAgentAction } from "./use-topology-websocket"
 import { TOTAL_AGENT_COUNT } from "./agent-registry"
+import {
+  buildDesktopMeshTopologyNodes,
+  DESKTOP_MESH_AGENT_IDS,
+} from "@/lib/myca/desktop-mesh-agents"
 import { 
   validateAgentConnections, 
   getValidationSummary,
@@ -1673,6 +1677,9 @@ export function AdvancedTopology3D({
   const [data, setData] = useState<ExtendedTopologyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [meshCoordinationByAgent, setMeshCoordinationByAgent] = useState<
+    Record<string, Record<string, unknown>>
+  >({})
   
   const [filter, setFilter] = useState<TopologyFilter>({
     categories: [],
@@ -1726,11 +1733,64 @@ export function AdvancedTopology3D({
     setError(null)
     
     try {
-      const response = await fetch("/api/mas/topology")
-      if (!response.ok) throw new Error("Failed to fetch topology")
+      const [topologyRes, coordRes] = await Promise.all([
+        fetch("/api/mas/topology", { cache: "no-store" }),
+        fetch("/api/myca/coordination/status", { cache: "no-store" }),
+      ])
+      if (!topologyRes.ok) throw new Error("Failed to fetch topology")
       
-      const result = await response.json()
-      setData(result)
+      const result = (await topologyRes.json()) as ExtendedTopologyData
+      let latestByAgent: Record<string, Record<string, unknown>> = {}
+      if (coordRes.ok) {
+        const coord = await coordRes.json().catch(() => ({}))
+        latestByAgent =
+          (coord.latest_status_by_agent as Record<string, Record<string, unknown>>) ||
+          (coord.agents as Record<string, Record<string, unknown>>) ||
+          {}
+      }
+      setMeshCoordinationByAgent(latestByAgent)
+
+      const meshIds = new Set<string>(DESKTOP_MESH_AGENT_IDS)
+      const meshNodes = buildDesktopMeshTopologyNodes(latestByAgent)
+      const baseNodes = (result.nodes || []).filter((n) => !meshIds.has(n.id))
+      const mergedNodes = [...baseNodes, ...meshNodes]
+
+      const existingConnIds = new Set((result.connections || []).map((c) => c.id))
+      const meshConnections = meshNodes
+        .map((node) => ({
+          id: `mesh-link-${node.id}`,
+          sourceId: node.id,
+          targetId: "myca-orchestrator",
+          type: "message" as const,
+          traffic: {
+            messagesPerSecond: node.status === "busy" || node.status === "idle" ? 2 : 0,
+            bytesPerSecond: 0,
+            latencyMs: 5,
+            errorRate: node.status === "error" ? 0.1 : 0,
+          },
+          animated: node.status === "busy" || node.status === "idle",
+          active: node.status !== "offline",
+          intensity: node.status === "busy" ? 0.9 : 0.4,
+          bidirectional: true,
+        }))
+        .filter((c) => !existingConnIds.has(c.id))
+
+      const mergedConnections = [...(result.connections || []), ...meshConnections]
+      const activeNodes = mergedNodes.filter(
+        (n) => n.status === "active" || n.status === "busy" || n.status === "idle"
+      ).length
+
+      setData({
+        ...result,
+        nodes: mergedNodes,
+        connections: mergedConnections,
+        stats: {
+          ...result.stats,
+          totalNodes: mergedNodes.length,
+          activeNodes,
+          totalConnections: mergedConnections.length,
+        },
+      })
     } catch (err) {
       console.error("Topology fetch error:", err)
       setError(err instanceof Error ? err.message : "Unknown error")
@@ -2228,6 +2288,7 @@ export function AdvancedTopology3D({
           {/* Widget */}
           <NodeWidgetContainer
             node={selectedNode}
+            meshCoordinationByAgent={meshCoordinationByAgent}
             onClose={() => setViewState({ ...viewState, selectedNodeId: null })}
             onAction={handleNodeAction}
           />

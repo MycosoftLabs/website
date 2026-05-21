@@ -15,6 +15,10 @@ function ensureDir() {
 
 export async function POST(req: NextRequest) {
   try {
+    // Disk writes trigger webpack HMR on Windows when watch ignores miss — skip in dev.
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json({ ok: true, written: 0, skipped: "dev-no-disk" })
+    }
     const body = (await req.json()) as {
       logs?: { level?: string; message?: string; details?: string; timestamp?: string }[]
       meta?: Record<string, unknown>

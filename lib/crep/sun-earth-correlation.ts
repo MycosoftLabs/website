@@ -205,8 +205,9 @@ export function getAuroralOval(hemisphere: "north" | "south", invariantLat: numb
  * lit side; X-class can cause full shortwave fadeout.
  */
 export function flareToEarthspot(flare: SolarFlare, subsolar: { lat: number; lng: number }): EarthSpot {
-  const classLetter = flare.classType.charAt(0)
-  const classNum = parseFloat(flare.classType.slice(1)) || 1
+  const classType = typeof flare.classType === "string" && flare.classType.trim() ? flare.classType.trim() : "C1.0"
+  const classLetter = classType.charAt(0)
+  const classNum = parseFloat(classType.slice(1)) || 1
   const intensity = classLetter === "X" ? Math.min(1, 0.6 + 0.08 * classNum)
                   : classLetter === "M" ? Math.min(1, 0.3 + 0.03 * classNum)
                   : classLetter === "C" ? 0.15 : 0.05
@@ -216,7 +217,7 @@ export function flareToEarthspot(flare: SolarFlare, subsolar: { lat: number; lng
     kind: "flare-dayside",
     lat: subsolar.lat, lng: subsolar.lng,
     footprint: getDaysideFootprint(subsolar),
-    intensity, label: `${flare.classType} flare` + (flare.sourceRegion ? ` from AR${flare.sourceRegion}` : ""),
+    intensity, label: `${classType} flare` + (flare.sourceRegion ? ` from AR${flare.sourceRegion}` : ""),
     timestamp: flare.peakTime || flare.beginTime,
   }
 }

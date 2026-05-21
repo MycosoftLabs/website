@@ -58,7 +58,13 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const ADSBX_API_KEY = process.env.ADSBX_API_KEY || ""
 
-const SOURCE_TIMEOUT_MS = 5_000 // 5s per source — fast fail, don't block rendering
+const configuredMovingSourceTimeout = Number(process.env.CREP_MOVING_SOURCE_TIMEOUT_MS)
+const SOURCE_TIMEOUT_MS =
+  Number.isFinite(configuredMovingSourceTimeout) && configuredMovingSourceTimeout > 0
+    ? configuredMovingSourceTimeout
+    : process.env.NODE_ENV === "development"
+      ? 1500
+      : 5000 // Fast fail; moving assets should never block map navigation.
 
 // =============================================================================
 // SOURCE FETCHERS

@@ -74,6 +74,8 @@ services:
       # Next.js standalone binds to HOSTNAME — force 0.0.0.0 so healthcheck
       # (curl localhost:3000) works regardless of container/VM hostname.
       - HOSTNAME=0.0.0.0
+      # Supabase auth uses chunked cookies; keep authenticated request headers accepted.
+      - NODE_OPTIONS=${NODE_OPTIONS:---max-http-header-size=32768}
       # Data layer (in-stack)
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379

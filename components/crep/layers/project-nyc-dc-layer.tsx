@@ -162,14 +162,14 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
       // files live at /data/crep/project-{site}.geojson. Always-on
       // rendering (no per-site toggle yet — parked as nature/industrial
       // projects distinct from the urban NYC/DC/Vegas stack).
-      { id: "yosemite" as const, file: "/data/crep/project-yosemite.geojson", anchorColor: "#10b981", perimeterColor: "#34d399", enabled: enabled.projectYosemite !== false },
-      { id: "zion" as const, file: "/data/crep/project-zion.geojson", anchorColor: "#fb923c", perimeterColor: "#fdba74", enabled: enabled.projectZion !== false },
-      { id: "yellowstone" as const, file: "/data/crep/project-yellowstone.geojson", anchorColor: "#eab308", perimeterColor: "#facc15", enabled: enabled.projectYellowstone !== false },
-      { id: "mendocino" as const, file: "/data/crep/project-mendocino.geojson", anchorColor: "#16a34a", perimeterColor: "#22c55e", enabled: enabled.projectMendocino !== false },
-      { id: "starbase" as const, file: "/data/crep/project-starbase.geojson", anchorColor: "#64748b", perimeterColor: "#94a3b8", enabled: enabled.projectStarbase !== false },
+      { id: "yosemite" as const, file: "/data/crep/project-yosemite.geojson", anchorColor: "#10b981", perimeterColor: "#34d399", enabled: !!enabled.projectYosemite },
+      { id: "zion" as const, file: "/data/crep/project-zion.geojson", anchorColor: "#fb923c", perimeterColor: "#fdba74", enabled: !!enabled.projectZion },
+      { id: "yellowstone" as const, file: "/data/crep/project-yellowstone.geojson", anchorColor: "#eab308", perimeterColor: "#facc15", enabled: !!enabled.projectYellowstone },
+      { id: "mendocino" as const, file: "/data/crep/project-mendocino.geojson", anchorColor: "#16a34a", perimeterColor: "#22c55e", enabled: !!enabled.projectMendocino },
+      { id: "starbase" as const, file: "/data/crep/project-starbase.geojson", anchorColor: "#64748b", perimeterColor: "#94a3b8", enabled: !!enabled.projectStarbase },
       // Morgan's home lab (live 3 MQTT devices — Mushroom 1, Hyphae 1,
       // SporeBase) at 451 Acero Pl Chula Vista.
-      { id: "home-acero" as const, file: "/data/crep/mycosoft-home-devices.geojson", anchorColor: "#d946ef", perimeterColor: "#e879f9", enabled: enabled.projectHomeAcero !== false },
+      { id: "home-acero" as const, file: "/data/crep/mycosoft-home-devices.geojson", anchorColor: "#d946ef", perimeterColor: "#e879f9", enabled: !!enabled.projectHomeAcero },
     ]
 
     const run = async () => {
@@ -279,7 +279,18 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
     }
     run()
     return () => { cancelled = true }
-  }, [map, enabled.projectNyc, enabled.projectDc])
+  }, [
+    map,
+    enabled.projectNyc,
+    enabled.projectDc,
+    enabled.projectVegas,
+    enabled.projectYosemite,
+    enabled.projectZion,
+    enabled.projectYellowstone,
+    enabled.projectMendocino,
+    enabled.projectStarbase,
+    enabled.projectHomeAcero,
+  ])
 
   // Regional OSM layers (NYC + DC)
   useEffect(() => {

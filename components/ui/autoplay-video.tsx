@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { YoutubeHeroBackground } from "@/components/ui/youtube-hero-background"
 
 /**
  * NAS / Docker can serve 200 + Content-Length: 0 for missing uploads — HEAD-skip before <video> stalls.
@@ -129,6 +130,18 @@ interface AutoplayVideoProps {
   preload?: "auto" | "metadata" | "none"
   /** Still image until first frame decodes (faster perceived hero load). */
   poster?: string
+  /** Muted background-only YouTube fallback, used only after first-party sources fail or freeze. */
+  youtubeFallbackId?: string
+  /** How long a visible, already-started video may stop advancing before recovery/fallback. */
+  fallbackAfterFreezeMs?: number
+  /** IntersectionObserver root margin for non-auto videos. */
+  lazyRootMargin?: string
+  /** Pause non-critical videos while they are offscreen so long sessions do not keep every decoder hot. */
+  pauseWhenOutsideViewport?: boolean
+  /** Remove the video element after it leaves the viewport, instead of keeping a paused decoder warm. */
+  unloadWhenOutsideViewport?: boolean
+  /** Prewarm a second copy near the loop seam so long-running hero videos do not visibly hitch at reset. */
+  smoothLoop?: boolean
   /**
    * When true (default), the video does not receive pointer events so full-bleed heroes
    * do not sit above the footer/header stack and eat the first tap/click.
@@ -148,8 +161,15 @@ export function AutoplayVideo({
   preload = "metadata",
   pointerEventsNone = true,
   poster,
+  youtubeFallbackId,
+  fallbackAfterFreezeMs = 5000,
+  lazyRootMargin = "1400px 0px",
+  pauseWhenOutsideViewport = false,
+  unloadWhenOutsideViewport = false,
+  smoothLoop = false,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const loopCoverRef = useRef<HTMLVideoElement>(null)
   const lazyProbeRef = useRef<HTMLDivElement>(null)
   const isDev = process.env.NODE_ENV === "development"
   const list = useMemo(
@@ -161,8 +181,15 @@ export function AutoplayVideo({
   const [playing, setPlaying] = useState(false)
   const [allFailed, setAllFailed] = useState(false)
   const [shouldLoad, setShouldLoad] = useState(preload === "auto")
+  const [usingYoutubeFallback, setUsingYoutubeFallback] = useState(false)
+  const [youtubeFallbackReady, setYoutubeFallbackReady] = useState(false)
+  const [loopCoverVisible, setLoopCoverVisible] = useState(false)
   const activeSrc = list[index] ?? ""
   const listRef = useRef(list)
+  const recoveryCountRef = useRef(0)
+  const qualityIssueCountRef = useRef(0)
+  const loopCoverActiveRef = useRef(false)
+  const viewportActiveRef = useRef(true)
   listRef.current = list
 
   useEffect(() => {
@@ -170,7 +197,21 @@ export function AutoplayVideo({
     setPlaying(false)
     setAllFailed(false)
     setShouldLoad(preload === "auto")
-  }, [sourcesKey, preload])
+    setUsingYoutubeFallback(false)
+    setYoutubeFallbackReady(false)
+    setLoopCoverVisible(false)
+    recoveryCountRef.current = 0
+    qualityIssueCountRef.current = 0
+    loopCoverActiveRef.current = false
+    viewportActiveRef.current = !pauseWhenOutsideViewport
+  }, [sourcesKey, preload, pauseWhenOutsideViewport])
+
+  useEffect(() => {
+    recoveryCountRef.current = 0
+    qualityIssueCountRef.current = 0
+    loopCoverActiveRef.current = false
+    setLoopCoverVisible(false)
+  }, [activeSrc])
 
   useEffect(() => {
     if (preload === "auto" || shouldLoad) return
@@ -187,11 +228,48 @@ export function AutoplayVideo({
           observer.disconnect()
         }
       },
-      { rootMargin: "1400px 0px" }
+      { rootMargin: lazyRootMargin }
     )
     observer.observe(target)
     return () => observer.disconnect()
-  }, [preload, shouldLoad])
+  }, [preload, shouldLoad, lazyRootMargin])
+
+  useEffect(() => {
+    if (!pauseWhenOutsideViewport) {
+      viewportActiveRef.current = true
+      return
+    }
+    const v = videoRef.current
+    if (!shouldLoad || !v || usingYoutubeFallback) return
+    if (!("IntersectionObserver" in window)) {
+      viewportActiveRef.current = true
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.some((entry) => entry.isIntersecting)
+        viewportActiveRef.current = visible
+        if (visible) {
+          if (unloadWhenOutsideViewport) setShouldLoad(true)
+          v.play().catch(() => {})
+        } else {
+          v.pause()
+          if (unloadWhenOutsideViewport) {
+            window.setTimeout(() => {
+              if (!viewportActiveRef.current) {
+                setPlaying(false)
+                setShouldLoad(false)
+              }
+            }, 250)
+          }
+        }
+      },
+      { rootMargin: "80px 0px", threshold: 0.08 }
+    )
+    observer.observe(v)
+    return () => observer.disconnect()
+  }, [pauseWhenOutsideViewport, shouldLoad, activeSrc, usingYoutubeFallback, unloadWhenOutsideViewport])
 
   // Skip zero-byte MP4s (origin often returns 200 + CL:0 for empty NAS files).
   // Runs in parallel with video load — does NOT block playback. If the probe
@@ -213,7 +291,12 @@ export function AutoplayVideo({
         if (!r.ok || cl === "0") {
           setIndex((i) => {
             const L = listRef.current
-            return i + 1 < L.length ? i + 1 : i
+            if (i + 1 < L.length) return i + 1
+            if (youtubeFallbackId) {
+              setUsingYoutubeFallback(true)
+              return i
+            }
+            return i
           })
         }
       } catch {
@@ -224,18 +307,61 @@ export function AutoplayVideo({
       cancelled = true
       ctrl.abort()
     }
-  }, [activeSrc, shouldLoad])
+  }, [activeSrc, shouldLoad, youtubeFallbackId])
 
   useEffect(() => {
     const v = videoRef.current
-    if (!shouldLoad || !v || !activeSrc) return
+    if (!shouldLoad || !v || !activeSrc || usingYoutubeFallback) return
 
+    const shouldMaintainPlayback = () => !pauseWhenOutsideViewport || viewportActiveRef.current
     const tryPlay = () => {
+      if (!shouldMaintainPlayback()) return
       v.play().catch(() => {})
     }
+    const advanceSourceOrFallback = () => {
+      const L = listRef.current
+      setIndex((i) => {
+        if (i + 1 < L.length) return i + 1
+        if (youtubeFallbackId) {
+          setUsingYoutubeFallback(true)
+        } else if (hideUntilPlaying) {
+          setAllFailed(true)
+        }
+        return i
+      })
+    }
+    const recoverOrFallback = () => {
+      if (document.hidden) return
+      if (!shouldMaintainPlayback()) return
+      if (recoveryCountRef.current < 2) {
+        recoveryCountRef.current += 1
+        try {
+          v.pause()
+          v.load()
+        } catch {
+          /* ignore */
+        }
+        window.setTimeout(tryPlay, 80)
+        return
+      }
+      advanceSourceOrFallback()
+    }
     tryPlay()
-    const onTouch = () => tryPlay()
-    document.addEventListener("touchstart", onTouch, { once: true })
+    const onUserGesture = () => tryPlay()
+    const onVisibility = () => {
+      if (!document.hidden) tryPlay()
+    }
+    const onPause = () => {
+      if (!v.ended && shouldMaintainPlayback()) window.setTimeout(tryPlay, 80)
+    }
+    const onEnded = () => tryPlay()
+    document.addEventListener("touchstart", onUserGesture, { once: true })
+    document.addEventListener("pointerdown", onUserGesture, { once: true })
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("focus", tryPlay)
+    window.addEventListener("pageshow", tryPlay)
+    v.addEventListener("pause", onPause)
+    v.addEventListener("ended", onEnded)
 
     let stallTimer: ReturnType<typeof setTimeout> | undefined
     const clearStall = () => {
@@ -245,13 +371,12 @@ export function AutoplayVideo({
     const scheduleStall = () => {
       clearStall()
       stallTimer = setTimeout(() => {
-        if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && v.currentTime === 0) {
-          const L = listRef.current
-          setIndex((i) => {
-            if (i + 1 < L.length) return i + 1
-            if (hideUntilPlaying) setAllFailed(true)
-            return i
-          })
+        if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+          if (v.currentTime === 0) {
+            advanceSourceOrFallback()
+            return
+          }
+          recoverOrFallback()
         }
       }, stallTimeoutMs)
     }
@@ -259,6 +384,7 @@ export function AutoplayVideo({
     const onCanPlay = () => clearStall()
     const onPlaying = () => {
       clearStall()
+      qualityIssueCountRef.current = 0
       if (hideUntilPlaying) setPlaying(true)
     }
     const onWaiting = () => scheduleStall()
@@ -273,42 +399,125 @@ export function AutoplayVideo({
         code === MediaError.MEDIA_ERR_NETWORK
       if (!terminal) return
       clearStall()
-      const L = listRef.current
-      setIndex((i) => {
-        if (i + 1 < L.length) return i + 1
-        if (hideUntilPlaying) setAllFailed(true)
-        return i
-      })
+      advanceSourceOrFallback()
     }
     const onLoadedMetadata = () => {
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
-        const L = listRef.current
-        setIndex((i) => {
-          if (i + 1 < L.length) return i + 1
-          if (hideUntilPlaying) setAllFailed(true)
-          return i
-        })
+        advanceSourceOrFallback()
       }
     }
+    let lastTime = v.currentTime
+    let lastProgressAt = performance.now()
+    let lastQuality:
+      | { droppedVideoFrames: number; totalVideoFrames: number }
+      | undefined = v.getVideoPlaybackQuality?.()
+    let loopCoverTimer: ReturnType<typeof setTimeout> | undefined
+    const clearLoopCover = () => {
+      if (loopCoverTimer) clearTimeout(loopCoverTimer)
+      loopCoverTimer = undefined
+      loopCoverActiveRef.current = false
+      setLoopCoverVisible(false)
+      const cover = loopCoverRef.current
+      if (cover) {
+        try {
+          cover.pause()
+          cover.currentTime = 0
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const armLoopCover = () => {
+      if (!smoothLoop || loopCoverActiveRef.current || !shouldMaintainPlayback()) return
+      if (!Number.isFinite(v.duration) || v.duration < 8) return
+      if (v.duration - v.currentTime > 1.4) return
+      const cover = loopCoverRef.current
+      if (!cover) return
+      loopCoverActiveRef.current = true
+      try {
+        cover.currentTime = 0
+        cover.play().catch(() => {})
+      } catch {
+        /* ignore */
+      }
+      setLoopCoverVisible(true)
+      loopCoverTimer = setTimeout(clearLoopCover, 2300)
+    }
+    const onTimeUpdate = () => {
+      lastTime = v.currentTime
+      lastProgressAt = performance.now()
+      armLoopCover()
+    }
+    const progressWatch = window.setInterval(() => {
+      if (document.hidden) return
+      if (!shouldMaintainPlayback()) return
+      if (v.paused && !v.ended) {
+        tryPlay()
+        return
+      }
+      const now = performance.now()
+      const delta = Math.abs(v.currentTime - lastTime)
+      if (delta > 0.04) {
+        lastTime = v.currentTime
+        lastProgressAt = now
+        return
+      }
+      const hasFrame = v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      if (!v.ended && hasFrame && now - lastProgressAt >= fallbackAfterFreezeMs) {
+        recoverOrFallback()
+        lastProgressAt = now
+      }
+      armLoopCover()
+      const quality = v.getVideoPlaybackQuality?.()
+      if (quality && lastQuality) {
+        const totalDelta = quality.totalVideoFrames - lastQuality.totalVideoFrames
+        const droppedDelta = quality.droppedVideoFrames - lastQuality.droppedVideoFrames
+        if (totalDelta >= 30) {
+          const droppedRatio = droppedDelta / totalDelta
+          if (droppedRatio > 0.35) {
+            qualityIssueCountRef.current += 1
+          } else {
+            qualityIssueCountRef.current = Math.max(0, qualityIssueCountRef.current - 1)
+          }
+          lastQuality = quality
+          if (qualityIssueCountRef.current >= 3) {
+            qualityIssueCountRef.current = 0
+            recoverOrFallback()
+          }
+        }
+      } else {
+        lastQuality = quality
+      }
+    }, 1250)
 
     v.addEventListener("canplay", onCanPlay)
     v.addEventListener("playing", onPlaying)
     v.addEventListener("waiting", onWaiting)
     v.addEventListener("error", onError)
     v.addEventListener("loadedmetadata", onLoadedMetadata)
+    v.addEventListener("timeupdate", onTimeUpdate)
     scheduleStall()
 
     return () => {
       clearStall()
-      document.removeEventListener("touchstart", onTouch)
+      clearLoopCover()
+      window.clearInterval(progressWatch)
+      document.removeEventListener("touchstart", onUserGesture)
+      document.removeEventListener("pointerdown", onUserGesture)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("focus", tryPlay)
+      window.removeEventListener("pageshow", tryPlay)
+      v.removeEventListener("pause", onPause)
+      v.removeEventListener("ended", onEnded)
       v.removeEventListener("canplay", onCanPlay)
       v.removeEventListener("playing", onPlaying)
       v.removeEventListener("waiting", onWaiting)
       v.removeEventListener("error", onError)
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
+      v.removeEventListener("timeupdate", onTimeUpdate)
     }
-  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, youtubeFallbackId, usingYoutubeFallback, fallbackAfterFreezeMs, pauseWhenOutsideViewport, smoothLoop])
 
   if (!activeSrc) return null
   const derivedPoster = sidecarPosterForVideo(activeSrc)
@@ -343,23 +552,60 @@ export function AutoplayVideo({
         ? "opacity-100 transition-opacity duration-500"
         : ""
   const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
+  const showYoutubeFallback = Boolean(youtubeFallbackId && usingYoutubeFallback)
+  const hidePrimaryForYoutube = showYoutubeFallback && youtubeFallbackReady
+  const videoStyle = hidePrimaryForYoutube ? { ...style, opacity: 0 } : style
+  const loopCoverStyle = {
+    ...style,
+    opacity: loopCoverVisible && !hidePrimaryForYoutube ? 1 : 0,
+    transition: "opacity 420ms ease",
+  }
 
   return (
     shouldLoad ? (
-    <video
-      key={activeSrc}
-      ref={videoRef}
-      autoPlay
-      muted
-      loop
-      playsInline
-      poster={posterAttr}
-      preload={preload}
-      className={[className, visibilityClass, pointerClass].filter(Boolean).join(" ")}
-      style={style}
-    >
-      <source src={activeSrc} type={mediaTypeForVideo(activeSrc)} />
-    </video>
+    <>
+      {showYoutubeFallback && youtubeFallbackId ? (
+        <YoutubeHeroBackground
+          videoId={youtubeFallbackId}
+          className={className}
+          style={{
+            ...style,
+            opacity: youtubeFallbackReady ? 1 : 0,
+            transition: "opacity 700ms ease",
+          }}
+          onLoad={() => setYoutubeFallbackReady(true)}
+        />
+      ) : null}
+      <video
+        key={activeSrc}
+        ref={videoRef}
+        autoPlay
+        muted
+        loop
+        playsInline
+        poster={posterAttr}
+        preload={preload}
+        className={[className, visibilityClass, pointerClass].filter(Boolean).join(" ")}
+        style={videoStyle}
+      >
+        <source src={activeSrc} type={mediaTypeForVideo(activeSrc)} />
+      </video>
+      {smoothLoop ? (
+        <video
+          key={`${activeSrc}-loop-cover`}
+          ref={loopCoverRef}
+          muted
+          playsInline
+          preload="auto"
+          poster={posterAttr}
+          className={[className, pointerClass].filter(Boolean).join(" ")}
+          style={loopCoverStyle}
+          aria-hidden="true"
+        >
+          <source src={activeSrc} type={mediaTypeForVideo(activeSrc)} />
+        </video>
+      ) : null}
+    </>
     ) : (
       <div
         ref={lazyProbeRef}

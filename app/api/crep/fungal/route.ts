@@ -36,6 +36,13 @@ const MINDEX_API = resolveMindexServerBaseUrl()
 
 const EXTERNAL_API_TIMEOUT_MS = 10000 // 10s per request
 const EXTERNAL_API_MAX_RETRIES = 2
+const configuredMindexObservationTimeout = Number(process.env.CREP_MINDEX_OBSERVATIONS_TIMEOUT_MS)
+const MINDEX_OBSERVATIONS_TIMEOUT_MS =
+  Number.isFinite(configuredMindexObservationTimeout) && configuredMindexObservationTimeout > 0
+    ? configuredMindexObservationTimeout
+    : process.env.NODE_ENV === "development"
+      ? 1500
+      : 5000
 
 /** Fetch with timeout and retry for external APIs (iNaturalist, GBIF) to reduce ConnectTimeoutError */
 async function fetchWithRetry(
@@ -47,7 +54,8 @@ async function fetchWithRetry(
   for (let attempt = 0; attempt <= retries; attempt++) {
     const signal = AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS)
     try {
-      const res = await fetch(url, { ...options, signal })
+      const { next: _next, ...safeOptions } = options as RequestInit & { next?: unknown }
+      const res = await fetch(url, { ...safeOptions, signal, cache: "no-store" })
       return res
     } catch (err) {
       lastErr = err
@@ -147,6 +155,7 @@ export interface FungalObservation {
 async function fetchMINDEXObservations(
   limit?: number,
   bounds?: { north: number; south: number; east: number; west: number },
+  timeoutMs = MINDEX_OBSERVATIONS_TIMEOUT_MS,
 ): Promise<FungalObservation[]> {
   try {
     const BATCH_SIZE = 1000
@@ -174,7 +183,7 @@ async function fetchMINDEXObservations(
       }
       
       const response = await fetch(`${MINDEX_API}/api/mindex/observations?${params}`, {
-        signal: AbortSignal.timeout(15000), // 15 second timeout per batch
+        signal: AbortSignal.timeout(timeoutMs),
         headers: { 
           "Accept": "application/json",
           "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
@@ -213,7 +222,7 @@ async function fetchMINDEXObservations(
       return []
     }
     
-    const taxaLookup = await fetchTaxaForObservations(allObservations)
+    const taxaLookup = await fetchTaxaForObservations(allObservations, timeoutMs)
     
     return transformMINDEXData(allObservations, taxaLookup)
   } catch (error) {
@@ -226,7 +235,10 @@ async function fetchMINDEXObservations(
  * Fetch taxa by IDs only (batch lookup) - much faster than loading all ~19K taxa.
  * MINDEX supports ?ids=uuid1,uuid2,... for targeted fetch. Single request, ~100-500 IDs typical.
  */
-async function fetchTaxaForObservations(observations: Record<string, unknown>[]): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
+async function fetchTaxaForObservations(
+  observations: Record<string, unknown>[],
+  timeoutMs = MINDEX_OBSERVATIONS_TIMEOUT_MS,
+): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
   const uniqueIds = [...new Set(
     observations
       .map((obs: Record<string, unknown>) => obs.taxon_id as string)
@@ -248,7 +260,7 @@ async function fetchTaxaForObservations(observations: Record<string, unknown>[])
           "Accept": "application/json",
           "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
         },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(Math.min(timeoutMs, 3000)),
       }
     )
 
@@ -632,7 +644,7 @@ async function fetchINaturalistQuick(
     const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
       headers: { "Accept": "application/json" },
       signal: AbortSignal.timeout(5000),
-      next: { revalidate: 60 },
+      cache: "no-store",
     })
 
     if (!res.ok) {
@@ -858,6 +870,18 @@ export async function GET(request: NextRequest) {
   // Skips iNat/GBIF live fetches entirely. Used by the dashboard for instant
   // first-paint, then the full dual-source fetch runs as background enrichment.
   const quickMode = searchParams.get("quick") === "true" || searchParams.get("source") === "mindex-only"
+  const liveFallbackEnabled =
+    fallbackOnly ||
+    searchParams.get("live") === "true" ||
+    searchParams.get("fallbackLive") === "true" ||
+    process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK === "1"
+  const emergencyFallbackEnabled =
+    !quickMode &&
+    (searchParams.get("emergencyFallback") === "true" ||
+      process.env.CREP_ENABLE_EMERGENCY_INAT_FALLBACK === "1")
+  const mindexWritebackEnabled =
+    searchParams.get("persist") === "true" ||
+    process.env.CREP_ENABLE_NATURE_MINDEX_WRITEBACK === "1"
   // Kingdom filter: "Fungi", "Plantae", "Animalia", "all" (default: "all")
   const kingdom = searchParams.get("kingdom") || "all"
 
@@ -952,7 +976,7 @@ export async function GET(request: NextRequest) {
     // Always fetch MINDEX (local DB — fast, no rate limits)
     if (!fallbackOnly && (!source || source === "all" || source === "mindex" || quickMode)) {
       fetchPromises.push(
-        fetchMINDEXObservations(limit, bounds).catch((err) => {
+        fetchMINDEXObservations(limit, bounds, quickMode ? Math.min(MINDEX_OBSERVATIONS_TIMEOUT_MS, 1500) : MINDEX_OBSERVATIONS_TIMEOUT_MS).catch((err) => {
           console.warn("[CREP/Fungal] MINDEX fetch failed:", err?.message)
           return [] as FungalObservation[]
         })
@@ -964,7 +988,7 @@ export async function GET(request: NextRequest) {
     // can't reach MINDEX, or MINDEX is down), we still have ~500 obs paint
     // in <2s instead of showing the user a blank map. Single call, no
     // per-region fanout, no retries — lightweight and fast.
-    if (quickMode) {
+    if (quickMode && liveFallbackEnabled) {
       fetchPromises.push(
         fetchINaturalistQuick(limit || 500, bounds, kingdom).catch((err) => {
           console.warn("[CREP/Fungal] Quick iNat fallback failed:", err?.message)
@@ -1008,7 +1032,7 @@ export async function GET(request: NextRequest) {
     // (fetchINaturalistObservations — 10 hotspot regions × 10 iconic taxa).
     // This returns 2000-5000 observations and saturates the map.
     // A sparse nature layer is unacceptable for demo quality.
-    if (allObservations.length < 500) {
+    if (emergencyFallbackEnabled && allObservations.length < 500) {
       console.warn(
         `[CREP/Life] Only ${allObservations.length} obs — firing emergency FULL iNat fallback`,
       )
@@ -1046,12 +1070,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Clone-on-display: async-write new iNat observations to MINDEX
-    // This runs in the background — does NOT block the response
-    cloneToMINDEX(allObservations)
-
-    // Fire-and-forget: persist ALL observations to MINDEX species catalog for offline access
-    ingestBatchToMINDEX(allObservations).catch(() => {})
+    if (mindexWritebackEnabled) {
+      cloneToMINDEX(allObservations)
+      ingestBatchToMINDEX(allObservations).catch(() => {})
+    }
 
     // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
     if (kingdom !== "all") {
@@ -1094,7 +1116,7 @@ export async function GET(request: NextRequest) {
       : sortedObservations
 
     // Queue background geocoding for MINDEX observations without GPS
-    const pendingGeocode = await queuePendingGeocoding()
+    const pendingGeocode = mindexWritebackEnabled ? await queuePendingGeocoding() : 0
 
     // Build sources object
     const sources = {

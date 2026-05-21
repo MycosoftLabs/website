@@ -261,7 +261,7 @@ export function LiveDemo({
       <MYCALiveDemoGlassStyles />
       {showDemoBackground ? (
         <div className={cn("absolute inset-0 w-full pointer-events-none", demoBackgroundTransparent && "home-myca-demo-flow-blend")}>
-          <MYCALiveDemoBackground className="w-full h-full" transparent={demoBackgroundTransparent} />
+          <MYCALiveDemoBackground className="w-full h-full" transparent={demoBackgroundTransparent} active={active} />
         </div>
       ) : null}
       <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">

@@ -267,62 +267,96 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
   // Render waypoints onto the map as a dedicated layer
   useEffect(() => {
     if (!map) return
+    let cancelled = false
+    let retryTimer: number | undefined
+    const isReady = () => {
+      try {
+        return Boolean(map.isStyleLoaded?.() && map.getStyle?.())
+      } catch {
+        return false
+      }
+    }
+    const schedule = (delay = 120) => {
+      if (cancelled) return
+      if (retryTimer) window.clearTimeout(retryTimer)
+      retryTimer = window.setTimeout(() => {
+        retryTimer = undefined
+        ensure()
+      }, delay)
+    }
     const ensure = () => {
+      if (cancelled) return
       if (typeof map.getSource !== "function") return
-      if (!map.getSource("crep-waypoints")) {
-        map.addSource("crep-waypoints", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        })
-        map.addLayer({
-          id: "crep-waypoints-halo",
-          type: "circle",
-          source: "crep-waypoints",
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 12, 14],
-            "circle-color": ["get", "color"],
-            "circle-opacity": 0.18,
-            "circle-blur": 0.8,
-          },
-        })
-        map.addLayer({
-          id: "crep-waypoints-core",
-          type: "circle",
-          source: "crep-waypoints",
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 12, 6],
-            "circle-color": ["get", "color"],
-            "circle-opacity": 1,
-            "circle-stroke-width": 1.5,
-            "circle-stroke-color": "#0b1220",
-          },
-        })
-        map.addLayer({
-          id: "crep-waypoints-label",
-          type: "symbol",
-          source: "crep-waypoints",
-          minzoom: 6,
-          layout: {
-            "text-field": ["get", "name"],
-            "text-size": 11,
-            "text-offset": [0, 1.2],
-            "text-anchor": "top",
-            "text-allow-overlap": false,
-            "text-optional": true,
-          },
-          paint: {
-            "text-color": "#ffffff",
-            "text-halo-color": "rgba(0,0,0,0.8)",
-            "text-halo-width": 1.5,
-          },
-        })
-        map.on("click", "crep-waypoints-core", (e: any) => {
-          const id = e.features?.[0]?.properties?.id as string | undefined
-          const wp = id ? waypointsRef.current.find((w) => w.id === id) : undefined
-          if (wp) setEditing(wp)
-        })
-        map.on("mouseenter", "crep-waypoints-core", () => { map.getCanvas().style.cursor = "pointer" })
-        map.on("mouseleave", "crep-waypoints-core", () => { map.getCanvas().style.cursor = "" })
+      if (!isReady()) {
+        schedule(180)
+        return
+      }
+      let hasWaypointSource = false
+      try {
+        hasWaypointSource = Boolean(map.getSource("crep-waypoints"))
+      } catch {
+        schedule(220)
+        return
+      }
+      if (!hasWaypointSource) {
+        try {
+          map.addSource("crep-waypoints", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          })
+          map.addLayer({
+            id: "crep-waypoints-halo",
+            type: "circle",
+            source: "crep-waypoints",
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 12, 14],
+              "circle-color": ["get", "color"],
+              "circle-opacity": 0.18,
+              "circle-blur": 0.8,
+            },
+          })
+          map.addLayer({
+            id: "crep-waypoints-core",
+            type: "circle",
+            source: "crep-waypoints",
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 12, 6],
+              "circle-color": ["get", "color"],
+              "circle-opacity": 1,
+              "circle-stroke-width": 1.5,
+              "circle-stroke-color": "#0b1220",
+            },
+          })
+          map.addLayer({
+            id: "crep-waypoints-label",
+            type: "symbol",
+            source: "crep-waypoints",
+            minzoom: 6,
+            layout: {
+              "text-field": ["get", "name"],
+              "text-size": 11,
+              "text-offset": [0, 1.2],
+              "text-anchor": "top",
+              "text-allow-overlap": false,
+              "text-optional": true,
+            },
+            paint: {
+              "text-color": "#ffffff",
+              "text-halo-color": "rgba(0,0,0,0.8)",
+              "text-halo-width": 1.5,
+            },
+          })
+          map.on("click", "crep-waypoints-core", (e: any) => {
+            const id = e.features?.[0]?.properties?.id as string | undefined
+            const wp = id ? waypointsRef.current.find((w) => w.id === id) : undefined
+            if (wp) setEditing(wp)
+          })
+          map.on("mouseenter", "crep-waypoints-core", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-waypoints-core", () => { map.getCanvas().style.cursor = "" })
+        } catch {
+          schedule(220)
+          return
+        }
       }
       const src = map.getSource("crep-waypoints") as any
       if (src?.setData) {
@@ -336,9 +370,18 @@ export default function WaypointSystem({ map }: WaypointSystemProps) {
         })
       }
     }
-    ensure()
-    if (map.isStyleLoaded()) ensure()
-    else map.once("styledata", ensure)
+    if (isReady()) ensure()
+    else schedule(180)
+    try { map.on("style.load", ensure) } catch {}
+    try { map.on("load", ensure) } catch {}
+    try { map.on("styledata", ensure) } catch {}
+    return () => {
+      cancelled = true
+      if (retryTimer) window.clearTimeout(retryTimer)
+      try { map.off("style.load", ensure) } catch {}
+      try { map.off("load", ensure) } catch {}
+      try { map.off("styledata", ensure) } catch {}
+    }
   }, [map, waypoints])
 
   const addWaypoint = (partial: Partial<Waypoint>) => {

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 interface YoutubeHeroBackgroundProps {
   videoId: string
   className?: string
+  style?: CSSProperties
   iframeStyle?: CSSProperties
   onLoad?: () => void
 }
@@ -19,13 +20,18 @@ interface YoutubeHeroBackgroundProps {
 export function YoutubeHeroBackground({
   videoId,
   className,
+  style,
   iframeStyle,
   onLoad,
 }: YoutubeHeroBackgroundProps) {
   if (!videoId) return null
 
   return (
-    <div className={cn("absolute inset-0 overflow-hidden bg-black pointer-events-none", className)} aria-hidden="true">
+    <div
+      className={cn("absolute inset-0 overflow-hidden bg-black pointer-events-none", className)}
+      style={style}
+      aria-hidden="true"
+    >
       <iframe
         title=""
         aria-hidden="true"
@@ -37,8 +43,8 @@ export function YoutubeHeroBackground({
         referrerPolicy="strict-origin-when-cross-origin"
         className="absolute left-1/2 top-1/2 border-0 pointer-events-none"
         style={{
-          width: "max(142vw, 252vh)",
-          height: "max(80vw, 142vh)",
+          width: "max(160vw, 284vh)",
+          height: "max(90vw, 160vh)",
           transform: "translate3d(-50%, -50%, 0)",
           ...iframeStyle,
         }}

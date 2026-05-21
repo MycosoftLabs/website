@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
@@ -54,6 +55,8 @@ type MapProps = {
   projection?: MapLibreGL.ProjectionSpecification;
   /** Callback fired when the map has fully loaded and is ready for interaction */
   onLoad?: (map: MapLibreGL.Map) => void;
+  /** Callback fired immediately after the MapLibre instance is created */
+  onCreate?: (map: MapLibreGL.Map) => void;
 } & Omit<MapLibreGL.MapOptions, "container" | "style">;
 
 type MapRef = MapLibreGL.Map;
@@ -61,24 +64,28 @@ type MapRef = MapLibreGL.Map;
 const DefaultLoader = () => (
   <div className="absolute inset-0 flex items-center justify-center">
     <div className="flex gap-1">
-      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-pulse" />
-      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-pulse [animation-delay:150ms]" />
-      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-pulse [animation-delay:300ms]" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/60" />
     </div>
   </div>
 );
 
 const Map = forwardRef<MapRef, MapProps>(function Map(
-  { children, styles, projection, onLoad, ...props },
+  { children, styles, projection, onLoad, onCreate, ...props },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const [isInitialCameraReady, setIsInitialCameraReady] = useState(false);
+  const [forceRevealCanvas, setForceRevealCanvas] = useState(false);
   const { resolvedTheme } = useTheme();
   const currentStyleRef = useRef<MapStyleOption | null>(null);
   const mapRef = useRef<MapLibreGL.Map | null>(null);
+  const startupRevealAtRef = useRef(0);
+  const initialCameraReadyRef = useRef(false);
 
   const mapStyles = useMemo(
     () => ({
@@ -97,28 +104,158 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     const initialStyle =
       resolvedTheme === "light" ? mapStyles.light : mapStyles.dark;
     currentStyleRef.current = initialStyle;
+    setForceRevealCanvas(false);
+
+    const initialCenter = props.center;
+    const initialZoom = typeof props.zoom === "number" ? props.zoom : undefined;
+    const initialBearing = typeof props.bearing === "number" ? props.bearing : 0;
+    const initialPitch = typeof props.pitch === "number" ? props.pitch : 0;
+    const hasInitialCamera = Boolean(initialCenter && initialZoom !== undefined);
+    startupRevealAtRef.current = hasInitialCamera ? Date.now() + 900 : 0;
+    initialCameraReadyRef.current = !hasInitialCamera;
+
+    const isAtInitialCamera = () => {
+      if (!hasInitialCamera || !initialCenter || initialZoom === undefined) return true;
+      try {
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        const target = Array.isArray(initialCenter)
+          ? { lng: Number(initialCenter[0]), lat: Number(initialCenter[1]) }
+          : { lng: Number((initialCenter as { lng?: number; lon?: number }).lng ?? (initialCenter as { lon?: number }).lon), lat: Number((initialCenter as { lat?: number }).lat) };
+        return (
+          Number.isFinite(zoom) &&
+          Math.abs(zoom - initialZoom) <= 0.08 &&
+          Number.isFinite(target.lng) &&
+          Number.isFinite(target.lat) &&
+          Math.abs(center.lng - target.lng) <= 0.5 &&
+          Math.abs(center.lat - target.lat) <= 0.5
+        );
+      } catch {
+        return false;
+      }
+    };
 
     const map = new MapLibreGL.Map({
       container: containerRef.current,
       style: initialStyle,
+      ...(projection ? { projection } : {}),
       renderWorldCopies: true,
       attributionControl: {
         compact: true,
       },
       ...props,
+      ...(initialCenter ? { center: initialCenter } : {}),
+      ...(initialZoom !== undefined ? { zoom: initialZoom } : {}),
+      bearing: initialBearing,
+      pitch: initialPitch,
     });
 
     mapRef.current = map;
 
-    // Use the "style.load" event which fires once when style is fully ready
-    // (including sources, sprites, glyphs). More reliable than "styledata"
-    // which fires multiple times during style processing.
-    const styleLoadHandler = () => {
-      setIsStyleLoaded(true);
-      if (projection) {
-        map.setProjection(projection);
-      }
+    const cameraConfirmIds: number[] = [];
+
+    const confirmInitialCamera = (attempt = 0) => {
+      window.requestAnimationFrame(() => {
+        try {
+          map.resize();
+          if (props.center && typeof props.zoom === "number") {
+            map.jumpTo({
+              center: props.center,
+              zoom: props.zoom,
+              bearing: typeof props.bearing === "number" ? props.bearing : 0,
+              pitch: typeof props.pitch === "number" ? props.pitch : 0,
+            });
+          }
+        } catch {
+          /* ignore transient resize/camera failures during dev reload */
+        }
+        window.requestAnimationFrame(() => {
+          const stable =
+            isAtInitialCamera() &&
+            (typeof map.isMoving !== "function" || !map.isMoving()) &&
+            Date.now() >= startupRevealAtRef.current;
+          if (stable) {
+            initialCameraReadyRef.current = true;
+            setIsInitialCameraReady(true);
+            return;
+          }
+          if (attempt < 8) {
+            cameraConfirmIds.push(
+              window.setTimeout(() => confirmInitialCamera(attempt + 1), 80)
+            );
+          } else {
+            // Do not leave the map permanently hidden if MapLibre reports a
+            // transient camera mismatch during dev reload or style startup.
+            try {
+              if (props.center && typeof props.zoom === "number") {
+                map.jumpTo({
+                  center: props.center,
+                  zoom: props.zoom,
+                  bearing: typeof props.bearing === "number" ? props.bearing : 0,
+                  pitch: typeof props.pitch === "number" ? props.pitch : 0,
+                });
+              }
+              map.resize();
+            } catch {
+              /* ignore final startup correction failures */
+            }
+            initialCameraReadyRef.current = true;
+            setIsInitialCameraReady(true);
+          }
+        });
+      });
     };
+
+    const applyInitialCamera = () => {
+      try {
+        if (hasInitialCamera && !initialCameraReadyRef.current) setIsInitialCameraReady(false);
+        map.resize();
+        if (props.center && typeof props.zoom === "number") {
+          map.jumpTo({
+            center: props.center,
+            zoom: props.zoom,
+            bearing: typeof props.bearing === "number" ? props.bearing : 0,
+            pitch: typeof props.pitch === "number" ? props.pitch : 0,
+          });
+        }
+      } catch {
+        /* map can be tearing down during hot reload */
+      }
+      if (!hasInitialCamera) {
+        initialCameraReadyRef.current = true;
+        setIsInitialCameraReady(true);
+        return;
+      }
+      if (!initialCameraReadyRef.current) confirmInitialCamera();
+    };
+    applyInitialCamera();
+    const cameraRetryIds = [
+      window.setTimeout(applyInitialCamera, 0),
+      window.setTimeout(applyInitialCamera, 50),
+      window.setTimeout(applyInitialCamera, 150),
+      window.setTimeout(applyInitialCamera, 350),
+      window.setTimeout(applyInitialCamera, 800),
+    ];
+    const forceRevealId = window.setTimeout(() => {
+      try {
+        if (props.center && typeof props.zoom === "number") {
+          map.stop?.();
+          map.jumpTo({
+            center: props.center,
+            zoom: props.zoom,
+            bearing: typeof props.bearing === "number" ? props.bearing : 0,
+            pitch: typeof props.pitch === "number" ? props.pitch : 0,
+          });
+        }
+        map.resize();
+      } catch {
+        /* do not keep the map hidden forever if startup is mid-HMR */
+      }
+      initialCameraReadyRef.current = true;
+      setIsInitialCameraReady(true);
+      setForceRevealCanvas(true);
+    }, 4500);
+    onCreate?.(map);
 
     let onLoadFired = false;
     const fireOnLoad = () => {
@@ -128,10 +265,44 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       if (onLoad) onLoad(map);
     };
 
-    const loadHandler = () => { fireOnLoad(); };
+    // Use the "style.load" event which fires once when style is fully ready
+    // (including sources, sprites, glyphs). More reliable than "styledata"
+    // which fires multiple times during style processing.
+    const styleLoadHandler = () => {
+      setIsStyleLoaded(true);
+      if (projection) {
+        map.setProjection(projection);
+      }
+      if (!initialCameraReadyRef.current) applyInitialCamera();
+      // MapLibre's "load" event can be missed in dev after HMR/style retries.
+      // CREP relies on onLoad to add every native layer, so style.load is a
+      // valid ready signal and keeps the simulator from getting stuck blank.
+      window.setTimeout(fireOnLoad, 0);
+    };
+
+    const loadHandler = () => {
+      if (map.isStyleLoaded?.()) {
+        setIsStyleLoaded(true);
+        if (!initialCameraReadyRef.current) applyInitialCamera();
+        fireOnLoad();
+      }
+    };
+
+    const styleReadyHandler = () => {
+      try {
+        if (!map.isStyleLoaded?.()) return;
+        setIsStyleLoaded(true);
+        if (!initialCameraReadyRef.current) applyInitialCamera();
+        window.setTimeout(fireOnLoad, 0);
+      } catch {
+        /* ignore style readiness checks during teardown */
+      }
+    };
 
     map.on("load", loadHandler);
     map.on("style.load", styleLoadHandler);
+    map.on("styledata", styleReadyHandler);
+    map.on("idle", styleReadyHandler);
     setMapInstance(map);
 
     // Apr 19, 2026: the Carto basemap style.json sometimes returns 503 on
@@ -149,25 +320,47 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
         if (onLoadFired) { clearInterval(loadRetryId); return; }
         const style = map.getStyle?.();
         const layerCount = style?.layers?.length || 0;
-        if (map.areTilesLoaded?.() && layerCount >= 40) {
+        if (layerCount >= 20 && map.isStyleLoaded?.()) {
           console.log(`[MapComponent] load event missed; forcing onLoad after basemap style ready (${layerCount} layers)`);
+          setIsStyleLoaded(true);
+          if (!initialCameraReadyRef.current) applyInitialCamera();
           fireOnLoad();
           clearInterval(loadRetryId);
         }
       } catch { /* ignore */ }
     }, 500);
     const loadRetryTimeout = setTimeout(() => clearInterval(loadRetryId), 30_000);
+    const forceReadyTimeout = setTimeout(() => {
+      try {
+        if (!onLoadFired && map.getStyle?.() && map.isStyleLoaded?.()) {
+          console.log("[MapComponent] forcing onLoad after style bootstrap timeout");
+          setIsStyleLoaded(true);
+          if (!initialCameraReadyRef.current) applyInitialCamera();
+          fireOnLoad();
+        }
+      } catch {
+        /* ignore teardown */
+      }
+    }, 3_000);
 
     return () => {
       clearInterval(loadRetryId);
       clearTimeout(loadRetryTimeout);
-      map.off("load", loadHandler);
-      map.off("style.load", styleLoadHandler);
-      map.remove();
+      clearTimeout(forceReadyTimeout);
+      clearTimeout(forceRevealId);
+      try { map.off("load", loadHandler); } catch { /* map may already be disposed */ }
+      try { map.off("style.load", styleLoadHandler); } catch { /* map may already be disposed */ }
+      try { map.off("styledata", styleReadyHandler); } catch { /* map may already be disposed */ }
+      try { map.off("idle", styleReadyHandler); } catch { /* map may already be disposed */ }
+      cameraRetryIds.forEach((id) => clearTimeout(id));
+      cameraConfirmIds.forEach((id) => clearTimeout(id));
       mapRef.current = null;
-      setIsLoaded(false);
-      setIsStyleLoaded(false);
-      setMapInstance(null);
+      initialCameraReadyRef.current = false;
+      const removeMap = () => {
+        try { map.remove(); } catch { /* hot reload/dev overlay can dispose first */ }
+      };
+      if (typeof window !== "undefined") window.setTimeout(removeMap, 0);
+      else removeMap();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -186,22 +379,30 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     mapInstance.setStyle(newStyle, { diff: true });
   }, [mapInstance, resolvedTheme, mapStyles]);
 
-  const isLoading = !isLoaded || !isStyleLoaded;
+  const isLoading = !isLoaded || !isStyleLoaded || !isInitialCameraReady;
+  const showMapCanvas = (isLoaded && isStyleLoaded && isInitialCameraReady) || forceRevealCanvas;
 
   const contextValue = useMemo(
     () => ({
       map: mapInstance,
-      isLoaded: isLoaded && isStyleLoaded,
+      isLoaded: isLoaded && isStyleLoaded && isInitialCameraReady,
     }),
-    [mapInstance, isLoaded, isStyleLoaded]
+    [mapInstance, isLoaded, isStyleLoaded, isInitialCameraReady]
   );
 
   return (
     <MapContext.Provider value={contextValue}>
-      <div ref={containerRef} className="relative w-full h-full">
+      <div className="relative w-full h-full">
+        <div
+          ref={containerRef}
+          className={cn(
+            "h-full w-full transition-opacity duration-75"
+          )}
+          style={{ opacity: showMapCanvas ? 1 : 0 }}
+        />
         {isLoading && <DefaultLoader />}
-        {/* SSR-safe: children render only when map is loaded on client */}
-        {mapInstance && children}
+        {/* Layer children can safely call addSource/addLayer only after MapLibre's style is truly ready. */}
+        {mapInstance && isLoaded && isStyleLoaded && isInitialCameraReady && children}
       </div>
     </MapContext.Provider>
   );
@@ -329,7 +530,16 @@ function MapMarker({
     marker.addTo(map);
 
     return () => {
-      marker.remove();
+      const removeMarker = () => {
+        try {
+          const element = marker.getElement?.();
+          if (element?.parentNode) marker.remove();
+        } catch {
+          /* map teardown can remove the marker container before React cleanup */
+        }
+      };
+      if (typeof window !== "undefined") window.setTimeout(removeMarker, 0);
+      else removeMarker();
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -408,6 +618,8 @@ type MarkerPopupProps = {
   children: ReactNode;
   /** Additional CSS classes for the popup container */
   className?: string;
+  /** Inline styles for popup shell */
+  style?: CSSProperties;
   /** Show a close button in the popup (default: false) */
   closeButton?: boolean;
   /** Callback when popup is closed (via close button or programmatic close) */
@@ -417,6 +629,7 @@ type MarkerPopupProps = {
 function MarkerPopup({
   children,
   className,
+  style,
   closeButton = false,
   onClose,
   ...popupOptions
@@ -451,9 +664,13 @@ function MarkerPopup({
     popup.setLngLat(marker.getLngLat()).addTo(map);
 
     return () => {
-      popup.off("close", onCloseProp);
-      marker.setPopup(null);
-      popup.remove();
+      try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
+      const removePopup = () => {
+        try { marker.setPopup(null); } catch { /* marker may already be disposed */ }
+        try { popup.remove(); } catch { /* map teardown can remove popup DOM first */ }
+      };
+      if (typeof window !== "undefined") window.setTimeout(removePopup, 0);
+      else removePopup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -472,7 +689,7 @@ function MarkerPopup({
   }
 
   const handleClose = () => {
-    popup.remove();
+    try { popup.remove(); } catch { /* popup may already be removed */ }
     onClose?.();
   };
 
@@ -482,6 +699,7 @@ function MarkerPopup({
         "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
         className
       )}
+      style={style}
     >
       {closeButton && (
         <button
@@ -894,7 +1112,7 @@ function MapControls({
             disabled={waitingForLocation}
           >
             {waitingForLocation ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4" />
             ) : isFollowing ? (
               <Navigation2 className="size-4" />
             ) : (
@@ -1007,10 +1225,16 @@ function MapPopup({
     popup.addTo(map);
 
     return () => {
-      popup.off("close", onCloseProp);
-      if (popup.isOpen()) {
-        popup.remove();
-      }
+      try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
+      const removePopup = () => {
+        try {
+          if (popup.isOpen()) popup.remove();
+        } catch {
+          /* map teardown can remove popup DOM first */
+        }
+      };
+      if (typeof window !== "undefined") window.setTimeout(removePopup, 0);
+      else removePopup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1035,7 +1259,7 @@ function MapPopup({
   }
 
   const handleClose = () => {
-    popup.remove();
+    try { popup.remove(); } catch { /* popup may already be removed */ }
     onClose?.();
   };
 

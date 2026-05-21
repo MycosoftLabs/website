@@ -367,6 +367,13 @@ export function MYCAProvider({
           nlqSources: data.nlq_sources,
           metadata: {
             routed_to: data.routed_to,
+            provider: data.provider,
+            provider_timings: data.provider_timings,
+            fallback_reason: data.fallback_reason,
+            actions: data.actions,
+            latency_ms: data.latency_ms,
+            runtime_context: data.runtime_context,
+            audio_mime: data.audio_mime,
           },
         }
 

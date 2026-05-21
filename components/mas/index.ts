@@ -8,6 +8,7 @@ export { NotificationCenter } from "./notification-center"
 export { AgentCreator } from "./agent-creator"
 export { WorkflowStudio } from "./workflow-studio"
 export { ActivityTopologyView } from "./activity-topology-view"
+export { MeshTab } from "./mesh-tab"
 
 // MYCA Consciousness Components (Feb 10, 2026)
 export { MYCAConsciousnessStatus } from "./myca-consciousness-status"

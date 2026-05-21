@@ -31,7 +31,8 @@ export function HomeMYCAExperience({ active = true }: HomeMYCAExperienceProps) {
               <div className="relative z-10 h-full">
                 <LiveDemo
                   active={active}
-                  showDemoBackground={false}
+                  showDemoBackground={active}
+                  demoBackgroundTransparent
                   showIntro={false}
                   forceMountPanels={false}
                   className="min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-start"

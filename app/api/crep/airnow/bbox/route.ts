@@ -23,6 +23,14 @@ export const dynamic = "force-dynamic"
 
 const CACHE_DIR = path.resolve(process.cwd(), "var", "cache", "airnow")
 const TTL_MS = 15 * 60_000
+type AirNowBbox = [number, number, number, number]
+
+const US_AIRNOW_FALLBACK_BBOXES: AirNowBbox[] = [
+  [-125.0, 24.0, -66.5, 50.0],
+  [-170.0, 51.0, -130.0, 72.0],
+  [-161.0, 18.5, -154.0, 23.0],
+  [-68.5, 17.5, -64.0, 19.0],
+]
 
 function ensureDir() {
   if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true })
@@ -37,8 +45,36 @@ function catFromAQI(aqi: number): { number: number; name: string; color: string 
   return              { number: 6, name: "Hazardous",                    color: "#7e0023" }
 }
 
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n))
+}
+
+function normalizeLng(lng: number): number {
+  let out = lng
+  while (out < -180) out += 360
+  while (out > 180) out -= 360
+  return out
+}
+
+function normalizeAirNowBboxes(parts: number[]): AirNowBbox[] {
+  let [w, s, e, n] = parts
+  s = clamp(s, -90, 90)
+  n = clamp(n, -90, 90)
+  if (s >= n) return []
+
+  const rawWidth = Math.abs(e - w)
+  const fullWorldView = rawWidth >= 360 || rawWidth === 0
+
+  w = normalizeLng(w)
+  e = normalizeLng(e)
+  const span = w <= e ? e - w : 360 - (w - e)
+  if (fullWorldView || span >= 170) return US_AIRNOW_FALLBACK_BBOXES
+  if (w < e) return [[w, s, e, n]]
+  return [[w, s, 180, n], [-180, s, e, n]]
+}
+
 export async function GET(req: NextRequest) {
-  const key = process.env.AIRNOW_API_KEY?.trim() || ""
+  const key = process.env.AIRNOW_API_KEY?.trim() || process.env.NEXT_PUBLIC_AIRNOW_API_KEY?.trim() || ""
   if (!key) return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 501 })
 
   const bboxRaw = req.nextUrl.searchParams.get("bbox") || ""
@@ -47,12 +83,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "bbox=w,s,e,n required" }, { status: 400 })
   }
   const [w, s, e, n] = parts
-  if (w >= e || s >= n) {
-    return NextResponse.json({ error: "invalid bbox: w<e, s<n" }, { status: 400 })
+  const requestBboxes = normalizeAirNowBboxes(parts)
+  if (requestBboxes.length === 0) {
+    return NextResponse.json({ error: "invalid bbox: bbox must cover a non-empty latitude range" }, { status: 400 })
   }
   const params = (req.nextUrl.searchParams.get("parameters") || "PM25,OZONE").toUpperCase()
 
-  const cacheKey = `bbox|${w.toFixed(2)},${s.toFixed(2)},${e.toFixed(2)},${n.toFixed(2)}|${params}`
+  const cacheKey = `bbox|${requestBboxes.map((b) => b.map((x) => x.toFixed(2)).join(",")).join("|")}|${params}`
   const cachePath = path.join(CACHE_DIR, `bbox-${Buffer.from(cacheKey).toString("base64url").slice(0, 48)}.json`)
   try {
     ensureDir()
@@ -75,28 +112,37 @@ export async function GET(req: NextRequest) {
     const start = new Date(end.getTime() - 60 * 60_000)
     const fmt = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}T${String(d.getUTCHours()).padStart(2, "0")}`
 
-    const url = new URL("https://www.airnowapi.org/aq/data/")
-    url.searchParams.set("startDate", fmt(start))
-    url.searchParams.set("endDate", fmt(end))
-    url.searchParams.set("parameters", params)
-    url.searchParams.set("BBOX", `${w},${s},${e},${n}`)
-    url.searchParams.set("dataType", "A")   // A = AQI (not raw concentration)
-    url.searchParams.set("format", "application/json")
-    url.searchParams.set("verbose", "1")
-    url.searchParams.set("API_KEY", key)
+    const fetchBox = async (box: AirNowBbox): Promise<any[]> => {
+      const url = new URL("https://www.airnowapi.org/aq/data/")
+      url.searchParams.set("startDate", fmt(start))
+      url.searchParams.set("endDate", fmt(end))
+      url.searchParams.set("parameters", params)
+      url.searchParams.set("BBOX", box.join(","))
+      url.searchParams.set("dataType", "A")   // A = AQI (not raw concentration)
+      url.searchParams.set("format", "application/json")
+      url.searchParams.set("verbose", "1")
+      url.searchParams.set("API_KEY", key)
 
-    const res = await fetch(url.toString(), {
-      headers: { "User-Agent": "MycosoftCREP/1.0", Accept: "application/json" },
-      signal: AbortSignal.timeout(20_000),
-    })
-    if (!res.ok) {
-      const body = await res.text().catch(() => "")
+      const res = await fetch(url.toString(), {
+        headers: { "User-Agent": "MycosoftCREP/1.0", Accept: "application/json" },
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!res.ok) {
+        const body = await res.text().catch(() => "")
+        throw new Error(`airnow ${res.status}: ${body.slice(0, 180)}`)
+      }
+      return res.json()
+    }
+
+    const results = await Promise.allSettled(requestBboxes.map(fetchBox))
+    const rows = results.flatMap((result) => result.status === "fulfilled" && Array.isArray(result.value) ? result.value : [])
+    if (rows.length === 0 && results.some((result) => result.status === "rejected")) {
+      const reason = results.find((result) => result.status === "rejected") as PromiseRejectedResult | undefined
       return NextResponse.json(
-        { error: `airnow ${res.status}`, upstream_body: body.slice(0, 400) },
+        { error: reason?.reason?.message || "airnow fetch failed" },
         { status: 502 },
       )
     }
-    const rows: any[] = await res.json()
 
     // Group by site (same LocalSiteName usually indicates one monitor
     // reporting multiple parameters). Keep the HIGHEST-AQI observation
@@ -130,6 +176,7 @@ export async function GET(req: NextRequest) {
       type: "FeatureCollection" as const,
       generated_at: new Date().toISOString(),
       bbox: [w, s, e, n] as [number, number, number, number],
+      airnow_bboxes: requestBboxes,
       monitor_count: monitors.length,
       features: monitors.map((m) => ({
         type: "Feature" as const,

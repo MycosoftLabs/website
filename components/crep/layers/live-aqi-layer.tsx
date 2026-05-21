@@ -50,6 +50,8 @@ interface Props {
 }
 
 export function LiveAqiLayer({ map, visible, bbox, debounceMs = 800, pollMs = 300_000 }: Props) {
+  const bboxStr = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
+
   // ── source + layers once map is ready ─────────────────────────────
   useEffect(() => {
     if (!map) return
@@ -152,7 +154,6 @@ export function LiveAqiLayer({ map, visible, bbox, debounceMs = 800, pollMs = 30
   }, [map, visible])
 
   // ── bbox fetch (debounced) + periodic refresh ────────────────────
-  const lastBboxRef = useRef<string>("")
   const timerRef = useRef<any>(null)
   useEffect(() => {
     if (!map || !visible) return
@@ -174,11 +175,10 @@ export function LiveAqiLayer({ map, visible, bbox, debounceMs = 800, pollMs = 30
     const poll = async () => {
       if (cancelled) return
       if (typeof document !== "undefined" && document.hidden) return
-      if (!bbox) return
-      const bboxStr = bbox.join(",")
+      if (!bboxStr) return
       try {
         const res = await fetch(`/api/crep/airnow/bbox?bbox=${encodeURIComponent(bboxStr)}`, {
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(30_000),
           cache: "no-store",
         })
         if (res.status === 501) {
@@ -209,13 +209,8 @@ export function LiveAqiLayer({ map, visible, bbox, debounceMs = 800, pollMs = 30
       }
     }
 
-    // Debounced bbox-change fetch + periodic refresh while bbox stable.
-    const bboxKey = bbox ? bbox.map((n) => n.toFixed(2)).join(",") : ""
-    if (bboxKey !== lastBboxRef.current) {
-      lastBboxRef.current = bboxKey
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => { poll() }, debounceMs)
-    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => { poll() }, debounceMs)
     intervalId = setInterval(() => { if (!cancelled) poll() }, pollMs)
 
     return () => {
@@ -223,7 +218,7 @@ export function LiveAqiLayer({ map, visible, bbox, debounceMs = 800, pollMs = 30
       if (intervalId) clearInterval(intervalId)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [map, visible, bbox, debounceMs, pollMs])
+  }, [map, visible, bboxStr, debounceMs, pollMs])
 
   return null
 }

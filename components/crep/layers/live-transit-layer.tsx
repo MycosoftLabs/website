@@ -46,7 +46,7 @@ interface Props {
   onSelect?: (props: any) => void
 }
 
-export function LiveTransitLayer({ map, visible, bbox, pollMs = 15_000, onSelect }: Props) {
+export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect }: Props) {
   const selectRef = useRef(onSelect)
   useEffect(() => { selectRef.current = onSelect }, [onSelect])
 

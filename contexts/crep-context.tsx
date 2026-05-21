@@ -369,10 +369,14 @@ export function CREPProvider({ children }: { children: React.ReactNode }) {
   )
 
   // Map state
+  // May 21 2026 (Morgan): default to the CREP "North America" view so the
+  // Earth Simulator opens directly over the US without first painting a
+  // tiny equator-centered globe and then jumping. Matches
+  // CREP_DEFAULT_CENTER / CREP_DEFAULT_ZOOM in CREPDashboardClient.
   const mapRef = useRef<unknown>(null)
   const [mapState, setMapState] = useState<CREPMapState>({
-    center: [0, 20],
-    zoom: 2.5,
+    center: [-98.5, 39.8],
+    zoom: 4.0,
     bearing: 0,
     pitch: 0,
   })

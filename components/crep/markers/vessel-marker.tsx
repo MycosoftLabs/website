@@ -204,7 +204,7 @@ export function VesselMarker({ vessel, isSelected = false, onClick, onClose }: V
           
           {/* AIS ping animation */}
           <div 
-            className="absolute w-6 h-6 rounded-full animate-ping opacity-20"
+            className="absolute w-6 h-6 rounded-full opacity-20"
             style={{ backgroundColor: vesselStyle.color }}
           />
         </div>
@@ -253,7 +253,7 @@ export function VesselMarker({ vessel, isSelected = false, onClick, onClose }: V
               "flex items-center gap-2 p-1.5 rounded bg-black/30 text-[9px]",
               navStatus.color
             )}>
-              <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-current" />
               <span>{navStatus.label}</span>
             </div>
             

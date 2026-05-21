@@ -4,7 +4,14 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY
+
+function ensureMindexApiKey(): string {
+  if (!MINDEX_API_KEY) {
+    throw new Error("MINDEX_API_KEY_MISSING")
+  }
+  return MINDEX_API_KEY
+}
 
 /**
  * MINDEX Shell Command API
@@ -95,27 +102,33 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Shell command error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const isMissingConfig = errorMessage.includes("MINDEX_API_KEY_MISSING")
     return NextResponse.json({
       error: "Command execution failed",
-      details: error instanceof Error ? error.message : "Unknown error",
-    }, { status: 500 })
+      details: isMissingConfig
+        ? "MINDEX API key is not configured for live shell access."
+        : errorMessage,
+    }, { status: isMissingConfig ? 503 : 500 })
   }
 }
 
 async function executeStats() {
+  const apiKey = ensureMindexApiKey()
   const response = await fetch(`${MINDEX_API_URL}/api/mindex/stats`, {
-    headers: { "X-API-Key": MINDEX_API_KEY },
+    headers: { "X-API-Key": apiKey },
   })
   return await response.json()
 }
 
 async function executeSearch(query: string) {
+  const apiKey = ensureMindexApiKey()
   const [taxaRes, obsRes] = await Promise.all([
     fetch(`${MINDEX_API_URL}/api/mindex/taxa?search=${encodeURIComponent(query)}&limit=10`, {
-      headers: { "X-API-Key": MINDEX_API_KEY },
+      headers: { "X-API-Key": apiKey },
     }),
     fetch(`${MINDEX_API_URL}/api/mindex/observations?search=${encodeURIComponent(query)}&limit=10`, {
-      headers: { "X-API-Key": MINDEX_API_KEY },
+      headers: { "X-API-Key": apiKey },
     }),
   ])
 
@@ -130,11 +143,12 @@ async function executeSearch(query: string) {
 }
 
 async function executeTaxa(args: string[]) {
+  const apiKey = ensureMindexApiKey()
   const subcommand = args[0]
 
   if (subcommand === "list") {
     const response = await fetch(`${MINDEX_API_URL}/api/mindex/taxa?limit=50`, {
-      headers: { "X-API-Key": MINDEX_API_KEY },
+      headers: { "X-API-Key": apiKey },
     })
     const data = await response.json()
     return {
@@ -144,7 +158,7 @@ async function executeTaxa(args: string[]) {
     }
   } else if (subcommand === "get" && args[1]) {
     const response = await fetch(`${MINDEX_API_URL}/api/mindex/taxa/${args[1]}`, {
-      headers: { "X-API-Key": MINDEX_API_KEY },
+      headers: { "X-API-Key": apiKey },
     })
     return await response.json()
   } else {
@@ -153,11 +167,12 @@ async function executeTaxa(args: string[]) {
 }
 
 async function executeObservations(args: string[]) {
+  const apiKey = ensureMindexApiKey()
   const subcommand = args[0]
 
   if (subcommand === "list") {
     const response = await fetch(`${MINDEX_API_URL}/api/mindex/observations?limit=20`, {
-      headers: { "X-API-Key": MINDEX_API_KEY },
+      headers: { "X-API-Key": apiKey },
     })
     const data = await response.json()
     return {
@@ -172,12 +187,13 @@ async function executeObservations(args: string[]) {
 }
 
 async function fetchUpstreamEtlStatus(): Promise<Response> {
+  const apiKey = ensureMindexApiKey()
   const baseUrl = MINDEX_API_URL.endsWith("/api/mindex")
     ? MINDEX_API_URL
     : `${MINDEX_API_URL}/api/mindex`
   const primary = await fetch(`${baseUrl}/etl-status`, {
     headers: {
-      "X-API-Key": MINDEX_API_KEY,
+      "X-API-Key": apiKey,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(20_000),
@@ -185,7 +201,7 @@ async function fetchUpstreamEtlStatus(): Promise<Response> {
   if (primary.ok) return primary
   return fetch(`${MINDEX_API_URL}/api/mindex/etl/status`, {
     headers: {
-      "X-API-Key": MINDEX_API_KEY,
+      "X-API-Key": apiKey,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(20_000),

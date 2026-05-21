@@ -52,8 +52,20 @@
  * and will consume the same envelope via this component's exposed state.
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+
+// May 21 2026 (Morgan): style-readiness guard. Without it, attachCloudLayers
+// raced MapLibre on first mount and one of the "addSource" calls could fire
+// before the basemap style finished loading, surfacing as "Style is not done
+// loading" in the console.
+function isMapStyleReady(map: MapLibreMap | null): map is MapLibreMap {
+  try {
+    return !!(map && map.isStyleLoaded?.() && (map as any).style && typeof map.getSource === "function")
+  } catch {
+    return false
+  }
+}
 
 interface Props {
   map: MapLibreMap | null
@@ -108,6 +120,27 @@ export default function RealisticCloudLayer({
 }: Props) {
   const loadedRef = useRef(false)
   const pollRef = useRef<any>(null)
+  const [styleReadyTick, setStyleReadyTick] = useState(0)
+
+  useEffect(() => {
+    if (!map) return
+    let frame: number | null = null
+    const bump = () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => setStyleReadyTick((value) => value + 1))
+    }
+    if (isMapStyleReady(map)) bump()
+    const events = ["load", "style.load", "styledata", "idle"] as const
+    events.forEach((eventName) => {
+      try { map.on(eventName, bump) } catch { /* ignore */ }
+    })
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      events.forEach((eventName) => {
+        try { map.off(eventName, bump) } catch { /* ignore */ }
+      })
+    }
+  }, [map])
 
   useEffect(() => {
     if (!map) return
@@ -137,6 +170,7 @@ export default function RealisticCloudLayer({
       } catch { /* ignore */ }
       return
     }
+    if (!isMapStyleReady(map)) return
     loadedRef.current = true
 
     const attachCloudLayers = async () => {
@@ -341,7 +375,7 @@ export default function RealisticCloudLayer({
     }, 300_000)
 
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [map, enabled, bbox, opacity, mode3d, forecastHours, resolutionDeg, gpuMode])
+  }, [map, enabled, bbox, opacity, mode3d, forecastHours, resolutionDeg, gpuMode, styleReadyTick])
 
   return null
 }

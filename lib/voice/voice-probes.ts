@@ -143,6 +143,7 @@ export async function httpProbe(
 export async function runCriticalVoiceProbes(): Promise<{
   probes: ProbeResult[]
   voiceReady: boolean
+  voiceStackReady: boolean
   sloPass: boolean
   totalMs: number
   config: Record<string, string>
@@ -160,8 +161,8 @@ export async function runCriticalVoiceProbes(): Promise<{
       timeoutMs: 1200,
       tcpFallback: true,
     }),
-    httpProbe("mas_live", "MAS /live", `${masBase}/live`, { critical: true, timeoutMs: 2000 }),
-    httpProbe("mindex", "MINDEX", MINDEX_ENDPOINTS.HEALTH, { critical: true, timeoutMs: 2000 }),
+    httpProbe("mas_live", "MAS /live", `${masBase}/live`, { critical: true, timeoutMs: 5000 }),
+    httpProbe("mindex", "MINDEX", MINDEX_ENDPOINTS.HEALTH, { critical: true, timeoutMs: 5000 }),
     tcpPing(moshiHost, 8998, 800).then((r) => ({
       id: "moshi_tcp",
       name: "Moshi TCP :8998",
@@ -187,8 +188,8 @@ export async function runCriticalVoiceProbes(): Promise<{
     headers: masAuth,
   })
   const masBrain = await httpProbe("brain_status", "MYCA Brain status", `${masBase}/voice/brain/status`, {
-    critical: true,
-    timeoutMs: 2000,
+    critical: false,
+    timeoutMs: 8000,
     headers: masAuth,
   })
 
@@ -208,12 +209,19 @@ export async function runCriticalVoiceProbes(): Promise<{
 
   const probes = [moshiProbe, bridge, masLive, masMemory, masBrain, mindex, moshiTcp, bridgeTcp]
   const critical = probes.filter((p) => p.critical)
-  const voiceReady = critical.every((p) => p.ok)
+  // Local Moshi+Bridge only — used to enable Start MYCA Voice (MINDEX/MAS slowness must not block mic).
+  const voiceStackReady = Boolean(moshiOk && bridge.ok && bridgeTcp.ok && moshiTcp.ok)
+  const voiceReady =
+    voiceStackReady &&
+    masLive.ok &&
+    masMemory.ok &&
+    (masBrain.ok || masBrain.status === 429)
   const sloPass = critical.every((p) => p.ok && p.sloOk)
 
   return {
     probes,
     voiceReady,
+    voiceStackReady,
     sloPass,
     totalMs: Date.now() - started,
     config: {

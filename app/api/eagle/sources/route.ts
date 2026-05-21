@@ -67,6 +67,10 @@ const MINDEX_INTERNAL_TOKEN =
 
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
+const ENABLE_EAGLE_MINDEX_WRITEBACK =
+  process.env.EAGLE_ENABLE_MINDEX_WRITEBACK === "1" ||
+  (process.env.NODE_ENV === "production" && process.env.EAGLE_DISABLE_MINDEX_WRITEBACK !== "1")
+
 /**
  * Base URL for server-side fetches to this app's own API routes.
  * In Docker/VM, `new URL(req.url).origin` is often `https://mycosoft.com` —
@@ -99,6 +103,7 @@ const BULK_UPSERT_CHUNK = 200
 /** Persist merged sources to MINDEX warm cache (idempotent upsert). */
 async function persistMergedSourcesToMindex(sources: VideoSource[]): Promise<void> {
   if (!sources.length) return
+  if (!ENABLE_EAGLE_MINDEX_WRITEBACK) return
   if (!MINDEX_INTERNAL_TOKEN && !MINDEX_API_KEY) return
 
   const payload = sources.map((s) => ({

@@ -93,8 +93,8 @@ export const LOD_TIERS: LODPolicy[] = [
   {
     tier: "globe",
     zoomRange: [0, 3],
-    events: { timeWindow: "6h", minSeverity: "high", maxRendered: 500 },
-    movers: { aircraft: 300, vessels: 100, satellites: 500, bboxFilter: false },
+    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1200 },
+    movers: { aircraft: 2500, vessels: 4500, satellites: 2500, bboxFilter: false },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 2000 },
     // Apr 23, 2026 — Morgan: "green dots not selectable, masking cells".
     // Nature is DOM-marker rendered (FungalMarker → maplibregl.Marker per
@@ -104,52 +104,52 @@ export const LOD_TIERS: LODPolicy[] = [
     // 0 rendered features from any other layer because the main thread
     // was busy). Per-tier caps here bound DOM marker count; spatial grid
     // sampling downstream still distributes them evenly.
-    nature: { timeWindow: "7d", qualityGrade: "research", maxRendered: 200 },
+    nature: { timeWindow: "7d", qualityGrade: "all", maxRendered: 80 },
   },
   // ─── Continent view: last day, medium+ severity ─────────────────────
   {
     tier: "continent",
     zoomRange: [3, 5],
-    events: { timeWindow: "24h", minSeverity: "medium", maxRendered: 1500 },
-    movers: { aircraft: 1000, vessels: 500, satellites: 2000, bboxFilter: true },
+    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1800 },
+    movers: { aircraft: 3500, vessels: 5500, satellites: 3500, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 5000 },
-    nature: { timeWindow: "30d", qualityGrade: "research", maxRendered: 400 },
+    nature: { timeWindow: "30d", qualityGrade: "all", maxRendered: 140 },
   },
   // ─── Region view: last week, low severity, MINDEX kicks in ──────────
   {
     tier: "region",
     zoomRange: [5, 7],
-    events: { timeWindow: "7d", minSeverity: "low", maxRendered: 3000 },
-    movers: { aircraft: 3000, vessels: 2000, satellites: 5000, bboxFilter: true },
+    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
+    movers: { aircraft: 5000, vessels: 7000, satellites: 5000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
-    nature: { timeWindow: "1y", qualityGrade: "research", maxRendered: 600 },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 220 },
   },
   // ─── State/metro view: last month, all severity, full infra ────────
   {
     tier: "state",
     zoomRange: [7, 10],
-    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 6000 },
+    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 3200 },
     movers: { aircraft: 8000, vessels: 5000, satellites: 15000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
-    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 900 },
+    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 340 },
   },
   // ─── City view: last 6 months, historical nature kicks in ──────────
   {
     tier: "city",
     zoomRange: [10, 13],
-    events: { timeWindow: "6m", minSeverity: "info", maxRendered: 10000 },
+    events: { timeWindow: "6m", minSeverity: "info", maxRendered: 5000 },
     movers: { aircraft: 15000, vessels: 10000, satellites: 20000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 60000 },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 1500 },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 520 },
   },
   // ─── Street view: everything in bbox, uncapped ─────────────────────
   {
     tier: "street",
     zoomRange: [13, 25],
-    events: { timeWindow: "all", minSeverity: "info", maxRendered: 50000 },
+    events: { timeWindow: "all", minSeverity: "info", maxRendered: 8000 },
     movers: { aircraft: 50000, vessels: 50000, satellites: 50000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: Infinity },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 2500 },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 900 },
   },
 ]
 
@@ -240,19 +240,30 @@ export function applyLODToNature<T extends { observed_on?: string | null; qualit
       return new Date(o.observed_on).getTime() >= cutoff
     })
   }
+  filtered = [...filtered].sort((a, b) => {
+    const at = a.observed_on ? new Date(a.observed_on).getTime() : 0
+    const bt = b.observed_on ? new Date(b.observed_on).getTime() : 0
+    if (at !== bt) return bt - at
+    const aq = a.quality_grade === "research" ? 1 : 0
+    const bq = b.quality_grade === "research" ? 1 : 0
+    return bq - aq
+  })
   return filtered.slice(0, lod.nature.maxRendered)
 }
 
 /**
- * Cap live mover arrays at the zoom's budget.
+ * Moving assets are culled by viewport, not by zoom budgets.
+ * A plane, vessel, or satellite already visible in the viewport must not
+ * disappear just because the user zooms or moves the mouse.
  */
 export function applyLODToMovers<T>(
   items: T[],
   kind: "aircraft" | "vessels" | "satellites",
   zoom: number,
 ): T[] {
-  const lod = getLODForZoom(zoom)
-  return items.slice(0, lod.movers[kind])
+  void kind
+  void zoom
+  return items
 }
 
 /**
