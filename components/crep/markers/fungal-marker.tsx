@@ -182,7 +182,13 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
           }}
           className={cn(
             "crep-species-marker-dot",
-            "relative flex items-center justify-center transition-all duration-200 ease-in-out",
+            // May 21 2026 (Morgan: "nature markers blinking on every zoom").
+            // Dropped `transition-all duration-200 ease-in-out` — it was
+            // firing on every parent re-render (e.g. each viewport-tick or
+            // groundFilter change) and visibly re-animating every nature
+            // marker. Hover keeps its scale via a non-transitioned class
+            // change; selection scale is instant.
+            "relative flex items-center justify-center",
             "h-[15px] w-[15px] rounded-full border shadow-md",
             isSelected
               ? "scale-[1.45] ring-2 ring-white z-50"
