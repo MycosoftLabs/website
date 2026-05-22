@@ -185,7 +185,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true
+          # Production code builds should not hard-depend on Git LFS bandwidth.
+          # Large runtime media is mounted/served outside the image.
+          lfs: false
 
       - name: Free disk space and add swap
         # Apr 23, 2026 — PR #132 Build & Push Image failed with
@@ -733,7 +735,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true
+          # Keep fast deploy resilient when the repo's LFS bandwidth is exhausted.
+          lfs: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -995,4 +998,3 @@ jobs:
         with:
           commit_message: "docs: update changelog [skip ci]"
           file_pattern: CHANGELOG.md
-

@@ -83,7 +83,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || 'main' }}
-          lfs: true
+          # Code-only deploys must not depend on Git LFS bandwidth. Large public media
+          # is served from NAS/R2 in production, and LFS checkout can hard-fail when the
+          # account bandwidth budget is exhausted before the Docker build even starts.
+          lfs: false
 
       - name: Resolve deploy SHA
         id: sha
