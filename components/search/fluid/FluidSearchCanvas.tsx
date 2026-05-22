@@ -1804,8 +1804,8 @@ export function FluidSearchCanvas({
       hasPendingInput,
       isLoading,
       totalCount,
-      source,
-      timing,
+      source: "live",
+      timing: null,
       plannedWidgets: route?.searchPlan?.widgetOrder ?? [],
       primaryWidget: route?.searchPlan?.primaryWidget ?? route?.primaryWidget ?? null,
       expandedWidgets: [...expandedWidgets],
@@ -1820,7 +1820,7 @@ export function FluidSearchCanvas({
       error,
       capturedAt: new Date().toISOString(),
     }
-  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, source, timing, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
+  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
 
   // Map from widgetType -> DOM element for auto-scroll-into-view.
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
