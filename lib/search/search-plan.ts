@@ -298,6 +298,7 @@ export function buildWidgetOrderFromFamilies(
 export function buildSearchPlan(query: string, route: SearchRoute, earthRule: EarthSearchRule): SearchPlan {
   const families = detectSearchEntityFamilies(query)
   if (
+    earthRule.domain === "species" &&
     route.earthContextFilters.enabledFilters.some((filter) => filter.category === "species") &&
     !families.includes("species")
   ) {
