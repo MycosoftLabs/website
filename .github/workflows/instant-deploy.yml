@@ -249,7 +249,14 @@ jobs:
             export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
             export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
             export PUBLIC_HOST='mycosoft.com'
+            export LOCK_DIR="\$HOME/.cache/mycosoft-deploy"
+            export LOCK_FILE="\$LOCK_DIR/blue-green.lock"
+            mkdir -p "\$LOCK_DIR"
             ./scripts/blue-green-deploy.sh
+
+            echo "=== Verifying deployed search QA route on origin ==="
+            curl -fsS --max-time 20 http://localhost:3000/api/search/qa/artifact?limit=1 >/tmp/search-qa-artifact.json
+            grep -q '"scenarioCount":1' /tmp/search-qa-artifact.json
           BUILD
 
       - name: Health check (origin)
