@@ -146,6 +146,7 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
 // Company routes - require @mycosoft.org or @mycosoft.com email
 // All NatureOS Infrastructure section routes
 export const COMPANY_ROUTES: RouteAccess[] = [
+  { path: '/natureos/devices/fleet/mqtt-live', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MQTT Live Mirror' },
   { path: '/natureos/mycobrain', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MycoBrain Console' },
   { path: '/natureos/sporebase', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'SporeBase Monitor' },
   { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
