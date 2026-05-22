@@ -551,6 +551,26 @@ interface MissionContext {
 }
 
 // =============================================================================
+// FORCE_OFF_UNTIL_STABLE: Layer IDs that must NEVER be auto-enabled.
+// These layers crash the renderer (Tile3DLayer fetch errors, OOM, etc.)
+// and must be opted-in explicitly by the user. setLayers() respects this set.
+const FORCE_OFF_LAYER_IDS = new Set([
+  "photorealistic3D",
+  "mapbox3dBuildings",
+  "mapboxSatelliteStreets",
+  "orbitalDebris",
+  "debrisCloud",
+  "realisticClouds",
+  "earth2Forecast",
+  "earth2Nowcast",
+  "earth2Spore",
+  "earth2Wind",
+  "earth2Temp",
+  "earth2Precip",
+  "sunEarthImpact",
+]);
+
+// =============================================================================
 // MISSION PROMPT MODAL - shown on first CREP use
 // =============================================================================
 const MISSION_TYPES = [
@@ -2550,34 +2570,34 @@ export default function CREPDashboardPage({
 
   const [groundFilter, setGroundFilter] = useState<GroundFilter>({
     // Biodiversity – all on by default
-    showFungi: true,
-    showPlants: true,
-    showBirds: true,
-    showMammals: true,
-    showReptiles: true,
-    showInsects: true,
-    showMarineLife: true,
+    showFungi: false,
+    showPlants: false,
+    showBirds: false,
+    showMammals: false,
+    showReptiles: false,
+    showInsects: false,
+    showMarineLife: false,
     // Natural Events – on by default
-    showEarthquakes: true,
-    showVolcanoes: true,
-    showWildfires: true,
-    showStorms: true,
-    showLightning: true,
-    showTornadoes: true,
-    showFloods: true,
+    showEarthquakes: false,
+    showVolcanoes: false,
+    showWildfires: false,
+    showStorms: false,
+    showLightning: false,
+    showTornadoes: false,
+    showFloods: false,
     // Infrastructure – ON by default (must match layer enabled state)
-    showFactories: true,
-    showPowerPlants: true,
-    showMining: true,
-    showOilGas: true,
-    showWaterPollution: true,
+    showFactories: false,
+    showPowerPlants: false,
+    showMining: false,
+    showOilGas: false,
+    showWaterPollution: false,
     // Military & Defense – on by default for CREP/FUSARIUM
-    showMilitaryBases: true,
+    showMilitaryBases: false,
     // Sensors – on by default
-    showMycoBrain: true,
-    showSporeBase: true,
-    showSmartFence: true,
-    showPartnerNetworks: true,
+    showMycoBrain: false,
+    showSporeBase: false,
+    showSmartFence: false,
+    showPartnerNetworks: false,
   });
 
   // Earth Observation imagery (NASA GIBS layers) – all off by default
@@ -2694,93 +2714,93 @@ export default function CREPDashboardPage({
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
-    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
+    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
-    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "All Mycosoft MycoBrain-powered devices (ESP32-S3 + BME688 + MQTT broker/MDP/MMP via Jetson-MycoBrain bridge)" },
-    { id: "devMushroom1", name: "Mushroom 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#a855f7", description: "Mushroom 1 fruiting-body monitor (MycoBrain-powered)" },
-    { id: "devHyphae1", name: "Hyphae 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Hyphae 1 mycelium-network VOC sensor" },
-    { id: "sporebase", name: "SporeBase", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "SporeBase environmental spore detection sensors" },
-    { id: "devMycoNode", name: "MycoNode", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoNode edge compute node (Jetson + MycoBrain bridge to MQTT / MDP / MMP)" },
-    { id: "devAlarm", name: "Alarm", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Alarm sensor (MycoBrain-powered event trigger)" },
-    { id: "devPsathyrella", name: "Psathyrella (Buoy)", category: "devices", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1, color: "#38bdf8", description: "Psathyrella aquatic MycoBrain buoy — marine spore + water chemistry" },
-    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
-    { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
+    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 1, color: "#22c55e", description: "All Mycosoft MycoBrain-powered devices (ESP32-S3 + BME688 + MQTT broker/MDP/MMP via Jetson-MycoBrain bridge)" },
+    { id: "devMushroom1", name: "Mushroom 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: false, opacity: 1, color: "#a855f7", description: "Mushroom 1 fruiting-body monitor (MycoBrain-powered)" },
+    { id: "devHyphae1", name: "Hyphae 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f97316", description: "Hyphae 1 mycelium-network VOC sensor" },
+    { id: "sporebase", name: "SporeBase", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: false, opacity: 1, color: "#10b981", description: "SporeBase environmental spore detection sensors" },
+    { id: "devMycoNode", name: "MycoNode", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 1, color: "#06b6d4", description: "MycoNode edge compute node (Jetson + MycoBrain bridge to MQTT / MDP / MMP)" },
+    { id: "devAlarm", name: "Alarm", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 1, color: "#ef4444", description: "Alarm sensor (MycoBrain-powered event trigger)" },
+    { id: "devPsathyrella", name: "Psathyrella (Buoy)", category: "devices", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 1, color: "#38bdf8", description: "Psathyrella aquatic MycoBrain buoy — marine spore + water chemistry" },
+    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
+    { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
-    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas. Apr 22 2026 flipped ON per Morgan — all permanent infra + project layers on from start." },
-    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
-    { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
+    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas. Apr 22 2026 flipped ON per Morgan — all permanent infra + project layers on from start." },
+    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
+    { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
     // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
-    { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
-    { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
-    { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
-    { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
-    { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
-    { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
+    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: false, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
+    { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
+    { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
+    { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
+    { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
+    { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
+    { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
-    { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
-    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
-    { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
-    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
-    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
-    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
-    { id: "satellites", name: "Satellites (TLE Live)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#c084fc", description: "CelesTrak live satellite positions" },
+    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
+    { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
+    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
+    { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
+    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
+    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
+    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
+    { id: "satellites", name: "Satellites (TLE Live)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#c084fc", description: "CelesTrak live satellite positions" },
     // Human Activity
-    { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
-    { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
-    { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
+    { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
+    { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
+    { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
-    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
-    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
-    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
+    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
+    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
+    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
-    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
-    { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
-    { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
-    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants — OpenGridWorks-style" },
-    { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
-    { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
+    { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
+    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
+    { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
+    { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
+    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants — OpenGridWorks-style" },
+    { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
+    { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
     // TELECOM & INFRASTRUCTURE — OpenGridWorks-style (Apr 2026)
-    { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
-    { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Data centers worldwide from OSM" },
-    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
+    { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
+    { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#7c3aed", description: "Data centers worldwide from OSM" },
+    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
     // ═══════════════════════════════════════════════════════════════════════
     // LIVE TRANSIT — Apr 23 2026, Morgan: "compete with google maps live
     // traffic public transportation". Polls /api/transit/all every 15 s,
     // aggregated feed from MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/
     // Amtrak/SEPTA/Metrolink/DART. Colored by vehicle_type.
     // ═══════════════════════════════════════════════════════════════════════
-    { id: "liveTransit", name: "Live Transit (Trains/Buses)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "Live US transit: MTA, WMATA, BART, MBTA, Bay Area 511, CTA, TriMet, MARTA, Amtrak, SEPTA, Metrolink, DART" },
+    { id: "liveTransit", name: "Live Transit (Trains/Buses)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#3b82f6", description: "Live US transit: MTA, WMATA, BART, MBTA, Bay Area 511, CTA, TriMet, MARTA, Amtrak, SEPTA, Metrolink, DART" },
     // Apr 23, 2026 — Morgan: "all aqi live feeds not working fix them".
     // Fixed the AIRNOW_API_KEY config on the sandbox; now adding the
     // MapLibre dot layer so every AirNow monitor in viewport renders
     // color-coded by EPA AQI category. Click → LiveAQIWidget popup.
-    { id: "liveAqi", name: "Air Quality (AirNow)", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#00e400", description: "Live AQI from AirNow monitors — ~2 000 US + partner sites, updated hourly. Circles colored EPA Good→Hazardous. Click a monitor for the per-pollutant widget." },
+    { id: "liveAqi", name: "Air Quality (AirNow)", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#00e400", description: "Live AQI from AirNow monitors — ~2 000 US + partner sites, updated hourly. Circles colored EPA Good→Hazardous. Click a monitor for the per-pollutant widget." },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
-    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
-    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
-    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
-    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
-    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
+    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
+    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
+    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
+    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
+    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
+    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
     // ═══════════════════════════════════════════════════════════════════════════
     // EARTH OBSERVATION IMAGERY — controlled by on-map MapLayersPopup
     // GIBS rendering handled via eoImageryFilter state + GibsBaseLayers
@@ -2788,94 +2808,94 @@ export default function CREPDashboardPage({
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
+    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL TELECOM (non-duplicate)
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
+    { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL FACILITIES (real data via Overpass API)
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
-    { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
-    { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
+    { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
+    { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
+    { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
     // CCTV / webcam feeds — MINDEX crep.cctv_cameras + Shinobi on MAS VM
     // (Cursor deployed Apr 20, 2026). Empty registry until seeded; filter
     // toggle + click widget still work.
-    { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
+    { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
 
     // ═══ Eagle Eye — Video Intelligence Layer (Phase 1 — Apr 20, 2026) ═══
     // Dual-plane: registered cameras (permanent) + ephemeral social video
     // (YouTube Live + Bluesky/Mastodon/X feeds). Cursor applied the
     // eagle.* MINDEX schema on VM 189 and deployed MediaMTX on MAS 188.
     // See components/crep/layers/eagle-eye-overlay.tsx.
-    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "Permanent video sources — Shinobi + 511 traffic + Windy + EarthCam + NPS/USGS + ALERTWildfire / HPWREN fire cams + Surfline surf cams. Cyan halo + color-coded core per provider. Click for live stream. When MINDEX eagle.video_sources is sparse, /api/eagle/sources falls back to direct connector fan-out so icons appear immediately." },
-    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky / Mastodon / Twitch video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier (native > platform-inferred > text-inferred)." },
+    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#22d3ee", description: "Permanent video sources — Shinobi + 511 traffic + Windy + EarthCam + NPS/USGS + ALERTWildfire / HPWREN fire cams + Surfline surf cams. Cyan halo + color-coded core per provider. Click for live stream. When MINDEX eagle.video_sources is sparse, /api/eagle/sources falls back to direct connector fan-out so icons appear immediately." },
+    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky / Mastodon / Twitch video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier (native > platform-inferred > text-inferred)." },
 
     // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
     // Canonical US datasets that OpenGridView uses. See
     // components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md
     // for provenance + refresh policy.
-    { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 — 1,479 existing US data centers with building/campus classification + sqft + operator" },
-    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom ≥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
-    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
-    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
-    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
-    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
-    { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
-    { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
-    { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
-    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
+    { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 — 1,479 existing US data centers with building/campus classification + sqft + operator" },
+    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom ≥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
+    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
+    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
+    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
+    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
+    { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
+    { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
+    { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
+    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
     { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst. OFF by default — 22k animated SGP4 dots alongside active satellites + everything else pushes the GPU into frame-drop territory." },
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud. OFF by default: rendering 1.2M deck.gl points + everything else crashes the browser. Enable explicitly when the orbital debris view is the focus." },
-    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) — 22,760 lines. Apr 22 2026 flipped ON per Morgan — served via PMTiles so only viewport tiles hit heap." },
-    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — 52,244 lines incl. 69/115/138/230 kV feeders. Apr 22 2026 flipped ON per Morgan — PMTiles path only. If prod shows OOM, switch back to PMTiles-only fallback (static-infra-loader handles mode selection)." },
+    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) — 22,760 lines. Apr 22 2026 flipped ON per Morgan — served via PMTiles so only viewport tiles hit heap." },
+    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — 52,244 lines incl. 69/115/138/230 kV feeders. Apr 22 2026 flipped ON per Morgan — PMTiles path only. If prod shows OOM, switch back to PMTiles-only fallback (static-infra-loader handles mode selection)." },
     // Apr 22, 2026 — Morgan: "example i see a substation with no line to
     // it that doesnt make sense ... THIS NEEDS TO BE FIXED ACROSS ALL
     // INFRA GLOBALLY". HIFLD only carries ≥115 kV; this layer fills the
     // ≤115 kV sub-transmission gap from OSM (baked weekly via GHA cron).
     // Dashed lines differentiate community OSM from authoritative HIFLD.
-    { id: "txLinesSub", name: "Sub-Transmission (OSM)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.65, color: "#f97316", description: "OSM community-mapped sub-transmission lines (≤115 kV). Fills the 69/34.5 kV feeder gap HIFLD misses — Loveland, Jamacha, Otay, Chula Vista etc. Dashed rendering. Rebuilt weekly by the OSM harvester (bake-osm-sub-transmission.mjs)." },
-    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally). Apr 22 2026 flipped ON per Morgan — bbox-scoped so viewport-relevant only." },
-    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan — viewport-scoped tile render only keeps wide-area OOM at bay." },
-    { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
-    { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
-    { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
-    { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
+    { id: "txLinesSub", name: "Sub-Transmission (OSM)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.65, color: "#f97316", description: "OSM community-mapped sub-transmission lines (≤115 kV). Fills the 69/34.5 kV feeder gap HIFLD misses — Loveland, Jamacha, Otay, Chula Vista etc. Dashed rendering. Rebuilt weekly by the OSM harvester (bake-osm-sub-transmission.mjs)." },
+    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally). Apr 22 2026 flipped ON per Morgan — bbox-scoped so viewport-relevant only." },
+    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan — viewport-scoped tile render only keeps wide-area OOM at bay." },
+    { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
+    { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
+    { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
+    { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan — the fill polygons block icon clicks underneath the zone." },
     // Apr 22, 2026 — SD + TJ coverage expansion layers (Morgan: "massive
     // amount of missing data from TIJUANA including infra cell towers
     // enviornmental sensors, military, police, hospitals, sewage line
     // data centers, am fm antennas same with san diego missing data").
     // Baked by scripts/etl/crep/bake-sdtj-coverage.mjs from OSM Overpass.
-    { id: "sdtjHospitals",    name: "Hospitals (SD/TJ)",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped hospitals + clinics within the SD County + Tijuana bbox (136 points). Fills gaps HIFLD doesn't cover in Mexico and municipal-scale care facilities." },
-    { id: "sdtjPolice",       name: "Police / Fire / Border (SD/TJ)", category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "OSM police stations, fire stations, border-control posts in SD + TJ (128 points). US CBP, SD PD, SD Fire, Policía Municipal de Tijuana, Bomberos TJ." },
-    { id: "sdtjSewage",       name: "Sewage Works (SD/TJ)",           category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "OSM sewage treatment plants + wastewater facilities (1 major — SBIWTP etc.). Relevant to cross-border contamination tracking for Project Oyster." },
-    { id: "sdtjCellTowers",   name: "Cell Towers (OSM, SD/TJ detail)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast in SD + TJ (449 points). Supplements the global OpenCellID dataset for local detail, especially Mexican carriers Telcel / AT&T Mexico / Movistar." },
-    { id: "sdtjAmFmAntennas", name: "AM/FM / TV antennas (SD/TJ)",    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + tower:type=broadcast (84 points). AM/FM radio + TV transmit antennas not in the global datacenter set." },
-    { id: "sdtjMilitary",     name: "Military installations (OSM)",   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* boundaries and landuse=military polygons (229 features). Covers US Navy + USMC + Army + the Mexican SEDENA side of the border. Supplements the existing Navy base overlay with smaller depots/guard stations." },
-    { id: "sdtjDataCenters",  name: "Data Centers (SD/TJ detail)",    category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center + building=data_center (13 points). Complements the global data-centers file with carrier-hotel details." },
+    { id: "sdtjHospitals",    name: "Hospitals (SD/TJ)",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped hospitals + clinics within the SD County + Tijuana bbox (136 points). Fills gaps HIFLD doesn't cover in Mexico and municipal-scale care facilities." },
+    { id: "sdtjPolice",       name: "Police / Fire / Border (SD/TJ)", category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#3b82f6", description: "OSM police stations, fire stations, border-control posts in SD + TJ (128 points). US CBP, SD PD, SD Fire, Policía Municipal de Tijuana, Bomberos TJ." },
+    { id: "sdtjSewage",       name: "Sewage Works (SD/TJ)",           category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.6,  color: "#a16207", description: "OSM sewage treatment plants + wastewater facilities (1 major — SBIWTP etc.). Relevant to cross-border contamination tracking for Project Oyster." },
+    { id: "sdtjCellTowers",   name: "Cell Towers (OSM, SD/TJ detail)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast in SD + TJ (449 points). Supplements the global OpenCellID dataset for local detail, especially Mexican carriers Telcel / AT&T Mexico / Movistar." },
+    { id: "sdtjAmFmAntennas", name: "AM/FM / TV antennas (SD/TJ)",    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + tower:type=broadcast (84 points). AM/FM radio + TV transmit antennas not in the global datacenter set." },
+    { id: "sdtjMilitary",     name: "Military installations (OSM)",   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.5,  color: "#10b981", description: "OSM military=* boundaries and landuse=military polygons (229 features). Covers US Navy + USMC + Army + the Mexican SEDENA side of the border. Supplements the existing Navy base overlay with smaller depots/guard stations." },
+    { id: "sdtjDataCenters",  name: "Data Centers (SD/TJ detail)",    category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: false,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center + building=data_center (13 points). Complements the global data-centers file with carrier-hotel details." },
 
     // Apr 23, 2026 — Project NYC (Morgan: "massive amount of missing data
     // ... fly to and layers of details perimeters and special icon locations
     // for dc and new york"). 11 OSM-baked regional layers + project anchor.
-    { id: "projectNyc",         name: "Project NYC — anchor + perimeter",  category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT Project NYC anchor + 5-borough perimeter + landmark POIs (Times Sq, Central Park, WTC, etc). Fly to with __crep_flyTo('project-nyc')." },
-    { id: "nycHospitals",       name: "NYC — Hospitals",                   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped NYC 5-borough + NJ approach hospitals + clinics (~400)." },
-    { id: "nycPolice",          name: "NYC — Police / Fire",               category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "NYPD + FDNY precincts + firehouses (OSM)." },
-    { id: "nycSewage",          name: "NYC — Sewage Works",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "NYC DEP wastewater treatment plants (Newtown Creek etc.)." },
-    { id: "nycCellTowers",      name: "NYC — Cell Towers (detail)",        category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast across NYC." },
-    { id: "nycAmFmAntennas",    name: "NYC — AM/FM / TV antennas",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + broadcast tower." },
-    { id: "nycMilitary",        name: "NYC — Military installations",      category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* NYC bbox (Army Reserves, USCG, Ft Hamilton etc.)." },
-    { id: "nycDataCenters",     name: "NYC — Data Centers",                category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center NYC detail (60 Hudson, 111 8th, 325 Hudson etc.)." },
-    { id: "nycTransitSubway",   name: "NYC — Subway Stations",             category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "MTA NYC subway stations (all lines)." },
-    { id: "nycTransitRail",     name: "NYC — Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
-    { id: "nycAirports",        name: "NYC — Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
-    { id: "nycGovtEmbassy",     name: "NYC — Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
+    { id: "projectNyc",         name: "Project NYC — anchor + perimeter",  category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: false,  opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT Project NYC anchor + 5-borough perimeter + landmark POIs (Times Sq, Central Park, WTC, etc). Fly to with __crep_flyTo('project-nyc')." },
+    { id: "nycHospitals",       name: "NYC — Hospitals",                   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped NYC 5-borough + NJ approach hospitals + clinics (~400)." },
+    { id: "nycPolice",          name: "NYC — Police / Fire",               category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#3b82f6", description: "NYPD + FDNY precincts + firehouses (OSM)." },
+    { id: "nycSewage",          name: "NYC — Sewage Works",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.6,  color: "#a16207", description: "NYC DEP wastewater treatment plants (Newtown Creek etc.)." },
+    { id: "nycCellTowers",      name: "NYC — Cell Towers (detail)",        category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast across NYC." },
+    { id: "nycAmFmAntennas",    name: "NYC — AM/FM / TV antennas",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + broadcast tower." },
+    { id: "nycMilitary",        name: "NYC — Military installations",      category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.5,  color: "#10b981", description: "OSM military=* NYC bbox (Army Reserves, USCG, Ft Hamilton etc.)." },
+    { id: "nycDataCenters",     name: "NYC — Data Centers",                category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: false,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center NYC detail (60 Hudson, 111 8th, 325 Hudson etc.)." },
+    { id: "nycTransitSubway",   name: "NYC — Subway Stations",             category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#f59e0b", description: "MTA NYC subway stations (all lines)." },
+    { id: "nycTransitRail",     name: "NYC — Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
+    { id: "nycAirports",        name: "NYC — Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
+    { id: "nycGovtEmbassy",     name: "NYC — Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
     // Apr 23, 2026 — per Morgan ("that data should not be icon different then
     // all the other nature data") baked NYC + DC iNat observations now flow
     // into the shared `fungalObservations` state at mount and render through
@@ -2887,18 +2907,18 @@ export default function CREPDashboardPage({
     // ANY iNat (baked or live) renders.
 
     // Project DC
-    { id: "projectDc",          name: "Project DC — anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
-    { id: "dcHospitals",        name: "DC — Hospitals",                    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals DC + Arlington + Bethesda + Walter Reed (152 features)." },
-    { id: "dcPolice",           name: "DC — Police / Fire / USSS",         category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "MPD + USSS + Capitol Police + AFD + Arlington County fire (117 points)." },
-    { id: "dcSewage",           name: "DC — Sewage Works",                 category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "DC Water + regional WW treatment (Blue Plains etc.)." },
-    { id: "dcCellTowers",       name: "DC — Cell Towers (detail)",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "530 OSM comms towers + masts across the NCR." },
-    { id: "dcAmFmAntennas",     name: "DC — AM/FM / TV antennas",          category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas (25 points)." },
-    { id: "dcMilitary",         name: "DC — Military installations",       category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* — Pentagon, Ft Myer, JB Andrews, Ft Meade, Ft Belvoir, Walter Reed, NSA (86 features)." },
-    { id: "dcDataCenters",      name: "DC — Data Centers",                 category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Ashburn cluster + NoVA + DC proper." },
-    { id: "dcTransitSubway",    name: "DC — WMATA Metro Stations",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "WMATA Metrorail (all lines)." },
-    { id: "dcTransitRail",      name: "DC — Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
-    { id: "dcAirports",         name: "DC — Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
-    { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
+    { id: "projectDc",          name: "Project DC — anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: false,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
+    { id: "dcHospitals",        name: "DC — Hospitals",                    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals DC + Arlington + Bethesda + Walter Reed (152 features)." },
+    { id: "dcPolice",           name: "DC — Police / Fire / USSS",         category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#3b82f6", description: "MPD + USSS + Capitol Police + AFD + Arlington County fire (117 points)." },
+    { id: "dcSewage",           name: "DC — Sewage Works",                 category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.6,  color: "#a16207", description: "DC Water + regional WW treatment (Blue Plains etc.)." },
+    { id: "dcCellTowers",       name: "DC — Cell Towers (detail)",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.8,  color: "#ec4899", description: "530 OSM comms towers + masts across the NCR." },
+    { id: "dcAmFmAntennas",     name: "DC — AM/FM / TV antennas",          category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas (25 points)." },
+    { id: "dcMilitary",         name: "DC — Military installations",       category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.5,  color: "#10b981", description: "OSM military=* — Pentagon, Ft Myer, JB Andrews, Ft Meade, Ft Belvoir, Walter Reed, NSA (86 features)." },
+    { id: "dcDataCenters",      name: "DC — Data Centers",                 category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: false,  opacity: 0.85, color: "#06b6d4", description: "Ashburn cluster + NoVA + DC proper." },
+    { id: "dcTransitSubway",    name: "DC — WMATA Metro Stations",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#f59e0b", description: "WMATA Metrorail (all lines)." },
+    { id: "dcTransitRail",      name: "DC — Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
+    { id: "dcAirports",         name: "DC — Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
+    { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
     // dcInat removed — see nycInat comment above. Baked DC iNat observations
     // load into the same fungalObservations state as the live stream.
 
@@ -2909,23 +2929,23 @@ export default function CREPDashboardPage({
     // bakes from PR #110's 15-metro job. Strip + Fremont + City Hall +
     // Bellagio + Sphere + Hoover Dam YouTube-live cams ship via the
     // eagle-cameras-vegas-seed.geojson loaded in EagleEyeOverlay.
-    { id: "projectVegas",       name: "Project Las Vegas — anchor + perimeter", category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f43f5e", description: "MYCOSOFT Project Las Vegas anchor + metro perimeter + landmark POIs (Strip, Fremont, Bellagio, Sphere, Hoover Dam, Red Rock Canyon, Nellis AFB). Fly to with __crep_flyTo('project-vegas')." },
-    { id: "vegasHospitals",     name: "Vegas — Hospitals",                 category: "infrastructure", icon: <Cross className="w-3 h-3" />,      enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals — UMC, Sunrise, Valley, Summerlin, Desert Springs, Nellis AFB medical." },
-    { id: "vegasPolice",        name: "Vegas — Police / Fire",             category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "LVMPD + Clark County + North Las Vegas + Henderson + Fire/Rescue stations." },
-    { id: "vegasSewage",        name: "Vegas — Sewage Works",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "Clark County Water Reclamation District + Henderson WRF." },
-    { id: "vegasCellTowers",    name: "Vegas — Cell Towers (detail)",      category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM comms towers across the Las Vegas Valley." },
-    { id: "vegasAmFmAntennas",  name: "Vegas — AM/FM / TV antennas",       category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas covering LV Valley + Black Mountain." },
-    { id: "vegasMilitary",      name: "Vegas — Military installations",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "Nellis AFB + Creech AFB + NTTR — unclassified OSM perimeters only." },
-    { id: "vegasDataCenters",   name: "Vegas — Data Centers",              category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Switch SUPERNAP campus + Summerlin DCs + colo facilities." },
-    { id: "vegasTransitSubway", name: "Vegas — Monorail + LVCVA tram",     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "Las Vegas Monorail + Mandalay Bay tram + Vegas Loop (Boring Co.) stations from OSM." },
-    { id: "vegasTransitRail",   name: "Vegas — Rail (Brightline / Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "Amtrak bus/rail + Brightline LV-LA stations (where published in OSM)." },
-    { id: "vegasAirports",      name: "Vegas — Airports",                  category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Harry Reid International (LAS) + North Las Vegas (VGT) + Henderson Executive (HND) + heliports." },
-    { id: "vegasGovtEmbassy",   name: "Vegas — Government",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Las Vegas City Hall + Clark County gov + federal courthouse + courthouses + LVCVA." },
+    { id: "projectVegas",       name: "Project Las Vegas — anchor + perimeter", category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f43f5e", description: "MYCOSOFT Project Las Vegas anchor + metro perimeter + landmark POIs (Strip, Fremont, Bellagio, Sphere, Hoover Dam, Red Rock Canyon, Nellis AFB). Fly to with __crep_flyTo('project-vegas')." },
+    { id: "vegasHospitals",     name: "Vegas — Hospitals",                 category: "infrastructure", icon: <Cross className="w-3 h-3" />,      enabled: false,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals — UMC, Sunrise, Valley, Summerlin, Desert Springs, Nellis AFB medical." },
+    { id: "vegasPolice",        name: "Vegas — Police / Fire",             category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.85, color: "#3b82f6", description: "LVMPD + Clark County + North Las Vegas + Henderson + Fire/Rescue stations." },
+    { id: "vegasSewage",        name: "Vegas — Sewage Works",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.6,  color: "#a16207", description: "Clark County Water Reclamation District + Henderson WRF." },
+    { id: "vegasCellTowers",    name: "Vegas — Cell Towers (detail)",      category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.8,  color: "#ec4899", description: "OSM comms towers across the Las Vegas Valley." },
+    { id: "vegasAmFmAntennas",  name: "Vegas — AM/FM / TV antennas",       category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas covering LV Valley + Black Mountain." },
+    { id: "vegasMilitary",      name: "Vegas — Military installations",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.5,  color: "#10b981", description: "Nellis AFB + Creech AFB + NTTR — unclassified OSM perimeters only." },
+    { id: "vegasDataCenters",   name: "Vegas — Data Centers",              category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: false,  opacity: 0.85, color: "#06b6d4", description: "Switch SUPERNAP campus + Summerlin DCs + colo facilities." },
+    { id: "vegasTransitSubway", name: "Vegas — Monorail + LVCVA tram",     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#f59e0b", description: "Las Vegas Monorail + Mandalay Bay tram + Vegas Loop (Boring Co.) stations from OSM." },
+    { id: "vegasTransitRail",   name: "Vegas — Rail (Brightline / Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.85, color: "#eab308", description: "Amtrak bus/rail + Brightline LV-LA stations (where published in OSM)." },
+    { id: "vegasAirports",      name: "Vegas — Airports",                  category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false,  opacity: 0.9,  color: "#8b5cf6", description: "Harry Reid International (LAS) + North Las Vegas (VGT) + Henderson Executive (HND) + heliports." },
+    { id: "vegasGovtEmbassy",   name: "Vegas — Government",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: false,  opacity: 0.8,  color: "#14b8a6", description: "Las Vegas City Hall + Clark County gov + federal courthouse + courthouses + LVCVA." },
     // vegasInat (no toggle) — baked Vegas iNat observations load into the
     // shared fungalObservations state alongside NYC/DC when the file is
     // present at /data/crep/vegas-inat.geojson. Gated by the master
     // "fungi" layer toggle.
-    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
+    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
     { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14. OFF by default — the Cesium Ion loader pulls GBs of 3D mesh data; enable explicitly at high zoom over a city." },
@@ -2943,50 +2963,50 @@ export default function CREPDashboardPage({
     // ═══════════════════════════════════════════════════════════════
 
     // ── PROJECT OYSTER (MYCODAO + MYCOSOFT) — Tijuana Estuary / Imperial Beach / south SD ──
-    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley, Imperial Beach + south San Diego. Master switch for all Oyster sub-layers. ON by default (Apr 21 2026 — Morgan: all project filters on from load)." },
-    { id: "projectOysterPerimeter",  name: "Oyster — Perimeter polygon",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
-    { id: "projectOysterSites",      name: "Oyster — Restoration sites",                       category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
-    { id: "h2sHotspot",              name: "Oyster — H₂S hotspot (SDAPCD)",                    category: "projects", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
-    { id: "tjRiverFlow",             name: "Oyster — TJ River + IBWC discharge",               category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
-    { id: "tjBeachClosures",         name: "Oyster — Beach closures (SD DEH)",                  category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
-    { id: "tjNavyTraining",          name: "Oyster — Navy training waters",                    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
-    { id: "tjEstuaryMonitors",       name: "Oyster — NERR research monitors",                  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
+    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "projects", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley, Imperial Beach + south San Diego. Master switch for all Oyster sub-layers. ON by default (Apr 21 2026 — Morgan: all project filters on from load)." },
+    { id: "projectOysterPerimeter",  name: "Oyster — Perimeter polygon",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
+    { id: "projectOysterSites",      name: "Oyster — Restoration sites",                       category: "projects", icon: <Waves className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
+    { id: "h2sHotspot",              name: "Oyster — H₂S hotspot (SDAPCD)",                    category: "projects", icon: <Cloud className="w-3 h-3" />,  enabled: false,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
+    { id: "tjRiverFlow",             name: "Oyster — TJ River + IBWC discharge",               category: "projects", icon: <Waves className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
+    { id: "tjBeachClosures",         name: "Oyster — Beach closures (SD DEH)",                  category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
+    { id: "tjNavyTraining",          name: "Oyster — Navy training waters",                    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
+    { id: "tjEstuaryMonitors",       name: "Oyster — NERR research monitors",                  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
     // NEW (Apr 21, 2026 v2 expansion for Oyster):
-    { id: "oysterCameras",    name: "Oyster — Cameras",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "Surf cams + CBP POE + Caltrans I-5/SR-75 CCTV + NOAA buoy cams + EarthCam Imperial Beach + Coronado skyline cams." },
-    { id: "oysterBroadcast",  name: "Oyster — AM/FM/TV broadcast",  category: "projects", icon: <Radio className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM/TV stations covering SD/TJ cross-border corridor." },
-    { id: "oysterCell",       name: "Oyster — Cell towers",         category: "projects", icon: <Wifi className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#a855f7", description: "Curated cell sites across Imperial Beach, Coronado, Tijuana cross-border overlap." },
-    { id: "oysterPower",      name: "Oyster — Power infrastructure",category: "projects", icon: <Zap className="w-3 h-3" />,     enabled: true, opacity: 1.0, color: "#fbbf24", description: "SDG&E substations, Otay Mesa Generating, South Bay Power Plant, San Onofre (decommissioned), PG&E tie-ins." },
-    { id: "oysterNature",     name: "Oyster — Live iNat observations",category:"projects", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations (~200 per fetch) in TJ Estuary + Imperial Beach + Silver Strand bbox + La Jolla tide pools." },
-    { id: "oysterPlume",      name: "Oyster — UCSD PFM plume tracker", category: "projects", icon: <Waves className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#dc2626", description: "Pacific Forecast Model sewage plume tracker (SCCOOS / Scripps UCSD). Live fecal-indicator-bacteria (FIB) + ocean current modeling for IB / Silver Strand / Coronado." },
-    { id: "oysterEmit",       name: "Oyster — NASA EMIT methane plumes", category: "projects", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f97316", description: "NASA EMIT instrument (ISS) methane + CO2 + mineral dust plume detections over SD-TJ corridor." },
-    { id: "oysterCrossBorder",name: "Oyster — Scripps cross-border",    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#ef4444", description: "Scripps cross-border pollution monitoring network — water quality, aerosol, H2S, volatile organics at IB + border wall." },
-    { id: "oysterRails",      name: "Oyster — Rails + Trolley",     category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "SD Metropolitan Transit Blue Line trolley (San Ysidro → Downtown), BNSF freight, Coaster, Sprinter." },
-    { id: "oysterCaves",      name: "Oyster — Sea caves + coastal",  category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Sunset Cliffs sea caves, La Jolla sea caves, Point Loma grottos — coastal formations in the Oyster bbox." },
-    { id: "oysterGovernment", name: "Oyster — Government facilities",category: "projects", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#7dd3fc", description: "CBP San Ysidro POE, Navy bases (NAS North Island, NAB Coronado, NSWC), NOAA SWFSC, EPA Region 9, USCG Sector SD." },
-    { id: "oysterTourism",    name: "Oyster — Tourism + landmarks",  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Hotel del Coronado, Imperial Beach Pier, Border Field State Park, Balboa Park, USS Midway, Cabrillo Nat'l Monument." },
-    { id: "oysterSensors",    name: "Oyster — Environmental sensors",category: "projects", icon: <Gauge className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air quality, NOAA tide gauges, USGS stream gauges, SDAPCD monitors, SCRIPPS Pier, UCSD Ellen Browning Scripps Pier, TJ NERR sondes." },
-    { id: "oysterHeatmap",    name: "Oyster — Pollution heatmap",    category: "projects", icon: <Cloud className="w-3 h-3" />,   enabled: true, opacity: 0.55, color: "#ef4444", description: "Combined pollution intensity heatmap — H₂S + PM2.5 + sewage concentration + beach bacteria indices." },
+    { id: "oysterCameras",    name: "Oyster — Cameras",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#67e8f9", description: "Surf cams + CBP POE + Caltrans I-5/SR-75 CCTV + NOAA buoy cams + EarthCam Imperial Beach + Coronado skyline cams." },
+    { id: "oysterBroadcast",  name: "Oyster — AM/FM/TV broadcast",  category: "projects", icon: <Radio className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM/TV stations covering SD/TJ cross-border corridor." },
+    { id: "oysterCell",       name: "Oyster — Cell towers",         category: "projects", icon: <Wifi className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#a855f7", description: "Curated cell sites across Imperial Beach, Coronado, Tijuana cross-border overlap." },
+    { id: "oysterPower",      name: "Oyster — Power infrastructure",category: "projects", icon: <Zap className="w-3 h-3" />,     enabled: false, opacity: 1.0, color: "#fbbf24", description: "SDG&E substations, Otay Mesa Generating, South Bay Power Plant, San Onofre (decommissioned), PG&E tie-ins." },
+    { id: "oysterNature",     name: "Oyster — Live iNat observations",category:"projects", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations (~200 per fetch) in TJ Estuary + Imperial Beach + Silver Strand bbox + La Jolla tide pools." },
+    { id: "oysterPlume",      name: "Oyster — UCSD PFM plume tracker", category: "projects", icon: <Waves className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#dc2626", description: "Pacific Forecast Model sewage plume tracker (SCCOOS / Scripps UCSD). Live fecal-indicator-bacteria (FIB) + ocean current modeling for IB / Silver Strand / Coronado." },
+    { id: "oysterEmit",       name: "Oyster — NASA EMIT methane plumes", category: "projects", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f97316", description: "NASA EMIT instrument (ISS) methane + CO2 + mineral dust plume detections over SD-TJ corridor." },
+    { id: "oysterCrossBorder",name: "Oyster — Scripps cross-border",    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#ef4444", description: "Scripps cross-border pollution monitoring network — water quality, aerosol, H2S, volatile organics at IB + border wall." },
+    { id: "oysterRails",      name: "Oyster — Rails + Trolley",     category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#a1a1aa", description: "SD Metropolitan Transit Blue Line trolley (San Ysidro → Downtown), BNSF freight, Coaster, Sprinter." },
+    { id: "oysterCaves",      name: "Oyster — Sea caves + coastal",  category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#78350f", description: "Sunset Cliffs sea caves, La Jolla sea caves, Point Loma grottos — coastal formations in the Oyster bbox." },
+    { id: "oysterGovernment", name: "Oyster — Government facilities",category: "projects", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#7dd3fc", description: "CBP San Ysidro POE, Navy bases (NAS North Island, NAB Coronado, NSWC), NOAA SWFSC, EPA Region 9, USCG Sector SD." },
+    { id: "oysterTourism",    name: "Oyster — Tourism + landmarks",  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f9a8d4", description: "Hotel del Coronado, Imperial Beach Pier, Border Field State Park, Balboa Park, USS Midway, Cabrillo Nat'l Monument." },
+    { id: "oysterSensors",    name: "Oyster — Environmental sensors",category: "projects", icon: <Gauge className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air quality, NOAA tide gauges, USGS stream gauges, SDAPCD monitors, SCRIPPS Pier, UCSD Ellen Browning Scripps Pier, TJ NERR sondes." },
+    { id: "oysterHeatmap",    name: "Oyster — Pollution heatmap",    category: "projects", icon: <Cloud className="w-3 h-3" />,   enabled: false, opacity: 0.55, color: "#ef4444", description: "Combined pollution intensity heatmap — H₂S + PM2.5 + sewage concentration + beach bacteria indices." },
 
     // ── PROJECT GOFFS (MYCOSOFT) — Mojave National Preserve + east Mojave ──
     // Apr 21, 2026 (Morgan: "why is there no data at goffs ca ... massive
     // increase in data icons"). Goffs is a Mycosoft biz-dev vertical
     // thesis site. Garret completed the 16/16 item thesis Apr 18.
-    { id: "mojavePreserve",   name: "Goffs — Mojave Preserve boundary",     category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary. Dashed amber outline + ~20% fill. Live NPS Land Resources Division service." },
-    { id: "mojaveGoffs",      name: "Goffs — MYCOSOFT project site",        category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Pulsing teal halo + cyan core marker." },
-    { id: "mojaveWilderness", name: "Goffs — Wilderness POIs",               category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome / Kelso Dunes / Mitchell Caverns / Cinder Cones / Hole-in-the-Wall / New York Mts / Castle Peaks / Granite Mts UC Reserve." },
-    { id: "mojaveClimate",    name: "Goffs — Climate stations",              category: "projects", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
+    { id: "mojavePreserve",   name: "Goffs — Mojave Preserve boundary",     category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary. Dashed amber outline + ~20% fill. Live NPS Land Resources Division service." },
+    { id: "mojaveGoffs",      name: "Goffs — MYCOSOFT project site",        category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Pulsing teal halo + cyan core marker." },
+    { id: "mojaveWilderness", name: "Goffs — Wilderness POIs",               category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#fbbf24", description: "Cima Dome / Kelso Dunes / Mitchell Caverns / Cinder Cones / Hole-in-the-Wall / New York Mts / Castle Peaks / Granite Mts UC Reserve." },
+    { id: "mojaveClimate",    name: "Goffs — Climate stations",              category: "projects", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
     { id: "mojaveINat",       name: "Goffs — Live iNat observations",        category: "projects", icon: <TreePine className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations in a bbox around Goffs — desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (~200 obs per fetch)." },
     // NEW (Apr 21, 2026 v2 expansion for Goffs):
-    { id: "mojaveCameras",    name: "Goffs — Cameras",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "HPWREN wildfire cams (Clark Mtn, Cima) + ALERTWildfire + Caltrans I-40 CCTV + NPS Kelso Depot + Windy skyline cams." },
+    { id: "mojaveCameras",    name: "Goffs — Cameras",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#67e8f9", description: "HPWREN wildfire cams (Clark Mtn, Cima) + ALERTWildfire + Caltrans I-40 CCTV + NPS Kelso Depot + Windy skyline cams." },
     { id: "mojaveBroadcast",  name: "Goffs — AM/FM broadcast",                category: "projects", icon: <Radio className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM stations covering east Mojave + Colorado River Valley (Needles, Bullhead, Vegas fringe)." },
     { id: "mojaveCell",       name: "Goffs — Cell towers",                    category: "projects", icon: <Wifi className="w-3 h-3" />,     enabled: false, opacity: 1.0, color: "#a855f7", description: "Curated FCC ASR + OpenCelliD towers in east Mojave (Verizon, AT&T, T-Mobile, FirstNet)." },
-    { id: "mojavePower",      name: "Goffs — Power infrastructure",           category: "projects", icon: <Zap className="w-3 h-3" />,      enabled: true, opacity: 1.0, color: "#fbbf24", description: "Ivanpah Solar (392 MW CSP), Mohave Generating (retired), LUGO/Eldorado/Kramer/Mead substations, LADWP Intermountain HVDC corridor." },
-    { id: "mojaveRails",      name: "Goffs — Rails",                          category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "BNSF Cajon Sub + UP Caliente Sub + Goffs Depot (1902 Santa Fe) + Kelso Depot (1924 UP) + Amtrak Southwest Chief @ Needles." },
-    { id: "mojaveCaves",      name: "Goffs — Caves + lava tubes",             category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Mitchell Caverns (El Pakiva + Tecopa), Crystal Cave, Amboy Crater lava tubes, Cinder Cone volcanic shafts, Kelbaker lava tube." },
-    { id: "mojaveGovernment", name: "Goffs — Government facilities",          category: "projects", icon: <Shield className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#7dd3fc", description: "NPS MOJA HQ, BLM Needles, CBP, Fort Irwin NTC, Edwards AFB, USGS stream gauges, FAA Needles TRACON, DoD Ivanpah Aux Field." },
-    { id: "mojaveTourism",    name: "Goffs — Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
-    { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
-    { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
+    { id: "mojavePower",      name: "Goffs — Power infrastructure",           category: "projects", icon: <Zap className="w-3 h-3" />,      enabled: false, opacity: 1.0, color: "#fbbf24", description: "Ivanpah Solar (392 MW CSP), Mohave Generating (retired), LUGO/Eldorado/Kramer/Mead substations, LADWP Intermountain HVDC corridor." },
+    { id: "mojaveRails",      name: "Goffs — Rails",                          category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#a1a1aa", description: "BNSF Cajon Sub + UP Caliente Sub + Goffs Depot (1902 Santa Fe) + Kelso Depot (1924 UP) + Amtrak Southwest Chief @ Needles." },
+    { id: "mojaveCaves",      name: "Goffs — Caves + lava tubes",             category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#78350f", description: "Mitchell Caverns (El Pakiva + Tecopa), Crystal Cave, Amboy Crater lava tubes, Cinder Cone volcanic shafts, Kelbaker lava tube." },
+    { id: "mojaveGovernment", name: "Goffs — Government facilities",          category: "projects", icon: <Shield className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#7dd3fc", description: "NPS MOJA HQ, BLM Needles, CBP, Fort Irwin NTC, Edwards AFB, USGS stream gauges, FAA Needles TRACON, DoD Ivanpah Aux Field." },
+    { id: "mojaveTourism",    name: "Goffs — Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
+    { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
+    { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: false, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ]);
 
   const embeddedLayerKey = embeddedLayerIdKey;
@@ -4118,8 +4138,10 @@ export default function CREPDashboardPage({
       setLayers(prev => prev.map(l => {
         if (l.id !== layerId) return l;
         const next = typeof enabled === "boolean" ? enabled : !l.enabled;
-        applied = { id: l.id, enabled: next };
-        return { ...l, enabled: next };
+        // Never auto-enable layers that are blocked until stable
+        const safe = next && FORCE_OFF_LAYER_IDS.has(l.id) ? false : next;
+        applied = { id: l.id, enabled: safe };
+        return { ...l, enabled: safe };
       }));
       if (applied) {
         window.dispatchEvent(new CustomEvent("crep:layer", { detail: applied }));
@@ -4277,7 +4299,10 @@ export default function CREPDashboardPage({
     }
     if (prefs.layers?.length) {
       const enabledIds = new Set(prefs.layers);
-      setLayers(prev => prev.map(l => ({ ...l, enabled: enabledIds.has(l.id) })));
+      setLayers(prev => prev.map(l => ({
+        ...l,
+        enabled: enabledIds.has(l.id) && !FORCE_OFF_LAYER_IDS.has(l.id),
+      })));
     }
     if (prefs.kingdom_filter) {
       try {
@@ -7073,7 +7098,7 @@ export default function CREPDashboardPage({
                       ctx.clearRect(0, 0, size, size);
                       ctx.drawImage(img, 0, 0, size, size);
                       const data = ctx.getImageData(0, 0, size, size);
-                      if (!map.hasImage(name)) map.addImage(name, data, { pixelRatio: 2 });
+                      if (!(map as any).hasImage?.(name)) map.addImage(name, data, { pixelRatio: 2 });
                     } catch (e) { console.warn(`[CREP/icons] rasterize failed for ${name}:`, e); }
                     resolve();
                   };
@@ -10044,12 +10069,19 @@ export default function CREPDashboardPage({
               Mapbox 3D Buildings extrusions as a higher-fidelity alternative.
               Idle (no-op) when keys aren't set — Morgan is adding the Cesium
               Ion token now; Google Map Tiles is already enabled via Cursor. */}
-          <Photorealistic3DTiles
-            map={mapRef}
-            enabled={layers.find(l => l.id === "photorealistic3D")?.enabled ?? false}
-            opacity={layers.find(l => l.id === "photorealistic3D")?.opacity ?? 1.0}
-            preferred="auto"
-          />
+          {/* Photorealistic3DTiles: only mount when explicitly enabled — the
+              Tile3DLayer / loaders.gl path is heavy and crashes when keys are
+              missing. Component is gated at TWO levels: (1) the layer default
+              is false, and (2) we never mount the component at all unless the
+              layer is enabled, preventing the _loadTileset fetch error. */}
+          {layers.find(l => l.id === "photorealistic3D")?.enabled && (
+            <Photorealistic3DTiles
+              map={mapRef}
+              enabled={true}
+              opacity={layers.find(l => l.id === "photorealistic3D")?.opacity ?? 1.0}
+              preferred="auto"
+            />
+          )}
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
               Right-click the map → context menu → save / drop pin / copy
@@ -10397,7 +10429,7 @@ export default function CREPDashboardPage({
               }}
               onEnableLayers={(ids) => {
                 setLayers((prev) => prev.map((l) =>
-                  ids.includes(l.id) ? { ...l, enabled: true } : l
+                  ids.includes(l.id) && !FORCE_OFF_LAYER_IDS.has(l.id) ? { ...l, enabled: true } : l
                 ));
               }}
               compact

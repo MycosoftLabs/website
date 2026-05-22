@@ -93,7 +93,7 @@ interface Props {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function mapReady(map: MapLibreMap): boolean {
-  return !!(map && (map as any).style && typeof map.getSource === "function")
+  return !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
 }
 
 /** Add (or no-op) an empty GeoJSON source. */
