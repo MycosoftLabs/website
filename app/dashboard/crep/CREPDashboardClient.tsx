@@ -1,5 +1,6 @@
 "use client";
 
+
 /**
  * CREP - Common Relevant Environmental Picture
  * 
@@ -4277,7 +4278,7 @@ export default function CREPDashboardPage({
     }
     if (prefs.layers?.length) {
       const enabledIds = new Set(prefs.layers);
-      setLayers(prev => prev.map(l => ({ ...l, enabled: enabledIds.has(l.id) })));
+      setLayers(prev => applyForceOffToLayers(prev.map(l => ({ ...l, enabled: enabledIds.has(l.id) }))));
     }
     if (prefs.kingdom_filter) {
       try {
@@ -4336,7 +4337,7 @@ export default function CREPDashboardPage({
       military: "showMilitaryBases", militarybases: "showMilitaryBases",
     };
     const setLayerEnabled = (layerId: string, enabled: boolean) => {
-      setLayers((prev) => prev.map((l) => (l.id === layerId ? { ...l, enabled } : l)));
+      setLayers((prev) => applyForceOffToLayers(prev.map((l) => (l.id === layerId ? { ...l, enabled: FORCE_OFF_UNTIL_STABLE_LAYER_IDS.has(layerId) ? false : enabled } : l))));
     };
     const setGroundKey = (key: keyof GroundFilter, value: boolean) => {
       setGroundFilter((prev) => ({ ...prev, [key]: value }));
@@ -4387,7 +4388,7 @@ export default function CREPDashboardPage({
       onToggleLayer: (layer) => {
         const l = voiceToLayer[layer.toLowerCase()];
         if (l) {
-          setLayers((prev) => prev.map((x) => (x.id === l ? { ...x, enabled: !x.enabled } : x)));
+          setLayers((prev) => applyForceOffToLayers(prev.map((x) => (x.id === l ? { ...x, enabled: FORCE_OFF_UNTIL_STABLE_LAYER_IDS.has(l) ? false : !x.enabled } : x))));
         } else if (voiceToGround[layer.toLowerCase()]) {
           const k = voiceToGround[layer.toLowerCase()];
           setGroundFilter((prev) => ({ ...prev, [k]: !prev[k] }));
@@ -10044,12 +10045,14 @@ export default function CREPDashboardPage({
               Mapbox 3D Buildings extrusions as a higher-fidelity alternative.
               Idle (no-op) when keys aren't set — Morgan is adding the Cesium
               Ion token now; Google Map Tiles is already enabled via Cursor. */}
+          {process.env.NEXT_PUBLIC_ENABLE_PHOTOREALISTIC_3D === "true" && (
           <Photorealistic3DTiles
             map={mapRef}
-            enabled={layers.find(l => l.id === "photorealistic3D")?.enabled ?? false}
+            enabled={(layers.find(l => l.id === "photorealistic3D")?.enabled ?? false) && process.env.NEXT_PUBLIC_ENABLE_PHOTOREALISTIC_3D === "true"}
             opacity={layers.find(l => l.id === "photorealistic3D")?.opacity ?? 1.0}
             preferred="auto"
           />
+          )}
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
               Right-click the map → context menu → save / drop pin / copy
@@ -11161,3 +11164,10 @@ export default function CREPDashboardPage({
     </div>
   );
 }
+const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
+  "photorealistic3D","mapbox3dBuildings","mapboxSatelliteStreets","orbitalDebris","debrisCloud","realisticClouds","earth2Forecast","earth2Nowcast","earth2Spore","earth2Wind","earth2Temp","earth2Precip",
+]);
+const applyForceOffToLayers = (nextLayers: LayerConfig[]) => nextLayers.map((layer) => FORCE_OFF_UNTIL_STABLE_LAYER_IDS.has(layer.id) ? { ...layer, enabled: false } : layer);
+const applyAllOffToLayers = (nextLayers: LayerConfig[]) => nextLayers.map((layer) => ({ ...layer, enabled: false }));
+
+
