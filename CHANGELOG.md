@@ -554,6 +554,7 @@ All notable changes to this project will be documented in this file.
 - Publish NLM technical article [fast]
 - Update changelog [skip ci]
 - *(quickstart)* USAF engagement now references Agaric (MycoDrone retired) (#166)
+- Update changelog [skip ci]
 
 ### Features
 
