@@ -78,6 +78,13 @@ LOCK_FD=9
 LOCK_DIR="${LOCK_DIR:-${HOME:-/tmp}/.cache/mycosoft-deploy}"
 mkdir -p "$LOCK_DIR"
 LOCK_FILE="${LOCK_FILE:-${LOCK_DIR}/blue-green.lock}"
+LOCK_PARENT="$(dirname "$LOCK_FILE")"
+if ! mkdir -p "$LOCK_PARENT" 2>/dev/null || ! : > "$LOCK_FILE" 2>/dev/null; then
+  warn "Ignoring unwritable LOCK_FILE=$LOCK_FILE; using $LOCK_DIR/blue-green.lock"
+  LOCK_FILE="${LOCK_DIR}/blue-green.lock"
+  mkdir -p "$LOCK_DIR"
+  : > "$LOCK_FILE"
+fi
 exec {LOCK_FD}>"$LOCK_FILE"
 flock -n "$LOCK_FD" || { err "Another blue/green deploy is already running"; exit 2; }
 
