@@ -28,6 +28,8 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getRoleConfigForDevice } from "@/lib/device-configs"
+import { OpenClawPanel } from "@/components/devices/openclaw-panel"
+import { LiveCommandConsole } from "@/components/devices/live-command-console"
 
 interface DeviceInfo {
   deviceId: string
@@ -345,14 +347,11 @@ export default function DeviceDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DeviceTelemetryCard
-              deviceId={device.deviceId}
-              deviceName={displayName}
-              role={device.device_role}
-              status={device.status}
-              pollIntervalMs={5000}
-            />
-          </CardContent>
+            <DeviceTelemetryCard deviceId={device?.deviceId ?? deviceId} />
+        {/* LIVE OPENCLAW + COMMAND CONSOLE (PR #9, May 2026) */}
+        <OpenClawPanel deviceId={device?.deviceId ?? deviceId} />
+        <LiveCommandConsole deviceId={device?.deviceId ?? deviceId} />
+        </CardContent>
         </Card>
 
         {/* Command Panel - only for online devices */}
