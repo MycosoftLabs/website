@@ -75,7 +75,7 @@ err() { echo "${c_red}[$(_ts)] ERR${c_clr} $*" | tee -a "$LOG_FILE" 1>&2; }
 
 # ───── Lock (prevent concurrent deploys) ────────────────────────────────────
 LOCK_FD=9
-LOCK_FILE=/tmp/mycosoft-blue-green.lock
+LOCK_FILE="${LOCK_FILE:-${TMPDIR:-/tmp}/${USER:-mycosoft}-blue-green.lock}"
 exec {LOCK_FD}>"$LOCK_FILE"
 flock -n "$LOCK_FD" || { err "Another blue/green deploy is already running"; exit 2; }
 
