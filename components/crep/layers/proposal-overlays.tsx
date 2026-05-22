@@ -78,7 +78,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // ─── 1. Global Seaports ────────────────────────────────────────────────
   useEffect(() => {
     if (!map || !enabled.ports) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
     if (loadedRef.current.ports) return
     loadedRef.current.ports = true
@@ -449,7 +449,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // bounded on large viewports.
   useEffect(() => {
     if (!map || !enabled.txLinesGlobal || !bbox) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
 
     idleLoad(async () => {
@@ -501,7 +501,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // operator is zoomed in (bbox prop defined above zoom 5).
   useEffect(() => {
     if (!map || !enabled.cellTowersG || !bbox) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
 
     idleLoad(async () => {
@@ -598,7 +598,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // remove/re-add across many toggles).
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
 
     // Disable path: hide bathymetry raster. No land mask anymore — basemap
@@ -889,7 +889,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // users can turn off land hillshade if they want pure basemap.
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
 
     if (!enabled.topography) {
@@ -970,7 +970,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // replaces the gray basemap without hiding markers.
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
 
     if (!enabled.satImagery) {
@@ -1069,7 +1069,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // path flips visibility to "none".
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function" && (map.isStyleLoaded?.() !== false))
     if (!mapReady()) return
     if (!enabled.railwayTracks) {
       try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "none") } catch { /* ignore */ }
