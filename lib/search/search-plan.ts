@@ -309,6 +309,7 @@ export function buildSearchPlan(query: string, route: SearchRoute, earthRule: Ea
     families,
   )
   const isGeospatial = earthRule.domain !== "general" || route.isMapPrimary || widgetOrder.includes("earth")
+  const viewportTarget = buildViewportTarget(route)
 
   return {
     query,
@@ -321,6 +322,7 @@ export function buildSearchPlan(query: string, route: SearchRoute, earthRule: Ea
           enabledLayers: earthRule.enabledLayerIds,
           disabledLayers: ALL_WORKING_LAYER_IDS.filter((layerId) => !earthRule.enabledLayerIds.includes(layerId)),
           lockedLayerControls: earthRule.lockLayerControls,
+          viewportTarget,
           entityTypes: earthRule.entityTypes,
           lodPolicy: "global-recent-local-historical",
         }
@@ -335,6 +337,21 @@ export function buildSearchPlan(query: string, route: SearchRoute, earthRule: Ea
     },
     etlRequests: buildPotentialEtlRequests(query, families, widgetOrder),
     qaScenarioTags: buildQaScenarioTags(query, families, earthRule),
+  }
+}
+
+function buildViewportTarget(route: SearchRoute): EarthSearchPlan["viewportTarget"] | undefined {
+  const location = route.intent.filters.location
+  if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return undefined
+  const zoomIntent: ZoomIntent = location.city
+    ? "city"
+    : location.state || location.country || location.region
+      ? "region"
+      : "asset"
+  return {
+    lat: Number(location.lat),
+    lng: Number(location.lng),
+    zoomIntent,
   }
 }
 
@@ -366,8 +383,14 @@ function scopeWidgetOrderToEarthEntities(
 }
 
 function orderSearchWidgets(widgetOrder: WidgetType[], families: SearchEntityFamily[]): WidgetType[] {
-  if (!families.includes("events") || families.some((family) => family !== "events")) return widgetOrder
-  const eventPriority: WidgetType[] = ["earth", "events", "answers", "news", "research"]
+  if (!families.includes("events")) return widgetOrder
+  const eventPriority: WidgetType[] = families.includes("infrastructure")
+    ? ["earth", "events", "infrastructure", "risk", "power_grid", "weather", "answers", "news", "research"]
+    : families.includes("weather")
+      ? ["earth", "events", "weather", "air_quality", "answers", "news", "research"]
+      : families.includes("marine")
+        ? ["earth", "events", "marine", "vessels", "infrastructure", "answers", "news", "research"]
+        : ["earth", "events", "answers", "news", "research"]
   const prioritized = eventPriority.filter((widget) => widgetOrder.includes(widget))
   const rest = widgetOrder.filter((widget) => !prioritized.includes(widget))
   return [...prioritized, ...rest]

@@ -65,6 +65,13 @@ const LOCATIONS: Record<string, Partial<LocationFilter>> = {
   "oregon": { state: "Oregon", country: "USA", lat: 43.8041, lng: -120.5542 },
   "washington": { state: "Washington", country: "USA", lat: 47.7511, lng: -120.7401 },
   "pacific northwest": { region: "Pacific Northwest", country: "USA", lat: 46.0, lng: -122.0 },
+  "pacific ocean": { region: "Pacific Ocean", lat: 8.0, lng: -155.0, radius: 5000 },
+  "pacific": { region: "Pacific Ocean", lat: 8.0, lng: -155.0, radius: 5000 },
+  "atlantic ocean": { region: "Atlantic Ocean", lat: 12.0, lng: -35.0, radius: 4500 },
+  "atlantic": { region: "Atlantic Ocean", lat: 12.0, lng: -35.0, radius: 4500 },
+  "indian ocean": { region: "Indian Ocean", lat: -20.0, lng: 80.0, radius: 4200 },
+  "arctic ocean": { region: "Arctic Ocean", lat: 75.0, lng: 0.0, radius: 3000 },
+  "southern ocean": { region: "Southern Ocean", lat: -62.0, lng: 0.0, radius: 4500 },
   "northeast": { region: "Northeast", country: "USA", lat: 42.0, lng: -74.0 },
   "uk": { country: "United Kingdom", lat: 55.3781, lng: -3.4360 },
   "england": { country: "United Kingdom", lat: 52.3555, lng: -1.1743 },
@@ -155,7 +162,8 @@ const EVENT_KEYWORDS = [
   "earthquake", "seismic", "quake", "tremor", "volcano", "volcanic", "eruption",
   "wildfire", "forest fire", "wildland fire", "storm", "hurricane", "typhoon",
   "cyclone", "tornado", "twister", "flood", "flooding", "tsunami",
-  "lightning", "thunder", "hail", "landslide", "avalanche",
+  "lightning", "thunder", "hail", "landslide", "avalanche", "mudslide",
+  "oil spill", "chemical spill", "disease outbreak", "outbreak", "pathogen",
 ]
 
 // Aircraft keywords

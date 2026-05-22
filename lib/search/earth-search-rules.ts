@@ -7,6 +7,7 @@ export type EarthSearchDomain =
   | "volcano"
   | "flood"
   | "drought"
+  | "landslide"
   | "oil_spill"
   | "disease"
   | "aircraft"
@@ -145,6 +146,14 @@ const DOMAIN_RULES: Array<{
     enabledLayerIds: ["weather", "radar", ...PHYSICAL_BASE_LAYERS],
     entityTypes: ["drought", "weather"],
     widgets: ["earth", "hydrology", "weather", "answers", "news", "research"],
+  },
+  {
+    domain: "landslide",
+    patterns: [/\blandslides?\b/i, /\bavalanches?\b/i, /\bmudslides?\b/i, /\bdebris\s+flows?\b/i],
+    categories: ["event"],
+    enabledLayerIds: ["weather", "radar", "topography", ...PHYSICAL_BASE_LAYERS],
+    entityTypes: ["landslide", "avalanche"],
+    widgets: ["earth", "events", "geology", "hydrology", "weather", "answers", "news", "research"],
   },
   {
     domain: "volcano",
