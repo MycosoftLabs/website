@@ -35,6 +35,7 @@ import * as satellite from "satellite.js"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
 import { nearestCoastalFocus, queryNeedsCoastalFocus } from "@/lib/search/coastal-focus"
+import { getAllPowerPlants } from "@/lib/crep/registries/power-plant-registry"
 
 /** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
 function asEarthBucket<T>(v: unknown): T[] {
@@ -610,6 +611,40 @@ export async function searchInfrastructure(query: string, origin: string, limit 
   try {
     const q = query.toLowerCase()
     const results: InfrastructureResult[] = []
+
+    if (/\b(power\s+plants?|power\s+grid|electric(?:al)?\s+grid|transmission\s+lines?|power\s+lines?|substations?)\b/i.test(q)) {
+      if (/\b(power\s+grid|electric(?:al)?\s+grid|transmission\s+lines?|power\s+lines?|substations?)\b/i.test(q)) {
+        results.push({
+          id: "power-grid-transmission-layer",
+          type: "power_line",
+          name: "Transmission and sub-transmission line layer",
+          description: "Search-controlled Earth layer for all available transmission-scale power lines and substations. Geometry is rendered in Earth Simulator from MINDEX/CREP tile sources.",
+          lat: 39.5,
+          lng: -98.35,
+          operator: "MINDEX/CREP",
+          source: "HIFLD + OpenStreetMap + MINDEX tiles",
+        })
+      }
+
+      const registry = await getAllPowerPlants({ baseUrl: origin })
+      const plantLimit = Math.max(1, Math.min(Math.max(limit - results.length, 1), /\bpower\s+plants?\b/i.test(q) ? limit : Math.ceil(limit / 2)))
+      for (const plant of registry.plants.slice(0, plantLimit)) {
+        results.push({
+          id: `power-plant-${plant.id}`,
+          type: "power_plant",
+          name: plant.name || "Power plant",
+          description: [
+            plant.fuel ? `${plant.fuel} generation` : "Power generation facility",
+            plant.capacity_mw != null ? `${Number(plant.capacity_mw).toLocaleString()} MW` : "",
+            plant.countryLong || plant.country,
+          ].filter(Boolean).join(" · "),
+          lat: plant.lat,
+          lng: plant.lng,
+          operator: plant.operator || plant.owner,
+          source: plant.sources?.join(", ") || "WRI/EIA/MINDEX",
+        })
+      }
+    }
 
     // Railway data
     if (q.includes("railway") || q.includes("railroad") || q.includes("train")) {

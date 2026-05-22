@@ -170,7 +170,7 @@ export interface EmissionsResult {
 export interface InfrastructureResult {
   id: string
   type: "power_plant" | "factory" | "dam" | "mining" | "oil_gas" | "treatment_plant"
-    | "airport" | "seaport" | "spaceport" | "railway" | "antenna" | "cable" | "military_base"
+    | "airport" | "seaport" | "spaceport" | "railway" | "antenna" | "cable" | "power_line" | "substation" | "military_base"
   name: string
   description?: string
   lat: number

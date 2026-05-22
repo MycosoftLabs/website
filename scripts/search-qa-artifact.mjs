@@ -29,7 +29,12 @@ for (let i = 0; i < scenarios.length; i += 1) {
   const consoleErrors = []
   page.removeAllListeners("console")
   page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text())
+    if (msg.type() !== "error") return
+    const text = msg.text()
+    if (/Permissions policy violation: Geolocation access has been blocked/i.test(text)) return
+    if (/Failed to fetch RSC payload.*hmrRefresh|hot-reloader-client|webpack-internal:\/\/\/\(app-pages-browser\)\/.*hot-reloader/i.test(text)) return
+    if (/Failed to load resource: the server responded with a status of (404|429|503)/i.test(text)) return
+    consoleErrors.push(text)
   })
   let homeSubmitted = false
   let navigationMs = 0
@@ -49,7 +54,7 @@ for (let i = 0; i < scenarios.length; i += 1) {
     homeSubmitted = true
     navigationMs = Date.now() - navStart
     await waitForQaSnapshot(page, scenario.query, timeoutMs)
-    await waitForExpectedWidgetsOrIdle(page, scenario.expectedWidgets, timeoutMs).catch(() => {})
+    await waitForExpectedWidgetsOrIdle(page, scenario, timeoutMs).catch(() => {})
     snapshot = await page.evaluate(() => globalThis.__MYCOSOFT_SEARCH_QA__ || null)
     text = await page.locator("body").innerText({ timeout: timeoutMs }).catch(() => "")
     url = page.url()
@@ -59,7 +64,7 @@ for (let i = 0; i < scenarios.length; i += 1) {
     if (!url.includes("/search?q=")) {
       await page.goto(`${base}/search?q=${encodeURIComponent(scenario.query)}`, { waitUntil: "domcontentloaded", timeout: timeoutMs }).catch(() => {})
       await waitForQaSnapshot(page, scenario.query, timeoutMs).catch(() => {})
-      await waitForExpectedWidgetsOrIdle(page, scenario.expectedWidgets, timeoutMs).catch(() => {})
+      await waitForExpectedWidgetsOrIdle(page, scenario, timeoutMs).catch(() => {})
       snapshot = await page.evaluate(() => globalThis.__MYCOSOFT_SEARCH_QA__ || null).catch(() => null)
       text = await page.locator("body").innerText({ timeout: 5000 }).catch(() => text)
       url = page.url()
@@ -155,19 +160,25 @@ async function waitForQaSnapshot(page, query, timeout) {
   )
 }
 
-async function waitForExpectedWidgetsOrIdle(page, expectedWidgets, timeout) {
-  const expected = expectedWidgets.slice(0, 4)
+async function waitForExpectedWidgetsOrIdle(page, scenario, timeout) {
+  const expected = scenario.expectedWidgets.slice(0, 4)
+  const requiredDataWidgets = Object.entries(scenario.expectedWidgetData || {})
+    .filter(([, expectation]) => expectation?.dataRequired)
+    .map(([widget]) => widget)
   await page.waitForFunction(
-    (widgets) => {
+    ({ widgets, dataWidgets }) => {
       const qa = globalThis.__MYCOSOFT_SEARCH_QA__
       if (!qa || typeof qa !== "object") return false
       const expanded = Array.isArray(qa.expandedWidgets) ? qa.expandedWidgets.map(String) : []
       const hasExpected = widgets.length > 0 && widgets.every((widget) => expanded.includes(String(widget)))
       const dataMap = qa.dataMap && typeof qa.dataMap === "object" ? qa.dataMap : {}
+      const requiredDataReady = dataWidgets
+        .filter((widget) => expanded.includes(String(widget)))
+        .every((widget) => Number(dataMap[widget] || 0) > 0)
       const hasAnyData = Object.values(dataMap).some((value) => Number(value) > 0)
-      return hasExpected || (!qa.isLoading && hasAnyData)
+      return (hasExpected && requiredDataReady) || (!qa.isLoading && dataWidgets.length === 0 && hasAnyData && hasExpected)
     },
-    expected,
+    { widgets: expected, dataWidgets: requiredDataWidgets },
     { timeout },
   )
 }

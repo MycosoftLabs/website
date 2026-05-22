@@ -21,9 +21,25 @@ describe("SearchPlan orchestration", () => {
     const plan = route.searchPlan
 
     expect(plan?.entityFamilies).toEqual(expect.arrayContaining(["events", "infrastructure"]))
+    expect(plan?.widgetOrder.slice(0, 5)).toEqual(["earth", "events", "infrastructure", "risk", "power_grid"])
     expect(plan?.widgetOrder).toEqual(expect.arrayContaining(["earth", "events", "infrastructure", "risk", "power_grid", "answers", "news"]))
     expect(plan?.earth?.enabledLayers).toEqual(expect.arrayContaining(["earthquakes", "powerPlantsG", "txLinesGlobal"]))
     expect(plan?.etlRequests.map((request) => request.entityFamily)).toEqual(expect.arrayContaining(["events", "infrastructure"]))
+  })
+
+  it("non-earthquake hazards resolve to event-first Earth bundles instead of species defaults", () => {
+    const landslide = classifyAndRoute("active landslides near Oregon").searchPlan
+    const oilSpill = classifyAndRoute("oil spills near ports in the Gulf of Mexico").searchPlan
+
+    expect(landslide?.primaryWidget).toBe("earth")
+    expect(landslide?.widgetOrder).toEqual(expect.arrayContaining(["earth", "events", "geology", "hydrology", "weather", "answers", "news"]))
+    expect(landslide?.earth?.enabledLayers).toEqual(expect.arrayContaining(["topography", "weather", "radar"]))
+    expect(landslide?.widgetOrder[0]).toBe("earth")
+
+    expect(oilSpill?.entityFamilies).toEqual(expect.arrayContaining(["events", "infrastructure"]))
+    expect(oilSpill?.widgetOrder).toEqual(expect.arrayContaining(["earth", "events", "marine", "infrastructure", "answers", "news"]))
+    expect(oilSpill?.widgetOrder).not.toContain("species")
+    expect(oilSpill?.earth?.enabledLayers).toEqual(expect.arrayContaining(["oilGas", "ports", "ships", "shipRoutes"]))
   })
 
   it("spatial species searches prioritize Earth while keeping science widgets", () => {

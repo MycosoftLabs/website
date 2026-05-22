@@ -152,6 +152,17 @@ function addSearchWidget(target: Set<WidgetType>, widget: WidgetType | null | un
   if (normalized) target.add(normalized)
 }
 
+function plannedWidgetsForRoute(route: SearchRoute | null | undefined): WidgetType[] {
+  if (!route) return []
+  const planned = route.searchPlan?.widgetOrder?.length
+    ? route.searchPlan.widgetOrder
+    : [route.primaryWidget, ...route.secondaryWidgets]
+  const normalized = planned
+    .map((widget) => normalizeSearchWidget(widget as WidgetType | null))
+    .filter((widget): widget is WidgetType => Boolean(widget && WIDGET_REGISTRY[widget]))
+  return [...new Set(normalized)]
+}
+
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
 
 function isEarthquakeSearch(query: string) {
@@ -581,8 +592,12 @@ export function FluidSearchCanvas({
     [earthSearchRule.widgets],
   )
   const streamSearchTypes = useMemo(
-    () => (isEarthquakeQuery ? EARTHQUAKE_STREAMING_SEARCH_TYPES : STREAMING_SEARCH_TYPES),
-    [isEarthquakeQuery],
+    () => {
+      const families = effectiveSearchRoute?.searchPlan?.entityFamilies ?? []
+      const earthquakeOnly = isEarthquakeQuery && families.every((family) => family === "events")
+      return earthquakeOnly ? EARTHQUAKE_STREAMING_SEARCH_TYPES : STREAMING_SEARCH_TYPES
+    },
+    [effectiveSearchRoute, isEarthquakeQuery],
   )
 
   /** Single contract for unified POST + MYCA Answers threading */
@@ -1495,9 +1510,10 @@ export function FluidSearchCanvas({
   // Auto-expand Species and Answers on first load if nothing expanded (Answers is primary for conversational search)
   useEffect(() => {
     if (expandedWidgets.size === 0 && activeWidgets.length > 0) {
-      setExpandedWidgets(new Set(["species", "answers"]))
+      const planned = committedQuery.length >= 2 ? plannedWidgetsForRoute(effectiveSearchRoute ?? classifyAndRoute(committedQuery)) : []
+      setExpandedWidgets(planned.length > 0 ? new Set(planned) : new Set(["species", "answers"]))
     }
-  }, [activeWidgets.length]) // eslint-disable-line
+  }, [activeWidgets.length, committedQuery, effectiveSearchRoute]) // eslint-disable-line
 
   // ── Intelligence Router: classify query and auto-expand/resize widgets ──
   // Routes through Myca's brain: conversational → Myca LLM + widgets,
@@ -1532,33 +1548,34 @@ export function FluidSearchCanvas({
     setSearchRoute(route)
 
     // Instantly layout widgets based on the predicted route before data even arrives
-    setExpandedWidgets((prev) => {
+    setExpandedWidgets(() => {
       const next = new Set<WidgetType>()
       addSearchWidget(next, route.primaryWidget as WidgetType | null)
-      for (const widget of route.searchPlan?.widgetOrder ?? []) {
-        if (widget === "earth" || widget === "answers") addSearchWidget(next, widget)
-      }
+      for (const widget of plannedWidgetsForRoute(route)) addSearchWidget(next, widget)
       if (route.worldview.crep) addSearchWidget(next, "earth")
       if (route.worldview.earth2 || route.worldview.map) addSearchWidget(next, "earth")
       for (const widget of submittedEarthRule.widgets) {
-        if ((widget === "earth" || widget === "answers") && WIDGET_REGISTRY[widget as WidgetType]) {
-          addSearchWidget(next, widget as WidgetType)
-        }
+        if (WIDGET_REGISTRY[widget as WidgetType]) addSearchWidget(next, widget as WidgetType)
       }
       if (route.useMycaLLM) addSearchWidget(next, "answers")
       if (next.size === 0) {
-        next.add("species" as WidgetType)
         next.add("answers" as WidgetType)
       }
       return next
     })
 
-    if (route.primaryWidget) {
+    if (route.primaryWidget || route.searchPlan?.widgetOrder?.length) {
+      const planned = plannedWidgetsForRoute(route)
       setWidgetSizes(prev => ({
         ...prev,
-        [route.primaryWidget!]: route.primaryWidgetSize,
+        ...(route.primaryWidget ? { [route.primaryWidget]: route.primaryWidgetSize } : {}),
+        ...Object.fromEntries(
+          planned
+            .filter((widget) => widget !== route.primaryWidget && DEFAULT_WIDGET_SIZES[widget])
+            .map((widget) => [widget, DEFAULT_WIDGET_SIZES[widget]])
+        ),
         answers: { width: 2, height: 1 },
-        earth: route.searchPlan?.primaryWidget === "earth" ? { width: 2, height: 3 } : (prev.earth ?? { width: 2, height: 3 }),
+        earth: route.searchPlan?.earth ? { width: 2, height: 3 } : (prev.earth ?? { width: 2, height: 3 }),
       }))
     }
 
@@ -1624,7 +1641,9 @@ export function FluidSearchCanvas({
       chemistry: compounds.length,
       genetics: genetics.length,
       research: research.length,
-      earth: (mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
+      answers: answerForWidget || route.searchPlan?.answerContext ? 1 : 0,
+      news: newsResults.length,
+      earth: (route.searchPlan?.earth || mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
       events: len(eventsForWidgets),
       aircraft: len(aircraft),
       vessels: len(vessels),
@@ -1654,8 +1673,16 @@ export function FluidSearchCanvas({
     if (key === prevAutoExpandKeyRef.current) return
     prevAutoExpandKeyRef.current = key
 
+    const plannedWidgets = plannedWidgetsForRoute(route)
+    const plannedWidgetSet = new Set<WidgetType>(plannedWidgets)
     const total = Object.values(dataMap).reduce((a, b) => a + b, 0)
-    const hasIntentOrData = total > 0 || route.worldview.crep || route.worldview.earth2 || route.worldview.map
+    const hasIntentOrData =
+      total > 0 ||
+      plannedWidgets.length > 0 ||
+      Boolean(route.searchPlan?.earth) ||
+      route.worldview.crep ||
+      route.worldview.earth2 ||
+      route.worldview.map
     if (!hasIntentOrData) return
 
     // ── Primary widget gets maximum viewport size ──
@@ -1668,7 +1695,7 @@ export function FluidSearchCanvas({
     }
 
     setExpandedWidgets((prev) => {
-      const next = new Set(prev)
+      const next = plannedWidgetSet.size > 0 ? new Set<WidgetType>() : new Set(prev)
 
       // Clear species-only default if something else is primary
       const hasNonSpeciesData = Object.entries(dataMap)
@@ -1692,7 +1719,8 @@ export function FluidSearchCanvas({
       const hidden = manuallyHiddenWidgetsRef.current
       const addIfVisible = (widget: WidgetType | null) => {
         if (!widget || hidden.has(widget)) return
-        if (dataMap[widget] === 0 && !["earth", "answers", "news", "research"].includes(widget)) return
+        const isPlanned = plannedWidgetSet.has(widget)
+        if (dataMap[widget] === 0 && !isPlanned && !["earth", "answers", "news", "research"].includes(widget)) return
         addSearchWidget(next, widget)
       }
 
@@ -1710,7 +1738,7 @@ export function FluidSearchCanvas({
       const allowedDataWidgets = new Set<WidgetType>([
         route.primaryWidget as WidgetType,
         ...(route.secondaryWidgets as WidgetType[]),
-        ...((route.searchPlan?.widgetOrder ?? []) as WidgetType[]),
+        ...plannedWidgets,
       ].filter(Boolean))
       for (const [wType, count] of Object.entries(dataMap)) {
         const widget = wType as WidgetType
@@ -1732,7 +1760,7 @@ export function FluidSearchCanvas({
 
       return next
     })
-  }, [hasPendingInput, committedQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, earthSearchWidgets, manuallyHiddenWidgets, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
+  }, [hasPendingInput, committedQuery, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, earthSearchWidgets, manuallyHiddenWidgets, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   useEffect(() => {
@@ -1743,7 +1771,9 @@ export function FluidSearchCanvas({
       chemistry: compounds.length,
       genetics: genetics.length,
       research: research.length,
-      earth: (mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
+      answers: answerForWidget || route?.searchPlan?.answerContext ? 1 : 0,
+      news: newsResults.length,
+      earth: (route?.searchPlan?.earth || mapObservations.length > 0 || mergedCrepData.length > 0 || !!earth2Data) ? 1 : 0,
       events: len(eventsForWidgets),
       aircraft: len(aircraft),
       vessels: len(vessels),
@@ -1793,7 +1823,7 @@ export function FluidSearchCanvas({
       error,
       capturedAt: new Date().toISOString(),
     }
-  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, source, timing, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
+  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, source, timing, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
 
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
 

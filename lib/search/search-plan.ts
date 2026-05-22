@@ -419,8 +419,14 @@ function scopeWidgetOrderToEarthEntities(
 }
 
 function orderSearchWidgets(widgetOrder: WidgetType[], families: SearchEntityFamily[]): WidgetType[] {
-  if (!families.includes("events") || families.some((family) => family !== "events")) return widgetOrder
-  const eventPriority: WidgetType[] = ["earth", "events", "answers", "news", "research"]
+  if (!families.includes("events")) return widgetOrder
+  const eventPriority: WidgetType[] = families.includes("infrastructure")
+    ? ["earth", "events", "infrastructure", "risk", "power_grid", "weather", "answers", "news", "research"]
+    : families.includes("weather")
+      ? ["earth", "events", "weather", "air_quality", "answers", "news", "research"]
+      : families.includes("marine")
+        ? ["earth", "events", "marine", "vessels", "infrastructure", "answers", "news", "research"]
+        : ["earth", "events", "answers", "news", "research"]
   const prioritized = eventPriority.filter((widget) => widgetOrder.includes(widget))
   const rest = widgetOrder.filter((widget) => !prioritized.includes(widget))
   return [...prioritized, ...rest]

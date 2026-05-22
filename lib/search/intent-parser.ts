@@ -155,7 +155,8 @@ const EVENT_KEYWORDS = [
   "earthquake", "seismic", "quake", "tremor", "volcano", "volcanic", "eruption",
   "wildfire", "forest fire", "wildland fire", "storm", "hurricane", "typhoon",
   "cyclone", "tornado", "twister", "flood", "flooding", "tsunami",
-  "lightning", "thunder", "hail", "landslide", "avalanche",
+  "lightning", "thunder", "hail", "landslide", "avalanche", "mudslide",
+  "oil spill", "chemical spill", "disease outbreak", "outbreak", "pathogen",
 ]
 
 // Aircraft keywords

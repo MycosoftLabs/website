@@ -135,8 +135,12 @@ export function EarthWidget({
     [enabledCategories, searchQuery]
   )
   const enabledLayerIds = useMemo(() => {
-    return earthRule.enabledLayerIds
-  }, [earthRule])
+    return route?.searchPlan?.earth?.enabledLayers ?? earthRule.enabledLayerIds
+  }, [earthRule, route])
+  const enabledEntityTypes = useMemo(
+    () => new Set(route?.searchPlan?.earth?.entityTypes ?? earthRule.entityTypes),
+    [earthRule.entityTypes, route]
+  )
   const normalizedLiveEntities = useMemo(
     () => [
       ...liveEntities,
@@ -165,16 +169,21 @@ export function EarthWidget({
     () => normalizedLiveEntities.filter((entity) => {
       const row = entity as Record<string, unknown>
       const type = String(row.type ?? row.category ?? row.entity_type ?? "").toLowerCase()
-      if (enabledCategories.size === 0) return false
-      if (type === "species") return enabledCategories.has("species")
-      if (type === "event") return enabledCategories.has("event")
-      if (type === "aircraft") return enabledCategories.has("aircraft")
-      if (type === "vessel") return enabledCategories.has("vessel")
-      if (type === "satellite") return enabledCategories.has("satellite")
-      if (type === "device") return enabledCategories.has("device")
+      const entityText = `${type} ${String(row.name ?? row.title ?? row.label ?? "")}`.toLowerCase()
+      const hasPlanEntityTypes = enabledEntityTypes.size > 0
+      if (enabledCategories.size === 0 && !hasPlanEntityTypes) return false
+      if (type === "species") return enabledCategories.has("species") || enabledEntityTypes.has("species") || enabledEntityTypes.has("fungal")
+      if (type === "event") {
+        if (enabledCategories.has("event")) return true
+        return [...enabledEntityTypes].some((entityType) => entityText.includes(entityType.replace("_", " ")))
+      }
+      if (type === "aircraft") return enabledCategories.has("aircraft") || enabledEntityTypes.has("aircraft")
+      if (type === "vessel") return enabledCategories.has("vessel") || enabledEntityTypes.has("vessel")
+      if (type === "satellite") return enabledCategories.has("satellite") || enabledEntityTypes.has("satellite")
+      if (type === "device") return enabledCategories.has("device") || enabledEntityTypes.has("device") || enabledEntityTypes.has("camera")
       return false
     }),
-    [enabledCategories, normalizedLiveEntities]
+    [enabledCategories, enabledEntityTypes, normalizedLiveEntities]
   )
   const entityFocus = useMemo(() => {
     const coords = filteredEntities
