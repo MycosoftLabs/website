@@ -319,6 +319,7 @@ import ProjectNycDcLayer from "@/components/crep/layers/project-nyc-dc-layer";
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
 import { LiveTransitLayer } from "@/components/crep/layers/live-transit-layer";
 import { LiveAqiLayer } from "@/components/crep/layers/live-aqi-layer";
+import FungalRichnessLayer from "@/components/crep/layers/fungal-richness-layer";
 import MojaveSiteWidget from "@/components/crep/mojave/MojaveSiteWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -3007,6 +3008,16 @@ export default function CREPDashboardPage({
     { id: "mojaveTourism",    name: "Goffs — Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
     { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
     { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: false, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FUNGAL RICHNESS ATLAS — native MapLibre raster layers (May 2026)
+    // SPUN-atlas-inspired continuous richness surface. Real GBIF occurrence
+    // density tiles until SPUN PMTiles are placed at
+    // public/data/crep/fungal/{am|ecm}/{z}/{x}/{y}.png.
+    // Both OFF by default per CREP all-off debug baseline.
+    // ═══════════════════════════════════════════════════════════════════════
+    { id: "fungalAm",  name: "AM Fungi Richness (Glomeromycetes)", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#7c3aed", description: "Arbuscular mycorrhizal fungal richness — continuous raster surface. Source: GBIF Glomeromycetes occurrence density (taxon 7707728) via SPUN-atlas-style tile proxy. Swap to SPUN rasters by placing XYZ PNGs at public/data/crep/fungal/am/. AM fungi partner with ~80% of land plants." },
+    { id: "fungalEcm", name: "EcM Fungi Richness (Agaricomycetes)", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#ea580c", description: "Ectomycorrhizal fungal richness — continuous raster surface. Source: GBIF Agaricomycetes occurrence density (taxon 1462986, EcM proxy — class contains most EcM genera: Amanita, Cortinarius, Russula, Lactarius, Suillus). Swap to SPUN rasters by placing XYZ PNGs at public/data/crep/fungal/ecm/. EcM dominant in boreal + temperate forests." },
   ]);
 
   const embeddedLayerKey = embeddedLayerIdKey;
@@ -10082,6 +10093,18 @@ export default function CREPDashboardPage({
               preferred="auto"
             />
           )}
+
+          {/* Fungal richness atlas — AM + EcM native MapLibre raster layers.
+              GBIF occurrence density tiles until SPUN rasters are placed at
+              public/data/crep/fungal/{am|ecm}/{z}/{x}/{y}.png.
+              Both off by default per CREP all-off debug baseline. */}
+          <FungalRichnessLayer
+            map={mapRef}
+            amEnabled={layers.find(l => l.id === "fungalAm")?.enabled ?? false}
+            ecmEnabled={layers.find(l => l.id === "fungalEcm")?.enabled ?? false}
+            amOpacity={layers.find(l => l.id === "fungalAm")?.opacity ?? 0.75}
+            ecmOpacity={layers.find(l => l.id === "fungalEcm")?.opacity ?? 0.75}
+          />
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
               Right-click the map → context menu → save / drop pin / copy
