@@ -1,16 +1,24 @@
 /**
  * Per-device agent URL resolver.
  *
- * Looks up where a deviceId's mycobrain-agent lives, by:
- *   1. Direct env override: MYCOBRAIN_OPERATOR_URLS (host list, port :8787 assumed)
- *      with the device's host matching one of them via /api/devices/network registry
- *   2. Fallback to legacy MYCOBRAIN_SERVICE_URL (:8003) for devices we don\'t yet
- *      have a unified agent for
+ * Looks up where a deviceId's mycobrain-agent lives, in priority order:
  *
- * The website does NOT need to know about every device statically — the MAS
- * device registry at /api/devices/network is the source of truth, and includes
- * each device\'s `host` (LAN IP). Combined with MYCOBRAIN_OPERATOR_URLS, we
- * route to the right :8787.
+ *   1. MAS device registry (`${MAS_API_URL}/api/devices`)
+ *      Devices that have heartbeat-registered with MAS publish their
+ *      `host` and (post unified-agent) `agent_url`.
+ *
+ *   2. Local /api/mycobrain operator probes
+ *      The website probes MYCOBRAIN_OPERATOR_URLS directly via
+ *      /api/mycobrain. Any device that came back with
+ *      `source: "operator-http"` AND a host/port can be matched here.
+ *      This is the path that finds devices not yet in MAS (e.g. the
+ *      live Pi at 192.168.0.123 today).
+ *
+ *   3. MYCOBRAIN_OPERATOR_URLS host match (last resort)
+ *      If the deviceId's suffix encodes the host (e.g. "...-192-168-0-123"),
+ *      try to map it directly.
+ *
+ * Returns the agent's base URL (no trailing slash) or null.
  */
 
 const OPERATOR_HOSTS = (
@@ -28,16 +36,23 @@ interface RegistryDevice {
   host?: string
   port?: number
   openclaw_url?: string | null
+  agent_url?: string
+}
+
+interface OperatorDevice {
+  device_id: string
+  source?: string
+  network_host?: string
+  network_port?: number | string
 }
 
 let registryCache: { ts: number; devices: RegistryDevice[] } | null = null
-const REGISTRY_TTL_MS = 30_000
+let operatorCache: { ts: number; devices: OperatorDevice[] } | null = null
+const TTL_MS = 30_000
 
 async function fetchRegistry(): Promise<RegistryDevice[]> {
   const now = Date.now()
-  if (registryCache && now - registryCache.ts < REGISTRY_TTL_MS) {
-    return registryCache.devices
-  }
+  if (registryCache && now - registryCache.ts < TTL_MS) return registryCache.devices
   try {
     const res = await fetch(`${MAS_API_URL}/api/devices`, {
       headers: { Accept: "application/json" },
@@ -54,34 +69,82 @@ async function fetchRegistry(): Promise<RegistryDevice[]> {
   }
 }
 
-/**
- * Resolve the agent URL (port 8787) for a given device, or null if the device
- * isn\'t reachable via the unified agent path.
- */
-export async function resolveAgentUrl(deviceId: string): Promise<string | null> {
-  const registry = await fetchRegistry()
-  const device = registry.find((d) => d.device_id === deviceId)
-  if (!device) return null
-
-  // Prefer the agent URL the device self-reported, if it has one matching :8787
-  // (post unified-agent rollout, every agent registers with `agent_url`).
-  const reportedUrl = (device as { agent_url?: string }).agent_url
-  if (typeof reportedUrl === "string" && /:8787\/?$/.test(reportedUrl)) {
-    return reportedUrl.replace(/\/+$/, "")
+async function fetchOperatorDevices(): Promise<OperatorDevice[]> {
+  const now = Date.now()
+  if (operatorCache && now - operatorCache.ts < TTL_MS) return operatorCache.devices
+  // Use the site's own /api/mycobrain endpoint which already probes
+  // MYCOBRAIN_OPERATOR_URLS at :8787 and returns normalized devices.
+  // We call it absolutely via the request origin when available, else via
+  // a same-origin relative path; in route handlers we fall back to env.
+  const base =
+    process.env.WEBSITE_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  try {
+    const res = await fetch(`${base.replace(/\/+$/, "")}/api/mycobrain`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const devices: OperatorDevice[] = data.devices || []
+    operatorCache = { ts: now, devices }
+    return devices
+  } catch {
+    return []
   }
+}
 
-  // Else match by host against MYCOBRAIN_OPERATOR_URLS
-  if (device.host) {
-    const match = OPERATOR_HOSTS.find((u) => new URL(u).hostname === device.host)
-    if (match) return match
-  }
-  return null
+function hostFromDeviceIdSuffix(deviceId: string): string | null {
+  // e.g. mycobrain-sidea-10b41d-amb-192-168-0-123 -> 192.168.0.123
+  const m = deviceId.match(/(\d{1,3})-(\d{1,3})-(\d{1,3})-(\d{1,3})$/)
+  if (!m) return null
+  return `${m[1]}.${m[2]}.${m[3]}.${m[4]}`
 }
 
 /**
- * Same idea but synchronous — for callers that already have a `host` string
- * (e.g. from a parent request that already fetched the registry).
+ * Resolve the agent URL (port 8787) for a given device, or null if the device
+ * isn't reachable via the unified agent path.
  */
+export async function resolveAgentUrl(deviceId: string): Promise<string | null> {
+  // 1. MAS registry
+  const registry = await fetchRegistry()
+  const masMatch = registry.find((d) => d.device_id === deviceId)
+  if (masMatch) {
+    if (typeof masMatch.agent_url === "string" && /:8787\/?$/.test(masMatch.agent_url)) {
+      return masMatch.agent_url.replace(/\/+$/, "")
+    }
+    if (masMatch.host) {
+      const m = OPERATOR_HOSTS.find((u) => new URL(u).hostname === masMatch.host)
+      if (m) return m
+    }
+  }
+
+  // 2. Operator-http (live /api/mycobrain probes)
+  const operatorDevices = await fetchOperatorDevices()
+  const opMatch = operatorDevices.find((d) => d.device_id === deviceId)
+  if (opMatch && opMatch.network_host) {
+    const m = OPERATOR_HOSTS.find((u) => new URL(u).hostname === opMatch.network_host)
+    if (m) return m
+    // Fall back to constructing the URL from host:port (port 8787 is standard)
+    const port = String(opMatch.network_port || 8787)
+    if (port === "8787") {
+      return `http://${opMatch.network_host}:8787`
+    }
+  }
+
+  // 3. Host extracted from deviceId suffix
+  const suffixHost = hostFromDeviceIdSuffix(deviceId)
+  if (suffixHost) {
+    const m = OPERATOR_HOSTS.find((u) => new URL(u).hostname === suffixHost)
+    if (m) return m
+  }
+
+  return null
+}
+
+/** Same idea but synchronous — for callers that already have a `host` string. */
 export function agentUrlForHost(host: string): string | null {
   return OPERATOR_HOSTS.find((u) => new URL(u).hostname === host) || null
 }
