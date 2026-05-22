@@ -154,12 +154,12 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Balance. We read profile-level balance if the agent_payment_pipeline
-    -- migration set it on agent_profiles; otherwise fall back to the
-    -- per-key balance if any.
+    -- Balance lives on public.profiles.balance_cents (added by
+    -- 20260316_agent_payment_pipeline.sql). profile_id here is the
+    -- profiles.id of the key owner.
     SELECT balance_cents INTO v_profile_bal
-    FROM public.agent_profiles
-    WHERE profile_id = p_profile_id;
+    FROM public.profiles
+    WHERE id = p_profile_id;
 
     v_balance := COALESCE(v_profile_bal, 0);
 
@@ -176,9 +176,9 @@ BEGIN
     END IF;
 
     -- Debit + log
-    UPDATE public.agent_profiles
+    UPDATE public.profiles
     SET balance_cents = balance_cents - p_cost_cents
-    WHERE profile_id = p_profile_id;
+    WHERE id = p_profile_id;
 
     UPDATE public.agent_api_keys
     SET last_used_at = v_now,

@@ -26,10 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_usage_log_created ON public.agent_usage_log(creat
 
 ALTER TABLE public.agent_usage_log ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own usage logs" ON public.agent_usage_log;
 CREATE POLICY "Users can read own usage logs"
   ON public.agent_usage_log FOR SELECT
   USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Service role full access on usage_log" ON public.agent_usage_log;
 CREATE POLICY "Service role full access on usage_log"
   ON public.agent_usage_log FOR ALL
   USING (auth.role() = 'service_role');
@@ -54,10 +56,12 @@ CREATE INDEX IF NOT EXISTS idx_events_created ON public.agent_events(created_at)
 
 ALTER TABLE public.agent_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own events" ON public.agent_events;
 CREATE POLICY "Users can read own events"
   ON public.agent_events FOR SELECT
   USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Service role full access on events" ON public.agent_events;
 CREATE POLICY "Service role full access on events"
   ON public.agent_events FOR ALL
   USING (auth.role() = 'service_role');
@@ -78,6 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_temp_keys_session ON public.agent_temp_keys(sessi
 
 ALTER TABLE public.agent_temp_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access on temp_keys" ON public.agent_temp_keys;
 CREATE POLICY "Service role full access on temp_keys"
   ON public.agent_temp_keys FOR ALL
   USING (auth.role() = 'service_role');

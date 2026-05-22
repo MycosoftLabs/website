@@ -24,6 +24,22 @@ create table if not exists public.nlm_training_runs (
   updated_at timestamptz not null default now()
 );
 
+-- Reconcile with earlier 20260324120000_unified_capabilities.sql which created
+-- nlm_training_runs with a different schema (run_name/model_architecture/
+-- hyperparameters/current_epoch/current_loss + a status CHECK constraint that
+-- doesn't include 'queued'). If that ran first, CREATE IF NOT EXISTS above
+-- silently skips and we'd be missing these columns plus blocked by the CHECK.
+alter table public.nlm_training_runs
+  add column if not exists model_id   uuid references public.nlm_models(id) on delete cascade,
+  add column if not exists owner_id   uuid references auth.users(id) on delete cascade,
+  add column if not exists config     jsonb not null default '{}'::jsonb,
+  add column if not exists metrics    jsonb not null default '{}'::jsonb,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.nlm_training_runs
+  drop constraint if exists nlm_training_runs_status_check;
+
 create table if not exists public.nlm_checkpoints (
   id uuid primary key default gen_random_uuid(),
   model_id uuid references public.nlm_models(id) on delete cascade,
@@ -33,6 +49,15 @@ create table if not exists public.nlm_checkpoints (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+-- Reconcile with earlier 20260324120000_unified_capabilities.sql which created
+-- nlm_checkpoints with epoch/s3_url/validation_score/is_best instead of
+-- model_id/owner_id/path/metadata.
+alter table public.nlm_checkpoints
+  add column if not exists model_id  uuid references public.nlm_models(id) on delete cascade,
+  add column if not exists owner_id  uuid references auth.users(id) on delete cascade,
+  add column if not exists path      text,
+  add column if not exists metadata  jsonb not null default '{}'::jsonb;
 
 create table if not exists public.nlm_variants (
   id text primary key,
@@ -66,6 +91,15 @@ create table if not exists public.notifications (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+-- Prod notifications predates this migration with only:
+-- (id, user_id, type, title, message, read, action_url, created_at, updated_at).
+-- Backfill the four columns this file expects so code can rely on them.
+alter table public.notifications
+  add column if not exists source         text not null default 'MYCA',
+  add column if not exists action_label   text,
+  add column if not exists correlation_id text,
+  add column if not exists metadata       jsonb not null default '{}'::jsonb;
 
 create table if not exists public.mindex_etl_requests (
   id uuid primary key default gen_random_uuid(),

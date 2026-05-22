@@ -24,21 +24,25 @@ CREATE INDEX IF NOT EXISTS idx_user_app_state_tool_states ON public.user_app_sta
 ALTER TABLE public.user_app_state ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can only view their own app state
+DROP POLICY IF EXISTS "Users can view own app state" ON public.user_app_state;
 CREATE POLICY "Users can view own app state" ON public.user_app_state
   FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Policy: Users can insert their own app state
+DROP POLICY IF EXISTS "Users can insert own app state" ON public.user_app_state;
 CREATE POLICY "Users can insert own app state" ON public.user_app_state
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Policy: Users can update their own app state
+DROP POLICY IF EXISTS "Users can update own app state" ON public.user_app_state;
 CREATE POLICY "Users can update own app state" ON public.user_app_state
   FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- Policy: Users can delete their own app state
+DROP POLICY IF EXISTS "Users can delete own app state" ON public.user_app_state;
 CREATE POLICY "Users can delete own app state" ON public.user_app_state
   FOR DELETE
   USING (auth.uid() = user_id);
