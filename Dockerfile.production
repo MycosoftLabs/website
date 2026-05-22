@@ -47,6 +47,7 @@ RUN npm install --legacy-peer-deps --include=optional \
 
 # Build
 FROM base AS builder
+ARG SOURCE_COMMIT=unknown
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -67,6 +68,7 @@ ENV NEXT_PUBLIC_CESIUM_ION_TOKEN=${NEXT_PUBLIC_CESIUM_ION_TOKEN}
 ENV NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
 ENV NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
 ENV NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY}
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 # Disable worker threads for better CPU compatibility
 ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 # Increase memory for large builds
