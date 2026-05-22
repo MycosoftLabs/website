@@ -26,6 +26,13 @@ export async function middleware(request: NextRequest) {
   if (httpsRedirect) return httpsRedirect
 
   const pathname = request.nextUrl.pathname
+  if (pathname === "/search/qa") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/search"
+    url.searchParams.set("qa", "1")
+    return NextResponse.rewrite(url)
+  }
+
   const response =
     pathname === "/MYCA"
       ? NextResponse.redirect(new URL("/myca", request.url), 302)
