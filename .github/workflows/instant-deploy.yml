@@ -182,8 +182,16 @@ jobs:
           ssh-retry production bash -s <<'SCRIPT'
             set -e
             cd /opt/mycosoft/website
-            git fetch origin
-            git checkout ${{ inputs.ref || 'main' }} -- \
+            TARGET_REF='${{ inputs.ref || 'main' }}'
+            git fetch origin "$TARGET_REF" || git fetch origin
+            git checkout "origin/$TARGET_REF" -- \
+              docker-compose.production.yml \
+              docker-compose.production.blue-green.yml \
+              deploy/nginx/nginx.conf \
+              deploy/nginx/conf.d/website.conf.template \
+              scripts/blue-green-deploy.sh \
+              scripts/blue-green-bootstrap.sh 2>/dev/null || \
+            git checkout "$TARGET_REF" -- \
               docker-compose.production.yml \
               docker-compose.production.blue-green.yml \
               deploy/nginx/nginx.conf \
