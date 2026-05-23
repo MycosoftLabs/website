@@ -347,51 +347,67 @@ ALTER TABLE public.external_record_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sheet_sync_status ENABLE ROW LEVEL SECURITY;
 
 -- Service role bypasses RLS. Policies allow backend/authenticated access for operational tables.
+DROP POLICY IF EXISTS "Operational access apps_services" ON public.apps_services;
 CREATE POLICY "Operational access apps_services" ON public.apps_services
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access customer_vendors" ON public.customer_vendors;
 CREATE POLICY "Operational access customer_vendors" ON public.customer_vendors
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access commitments" ON public.commitments;
 CREATE POLICY "Operational access commitments" ON public.commitments
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access liabilities" ON public.liabilities;
 CREATE POLICY "Operational access liabilities" ON public.liabilities
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access recruitment_roles" ON public.recruitment_roles;
 CREATE POLICY "Operational access recruitment_roles" ON public.recruitment_roles
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access recruitment_candidates" ON public.recruitment_candidates;
 CREATE POLICY "Operational access recruitment_candidates" ON public.recruitment_candidates
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access production_runs" ON public.production_runs;
 CREATE POLICY "Operational access production_runs" ON public.production_runs
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access singlogs" ON public.singlogs;
 CREATE POLICY "Operational access singlogs" ON public.singlogs
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access external_accounts" ON public.external_accounts;
 CREATE POLICY "Operational access external_accounts" ON public.external_accounts
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access integration_connections" ON public.integration_connections;
 CREATE POLICY "Operational access integration_connections" ON public.integration_connections
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access agent_skills_registry" ON public.agent_skills_registry;
 CREATE POLICY "Operational access agent_skills_registry" ON public.agent_skills_registry
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access mcp_connections_registry" ON public.mcp_connections_registry;
 CREATE POLICY "Operational access mcp_connections_registry" ON public.mcp_connections_registry
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access llm_usage_ledger" ON public.llm_usage_ledger;
 CREATE POLICY "Operational access llm_usage_ledger" ON public.llm_usage_ledger
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access sync_runs" ON public.sync_runs;
 CREATE POLICY "Operational access sync_runs" ON public.sync_runs
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access external_record_links" ON public.external_record_links;
 CREATE POLICY "Operational access external_record_links" ON public.external_record_links
   FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Operational access sheet_sync_status" ON public.sheet_sync_status;
 CREATE POLICY "Operational access sheet_sync_status" ON public.sheet_sync_status
   FOR ALL USING (true) WITH CHECK (true);
 

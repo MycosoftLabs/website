@@ -34,16 +34,19 @@ CREATE INDEX IF NOT EXISTS idx_support_tickets_issue_type ON public.support_tick
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 
 -- Create policy: Users can view their own tickets
+DROP POLICY IF EXISTS "Users can view own tickets" ON public.support_tickets;
 CREATE POLICY "Users can view own tickets" ON public.support_tickets
   FOR SELECT
   USING (email = current_setting('request.jwt.claims', true)::json->>'email');
 
 -- Create policy: Service role can do anything
+DROP POLICY IF EXISTS "Service role has full access" ON public.support_tickets;
 CREATE POLICY "Service role has full access" ON public.support_tickets
   FOR ALL
   USING (current_setting('request.jwt.claims', true)::json->>'role' = 'service_role');
 
 -- Create policy: Authenticated users can insert tickets
+DROP POLICY IF EXISTS "Anyone can create tickets" ON public.support_tickets;
 CREATE POLICY "Anyone can create tickets" ON public.support_tickets
   FOR INSERT
   WITH CHECK (true);
@@ -58,6 +61,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS update_support_tickets_updated_at ON public.support_tickets;
 CREATE TRIGGER update_support_tickets_updated_at
   BEFORE UPDATE ON public.support_tickets
   FOR EACH ROW

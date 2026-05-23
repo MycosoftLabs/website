@@ -27,16 +27,19 @@ CREATE INDEX IF NOT EXISTS idx_contact_submissions_submitted_at ON contact_submi
 ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for inserting (public can submit)
+DROP POLICY IF EXISTS "Allow public insert" ON contact_submissions;
 CREATE POLICY "Allow public insert" ON contact_submissions
   FOR INSERT
   WITH CHECK (true);
 
 -- Create policy for selecting (only authenticated users can view)
+DROP POLICY IF EXISTS "Allow authenticated read" ON contact_submissions;
 CREATE POLICY "Allow authenticated read" ON contact_submissions
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- Create policy for updating (only authenticated users can update)
+DROP POLICY IF EXISTS "Allow authenticated update" ON contact_submissions;
 CREATE POLICY "Allow authenticated update" ON contact_submissions
   FOR UPDATE
   USING (auth.role() = 'authenticated');
@@ -50,6 +53,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS contact_submissions_updated_at ON contact_submissions;
 CREATE TRIGGER contact_submissions_updated_at
   BEFORE UPDATE ON contact_submissions
   FOR EACH ROW

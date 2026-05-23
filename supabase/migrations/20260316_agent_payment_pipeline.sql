@@ -158,10 +158,12 @@ END $$;
 -- Agent API keys: users can read their own
 ALTER TABLE public.agent_api_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own API keys" ON public.agent_api_keys;
 CREATE POLICY "Users can read own API keys"
   ON public.agent_api_keys FOR SELECT
   USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Service role full access on api_keys" ON public.agent_api_keys;
 CREATE POLICY "Service role full access on api_keys"
   ON public.agent_api_keys FOR ALL
   USING (auth.role() = 'service_role');
@@ -169,10 +171,12 @@ CREATE POLICY "Service role full access on api_keys"
 -- Agent sessions: users can read their own
 ALTER TABLE public.agent_sessions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own sessions" ON public.agent_sessions;
 CREATE POLICY "Users can read own sessions"
   ON public.agent_sessions FOR SELECT
   USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS "Service role full access on sessions" ON public.agent_sessions;
 CREATE POLICY "Service role full access on sessions"
   ON public.agent_sessions FOR ALL
   USING (auth.role() = 'service_role');

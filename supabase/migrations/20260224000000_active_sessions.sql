@@ -39,16 +39,20 @@ CREATE INDEX IF NOT EXISTS idx_active_sessions_last_activity ON public.active_se
 ALTER TABLE public.active_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Users can manage their own sessions
+DROP POLICY IF EXISTS "Users can insert own sessions" ON public.active_sessions;
 CREATE POLICY "Users can insert own sessions" ON public.active_sessions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own sessions" ON public.active_sessions;
 CREATE POLICY "Users can update own sessions" ON public.active_sessions
   FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own sessions" ON public.active_sessions;
 CREATE POLICY "Users can delete own sessions" ON public.active_sessions
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Users can view own; staff can view all
+DROP POLICY IF EXISTS "Users or staff can view sessions" ON public.active_sessions;
 CREATE POLICY "Users or staff can view sessions" ON public.active_sessions
   FOR SELECT USING (auth.uid() = user_id OR public.is_staff());
 
@@ -76,10 +80,12 @@ CREATE INDEX IF NOT EXISTS idx_heartbeat_recent ON public.user_heartbeat(heartbe
 ALTER TABLE public.user_heartbeat ENABLE ROW LEVEL SECURITY;
 
 -- Users can insert their own heartbeats
+DROP POLICY IF EXISTS "Users can insert own heartbeat" ON public.user_heartbeat;
 CREATE POLICY "Users can insert own heartbeat" ON public.user_heartbeat
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Users can view own; staff can view all
+DROP POLICY IF EXISTS "Users or staff can view heartbeat" ON public.user_heartbeat;
 CREATE POLICY "Users or staff can view heartbeat" ON public.user_heartbeat
   FOR SELECT USING (auth.uid() = user_id OR public.is_staff());
 
@@ -110,12 +116,14 @@ CREATE INDEX IF NOT EXISTS idx_api_usage_endpoint ON public.api_usage_log(endpoi
 ALTER TABLE public.api_usage_log ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can insert (their own or anonymous)
+DROP POLICY IF EXISTS "Authenticated can insert api usage" ON public.api_usage_log;
 CREATE POLICY "Authenticated can insert api usage" ON public.api_usage_log
   FOR INSERT WITH CHECK (
     user_id IS NULL OR auth.uid() = user_id
   );
 
 -- Users can view own; staff can view all
+DROP POLICY IF EXISTS "Users or staff can view api usage" ON public.api_usage_log;
 CREATE POLICY "Users or staff can view api usage" ON public.api_usage_log
   FOR SELECT USING (user_id = auth.uid() OR public.is_staff());
 
