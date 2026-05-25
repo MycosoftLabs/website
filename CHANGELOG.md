@@ -336,6 +336,7 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Auto-load Cloudflare purge credentials on production VM
 - *(agent-resolver)* Also discover devices via /api/mycobrain operator-http
 - *(mycobrain-service-url)* Per-device resolution alongside legacy :8003
+- *(migrations)* Idempotency guards + worldview_v1 RPC table-ref bug
 
 ### CREP
 
@@ -555,6 +556,9 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - *(quickstart)* USAF engagement now references Agaric (MycoDrone retired) (#166)
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Publish NLM technical article [fast]
 
 ### Features
 
@@ -735,6 +739,7 @@ All notable changes to this project will be documented in this file.
 - Add search intelligence orchestration
 - *(natureos/devices)* Live OpenClaw control + COM7-style command console
 - *(natureos/devices)* MQTT live fleet mirror
+- Add search intelligence orchestration
 
 ### Fix
 
