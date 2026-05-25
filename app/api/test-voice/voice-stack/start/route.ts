@@ -1,5 +1,6 @@
 /**
- * Start MYCA voice stack (Moshi + Bridge + CUDA warmup) via MAS START_VOICE_SYSTEM.py.
+ * Start MYCA voice stack (Moshi + Bridge) via MAS START_VOICE_SYSTEM.py.
+ * GPU profile (RTX 4080 vs high-VRAM) is detected inside the Python launcher — do not override NO_CUDA_GRAPH here.
  */
 import { NextResponse } from "next/server"
 import { spawn } from "node:child_process"
@@ -7,6 +8,7 @@ import fs from "node:fs"
 import path from "node:path"
 import * as net from "net"
 import { normalizeProbeHost, resolveLocalLoopbackHost } from "@/lib/config/resolve-voice-bridge"
+import { resolveVoiceCudaHints } from "@/lib/voice/gpu-voice-profile"
 
 const DEFAULT_MAS_ROOT =
   process.env.MYCOSOFT_MAS_PATH ||
@@ -79,8 +81,6 @@ export async function POST() {
 
   const env = {
     ...process.env,
-    NO_CUDA_GRAPH: process.env.NO_CUDA_GRAPH ?? "0",
-    NO_TORCH_COMPILE: process.env.NO_TORCH_COMPILE ?? "0",
     MOSHI_HOST: process.env.MOSHI_HOST ?? loopback,
     MOSHI_PORT: process.env.MOSHI_PORT ?? "8998",
   }
@@ -88,7 +88,14 @@ export async function POST() {
   try {
     const out = fs.openSync(logFile, "a")
     const err = fs.openSync(logFile, "a")
-    const child = spawn("python", [chosen], {
+    const venvPython = path.join(
+      process.env.USERPROFILE || process.env.HOME || "",
+      ".personaplex-venv",
+      "Scripts",
+      "python.exe"
+    )
+    const pythonExe = fs.existsSync(venvPython) ? venvPython : "python"
+    const child = spawn(pythonExe, [chosen], {
       cwd: masRoot,
       env,
       detached: true,
@@ -97,13 +104,15 @@ export async function POST() {
     })
     child.unref()
 
+    const startHints = resolveVoiceCudaHints(null, process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true")
+
     return NextResponse.json({
       ok: true,
       pid: child.pid,
       script: chosen,
       logFile,
-      message:
-        "Voice stack starting. Wait for VOICE SYSTEM READY in log (CUDA graphs 60–180s on first run).",
+      message: startHints.startStackMessage,
+      gpuProfile: { profile_id: startHints.profileId, cuda_mode_label: startHints.modeLabel },
     })
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 })

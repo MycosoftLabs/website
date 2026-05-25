@@ -95,6 +95,7 @@ export function TopNav() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
+  const [notifPollPaused, setNotifPollPaused] = useState(false)
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -104,6 +105,12 @@ export function TopNav() {
         const data = await res.json()
         const items = Array.isArray(data) ? data : (data.notifications || [])
         setNotifications(items)
+        setNotifError(null)
+        setNotifPollPaused(false)
+      } else if (res.status === 401 || res.status === 403) {
+        // Avoid hammering notifications endpoint for anonymous sessions.
+        setNotifPollPaused(true)
+        setNotifications([])
         setNotifError(null)
       } else {
         setNotifications([])
@@ -120,9 +127,10 @@ export function TopNav() {
   // Fetch notifications on mount and poll every 30s
   useEffect(() => {
     fetchNotifications()
+    if (notifPollPaused) return
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
-  }, [fetchNotifications])
+  }, [fetchNotifications, notifPollPaused])
 
   const unreadCount = notifications.filter(n => !n.read).length
 

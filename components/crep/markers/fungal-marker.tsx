@@ -157,6 +157,14 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
     return null;
   }
 
+  if (typeof window !== "undefined") {
+    const debug = ((window as any).__crep_render_debug ||= {
+      fungalRenderCalls: 0,
+      eventRenderCalls: 0,
+    });
+    debug.fungalRenderCalls += 1;
+  }
+
   const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Species";
   const scientificName = observation.taxon?.name || observation.species || "";
   const isResearchGrade = observation.quality_grade === "research";
@@ -176,10 +184,6 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
       <MarkerContent data-marker="fungal" data-observation-id={String(observation.id)}>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick?.();
-          }}
           className={cn(
             "crep-species-marker-dot",
             // May 21 2026 (Morgan: "nature markers blinking on every zoom").

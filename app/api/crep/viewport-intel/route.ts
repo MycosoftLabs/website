@@ -1,237 +1,181 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
-type Bounds = { north: number; south: number; east: number; west: number }
-
-type CivicOfficial = {
-  name: string
-  office: string
-  party?: string
-  phones?: string[]
-  emails?: string[]
-  urls?: string[]
-  address?: string
-}
-
-type ViewportFacility = {
-  id: string
-  name: string
-  type: string
-  lat: number
-  lng: number
-  agency?: string
-  phone?: string
-  email?: string
-  website?: string
-  source: string
-}
+const MINDEX_API = resolveMindexServerBaseUrl()
 
 function finiteNumber(value: string | null, fallback: number) {
   const n = Number(value)
   return Number.isFinite(n) ? n : fallback
 }
 
-function parseBounds(req: NextRequest): Bounds {
+export async function GET(req: NextRequest) {
+  const startedAt = Date.now()
   const q = req.nextUrl.searchParams
   const north = finiteNumber(q.get("north"), 0)
   const south = finiteNumber(q.get("south"), 0)
   const east = finiteNumber(q.get("east"), 0)
   const west = finiteNumber(q.get("west"), 0)
-  return {
-    north: Math.max(north, south),
-    south: Math.min(north, south),
-    east,
-    west,
-  }
-}
+  const zoom = finiteNumber(q.get("zoom"), 4)
 
-function bboxArea(bounds: Bounds) {
-  const latSpan = Math.max(0.001, Math.abs(bounds.north - bounds.south))
-  const lngSpan = Math.max(0.001, bounds.east >= bounds.west ? bounds.east - bounds.west : 360 - bounds.west + bounds.east)
-  return latSpan * lngSpan
-}
-
-function center(bounds: Bounds) {
-  const lat = (bounds.north + bounds.south) / 2
-  let lng = (bounds.east + bounds.west) / 2
-  if (bounds.west > bounds.east) lng = ((bounds.east + 360 + bounds.west) / 2) % 360
-  if (lng > 180) lng -= 360
-  return { lat, lng }
-}
-
-async function reversePlace(bounds: Bounds) {
-  const c = center(bounds)
-  const url = new URL("https://nominatim.openstreetmap.org/reverse")
-  url.searchParams.set("format", "jsonv2")
-  url.searchParams.set("addressdetails", "1")
-  url.searchParams.set("lat", String(c.lat))
-  url.searchParams.set("lon", String(c.lng))
-  url.searchParams.set("zoom", bboxArea(bounds) > 70 ? "4" : bboxArea(bounds) > 10 ? "6" : bboxArea(bounds) > 1 ? "10" : "14")
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mycosoft-Earth-Simulator/1.0 (ops@mycosoft.com)",
-      "Accept": "application/json",
-    },
-    signal: AbortSignal.timeout(8_000),
-    next: { revalidate: 900 },
+  const params = new URLSearchParams({
+    north: String(Math.max(north, south)),
+    south: String(Math.min(north, south)),
+    east: String(east),
+    west: String(west),
+    zoom: String(zoom),
   })
-  if (!res.ok) return null
-  const json = await res.json()
-  const a = json?.address || {}
-  return {
-    displayName: json?.display_name || "",
-    country: a.country,
-    countryCode: a.country_code?.toUpperCase?.(),
-    state: a.state || a.region,
-    county: a.county,
-    city: a.city || a.town || a.village || a.municipality || a.hamlet,
-    suburb: a.suburb || a.neighbourhood,
-    postcode: a.postcode,
-    lat: c.lat,
-    lng: c.lng,
-  }
-}
 
-async function civicOfficials(place: Awaited<ReturnType<typeof reversePlace>>): Promise<{ officials: CivicOfficial[]; status: string }> {
-  const key = process.env.GOOGLE_CIVIC_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_CIVIC_API_KEY
-  if (!key || !place) return { officials: [], status: "missing_google_civic_api_key" }
-  const address = [place.city, place.county, place.state, place.country].filter(Boolean).join(", ")
-  if (!address) return { officials: [], status: "no_address" }
-  const url = new URL("https://www.googleapis.com/civicinfo/v2/representatives")
-  url.searchParams.set("key", key)
-  url.searchParams.set("address", address)
-  url.searchParams.set("includeOffices", "true")
-  const res = await fetch(url, { signal: AbortSignal.timeout(8_000), next: { revalidate: 3600 } })
-  if (!res.ok) return { officials: [], status: `google_civic_${res.status}` }
-  const json = await res.json()
-  const officials = Array.isArray(json?.officials) ? json.officials : []
-  const offices = Array.isArray(json?.offices) ? json.offices : []
-  const out: CivicOfficial[] = []
-  for (const office of offices) {
-    const indices = Array.isArray(office.officialIndices) ? office.officialIndices : []
-    for (const index of indices) {
-      const official = officials[index]
-      if (!official?.name) continue
-      const lines = Array.isArray(official.address?.[0]?.line1)
-        ? official.address[0].line1
-        : [official.address?.[0]?.line1, official.address?.[0]?.city, official.address?.[0]?.state, official.address?.[0]?.zip].filter(Boolean)
-      out.push({
-        name: official.name,
-        office: office.name || "Official",
-        party: official.party,
-        phones: official.phones,
-        emails: official.emails,
-        urls: official.urls,
-        address: lines.join(", "),
-      })
-    }
-  }
-  return { officials: out.slice(0, 20), status: "live" }
-}
-
-function tagsToFacility(element: any): ViewportFacility | null {
-  const tags = element?.tags || {}
-  const lat = Number(element.lat ?? element.center?.lat)
-  const lng = Number(element.lon ?? element.center?.lon)
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-  const type =
-    tags.military ||
-    tags.government ||
-    tags.office ||
-    tags.amenity ||
-    tags.power ||
-    tags.man_made ||
-    tags.building ||
-    "facility"
-  return {
-    id: `osm-${element.type}-${element.id}`,
-    name: tags.name || tags.official_name || tags.operator || tags.brand || String(type).replace(/_/g, " "),
-    type: String(type).replace(/_/g, " "),
-    lat,
-    lng,
-    agency: tags.operator || tags.agency || tags.owner,
-    phone: tags.phone || tags["contact:phone"],
-    email: tags.email || tags["contact:email"],
-    website: tags.website || tags["contact:website"] || tags.url,
-    source: "OpenStreetMap",
-  }
-}
-
-async function viewportFacilities(bounds: Bounds, zoom: number): Promise<{ facilities: ViewportFacility[]; status: string }> {
-  if (bboxArea(bounds) > 18 && zoom < 7) return { facilities: [], status: "bbox_too_large" }
-  const query = `
-    [out:json][timeout:15];
-    (
-      node["office"="government"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["office"="government"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      node["amenity"~"townhall|courthouse|police|fire_station|hospital"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["amenity"~"townhall|courthouse|police|fire_station|hospital"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      node["military"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["military"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      node["power"~"plant|substation"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["power"~"plant|substation"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      node["telecom"="data_center"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["telecom"="data_center"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-    );
-    out center tags 100;
-  `
-  const endpoints = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-  ]
-  for (const endpoint of endpoints) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Mycosoft-Earth-Simulator/1.0 (ops@mycosoft.com)",
-        },
-        body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(18_000),
-        next: { revalidate: 900 },
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      const facilities = (Array.isArray(json?.elements) ? json.elements : [])
-        .map(tagsToFacility)
-        .filter(Boolean)
-        .slice(0, 100) as ViewportFacility[]
-      return { facilities, status: "live" }
-    } catch {
-      continue
-    }
-  }
-  return { facilities: [], status: "overpass_unavailable" }
-}
-
-export async function GET(req: NextRequest) {
-  const bounds = parseBounds(req)
-  const zoom = finiteNumber(req.nextUrl.searchParams.get("zoom"), 4)
   try {
-    const place = await reversePlace(bounds)
-    const [civic, facilities] = await Promise.all([
-      civicOfficials(place),
-      viewportFacilities(bounds, zoom),
-    ])
-    return NextResponse.json({
-      ok: true,
-      generatedAt: new Date().toISOString(),
-      lod: zoom < 5 ? "country" : zoom < 8 ? "state" : zoom < 11 ? "county" : zoom < 14 ? "city" : "facility",
-      bounds,
-      center: center(bounds),
-      place,
-      civic,
-      facilities,
+    const internalTokenRaw =
+      process.env.MINDEX_INTERNAL_TOKEN ||
+      process.env.MINDEX_INTERNAL_TOKENS ||
+      ""
+    const internalToken = internalTokenRaw.includes(",")
+      ? internalTokenRaw.split(",")[0]?.trim()
+      : internalTokenRaw.trim()
+    const upstream = await fetch(`${MINDEX_API}/api/mindex/civic/viewport-intel?${params.toString()}`, {
+      headers: {
+        Accept: "application/json",
+        ...(internalToken ? { "X-Internal-Token": internalToken } : {}),
+        "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+      },
+      signal: AbortSignal.timeout(8_000),
+      cache: "no-store",
     })
+
+    if (!upstream.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "mindex_civic_unavailable",
+          status: upstream.status,
+          generatedAt: new Date().toISOString(),
+          civic: { officials: [], offices: [], elections: [], status: "mindex_error" },
+          facilities: { facilities: [], status: "mindex_error" },
+        },
+        { status: 200 },
+      )
+    }
+
+    const body = await upstream.json()
+    const totalMs = Date.now() - startedAt
+    const officials = Array.isArray(body?.representatives) ? body.representatives : []
+    const offices = Array.isArray(body?.offices) ? body.offices : []
+    const elections = Array.isArray(body?.elections) ? body.elections : []
+    const facilities = Array.isArray(body?.facilities) ? body.facilities : []
+    const providerLineage = Array.isArray(body?.meta?.source_lineage) ? body.meta.source_lineage : []
+
+    const response = NextResponse.json({
+      ok: true,
+      generatedAt: body?.generated_at || new Date().toISOString(),
+      lod: body?.lod || "viewport",
+      bounds: body?.bounds,
+      center: body?.center,
+      place: body?.place
+        ? {
+            displayName: body.place.display_name || body.place.displayName || "",
+            country: body.place.country,
+            countryCode: body.place.country_code || body.place.countryCode,
+            state: body.place.state,
+            county: body.place.county,
+            city: body.place.city,
+            suburb: body.place.suburb,
+            postcode: body.place.postcode,
+            lat: body.place.lat,
+            lng: body.place.lng,
+          }
+        : null,
+      civic: {
+        officials: officials.map((official: Record<string, unknown>) => ({
+          id: official.id,
+          name: official.name,
+          office: official.office,
+          party: official.party,
+          phones: official.phones || [],
+          emails: official.emails || [],
+          urls: official.urls || [],
+          address: official.address,
+          image_url: official.image_url ?? null,
+          jurisdiction_name: official.jurisdiction_name,
+        })),
+        offices,
+        elections,
+        status: "mindex_unified_live",
+      },
+      facilities: {
+        facilities,
+        status: "mindex_unified_live",
+      },
+      // Production contract for right-panel viewport intelligence.
+      jurisdiction_stack: Array.isArray(body?.jurisdiction_stack)
+        ? body.jurisdiction_stack
+        : [],
+      officials: Array.isArray(body?.officials)
+        ? body.officials
+        : officials.map((official: any) => ({
+            id: official.id,
+            name: official.name,
+            office: official.office,
+            geo: null,
+            image_url: official.image_url ?? null,
+            contacts: {
+              phones: official.phones || [],
+              emails: official.emails || [],
+              urls: official.urls || [],
+              address: official.address || null,
+            },
+            source: official.provider_records?.[0] || "provider",
+            last_updated: body?.meta?.freshness_utc || new Date().toISOString(),
+            confidence_score: body?.meta?.dedupe_confidence ?? 0.8,
+          })),
+      elections,
+      legislation: Array.isArray(body?.legislation) ? body.legislation : [],
+      finance_lobbying: Array.isArray(body?.finance_lobbying) ? body.finance_lobbying : [],
+      budgets_debt_defense: Array.isArray(body?.budgets_debt_defense) ? body.budgets_debt_defense : [],
+      media_gallery: Array.isArray(body?.media_gallery) ? body.media_gallery : [],
+      provenance: providerLineage,
+      freshness: {
+        generated_at: body?.generated_at || new Date().toISOString(),
+        source_freshness_utc: body?.meta?.freshness_utc || new Date().toISOString(),
+      },
+      meta: {
+        sourceLineage: providerLineage,
+        dedupeConfidence: body?.meta?.dedupe_confidence ?? 0.8,
+        freshnessUtc: body?.meta?.freshness_utc || new Date().toISOString(),
+        timings: {
+          totalMs,
+          budgetMs: 1200,
+          withinBudget: totalMs <= 1200,
+        },
+      },
+    })
+    response.headers.set("Server-Timing", `total;dur=${totalMs}`)
+    return response
   } catch (error) {
-    return NextResponse.json({
-      ok: false,
-      error: (error as Error)?.message || "viewport_intel_failed",
-      generatedAt: new Date().toISOString(),
-      bounds,
-      center: center(bounds),
-    }, { status: 200 })
+    const totalMs = Date.now() - startedAt
+    const response = NextResponse.json(
+      {
+        ok: false,
+        error: (error as Error)?.message || "viewport_intel_failed",
+        generatedAt: new Date().toISOString(),
+        civic: { officials: [], offices: [], elections: [], status: "mindex_fetch_failed" },
+        facilities: { facilities: [], status: "mindex_fetch_failed" },
+        meta: {
+          sourceLineage: [],
+          dedupeConfidence: 0,
+          freshnessUtc: new Date().toISOString(),
+          timings: {
+            totalMs,
+            budgetMs: 1200,
+            withinBudget: false,
+          },
+        },
+      },
+      { status: 200 },
+    )
+    response.headers.set("Server-Timing", `total;dur=${totalMs}`)
+    return response
   }
 }

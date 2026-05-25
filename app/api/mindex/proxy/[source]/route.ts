@@ -40,6 +40,17 @@ const FALLBACK_TIMEOUT_MS =
     : process.env.NODE_ENV === "development"
       ? 6000
       : 12000
+const PROXY_CACHE_TTL_MS = Number(process.env.CREP_PROXY_CACHE_TTL_MS || 3000)
+const PROXY_CACHE_STALE_MS = Number(process.env.CREP_PROXY_CACHE_STALE_MS || 30000)
+
+type ProxyCacheEntry = {
+  body: any
+  sourceLabel: "live" | "fallback" | "unavailable"
+  expiresAt: number
+  staleUntil: number
+}
+
+const proxyResponseCache = new Map<string, ProxyCacheEntry>()
 
 function mindexHeaders(): HeadersInit {
   const h: Record<string, string> = { Accept: "application/json" }
@@ -113,6 +124,167 @@ function entityCount(data: any): number {
   if (Array.isArray(data?.features)) return data.features.length
   if (typeof data?.total === "number") return data.total
   return 0
+}
+
+function toIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null
+  const ts = new Date(value)
+  return Number.isFinite(ts.getTime()) ? ts.toISOString() : null
+}
+
+function latestEntityTimestamp(entities: any[]): string {
+  let latest = 0
+  for (const entity of entities) {
+    const occurredAt = typeof entity?.occurred_at === "string" ? Date.parse(entity.occurred_at) : NaN
+    if (Number.isFinite(occurredAt) && occurredAt > latest) latest = occurredAt
+  }
+  return latest > 0 ? new Date(latest).toISOString() : new Date().toISOString()
+}
+
+function isStaleTimestamp(iso: string, maxAgeMs: number): boolean {
+  const ts = Date.parse(iso)
+  if (!Number.isFinite(ts)) return true
+  return Date.now() - ts > maxAgeMs
+}
+
+function normalizeMoverEntity(entity: any, source: string) {
+  const props = typeof entity?.properties === "object" && entity?.properties ? entity.properties : {}
+  const loc = entity?.location as
+    | { latitude?: number; longitude?: number; coordinates?: [number, number] }
+    | undefined
+  let lat = Number(entity?.lat ?? entity?.latitude ?? loc?.latitude ?? loc?.coordinates?.[1])
+  let lng = Number(entity?.lng ?? entity?.longitude ?? loc?.longitude ?? loc?.coordinates?.[0])
+  if ((!Number.isFinite(lat) || !Number.isFinite(lng)) && Array.isArray(entity?.geometry?.coordinates)) {
+    lng = Number(entity.geometry.coordinates[0])
+    lat = Number(entity.geometry.coordinates[1])
+  }
+  const heading = Number(entity?.heading ?? props?.heading ?? props?.track ?? props?.cog ?? 0)
+  const velocity = Number(
+    entity?.velocity ??
+      entity?.speed ??
+      props?.velocity ??
+      props?.speed ??
+      props?.speed_kts ??
+      props?.speed_knots ??
+      props?.groundSpeed ??
+      props?.sog ??
+      0,
+  )
+  const sog = Number(entity?.sog ?? props?.sog ?? velocity)
+  const cog = Number(entity?.cog ?? props?.cog ?? heading)
+  const safeLat = Number.isFinite(lat) ? lat : 0
+  const safeLng = Number.isFinite(lng) ? lng : 0
+  return {
+    id: String(entity?.id ?? ""),
+    name: String(entity?.name ?? entity?.id ?? "Unknown"),
+    description: String(entity?.name ?? entity?.entity_type ?? "moving object"),
+    source: String(entity?.source ?? source),
+    occurredAt: toIsoTimestamp(entity?.occurred_at),
+    lat: safeLat,
+    lng: safeLng,
+    latitude: safeLat,
+    longitude: safeLng,
+    heading: Number.isFinite(heading) ? heading : 0,
+    velocity: Number.isFinite(velocity) ? velocity : 0,
+    speed: Number.isFinite(velocity) ? velocity : 0,
+    sog: Number.isFinite(sog) ? sog : 0,
+    cog: Number.isFinite(cog) ? cog : 0,
+    location: {
+      latitude: safeLat,
+      longitude: safeLng,
+      altitude: Number(props?.altitude_ft ?? props?.altitude ?? 0),
+    },
+    properties: {
+      ...props,
+      heading: Number.isFinite(heading) ? heading : 0,
+      velocity: Number.isFinite(velocity) ? velocity : 0,
+      speed: Number.isFinite(velocity) ? velocity : 0,
+      speed_kts: Number.isFinite(velocity) ? velocity : 0,
+      sog: Number.isFinite(sog) ? sog : 0,
+      cog: Number.isFinite(cog) ? cog : 0,
+      source: String(entity?.source ?? source),
+      entityType: String(entity?.entity_type ?? ""),
+      domain: String(entity?.domain ?? ""),
+    },
+  }
+}
+
+function formatMoverPayload(source: string, layer: string, data: any, sourceLabel: "live" | "fallback" | "unavailable") {
+  const entitiesFromLayer = Array.isArray(data?.entities) ? data.entities : []
+  const entitiesFromLegacy =
+    source === "aircraft"
+      ? Array.isArray(data?.aircraft) ? data.aircraft : []
+      : source === "vessels"
+        ? Array.isArray(data?.vessels) ? data.vessels : []
+        : source === "satellites"
+          ? Array.isArray(data?.satellites) ? data.satellites : []
+          : []
+  const entities = entitiesFromLayer.length > 0 ? entitiesFromLayer : entitiesFromLegacy
+  const timestamp = latestEntityTimestamp(entities)
+  const freshness = {
+    timestamp,
+    stale: isStaleTimestamp(timestamp, 3 * 60 * 1000),
+    maxAgeMs: 3 * 60 * 1000,
+  }
+  const lineage = {
+    primary: "mindex",
+    activeSource: sourceLabel,
+    fallback: sourceLabel === "fallback",
+  }
+  const base = {
+    source,
+    layer,
+    timestamp,
+    total: entities.length,
+    entities,
+    freshness,
+    lineage,
+  }
+
+  if (source === "aircraft") {
+    return { ...base, aircraft: entities.map((entity: any) => normalizeMoverEntity(entity, source)) }
+  }
+  if (source === "vessels") {
+    return { ...base, vessels: entities.map((entity: any) => normalizeMoverEntity(entity, source)), isLive: sourceLabel !== "unavailable" }
+  }
+  if (source === "satellites") {
+    return { ...base, category: "all", satellites: entities.map((entity: any) => normalizeMoverEntity(entity, source)) }
+  }
+  return base
+}
+
+function parseAndClampBounds(
+  latMinRaw: string,
+  latMaxRaw: string,
+  lngMinRaw: string,
+  lngMaxRaw: string,
+) {
+  const latMin = Number(latMinRaw)
+  const latMax = Number(latMaxRaw)
+  const lngMin = Number(lngMinRaw)
+  const lngMax = Number(lngMaxRaw)
+  if (![latMin, latMax, lngMin, lngMax].every(Number.isFinite)) return null
+  const clamped = {
+    lat_min: Math.max(-90, Math.min(90, latMin)),
+    lat_max: Math.max(-90, Math.min(90, latMax)),
+    lng_min: Math.max(-180, Math.min(180, lngMin)),
+    lng_max: Math.max(-180, Math.min(180, lngMax)),
+  }
+  if (clamped.lat_min > clamped.lat_max || clamped.lng_min > clamped.lng_max) return null
+  return clamped
+}
+
+function cacheKeyFor(source: string, limit: string, bounds: { lat_min: number; lat_max: number; lng_min: number; lng_max: number }) {
+  return `${source}|${limit}|${bounds.lat_min.toFixed(4)}|${bounds.lat_max.toFixed(4)}|${bounds.lng_min.toFixed(4)}|${bounds.lng_max.toFixed(4)}`
+}
+
+function cacheHeaders(sourceLabel: "live" | "fallback" | "unavailable", layer: string, status: "hit" | "stale" | "miss") {
+  return {
+    "X-MINDEX-Source": sourceLabel,
+    "X-MINDEX-Layer": layer,
+    "X-Proxy-Cache": status,
+    "Cache-Control": "public, max-age=2, stale-while-revalidate=30",
+  }
 }
 
 function normalizeSpeciesFallback(data: any, bounds: { lat_min: string; lat_max: string; lng_min: string; lng_max: string }) {
@@ -222,6 +394,45 @@ export async function GET(
   const { source } = await params
   const { searchParams } = new URL(request.url)
 
+  // Special-case local MycoBrain devices so /api/mindex/proxy/devices never 400s.
+  if (source === "devices") {
+    try {
+      const baseUrl = new URL(request.url).origin
+      const res = await fetch(new URL("/api/mycobrain", baseUrl).toString(), {
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      })
+      const body = res.ok ? await res.json() : { devices: [] }
+      return NextResponse.json(
+        {
+          source,
+          layer: "devices",
+          timestamp: new Date().toISOString(),
+          total: Array.isArray(body?.devices) ? body.devices.length : 0,
+          entities: Array.isArray(body?.devices) ? body.devices : [],
+          devices: Array.isArray(body?.devices) ? body.devices : [],
+          freshness: { timestamp: new Date().toISOString(), stale: false, maxAgeMs: 120000 },
+          lineage: { primary: "local-device-service", activeSource: "live", fallback: false },
+        },
+        { headers: cacheHeaders("live", "devices", "miss") },
+      )
+    } catch {
+      return NextResponse.json(
+        {
+          source,
+          layer: "devices",
+          timestamp: new Date().toISOString(),
+          total: 0,
+          entities: [],
+          devices: [],
+          freshness: { timestamp: new Date().toISOString(), stale: true, maxAgeMs: 120000 },
+          lineage: { primary: "local-device-service", activeSource: "unavailable", fallback: true },
+        },
+        { headers: cacheHeaders("unavailable", "devices", "miss") },
+      )
+    }
+  }
+
   const mindexLayer = SOURCE_TO_MINDEX_LAYER[source]
   if (!mindexLayer) {
     return NextResponse.json(
@@ -235,7 +446,21 @@ export async function GET(
   const lat_max = searchParams.get("lat_max") || searchParams.get("north") || "90"
   const lng_min = searchParams.get("lng_min") || searchParams.get("west") || "-180"
   const lng_max = searchParams.get("lng_max") || searchParams.get("east") || "180"
-  const limit = searchParams.get("limit") || "500"
+  const limitNum = Math.max(1, Math.min(50000, Number(searchParams.get("limit") || "500") || 500))
+  const limit = String(limitNum)
+  const bounds = parseAndClampBounds(lat_min, lat_max, lng_min, lng_max)
+  if (!bounds) {
+    return NextResponse.json(
+      { error: "Invalid bounding box or limit parameters", source, layer: mindexLayer },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    )
+  }
+  const proxyKey = cacheKeyFor(source, limit, bounds)
+  const cached = proxyResponseCache.get(proxyKey)
+  const now = Date.now()
+  if (cached && cached.expiresAt > now) {
+    return NextResponse.json(cached.body, { headers: cacheHeaders(cached.sourceLabel, mindexLayer, "hit") })
+  }
   const liveFallbackEnabled =
     searchParams.get("liveFallback") === "true" ||
     searchParams.get("fallbackLive") === "true" ||
@@ -243,7 +468,7 @@ export async function GET(
 
   try {
     // Primary: Query MINDEX earth/map/bbox endpoint (PostGIS spatial query + Redis cache)
-    const mindexUrl = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=${mindexLayer}&lat_min=${lat_min}&lat_max=${lat_max}&lng_min=${lng_min}&lng_max=${lng_max}&limit=${limit}`
+    const mindexUrl = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=${mindexLayer}&lat_min=${bounds.lat_min}&lat_max=${bounds.lat_max}&lng_min=${bounds.lng_min}&lng_max=${bounds.lng_max}&limit=${limit}`
 
     const res = await fetch(mindexUrl, {
       cache: "no-store",
@@ -253,16 +478,24 @@ export async function GET(
 
     if (res.ok) {
       const data = await res.json()
-      if (mindexLayer === "species" && entityCount(data) === 0) {
-        console.warn(`[MINDEX/Proxy] MINDEX species layer returned 0 entities for bbox; using live fallback`)
+      const emptyLiveLayer =
+        entityCount(data) === 0 &&
+        (mindexLayer === "species" || ["aircraft", "vessels", "satellites"].includes(source))
+      if (emptyLiveLayer) {
+        console.warn(
+          `[MINDEX/Proxy] MINDEX ${mindexLayer} returned 0 entities for bbox; using live OEI fallback`,
+        )
       } else {
-      return NextResponse.json(data, {
-        headers: {
-          "X-MINDEX-Source": "live",
-          "X-MINDEX-Layer": mindexLayer,
-          "Cache-Control": "public, max-age=10",
-        },
-      })
+        const payload = ["aircraft", "vessels", "satellites"].includes(source)
+          ? formatMoverPayload(source, mindexLayer, data, "live")
+          : data
+        proxyResponseCache.set(proxyKey, {
+          body: payload,
+          sourceLabel: "live",
+          expiresAt: now + PROXY_CACHE_TTL_MS,
+          staleUntil: now + PROXY_CACHE_STALE_MS,
+        })
+        return NextResponse.json(payload, { headers: cacheHeaders("live", mindexLayer, "miss") })
       }
     }
 
@@ -301,11 +534,7 @@ export async function GET(
         if (body.total > 0) {
           return NextResponse.json(body, {
             status: 200,
-            headers: {
-              "X-MINDEX-Source": "fallback",
-              "X-MINDEX-Layer": mindexLayer,
-              "X-MINDEX-Warning": "mindex-empty-using-live-inaturalist",
-            },
+          headers: cacheHeaders("fallback", mindexLayer, "miss"),
           })
         }
       }
@@ -324,6 +553,14 @@ export async function GET(
       fallbackUrl.searchParams.set("east", lng_max)
       fallbackUrl.searchParams.set("limit", limit)
       if (mindexLayer === "species") fallbackUrl.searchParams.set("nocache", "true")
+      if (source === "vessels") {
+        fallbackUrl.searchParams.set("publish", "true")
+        fallbackUrl.searchParams.set("refresh", "true")
+      }
+      if (source === "satellites") {
+        fallbackUrl.searchParams.set("category", "active")
+        fallbackUrl.searchParams.set("mode", "registry")
+      }
 
       const fallbackRes = await fetch(fallbackUrl.toString(), {
         cache: "no-store",
@@ -334,19 +571,33 @@ export async function GET(
         const data = await fallbackRes.json()
         const body = mindexLayer === "species"
           ? normalizeSpeciesFallback(data, { lat_min, lat_max, lng_min, lng_max })
-          : data
+          : ["aircraft", "vessels", "satellites"].includes(source)
+            ? formatMoverPayload(source, mindexLayer, data, "fallback")
+            : data
+        proxyResponseCache.set(proxyKey, {
+          body,
+          sourceLabel: "fallback",
+          expiresAt: now + PROXY_CACHE_TTL_MS,
+          staleUntil: now + PROXY_CACHE_STALE_MS,
+        })
         return NextResponse.json(body, {
           status: 200,
           headers: {
             "X-MINDEX-Source": "fallback",
             "X-MINDEX-Layer": mindexLayer,
             "X-MINDEX-Warning": "mindex-unavailable-using-direct-api",
+            "X-Proxy-Cache": "miss",
+            "Cache-Control": "public, max-age=2, stale-while-revalidate=30",
           },
         })
       }
     } catch {
       // Both MINDEX and fallback failed
     }
+  }
+
+  if (cached && cached.staleUntil > now) {
+    return NextResponse.json(cached.body, { headers: cacheHeaders(cached.sourceLabel, mindexLayer, "stale") })
   }
 
   return NextResponse.json(

@@ -56,6 +56,8 @@ interface VesselTrackerData {
   total: number
   vessels: Vessel[]
   isLive: boolean
+  freshness?: { timestamp: string; stale: boolean; maxAgeMs: number }
+  lineage?: { primary: string; activeSource: string; fallback: boolean }
 }
 
 type VesselType = "all" | "cargo" | "tanker" | "passenger" | "fishing"
@@ -173,9 +175,9 @@ export function VesselTrackerWidget({
   const fetchData = useCallback(async (abort?: AbortSignal) => {
     try {
       setLoading(true)
-      let url = `/api/oei/aisstream?limit=${limit}`
+      let url = `/api/mindex/proxy/vessels?limit=${limit}`
       if (bounds) {
-        url += `&lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`
+        url += `&lat_min=${bounds.south}&lat_max=${bounds.north}&lng_min=${bounds.west}&lng_max=${bounds.east}`
       }
       const response = await fetch(url, { signal: abort })
       if (!response.ok) {
@@ -298,11 +300,13 @@ export function VesselTrackerWidget({
           </Button>
           <Badge variant="outline" className={cn(
             "text-[8px]",
-            data?.isLive 
+            data?.lineage?.fallback
+              ? "border-amber-500/50 text-amber-400"
+              : data?.isLive 
               ? "border-green-500/50 text-green-400" 
               : "border-amber-500/50 text-amber-400"
           )}>
-            {data?.isLive ? "LIVE AIS" : "SAMPLE"}
+              {data?.lineage?.fallback ? "FALLBACK" : (data?.isLive ? "MINDEX LIVE" : "MINDEX")}
           </Badge>
         </div>
       </div>
@@ -379,7 +383,7 @@ export function VesselTrackerWidget({
       <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between text-[7px] text-gray-600">
         <div className="flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" />
-          Updated: {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--"}
+          Updated: {data?.freshness?.timestamp ? new Date(data.freshness.timestamp).toLocaleTimeString() : (data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--")}
         </div>
         <div className="flex items-center gap-1">
           <Eye className="w-2.5 h-2.5" />

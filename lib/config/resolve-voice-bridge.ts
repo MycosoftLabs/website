@@ -1,8 +1,12 @@
 /**
- * PersonaPlex Bridge + Moshi (Voice Legion) — shared HTTP URL resolution
- * (May 02, 2026) Canonical Voice stack: 192.168.0.241; local dev: 127.0.0.1.
+ * PersonaPlex Bridge + Moshi — shared HTTP URL resolution
+ * (May 24, 2026) Dev PC 241 uses remote GPU host 249; no localhost GPU on dev machine.
  */
 import { GPU_LEGION_DEFAULTS } from "./api-urls"
+
+function resolveRemoteGpuVoiceHost(): string {
+  return process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE
+}
 
 /** Prefer IPv4 loopback on Windows — Moshi/Bridge bind 127.0.0.1; ::1 probes false-fail. */
 export function resolveLocalLoopbackHost(): string {
@@ -39,10 +43,7 @@ export function resolvePersonaplexBridgeBaseUrl(): string {
   if (fromEnv) {
     return fromEnv.replace(/\/$/, "")
   }
-  if (process.env.NODE_ENV !== "production") {
-    return `http://${resolveLocalLoopbackHost()}:8999`
-  }
-  return `http://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
+  return `http://${resolveRemoteGpuVoiceHost()}:8999`
 }
 
 /** For TCP probe to Moshi (8998): same host as bridge on LAN, unless MOSHI_HOST override. */
@@ -71,10 +72,7 @@ export function resolvePersonaplexBridgeWsBaseDefault(): string {
   if (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL) {
     return process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws").replace(/\/$/, "")
   }
-  if (process.env.NODE_ENV !== "production") {
-    return `ws://${resolveLocalLoopbackHost()}:8999`
-  }
-  return `ws://${process.env.NEXT_PUBLIC_GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
+  return `ws://${process.env.NEXT_PUBLIC_GPU_VOICE_IP || resolveRemoteGpuVoiceHost()}:8999`
 }
 
 /**
@@ -84,13 +82,12 @@ export function resolvePersonaplexBridgeWsBaseDefault(): string {
 export function resolveVoiceOllamaTagsUrl(): string {
   const host = isUseLocalVoiceForBridge()
     ? normalizeProbeHost(process.env.OLLAMA_HOST || resolveLocalLoopbackHost())
-    : process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE
+    : resolveRemoteGpuVoiceHost()
   return `http://${host}:11434/api/tags`
 }
 
 /**
- * Earth-2 API health URL. Default doc IP 249 may be offline; on the combined Legion
- * desktop, Earth-2 runs in WSL on localhost:8220 when USE_LOCAL_GPU is set.
+ * Earth-2 API health URL. Default host 249; services stay off until MYCOSOFT_EARTH2_ENABLED on GPU host.
  */
 export function resolveEarth2HealthUrl(): string {
   if (process.env.EARTH2_API_URL?.trim()) {

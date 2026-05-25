@@ -168,9 +168,9 @@ export async function GET(req: Request) {
     deep,
     config: critical.config,
     cuda: {
-      required: "NO_CUDA_GRAPH=0 for PersonaPlex (~30ms/step inference, not health probes)",
+      required: "Profile-aware: RTX 4080 uses NO_CUDA_GRAPH=1 (~150-200ms/step); 24GB+ uses NO_CUDA_GRAPH=0 (~30ms/step)",
       warmupScript: "python START_VOICE_SYSTEM.py",
-      note: "Health probes target <100ms LAN; CUDA compile is separate one-time warmup",
+      note: "Health probes target <100ms LAN; Moshi model load / CUDA compile is separate one-time warmup",
     },
     voice: {
       recommended: "moshika",

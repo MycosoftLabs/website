@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { resolveVoiceCudaHints, type GpuVoiceProfilePayload } from "@/lib/voice/gpu-voice-profile"
 
 const SLO_MS = 100
 
@@ -68,11 +69,19 @@ export function VoiceSystemAuditPanel({
   const [startMessage, setStartMessage] = useState<string | null>(null)
   const [autoStartDone, setAutoStartDone] = useState(false)
   const [lastError, setLastError] = useState<string | null>(null)
+  const [cudaHints, setCudaHints] = useState(() => resolveVoiceCudaHints(null, true))
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setLastError(null)
     try {
+      const statusPromise = fetch("/api/test-voice/voice-stack/status", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      })
+        .then(async (res) => (res.ok ? res.json() : null))
+        .catch(() => null)
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const pingRes = await fetch("/api/test-voice/ping?optional=1", {
@@ -89,6 +98,15 @@ export function VoiceSystemAuditPanel({
           }
           setPing((await pingRes.json()) as PingPayload)
           setLastError(null)
+          const statusPayload = await statusPromise
+          if (statusPayload?.gpuProfile || statusPayload?.cuda) {
+            setCudaHints(
+              resolveVoiceCudaHints(
+                (statusPayload.gpuProfile as GpuVoiceProfilePayload | null) ?? null,
+                Boolean(statusPayload.localGpu)
+              )
+            )
+          }
           return
         } catch (e) {
           const msg = String(e)
@@ -252,8 +270,11 @@ export function VoiceSystemAuditPanel({
             <div className="flex items-center gap-1 text-zinc-400 mb-1">
               <Cpu className="w-3 h-3" /> CUDA
             </div>
-            <p className="text-zinc-300">NO_CUDA_GRAPH=0</p>
-            <p className="text-zinc-500 mt-0.5">First connect: 60–180s compile</p>
+            <p className="text-zinc-300">NO_CUDA_GRAPH={cudaHints.noCudaGraphEnv}</p>
+            <p className="text-zinc-500 mt-0.5">{cudaHints.firstConnectHint}</p>
+            <p className="text-zinc-600 mt-0.5 truncate" title={cudaHints.modeLabel}>
+              {cudaHints.gpuName}
+            </p>
           </div>
         </div>
 

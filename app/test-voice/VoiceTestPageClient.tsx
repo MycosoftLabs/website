@@ -18,8 +18,8 @@
  * - Consciousness polling every 15 seconds
  * 
  * FIXES in v7.1.0 / v9:
- * - Bridge handshake timeout 240s for CUDA graphs (60-180s on first run)
- * - Added CUDA warmup progress indicator
+ * - Bridge handshake timeout 240s (RTX 4080: 30-90s model load; high-VRAM: 60-180s CUDA graph compile)
+ * - GPU-profile warmup progress indicator
  * - Better error messages for timeout conditions
  * 
  * Architecture:
@@ -77,6 +77,7 @@ import {
 import { cn } from "@/lib/utils"
 import { GPU_LEGION_DEFAULTS } from "@/lib/config/api-urls"
 import { resolvePersonaplexBridgeWsBaseDefault } from "@/lib/config/resolve-voice-bridge"
+import { resolveVoiceCudaHints, type VoiceCudaHints } from "@/lib/voice/gpu-voice-profile"
 import { VoiceSystemAuditPanel } from "@/components/voice/VoiceSystemAuditPanel"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -275,13 +276,16 @@ export default function VoiceTestPageClient() {
     chunksIn: 0,
     chunksOut: 0,
   })
+  const [localSttStatus, setLocalSttStatus] = useState<string>("idle")
   
   const [inputWaveform, setInputWaveform] = useState<number[]>(new Array(64).fill(0))
   const [outputWaveform, setOutputWaveform] = useState<number[]>(new Array(64).fill(0))
   
   const wsRef = useRef<WebSocket | null>(null)
   const wsConnectedRef = useRef<boolean>(false)
+  const localSttModeRef = useRef<boolean>(false)
   const warmupIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const cudaHintsRef = useRef<VoiceCudaHints>(resolveVoiceCudaHints(null, true))
   /** Abort for optional POST /api/myca/brain/stream (SSE) probe — not GET EventSource. */
   const brainStreamAbortRef = useRef<AbortController | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -739,41 +743,63 @@ export default function VoiceTestPageClient() {
     }
     
     setJarvisMessage("Connecting to PersonaPlex + MAS Event Engine...")
+
+    const attachMicrophone = async () => {
+      try {
+        addLog("info", "Requesting microphone access...")
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+        })
+        mediaStreamRef.current = stream
+        setMicPermission("granted")
+
+        const monitorCtx = new AudioContext()
+        const source = monitorCtx.createMediaStreamSource(stream)
+        const analyser = monitorCtx.createAnalyser()
+        analyser.fftSize = 128
+        source.connect(analyser)
+        analyserRef.current = analyser
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
+        micLevelIntervalRef.current = setInterval(() => {
+          if (analyserRef.current) {
+            analyserRef.current.getByteFrequencyData(dataArray)
+            const sum = dataArray.reduce((a, b) => a + b, 0)
+            const avg = sum / dataArray.length
+            setMicLevel(Math.min(100, Math.round(avg * 1.5)))
+            setInputWaveform(Array.from(dataArray.slice(0, 64)))
+          }
+        }, 50)
+
+        addLog("success", "Microphone granted — full-duplex capture active")
+        if (wsRef.current?.readyState === WebSocket.OPEN && wsConnectedRef.current) {
+          await startAudioCapture(wsRef.current)
+        }
+      } catch (micError) {
+        setMicPermission("denied")
+        const micMsg = micError instanceof Error ? micError.message : String(micError)
+        addLog(
+          "warn",
+          `Microphone blocked (${micMsg}). You can still hear MYCA — allow mic in browser settings and click Start again for duplex.`
+        )
+      }
+    }
     
     try {
-      // Get microphone
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        } 
-      })
-      mediaStreamRef.current = stream
-      setMicPermission("granted")
-      
-      // Set up input audio analysis
-      const monitorCtx = new AudioContext()
-      const source = monitorCtx.createMediaStreamSource(stream)
-      const analyser = monitorCtx.createAnalyser()
-      analyser.fftSize = 128
-      source.connect(analyser)
-      analyserRef.current = analyser
-      
-      // Monitor input levels
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-      micLevelIntervalRef.current = setInterval(() => {
-        if (analyserRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArray)
-          const sum = dataArray.reduce((a, b) => a + b, 0)
-          const avg = sum / dataArray.length
-          setMicLevel(Math.min(100, Math.round(avg * 1.5)))
-          setInputWaveform(Array.from(dataArray.slice(0, 64)))
-        }
-      }, 50)
-      
-      // Create session on bridge
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({ sampleRate: 48000 })
+      }
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume()
+        addLog("success", "Playback AudioContext ready for MYCA greeting")
+      }
+
+      // Create session on bridge (connect WS before mic so startup greeting plays immediately)
       addLog("info", "Creating session on PersonaPlex Bridge...")
       const bridgeRes = await fetch("/api/test-voice/bridge/session", {
         method: "POST",
@@ -845,11 +871,15 @@ export default function VoiceTestPageClient() {
         }
         releaseStartingVoice()
         wsConnectedRef.current = true
-        addLog("success", "Moshi CUDA handshake OK — full-duplex + MAS Event Engine active.")
+        addLog("success", "Moshi handshake OK — full-duplex + MAS Event Engine active.")
         setMoshiPending(false)
         setWsConnected(true)
         setTestPhase("listening")
-        setJarvisMessage("Connected! Speak naturally. MAS Event Engine is listening.")
+        setJarvisMessage(
+          localSttModeRef.current
+            ? "Connected! Speak, then pause ~1s. Local STT (4080) → MAS → edge-tts."
+            : "Connected! Speak naturally. MAS Event Engine is listening."
+        )
 
         if (!audioContextRef.current) {
           audioContextRef.current = new AudioContext({ sampleRate: 48000 })
@@ -866,20 +896,25 @@ export default function VoiceTestPageClient() {
         }
 
         initDecoderWorker().catch(e => addLog("error", `Decoder init: ${e}`))
-        startAudioCapture(ws)
+        if (mediaStreamRef.current) {
+          startAudioCapture(ws)
+        } else {
+          addLog("info", "Waiting for microphone — MYCA greeting should play now")
+        }
       }
       
       ws.onopen = () => {
+        const hints = cudaHintsRef.current
         addLog("success", "WebSocket connected to bridge!")
-        addLog("info", "Waiting for Moshi handshake (CUDA graphs may compile on first run)...")
-        setJarvisMessage("CUDA graphs compiling... This can take 60–180 seconds on first connection.")
+        addLog("info", hints.handshakeLogMessage)
+        setJarvisMessage(hints.warmupUserMessage)
         
-        // Start CUDA warmup counter (Bridge timeout is 240s by default)
+        // Start Moshi warmup counter (Bridge timeout is 240s by default)
         let warmupSeconds = 0
         const warmupInterval = setInterval(() => {
           warmupSeconds++
           if (warmupSeconds <= 240 && !wsConnectedRef.current) {
-            setJarvisMessage(`CUDA graphs compiling... ${warmupSeconds}s (can take 60–180s on first run)`)
+            setJarvisMessage(`${hints.warmupUserMessage.replace(/\.$/, "")} — ${warmupSeconds}s (${hints.firstConnectHint})`)
           } else {
             clearInterval(warmupInterval)
           }
@@ -895,19 +930,76 @@ export default function VoiceTestPageClient() {
             const msg = JSON.parse(event.data)
             
             if (msg.type === "bridge_ready") {
-              addLog("success", `Bridge ready — voice=${msg.voice}, prompt=${msg.voice_prompt}`)
-              setMoshiPending(true)
-              setJarvisMessage("Bridge connected. Waiting for Moshi CUDA graphs — do not speak until handshake completes.")
+              localSttModeRef.current = Boolean(msg.local_stt_mode)
+              if (msg.local_stt_mode) {
+                addLog("error", "Bridge reported local_stt_mode=true. PersonaPlex-only mode requires Moshi STT (local_stt_mode=false).")
+                setMoshiPending(false)
+                setJarvisMessage("Policy mismatch: local STT bypass is active. Disable bypass and restart voice stack.")
+                releaseStartingVoice()
+                wsConnectedRef.current = false
+                setWsConnected(false)
+                setTestPhase("ready")
+                ws.close(4001, "PersonaPlex requires local_stt_mode=false")
+                return
+              } else {
+                addLog("success", `Bridge ready — voice=${msg.voice}, prompt=${msg.voice_prompt}`)
+              }
+              setMoshiPending(!msg.local_stt_mode)
+              setJarvisMessage(
+                msg.local_stt_mode
+                  ? "Local STT mode — waiting for handshake…"
+                  : cudaHintsRef.current.bridgeReadyMessage
+              )
               return
             }
             if (msg.type === "moshi_ready") {
-              addLog("success", `Moshi CUDA ready — ${msg.voice_prompt}`)
+              if (msg.local_stt_mode) {
+                addLog("error", "moshi_ready arrived with local_stt_mode=true (bypass). Session aborted for PersonaPlex-only policy.")
+                setMoshiPending(false)
+                setJarvisMessage("Policy mismatch: local STT bypass active.")
+                releaseStartingVoice()
+                wsConnectedRef.current = false
+                setWsConnected(false)
+                setTestPhase("ready")
+                ws.close(4002, "PersonaPlex requires local_stt_mode=false")
+                return
+              } else {
+                addLog("success", `${cudaHintsRef.current.moshiReadyLogPrefix} — ${msg.voice_prompt}`)
+              }
               completeMoshiHandshake()
               return
             }
+            if (msg.type === "local_stt_status") {
+              const phase = String(msg.phase || "unknown")
+              setLocalSttStatus(phase)
+              if (phase === "listening") {
+                addLog("debug", `Local STT listening (speech_frames=${msg.speech_frames ?? "?"})`)
+              } else if (phase === "transcribed" && msg.text) {
+                addLog("success", `Local STT transcribed: ${msg.text}`)
+              }
+              return
+            }
+            if (msg.type === "tts_stream_start") {
+              ttsStartRef.current = Date.now()
+              pcmFramesOutRef.current = 0
+              if (decoderWorkerRef.current) {
+                const bosPage = createWarmupBosPage()
+                decoderWorkerRef.current.postMessage({ command: "decode", pages: bosPage })
+              }
+              if (audioWorkletNodeRef.current) {
+                audioWorkletNodeRef.current.port.postMessage({ type: "reset" })
+              }
+              addLog("info", `TTS stream starting (${msg.packets ?? "?"} Opus pages)`)
+              return
+            }
             if (msg.type === "text") {
-              // Text from Moshi (MYCA speaking)
               const text = msg.text?.trim()
+              if (msg.speaker === "user" && text) {
+                setTranscript(text)
+                addLog("info", `You: "${text}"`)
+                return
+              }
+              // Text from MYCA speaking
               if (text) {
                 // Check if this is injected content
                 if (text.includes("[TOOL]") || text.includes("[AGENT]") || text.includes("[SYSTEM]")) {
@@ -984,9 +1076,19 @@ export default function VoiceTestPageClient() {
               if (text) {
                 setTranscript(text)
                 addLog("info", `You: "${text}"`)
+                if (msg.source === "local_stt") {
+                  setLocalSttStatus("transcribed")
+                  if (sttStartRef.current > 0) {
+                    recordLatency("stt", Date.now() - sttStartRef.current)
+                    sttStartRef.current = Date.now()
+                  }
+                }
               }
             } else if (msg.type === "error") {
               addLog("error", `Error: ${msg.message}`)
+              if (String(msg.message || "").includes("Moshi unreachable")) {
+                addLog("info", "Terminal cause: Moshi port 8998 is down/busy or warmup is still running. Check Moshi terminal for handshake and restart stack if needed.")
+              }
               releaseStartingVoice()
               wsConnectedRef.current = false
               setWsConnected(false)
@@ -1026,8 +1128,8 @@ export default function VoiceTestPageClient() {
               chunksIn: audioChunksInRef.current
             }))
             
-            // Log first few audio packets for debugging
-            if (audioChunksInRef.current <= 5) {
+            // Log first few audio packets and every 50th for long TTS streams
+            if (audioChunksInRef.current <= 5 || audioChunksInRef.current % 50 === 0) {
               const hasOggS = payload.length >= 4 &&
                 payload[0] === 0x4F && payload[1] === 0x67 && payload[2] === 0x67 && payload[3] === 0x53
               addLog("debug", `Audio packet #${audioChunksInRef.current}: ${payload.length} bytes${hasOggS ? " (Ogg)" : " (raw Opus)"}`)
@@ -1076,7 +1178,7 @@ export default function VoiceTestPageClient() {
         
         // Check for timeout-related closes
         if (!hadHandshake && event.code !== 1000) {
-          addLog("warn", "Connection closed before handshake - CUDA graphs may still be compiling")
+          addLog("warn", `Connection closed before handshake — ${cudaHintsRef.current.firstConnectHint}`)
           addLog("info", "Run python START_VOICE_SYSTEM.py from MAS repo to warm up Moshi, then click Start again.")
           setTestPhase("ready")
           setJarvisMessage("Handshake failed. Warm up with START_VOICE_SYSTEM.py, then try again.")
@@ -1088,6 +1190,7 @@ export default function VoiceTestPageClient() {
       }
       
       wsRef.current = ws
+      void attachMicrophone()
       
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error"
@@ -1166,7 +1269,12 @@ export default function VoiceTestPageClient() {
       
       recorder.onstart = () => {
         setIsRecognizing(true)
-        addLog("success", "Local Moshi STT active — Opus mic → Bridge → Moshi (127.0.0.1:8998). No cloud STT.")
+        addLog(
+          "success",
+          localSttModeRef.current
+            ? "Local STT active — Opus mic → Bridge → faster-whisper (4080). Moshi not used."
+            : "Local Moshi STT active — Opus mic → Bridge → Moshi (127.0.0.1:8998). No cloud STT."
+        )
         sttStartRef.current = Date.now()
       }
       
@@ -1343,7 +1451,7 @@ export default function VoiceTestPageClient() {
               micDuration: 0
             })
             pcmFramesOutRef.current++
-            if (pcmFramesOutRef.current <= 5) {
+            if (pcmFramesOutRef.current <= 5 || pcmFramesOutRef.current % 50 === 0) {
               addLog("success", `PCM → speakers #${pcmFramesOutRef.current}: ${pcmData.length} samples`)
             }
             setIsSpeaking(true)
@@ -1511,6 +1619,16 @@ export default function VoiceTestPageClient() {
   
   // Warm LAN TCP connections so probes stay in double-digit ms
   useEffect(() => {
+    fetch("/api/test-voice/voice-stack/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return
+        cudaHintsRef.current = resolveVoiceCudaHints(data.gpuProfile ?? null, Boolean(data.localGpu))
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     const warm = () => {
       fetch("/api/test-voice/ping", { cache: "no-store" }).catch(() => {})
     }
@@ -1523,7 +1641,7 @@ export default function VoiceTestPageClient() {
     setUiReady(true)
     addLog("info", "MYCA Voice Suite v9.0.0 - Full Consciousness Integration")
     addLog("info", "February 12, 2026")
-    addLog("info", "CUDA graphs warmup support + Consciousness modules + Memory bridge")
+    addLog("info", "GPU-profile warmup (RTX 4080 / Voice Legion) + Consciousness modules + Memory bridge")
     addLog("info", "Default voice: Moshika / NATF2 (PersonaPlex female) — ElevenLabs not used")
     const t = window.setTimeout(() => {
       void checkServices()
@@ -2232,6 +2350,12 @@ export default function VoiceTestPageClient() {
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500">Received</span>
                     <span className="font-mono">{(audioStats.bytesIn / 1024).toFixed(1)}KB ({audioStats.chunksIn})</span>
+                  </div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Local STT</span>
+                    <span className="font-mono text-amber-400">{localSttStatus}</span>
                   </div>
                 </div>
               </div>

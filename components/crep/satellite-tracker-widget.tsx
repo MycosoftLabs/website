@@ -55,6 +55,8 @@ interface SatelliteTrackerData {
   category: string
   total: number
   satellites: SatelliteData[]
+  freshness?: { timestamp: string; stale: boolean; maxAgeMs: number }
+  lineage?: { primary: string; activeSource: string; fallback: boolean }
 }
 
 type SatelliteCategory = "stations" | "starlink" | "weather" | "gnss"
@@ -161,7 +163,7 @@ export function SatelliteTrackerWidget({
     try {
       setLoading(true)
       setError(null)
-      const url = `/api/oei/satellites?category=${category}&limit=${limit}`
+      const url = `/api/mindex/proxy/satellites?category=${category}&limit=${limit}`
       const response = await fetch(url, { signal: controller.signal })
       const json = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -263,7 +265,7 @@ export function SatelliteTrackerWidget({
             <RefreshCw className={cn("w-3 h-3 text-gray-400", loading && "animate-spin")} />
           </Button>
           <Badge variant="outline" className="text-[8px] border-purple-500/50 text-purple-400">
-            {data?.source || "CelesTrak"}
+            {data?.lineage?.fallback ? "Proxy(Fallback)" : "MINDEX"}
           </Badge>
         </div>
       </div>
@@ -329,7 +331,7 @@ export function SatelliteTrackerWidget({
       <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between text-[7px] text-gray-600">
         <div className="flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" />
-          Updated: {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--"}
+          Updated: {data?.freshness?.timestamp ? new Date(data.freshness.timestamp).toLocaleTimeString() : (data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--")}
         </div>
         <div className="flex items-center gap-1">
           <Eye className="w-2.5 h-2.5" />

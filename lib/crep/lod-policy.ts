@@ -68,6 +68,38 @@ export interface LODPolicy {
 
 export type TimeWindow = "6h" | "24h" | "7d" | "30d" | "6m" | "1y" | "5y" | "all"
 
+/** No artificial render cap — show every filtered item in viewport. */
+export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
+
+/**
+ * Metro/city zoom: user expects full density for every enabled layer.
+ * Zoom ≥ 8 or a viewport smaller than ~170 km × 170 km.
+ */
+/**
+ * Infrastructure point/symbol icons (plants, substations, cell towers, ports,
+ * DCs, etc.) stay hidden until this zoom so the globe refresh stays fast.
+ * Line layers (cables, rails, transmission) render at world zoom when toggles
+ * are ON — see production-first-load rules (May 24, 2026).
+ */
+export const INFRA_POINT_ICON_MIN_ZOOM = 7
+
+/** Bundled / global infra lines (cables, rails, TX) may paint from world view. */
+export const INFRA_LINE_GLOBAL_MIN_ZOOM = 0
+
+export function isCityLevelZoom(
+  zoom: number,
+  bounds?: { north: number; south: number; east: number; west: number } | null,
+): boolean {
+  if (zoom >= 8) return true
+  if (!bounds) return false
+  const latSpan = Math.abs(bounds.north - bounds.south)
+  const lngSpan =
+    bounds.west <= bounds.east
+      ? Math.abs(bounds.east - bounds.west)
+      : 360 - Math.abs(bounds.west - bounds.east)
+  return latSpan <= 1.5 && lngSpan <= 1.5
+}
+
 /**
  * Convert a TimeWindow to a millisecond cutoff. "all" returns null (no filter).
  */
@@ -104,7 +136,7 @@ export const LOD_TIERS: LODPolicy[] = [
     // 0 rendered features from any other layer because the main thread
     // was busy). Per-tier caps here bound DOM marker count; spatial grid
     // sampling downstream still distributes them evenly.
-    nature: { timeWindow: "7d", qualityGrade: "all", maxRendered: 80 },
+    nature: { timeWindow: "7d", qualityGrade: "all", maxRendered: 3500 },
   },
   // ─── Continent view: last day, medium+ severity ─────────────────────
   {
@@ -113,7 +145,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1800 },
     movers: { aircraft: 3500, vessels: 5500, satellites: 3500, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 5000 },
-    nature: { timeWindow: "30d", qualityGrade: "all", maxRendered: 140 },
+    nature: { timeWindow: "30d", qualityGrade: "all", maxRendered: 6000 },
   },
   // ─── Region view: last week, low severity, MINDEX kicks in ──────────
   {
@@ -122,7 +154,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
     movers: { aircraft: 5000, vessels: 7000, satellites: 5000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 220 },
+    nature: { timeWindow: "6m", qualityGrade: "all", maxRendered: 9000 },
   },
   // ─── State/metro view: last month, all severity, full infra ────────
   {
@@ -131,25 +163,25 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 3200 },
     movers: { aircraft: 8000, vessels: 5000, satellites: 15000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
-    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 340 },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 12000 },
   },
-  // ─── City view: last 6 months, historical nature kicks in ──────────
+  // ─── City view: uncapped — every enabled filter renders in viewport ─
   {
     tier: "city",
     zoomRange: [10, 13],
-    events: { timeWindow: "6m", minSeverity: "info", maxRendered: 5000 },
-    movers: { aircraft: 15000, vessels: 10000, satellites: 20000, bboxFilter: true },
-    infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 60000 },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 520 },
+    events: { timeWindow: "all", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
+    movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
+    infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
   // ─── Street view: everything in bbox, uncapped ─────────────────────
   {
     tier: "street",
     zoomRange: [13, 25],
-    events: { timeWindow: "all", minSeverity: "info", maxRendered: 8000 },
-    movers: { aircraft: 50000, vessels: 50000, satellites: 50000, bboxFilter: true },
-    infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: Infinity },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 900 },
+    events: { timeWindow: "all", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
+    movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
+    infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
 ]
 
@@ -195,8 +227,10 @@ export function meetsSeverityFilter(
 export function applyLODToEvents<T extends { timestamp?: string | number; severity?: string }>(
   events: T[],
   zoom: number,
+  bounds?: { north: number; south: number; east: number; west: number } | null,
 ): T[] {
   const lod = getLODForZoom(zoom)
+  const maxRendered = isCityLevelZoom(zoom, bounds) ? UNCAPPED_RENDER_LIMIT : lod.events.maxRendered
   const cutoff = timeWindowToCutoffMs(lod.events.timeWindow)
   let filtered: T[] = events
   if (cutoff !== null) {
@@ -217,7 +251,8 @@ export function applyLODToEvents<T extends { timestamp?: string | number; severi
     const tb = typeof b.timestamp === "string" ? new Date(b.timestamp).getTime() : (b.timestamp || 0)
     return tb - ta
   })
-  return filtered.slice(0, lod.events.maxRendered)
+  if (!Number.isFinite(maxRendered)) return filtered
+  return filtered.slice(0, maxRendered)
 }
 
 /**
@@ -227,8 +262,10 @@ export function applyLODToEvents<T extends { timestamp?: string | number; severi
 export function applyLODToNature<T extends { observed_on?: string | null; quality_grade?: string | null }>(
   observations: T[],
   zoom: number,
+  bounds?: { north: number; south: number; east: number; west: number } | null,
 ): T[] {
   const lod = getLODForZoom(zoom)
+  const maxRendered = isCityLevelZoom(zoom, bounds) ? UNCAPPED_RENDER_LIMIT : lod.nature.maxRendered
   const cutoff = timeWindowToCutoffMs(lod.nature.timeWindow)
   let filtered: T[] = observations
   if (lod.nature.qualityGrade === "research") {
@@ -248,7 +285,8 @@ export function applyLODToNature<T extends { observed_on?: string | null; qualit
     const bq = b.quality_grade === "research" ? 1 : 0
     return bq - aq
   })
-  return filtered.slice(0, lod.nature.maxRendered)
+  if (!Number.isFinite(maxRendered)) return filtered
+  return filtered.slice(0, maxRendered)
 }
 
 /**
@@ -268,7 +306,9 @@ export function applyLODToMovers<T>(
   items: T[],
   kind: "aircraft" | "vessels" | "satellites",
   zoom: number,
+  bounds?: { north: number; south: number; east: number; west: number } | null,
 ): T[] {
+  if (isCityLevelZoom(zoom, bounds)) return items
   const lod = getLODForZoom(zoom)
   const cap = lod.movers[kind]
   if (!Number.isFinite(cap) || cap <= 0 || items.length <= cap) return items

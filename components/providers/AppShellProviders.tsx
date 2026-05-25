@@ -119,14 +119,11 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
-        <NavigationClickRescue />
-        {isHydrated ? (
-          <Header />
-        ) : (
-          <div className="h-[72px] shrink-0 bg-background/80" suppressHydrationWarning />
-        )}
+        {isHydrated ? <NavigationClickRescue /> : null}
+        {/* Always render Header so SSR and first client paint match (spacer swap caused hydration mismatch). */}
+        <Header />
         <main className="flex-1 relative w-full overflow-x-hidden">{content}</main>
-        {isHydrated && !hideFooter ? <Footer /> : null}
+        {!hideFooter ? <Footer /> : null}
       </div>
       {showFloating ? (
         <MYCAFloatingButton title="MYCA" getContextText={getContextText} />

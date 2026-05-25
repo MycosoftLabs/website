@@ -28,10 +28,14 @@ const POSTGRES_PORT = "5432"
 const QDRANT_PORT = "6333"
 const OLLAMA_PORT = "11434"
 
-/** Split RTX 4080 Legions on UniFi LAN (canonical: 241 = Voice, 249 = Earth-2). */
+/** Consolidated GPU host on UniFi LAN (May 2026). Dev PC is 192.168.0.241 — no local GPU. */
 export const GPU_LEGION_DEFAULTS = {
-  VOICE: "192.168.0.241",
+  /** PersonaPlex bridge, Moshi, Ollama/Nemotron */
+  VOICE: "192.168.0.249",
+  /** Earth-2 / PhysicsNeMo (installed on host; services off until second GPU machine) */
   EARTH2: "192.168.0.249",
+  /** Temporary dev PC — never run GPU inference here */
+  DEV_PC: "192.168.0.241",
 } as const
 
 /**

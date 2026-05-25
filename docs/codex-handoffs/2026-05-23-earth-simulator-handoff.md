@@ -439,3 +439,74 @@ http://localhost:3010/natureos/earth-simulator
 
 After the startup/base/fungal state is visibly correct, continue with the next blocker: Nature and Events icons flicker/disappear after refresh and during map movement. Do not push or deploy until the visual state passes, unless explicitly told to make a checkpoint push.
 ```
+
+## Regression Lock Notes (May 23, 2026 PM)
+
+### Space-weather icon suppression (May 23, 2026 late PM)
+
+- Space weather and Sun-Earth impact are now treated as overlay-only in Earth Simulator:
+  - Removed from event icon ingestion path (`/api/natureos/global-events` mapping) so they do not render as marker icons.
+  - Added explicit suppression for: `solar_flare`, `geomagnetic_storm`, `aurora`, `cme`, `solar_wind`, `sun_earth_impact`, `sun-earth-impact`, `radiation_belt`.
+- Added coordinate guard to reject null-island defaults (`0,0`) for icon events.
+- Added event-store purge for suppressed types so old yellow Atlantic icon artifacts are removed on refresh and do not reappear from cached in-memory state.
+- Intended visualization behavior:
+  - Aurora / geomagnetic / sun-earth activity should be represented by globe overlay layers (NOAA/NASA style layers), not by point icons.
+  - Only geospatial hazard events with valid Earth coordinates should render as event markers.
+
+### Event toggle stability + independence (May 23, 2026 late PM)
+
+- Fixed event-type cross-bleed caused by fallback logic in visible-event selection:
+  - Removed global fallback paths that reintroduced unrelated event types when a specific toggle reduced in-viewport results.
+  - Removed stale-cache fallback that could keep old event sets visible after filter changes.
+- Added diversity-aware event selection under LOD cap:
+  - Event marker cap now samples across event buckets (earthquake, wildfire, storms, lightning, floods, tornadoes, volcanoes, etc.) instead of allowing one type to dominate the entire cap.
+  - Prevents "earthquakes on = fires disappear" behavior under high event density.
+- Improved rapid-click responsiveness on event toggles:
+  - Event toggle state updates now run in `startTransition` to avoid control lock-ups when users click quickly.
+
+### New fixes applied
+
+- Earth-route marker click regression fixed in `components/ui/map.tsx`.
+  - Cause: marker content was portaled into `data-earth-marker-root`, but click handlers were still attached only to MapLibre's internal marker element.
+  - Fix: attach click/mouseenter/mouseleave listeners directly to the Earth portal root so Nature/Event markers open their widgets again.
+- AM/EcM toggle no longer force-clears aircraft source data in fungal isolation path.
+  - Cause: `isolateFungaMapLayers()` always cleared `crep-live-aircraft`.
+  - Fix: stop clearing `crep-live-aircraft` and keep `crep-live-aircraft*` layers visible in fungal isolation pass.
+- Nature marker count no longer changes due to unrelated layer toggles (e.g., railways).
+  - Cause: fallback branch depended on `assetIsolationMode` in kingdom default case.
+  - Fix: remove `assetIsolationMode` coupling from Nature kingdom default path so infrastructure toggles cannot change Nature icon population.
+
+### Regression checklist (must pass before claiming done)
+
+1. Load `/natureos/earth-simulator` and wait 10s:
+   - Nature + Event markers remain visible (no disappear-after-refresh).
+2. Toggle `AM Fungi Distribution`:
+   - Aircraft layers remain present if they were on before the toggle.
+3. Click Nature marker:
+   - Species widget popup opens.
+4. Click Event marker:
+   - Event widget popup opens.
+5. Toggle unrelated infra layer (e.g., railways):
+   - Nature marker count does not jump because of that toggle.
+
+### Production first-load rules (May 24, 2026)
+
+- **Filters ON at refresh** on Earth Simulator: all species, events, movers (aircraft/vessels/satellites with `showActive`), buoys/ports/military/airports layer toggles, telecom/broadcast/public-safety layers, infra line toggles (cables/rails/TX).
+- **Infra icons LOD:** point/symbol infra (plants, substations, cell towers, static ports/DCs, etc.) use `minzoom: 7` via `lib/crep/production-first-load.ts` + `INFRA_POINT_ICON_MIN_ZOOM` in `lod-policy.ts`. **Line layers** (submarine cables, railways, transmission) paint at globe zoom when toggles are on.
+- **Removed** fungi-only lightweight Earth startup (`startsInLightweightEarthMode` + mount `useEffect` that disabled filters/layers).
+- **`loadPermanentInfra()`** now runs on Earth Simulator (cables/rails/TX load on refresh).
+- **Live movers:** `setIsStreaming(true)` on Earth mount; direct source-sync effect pushes aircraft/vessels/**static satellites** even when SGP4 animation stays off for FPS.
+- **Space weather** remains default OFF (unchanged — not in production ON list).
+
+### Production audit (May 24, 2026)
+
+Full refresh audit doc: [`docs/EARTH_SIMULATOR_CREP_PRODUCTION_AUDIT_MAY24_2026.md`](../EARTH_SIMULATOR_CREP_PRODUCTION_AUDIT_MAY24_2026.md)
+
+**Critical fix:** `app/api/mindex/proxy/[source]/route.ts` — when MINDEX returns 0 aircraft/vessels/satellites, fall back to OEI live routes (planes/ships were empty on refresh before this).
+
+**Top latency risks:** `substations-us.geojson` (11 MB), `transmission-lines-us-major.geojson` (13 MB), `/api/crep/fungal` without bbox (>60 s). **Cell towers global** requires `bbox=` query param (400 without it — expected).
+
+### Current user-reported follow-up still open
+
+- Nature observations appear concentrated around LA/San Diego and need broader national spread in viewport logic.
+- Planes appear visible by default in the current user session and should be verified against intended default filter state before final sign-off.

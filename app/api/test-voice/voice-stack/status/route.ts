@@ -9,6 +9,10 @@ import {
   resolveMoshiHostForProbe,
   resolvePersonaplexBridgeBaseUrl,
 } from "@/lib/config/resolve-voice-bridge"
+import {
+  resolveVoiceCudaHints,
+  type GpuVoiceProfilePayload,
+} from "@/lib/voice/gpu-voice-profile"
 
 function tcpOpen(host: string, port: number, timeoutMs = 1200): Promise<boolean> {
   return new Promise((resolve) => {
@@ -52,6 +56,9 @@ export async function GET() {
     (bridgeHealth?.moshi_available as boolean | undefined) ?? moshiTcp
   )
 
+  const gpuProfile = (bridgeHealth?.gpu_profile as GpuVoiceProfilePayload | null | undefined) ?? null
+  const cudaHints = resolveVoiceCudaHints(gpuProfile, localGpu)
+
   const readyForVoice =
     bridgeTcp && bridgeOk && moshiAvailable && Boolean(bridgeHealth?.features)
 
@@ -64,12 +71,18 @@ export async function GET() {
       bridge8999: { open: bridgeTcp, host: new URL(bridgeBase).hostname },
     },
     bridgeHealth,
+    gpuProfile,
     moshiAvailable,
     readyForVoice,
     cuda: {
+      profileId: cudaHints.profileId,
+      gpuName: cudaHints.gpuName,
+      noCudaGraph: cudaHints.noCudaGraph,
+      noCudaGraphEnv: cudaHints.noCudaGraphEnv,
+      modeLabel: cudaHints.modeLabel,
+      firstConnectHint: cudaHints.firstConnectHint,
+      expectedStepMs: cudaHints.expectedStepMs,
       handshakeTimeoutSec: 240,
-      expectedCompileSec: "60-180",
-      noCudaGraphEnv: "Set NO_CUDA_GRAPH=0 for PersonaPlex real-time (default in START_VOICE_SYSTEM.py)",
       warmupScript: "python START_VOICE_SYSTEM.py",
     },
     timestamp: new Date().toISOString(),

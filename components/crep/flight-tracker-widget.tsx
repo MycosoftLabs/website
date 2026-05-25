@@ -57,6 +57,8 @@ interface FlightTrackerData {
   timestamp: string
   total: number
   aircraft: Aircraft[]
+  freshness?: { timestamp: string; stale: boolean; maxAgeMs: number }
+  lineage?: { primary: string; activeSource: string; fallback: boolean }
 }
 
 function AircraftIcon({ heading = 0, isGround = false }: { heading?: number; isGround?: boolean }) {
@@ -152,9 +154,9 @@ export function FlightTrackerWidget({
   const fetchData = useCallback(async (abort?: AbortSignal) => {
     try {
       setLoading(true)
-      let url = `/api/oei/flightradar24?limit=${limit}`
+      let url = `/api/mindex/proxy/aircraft?limit=${limit}`
       if (bounds) {
-        url += `&lamin=${bounds.south}&lamax=${bounds.north}&lomin=${bounds.west}&lomax=${bounds.east}`
+        url += `&lat_min=${bounds.south}&lat_max=${bounds.north}&lng_min=${bounds.west}&lng_max=${bounds.east}`
       }
       const response = await fetch(url, { signal: abort })
       if (!response.ok) {
@@ -254,7 +256,7 @@ export function FlightTrackerWidget({
             <RefreshCw className={cn("w-3 h-3 text-gray-400", loading && "animate-spin")} />
           </Button>
           <Badge variant="outline" className="text-[8px] border-sky-500/50 text-sky-400">
-            {data?.source || "FR24"}
+            {data?.lineage?.fallback ? "Proxy(Fallback)" : "MINDEX"}
           </Badge>
         </div>
       </div>
@@ -325,7 +327,7 @@ export function FlightTrackerWidget({
       <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between text-[7px] text-gray-600">
         <div className="flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" />
-          Updated: {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--"}
+          Updated: {data?.freshness?.timestamp ? new Date(data.freshness.timestamp).toLocaleTimeString() : (data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--")}
         </div>
         <div className="flex items-center gap-1">
           <Eye className="w-2.5 h-2.5" />
