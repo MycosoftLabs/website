@@ -75,8 +75,13 @@ const CATEGORIES = [
 const HOURS_BACK = 24
 const TICK_SECONDS = 30 // horizontal granularity: one tick = 30 s
 
-export default function TimelineScrubber() {
-  const [expanded, setExpanded] = useState(false)
+type TimelineScrubberProps = {
+  mode?: "floating" | "inline"
+  initiallyExpanded?: boolean
+}
+
+export default function TimelineScrubber({ mode = "floating", initiallyExpanded = false }: TimelineScrubberProps) {
+  const [expanded, setExpanded] = useState(initiallyExpanded)
   const [events, setEvents] = useState<Event[]>([])
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set(PROVIDERS.map((p) => p.id)))
   const [hoursBack, setHoursBack] = useState(6)
@@ -167,10 +172,16 @@ export default function TimelineScrubber() {
     [events, enabledProviders],
   )
 
+  const inline = mode === "inline"
+
   return (
     <div
-      className="fixed left-4 bottom-4 z-[9999] rounded-lg border border-cyan-500/40 bg-[#0a1628]/95 shadow-2xl backdrop-blur-sm transition-all overflow-hidden"
-      style={{ width: expanded ? Math.min(900, typeof window !== "undefined" ? window.innerWidth - 32 : 900) : 200 }}
+      className={
+        inline
+          ? "rounded-lg border border-cyan-500/40 bg-[#0a1628]/95 shadow-lg backdrop-blur-sm transition-all overflow-hidden"
+          : "fixed left-4 bottom-4 z-[9999] rounded-lg border border-cyan-500/40 bg-[#0a1628]/95 shadow-2xl backdrop-blur-sm transition-all overflow-hidden"
+      }
+      style={inline ? undefined : { width: expanded ? Math.min(900, typeof window !== "undefined" ? window.innerWidth - 32 : 900) : 200 }}
     >
       {/* Tab */}
       <button

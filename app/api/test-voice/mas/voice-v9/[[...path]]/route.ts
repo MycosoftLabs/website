@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 const MAS_BASE =
   process.env.MAS_API_URL ||
@@ -24,11 +25,11 @@ async function proxyRequest(
   const url = getMasUrl(pathSegments, req.nextUrl.searchParams.toString())
   const init: RequestInit = {
     method: req.method,
-    headers: {
+    headers: masServiceHeaders({
       "Content-Type": req.headers.get("content-type") || "application/json",
       Accept: req.headers.get("accept") || "application/json",
       "Cache-Control": "no-store",
-    },
+    }),
     signal: AbortSignal.timeout(15000),
   }
   if (req.method !== "GET" && req.method !== "HEAD") {

@@ -20,6 +20,8 @@ interface InterruptState {
 interface UseVoiceV9SessionOptions {
   userId?: string
   conversationId?: string | null
+  /** When false, no v9 WebSocket (avoids Ollama routing errors on the main voice path). */
+  enabled?: boolean
   onError?: (err: string) => void
 }
 
@@ -42,7 +44,7 @@ interface UseVoiceV9SessionReturn {
 export function useVoiceV9Session(
   options: UseVoiceV9SessionOptions = {}
 ): UseVoiceV9SessionReturn {
-  const { userId = "morgan", conversationId, onError } = options
+  const { userId = "morgan", conversationId, enabled = false, onError } = options
   const [connected, setConnected] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [transcripts, setTranscripts] = useState<TranscriptChunk[]>([])
@@ -124,6 +126,15 @@ export function useVoiceV9Session(
   }, [send])
 
   useEffect(() => {
+    if (!enabled) {
+      wsRef.current?.close()
+      wsRef.current = null
+      sessionIdRef.current = null
+      setConnected(false)
+      setSessionId(null)
+      return
+    }
+
     let cancelled = false
     let ws: WebSocket | null = null
 
@@ -215,7 +226,7 @@ export function useVoiceV9Session(
       ws?.close()
       wsRef.current = null
     }
-  }, [])
+  }, [enabled])
 
   return {
     connected,

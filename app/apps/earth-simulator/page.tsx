@@ -1,53 +1,17 @@
-"use client";
+import { redirect } from "next/navigation"
 
-import dynamic from "next/dynamic";
-import { Suspense, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import { classifyAndRoute } from "@/lib/search/search-intelligence-router";
+// May 21 2026 (Morgan): this route used to mount a second Earth Simulator
+// (Cesium-based EarthSimulatorContainer from
+// components/earth-simulator/cesium-globe.tsx). It was created during a
+// SPUN data integration but the data was supposed to overlay the canonical
+// CREP MapLibre globe at /natureos/earth-simulator as a filter, not spin up
+// a parallel map. Redirecting here so any cached deep-link, search-results
+// page, or sidebar entry lands on the real Earth Simulator instead.
+//
+// The Cesium components under components/earth-simulator/* are no longer
+// reachable through the public site after this redirect — they should be
+// pruned in a follow-up once we confirm no internal embed depends on them.
 
-const EarthSimulatorContainer = dynamic(
-  () =>
-    import("@/components/earth-simulator/earth-simulator-container").then((m) => ({
-      default: m.EarthSimulatorContainer,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-        Loading Earth Simulator...
-      </div>
-    ),
-  }
-);
-
-function EarthSimulatorPageContent() {
-  const searchParams = useSearchParams();
-  const query = searchParams.get("q") || "";
-  const earthContextFilters = useMemo(
-    () => query.trim().length >= 2 ? classifyAndRoute(query).earthContextFilters : null,
-    [query]
-  );
-
-  return (
-    <div className="w-full h-screen bg-black text-white">
-      <EarthSimulatorContainer
-        initialQuery={query}
-        earthContextFilters={earthContextFilters}
-      />
-    </div>
-  );
-}
-
-export default function EarthSimulatorPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen w-full items-center justify-center bg-black text-white">
-          Loading Earth Simulator...
-        </div>
-      }
-    >
-      <EarthSimulatorPageContent />
-    </Suspense>
-  );
+export default function DeprecatedAppsEarthSimulatorRedirect() {
+  redirect("/natureos/earth-simulator")
 }

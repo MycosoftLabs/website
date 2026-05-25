@@ -134,7 +134,7 @@ export function NatureOSWelcome() {
             <Sparkles className="h-3.5 w-3.5" />
             NatureOS - Earth Simulator - MINDEX - Fleet
           </div>
-          <h1 className="text-2xl font-semibold sm:text-3xl lg:text-4xl">
+          <h1 className="text-2xl font-semibold text-white dark:text-white sm:text-3xl lg:text-4xl">
             The world seen through{" "}
             <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent">
               devices, sensors &amp; AI.
@@ -149,7 +149,7 @@ export function NatureOSWelcome() {
           <div className="flex flex-wrap gap-3 pt-2">
             <Button
               asChild
-              className="h-11 bg-gradient-to-r from-cyan-500 to-emerald-500 text-[#050a1a] hover:from-cyan-400 hover:to-emerald-400"
+              className="h-11 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white hover:from-cyan-400 hover:to-emerald-400 hover:text-white dark:text-white"
             >
               <Link href="/natureos/earth-simulator">
                 <Globe2 className="mr-2 h-4 w-4" />
@@ -159,7 +159,7 @@ export function NatureOSWelcome() {
             <Button
               asChild
               variant="outline"
-              className="h-11 border-cyan-500/40 bg-white/5 text-cyan-100 hover:bg-cyan-500/10 hover:text-white"
+              className="h-11 border-cyan-500/40 bg-white/5 text-white hover:bg-cyan-500/10 hover:text-white dark:text-white"
             >
               <Link href="/natureos/mindex">
                 <Layers className="mr-2 h-4 w-4" />
@@ -169,7 +169,7 @@ export function NatureOSWelcome() {
             <Button
               asChild
               variant="outline"
-              className="h-11 border-emerald-500/40 bg-white/5 text-emerald-100 hover:bg-emerald-500/10 hover:text-white"
+              className="h-11 border-emerald-500/40 bg-white/5 text-white hover:bg-emerald-500/10 hover:text-white dark:text-white"
             >
               <Link href="/natureos/devices/telemetry">
                 <Activity className="mr-2 h-4 w-4" />

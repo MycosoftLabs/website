@@ -64,3 +64,7 @@ agaric/**/*.mp4
 agaric/**/*.mov
 agaric/**/*.webm
 credentials.local
+
+# Worldview launch private artifacts (May 22, 2026)
+docs/launch/2026-05-22/fixtures/api_keys.env.PRIVATE
+docs/launch/2026-05-22/harness/reports/

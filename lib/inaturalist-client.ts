@@ -72,7 +72,7 @@ export class iNaturalistClient {
     try {
       const response = await fetch(url.toString(), {
         signal: AbortSignal.timeout(8_000),
-        next: { revalidate: 300 },
+        cache: "no-store",
       });
       if (!response.ok) {
         throw new Error(`iNaturalist API error: ${response.status} ${response.statusText}`);
@@ -129,7 +129,7 @@ export class iNaturalistClient {
     try {
       const response = await fetch(url.toString(), {
         signal: AbortSignal.timeout(8_000),
-        next: { revalidate: 300 },
+        cache: "no-store",
       });
       if (!response.ok) {
         throw new Error(`iNaturalist API error: ${response.status}`);
@@ -149,7 +149,7 @@ export class iNaturalistClient {
     try {
       const response = await fetch(`${this.baseUrl}/observations/${id}`, {
         signal: AbortSignal.timeout(8_000),
-        next: { revalidate: 600 },
+        cache: "no-store",
       });
       if (!response.ok) {
         return null;

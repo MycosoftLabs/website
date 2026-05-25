@@ -1,6 +1,6 @@
 /**
  * PersonaPlex Client - Full Duplex Voice Integration
- * Connects to the local PersonaPlex/Moshi server on RTX 5090
+ * Connects to the local PersonaPlex/Moshi server on the Voice Legion GPU (RTX 4080 16GB production target).
  * 
  * Created: February 3, 2026
  * Updated: February 11, 2026 - Added Opus codec support
@@ -431,7 +431,7 @@ VOICE: Natural, conversational. Contractions. Concise—dialogue not monologues.
 
 VALUES: Empower users. Operational excellence. Honest partner. Human oversight.
 
-Running on RTX 5090 with real-time duplex voice. Welcome to Mycosoft.`
+Running on RTX 4080 Voice Legion with real-time duplex voice. Welcome to Mycosoft.`
 
 // Helper to create a client with MYCA defaults
 export function createMYCAClient(options?: Partial<PersonaPlexConfig>): PersonaPlexClient {

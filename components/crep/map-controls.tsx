@@ -36,6 +36,7 @@ import {
   Wifi,
   WifiOff,
   Activity,
+  AlertTriangle,
   Zap,
   Container,
   Fish,
@@ -59,6 +60,7 @@ import {
   Wrench,
   Power,
   Fuel,
+  Database,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -128,6 +130,19 @@ export interface GroundFilter {
   showReptiles: boolean
   showInsects: boolean
   showMarineLife: boolean
+  // Fungal Atlas / Mycelium
+  showMyceliumHeat: boolean
+  showAmFungi: boolean
+  showEcmFungi: boolean
+  showMushrooms: boolean
+  showMold: boolean
+  showMildew: boolean
+  showYeast: boolean
+  showRareEndemicFungi: boolean
+  showProtectedFungi: boolean
+  showFungalUncertainty: boolean
+  showFciPriority: boolean
+  showFungalSamples: boolean
   // Natural Events
   showEarthquakes: boolean
   showVolcanoes: boolean
@@ -236,9 +251,11 @@ export function MapControls({
     if (satelliteFilter.showStations) count++
     if (satelliteFilter.showStarlink) count++
     if (spaceWeatherFilter.showSolarFlares) count++
+    if (groundFilter.showMyceliumHeat) count++
+    if (groundFilter.showFungalSamples) count++
     // EO imagery filters no longer counted here — controlled by MapLayersPopup
     return count
-  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter])
+  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter, groundFilter])
 
   return (
     <div className="bg-black/90 border border-cyan-500/30 rounded-lg overflow-hidden backdrop-blur-sm">
@@ -368,7 +385,7 @@ export function MapControls({
                   <div className="grid grid-cols-2 gap-2">
                     <FilterToggle
                       label="Fungi"
-                      icon={<TreePine className="w-3 h-3" />}
+                      icon={<span className="text-[11px] leading-none">🍄</span>}
                       checked={groundFilter.showFungi}
                       onChange={(v) => onGroundFilterChange({ showFungi: v })}
                       color="orange"
@@ -415,6 +432,98 @@ export function MapControls({
                       checked={groundFilter.showMarineLife}
                       onChange={(v) => onGroundFilterChange({ showMarineLife: v })}
                       color="cyan"
+                    />
+                  </div>
+                </div>
+
+                {/* Fungal Atlas / Mycelium */}
+                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
+                  <span className="text-[10px] text-amber-300/80 uppercase font-medium">Fungal Atlas / Mycelium</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FilterToggle
+                      label="Mycelium"
+                      icon={<span className="text-[11px] leading-none">🍄</span>}
+                      checked={groundFilter.showMyceliumHeat}
+                      onChange={(v) => onGroundFilterChange({ showMyceliumHeat: v })}
+                      color="green"
+                      hint="heat"
+                    />
+                    <FilterToggle
+                      label="AM Fungi"
+                      icon={<span className="text-[9px] leading-none font-bold">AM</span>}
+                      checked={groundFilter.showAmFungi}
+                      onChange={(v) => onGroundFilterChange({ showAmFungi: v })}
+                      color="cyan"
+                    />
+                    <FilterToggle
+                      label="EcM Fungi"
+                      icon={<span className="text-[9px] leading-none font-bold">Ec</span>}
+                      checked={groundFilter.showEcmFungi}
+                      onChange={(v) => onGroundFilterChange({ showEcmFungi: v })}
+                      color="purple"
+                    />
+                    <FilterToggle
+                      label="Mushrooms"
+                      icon={<span className="text-[11px] leading-none">🍄</span>}
+                      checked={groundFilter.showMushrooms}
+                      onChange={(v) => onGroundFilterChange({ showMushrooms: v })}
+                      color="orange"
+                    />
+                    <FilterToggle
+                      label="Mold"
+                      icon={<Bug className="w-3 h-3" />}
+                      checked={groundFilter.showMold}
+                      onChange={(v) => onGroundFilterChange({ showMold: v })}
+                      color="green"
+                    />
+                    <FilterToggle
+                      label="Mildew"
+                      icon={<Droplet className="w-3 h-3" />}
+                      checked={groundFilter.showMildew}
+                      onChange={(v) => onGroundFilterChange({ showMildew: v })}
+                      color="lime"
+                    />
+                    <FilterToggle
+                      label="Yeast"
+                      icon={<Circle className="w-3 h-3" />}
+                      checked={groundFilter.showYeast}
+                      onChange={(v) => onGroundFilterChange({ showYeast: v })}
+                      color="pink"
+                    />
+                    <FilterToggle
+                      label="Rare"
+                      icon={<Target className="w-3 h-3" />}
+                      checked={groundFilter.showRareEndemicFungi}
+                      onChange={(v) => onGroundFilterChange({ showRareEndemicFungi: v })}
+                      color="yellow"
+                    />
+                    <FilterToggle
+                      label="Protected"
+                      icon={<Shield className="w-3 h-3" />}
+                      checked={groundFilter.showProtectedFungi}
+                      onChange={(v) => onGroundFilterChange({ showProtectedFungi: v })}
+                      color="blue"
+                    />
+                    <FilterToggle
+                      label="Uncertainty"
+                      icon={<AlertTriangle className="w-3 h-3" />}
+                      checked={groundFilter.showFungalUncertainty}
+                      onChange={(v) => onGroundFilterChange({ showFungalUncertainty: v })}
+                      color="gray"
+                    />
+                    <FilterToggle
+                      label="FCI Priority"
+                      icon={<Target className="w-3 h-3" />}
+                      checked={groundFilter.showFciPriority}
+                      onChange={(v) => onGroundFilterChange({ showFciPriority: v })}
+                      color="red"
+                    />
+                    <FilterToggle
+                      label="Samples"
+                      icon={<Database className="w-3 h-3" />}
+                      checked={groundFilter.showFungalSamples}
+                      onChange={(v) => onGroundFilterChange({ showFungalSamples: v })}
+                      color="amber"
                     />
                   </div>
                 </div>
@@ -896,22 +1005,10 @@ function FilterToggle({
   hint,
   compact = false,
 }: FilterToggleProps) {
-  const colorClasses: Record<string, string> = {
-    cyan: "border-cyan-500/50 bg-cyan-500/20 text-cyan-400",
-    blue: "border-blue-500/50 bg-blue-500/20 text-blue-400",
-    green: "border-green-500/50 bg-green-500/20 text-green-400",
-    red: "border-red-500/50 bg-red-500/20 text-red-400",
-    yellow: "border-yellow-500/50 bg-yellow-500/20 text-yellow-400",
-    orange: "border-orange-500/50 bg-orange-500/20 text-orange-400",
-    amber: "border-amber-500/50 bg-amber-500/20 text-amber-400",
-    purple: "border-purple-500/50 bg-purple-500/20 text-purple-400",
-    gray: "border-gray-500/50 bg-gray-500/20 text-gray-400",
-    teal: "border-teal-500/50 bg-teal-500/20 text-teal-400",
-  }
-
   return (
     <button
       type="button"
+      data-accent={color}
       onClick={(e) => {
         e.stopPropagation();
         onChange(!checked);
@@ -920,8 +1017,8 @@ function FilterToggle({
         "flex items-center gap-1.5 rounded border transition-colors min-h-[28px] min-w-[72px] shrink-0 overflow-hidden [contain:layout]",
         compact ? "px-1.5 py-0.5" : "px-2 py-1.5",
         checked
-          ? colorClasses[color] || colorClasses.cyan
-          : "border-gray-700 bg-transparent text-gray-500 hover:border-gray-600"
+          ? "border-green-400/70 bg-green-500/25 text-green-200 shadow-[0_0_8px_rgba(34,197,94,0.25)]"
+          : "border-red-500/55 bg-red-950/40 text-red-300 hover:border-red-400 hover:bg-red-900/45"
       )}
     >
       <div className={cn(
@@ -999,7 +1096,7 @@ export function StreamingStatusBar({
       >
         {isLive ? (
           <>
-            <Circle className="w-2 h-2 mr-1 fill-green-400 animate-pulse" />
+            <Circle className="w-2 h-2 mr-1 fill-green-400" />
             LIVE
           </>
         ) : (

@@ -34,6 +34,7 @@ const VALID_TYPES = [
   "obis-occurrences",
   "air-quality",
   "earthspots",
+  "fungal-atlas",
 ] as const
 
 type IngestType = (typeof VALID_TYPES)[number]
@@ -43,6 +44,7 @@ const OBSERVATION_INGEST_TYPES = new Set<string>([
   "nature-observations",
   "gbif-occurrences",
   "obis-occurrences",
+  "fungal-atlas",
 ])
 
 /**

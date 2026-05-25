@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { masServiceHeaders } from "@/lib/auth/verified-identity"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY
@@ -44,6 +45,7 @@ export async function GET() {
     const consciousnessStart = Date.now()
     try {
       const r = await fetch(`${MAS_API_URL}/api/myca/ping`, {
+        headers: masServiceHeaders(),
         signal: AbortSignal.timeout(5000),
         cache: "no-store",
       })
@@ -60,6 +62,26 @@ export async function GET() {
       }
     }
 
+    const routeMountsStart = Date.now()
+    try {
+      const r = await fetch(`${MAS_API_URL}/myca/route-mounts`, {
+        headers: masServiceHeaders(),
+        signal: AbortSignal.timeout(5000),
+        cache: "no-store",
+      })
+      results.mas_route_mounts = {
+        ok: r.ok,
+        ms: Date.now() - routeMountsStart,
+        error: r.ok ? undefined : `HTTP ${r.status}`,
+      }
+    } catch (e) {
+      results.mas_route_mounts = {
+        ok: false,
+        ms: Date.now() - routeMountsStart,
+        error: e instanceof Error ? e.message : String(e),
+      }
+    }
+
     results.llm_keys = {
       ok: HAS_ANTHROPIC || HAS_OPENAI || HAS_GROQ || HAS_GOOGLE || HAS_XAI,
       error: !(HAS_ANTHROPIC || HAS_OPENAI || HAS_GROQ || HAS_GOOGLE || HAS_XAI)
@@ -69,7 +91,8 @@ export async function GET() {
 
     const masOk = results.mas?.ok ?? false
     const consciousnessOk = results.mas_consciousness?.ok ?? false
-    const chatReady = (masOk && consciousnessOk) || results.llm_keys.ok
+    const routeMountsOk = results.mas_route_mounts?.ok ?? false
+    const chatReady = (masOk && (consciousnessOk || routeMountsOk)) || results.llm_keys.ok
     let summary = "Chat unavailable — MAS offline and no LLM keys"
     if (chatReady) {
       if (masOk && consciousnessOk) summary = "MAS + Consciousness API online — chat uses MYCA"
@@ -78,8 +101,16 @@ export async function GET() {
     }
     return NextResponse.json({
       ok: chatReady,
+      chat_route: {
+        website_primary: "/api/mas/voice/orchestrator",
+        mas_primary: "/voice/orchestrator/chat",
+        mas_fallback: "/api/myca/chat",
+        brain_blocking_public_text: false,
+        target_latency_ms: 3000,
+      },
       mas: results.mas,
       mas_consciousness: results.mas_consciousness,
+      mas_route_mounts: results.mas_route_mounts,
       llm_keys: results.llm_keys,
       summary,
       mas_api_url: MAS_API_URL,

@@ -73,7 +73,13 @@ const SPACETRACK_PASS = process.env.SPACETRACK_PASS || ""
 
 const N2YO_API_KEY = process.env.N2YO_API_KEY || ""
 
-const SOURCE_TIMEOUT_MS = 8_000 // 8s per source — fast fail, don't block CREP
+const configuredMovingSourceTimeout = Number(process.env.CREP_MOVING_SOURCE_TIMEOUT_MS)
+const SOURCE_TIMEOUT_MS =
+  Number.isFinite(configuredMovingSourceTimeout) && configuredMovingSourceTimeout > 0
+    ? configuredMovingSourceTimeout
+    : process.env.NODE_ENV === "development"
+      ? 1500
+      : 8000 // Fast fail; moving assets should never block map navigation.
 
 const CELESTRAK_API = "https://celestrak.org/NORAD/elements/gp.php"
 // Note: TLE mirror now requires trailing slash (returns 301 without it)

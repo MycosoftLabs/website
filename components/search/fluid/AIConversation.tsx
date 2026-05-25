@@ -162,32 +162,41 @@ export function AIConversation({
       let responseContent = ""
       let responseData: any = {}
       
-      // Step 1: Try MYCA consciousness chat first (primary)
+      // Step 1: Try canonical fast MYCA orchestrator first (primary)
       try {
-        const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+        const consciousnessResponse = await fetch("/api/mas/voice/orchestrator", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             message: content,
-            context: { search: fullContext },
+            source: "web",
+            want_audio: false,
+            context: {
+              search: fullContext,
+              platform: "mobile-search",
+              include_memory_context: false,
+              isolate_from_chat_memory: true,
+            },
           }),
-          signal: AbortSignal.timeout(35000),
+          signal: AbortSignal.timeout(8000),
         })
         
         if (consciousnessResponse.ok) {
           const data = await consciousnessResponse.json()
-          if (data.message) {
-            responseContent = data.message
+          const responseText = data.response_text || data.message || data.reply || data.response
+          if (responseText) {
+            responseContent = responseText
             responseData = {
               sources: [],
               confidence: 0.85,
-              model: "MYCA Consciousness",
+              model: data.provider || "MYCA Orchestrator",
               emotional_state: data.emotional_state,
+              suggestedQuery: data.suggestedQuery,
             }
           }
         }
       } catch {
-        // Consciousness API not available, fall back to brain API
+        // Canonical MYCA route not available, fall back to brain API
       }
       
       // Step 2: Fall back to MYCA Brain API if consciousness didn't respond
@@ -238,8 +247,8 @@ export function AIConversation({
       )
 
       // If the AI suggests a search refinement, notify parent
-      if (data.suggestedQuery && onQueryChange) {
-        onQueryChange(data.suggestedQuery)
+      if (responseData.suggestedQuery && onQueryChange) {
+        onQueryChange(responseData.suggestedQuery)
       }
     } catch (error) {
       console.error("AI conversation error:", error)

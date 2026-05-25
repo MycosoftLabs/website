@@ -133,6 +133,32 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     console.log("[MojavePreserveLayer] render effect fired, map=", !!map, "data=", !!data, "loadedRef=", loadedRef.current)
     if (!map || !data) return
     if (typeof map.getSource !== "function") return
+    // May 21 2026 (Morgan): the per-layer try/catch below was swallowing
+    // "Style is not done loading" errors so silently that Goffs would render
+    // for one fast-refresh cycle and then vanish until the user toggled the
+    // layer off and back on. Gate the whole render on isStyleLoaded so the
+    // effect retries once the style finishes (the [data] dep + the inner
+    // wait below cover the retry path).
+    if (!map.isStyleLoaded?.()) {
+      let cancelled = false
+      const retry = () => {
+        if (cancelled) return
+        if (map.isStyleLoaded?.()) {
+          // Bump loadedRef so the next effect run does the actual work.
+          loadedRef.current = false
+          try { map.off("idle", retry) } catch { /* ignore */ }
+          try { map.off("style.load", retry) } catch { /* ignore */ }
+          window.dispatchEvent(new CustomEvent("crep:mojave:style-ready-retry"))
+        }
+      }
+      try { map.on("idle", retry) } catch { /* ignore */ }
+      try { map.on("style.load", retry) } catch { /* ignore */ }
+      return () => {
+        cancelled = true
+        try { map.off("idle", retry) } catch { /* ignore */ }
+        try { map.off("style.load", retry) } catch { /* ignore */ }
+      }
+    }
     console.log("[MojavePreserveLayer] beginning render — preserve boundary type:", data.preserve?.boundary_geom?.type, "wilderness:", data.wilderness_pois?.length)
 
     // Apr 21, 2026 (Morgan: "nothing in goffs is loading"). Previously

@@ -16,6 +16,7 @@ import React, {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from "react"
 import * as satellite from "satellite.js"
 import { pushPositionsToMindex, pushTrackingToWorldview } from "./mindex-bridge"
@@ -192,11 +193,27 @@ export function useGroundStation() {
 // Provider
 // ============================================================================
 
+function isFungaIsolationUrl() {
+  if (typeof window === "undefined") return false
+  const params = new URLSearchParams(window.location.search)
+  return (
+    params.has("funga") ||
+    params.get("mode") === "funga" ||
+    params.get("audit") === "1"
+  )
+}
+
 export function GroundStationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(gsReducer, initialState)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [disabledForFungaIsolation, setDisabledForFungaIsolation] = useState(isFungaIsolationUrl)
+
+  useEffect(() => {
+    setDisabledForFungaIsolation(isFungaIsolationUrl())
+  }, [])
 
   const checkConnection = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     try {
       const res = await fetch("/api/ground-station/system?action=health")
       const data = await res.json()
@@ -208,9 +225,10 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
     } catch {
       dispatch({ type: "SET_CONNECTED", connected: false, error: "Cannot reach ground station" })
     }
-  }, [])
+  }, [disabledForFungaIsolation])
 
   const refreshSatellites = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     dispatch({ type: "SET_LOADING", key: "satellites", loading: true })
     try {
       const groupParam = state.selectedGroupId ? `?group_id=${state.selectedGroupId}` : ""
@@ -223,9 +241,10 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
       // silent
     }
     dispatch({ type: "SET_LOADING", key: "satellites", loading: false })
-  }, [state.selectedGroupId])
+  }, [disabledForFungaIsolation, state.selectedGroupId])
 
   const refreshPasses = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     if (!state.selectedGroupId) return
     dispatch({ type: "SET_LOADING", key: "passes", loading: true })
     try {
@@ -240,9 +259,10 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
       // silent
     }
     dispatch({ type: "SET_LOADING", key: "passes", loading: false })
-  }, [state.selectedGroupId])
+  }, [disabledForFungaIsolation, state.selectedGroupId])
 
   const refreshHardware = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     dispatch({ type: "SET_LOADING", key: "hardware", loading: true })
     try {
       const res = await fetch("/api/ground-station/hardware?type=all")
@@ -259,9 +279,10 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
       // silent
     }
     dispatch({ type: "SET_LOADING", key: "hardware", loading: false })
-  }, [])
+  }, [disabledForFungaIsolation])
 
   const refreshObservations = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     dispatch({ type: "SET_LOADING", key: "observations", loading: true })
     try {
       const res = await fetch("/api/ground-station/observations")
@@ -276,7 +297,7 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
       // silent
     }
     dispatch({ type: "SET_LOADING", key: "observations", loading: false })
-  }, [])
+  }, [disabledForFungaIsolation])
 
   const selectGroup = useCallback((groupId: string | null) => {
     dispatch({ type: "SELECT_GROUP", groupId })
@@ -287,6 +308,7 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
   }, [])
 
   const trackSatellite = useCallback(async (noradId: number) => {
+    if (disabledForFungaIsolation) return
     try {
       await fetch("/api/ground-station/tracking", {
         method: "POST",
@@ -304,9 +326,10 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
     } catch {
       // silent
     }
-  }, [])
+  }, [disabledForFungaIsolation])
 
   const stopTracking = useCallback(async () => {
+    if (disabledForFungaIsolation) return
     try {
       await fetch("/api/ground-station/tracking", {
         method: "POST",
@@ -320,10 +343,11 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
     } catch {
       // silent
     }
-  }, [])
+  }, [disabledForFungaIsolation])
 
   // Initial data load
   useEffect(() => {
+    if (disabledForFungaIsolation) return
     checkConnection()
 
     // Load locations and auto-select first one
@@ -365,28 +389,31 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
     }
     loadGroups()
     refreshHardware()
-  }, [checkConnection, refreshHardware])
+  }, [checkConnection, disabledForFungaIsolation, refreshHardware])
 
   // Refresh satellites when group changes
   useEffect(() => {
+    if (disabledForFungaIsolation) return
     if (state.selectedGroupId) {
       refreshSatellites()
       refreshPasses()
     }
-  }, [state.selectedGroupId, refreshSatellites, refreshPasses])
+  }, [disabledForFungaIsolation, state.selectedGroupId, refreshSatellites, refreshPasses])
 
   // Periodic health check
   useEffect(() => {
+    if (disabledForFungaIsolation) return
     pollRef.current = setInterval(checkConnection, 30000)
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [checkConnection])
+  }, [checkConnection, disabledForFungaIsolation])
 
   const positionsRef = useRef<Record<number, GSSatellitePosition>>({})
 
   // Orbit Propagation & MINDEX Sync Loop
   useEffect(() => {
+    if (disabledForFungaIsolation) return
     if (state.satellites.length === 0) return
 
     let lastSyncTime = Date.now()
@@ -475,7 +502,7 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
     }, 1000)
 
     return () => clearInterval(propInterval)
-  }, [state.satellites, state.activeLocation, state.trackingState?.norad_id])
+  }, [disabledForFungaIsolation, state.satellites, state.activeLocation, state.trackingState?.norad_id])
 
   const value = useMemo(
     () => ({

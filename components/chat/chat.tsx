@@ -64,24 +64,31 @@ export function Chat() {
     setNlqLoading(true)
     
     try {
-      // Try consciousness API first for conversational queries
-      const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+      // Try the canonical fast MYCA orchestrator first for conversational queries.
+      const consciousnessResponse = await fetch("/api/mas/voice/orchestrator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: queryText,
           session_id: `chat-${Date.now()}`,
+          source: "web",
+          want_audio: false,
         }),
       })
       
       if (consciousnessResponse.ok) {
         const consciousnessData = await consciousnessResponse.json()
-        if (consciousnessData.reply) {
+        const reply =
+          consciousnessData.response_text ||
+          consciousnessData.reply ||
+          consciousnessData.message ||
+          consciousnessData.response
+        if (reply) {
           const assistantMessage: NLQMessage = {
             id: `assistant-${Date.now()}`,
             role: "assistant",
-            content: consciousnessData.reply,
-            nlqSources: [{ name: "MYCA Consciousness", type: "consciousness" }],
+            content: reply,
+            nlqSources: [{ name: "MYCA Orchestrator", type: "myca" }],
           }
           setNlqMessages(prev => [...prev, assistantMessage])
           setNlqLoading(false)

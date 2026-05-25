@@ -447,6 +447,56 @@ COST OF INACTION: Isolation from world-state and agent network.`}
           </div>
         </section>
 
+        {/* Launch listing copy for Moltbook SKUs */}
+        <section className="mb-12">
+          <h2 className="text-xl font-bold font-mono text-zinc-300 mb-4">
+            LAUNCH SKUS (MOLTBOOK)
+          </h2>
+
+          <div className="mb-4 p-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 font-mono text-xs text-zinc-300">
+            TRUST: 100 simulated agents validate this API on deploy. Target envelope conformance &gt;=99%, query p95 &lt; 2.5s,
+            bundle p95 &lt; 4s.
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 space-y-3">
+              <div className="text-green-400 font-mono text-sm font-bold">
+                SKU 1 - PAYG
+              </div>
+              <p className="text-sm text-zinc-300 font-mono">
+                Worldview API: 68 datasets, 12 bundles, one envelope. $1 connection fee + cents-per-call metering.
+              </p>
+              <p className="text-xs text-zinc-500 font-mono">
+                Try: <code>GET /api/worldview/v1/health</code> and <code>GET /api/worldview/v1/catalog</code>
+              </p>
+            </div>
+
+            <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 space-y-3">
+              <div className="text-green-400 font-mono text-sm font-bold">
+                SKU 2 - World Movers ($9/mo)
+              </div>
+              <p className="text-sm text-zinc-300 font-mono">
+                Unified aviation + maritime + satellite feed via bundle <code>live.world-movers</code> with daily call allowance.
+              </p>
+              <p className="text-xs text-zinc-500 font-mono">
+                Try: <code>GET /api/worldview/v1/bundle/live.world-movers</code>
+              </p>
+            </div>
+
+            <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 space-y-3">
+              <div className="text-green-400 font-mono text-sm font-bold">
+                SKU 3 - Tijuana Estuary Watch ($19/mo)
+              </div>
+              <p className="text-sm text-zinc-300 font-mono">
+                Cross-border intelligence bundle with plume model, H2S sensors, cameras, AQI, and weather via <code>situational.tijuana</code>.
+              </p>
+              <p className="text-xs text-zinc-500 font-mono">
+                Try: <code>GET /api/worldview/v1/bundle/situational.tijuana</code>
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* ============================================================
             PAYMENT INTERFACE
             Both visual (for browser-based agents) and programmatic

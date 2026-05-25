@@ -11,14 +11,15 @@
  * PERFORMANCE: Uses React.memo to prevent re-renders when props haven't changed
  */
 
-import { memo } from "react";
+import { memo, type CSSProperties } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
 import { 
   CheckCircle2, AlertCircle, MapPin, Clock, User, Camera, 
-  ExternalLink, Database, Leaf, Globe 
+  Database, Leaf, Globe, Bird, PawPrint, Bug, Fish, Waves, CircleDot,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -108,24 +109,39 @@ function getExternalUrl(observation: FungalObservation): string {
   }
 }
 
-// Kingdom-specific styling for all-life support
-const KINGDOM_STYLES: Record<string, { emoji: string; bgColor: string; glowColor: string; borderColor: string; label: string }> = {
-  Fungi:            { emoji: "🍄", bgColor: "bg-amber-700",    glowColor: "#b45309", borderColor: "border-amber-600/40", label: "Fungus" },
-  Plantae:          { emoji: "🌿", bgColor: "bg-emerald-700",  glowColor: "#047857", borderColor: "border-emerald-600/40", label: "Plant" },
-  Aves:             { emoji: "🐦", bgColor: "bg-sky-700",      glowColor: "#0369a1", borderColor: "border-sky-600/40", label: "Bird" },
-  Mammalia:         { emoji: "🦊", bgColor: "bg-orange-700",   glowColor: "#c2410c", borderColor: "border-orange-600/40", label: "Mammal" },
-  Reptilia:         { emoji: "🦎", bgColor: "bg-lime-700",     glowColor: "#4d7c0f", borderColor: "border-lime-600/40", label: "Reptile" },
-  Amphibia:         { emoji: "🐸", bgColor: "bg-green-700",    glowColor: "#15803d", borderColor: "border-green-600/40", label: "Amphibian" },
-  Actinopterygii:   { emoji: "🐟", bgColor: "bg-cyan-700",     glowColor: "#0e7490", borderColor: "border-cyan-600/40", label: "Fish" },
-  Mollusca:         { emoji: "🐚", bgColor: "bg-rose-700",     glowColor: "#be123c", borderColor: "border-rose-600/40", label: "Mollusk" },
-  Arachnida:        { emoji: "🕷️", bgColor: "bg-red-800",      glowColor: "#991b1b", borderColor: "border-red-600/40", label: "Arachnid" },
-  Insecta:          { emoji: "🦋", bgColor: "bg-yellow-700",   glowColor: "#a16207", borderColor: "border-yellow-600/40", label: "Insect" },
-  Animalia:         { emoji: "🦌", bgColor: "bg-orange-700",   glowColor: "#c2410c", borderColor: "border-orange-600/40", label: "Animal" },
+// Kingdom-specific styling for all-life support.
+// Explicit hex colors avoid Tailwind/JIT misses inside MapLibre marker portals.
+const KINGDOM_STYLES: Record<string, { Icon: LucideIcon; bg: string; icon: string; border: string; glow: string; label: string; emoji?: string }> = {
+  Fungi:            { Icon: CircleDot, bg: "#b45309", icon: "#fff7ed", border: "rgba(253, 230, 138, 0.95)", glow: "rgba(251, 191, 36, 0.55)", label: "Fungus", emoji: "\u{1F344}" },
+  Plantae:          { Icon: Leaf,      bg: "#047857", icon: "#86efac", border: "rgba(134, 239, 172, 0.9)", glow: "rgba(52, 211, 153, 0.5)", label: "Plant" },
+  Aves:             { Icon: Bird,      bg: "#0369a1", icon: "#bae6fd", border: "rgba(186, 230, 253, 0.9)", glow: "rgba(56, 189, 248, 0.5)", label: "Bird" },
+  Mammalia:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Mammal" },
+  Reptilia:         { Icon: PawPrint,  bg: "#4d7c0f", icon: "#d9f99d", border: "rgba(217, 249, 157, 0.9)", glow: "rgba(132, 204, 22, 0.5)", label: "Reptile" },
+  Amphibia:         { Icon: Waves,     bg: "#15803d", icon: "#bbf7d0", border: "rgba(187, 247, 208, 0.9)", glow: "rgba(34, 197, 94, 0.5)", label: "Amphibian" },
+  Actinopterygii:   { Icon: Fish,      bg: "#0e7490", icon: "#a5f3fc", border: "rgba(165, 243, 252, 0.9)", glow: "rgba(34, 211, 238, 0.5)", label: "Fish" },
+  Mollusca:         { Icon: CircleDot, bg: "#be123c", icon: "#fecdd3", border: "rgba(254, 205, 211, 0.9)", glow: "rgba(244, 63, 94, 0.5)", label: "Mollusk" },
+  Arachnida:        { Icon: Bug,       bg: "#991b1b", icon: "#fecaca", border: "rgba(254, 202, 202, 0.9)", glow: "rgba(239, 68, 68, 0.5)", label: "Arachnid" },
+  Insecta:          { Icon: Bug,       bg: "#a16207", icon: "#fef08a", border: "rgba(254, 240, 138, 0.95)", glow: "rgba(234, 179, 8, 0.55)", label: "Insect" },
+  Animalia:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Animal" },
+  Chromista:        { Icon: Leaf,      bg: "#047857", icon: "#86efac", border: "rgba(134, 239, 172, 0.9)", glow: "rgba(52, 211, 153, 0.5)", label: "Chromist" },
+  Protozoa:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Protozoan" },
 };
 
 function getKingdomStyle(kingdom?: string, iconicTaxon?: string) {
-  const key = iconicTaxon || kingdom || "Fungi";
-  return KINGDOM_STYLES[key] || KINGDOM_STYLES.Fungi;
+  const raw = `${iconicTaxon || ""} ${kingdom || ""}`.toLowerCase();
+  if (raw.includes("plantae") || raw.includes("plant") || raw.includes("magnoliophyta")) return KINGDOM_STYLES.Plantae;
+  if (raw.includes("aves") || raw.includes("bird")) return KINGDOM_STYLES.Aves;
+  if (raw.includes("mammalia") || raw.includes("mammal")) return KINGDOM_STYLES.Mammalia;
+  if (raw.includes("reptilia") || raw.includes("reptile")) return KINGDOM_STYLES.Reptilia;
+  if (raw.includes("amphibia") || raw.includes("amphibian")) return KINGDOM_STYLES.Amphibia;
+  if (raw.includes("actinopterygii") || raw.includes("fish")) return KINGDOM_STYLES.Actinopterygii;
+  if (raw.includes("mollusca") || raw.includes("mollusk") || raw.includes("mollusc")) return KINGDOM_STYLES.Mollusca;
+  if (raw.includes("arachnida") || raw.includes("spider") || raw.includes("arachnid")) return KINGDOM_STYLES.Arachnida;
+  if (raw.includes("insecta") || raw.includes("insect")) return KINGDOM_STYLES.Insecta;
+  if (raw.includes("chromista")) return KINGDOM_STYLES.Chromista;
+  if (raw.includes("protozoa")) return KINGDOM_STYLES.Protozoa;
+  if (raw.includes("animalia") || raw.includes("animal")) return KINGDOM_STYLES.Animalia;
+  return KINGDOM_STYLES.Fungi;
 }
 
 // Memoized component to prevent unnecessary re-renders when parent updates
@@ -141,47 +157,71 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
     return null;
   }
 
+  if (typeof window !== "undefined") {
+    const debug = ((window as any).__crep_render_debug ||= {
+      fungalRenderCalls: 0,
+      eventRenderCalls: 0,
+    });
+    debug.fungalRenderCalls += 1;
+  }
+
   const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Species";
   const scientificName = observation.taxon?.name || observation.species || "";
   const isResearchGrade = observation.quality_grade === "research";
   const photoUrl = observation.photos?.[0]?.url;
   const sourceInfo = getSourceInfo(observation.source);
   const kingdomStyle = getKingdomStyle(observation.kingdom, observation.iconicTaxon);
+  const KingdomIcon = kingdomStyle.Icon;
 
   return (
     <MapMarker 
       longitude={observation.longitude} 
       latitude={observation.latitude} 
-      offset={[0, -12]}
+      offset={[0, -7]}
       onClick={() => onClick?.()}
     >
       {/* MarkerContent is REQUIRED to properly position the marker on the map */}
       <MarkerContent data-marker="fungal" data-observation-id={String(observation.id)}>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick?.();
-          }}
           className={cn(
-            "relative flex items-center justify-center transition-all duration-200 ease-in-out",
-            "w-6 h-6 rounded-full",
-            isResearchGrade
-              ? `${kingdomStyle.bgColor} shadow-[0_0_4px_rgba(180,83,9,0.5)]`
-              : `${kingdomStyle.bgColor}/90 shadow-[0_0_3px_rgba(217,119,6,0.4)]`,
+            "crep-species-marker-dot",
+            // May 21 2026 (Morgan: "nature markers blinking on every zoom").
+            // Dropped `transition-all duration-200 ease-in-out` — it was
+            // firing on every parent re-render (e.g. each viewport-tick or
+            // groundFilter change) and visibly re-animating every nature
+            // marker. Hover keeps its scale via a non-transitioned class
+            // change; selection scale is instant.
+            "relative flex items-center justify-center",
+            "h-[15px] w-[15px] rounded-full border shadow-md",
             isSelected
-              ? "scale-150 ring-2 ring-white z-50"
+              ? "scale-[1.45] ring-2 ring-white z-50"
               : "hover:scale-125 z-10",
           )}
-          title={`${kingdomStyle.emoji} ${speciesName} (${kingdomStyle.label})`}
+          style={{
+            "--species-bg": kingdomStyle.bg,
+            "--species-icon": kingdomStyle.icon,
+            "--species-border": kingdomStyle.border,
+            "--species-glow": kingdomStyle.glow,
+            backgroundColor: kingdomStyle.bg,
+            borderColor: kingdomStyle.border,
+            boxShadow: `0 0 ${isResearchGrade ? 9 : 5}px ${kingdomStyle.glow}`,
+            color: kingdomStyle.icon,
+          } as CSSProperties}
+          title={`${speciesName} (${kingdomStyle.label})`}
         >
-          <div
-            className="absolute w-3 h-3 rounded-full blur-[2px] opacity-30"
-            style={{ backgroundColor: kingdomStyle.glowColor }}
-          />
-          <span className="relative text-xs">{kingdomStyle.emoji}</span>
+          {kingdomStyle.emoji ? (
+            <span className="relative text-[9px] leading-none drop-shadow-sm" aria-hidden="true">
+              {kingdomStyle.emoji}
+            </span>
+          ) : (
+            <KingdomIcon className="relative h-[9px] w-[9px] drop-shadow-sm" strokeWidth={3} />
+          )}
           {isResearchGrade && isSelected && (
-            <div className={cn("absolute w-6 h-6 rounded-full animate-ping opacity-15 pointer-events-none", kingdomStyle.bgColor)} />
+            <div
+              className="absolute h-[15px] w-[15px] rounded-full opacity-25 pointer-events-none"
+              style={{ backgroundColor: kingdomStyle.icon }}
+            />
           )}
         </button>
       </MarkerContent>
@@ -192,7 +232,8 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
           ═══════════════════════════════════════════════════════════════════════════ */}
       {isSelected && (
         <MarkerPopup
-          className={cn("min-w-[280px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden", kingdomStyle.borderColor)}
+          className="min-w-[280px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden"
+          style={{ borderColor: kingdomStyle.border } as CSSProperties}
           closeButton
           closeOnClick={false}
           anchor="bottom"
@@ -201,12 +242,20 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
         >
           {/* Compact Header with Species Name - Kingdom-themed */}
           <div className={cn(
-            "px-3 py-2 border-b",
-            kingdomStyle.borderColor,
-            `${kingdomStyle.bgColor}/40`
-          )}>
+            "px-3 py-2 border-b"
+          )}
+          style={{ borderColor: kingdomStyle.border, backgroundColor: `${kingdomStyle.bg}55` }}>
             <div className="flex items-start gap-2">
-              <span className="text-lg shrink-0">{kingdomStyle.emoji}</span>
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border"
+                style={{ backgroundColor: kingdomStyle.bg, borderColor: kingdomStyle.border, color: kingdomStyle.icon }}
+              >
+                {kingdomStyle.emoji ? (
+                  <span className="text-sm leading-none" aria-hidden="true">{kingdomStyle.emoji}</span>
+                ) : (
+                  <KingdomIcon className="h-4 w-4" strokeWidth={2.4} />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white leading-tight truncate">
                   {speciesName}

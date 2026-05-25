@@ -210,8 +210,29 @@ async function monitorGPUServicesBackground() {
   }
 }
 
+const DEV_PC_IP = process.env.MYCOSOFT_DEV_PC_IP || '192.168.0.241';
+const os = require('os');
+
+function assertNotDevPcForGpu() {
+  if (process.env.MYCOSOFT_ALLOW_LOCAL_GPU === '1') return;
+  if (process.env.MYCOSOFT_MACHINE_ROLE === 'dev') {
+    log('BLOCKED: dev:with-gpu is disabled on the dev PC. Use npm run dev:next-only and remote GPU host 249.', 'red');
+    process.exit(1);
+  }
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name] || []) {
+      if (iface.family === 'IPv4' && iface.address === DEV_PC_IP) {
+        log('BLOCKED: dev:with-gpu is disabled on dev PC 241. PersonaPlex runs on 192.168.0.249.', 'red');
+        process.exit(1);
+      }
+    }
+  }
+}
+
 // Main function
 async function main() {
+  assertNotDevPcForGpu();
   logHeader('MYCOSOFT DEV SERVER WITH GPU SERVICES');
   
   console.log('  GPU Services (loading in background):');

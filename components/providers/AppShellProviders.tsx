@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { PresenceProvider } from "@/contexts/presence-context"
@@ -75,32 +75,41 @@ function hasNativeMycaInterface(pathname: string): boolean {
 
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
+  const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
+    setIsHydrated(true)
     document.body.classList.remove("hub-silo")
   }, [])
 
-  const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
-    const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)
-    const routeNeedsAppState = startsWithAny(pathname, APP_STATE_PREFIXES)
+  // Route-specific provider trees must not change between SSR and the first
+  // client render. usePathname can resolve differently during prerender, so
+  // defer optional wrappers until hydration completes.
+  const activePathname = isHydrated ? pathname : "/"
 
-    const nativeMycaInterface = hasNativeMycaInterface(pathname)
+  const { enableMyca, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
+    const routeWantsMyca = startsWithAny(activePathname, MYCA_PREFIXES)
+    const routeNeedsAppState = startsWithAny(activePathname, APP_STATE_PREFIXES)
+
+    const nativeMycaInterface = hasNativeMycaInterface(activePathname)
     return {
       enableMyca: routeWantsMyca,
       showFloating: routeWantsMyca && !nativeMycaInterface,
       enableAppState: routeNeedsAppState,
       mycaAlwaysActive:
-        pathname.startsWith("/search") ||
-        pathname.startsWith("/myca") ||
-        pathname.startsWith("/test-voice") ||
-        pathname.startsWith("/test-fluid-search") ||
-        pathname.startsWith("/natureos/ai-studio"),
+        activePathname.startsWith("/search") ||
+        activePathname.startsWith("/myca") ||
+        activePathname.startsWith("/test-voice") ||
+        activePathname.startsWith("/test-fluid-search") ||
+        activePathname.startsWith("/natureos/ai-studio"),
     }
-  }, [pathname])
+  }, [activePathname])
+
+  const hideFooter = activePathname === "/search" || activePathname.startsWith("/search/")
 
   let content: React.ReactNode = children
 
-  const pageContext = getPageContextForMYCA(pathname)
+  const pageContext = getPageContextForMYCA(activePathname)
   const getContextText = pageContext
     ? () => `[Context: ${pageContext}]`
     : undefined
@@ -110,10 +119,11 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
-        <NavigationClickRescue />
+        {isHydrated ? <NavigationClickRescue /> : null}
+        {/* Always render Header so SSR and first client paint match (spacer swap caused hydration mismatch). */}
         <Header />
         <main className="flex-1 relative w-full overflow-x-hidden">{content}</main>
-        <Footer />
+        {!hideFooter ? <Footer /> : null}
       </div>
       {showFloating ? (
         <MYCAFloatingButton title="MYCA" getContextText={getContextText} />

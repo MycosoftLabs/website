@@ -13,6 +13,7 @@ import { FingerCards } from "@/components/myca/FingerCards"
 import { NLMArchitecture } from "@/components/myca/NLMArchitecture"
 import { FungalPrinciples } from "@/components/myca/FungalPrinciples"
 import { LiveDemo } from "@/components/myca/LiveDemo"
+import { MYCAProvider } from "@/contexts/myca-context"
 import { ComparisonTable } from "@/components/myca/ComparisonTable"
 import { TechnicalSpecs } from "@/components/myca/TechnicalSpecs"
 import { MYCAAbstract } from "@/components/myca/MYCAAbstract"
@@ -27,7 +28,13 @@ export default function MYCAPage() {
       <div className="min-h-dvh myca-page">
       {/* Section 1: Live Demo */}
       <div id="live-demo">
-        <LiveDemo className="min-h-[80dvh] flex items-center" />
+        <MYCAProvider initialConsciousnessActive>
+          <LiveDemo
+            showDemoBackground={false}
+            forceMountPanels={false}
+            className="min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-start"
+          />
+        </MYCAProvider>
       </div>
 
       {/* Section 2: Hero */}

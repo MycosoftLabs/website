@@ -31,6 +31,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/natureos/ancestry/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Ancestry Explorer' },
   { path: '/apps/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator' },
   { path: '/natureos/virtual-petri-dish', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Virtual Petri Dish' },
+  { path: '/natureos/virtual-petri-dish2', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Virtual Petri Dish v2' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
   { path: '/natureos/fusarium', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM' },
@@ -350,6 +351,7 @@ const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/natureos/ancestry/explorer',
   '/apps/earth-simulator',
   '/natureos/virtual-petri-dish',
+  '/natureos/virtual-petri-dish2',
   '/apps/compound-sim',
 ]
 

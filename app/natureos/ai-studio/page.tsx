@@ -20,6 +20,7 @@ import {
   AgentGrid,
   AdvancedTopology3D,
   ActivityTopologyView,
+  MeshTab,
 } from "@/components/mas"
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget"
 import { Myca2PsiloPanel } from "@/components/myca2/Myca2PsiloPanel"
@@ -41,6 +42,7 @@ import {
   Radio,
   Database,
   Workflow,
+  Users,
 } from "lucide-react"
 
 // MAS API URL - points to the MAS VM orchestrator
@@ -203,6 +205,8 @@ export default function AIStudioPage() {
       setSelectedTab("system")
     } else if (command.includes("show topology")) {
       setSelectedTab("topology")
+    } else if (command.includes("show mesh") || command.includes("show coordination")) {
+      setSelectedTab("mesh")
     } else if (command.includes("show memory") || command.includes("show activity") || command.includes("show workflows")) {
       setSelectedTab("activity")
     } else if (command.includes("create agent") || command.includes("new agent")) {
@@ -275,7 +279,7 @@ export default function AIStudioPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 h-auto gap-1 p-1">
+          <TabsList className="grid w-full grid-cols-4 h-auto gap-1 p-1">
             <TabsTrigger value="system" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">System</span>
@@ -283,6 +287,10 @@ export default function AIStudioPage() {
             <TabsTrigger value="topology" className="gap-2 py-2">
               <Network className="h-4 w-4" />
               <span className="hidden sm:inline">Topology</span>
+            </TabsTrigger>
+            <TabsTrigger value="mesh" className="gap-2 py-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Mesh</span>
             </TabsTrigger>
             <TabsTrigger value="activity" className="gap-2 py-2">
               <Activity className="h-4 w-4" />
@@ -444,6 +452,11 @@ export default function AIStudioPage() {
                 <AgentTopology masApiUrl="/api/mas" />
               </div>
             </details>
+          </TabsContent>
+
+          {/* Mesh Tab - Desktop coordination + API explorer */}
+          <TabsContent value="mesh" className="space-y-6">
+            <MeshTab />
           </TabsContent>
 
           {/* Activity Tab - Circulatory topology (routes, APIs, memory, sitemap, workflows, devices, DB) */}

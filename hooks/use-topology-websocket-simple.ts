@@ -30,7 +30,7 @@ export interface UseTopologyWebSocketSimpleResult {
 const RECONNECT_DELAY = 5000
 const HEARTBEAT_INTERVAL = 25000
 
-export function useTopologyWebSocketSimple(): UseTopologyWebSocketSimpleResult {
+export function useTopologyWebSocketSimple(enabled = true): UseTopologyWebSocketSimpleResult {
   const wsRef = useRef<WebSocket | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -49,6 +49,7 @@ export function useTopologyWebSocketSimple(): UseTopologyWebSocketSimpleResult {
   }, [])
 
   const connect = useCallback(() => {
+    if (!enabled) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
     intentionalCloseRef.current = false
@@ -113,7 +114,7 @@ export function useTopologyWebSocketSimple(): UseTopologyWebSocketSimpleResult {
       setConnecting(false)
       setError("WebSocket unavailable")
     }
-  }, [stopHeartbeat])
+  }, [enabled, stopHeartbeat])
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true
@@ -132,9 +133,13 @@ export function useTopologyWebSocketSimple(): UseTopologyWebSocketSimpleResult {
   }, [stopHeartbeat])
 
   useEffect(() => {
+    if (!enabled) {
+      disconnect()
+      return
+    }
     connect()
     return () => disconnect()
-  }, [connect, disconnect])
+  }, [connect, disconnect, enabled])
 
   return {
     connected,

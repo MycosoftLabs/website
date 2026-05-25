@@ -1,6 +1,6 @@
 /** Client helpers for Petri v2 REST (via Next proxy). Date: May 02, 2026 */
 
-import type { PetriStateSnapshot } from "@/components/petri-dish-v2/types"
+import type { PetriAction, PetriStateSnapshot } from "@/components/petri-dish-v2/types"
 
 const PREFIX = "/api/simulation/petri/v2"
 
@@ -24,11 +24,11 @@ export async function petriState(): Promise<PetriStateSnapshot> {
   return (await parseJson(res)) as PetriStateSnapshot
 }
 
-export async function petriStep(n = 1): Promise<PetriStateSnapshot> {
+export async function petriStep(n = 1, force = false): Promise<PetriStateSnapshot> {
   const res = await fetch(`${PREFIX}/step`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ n }),
+    body: JSON.stringify({ n, force }),
   })
   if (!res.ok) throw new Error(`step ${res.status}`)
   return (await parseJson(res)) as PetriStateSnapshot
@@ -51,5 +51,15 @@ export async function petriPause(paused: boolean): Promise<PetriStateSnapshot> {
     body: JSON.stringify({ paused }),
   })
   if (!res.ok) throw new Error(`pause ${res.status}`)
+  return (await parseJson(res)) as PetriStateSnapshot
+}
+
+export async function petriAction(action: PetriAction): Promise<PetriStateSnapshot> {
+  const res = await fetch(`${PREFIX}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(action),
+  })
+  if (!res.ok) throw new Error(`action ${res.status}`)
   return (await parseJson(res)) as PetriStateSnapshot
 }

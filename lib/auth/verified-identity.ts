@@ -114,10 +114,18 @@ export function masServiceHeaders(
   base: HeadersInit = {},
   identity?: Pick<VerifiedIdentity, "userId" | "userRole" | "email" | "authTrustLevel">
 ): HeadersInit {
-  const token = process.env.MAS_INTERNAL_SERVICE_TOKEN || process.env.MYCA_MAS_SERVICE_TOKEN
+  const token =
+    process.env.MYCA_INTERNAL_SERVICE_TOKEN ||
+    process.env.MAS_INTERNAL_SERVICE_TOKEN ||
+    process.env.MYCA_MAS_SERVICE_TOKEN
   return {
     ...base,
-    ...(token ? { "X-MYCA-Service-Token": token } : {}),
+    ...(token
+      ? {
+          "X-MYCA-Service-Token": token,
+          "X-MYCOSOFT-Service-Token": token,
+        }
+      : {}),
     ...(identity
       ? {
           "X-MYCA-Verified-User-Id": identity.userId,

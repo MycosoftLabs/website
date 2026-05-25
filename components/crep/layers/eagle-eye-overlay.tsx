@@ -78,6 +78,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
   const loadedRef = useRef<{ cams?: boolean; events?: boolean }>({})
   const camsTimerRef = useRef<any>(null)
   const eventsTimerRef = useRef<any>(null)
+  const bakedCameraFcRef = useRef<any>(null)
+  const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
 
   // ─── Permanent camera plane ─────────────────────────────────────────
   useEffect(() => {
@@ -142,6 +144,27 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
         }))
       return { type: "FeatureCollection" as const, features }
+    }
+
+    const mergeFeatureCollections = (...collections: any[]) => {
+      const merged = new Map<string, any>()
+      for (const collection of collections) {
+        for (const feature of collection?.features || []) {
+          const key = String(feature?.properties?.id || feature?.id || "")
+          if (!key) continue
+          merged.set(key, feature)
+        }
+      }
+      return { type: "FeatureCollection" as const, features: Array.from(merged.values()) }
+    }
+
+    const countProviders = (collection: any) => {
+      const out: Record<string, number> = {}
+      for (const feature of collection?.features || []) {
+        const provider = String(feature?.properties?.provider || "unknown")
+        out[provider] = (out[provider] || 0) + 1
+      }
+      return out
     }
 
     const paintBakedRegistry = async (): Promise<boolean> => {
@@ -209,6 +232,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         const srcLike = Array.from(merged.values())
         const fc = paintFromSources(srcLike)
         if (fc.features.length === 0) return false
+        bakedCameraFcRef.current = fc
         if (!map.getSource("crep-eagle-cams")) {
           ;(map as any).__crepEaglePendingFc = fc
         } else {
@@ -234,7 +258,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         // After baked paint: use full mode so API deltas include Caltrans
         // + Shinobi. Without baked: use fast-then-full for first mount.
         const fastMode = !loadedRef.current.cams && !bakedPainted
-        const bboxBase = bbox ? `bbox=${bbox.join(",")}&limit=10000` : "limit=10000"
+        const bboxBase = bboxKey ? `bbox=${bboxKey}&limit=10000` : "limit=10000"
         const bboxParam = `?${bboxBase}${fastMode ? "&fast=1" : ""}`
         if (fastMode) {
           setTimeout(() => {
@@ -269,18 +293,19 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
           }))
         const fc = { type: "FeatureCollection" as const, features }
+        const mergedFc = mergeFeatureCollections(
+          (map as any).__crepEaglePendingFc,
+          bakedCameraFcRef.current,
+          fc,
+        )
         if (!map.getSource("crep-eagle-cams")) {
           // Apr 23, 2026 — pre-seed with the baked-registry FC if
           // paintBakedRegistry already stashed one (previously it stashed
           // on __crepEaglePendingFc but nothing consumed it, so the
           // baked-registry features were silently lost on first mount).
           const pending = (map as any).__crepEaglePendingFc
-          let initialFc = fc
+          let initialFc = mergedFc.features.length ? mergedFc : fc
           if (pending?.features?.length) {
-            const merged = new Map<string, any>()
-            for (const f of pending.features) if (f?.properties?.id) merged.set(String(f.properties.id), f)
-            for (const f of fc.features) if (f?.properties?.id) merged.set(String(f.properties.id), f)
-            initialFc = { type: "FeatureCollection" as const, features: Array.from(merged.values()) }
             delete (map as any).__crepEaglePendingFc
           }
           map.addSource("crep-eagle-cams", { type: "geojson", data: initialFc, generateId: true })
@@ -289,9 +314,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             id: "crep-eagle-cams-halo",
             type: "circle",
             source: "crep-eagle-cams",
-            minzoom: 3,
+            minzoom: 2,
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 5, 8, 8, 13, 12],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 4, 8, 8, 13, 12],
               "circle-color": ["get", "color"],
               "circle-opacity": 0.28,
               "circle-blur": 1.0,
@@ -301,9 +326,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             id: "crep-eagle-cams-core",
             type: "circle",
             source: "crep-eagle-cams",
-            minzoom: 3,
+            minzoom: 2,
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.2, 8, 3.8, 13, 6.5],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.2, 8, 3.8, 13, 6.5],
               "circle-color": ["get", "color"],
               "circle-opacity": 0.95,
               "circle-stroke-width": 1.2,
@@ -356,15 +381,17 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           })
           map.on("mouseenter", "crep-eagle-cams-core", () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", "crep-eagle-cams-core", () => { map.getCanvas().style.cursor = "" })
-          console.log(`[EagleEye] ${features.length} permanent cameras loaded (by provider: ${JSON.stringify(j.by_provider || {})})`)
+          console.log(`[EagleEye] ${initialFc.features.length} permanent cameras loaded (api=${features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
         } else {
-          (map.getSource("crep-eagle-cams") as any).setData(fc)
+          ;(map.getSource("crep-eagle-cams") as any).setData(mergedFc.features.length ? mergedFc : fc)
         }
         // Broadcast counts for Intel Feed panel subscribers.
         try {
-          ;(window as any).__crep_eagle_camera_counts = j.by_provider || {}
+          const paintedFc = mergedFc.features.length ? mergedFc : fc
+          const providerCounts = countProviders(paintedFc)
+          ;(window as any).__crep_eagle_camera_counts = providerCounts
           window.dispatchEvent(new CustomEvent("crep:eagle:camera-counts", {
-            detail: { total: features.length, by_provider: j.by_provider || {} },
+            detail: { total: paintedFc.features.length, by_provider: providerCounts },
           }))
         } catch { /* ignore */ }
       } catch (e: any) { console.warn("[EagleEye/cams]", e?.message) }
@@ -383,7 +410,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     enabled.eagleEyeWeatherCams,
     enabled.eagleEyeWebcams,
     enabled.eagleEyeNpsUsgs,
-    bbox,
+    bboxKey,
   ])
 
   // ─── Ephemeral event plane ──────────────────────────────────────────
@@ -401,9 +428,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       try {
         for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
       } catch { /* ignore */ }
-      return
+    } else {
+      loadedRef.current.events = true
     }
-    loadedRef.current.events = true
 
     const fetchAndPaint = async () => {
       // Apr 20, 2026 perf: events tick every 60 s and fire 4 parallel
@@ -411,8 +438,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       // fan-out while the tab is backgrounded.
       if (typeof document !== "undefined" && document.hidden) return
       try {
-        const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
-        const bboxQ = bbox ? `?bbox=${bbox.join(",")}` : ""
+        const bboxParam = bboxKey ? `&bbox=${bboxKey}` : ""
+        const bboxQ = bboxKey ? `?bbox=${bboxKey}` : ""
         // Apr 20, 2026 (Phase 3a): union MINDEX ephemeral events +
         // YouTube Live + Bluesky + Mastodon video posts. Each connector
         // returns its own confidence tier; no rescaling here so the
@@ -421,8 +448,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         const hoursBack = (window as any).__crep_eagle_time_window?.hoursBack ?? 6
         const [mindexRes, ytRes, blueskyRes, mastodonRes] = await Promise.all([
           fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000${bboxParam}`).catch(() => null),
-          enabled.eagleEyeYoutubeLive !== false && bbox
-            ? fetch(`/api/oei/youtube-live?bbox=${bbox.join(",")}&maxResults=50`).catch(() => null)
+          enabled.eagleEyeYoutubeLive !== false && bboxKey
+            ? fetch(`/api/oei/youtube-live?bbox=${bboxKey}&maxResults=50`).catch(() => null)
             : Promise.resolve(null),
           enabled.eagleEyeBluesky !== false
             ? fetch(`/api/eagle/connectors/bluesky${bboxQ}`).catch(() => null)
@@ -520,9 +547,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             id: "crep-eagle-events-pulse",
             type: "circle",
             source: "crep-eagle-events",
-            minzoom: 5,
+            minzoom: 3,
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 6, 10, 10, 16, 18],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 5, 10, 10, 16, 18],
               "circle-color": "#fbbf24",
               "circle-opacity": 0.25,
               "circle-blur": 1.0,
@@ -533,9 +560,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             id: "crep-eagle-events-core",
             type: "circle",
             source: "crep-eagle-events",
-            minzoom: 5,
+            minzoom: 3,
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 3, 10, 4.5, 16, 7],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3, 10, 4.5, 16, 7],
               "circle-color": [
                 "case",
                 [">=", ["coalesce", ["get", "confidence"], 0], 0.8], "#facc15",  // native: bright yellow
@@ -619,7 +646,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     map,
     enabled.eagleEyeEvents,
     enabled.eagleEyeYoutubeLive,
-    bbox,
+    enabled.eagleEyeBluesky,
+    enabled.eagleEyeMastodon,
+    bboxKey,
   ])
 
   return null

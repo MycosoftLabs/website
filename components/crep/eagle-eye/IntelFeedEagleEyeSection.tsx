@@ -17,7 +17,8 @@
  */
 
 import { useEffect, useState, memo } from "react"
-import { Camera, Radio, PlaySquare } from "lucide-react"
+import { Camera, Radio, PlaySquare, Clock } from "lucide-react"
+import TimelineScrubber from "./TimelineScrubber"
 
 interface EagleCounts {
   total: number
@@ -48,6 +49,7 @@ const EVENT_PROVIDERS: Array<{ id: string; name: string; color: string }> = [
 function IntelFeedEagleEyeSection() {
   const [cams, setCams] = useState<EagleCounts>({ total: 0, by_provider: {} })
   const [events, setEvents] = useState<EagleCounts>({ total: 0, by_provider: {} })
+  const [timelineOpen, setTimelineOpen] = useState(false)
 
   useEffect(() => {
     const onCam = (e: any) => {
@@ -87,8 +89,25 @@ function IntelFeedEagleEyeSection() {
             Eagle Eye
           </span>
         </div>
-        <span className="text-[10px] text-gray-500">video intelligence</span>
+        <button
+          type="button"
+          onClick={() => setTimelineOpen((open) => !open)}
+          className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition-colors ${
+            timelineOpen
+              ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-100"
+              : "border-cyan-500/20 bg-black/20 text-gray-400 hover:border-cyan-400/50 hover:text-cyan-100"
+          }`}
+        >
+          <Clock className="h-3 w-3" />
+          Timeline
+        </button>
       </div>
+
+      {timelineOpen && (
+        <div className="mb-2">
+          <TimelineScrubber mode="inline" initiallyExpanded />
+        </div>
+      )}
 
       {/* Permanent cameras subsection */}
       <div className="mb-2">
@@ -148,7 +167,7 @@ function IntelFeedEagleEyeSection() {
 
       {cams.total === 0 && events.total === 0 && (
         <div className="text-[10px] text-gray-500 italic mt-1">
-          Toggle "Eagle Eye — Cameras" and "Eagle Eye — Live Events" in the right-panel layer list to populate.
+          Toggle Eagle Eye cameras in Infra or Eagle Eye live events in Events to populate.
         </div>
       )}
     </div>

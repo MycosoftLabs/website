@@ -77,6 +77,11 @@ export interface MYCALastResponseMetadata {
   routed_to?: string
 }
 
+export interface MYCADraftActivity {
+  length: number
+  version: number
+}
+
 export interface MYCAContextValue {
   sessionId: string
   userId: string | null
@@ -85,6 +90,8 @@ export interface MYCAContextValue {
   messages: MYCAMessage[]
   isLoading: boolean
   lastResponseMetadata: MYCALastResponseMetadata | null
+  draftActivity: MYCADraftActivity
+  setDraftActivity: (length: number) => void
   memoryEnabled: boolean
   setMemoryEnabled: (enabled: boolean) => void
   pendingConfirmationId: string | null
@@ -115,6 +122,13 @@ function buildStorageKey(prefix: string, userId: string | null) {
 function generateSessionId(userId: string | null) {
   const suffix = Math.random().toString(36).slice(2, 10)
   return `myca_${userId || "anon"}_${Date.now()}_${suffix}`
+}
+
+function clearAnonymousMYCAStorage() {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(buildStorageKey(SESSION_KEY_PREFIX, null))
+  localStorage.removeItem(buildStorageKey(CONVERSATION_KEY_PREFIX, null))
+  localStorage.removeItem(buildStorageKey(MESSAGES_KEY_PREFIX, null))
 }
 
 function normalizeMessages(rawMessages: Array<Record<string, any>>): MYCAMessage[] {
@@ -150,7 +164,17 @@ export function MYCAProvider({
   const [isUserActive, setIsUserActive] = useState(false)
   const isActive = initialConsciousnessActive || isUserActive
   const [lastResponseMetadata, setLastResponseMetadata] = useState<MYCALastResponseMetadata | null>(null)
+  const [draftActivity, setDraftActivityState] = useState<MYCADraftActivity>({ length: 0, version: 0 })
   const hasInitializedRef = useRef(false)
+  const activeRequestRef = useRef<AbortController | null>(null)
+
+  const setDraftActivity = useCallback((length: number) => {
+    const safeLength = Math.max(0, Math.min(2000, Math.floor(length || 0)))
+    setDraftActivityState((prev) => ({
+      length: safeLength,
+      version: safeLength === prev.length ? prev.version : prev.version + 1,
+    }))
+  }, [])
 
   const executeSearchAction = useCallback((action: MYCASearchAction) => {
     if (typeof window === "undefined") return
@@ -164,8 +188,51 @@ export function MYCAProvider({
     window.dispatchEvent(new CustomEvent("myca-crep-action", { detail: command }))
   }, [])
 
+  const abortActiveRequest = useCallback(() => {
+    activeRequestRef.current?.abort()
+    activeRequestRef.current = null
+    setIsLoading(false)
+  }, [])
+
+  const resetAnonymousConversation = useCallback(() => {
+    if (userId) return
+    activeRequestRef.current?.abort()
+    activeRequestRef.current = null
+    clearAnonymousMYCAStorage()
+    setIsLoading(false)
+    setConversationId(null)
+    setMessages([])
+    setLastResponseMetadata(null)
+    setPendingConfirmationId(null)
+    setDraftActivityState({ length: 0, version: 0 })
+  }, [userId])
+
   useEffect(() => {
     if (typeof window === "undefined") return
+    window.addEventListener("myca-home-demo-close", abortActiveRequest)
+    window.addEventListener("myca-home-demo-reset", resetAnonymousConversation)
+    return () => {
+      window.removeEventListener("myca-home-demo-close", abortActiveRequest)
+      window.removeEventListener("myca-home-demo-reset", resetAnonymousConversation)
+      abortActiveRequest()
+    }
+  }, [abortActiveRequest, resetAnonymousConversation])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!userId) {
+      clearAnonymousMYCAStorage()
+      setSessionId(generateSessionId(null))
+      setConversationId(null)
+      setMessages([])
+      setMemoryEnabled(false)
+      setLastResponseMetadata(null)
+      setDraftActivityState({ length: 0, version: 0 })
+      hasInitializedRef.current = true
+      return
+    }
+
+    setMemoryEnabled(true)
     const sessionKey = buildStorageKey(SESSION_KEY_PREFIX, userId)
     const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
     const messagesKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
@@ -178,14 +245,15 @@ export function MYCAProvider({
     setSessionId(resolvedSession)
 
     if (storedConversation) setConversationId(storedConversation)
-    if (storedMessages && messages.length === 0) {
-      setMessages(JSON.parse(storedMessages) as MYCAMessage[])
+    if (storedMessages) {
+      const parsedMessages = JSON.parse(storedMessages) as MYCAMessage[]
+      setMessages((prev) => (prev.length === 0 ? parsedMessages : prev))
     }
     hasInitializedRef.current = true
-  }, [userId, messages.length])
+  }, [userId])
 
   useEffect(() => {
-    if (!conversationId || typeof window === "undefined") return
+    if (!conversationId || !userId || typeof window === "undefined") return
     const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
     localStorage.setItem(conversationKey, conversationId)
   }, [conversationId, userId])
@@ -196,7 +264,7 @@ export function MYCAProvider({
 
   const storeMemory = useCallback(
     async (message: MYCAMessage) => {
-      if (!memoryEnabled || !sessionId) return
+      if (!memoryEnabled || !sessionId || !userId) return
       try {
         // Apr 23, 2026 audit: was `fetch()` without timeout. If MAS
         // restarts mid-session, every user message would block the
@@ -207,7 +275,7 @@ export function MYCAProvider({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: sessionId,
-            user_id: userId || "anonymous",
+            user_id: userId,
             message: message.content,
             role: message.role,
             agent: message.agent,
@@ -237,57 +305,51 @@ export function MYCAProvider({
       }
       appendMessage(userMessage)
       setIsUserActive(true)
+      setDraftActivity(0)
       setIsLoading(true)
 
       const contextText = options?.contextText?.trim()
       const requestMessage = contextText ? `${contextText}\n\n${text}` : text
+      activeRequestRef.current?.abort()
+      const requestController = new AbortController()
+      activeRequestRef.current = requestController
+      const timeoutId = window.setTimeout(() => requestController.abort(), 180_000)
 
       try {
-        const timeoutMs = 180_000
-        const timeoutSignal =
-          typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
-            ? AbortSignal.timeout(timeoutMs)
-            : (() => {
-                const c = new AbortController()
-                setTimeout(() => c.abort(new DOMException("Request timeout", "TimeoutError")), timeoutMs)
-                return c.signal
-              })()
-
         const response = await fetch("/api/mas/voice/orchestrator", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: timeoutSignal,
+          signal: requestController.signal,
           body: JSON.stringify({
             message: requestMessage,
             user_id: userId || undefined,
             user_role: userRole || undefined,
-            conversation_id: conversationId || undefined,
-            session_id: sessionId || undefined,
+            conversation_id: userId ? conversationId || undefined : undefined,
+            session_id: userId ? sessionId || undefined : undefined,
             want_audio: options?.wantAudio ?? false,
             actor: options?.actor || "user",
             source: options?.source || "web",
             context: {
               ...(options?.context || {}),
-              user_id: userId || "anonymous",
+              ...(!userId
+                ? {
+                    include_memory_context: false,
+                    isolate_from_chat_memory: true,
+                    platform: "myca-anonymous-live-demo",
+                    anonymous_session: true,
+                  }
+                : {}),
+              ...(userId ? { user_id: userId } : {}),
             },
           }),
         })
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          let errMsg = "Failed to reach MYCA"
-          try {
-            const errJson = JSON.parse(errorText)
-            errMsg = errJson.error || errJson.message || errMsg
-          } catch {
-            if (errorText) errMsg = errorText.slice(0, 200)
-          }
-          throw new Error(errMsg)
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok && !data.response_text) {
+          throw new Error(data.error || data.message || `MYCA request failed with HTTP ${response.status}`)
         }
-
-        const data = await response.json()
-        const nextConversationId = data.conversation_id || conversationId || `conv-${Date.now()}`
-        if (nextConversationId && nextConversationId !== conversationId) {
+        const nextConversationId = userId ? data.conversation_id || conversationId || `conv-${Date.now()}` : null
+        if (userId && nextConversationId && nextConversationId !== conversationId) {
           setConversationId(nextConversationId)
         }
 
@@ -299,12 +361,19 @@ export function MYCAProvider({
           agent: data.agent,
           audio_base64: data.audio_base64,
           requires_confirmation: data.requires_confirmation,
-          confirmation_id: data.conversation_id,
+          confirmation_id: userId ? data.conversation_id : undefined,
           nlqData: data.nlq_data,
           nlqActions: data.nlq_actions,
           nlqSources: data.nlq_sources,
           metadata: {
             routed_to: data.routed_to,
+            provider: data.provider,
+            provider_timings: data.provider_timings,
+            fallback_reason: data.fallback_reason,
+            actions: data.actions,
+            latency_ms: data.latency_ms,
+            runtime_context: data.runtime_context,
+            audio_mime: data.audio_mime,
           },
         }
 
@@ -332,10 +401,11 @@ export function MYCAProvider({
           setPendingConfirmationId(null)
         }
 
-        if (memoryEnabled) {
+        if (userId && memoryEnabled) {
           await Promise.all([storeMemory(userMessage), storeMemory(assistantMessage)])
         }
       } catch (error) {
+        if (requestController.signal.aborted && activeRequestRef.current !== requestController) return
         const errMsg = error instanceof Error ? error.message : "Unknown error"
         const isAbort = error instanceof Error && error.name === "AbortError"
         const isTimeout = isAbort || /abort|timeout/i.test(errMsg)
@@ -353,10 +423,14 @@ export function MYCAProvider({
         })
         console.error("MYCA sendMessage error:", error)
       } finally {
-        setIsLoading(false)
+        window.clearTimeout(timeoutId)
+        if (activeRequestRef.current === requestController) {
+          activeRequestRef.current = null
+          setIsLoading(false)
+        }
       }
     },
-    [appendMessage, conversationId, executeSearchAction, executeCREPAction, memoryEnabled, sessionId, storeMemory, userId, userRole]
+    [appendMessage, conversationId, executeSearchAction, executeCREPAction, memoryEnabled, sessionId, setDraftActivity, storeMemory, userId, userRole]
   )
 
   const confirmAction = useCallback(
@@ -405,15 +479,18 @@ export function MYCAProvider({
     setConversationId(null)
     setPendingConfirmationId(null)
     setLastResponseMetadata(null)
+    setDraftActivity(0)
     if (typeof window !== "undefined") {
       const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
+      const messagesKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
       localStorage.removeItem(conversationKey)
+      localStorage.removeItem(messagesKey)
     }
-  }, [userId])
+  }, [setDraftActivity, userId])
 
   const loadConversation = useCallback(
     async (targetConversationId: string) => {
-      if (!targetConversationId) return
+      if (!targetConversationId || !userId) return
       try {
         // Apr 23, 2026 audit: conversation loader had no timeout. The
         // "Load conversation" menu would hang silently when MAS is busy.
@@ -459,7 +536,7 @@ export function MYCAProvider({
   }, [conversationId, loadConversation])
 
   const syncToMAS = useCallback(async () => {
-    if (!sessionId || messages.length === 0) return
+    if (!sessionId || !userId || messages.length === 0) return
     try {
       // Apr 23, 2026 audit: MAS sync had no timeout. Best-effort write
       // so a 10 s cap is fine — if MAS is down the messages persist in
@@ -469,7 +546,7 @@ export function MYCAProvider({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: sessionId,
-          user_id: userId || "anonymous",
+          user_id: userId,
           conversation_id: conversationId,
           messages,
         }),
@@ -487,7 +564,7 @@ export function MYCAProvider({
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (messages.length === 0) return
+    if (!userId || messages.length === 0) return
     const localKey = buildStorageKey(MESSAGES_KEY_PREFIX, userId)
     const trimmed = messages.slice(-200)
     localStorage.setItem(localKey, JSON.stringify(trimmed))
@@ -562,6 +639,8 @@ export function MYCAProvider({
       isLoading,
       memoryEnabled,
       setMemoryEnabled,
+      draftActivity,
+      setDraftActivity,
       pendingConfirmationId,
       sendMessage,
       confirmAction,
@@ -584,6 +663,8 @@ export function MYCAProvider({
       messages,
       isLoading,
       memoryEnabled,
+      draftActivity,
+      setDraftActivity,
       pendingConfirmationId,
       sendMessage,
       confirmAction,
@@ -596,6 +677,7 @@ export function MYCAProvider({
       consciousness,
       grounding,
       lastResponseMetadata,
+      isActive,
     ]
   )
 

@@ -1,8 +1,23 @@
 /**
- * PersonaPlex Bridge + Moshi (Voice Legion) — shared HTTP URL resolution
- * (May 02, 2026) Canonical Voice stack: 192.168.0.241; local dev: localhost.
+ * PersonaPlex Bridge + Moshi — shared HTTP URL resolution
+ * (May 24, 2026) Dev PC 241 uses remote GPU host 249; no localhost GPU on dev machine.
  */
 import { GPU_LEGION_DEFAULTS } from "./api-urls"
+
+function resolveRemoteGpuVoiceHost(): string {
+  return process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE
+}
+
+/** Prefer IPv4 loopback on Windows — Moshi/Bridge bind 127.0.0.1; ::1 probes false-fail. */
+export function resolveLocalLoopbackHost(): string {
+  return "127.0.0.1"
+}
+
+export function normalizeProbeHost(host: string): string {
+  const h = (host || "").trim().toLowerCase()
+  if (h === "localhost" || h === "::1") return resolveLocalLoopbackHost()
+  return host
+}
 
 export function isUseLocalVoiceForBridge(): boolean {
   if (
@@ -21,26 +36,26 @@ export function isUseLocalVoiceForBridge(): boolean {
 /** HTTP base for PersonaPlex Bridge (port 8999), no trailing slash. */
 export function resolvePersonaplexBridgeBaseUrl(): string {
   if (isUseLocalVoiceForBridge()) {
-    return "http://localhost:8999"
+    return `http://${resolveLocalLoopbackHost()}:8999`
   }
   const fromEnv =
     process.env.PERSONAPLEX_BRIDGE_URL || process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
   if (fromEnv) {
     return fromEnv.replace(/\/$/, "")
   }
-  return `http://${process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
+  return `http://${resolveRemoteGpuVoiceHost()}:8999`
 }
 
 /** For TCP probe to Moshi (8998): same host as bridge on LAN, unless MOSHI_HOST override. */
 export function resolveMoshiHostForProbe(): string {
   if (isUseLocalVoiceForBridge()) {
-    return process.env.MOSHI_HOST || "localhost"
+    return normalizeProbeHost(process.env.MOSHI_HOST || resolveLocalLoopbackHost())
   }
   if (process.env.MOSHI_HOST) {
-    return process.env.MOSHI_HOST
+    return normalizeProbeHost(process.env.MOSHI_HOST)
   }
   try {
-    return new URL(resolvePersonaplexBridgeBaseUrl()).hostname
+    return normalizeProbeHost(new URL(resolvePersonaplexBridgeBaseUrl()).hostname)
   } catch {
     return GPU_LEGION_DEFAULTS.VOICE
   }
@@ -49,7 +64,7 @@ export function resolveMoshiHostForProbe(): string {
 /** Default WebSocket base for the bridge from env or Voice Legion. */
 export function resolvePersonaplexBridgeWsBaseDefault(): string {
   if (isUseLocalVoiceForBridge()) {
-    return "ws://localhost:8999"
+    return `ws://${resolveLocalLoopbackHost()}:8999`
   }
   if (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL) {
     return process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL.replace(/\/$/, "")
@@ -57,5 +72,30 @@ export function resolvePersonaplexBridgeWsBaseDefault(): string {
   if (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL) {
     return process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws").replace(/\/$/, "")
   }
-  return `ws://${process.env.NEXT_PUBLIC_GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE}:8999`
+  return `ws://${process.env.NEXT_PUBLIC_GPU_VOICE_IP || resolveRemoteGpuVoiceHost()}:8999`
+}
+
+/**
+ * Ollama on Voice Legion (11434). When local GPU mode is active, Ollama binds to
+ * localhost only on this host — do not probe the LAN IP (241) or diagnostics false-fail.
+ */
+export function resolveVoiceOllamaTagsUrl(): string {
+  const host = isUseLocalVoiceForBridge()
+    ? normalizeProbeHost(process.env.OLLAMA_HOST || resolveLocalLoopbackHost())
+    : resolveRemoteGpuVoiceHost()
+  return `http://${host}:11434/api/tags`
+}
+
+/**
+ * Earth-2 API health URL. Default host 249; services stay off until MYCOSOFT_EARTH2_ENABLED on GPU host.
+ */
+export function resolveEarth2HealthUrl(): string {
+  if (process.env.EARTH2_API_URL?.trim()) {
+    return `${process.env.EARTH2_API_URL.replace(/\/$/, "")}/health`
+  }
+  if (isUseLocalVoiceForBridge()) {
+    return `http://${resolveLocalLoopbackHost()}:8220/health`
+  }
+  const ip = process.env.GPU_EARTH2_IP || GPU_LEGION_DEFAULTS.EARTH2
+  return `http://${ip}:8220/health`
 }

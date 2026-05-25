@@ -1,11 +1,54 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
-import { LayoutGrid, X } from "lucide-react"
+import {
+  Activity,
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  CloudSun,
+  Code2,
+  Construction,
+  Dna,
+  Factory,
+  FileText,
+  Film,
+  Flame,
+  FlaskConical,
+  Globe2,
+  HelpCircle,
+  Leaf,
+  LineChart,
+  LayoutGrid,
+  MapPin,
+  MessageCircle,
+  Microscope,
+  Mountain,
+  Network,
+  Newspaper,
+  Plane,
+  Radio,
+  Route,
+  Satellite,
+  ShieldAlert,
+  Ship,
+  ShoppingCart,
+  Sun,
+  TrafficCone,
+  Trophy,
+  User,
+  Utensils,
+  Video,
+  Waves,
+  Wind,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { WidgetType } from "@/lib/search/widget-registry"
-import { WIDGET_REGISTRY } from "@/lib/search/widget-registry"
+import { WIDGET_REGISTRY, WIDGET_TYPE_IDS } from "@/lib/search/widget-registry"
 
 const DEFAULT_RADIAL: WidgetType[] = [
   "species",
@@ -23,7 +66,7 @@ const DEFAULT_RADIAL: WidgetType[] = [
 ]
 
 /**
- * Always surface these first — matrix + lab + ops. Long `secondaryWidgets` can list 10+ types;
+ * Always surface these first: matrix, lab, and ops. Long `secondaryWidgets` can list 10+ types;
  * without pinning, `mergeRankedWidgets(..., 16)` never reaches DEFAULT_RADIAL and **news** (and others) vanish from the radial.
  */
 const FAB_PINNED: WidgetType[] = [
@@ -31,6 +74,17 @@ const FAB_PINNED: WidgetType[] = [
   "chemistry",
   "genetics",
   "news",
+  "earth",
+  "vessels",
+  "satellites",
+  "space_assets",
+  "biosecurity",
+  "emissions",
+  "infrastructure",
+  "aircraft",
+  "power_grid",
+  "transport",
+  "marine",
   "weather",
   "cameras",
   "devices",
@@ -52,6 +106,13 @@ function mergeRankedWidgets(ranked: WidgetType[], max = 28): WidgetType[] {
     out.push(t)
   }
   for (const t of DEFAULT_RADIAL) {
+    if (out.length >= max) break
+    if (seen.has(t)) continue
+    if (!WIDGET_REGISTRY[t]) continue
+    seen.add(t)
+    out.push(t)
+  }
+  for (const t of WIDGET_TYPE_IDS) {
     if (out.length >= max) break
     if (seen.has(t)) continue
     if (!WIDGET_REGISTRY[t]) continue
@@ -128,11 +189,15 @@ export function FastActionRadial({ rankedWidgets, onOpenWidget, activeWidgetType
 
   /** Hub-centered thumb-wheel: the FAB is the center; the visible upper-left arc is the tappable viewport. */
   const isMobileViewport = viewport.width < 640
-  const radius = isMobileViewport ? (slots.length > 12 ? 108 : 96) : slots.length > 18 ? 138 : slots.length > 12 ? 126 : 112
+  const iconSize = isMobileViewport ? 43 : 46
+  const iconHalf = iconSize / 2
+  const minIconSpacing = isMobileViewport ? 45 : 54
+  const radiusFromSpacing = (slots.length * minIconSpacing) / (2 * Math.PI)
+  const radius = Math.ceil(Math.max(isMobileViewport ? 96 : 118, radiusFromSpacing))
   const step = (2 * Math.PI) / Math.max(slots.length, 1)
   const wheelCenterRight = isMobileViewport ? 34 : 49
   const wheelCenterBottom = isMobileViewport ? 88 : 45
-  const iconHalf = 22
+  const wheelDiameter = radius * 2 + iconSize
 
   const pointerAngle = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
@@ -221,63 +286,77 @@ export function FastActionRadial({ rankedWidgets, onOpenWidget, activeWidgetType
       )}
       aria-label="Widget quick actions"
     >
-      {open && (
-        <div
-          data-testid="fast-action-radial-layer"
-          data-fast-action-wheel="true"
-          className="search-fab-wheel-layer pointer-events-auto fixed"
-          onPointerDown={beginSpin}
-          onPointerMove={moveSpin}
-          onPointerCancel={endSpin}
-          onPointerUp={endSpin}
-        >
-          {slots.map((type, i) => {
-            const angle = -Math.PI / 2 + i * step + wheelAngle
-            const x = Math.cos(angle) * radius
-            const y = Math.sin(angle) * radius
-            const meta = WIDGET_REGISTRY[type]
-            const label = meta?.label ?? type
-            const isActive = activeWidgetTypes?.has(type) ?? false
-            return (
-              <div
-                key={type}
-                data-testid={`fast-action-${type}`}
-                data-fast-action-wheel="true"
-                data-active={isActive ? "true" : "false"}
-                title={label}
-                className="petri-codepen-button-demo petri-codepen-button-demo-reset search-fab-petri-icon pointer-events-auto fixed"
-                style={{
-                  right: `${wheelCenterRight - x - iconHalf}px`,
-                  bottom: `${wheelCenterBottom - y - iconHalf}px`,
-                }}
-              >
-                <div className="button-wrap">
-                  <button
-                    type="button"
-                    className="touch-manipulation"
-                    onPointerDown={(event) => {
-                      lastSpinMoved.current = false
-                      event.preventDefault()
-                      event.stopPropagation()
-                      onOpenWidget(type)
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                    }}
-                  >
-                    <span>
-                      <span className="sr-only">{label}</span>
-                      <span aria-hidden className="search-fab-glyph">{iconGlyph(type)}</span>
+      <div
+        data-testid="fast-action-radial-layer"
+        data-fast-action-wheel="true"
+        data-open={open ? "true" : "false"}
+        aria-hidden={!open}
+        className={cn(
+          "search-fab-wheel-layer fixed transition-opacity duration-150",
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+        style={{
+          height: `${wheelDiameter}px`,
+          width: `${wheelDiameter}px`,
+        }}
+        onPointerDown={open ? beginSpin : undefined}
+        onPointerMove={open ? moveSpin : undefined}
+        onPointerCancel={open ? endSpin : undefined}
+        onPointerUp={open ? endSpin : undefined}
+      >
+        {slots.map((type, i) => {
+          const angle = -Math.PI / 2 + i * step + wheelAngle
+          const x = Math.cos(angle) * radius
+          const y = Math.sin(angle) * radius
+          const meta = WIDGET_REGISTRY[type]
+          const label = meta?.label ?? type
+          const isActive = activeWidgetTypes?.has(type) ?? false
+          const color = WIDGET_ICON_COLORS[type] ?? "#94a3b8"
+          return (
+            <div
+              key={type}
+              data-testid={`fast-action-${type}`}
+              data-fast-action-wheel="true"
+              data-active={isActive ? "true" : "false"}
+              title={label}
+              className="petri-codepen-button-demo petri-codepen-button-demo-reset search-fab-petri-icon pointer-events-auto fixed"
+              style={{
+                "--search-widget-icon-color": color,
+                "--search-widget-icon-glow": color,
+                right: `${wheelCenterRight - x - iconHalf}px`,
+                bottom: `${wheelCenterBottom - y - iconHalf}px`,
+              } as CSSProperties}
+            >
+              <div className="button-wrap">
+                <button
+                  type="button"
+                  className="touch-manipulation"
+                  tabIndex={open ? 0 : -1}
+                  onPointerDown={(event) => {
+                    if (!open) return
+                    lastSpinMoved.current = false
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onOpenWidget(type)
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                >
+                  <span>
+                    <span className="sr-only">{label}</span>
+                    <span aria-hidden className="search-fab-glyph">
+                      <WidgetGlyph type={type} />
                     </span>
-                  </button>
-                  <div className="button-shadow" />
-                </div>
+                  </span>
+                </button>
+                <div className="button-shadow" />
               </div>
-            )
-          })}
-        </div>
-      )}
+            </div>
+          )
+        })}
+      </div>
       <div
         data-testid="fast-action-fab"
         data-fast-action-wheel="true"
@@ -319,39 +398,103 @@ export function FastActionRadial({ rankedWidgets, onOpenWidget, activeWidgetType
   return createPortal(shell, document.body)
 }
 
-function iconGlyph(type: WidgetType): string {
-  const g: Partial<Record<WidgetType, string>> = {
-    species: "🔬",
-    chemistry: "⚗️",
-    genetics: "🧬",
-    research: "📄",
-    answers: "💬",
-    media: "🎬",
-    location: "📍",
-    news: "📰",
-    crep: "✈️",
-    earth: "🌍",
-    traffic: "🚦",
-    food: "🍽️",
-    flights: "✈️",
-    stocks: "📈",
-    sports: "🏀",
-    people: "👤",
-    code: "💻",
-    shopping: "🛒",
-    recipe: "📖",
-    events: "⚡",
-    aircraft: "✈️",
-    vessels: "🚢",
-    satellites: "🛰️",
-    weather: "🌦️",
-    emissions: "🏭",
-    infrastructure: "🏗️",
-    devices: "📡",
-    space_weather: "☀️",
-    cameras: "📹",
-    embedding_atlas: "🔮",
-    fallback: "📦",
-  }
-  return g[type] ?? "◆"
+const WIDGET_ICON_COMPONENTS: Record<WidgetType, LucideIcon> = {
+  species: Microscope,
+  chemistry: FlaskConical,
+  genetics: Dna,
+  research: FileText,
+  answers: MessageCircle,
+  media: Film,
+  location: MapPin,
+  news: Newspaper,
+  crep: Globe2,
+  earth: Globe2,
+  traffic: TrafficCone,
+  food: Utensils,
+  flights: Plane,
+  stocks: LineChart,
+  sports: Trophy,
+  people: User,
+  code: Code2,
+  shopping: ShoppingCart,
+  recipe: BookOpen,
+  events: Zap,
+  aircraft: Plane,
+  vessels: Ship,
+  satellites: Satellite,
+  weather: CloudSun,
+  emissions: Factory,
+  infrastructure: Construction,
+  devices: Radio,
+  space_weather: Sun,
+  cameras: Video,
+  embedding_atlas: Network,
+  risk: AlertTriangle,
+  power_grid: Zap,
+  supply_chain: Route,
+  biosecurity: ShieldAlert,
+  conservation: Leaf,
+  geology: Mountain,
+  hydrology: Waves,
+  wildfire: Flame,
+  air_quality: Wind,
+  space_assets: Satellite,
+  marine: Waves,
+  transport: Route,
+  source_health: CheckCircle2,
+  qa_trace: Activity,
+  fallback: HelpCircle,
+}
+
+const WIDGET_ICON_COLORS: Record<WidgetType, string> = {
+  species: "#22c55e",
+  chemistry: "#a855f7",
+  genetics: "#38bdf8",
+  research: "#f97316",
+  answers: "#8b5cf6",
+  media: "#ec4899",
+  location: "#f43f5e",
+  news: "#60a5fa",
+  crep: "#14b8a6",
+  earth: "#10b981",
+  traffic: "#f59e0b",
+  food: "#fb7185",
+  flights: "#38bdf8",
+  stocks: "#84cc16",
+  sports: "#f97316",
+  people: "#e879f9",
+  code: "#22d3ee",
+  shopping: "#f472b6",
+  recipe: "#fbbf24",
+  events: "#facc15",
+  aircraft: "#60a5fa",
+  vessels: "#06b6d4",
+  satellites: "#818cf8",
+  weather: "#38bdf8",
+  emissions: "#f97316",
+  infrastructure: "#f59e0b",
+  devices: "#22c55e",
+  space_weather: "#facc15",
+  cameras: "#c084fc",
+  embedding_atlas: "#a78bfa",
+  risk: "#ef4444",
+  power_grid: "#facc15",
+  supply_chain: "#fb923c",
+  biosecurity: "#22c55e",
+  conservation: "#4ade80",
+  geology: "#d97706",
+  hydrology: "#38bdf8",
+  wildfire: "#f97316",
+  air_quality: "#67e8f9",
+  space_assets: "#818cf8",
+  marine: "#06b6d4",
+  transport: "#60a5fa",
+  source_health: "#10b981",
+  qa_trace: "#94a3b8",
+  fallback: "#94a3b8",
+}
+
+function WidgetGlyph({ type }: { type: WidgetType }) {
+  const Icon = WIDGET_ICON_COMPONENTS[type] ?? HelpCircle
+  return <Icon className="h-4 w-4" strokeWidth={2.35} />
 }

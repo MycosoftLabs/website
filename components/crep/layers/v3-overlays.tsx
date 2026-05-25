@@ -43,7 +43,7 @@
  * when a specific feed is down.
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
 
 export interface V3Enabled {
@@ -93,13 +93,21 @@ interface Props {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function mapReady(map: MapLibreMap): boolean {
-  return !!(map && (map as any).style && typeof map.getSource === "function")
+  try {
+    return !!(map && map.isStyleLoaded?.() && (map as any).style && typeof map.getSource === "function")
+  } catch {
+    return false
+  }
 }
 
 /** Add (or no-op) an empty GeoJSON source. */
 function ensureSource(map: MapLibreMap, id: string) {
-  if (!mapReady(map) || map.getSource(id)) return
-  map.addSource(id, { type: "geojson", data: { type: "FeatureCollection", features: [] }, generateId: true })
+  try {
+    if (!mapReady(map) || map.getSource(id)) return
+    map.addSource(id, { type: "geojson", data: { type: "FeatureCollection", features: [] }, generateId: true })
+  } catch {
+    /* style can churn during dev hot reload; retry on the next render */
+  }
 }
 
 function ensureCircleLayer(map: MapLibreMap, id: string, source: string, paint: any) {
@@ -110,6 +118,11 @@ function ensureCircleLayer(map: MapLibreMap, id: string, source: string, paint: 
 function ensureHeatmapLayer(map: MapLibreMap, id: string, source: string, paint: any) {
   if (!mapReady(map) || map.getLayer(id)) return
   try { map.addLayer({ id, type: "heatmap", source, paint, layout: { visibility: "visible" } }) } catch { /* ignore */ }
+}
+
+function ensureLineLayer(map: MapLibreMap, id: string, source: string, paint: any) {
+  if (!mapReady(map) || map.getLayer(id)) return
+  try { map.addLayer({ id, type: "line", source, paint, layout: { visibility: "visible" } }) } catch { /* ignore */ }
 }
 
 // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY GRID
@@ -225,7 +238,7 @@ async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires"
     earthquakes: ["earthquake"],
     volcanoes: ["volcano"],
     wildfires: ["wildfire", "fire"],
-    storms: ["storm", "hurricane", "cyclone"],
+    storms: ["storm", "hurricane", "typhoon", "cyclone", "blizzard", "heatwave", "coldwave", "air_quality", "flood", "tsunami", "landslide", "drought"],
     lightning: ["lightning"],
     tornadoes: ["tornado"],
   }
@@ -307,6 +320,33 @@ function pointsToFC(points: any[], extraProps?: (p: any) => Record<string, any>)
 
 export default function V3Overlays({ map, enabled, bbox }: Props) {
   const setupRef = useRef(false)
+  const [styleReadyTick, setStyleReadyTick] = useState(0)
+
+  useEffect(() => {
+    if (!map) return
+
+    let frame: number | null = null
+    const bump = () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        if (mapReady(map)) setStyleReadyTick((value) => value + 1)
+      })
+    }
+
+    bump()
+    map.on("load", bump)
+    map.on("style.load", bump)
+    map.on("styledata", bump)
+    map.on("idle", bump)
+
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      try { map.off("load", bump) } catch { /* map can be gone during HMR */ }
+      try { map.off("style.load", bump) } catch { /* map can be gone during HMR */ }
+      try { map.off("styledata", bump) } catch { /* map can be gone during HMR */ }
+      try { map.off("idle", bump) } catch { /* map can be gone during HMR */ }
+    }
+  }, [map])
 
   // One-shot setup: add sources + layers for every layer we cover.
   useEffect(() => {
@@ -469,19 +509,19 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
 
     // TRAJECTORIES — line layers from aircraft/vessel lastKnownRef trails
     ensureSource(map, "crep-aviation-routes")
-    if (!map.getLayer("crep-aviation-routes-line")) {
-      map.addLayer({
-        id: "crep-aviation-routes-line", type: "line", source: "crep-aviation-routes",
-        paint: { "line-color": "#38bdf8", "line-width": 0.8, "line-opacity": 0.55, "line-blur": 0.2 },
-      })
-    }
+    ensureLineLayer(map, "crep-aviation-routes-line", "crep-aviation-routes", {
+      "line-color": "#38bdf8",
+      "line-width": 0.8,
+      "line-opacity": 0.55,
+      "line-blur": 0.2,
+    })
     ensureSource(map, "crep-ship-routes")
-    if (!map.getLayer("crep-ship-routes-line")) {
-      map.addLayer({
-        id: "crep-ship-routes-line", type: "line", source: "crep-ship-routes",
-        paint: { "line-color": "#2dd4bf", "line-width": 0.8, "line-opacity": 0.55, "line-blur": 0.2 },
-      })
-    }
+    ensureLineLayer(map, "crep-ship-routes-line", "crep-ship-routes", {
+      "line-color": "#2dd4bf",
+      "line-width": 0.8,
+      "line-opacity": 0.55,
+      "line-blur": 0.2,
+    })
 
     // BIODIVERSITY — GBIF-style heatmap
     ensureSource(map, "crep-biodiversity")
@@ -500,11 +540,11 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     })
 
     console.log("[V3Overlays] sources + layers attached (empty until fetchers complete)")
-  }, [map])
+  }, [map, styleReadyTick])
 
   // Visibility sync — flip any layer on/off when its toggle changes.
   useEffect(() => {
-    if (!map) return
+    if (!map || !mapReady(map)) return
     const flip = (lid: string, on: boolean) => setVisibility(map, lid, on)
     flip("crep-earthquakes-dot", !!enabled.earthquakes)
     flip("crep-volcanoes-dot", !!enabled.volcanoes)
@@ -538,7 +578,7 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-vehicles-dot", !!enabled.vehicles)
     flip("crep-drones-dot", !!enabled.drones)
     flip("crep-biodiversity-heat", !!enabled.biodiversity)
-  }, [map, enabled])
+  }, [map, enabled, styleReadyTick])
 
   // EVENT fetchers — poll every 60 s when enabled.
   useEffect(() => {

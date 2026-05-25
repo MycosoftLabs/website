@@ -62,6 +62,17 @@ async function resolveStream(sourceId: string): Promise<ResolvedStream> {
   }
 }
 
+function withRetryParam(url: string, token: number): string {
+  if (!token) return url
+  try {
+    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost")
+    parsed.searchParams.set("_vw_retry", String(token))
+    return parsed.toString()
+  } catch {
+    return `${url}${url.includes("?") ? "&" : "?"}_vw_retry=${token}`
+  }
+}
+
 function HlsPlayer({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   // Apr 22, 2026 v2 — Morgan: "caltrans cameras were working fine before
@@ -73,11 +84,36 @@ function HlsPlayer({ url }: { url: string }) {
   // broken. Reverted to: video shows immediately, NO loading overlay on
   // the happy path; error overlay ONLY on hls.js fatal errors.
   const [errMsg, setErrMsg] = useState<string>("")
+  const [retryNonce, setRetryNonce] = useState(0)
+  const [recovering, setRecovering] = useState("")
+  useEffect(() => { setRetryNonce(0); setRecovering(""); setErrMsg("") }, [url])
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     setErrMsg("")
+    setRecovering("")
+    const playbackUrl = withRetryParam(url, retryNonce)
     let cleanup = () => {}
+    let hasFrame = false
+    let watchdog: ReturnType<typeof setTimeout> | null = null
+    const markFrame = () => { hasFrame = true; setRecovering("") }
+    const retryInsideWidget = (reason: string) => {
+      if (retryNonce >= 5) {
+        setErrMsg(reason)
+        return
+      }
+      setRecovering("Refreshing video feed")
+      setRetryNonce((value) => value + 1)
+    }
+    const onVideoError = () => retryInsideWidget("video element reported a playback error")
+    video.addEventListener("loadeddata", markFrame)
+    video.addEventListener("canplay", markFrame)
+    video.addEventListener("playing", markFrame)
+    video.addEventListener("timeupdate", markFrame)
+    video.addEventListener("error", onVideoError)
+    watchdog = setTimeout(() => {
+      if (!hasFrame && video.readyState < 2) retryInsideWidget("no video frames received")
+    }, 9000)
 
     // Let the browser's own "play" gesture handle readiness. No phase
     // state, no overlay until / unless fatal error.
@@ -85,19 +121,19 @@ function HlsPlayer({ url }: { url: string }) {
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Native HLS (Safari / iOS / Edge on macOS)
-      video.src = url
+      video.src = playbackUrl
       kickPlay()
     } else {
       import("hls.js").then((Hls) => {
         const H = (Hls as any).default || Hls
         if (!H.isSupported()) {
           // Firefox with plugin / older browsers — try direct src.
-          video.src = url
+          video.src = playbackUrl
           kickPlay()
           return
         }
         const hls = new H({ maxBufferLength: 10, manifestLoadingTimeOut: 12_000, levelLoadingTimeOut: 12_000, fragLoadingTimeOut: 12_000 })
-        hls.loadSource(url)
+        hls.loadSource(playbackUrl)
         hls.attachMedia(video)
         hls.on(H.Events.MANIFEST_PARSED, kickPlay)
         let recoveryAttempts = 0
@@ -113,21 +149,34 @@ function HlsPlayer({ url }: { url: string }) {
             try { hls.recoverMediaError() } catch { /* ignore */ }
             return
           }
+          if (retryNonce < 5) {
+            retryInsideWidget(String(data?.details || data?.reason || data?.type || "playback stalled"))
+            try { hls.destroy() } catch { /* ignore */ }
+            return
+          }
           const detail = data?.details || data?.reason || data?.type || "playback failed"
           setErrMsg(String(detail))
           try { hls.destroy() } catch { /* ignore */ }
         })
         cleanup = () => { try { hls.destroy() } catch { /* ignore */ } }
       }).catch((err) => {
-        video.src = url
+        video.src = playbackUrl
         video.play().catch(() => {
           setErrMsg("hls.js unavailable: " + (err?.message || ""))
         })
       })
     }
 
-    return () => { cleanup() }
-  }, [url])
+    return () => {
+      if (watchdog) clearTimeout(watchdog)
+      video.removeEventListener("loadeddata", markFrame)
+      video.removeEventListener("canplay", markFrame)
+      video.removeEventListener("playing", markFrame)
+      video.removeEventListener("timeupdate", markFrame)
+      video.removeEventListener("error", onVideoError)
+      cleanup()
+    }
+  }, [url, retryNonce])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -139,6 +188,11 @@ function HlsPlayer({ url }: { url: string }) {
         autoPlay
         playsInline
       />
+      {recovering && !errMsg && (
+        <div className="absolute right-2 top-2 rounded border border-cyan-500/30 bg-black/70 px-2 py-1 text-[9px] font-mono text-cyan-200">
+          {recovering}
+        </div>
+      )}
       {errMsg && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-3 text-center">
           <div className="text-[11px] text-red-300 font-mono">HLS playback error</div>
@@ -407,10 +461,12 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
 }
 
 function MjpegStream({ url }: { url: string }) {
+  const [retryNonce, setRetryNonce] = useState(0)
+  const src = withRetryParam(url, retryNonce)
   // Continuous MJPEG multipart/x-mixed-replace — the browser decodes
   // frames natively off a single long-lived <img>.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="Live feed" className="w-full h-full object-contain bg-black" />
+  return <img src={src} alt="Live feed" className="w-full h-full object-contain bg-black" onError={() => setRetryNonce((value) => value + 1)} />
 }
 
 function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedUrl?: string; provider?: string; name?: string }) {
@@ -429,6 +485,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
   // backgrounded widgets stop hammering the snapshot proxy.
   const [t, setT] = useState(Date.now())
   const [failed, setFailed] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   useEffect(() => {
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
@@ -437,9 +494,19 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
     return () => clearInterval(id)
   }, [])
   // Reset failure state when url changes (different cam selected)
-  useEffect(() => { setFailed(false) }, [url])
+  useEffect(() => { setFailed(false); setRetryCount(0); setT(Date.now()) }, [url])
 
   const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
+  const retryImage = () => {
+    if (retryCount >= 8) {
+      setFailed(true)
+      return
+    }
+    window.setTimeout(() => {
+      setRetryCount((value) => value + 1)
+      setT(Date.now())
+    }, 900)
+  }
 
   if (failed) {
     // Apr 23, 2026 — Morgan: "not one nyc camera works". Verified that
@@ -488,8 +555,22 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
         src={src}
         alt=""
         className="w-full h-full object-contain bg-black"
-        onError={() => setFailed(true)}
+        onError={retryImage}
+        onLoad={(event) => {
+          const img = event.currentTarget
+          if (img.naturalWidth <= 2 || img.naturalHeight <= 2) {
+            retryImage()
+            return
+          }
+          setRetryCount(0)
+          setFailed(false)
+        }}
       />
+      {retryCount > 0 && !failed && (
+        <div className="absolute right-2 top-2 rounded border border-cyan-500/30 bg-black/70 px-2 py-1 text-[9px] font-mono text-cyan-200">
+          Refreshing camera frame
+        </div>
+      )}
       {embedUrl && (
         <a
           href={embedUrl}
@@ -511,6 +592,7 @@ export default function VideoWallWidget() {
   const [minimized, setMinimized] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [loading, setLoading] = useState(false)
+  const lastOpenAtRef = useRef(0)
 
   // Listen for camera + event clicks from EagleEyeOverlay
   useEffect(() => {
@@ -528,6 +610,7 @@ export default function VideoWallWidget() {
     // entirely and render instantly.
     const onCamera = (e: any) => {
       const d = e?.detail || {}
+      lastOpenAtRef.current = Date.now()
       // Apr 20, 2026 (Morgan: Caltrans cam page shown instead of video).
       // PREFER stream_url (raw HLS m3u8 / WebRTC / MJPEG) over embed_url
       // (which is often a viewer page wrapping the video). Caltrans cams
@@ -543,6 +626,7 @@ export default function VideoWallWidget() {
     }
     const onEvent = (e: any) => {
       const d = e?.detail || {}
+      lastOpenAtRef.current = Date.now()
       // Same priority for ephemeral events.
       setFeed({
         id: d.id, name: d.title || d.name || `${d.provider} clip`, provider: d.provider,
@@ -553,12 +637,38 @@ export default function VideoWallWidget() {
       })
     }
     window.addEventListener("crep:eagle:camera-click", onCamera as any)
+    window.addEventListener("crep:camera:click", onCamera as any)
     window.addEventListener("crep:eagle:event-click", onEvent as any)
     return () => {
       window.removeEventListener("crep:eagle:camera-click", onCamera as any)
+      window.removeEventListener("crep:camera:click", onCamera as any)
       window.removeEventListener("crep:eagle:event-click", onEvent as any)
     }
   }, [])
+
+  useEffect(() => {
+    const close = () => setFeed(null)
+    const closeOnMapClick = (event: MouseEvent) => {
+      if (!feed) return
+      if (Date.now() - lastOpenAtRef.current < 300) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.("[data-video-wall-widget]")) return
+      if (target?.closest?.(".maplibregl-canvas, .mapboxgl-canvas, [data-crep-map]")) {
+        setFeed(null)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFeed(null)
+    }
+    window.addEventListener("crep:eagle:close", close as EventListener)
+    window.addEventListener("click", closeOnMapClick, true)
+    window.addEventListener("keydown", closeOnEscape)
+    return () => {
+      window.removeEventListener("crep:eagle:close", close as EventListener)
+      window.removeEventListener("click", closeOnMapClick, true)
+      window.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [feed])
 
   // Resolve stream URL when feed changes.
   //
@@ -764,6 +874,7 @@ export default function VideoWallWidget() {
 
   return (
     <div
+      data-video-wall-widget
       className={`fixed z-[10000] ${posClass} bg-[#0a1628] border border-cyan-500/40 rounded-lg shadow-2xl flex flex-col overflow-hidden transition-all`}
       style={{ transitionDuration: "150ms" }}
     >

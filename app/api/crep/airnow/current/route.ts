@@ -74,6 +74,17 @@ function writeCache(key: string, payload: any, ttlMs: number): void {
   } catch { /* ignore */ }
 }
 
+function coordinateParam(req: NextRequest, names: string[]): number {
+  for (const name of names) {
+    const raw = req.nextUrl.searchParams.get(name)
+    if (raw !== null && raw.trim() !== "") {
+      const value = Number(raw)
+      return Number.isFinite(value) ? value : Number.NaN
+    }
+  }
+  return Number.NaN
+}
+
 // AQI category by number (EPA scale).
 function categoryFromAQI(aqi: number): { number: number; name: string; color: string } {
   if (aqi <= 50)  return { number: 1, name: "Good",                           color: "#00e400" }
@@ -95,13 +106,13 @@ const PARAM_LABELS: Record<string, string> = {
 }
 
 export async function GET(req: NextRequest) {
-  const key = process.env.AIRNOW_API_KEY?.trim() || ""
+  const key = process.env.AIRNOW_API_KEY?.trim() || process.env.NEXT_PUBLIC_AIRNOW_API_KEY?.trim() || ""
   if (!key) {
     return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 501 })
   }
 
-  const lat = Number(req.nextUrl.searchParams.get("lat"))
-  const lng = Number(req.nextUrl.searchParams.get("lng"))
+  const lat = coordinateParam(req, ["lat", "latitude"])
+  const lng = coordinateParam(req, ["lng", "lon", "longitude"])
   const distanceMi = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("distance") || 25)))
   const ttlSecOverride = Number(req.nextUrl.searchParams.get("ttl") || 0)
   const ttlMs = Math.min(60 * 60_000, Math.max(60_000, ttlSecOverride * 1000 || 10 * 60_000)) // 10 min default, cap 1 h

@@ -1,16 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
-import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
-import { GroundingStatusBadge } from "./GroundingStatusBadge"
+import { Brain, Loader2, Play, Send } from "lucide-react"
 
 interface MYCAChatWidgetProps {
+  active?: boolean
   className?: string
   title?: string
   getContextText?: () => string
@@ -18,6 +18,7 @@ interface MYCAChatWidgetProps {
 }
 
 export function MYCAChatWidget({
+  active = true,
   className,
   title = "MYCA",
   getContextText,
@@ -27,18 +28,16 @@ export function MYCAChatWidget({
     messages,
     isLoading,
     sendMessage,
-    clearMessages,
-    memoryEnabled,
-    setMemoryEnabled,
     pendingConfirmationId,
     confirmAction,
     consciousness,
-    grounding,
     setIsActive,
+    setDraftActivity,
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "system"),
@@ -112,9 +111,12 @@ export function MYCAChatWidget({
   }
 
   const handleSend = async () => {
-    const message = input.trim()
+    if (isLoading) return
+    const message = (inputRef.current?.value || input).trim()
     if (!message) return
     setInput("")
+    if (inputRef.current) inputRef.current.value = ""
+    setDraftActivity(0)
     // Fire-and-forget intent parse — don't block the LLM send.
     void tryFastIntent(message)
     await sendMessage(message, {
@@ -122,6 +124,11 @@ export function MYCAChatWidget({
       source: "web",
       wantAudio: false,
     })
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void handleSend()
   }
 
   const handleConfirm = async (transcript?: string) => {
@@ -141,9 +148,13 @@ export function MYCAChatWidget({
   }
 
   useEffect(() => {
-    setIsActive(true)
-    return () => setIsActive(false)
-  }, [setIsActive])
+    setIsActive(active)
+    if (!active) setDraftActivity(0)
+    return () => {
+      setIsActive(false)
+      setDraftActivity(0)
+    }
+  }, [active, setDraftActivity, setIsActive])
 
   // Auto-scroll within the widget only (never scroll the page)
   useEffect(() => {
@@ -169,33 +180,8 @@ export function MYCAChatWidget({
                 conscious
               </Badge>
             )}
-            <GroundingStatusBadge
-              isLoading={isLoading}
-              isGrounded={grounding?.is_grounded}
-              thoughtCount={grounding?.thought_count}
-            />
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={memoryEnabled ? "default" : "outline"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => setMemoryEnabled(!memoryEnabled)}
-            >
-              Memory
-            </Button>
-            {visibleMessages.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={clearMessages}
-                title="Clear chat"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+          <div className="h-7" aria-hidden="true" />
         </div>
       )}
 
@@ -282,31 +268,45 @@ export function MYCAChatWidget({
         </div>
       </div>
 
-      <div className="myca-chat-input-bar border-t border-border p-3">
+      <form className="myca-chat-input-bar border-t border-border p-3" onSubmit={handleSubmit}>
         <div className="flex items-center gap-2">
           <Input
+            ref={inputRef}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value
+              setInput(value)
+              setDraftActivity(value.trim().length)
+            }}
             placeholder="Ask MYCA..."
             className="myca-chat-input h-11 text-base"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault()
-                handleSend()
+                void handleSend()
+              }
+            }}
+            onKeyUp={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault()
+                void handleSend()
               }
             }}
           />
           <Button
-            type="button"
+            type="submit"
             className="h-11 w-11"
-            onClick={handleSend}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              if (!isLoading) void handleSend()
+            }}
             disabled={isLoading}
             aria-label="Send message"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
-      </div>
+      </form>
     </Card>
   )
 }

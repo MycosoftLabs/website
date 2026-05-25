@@ -1,206 +1,333 @@
 "use client"
 
-/**
- * R3F viewer — circular dish, dual-ish key/fill lights, hyphae lines, instanced organisms,
- * agar tint from chemistry means + client preview sliders.
- * Date: May 02, 2026
- */
-
-import { Suspense, useLayoutEffect, useMemo, useRef } from "react"
-import { Canvas } from "@react-three/fiber"
-import { OrbitControls, Stats } from "@react-three/drei"
-import * as THREE from "three"
+import { useEffect, useRef } from "react"
 import type { OrganismInstance, PetriStateSnapshot } from "@/components/petri-dish-v2/types"
 
 const GRID = 128
+const CANVAS_SIZE = 650
+const DISH_RADIUS = 300
+const GROWTH_RADIUS = DISH_RADIUS - 2
+const CENTER = CANVAS_SIZE / 2
 
-function toXZ(x: number, y: number): [number, number, number] {
-  const nx = (x / GRID - 0.5) * 2.2
-  const nz = (y / GRID - 0.5) * 2.2
-  return [nx, 0.02, nz]
+export type PetriVisualProfile =
+  | "mycelium"
+  | "mold"
+  | "mildew"
+  | "bacteria"
+  | "virus"
+  | "protista"
+  | "pollen"
+  | "archaea"
+
+type Branch = {
+  x: number
+  y: number
+  angle: number
+  age: number
+  atEdgeTime?: number
 }
 
-function agarColor(snapshot: PetriStateSnapshot | null, preview: number[]): THREE.Color {
-  const c = new THREE.Color("#e8dcc8")
-  if (!snapshot?.chemistry_means?.length) return c
-  const g = snapshot.chemistry_means[0] ?? 0
-  const o = snapshot.chemistry_means[5] ?? 0
-  const phBias = (preview[16] ?? 7) / 14
-  c.offsetHSL(0.02 * g - 0.05, 0.1 * o, 0.05 * phBias - 0.02)
-  return c
+type V1Organism = {
+  id: string
+  species: string
+  branches: Branch[]
+  props: SpeciesProps
 }
 
-function DishAgar({
-  snapshot,
-  preview,
-}: {
-  snapshot: PetriStateSnapshot | null
-  preview: number[]
-}) {
-  const col = useMemo(() => agarColor(snapshot, preview), [snapshot, preview])
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <cylinderGeometry args={[1.05, 1.05, 0.08, 64]} />
-      <meshStandardMaterial color={col} roughness={0.55} metalness={0.05} />
-    </mesh>
-  )
+type SpeciesProps = {
+  growthRate: number
+  filamentThickness: number
+  branchingProbability: number
+  color: string
+  edgeColor: string
+  preferredAgar: string
 }
 
-function DishRim() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-      <torusGeometry args={[1.08, 0.04, 12, 64]} />
-      <meshStandardMaterial color="#c4b49a" metalness={0.35} roughness={0.35} />
-    </mesh>
-  )
+const V1_SPECIES: Record<PetriVisualProfile, SpeciesProps> = {
+  mycelium: {
+    growthRate: 1.2,
+    filamentThickness: 0.7,
+    branchingProbability: 0.07,
+    color: "#87CEFA",
+    edgeColor: "#1E90FF",
+    preferredAgar: "dextrose",
+  },
+  mold: {
+    growthRate: 1.5,
+    filamentThickness: 0.4,
+    branchingProbability: 0.1,
+    color: "#00FF00",
+    edgeColor: "#008000",
+    preferredAgar: "any",
+  },
+  mildew: {
+    growthRate: 1.2,
+    filamentThickness: 0.3,
+    branchingProbability: 0.08,
+    color: "#CCCCCC",
+    edgeColor: "#888888",
+    preferredAgar: "any",
+  },
+  bacteria: {
+    growthRate: 2,
+    filamentThickness: 0.2,
+    branchingProbability: 0.2,
+    color: "#FFFF00",
+    edgeColor: "#FFD700",
+    preferredAgar: "blood",
+  },
+  virus: {
+    growthRate: 0.5,
+    filamentThickness: 0.1,
+    branchingProbability: 0.05,
+    color: "#FF00FF",
+    edgeColor: "#8B008B",
+    preferredAgar: "any",
+  },
+  protista: {
+    growthRate: 0.8,
+    filamentThickness: 0.22,
+    branchingProbability: 0.04,
+    color: "#8EF5B5",
+    edgeColor: "#22C55E",
+    preferredAgar: "any",
+  },
+  pollen: {
+    growthRate: 0.15,
+    filamentThickness: 0.18,
+    branchingProbability: 0.01,
+    color: "#EAB308",
+    edgeColor: "#F59E0B",
+    preferredAgar: "any",
+  },
+  archaea: {
+    growthRate: 0.55,
+    filamentThickness: 0.22,
+    branchingProbability: 0.035,
+    color: "#D97706",
+    edgeColor: "#B45309",
+    preferredAgar: "any",
+  },
 }
 
-function HyphaeLines({ snapshot }: { snapshot: PetriStateSnapshot | null }) {
-  const ref = useRef<THREE.LineSegments>(null)
-  const geom = useMemo(() => new THREE.BufferGeometry(), [])
-
-  useLayoutEffect(() => {
-    const tips = snapshot?.tips?.filter((t) => t.alive) ?? []
-    const pos: number[] = []
-    for (const t of tips) {
-      const [x, y, z] = toXZ(t.x, t.y)
-      const len = 0.04 + Math.min(0.12, t.energy * 0.08)
-      const ang = t.angle
-      const dx = Math.cos(ang) * len
-      const dz = Math.sin(ang) * len
-      pos.push(x - dx, y, z - dz, x + dx, y, z + dz)
-    }
-    if (pos.length === 0) {
-      pos.push(0, 0.02, 0, 0, 0.02, 0)
-    }
-    geom.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3))
-    geom.computeBoundingSphere()
-    ref.current?.geometry.computeBoundingSphere()
-  }, [geom, snapshot])
-
-  return (
-    <lineSegments ref={ref} geometry={geom}>
-      <lineBasicMaterial color="#2d5a27" linewidth={1} transparent opacity={0.85} />
-    </lineSegments>
-  )
+function hash(n: number) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123
+  return x - Math.floor(x)
 }
 
-const MAX_ORG = 512
-
-function classColor(o: OrganismInstance, c: THREE.Color) {
-  switch (o.class) {
-    case "bacteria":
-      c.set("#6cb5ff")
-      break
-    case "virus":
-      c.set("#ff6b6b")
-      break
-    case "host_cell":
-      c.set("#ffd56b")
-      break
-    case "mold":
-      c.set("#9b59b6")
-      break
-    case "mildew":
-      c.set("#95a5a6")
-      break
-    default:
-      c.set("#27ae60")
+function toCanvas(x: number, y: number) {
+  return {
+    x: CENTER + (x / GRID - 0.5) * DISH_RADIUS * 2,
+    y: CENTER + (y / GRID - 0.5) * DISH_RADIUS * 2,
   }
 }
 
-function OrganismSpheres({ snapshot }: { snapshot: PetriStateSnapshot | null }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null)
-  const dummy = useMemo(() => new THREE.Object3D(), [])
-  const color = useMemo(() => new THREE.Color(), [])
-  const organisms = snapshot?.organisms ?? []
-
-  const sphereGeo = useMemo(() => new THREE.SphereGeometry(1, 12, 12), [])
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current
-    if (!mesh) return
-    let i = 0
-    for (const o of organisms) {
-      if (i >= MAX_ORG) break
-      const [x, y, z] = toXZ(o.x, o.y)
-      dummy.position.set(x, y + 0.03, z)
-      const s = Math.max(0.04, o.radius * 0.04)
-      dummy.scale.setScalar(s)
-      dummy.updateMatrix()
-      mesh.setMatrixAt(i, dummy.matrix)
-      classColor(o, color)
-      mesh.setColorAt(i, color)
-      i++
-    }
-    if (i === 0) {
-      dummy.position.set(0, -10, 0)
-      dummy.scale.setScalar(0.001)
-      dummy.updateMatrix()
-      mesh.setMatrixAt(0, dummy.matrix)
-      mesh.setColorAt(0, color.set("#000000"))
-      mesh.count = 1
-    } else {
-      mesh.count = i
-    }
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [organisms, color, dummy, sphereGeo])
-
-  return (
-    <instancedMesh ref={meshRef} args={[sphereGeo, undefined, MAX_ORG]}>
-      <meshStandardMaterial vertexColors />
-    </instancedMesh>
-  )
+function isInsideGrowthArea(x: number, y: number) {
+  return Math.hypot(x - CENTER, y - CENTER) <= GROWTH_RADIUS
 }
 
-function Lights() {
-  return (
-    <>
-      <ambientLight intensity={0.35} />
-      <directionalLight
-        position={[2.2, 3.5, 1.2]}
-        intensity={1.25}
-        castShadow
-        color="#fff8e7"
-      />
-      <directionalLight position={[-2.5, 2.2, -1.4]} intensity={0.55} color="#b8d8ff" />
-    </>
-  )
+function profileFromOrganism(organism: OrganismInstance): PetriVisualProfile {
+  if (organism.class === "mold") return "mold"
+  if (organism.class === "mildew") return "mildew"
+  if (organism.class === "bacteria") return "bacteria"
+  if (organism.class === "virus") return "virus"
+  if (organism.class === "protista") return "protista"
+  if (organism.class === "pollen") return "pollen"
+  if (organism.class === "archaea") return "archaea"
+  return "mycelium"
+}
+
+function drawFilament(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  props: SpeciesProps,
+  isStarved = false
+) {
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.strokeStyle = isStarved ? "gray" : props.color
+  ctx.lineWidth = Math.max(0.1, isStarved ? props.filamentThickness - 0.3 : props.filamentThickness)
+  ctx.lineCap = "round"
+  ctx.stroke()
+}
+
+function placeSampleFromOrganism(
+  ctx: CanvasRenderingContext2D,
+  organisms: Map<string, V1Organism>,
+  organism: OrganismInstance,
+  forcedProfile: PetriVisualProfile
+) {
+  const point = toCanvas(organism.x, organism.y)
+  if (!isInsideGrowthArea(point.x, point.y)) return
+  const id = `${organism.species_id}:${organism.id}`
+  if (organisms.has(id)) return
+
+  const profile = profileFromOrganism(organism) || forcedProfile
+  const props = V1_SPECIES[profile]
+
+  ctx.beginPath()
+  ctx.fillStyle = props.color
+  ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI)
+  ctx.fill()
+
+  const branches: Branch[] = []
+  const numBranches = profile === "bacteria" ? 12 : profile === "virus" ? 4 : 8
+  for (let i = 0; i < numBranches; i += 1) {
+    branches.push({
+      x: point.x,
+      y: point.y,
+      angle: (i / numBranches) * 2 * Math.PI + (hash(organism.id * 31 + i) - 0.5) * 0.1,
+      age: 0,
+    })
+  }
+
+  organisms.set(id, {
+    id,
+    species: profile,
+    branches,
+    props,
+  })
+}
+
+function simulateOrganism(ctx: CanvasRenderingContext2D, organism: V1Organism, nutrientGrid: Float32Array) {
+  const props = organism.props
+  const newBranches: Branch[] = []
+  const baseGrowthRate = props.growthRate
+
+  for (const branch of organism.branches) {
+    branch.age += 1
+    const dx = Math.cos(branch.angle) * baseGrowthRate
+    const dy = Math.sin(branch.angle) * baseGrowthRate
+    const newX = branch.x + dx
+    const newY = branch.y + dy
+    const gridX = Math.floor(newX)
+    const gridY = Math.floor(newY)
+    const index = gridY * CANVAS_SIZE + gridX
+
+    if (
+      isInsideGrowthArea(newX, newY) &&
+      gridX >= 0 &&
+      gridX < CANVAS_SIZE &&
+      gridY >= 0 &&
+      gridY < CANVAS_SIZE
+    ) {
+      const nutrient = nutrientGrid[index] || 0
+      if (nutrient > 0) {
+        nutrientGrid[index] = Math.max(0, nutrient - 0.5)
+        const nutrientFactor = nutrient / 100
+        drawFilament(ctx, branch.x, branch.y, newX, newY, props, nutrient < 10)
+        newBranches.push({
+          x: newX,
+          y: newY,
+          angle: branch.angle + (hash(branch.age * 71 + newX + newY) - 0.5) * 0.3,
+          age: branch.age,
+        })
+        if (hash(branch.age * 97 + newX * 0.25 + newY * 0.75) < props.branchingProbability * nutrientFactor) {
+          newBranches.push({
+            x: newX,
+            y: newY,
+            angle: branch.angle + (hash(branch.age * 131 + newX) - 0.5) * Math.PI / 2,
+            age: branch.age,
+          })
+        }
+      }
+    } else if (!isInsideGrowthArea(newX, newY)) {
+      branch.atEdgeTime = (branch.atEdgeTime || 0) + 1
+      if (branch.atEdgeTime > 50 && organism.species === "mycelium") {
+        ctx.beginPath()
+        ctx.fillStyle = props.edgeColor
+        ctx.arc(branch.x, branch.y, 4, 0, 2 * Math.PI)
+        ctx.fill()
+      }
+    }
+  }
+
+  organism.branches = newBranches.slice(-500)
 }
 
 export interface PetriViewerProps {
   snapshot: PetriStateSnapshot | null
   previewCompounds: number[]
-  showStats?: boolean
+  visualProfile?: PetriVisualProfile
 }
 
-export function PetriViewer({ snapshot, previewCompounds, showStats }: PetriViewerProps) {
+export function PetriViewer({
+  snapshot,
+  previewCompounds,
+  visualProfile = "mycelium",
+}: PetriViewerProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const organismsRef = useRef<Map<string, V1Organism>>(new Map())
+  const nutrientGridRef = useRef<Float32Array>(new Float32Array(CANVAS_SIZE * CANVAS_SIZE))
+  const lastResetFrameRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    canvas.width = CANVAS_SIZE * dpr
+    canvas.height = CANVAS_SIZE * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+    if (lastResetFrameRef.current === null || (snapshot?.frame ?? 0) < (lastResetFrameRef.current ?? 0)) {
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+      organismsRef.current.clear()
+      nutrientGridRef.current.fill(100)
+    }
+    lastResetFrameRef.current = snapshot?.frame ?? 0
+  }, [snapshot?.frame])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+
+    for (const organism of snapshot?.organisms ?? []) {
+      placeSampleFromOrganism(ctx, organismsRef.current, organism, visualProfile)
+    }
+  }, [snapshot?.organisms, visualProfile])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const ctx = canvasRef.current?.getContext("2d")
+      if (!ctx) return
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(CENTER, CENTER, GROWTH_RADIUS, 0, 2 * Math.PI)
+      ctx.clip()
+
+      if ((previewCompounds[13] ?? 0) > 0.04) {
+        ctx.globalAlpha = 0.04
+        ctx.fillStyle = "#38bdf8"
+        ctx.beginPath()
+        ctx.arc(CENTER + 60, CENTER - 42, 76, 0, 2 * Math.PI)
+        ctx.fill()
+        ctx.globalAlpha = 1
+      }
+
+      for (const organism of organismsRef.current.values()) {
+        simulateOrganism(ctx, organism, nutrientGridRef.current)
+      }
+      for (const [key, organism] of organismsRef.current) {
+        if (organism.branches.length === 0) organismsRef.current.delete(key)
+      }
+      ctx.restore()
+    }, 1000 / 6)
+
+    return () => window.clearInterval(interval)
+  }, [previewCompounds])
+
   return (
-    <div className="relative w-full aspect-square max-h-[min(72vh,720px)] rounded-xl border bg-black/40">
-      <Canvas
-        shadows
-        camera={{ position: [0, 2.8, 2.4], fov: 42 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 2]}
-      >
-        <color attach="background" args={["#0a0f0c"]} />
-        <Suspense fallback={null}>
-          <Lights />
-          <DishAgar snapshot={snapshot} preview={previewCompounds} />
-          <DishRim />
-          <HyphaeLines snapshot={snapshot} />
-          <OrganismSpheres snapshot={snapshot} />
-          <OrbitControls
-            enablePan={false}
-            minPolarAngle={0.35}
-            maxPolarAngle={Math.PI / 2.05}
-            minDistance={2}
-            maxDistance={5}
-          />
-          {showStats ? <Stats /> : null}
-        </Suspense>
-      </Canvas>
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="relative z-10 block h-full w-full touch-none bg-transparent"
+      aria-label="Petri dish v1 growth simulation layer"
+    />
   )
 }

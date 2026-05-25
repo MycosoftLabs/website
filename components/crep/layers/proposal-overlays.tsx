@@ -25,13 +25,14 @@
  * via window.__crep_selectAsset (if defined).
  */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
 import {
   INFRA_LAYERS,
   addInfraSourceWithFallback,
   layerSpecForMode,
 } from "@/lib/crep/static-infra-loader"
+import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
 
 interface Props {
   map: MapLibreMap | null
@@ -72,15 +73,92 @@ async function idleLoad<T>(fn: () => Promise<T>): Promise<T> {
   })
 }
 
+function isMapStyleReady(map: MapLibreMap | null): map is MapLibreMap {
+  try {
+    if (!map || typeof map.getSource !== "function" || typeof map.getStyle !== "function") return false
+    if (map.isStyleLoaded?.()) return true
+    const layerCount = map.getStyle?.()?.layers?.length ?? 0
+    return layerCount > 0
+  } catch {
+    return false
+  }
+}
+
+function safeHasImage(map: MapLibreMap | null, name: string) {
+  try {
+    return Boolean(
+      map &&
+      map.isStyleLoaded?.() &&
+      (map as any).style?.imageManager &&
+      (map as any).hasImage?.(name),
+    )
+  } catch {
+    return false
+  }
+}
+
+function setLayerVisibility(map: MapLibreMap | null, layerIds: string[], visible: boolean) {
+  if (!map) return
+  try {
+    for (const id of layerIds) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none")
+    }
+  } catch {
+    /* ignore transient style/HMR teardown */
+  }
+}
+
 export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
+  const landMaskResolutionRef = useRef<"10m" | "50m" | null>(null)
+  const [styleReadyTick, setStyleReadyTick] = useState(0)
+
+  useEffect(() => {
+    if (!map) return
+    let frame: number | null = null
+    const bootstrapTimers: number[] = []
+    const bump = () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => setStyleReadyTick((value) => value + 1))
+    }
+    if (isMapStyleReady(map)) bump()
+    const events = ["load", "style.load"] as const
+    events.forEach((eventName) => {
+      try { map.on(eventName, bump) } catch { /* ignore unsupported events during teardown */ }
+    })
+    // Startup safety net: style events can race listener attachment during HMR.
+    // Use a few one-shot retries instead of a continuous interval to avoid
+    // adding steady render pressure during map interaction.
+    bootstrapTimers.push(window.setTimeout(() => { if (isMapStyleReady(map)) bump() }, 150))
+    bootstrapTimers.push(window.setTimeout(() => { if (isMapStyleReady(map)) bump() }, 700))
+    bootstrapTimers.push(window.setTimeout(() => { if (isMapStyleReady(map)) bump() }, 1800))
+    // Extra one-shot retries: in dev/HMR some style events are missed entirely.
+    // Force a re-evaluation pass so base layers don't wait for user clicks.
+    bootstrapTimers.push(window.setTimeout(() => { bump() }, 3200))
+    bootstrapTimers.push(window.setTimeout(() => { bump() }, 6200))
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      bootstrapTimers.forEach((id) => window.clearTimeout(id))
+      events.forEach((eventName) => {
+        try { map.off(eventName, bump) } catch { /* ignore teardown */ }
+      })
+    }
+  }, [map])
 
   // ─── 1. Global Seaports ────────────────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.ports) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!map) return
+    const layerIds = ["crep-ports-global-dot"]
+    if (!enabled.ports) {
+      try { layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none") }) } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.ports) {
+      try { layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible") }) } catch { /* ignore */ }
+      return
+    }
+    const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
-    if (loadedRef.current.ports) return
     loadedRef.current.ports = true
 
     idleLoad(async () => {
@@ -97,26 +175,54 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-ports-global")) {
           map.addSource("crep-ports-global", { type: "geojson", data: fc })
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-ports-global-dot", type: "circle", source: "crep-ports-global",
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 6, 4, 10, 7],
               "circle-color": "#14b8a6", "circle-opacity": 0.85,
               "circle-stroke-width": 1, "circle-stroke-color": "#f0fdfa",
             },
+          }))
+          map.on("click", "crep-ports-global-dot", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") hook({
+                type: "seaport",
+                id: p.id,
+                name: p.name || "Seaport",
+                lat: c?.lat ?? 0,
+                lng: c?.lng ?? 0,
+                properties: p,
+              })
+            } catch { /* ignore */ }
           })
+          map.on("mouseenter", "crep-ports-global-dot", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-ports-global-dot", () => { map.getCanvas().style.cursor = "" })
         } else {
           (map.getSource("crep-ports-global") as any).setData(fc)
         }
         console.log(`[ProposalOverlays] ports: ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/ports]", e.message) }
     })
-  }, [map, enabled.ports])
+  }, [map, styleReadyTick, enabled.ports])
 
   // ─── 2. Radar sites ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.radar) return
-    if (loadedRef.current.radar) return
+    if (!map) return
+    const layerIds = ["crep-radar-range", "crep-radar-dot"]
+    if (!enabled.radar) {
+      try { layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none") }) } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.radar) {
+      try { layerIds.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible") }) } catch { /* ignore */ }
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.radar = true
 
     idleLoad(async () => {
@@ -133,38 +239,67 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         if (!map.getSource("crep-radar")) {
           map.addSource("crep-radar", { type: "geojson", data: fc })
           // Coverage circle (approximate — based on range_km)
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-radar-range", type: "circle", source: "crep-radar",
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 12, 10, 28, 14, 60],
               "circle-color": "#38bdf8", "circle-opacity": 0.08,
               "circle-stroke-width": 1, "circle-stroke-color": "#38bdf8", "circle-stroke-opacity": 0.4,
             },
-          })
-          map.addLayer({
+          }))
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-radar-dot", type: "circle", source: "crep-radar",
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 6, 5, 10, 8],
               "circle-color": "#0ea5e9", "circle-opacity": 0.95,
               "circle-stroke-width": 1, "circle-stroke-color": "#ffffff",
             },
+          }))
+          map.on("click", "crep-radar-dot", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") hook({
+                type: "radar_site",
+                id: p.id,
+                name: p.name || "Radar site",
+                lat: c?.lat ?? 0,
+                lng: c?.lng ?? 0,
+                properties: p,
+              })
+            } catch { /* ignore */ }
           })
+          map.on("mouseenter", "crep-radar-dot", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-radar-dot", () => { map.getCanvas().style.cursor = "" })
         } else {
           (map.getSource("crep-radar") as any).setData(fc)
         }
         console.log(`[ProposalOverlays] radar sites: ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/radar]", e.message) }
     })
-  }, [map, enabled.radar])
+  }, [map, styleReadyTick, enabled.radar])
 
   // ─── 3. Radio Stations ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.radioStations) return
-    if (loadedRef.current.radio) return
+    if (!map) return
+    const layerIds = ["crep-radio-dot"]
+    if (!enabled.radioStations) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
+    if (loadedRef.current.radio) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.radio = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
         // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot
         // missing"). Bumping radio-stations limit from 5k → 20k (the route's
@@ -189,7 +324,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           //   FM   #a855f7 violet   AM   #ec4899 pink
           //   TV   #f59e0b amber    SDR  #22d3ee cyan
           // Hover: ring fills in (feature-state hover expression).
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-radio-dot", type: "circle", source: "crep-radio",
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.4, 6, 2.2, 10, 3.6, 14, 5.5],
@@ -227,7 +362,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               ],
               "circle-stroke-opacity": 0.85,
             },
-          })
+          }))
           // Hover state wiring (rings fill in when cursor is over)
           let radioHoverId: string | number | null = null
           const hoverSet = (id: string | number | null, hover: boolean) => {
@@ -255,7 +390,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] radio stations: ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/radio]", e.message) }
     })
-  }, [map, enabled.radioStations, bbox])
+  }, [map, styleReadyTick, enabled.radioStations, bbox])
 
   // ─── 4. Global Power Plants ───────────────────────────────────────────
   // Apr 20, 2026 perf (Morgan: "make all map load faster every single asset"):
@@ -265,12 +400,22 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // range-requested per viewport) with GeoJSON fallback for dev boxes that
   // haven't run gen-pmtiles.sh yet.
   useEffect(() => {
-    if (!map || !enabled.powerPlantsG) return
-    if (loadedRef.current.plants) return
+    if (!map) return
+    const layerIds = ["crep-plants-global-dot", "crep-plants-global-label"]
+    if (!enabled.powerPlantsG) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
+    if (loadedRef.current.plants) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.plants = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const cfg = INFRA_LAYERS.powerPlantsGlobal
         const { mode } = await addInfraSourceWithFallback(map, cfg)
         if (mode === "skipped") return
@@ -300,14 +445,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         }
 
         const { sourceLayer } = layerSpecForMode(mode, cfg)
-        map.addLayer({
+        map.addLayer(applyInfraPointIconMinZoom({
           id: "crep-plants-global-dot",
           type: "circle",
           source: cfg.sourceId,
           ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
-          minzoom: 3,
           paint,
-        } as any)
+        } as any))
         // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY
         // GRID NEEDS TO BE SELECTABLE AND HAVE LABELS"). Label + click.
         map.addLayer({
@@ -352,16 +496,26 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] power plants: ${mode} source added (click + label wired)`)
       } catch (e: any) { console.warn("[ProposalOverlays/plants]", e.message) }
     })
-  }, [map, enabled.powerPlantsG])
+  }, [map, styleReadyTick, enabled.powerPlantsG])
 
   // ─── 5. Factories ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.factories || !bbox) return
-    if (loadedRef.current.factories) return
+    if (!map) return
+    const layerIds = ["crep-factories-dot", "crep-factories-label"]
+    if (!enabled.factories || !bbox) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
+    if (loadedRef.current.factories) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.factories = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const res = await fetch(`/api/oei/factories?bbox=${bbox.join(",")}&limit=2000`)
         if (!res.ok) return
         const j = await res.json()
@@ -373,14 +527,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-factories")) {
           map.addSource("crep-factories", { type: "geojson", data: fc })
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-factories-dot", type: "circle", source: "crep-factories",
-            minzoom: 5,
             paint: {
               "circle-radius": 3, "circle-color": "#f97316",
               "circle-opacity": 0.6, "circle-stroke-width": 0.3, "circle-stroke-color": "#7c2d12",
             },
-          })
+          }))
           // Apr 21, 2026 (Morgan: pollution layers need label + click)
           map.addLayer({
             id: "crep-factories-label", type: "symbol", source: "crep-factories", minzoom: 9,
@@ -403,16 +556,26 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] factories: ${features.length} loaded in bbox`)
       } catch (e: any) { console.warn("[ProposalOverlays/factories]", e.message) }
     })
-  }, [map, enabled.factories, bbox])
+  }, [map, styleReadyTick, enabled.factories, bbox])
 
   // ─── 6. Orbital Debris (catalogued) ────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.orbitalDebris) return
-    if (loadedRef.current.debris) return
+    if (!map) return
+    const layerIds = ["crep-orbital-debris-dot"]
+    if (!enabled.orbitalDebris) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
+    if (loadedRef.current.debris) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.debris = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const res = await fetch("/api/oei/debris?mode=catalogued")
         if (!res.ok) return
         const j = await res.json()
@@ -426,20 +589,20 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-orbital-debris")) {
           map.addSource("crep-orbital-debris", { type: "geojson", data: fc })
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-orbital-debris-dot", type: "circle", source: "crep-orbital-debris",
             paint: {
               "circle-radius": 1.5, "circle-color": "#d946ef",
               "circle-opacity": 0.7, "circle-blur": 0.2,
             },
-          })
+          }))
         } else {
           (map.getSource("crep-orbital-debris") as any).setData(fc)
         }
         console.log(`[ProposalOverlays] tracked debris: ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/debris]", e.message) }
     })
-  }, [map, enabled.orbitalDebris])
+  }, [map, styleReadyTick, enabled.orbitalDebris])
 
   // ─── 7b. Global Transmission Lines (bbox-scoped, non-US fill-in) ──────
   // The main dashboard already paints US HIFLD ≥345 kV from the static
@@ -449,7 +612,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // bounded on large viewports.
   useEffect(() => {
     if (!map || !enabled.txLinesGlobal || !bbox) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
 
     idleLoad(async () => {
@@ -477,7 +640,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           map.addSource("crep-txlines-global", { type: "geojson", data: fc })
           map.addLayer({
             id: "crep-txlines-global-line", type: "line", source: "crep-txlines-global",
-            minzoom: 3,
+            // May 21 2026 (Morgan): infrastructure visible at all zooms.
+            minzoom: 0,
             paint: {
               "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
                 0, "#facc15", 25, "#fde047", 69, "#fbbf24", 100, "#fb923c", 230, "#ec4899",
@@ -493,7 +657,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] tx lines (global): ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/txLinesGlobal]", e.message) }
     })
-  }, [map, enabled.txLinesGlobal, bbox, searchContextMode])
+  }, [map, styleReadyTick, enabled.txLinesGlobal, bbox, searchContextMode])
 
   // ─── 7c. Global Cell Towers (bbox-scoped, supplements PMTiles bundle) ─
   // PMTiles archive paints the world-scale catalog; this fills in fresh
@@ -501,7 +665,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // operator is zoomed in (bbox prop defined above zoom 5).
   useEffect(() => {
     if (!map || !enabled.cellTowersG || !bbox) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
 
     idleLoad(async () => {
@@ -528,31 +692,40 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         if (!mapReady()) return
         if (!map.getSource("crep-celltowers-bbox")) {
           map.addSource("crep-celltowers-bbox", { type: "geojson", data: fc })
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: "crep-celltowers-bbox-dot", type: "circle", source: "crep-celltowers-bbox",
-            minzoom: 5,
             paint: {
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 10, 3.5, 14, 6],
               "circle-color": "#c084fc", "circle-opacity": 0.85,
               "circle-stroke-width": 0.6, "circle-stroke-color": "#ffffff", "circle-stroke-opacity": 0.6,
             },
-          })
+          }))
         } else {
           (map.getSource("crep-celltowers-bbox") as any).setData(fc)
         }
         console.log(`[ProposalOverlays] cell towers (bbox): ${features.length} loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/cellTowersG]", e.message) }
     })
-  }, [map, enabled.cellTowersG, bbox])
+  }, [map, styleReadyTick, enabled.cellTowersG, bbox])
 
   // ─── 8. Statistical Debris Cloud ───────────────────────────────────────
   useEffect(() => {
-    if (!map || !enabled.debrisCloud) return
-    if (loadedRef.current.debrisCloud) return
+    if (!map) return
+    const layerIds = ["crep-debris-cloud-heat"]
+    if (!enabled.debrisCloud) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
+    if (loadedRef.current.debrisCloud) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.debrisCloud = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const res = await fetch("/api/oei/debris?mode=statistical&totalBudget=80000")
         if (!res.ok) return
         const j = await res.json()
@@ -585,7 +758,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] statistical debris cloud: ${features.length} canvas points (represents ~1.2M objects)`)
       } catch (e: any) { console.warn("[ProposalOverlays/debrisCloud]", e.message) }
     })
-  }, [map, enabled.debrisCloud])
+  }, [map, styleReadyTick, enabled.debrisCloud])
 
   // ─── 9. Bathymetry + Topography underlay (GEBCO 2024) ──────────────────
   // GEBCO's WMTS is the canonical free global ocean-depth + land-elevation
@@ -598,15 +771,27 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // remove/re-add across many toggles).
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    // Keep topography attach strict: this layer uses raster-dem + hillshade
+    // and is more sensitive to style bootstrap races than plain raster layers.
+    const mapReady = () => {
+      try {
+        return Boolean(map.isStyleLoaded?.())
+      } catch {
+        return false
+      }
+    }
     if (!mapReady()) return
 
-    // Disable path: hide bathymetry raster. No land mask anymore — basemap
-    // land polygons handle the coastline clip natively.
-    if (!enabled.bathymetry) {
+    // Disable path: hide bathymetry raster after first attach. On first-load
+    // bootstrap we still attach once so refresh never waits on a filter click.
+    if (!enabled.bathymetry && loadedRef.current.bathymetry) {
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "none")
+        }
+        if (map.getLayer("crep-land-mask-10m-fill")) {
+          // Keep mask hidden with bathymetry OFF; otherwise land can appear blank.
+          map.setLayoutProperty("crep-land-mask-10m-fill", "visibility", "none")
         }
       } catch { /* ignore */ }
       return
@@ -617,11 +802,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "visible")
+          if (map.getLayer("crep-land-mask-10m-fill")) {
+            map.setLayoutProperty("crep-land-mask-10m-fill", "visibility", "visible")
+          }
+          return
         }
       } catch { /* ignore */ }
-      return
+      loadedRef.current.bathymetry = false
     }
-    loadedRef.current.bathymetry = true
 
     // Apr 20, 2026 (Morgan: "in live i see bathymetry off part of land but
     // its got many layers not actually on land or water its wrong that
@@ -728,43 +916,44 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // (first road), which is correct when bathymetry is the only
     // thing that wants clipping.
     const attachLandMask = async (beforeId: string | undefined) => {
-      if (map.getSource("crep-land-mask-10m")) return
+      const existingMask = map.getSource("crep-land-mask-10m") as any
+      if (existingMask && landMaskResolutionRef.current === "10m") return
       try {
-        // Apr 20, 2026 perf: load the ~1.6 MB NE_50m FIRST. At default
-        // CREP zoom (4-5, continent view) the coastline outline at 50m
-        // resolution is visually identical to 10m for the bathymetry
-        // clip purpose — users can't see the difference until they're
-        // zoomed to ~z9+ on a coastline. We auto-upgrade to 10m only
-        // when current zoom exceeds 8. Drops first-paint payload by
-        // ~8.4 MB for the 99% of map sessions that stay zoomed out.
-        const z = (() => { try { return map.getZoom() } catch { return 4 } })()
-        const wantHighRes = z >= 8
-        const URLS = wantHighRes
-          ? [
-              "/data/crep/ne_10m_land.geojson",
-              "/data/crep/ne_50m_land.geojson",
-              "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
-            ]
-          : [
-              "/data/crep/ne_50m_land.geojson",
-              "/data/crep/ne_10m_land.geojson",
-            ]
+        // Coastline correctness matters more than saving the 10m payload.
+        // Always try Natural Earth 1:10m first so bays, islands, ports,
+        // and inlets do not show a blocky 1:50m cutoff after zoom.
+        const URLS = [
+          "/data/crep/ne_10m_land.geojson",
+          "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
+          "/data/crep/ne_50m_land.geojson",
+        ]
         let data: any = null
+        let selectedResolution: "10m" | "50m" = "10m"
         for (const u of URLS) {
           try {
             const r = await fetch(u, { signal: AbortSignal.timeout(20_000) })
-            if (r.ok) { data = await r.json(); break }
+            if (r.ok) {
+              data = await r.json()
+              selectedResolution = u.includes("ne_50m") ? "50m" : "10m"
+              break
+            }
           } catch { /* try next */ }
         }
         if (!data) return
+        if (existingMask?.setData) {
+          existingMask.setData(data)
+          landMaskResolutionRef.current = selectedResolution
+          console.log(`[ProposalOverlays] land mask upgraded (${selectedResolution})`)
+          return
+        }
         if (!map.getSource("crep-land-mask-10m")) {
-          // If sat imagery is already attached, slot the mask BELOW it
-          // so sat pixels still show on land. Otherwise use the
-          // supplied beforeId (= first road), which keeps the mask
-          // between bathymetry and the road lines.
           let effectiveBeforeId = beforeId
           try {
-            if (map.getLayer("crep-satimagery-raster")) {
+            // Keep land mask below topography/satellite so it only clips
+            // bathymetry, never blacks out land overlays.
+            if (map.getLayer("crep-topo-hillshade")) {
+              effectiveBeforeId = "crep-topo-hillshade"
+            } else if (map.getLayer("crep-satimagery-raster")) {
               effectiveBeforeId = "crep-satimagery-raster"
             }
           } catch { /* ignore */ }
@@ -774,25 +963,25 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
             type: "fill",
             source: "crep-land-mask-10m",
             paint: {
-              // Carto Dark Matter land tone (near-black with subtle blue).
-              // Sat imagery, when enabled, renders ABOVE this mask so
-              // the mask is only visible when bathymetry is on and sat
-              // imagery is off.
               "fill-color": "#08111f",
               "fill-opacity": 1.0,
               "fill-antialias": true,
             },
           }, effectiveBeforeId)
-          console.log(`[ProposalOverlays] land mask attached (NE 1:10m, beforeId=${effectiveBeforeId || "TOP"})`)
+          landMaskResolutionRef.current = selectedResolution
+          console.log(`[ProposalOverlays] land mask attached (${selectedResolution}, beforeId=${effectiveBeforeId || "TOP"})`)
         }
       } catch (e: any) {
         console.warn("[ProposalOverlays/land-mask]", e.message)
       }
     }
 
-    idleLoad(async () => {
+    void (async () => {
       try {
         const srcId = "crep-bathymetry"
+        if (map.getSource(srcId) && !map.getLayer("crep-bathymetry-raster")) {
+          try { map.removeSource(srcId) } catch { /* retry with a clean source */ }
+        }
         // Insert BEFORE first road layer so bathymetry sits above the
         // basemap water + any building polygons, but BELOW road lines +
         // labels. Land mask inserts right after with same beforeId →
@@ -810,7 +999,11 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         // exists, slot bathymetry BELOW it so sat keeps rendering.
         let bathyBeforeId = findInsertionPointBeforeRoads()
         try {
-          if (map.getLayer("crep-satimagery-raster")) bathyBeforeId = "crep-satimagery-raster"
+          if (map.getLayer("crep-topo-hillshade")) {
+            bathyBeforeId = "crep-topo-hillshade"
+          } else if (map.getLayer("crep-satimagery-raster")) {
+            bathyBeforeId = "crep-satimagery-raster"
+          }
         } catch { /* ignore */ }
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
@@ -872,10 +1065,27 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         // dedicated landcover layer so bathymetry walks over every
         // continent.
         await attachLandMask(bathyBeforeId)
+        try {
+          // Re-assert stack order on every enable/toggle path:
+          // bathymetry < land-mask < topography/satellite.
+          if (bathyBeforeId && map.getLayer("crep-bathymetry-raster")) {
+            map.moveLayer("crep-bathymetry-raster", bathyBeforeId)
+          }
+          if (map.getLayer("crep-land-mask-10m-fill")) {
+            if (bathyBeforeId) {
+              map.moveLayer("crep-land-mask-10m-fill", bathyBeforeId)
+            }
+            map.setLayoutProperty("crep-land-mask-10m-fill", "visibility", "visible")
+          }
+        } catch { /* ignore */ }
+        loadedRef.current.bathymetry = true
         console.log(`[ProposalOverlays] bathymetry: ESRI ocean raster + NE 1:10m mask attached (beforeId=${bathyBeforeId || "TOP"})`)
-      } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }
-    })
-  }, [map, enabled.bathymetry])
+      } catch (e: any) {
+        loadedRef.current.bathymetry = false
+        console.warn("[ProposalOverlays/bathymetry]", e.message)
+      }
+    })()
+  }, [map, styleReadyTick, enabled.bathymetry])
 
   // ─── 9b. Land Topography — AWS Terrain Tiles → MapLibre hillshade ──────
   // Morgan asked for "topology maps on land and bathymetry on water … with
@@ -889,10 +1099,18 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // users can turn off land hillshade if they want pure basemap.
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    // Keep satellite attach strict to avoid early-style races that can make
+    // the layer appear only after a later filter interaction.
+    const mapReady = () => {
+      try {
+        return Boolean(map.isStyleLoaded?.())
+      } catch {
+        return false
+      }
+    }
     if (!mapReady()) return
 
-    if (!enabled.topography) {
+    if (!enabled.topography && loadedRef.current.topography) {
       try {
         if (map.getLayer("crep-topo-hillshade")) map.setLayoutProperty("crep-topo-hillshade", "visibility", "none")
       } catch { /* ignore */ }
@@ -900,15 +1118,20 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     }
     if (loadedRef.current.topography) {
       try {
-        if (map.getLayer("crep-topo-hillshade")) map.setLayoutProperty("crep-topo-hillshade", "visibility", "visible")
+        if (map.getLayer("crep-topo-hillshade")) {
+          map.setLayoutProperty("crep-topo-hillshade", "visibility", "visible")
+          return
+        }
       } catch { /* ignore */ }
-      return
+      loadedRef.current.topography = false
     }
-    loadedRef.current.topography = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
         const srcId = "crep-topo-dem"
+        if (map.getSource(srcId) && !map.getLayer("crep-topo-hillshade")) {
+          try { map.removeSource(srcId) } catch { /* retry with a clean source */ }
+        }
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "highest quality newest"). AWS Terrain
           // Tiles (Mapzen terrarium encoding, 30 m global DEM) is the
@@ -954,10 +1177,15 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
             beforeId,
           )
         }
+        map.setLayoutProperty("crep-topo-hillshade", "visibility", "visible")
+        loadedRef.current.topography = true
         console.log(`[ProposalOverlays] topography: AWS Terrain Tiles hillshade attached (DEM z0–15)`)
-      } catch (e: any) { console.warn("[ProposalOverlays/topography]", e.message) }
-    })
-  }, [map, enabled.topography])
+      } catch (e: any) {
+        loadedRef.current.topography = false
+        console.warn("[ProposalOverlays/topography]", e.message)
+      }
+    })()
+  }, [map, styleReadyTick, enabled.topography])
 
   // ─── 9c. Satellite Imagery HD — ESRI World Imagery ─────────────────────
   // Morgan: "we need google earth maps level high detail images of the
@@ -970,10 +1198,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // replaces the gray basemap without hiding markers.
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
 
-    if (!enabled.satImagery) {
+    if (!enabled.satImagery && loadedRef.current.satImagery) {
       try {
         if (map.getLayer("crep-satimagery-raster")) map.setLayoutProperty("crep-satimagery-raster", "visibility", "none")
       } catch { /* ignore */ }
@@ -981,15 +1209,20 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     }
     if (loadedRef.current.satImagery) {
       try {
-        if (map.getLayer("crep-satimagery-raster")) map.setLayoutProperty("crep-satimagery-raster", "visibility", "visible")
+        if (map.getLayer("crep-satimagery-raster")) {
+          map.setLayoutProperty("crep-satimagery-raster", "visibility", "visible")
+          return
+        }
       } catch { /* ignore */ }
-      return
+      loadedRef.current.satImagery = false
     }
-    loadedRef.current.satImagery = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
         const srcId = "crep-satimagery"
+        if (map.getSource(srcId) && !map.getLayer("crep-satimagery-raster")) {
+          try { map.removeSource(srcId) } catch { /* retry with a clean source */ }
+        }
         if (!map.getSource(srcId)) {
           // Apr 20, 2026 (Morgan: "Satelite Imagry HD filter is not working
           // at all huge problem ... the map layers should be additive layers
@@ -1045,10 +1278,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               source: srcId,
               layout: { visibility: "visible" },
               paint: {
-                // Full-opacity default so land aerial is clearly visible;
-                // user can drop via the opacity slider in the layer panel
-                // if they want to blend with basemap labels.
-                "raster-opacity": 0.95,
+                // Keep ocean bathymetry legible when satellite and
+                // bathymetry are both on; land remains readable while the
+                // bathymetry raster can still show through offshore.
+                "raster-opacity": 0.72,
                 "raster-fade-duration": 150,
               },
             },
@@ -1056,9 +1289,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           )
           console.log(`[ProposalOverlays] satellite imagery (HD): ESRI World Imagery attached (beforeId=${beforeId || "TOP"}, z0–19)`)
         }
-      } catch (e: any) { console.warn("[ProposalOverlays/satImagery]", e.message) }
-    })
-  }, [map, enabled.satImagery])
+        map.setLayoutProperty("crep-satimagery-raster", "visibility", "visible")
+        loadedRef.current.satImagery = true
+      } catch (e: any) {
+        loadedRef.current.satImagery = false
+        console.warn("[ProposalOverlays/satImagery]", e.message)
+      }
+    })()
+  }, [map, styleReadyTick, enabled.satImagery])
 
   // ─── 10. Railway Tracks — OpenRailwayMap global infrastructure ─────────
   // OpenRailwayMap publishes open raster tiles of OSM-tagged railway infra
@@ -1069,7 +1307,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // path flips visibility to "none".
   useEffect(() => {
     if (!map) return
-    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
     if (!enabled.railwayTracks) {
       try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "none") } catch { /* ignore */ }
@@ -1116,7 +1354,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] railway tracks: OpenRailwayMap tiles attached`)
       } catch (e: any) { console.warn("[ProposalOverlays/railwayTracks]", e.message) }
     })
-  }, [map, enabled.railwayTracks])
+  }, [map, styleReadyTick, enabled.railwayTracks])
 
   // ─── 11. Railway Live Trains — Amtrak Track-A-Train ────────────────────
   // Amtrak publishes a public GeoJSON feed of active train positions (named
@@ -1127,6 +1365,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // Toggle-able — same pattern as bathymetry/railwayTracks above.
   useEffect(() => {
     if (!map) return
+    const mapReady = () => isMapStyleReady(map)
+    if (!mapReady()) return
     if (!enabled.railwayTrains) {
       try {
         if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "none")
@@ -1155,7 +1395,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // Trolleys get a green hue, buses grey; commuter rail (default) stays
     // rose. Symbol layer replaces the old circle.
     const loadTrainIcon = () => {
-      if ((map as any).hasImage?.("train-icon")) return
+      const hasTrainIcon = () => safeHasImage(map, "train-icon")
+      if (!mapReady() || hasTrainIcon()) return
       // Inline SVG: side-view train silhouette with a headlamp, 64×32 px.
       const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="32" viewBox="0 0 64 32">
@@ -1179,7 +1420,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 </svg>`.trim()
       const img = new Image(64, 32)
       img.onload = () => {
-        if (!(map as any).hasImage?.("train-icon")) {
+        if (mapReady() && !hasTrainIcon()) {
           try { map.addImage("train-icon", img as any, { pixelRatio: 2 }) } catch { /* ignore */ }
         }
       }
@@ -1250,6 +1491,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         }))
         const fc = { type: "FeatureCollection" as const, features }
         const fcLines = { type: "FeatureCollection" as const, features: lineFeatures }
+        if (!mapReady()) return
         if (!map.getSource("crep-trains-live")) {
           map.addSource("crep-trains-live", { type: "geojson", data: fc, generateId: true })
           map.addSource("crep-trains-live-cars", { type: "geojson", data: fcLines })
@@ -1354,7 +1596,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // Re-poll every 30s while enabled
     const timer = setInterval(() => { if (enabled.railwayTrains) fetchAndPaint() }, 30_000)
     return () => clearInterval(timer)
-  }, [map, enabled.railwayTrains])
+  }, [map, styleReadyTick, enabled.railwayTrains])
 
   // ─── 12. Drone No-Fly Zones — FAA UAS restricted + OpenAIP airspace ────
   // Polygon layer over restricted / prohibited / special-use airspace.
@@ -1365,24 +1607,21 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // + outline layers to visibility: "none".
   useEffect(() => {
     if (!map) return
+    const layerIds = ["crep-drone-no-fly-fill", "crep-drone-no-fly-outline", "crep-drone-no-fly-label"]
     if (!enabled.droneNoFly) {
-      try {
-        if (map.getLayer("crep-drone-no-fly-fill")) map.setLayoutProperty("crep-drone-no-fly-fill", "visibility", "none")
-        if (map.getLayer("crep-drone-no-fly-outline")) map.setLayoutProperty("crep-drone-no-fly-outline", "visibility", "none")
-      } catch { /* ignore */ }
+      setLayerVisibility(map, layerIds, false)
       return
     }
     if (loadedRef.current.droneNoFly) {
-      try {
-        if (map.getLayer("crep-drone-no-fly-fill")) map.setLayoutProperty("crep-drone-no-fly-fill", "visibility", "visible")
-        if (map.getLayer("crep-drone-no-fly-outline")) map.setLayoutProperty("crep-drone-no-fly-outline", "visibility", "visible")
-      } catch { /* ignore */ }
+      setLayerVisibility(map, layerIds, true)
       return
     }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.droneNoFly = true
 
     idleLoad(async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
         const res = await fetch(`/api/oei/drone-no-fly?limit=5000${bboxParam}`)
         if (!res.ok) return
@@ -1505,7 +1744,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] drone no-fly zones: ${features.length} polygons`)
       } catch (e: any) { console.warn("[ProposalOverlays/droneNoFly]", e.message) }
     })
-  }, [map, enabled.droneNoFly, bbox])
+  }, [map, styleReadyTick, enabled.droneNoFly, bbox])
 
   // ─── 13. CCTV / Webcam feeds ──────────────────────────────────────────
   // Apr 20, 2026 (Morgan: "where are all cctv and widgets showing live
@@ -1517,26 +1756,21 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // a "camera" type so the InfraAsset widget opens with the stream URL.
   useEffect(() => {
     if (!map) return
+    const layerIds = ["crep-cctv-core", "crep-cctv-halo"]
     if (!enabled.cctv) {
-      try {
-        for (const id of ["crep-cctv-core", "crep-cctv-halo"]) {
-          if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none")
-        }
-      } catch { /* ignore */ }
+      setLayerVisibility(map, layerIds, false)
       return
     }
     if (loadedRef.current.cctv) {
-      try {
-        for (const id of ["crep-cctv-core", "crep-cctv-halo"]) {
-          if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
-        }
-      } catch { /* ignore */ }
+      setLayerVisibility(map, layerIds, true)
       return
     }
+    if (!isMapStyleReady(map)) return
     loadedRef.current.cctv = true
 
     const fetchAndPaint = async () => {
       try {
+        if (!isMapStyleReady(map)) return
         const bboxParam = bbox ? `?bbox=${bbox.join(",")}&limit=10000` : "?limit=10000"
         const res = await fetch(`/api/oei/cctv${bboxParam}`)
         if (!res.ok) return
@@ -1620,7 +1854,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // Poll every 5 min — cameras move rarely but Shinobi monitor list may change
     const timer = setInterval(() => { if (enabled.cctv) fetchAndPaint() }, 300_000)
     return () => clearInterval(timer)
-  }, [map, enabled.cctv, bbox])
+  }, [map, styleReadyTick, enabled.cctv, bbox])
 
   return null
 }

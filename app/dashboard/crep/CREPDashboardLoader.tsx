@@ -21,12 +21,12 @@
  * message — deleted.
  */
 
-import nextDynamic from "next/dynamic"
 import { MYCAProvider } from "@/contexts/myca-context"
 import { CREPProvider } from "@/contexts/crep-context"
 import { GroundStationProvider } from "@/lib/ground-station/context"
 import { CREPErrorBoundary } from "@/components/crep/crep-error-boundary"
 import { CrepMobileShell } from "@/components/crep/mobile/crep-mobile-shell"
+import CREPDashboardClient from "./CREPDashboardClient"
 
 /**
  * CREP loading screen — animated rotating globe with live data pings.
@@ -135,15 +135,15 @@ export interface CREPDashboardEmbedProps {
     name?: string
     zoom?: number
   } | null
+  focusAsset?: {
+    type: "aircraft" | "vessel" | "satellite"
+    id?: string
+    name?: string
+    lat?: number
+    lng?: number
+    zoom?: number
+  } | null
 }
-
-const CREPDashboardClient = nextDynamic<CREPDashboardEmbedProps>(
-  () => import("./CREPDashboardClient"),
-  {
-    ssr: false,
-    loading: () => <CrepLoadingGlobe />,
-  }
-)
 
 export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
   return (

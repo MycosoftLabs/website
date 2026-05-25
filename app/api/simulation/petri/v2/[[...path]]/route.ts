@@ -1,75 +1,108 @@
-/**
- * Petri Dish v2 — proxy to MAS `/api/simulation/petri/v2/*` (forwards to Rust engine when configured).
- * Date: May 02, 2026
- */
-
 import { NextRequest, NextResponse } from "next/server"
-import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
+import type { PetriAction } from "@/components/petri-dish-v2/types"
+import {
+  applyPetriAction,
+  getPetriWorld,
+  resetPetriWorld,
+  stepPetriWorld,
+  toSnapshot,
+} from "@/lib/petri-dish-v2/realism-engine"
+import { computeMaskMetrics } from "@/lib/petri-dish-v2/myceliumseg-calibration"
 
-const BASE = `${resolveMasServerBaseUrl()}/api/simulation/petri/v2`
+function segmentsFrom(path?: string[]) {
+  return Array.isArray(path) ? path.filter(Boolean) : []
+}
 
-async function proxy(request: NextRequest, method: string, segments: string[]) {
-  const pathStr = segments.filter(Boolean).join("/")
-  const url = new URL(request.url)
-  const search = url.searchParams.toString()
-  const target = `${BASE}/${pathStr}${search ? `?${search}` : ""}`.replace(/([^:]\/)\/+/g, "$1")
-
-  const headers: Record<string, string> = { Accept: "application/json" }
-  const opts: RequestInit = { method, headers, signal: AbortSignal.timeout(120_000) }
-
-  if (method !== "GET" && method !== "HEAD") {
-    const bodyText = await request.text()
-    if (bodyText) {
-      headers["Content-Type"] = request.headers.get("Content-Type") || "application/json"
-      opts.body = bodyText
-    }
-  }
-
+async function bodyJson<T>(request: NextRequest): Promise<T | null> {
   try {
-    const res = await fetch(target, opts)
-    const data = await res.arrayBuffer()
-    const ct = res.headers.get("Content-Type") || "application/json"
-    return new NextResponse(data, { status: res.status, headers: { "Content-Type": ct } })
-  } catch (e) {
-    return NextResponse.json(
-      { error: "petri_v2_proxy", detail: String(e) },
-      { status: 502 }
-    )
+    return (await request.json()) as T
+  } catch {
+    return null
   }
 }
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ path?: string[] }> }
 ) {
-  const { path = [] } = await params
-  const segments = Array.isArray(path) ? path : path ? [path] : []
-  return proxy(request, "GET", segments)
+  const path = segmentsFrom((await params).path)
+  const world = getPetriWorld()
+  const endpoint = path[0] ?? "state"
+
+  if (endpoint === "health") {
+    return NextResponse.json({
+      ok: true,
+      engine: "local-deterministic-realism-v1",
+      pd_nca: "adaptive-substrate-enabled",
+      myceliumseg: "curated-subset-ready-interface",
+    })
+  }
+
+  if (endpoint === "world") return NextResponse.json(toSnapshot(world).world)
+  return NextResponse.json(toSnapshot(world))
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path?: string[] }> }
 ) {
-  const { path = [] } = await params
-  const segments = Array.isArray(path) ? path : path ? [path] : []
-  return proxy(request, "POST", segments)
-}
+  const path = segmentsFrom((await params).path)
+  const endpoint = path[0] ?? "step"
+  const world = getPetriWorld()
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ path?: string[] }> }
-) {
-  const { path = [] } = await params
-  const segments = Array.isArray(path) ? path : path ? [path] : []
-  return proxy(request, "PUT", segments)
-}
+  if (endpoint === "step") {
+    const body = await bodyJson<{ n?: number; force?: boolean }>(request)
+    const n = Math.min(240, Math.max(1, Number(body?.n ?? 1)))
+    if (body?.force) {
+      const wasPaused = world.paused
+      world.paused = false
+      stepPetriWorld(world, n)
+      world.paused = wasPaused
+    } else {
+      stepPetriWorld(world, n)
+    }
+    return NextResponse.json(toSnapshot(world))
+  }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ path?: string[] }> }
-) {
-  const { path = [] } = await params
-  const segments = Array.isArray(path) ? path : path ? [path] : []
-  return proxy(request, "DELETE", segments)
+  if (endpoint === "reset") {
+    const body = await bodyJson<{ seed_hex?: string | null }>(request)
+    return NextResponse.json(toSnapshot(resetPetriWorld(body?.seed_hex)))
+  }
+
+  if (endpoint === "pause") {
+    const body = await bodyJson<{ paused?: boolean }>(request)
+    if (body?.paused === false && world.hyphae.length === 0 && world.organisms.length === 0) {
+      world.paused = true
+      return NextResponse.json(toSnapshot(world))
+    }
+    world.paused = !!body?.paused
+    return NextResponse.json(toSnapshot(world))
+  }
+
+  if (endpoint === "action") {
+    const action = await bodyJson<PetriAction>(request)
+    if (!action?.type) return NextResponse.json({ error: "invalid_petri_action" }, { status: 400 })
+    return NextResponse.json(applyPetriAction(world, action))
+  }
+
+  if (endpoint === "calibrate" && path[1] === "myceliumseg") {
+    const body = await bodyJson<{
+      width?: number
+      height?: number
+      mask?: number[]
+      groundTruth?: number[]
+    }>(request)
+    if (!body?.width || !body?.height || !body?.mask) {
+      return NextResponse.json(
+        { error: "mask_required", message: "Provide width, height, and binary mask for MyceliumSeg metric extraction." },
+        { status: 400 }
+      )
+    }
+    return NextResponse.json({
+      dataset: "MyceliumSeg curated subset",
+      metrics: computeMaskMetrics(body.mask, body.width, body.height, body.groundTruth),
+    })
+  }
+
+  return NextResponse.json({ error: "unknown_petri_v2_endpoint", path }, { status: 404 })
 }

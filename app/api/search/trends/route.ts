@@ -7,6 +7,12 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import {
+  getTrendReadinessPlans,
+  persistTrendReadinessPlans,
+  queueTrendReadinessEtl,
+  type TrendReadinessPlan,
+} from "@/lib/search/trend-readiness"
 
 export const dynamic = "force-dynamic"
 
@@ -15,8 +21,9 @@ const MINDEX_API_URL = resolveMindexServerBaseUrl()
 interface TrendingTopic {
   topic: string
   count: number
-  category: "species" | "compound" | "location" | "research" | "general"
+  category: "species" | "compound" | "location" | "research" | "general" | "earth" | "weather" | "infrastructure" | "space" | "vehicles" | "emissions"
   change: "up" | "down" | "stable"
+  readiness?: TrendReadinessPlan
 }
 
 // Default fallback trends when MINDEX is unavailable
@@ -35,6 +42,50 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const limit = parseInt(searchParams.get("limit") || "10", 10)
   const category = searchParams.get("category")
+  const source = searchParams.get("source") || "auto"
+  const warm = searchParams.get("warm") === "1" || searchParams.get("warm") === "true"
+  const geoParam = searchParams.get("geo")
+  const geos = geoParam
+    ? geoParam.split(",").map((geo) => geo.trim()).filter(Boolean)
+    : ["US", "GLOBAL"]
+
+  if (source === "google" || source === "readiness" || source === "auto") {
+    try {
+      const readiness = await getTrendReadinessPlans({ geos, limit, includeStaticFallback: source !== "google" })
+      if (readiness.length > 0 || source !== "auto") {
+        const persisted = await persistTrendReadinessPlans(readiness)
+        const queued = warm ? await queueTrendReadinessEtl(readiness, "/api/search/trends") : []
+        let trends: TrendingTopic[] = readiness.map((plan, index) => ({
+          topic: plan.normalizedQuery,
+          count: Number.parseInt(String(plan.traffic || "").replace(/\D/g, ""), 10) || Math.max(1, limit - index),
+          category: categorize(plan.normalizedQuery, plan),
+          change: "up",
+          readiness: plan,
+        }))
+        if (category) trends = trends.filter((trend) => trend.category === category || trend.readiness?.categories.includes(category))
+        return NextResponse.json({
+          trends: trends.slice(0, limit),
+          readiness: readiness.slice(0, limit),
+          persisted,
+          queued,
+          source: readiness.some((plan) => plan.source === "google_trends_rss") ? "google_trends_rss" : "readiness_fallback",
+          geos,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.warn("[Trends API] Google/readiness fetch failed:", error)
+      if (source === "google" || source === "readiness") {
+        return NextResponse.json({
+          trends: [],
+          readiness: [],
+          source: "google_trends_unavailable",
+          geos,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    }
+  }
 
   try {
     // Try to fetch from MINDEX search analytics
@@ -81,7 +132,13 @@ export async function GET(request: NextRequest) {
 }
 
 // Categorize a search term
-function categorize(term: string): TrendingTopic["category"] {
+function categorize(term: string, plan?: TrendReadinessPlan): TrendingTopic["category"] {
+  if (plan?.categories.includes("emissions")) return "emissions"
+  if (plan?.categories.includes("infrastructure")) return "infrastructure"
+  if (plan?.categories.includes("satellite")) return "space"
+  if (plan?.categories.includes("vehicles")) return "vehicles"
+  if (plan?.categories.includes("weather") || plan?.categories.includes("events")) return "weather"
+  if (plan?.categories.includes("species")) return "species"
   const t = term.toLowerCase()
   
   // Species patterns
