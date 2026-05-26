@@ -132,9 +132,20 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
     // state, no overlay until / unless fatal error.
     const kickPlay = () => video.play().catch(() => { /* autoplay blocked — user clicks play */ })
 
+    // Live playlists (duration === Infinity) jump to the edge so the modal
+    // shows the present moment, not replayed buffer. VOD plays from the start.
+    const seekNativeToLiveEdge = () => {
+      try {
+        if (video.duration === Infinity && video.seekable.length) {
+          video.currentTime = video.seekable.end(video.seekable.length - 1)
+        }
+      } catch { /* ignore */ }
+    }
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Native HLS (Safari / iOS / Edge on macOS)
       video.src = playbackUrl
+      video.addEventListener("loadedmetadata", seekNativeToLiveEdge, { once: true })
       kickPlay()
     } else {
       import("hls.js").then((Hls) => {
@@ -142,24 +153,43 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
         if (!H.isSupported()) {
           // Firefox with plugin / older browsers — try direct src.
           video.src = playbackUrl
+          video.addEventListener("loadedmetadata", seekNativeToLiveEdge, { once: true })
           kickPlay()
           return
         }
-        const hls = new H({ maxBufferLength: 10, manifestLoadingTimeOut: 12_000, levelLoadingTimeOut: 12_000, fragLoadingTimeOut: 12_000 })
+        // Live-tuned: follow the live edge, keep no back-buffer. Recovery
+        // re-syncs to "now" instead of looping the buffered clip.
+        const hls = new H({
+          lowLatencyMode: true,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          backBufferLength: 0,
+          maxBufferLength: 10,
+          manifestLoadingTimeOut: 12_000,
+          levelLoadingTimeOut: 12_000,
+          fragLoadingTimeOut: 12_000,
+        })
+        const seekToLiveEdge = () => {
+          try {
+            if (hls.liveSyncPosition != null && Number.isFinite(hls.liveSyncPosition)) {
+              video.currentTime = hls.liveSyncPosition
+            }
+          } catch { /* ignore */ }
+        }
         hls.loadSource(playbackUrl)
         hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, kickPlay)
+        hls.on(H.Events.MANIFEST_PARSED, () => { seekToLiveEdge(); kickPlay() })
         let recoveryAttempts = 0
         hls.on(H.Events.ERROR, (_evt: any, data: any) => {
           if (!data?.fatal) return
           if (data?.type === H.ErrorTypes.NETWORK_ERROR && recoveryAttempts < 1) {
             recoveryAttempts++
-            try { hls.startLoad() } catch { /* ignore */ }
+            try { hls.startLoad(); seekToLiveEdge() } catch { /* ignore */ }
             return
           }
           if (data?.type === H.ErrorTypes.MEDIA_ERROR && recoveryAttempts < 1) {
             recoveryAttempts++
-            try { hls.recoverMediaError() } catch { /* ignore */ }
+            try { hls.recoverMediaError(); seekToLiveEdge() } catch { /* ignore */ }
             return
           }
           if (retryNonce < 5) {

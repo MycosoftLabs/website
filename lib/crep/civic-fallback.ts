@@ -118,12 +118,160 @@ const STATE_NAME_TO_CODE: Record<string, string> = {
   wisconsin: "WI", wyoming: "WY", "district of columbia": "DC",
 }
 
-const STATE_EXECUTIVES: Record<string, { name: string; party?: string }> = {
-  CA: { name: "Gavin Newsom", party: "Democratic" },
-  TX: { name: "Greg Abbott", party: "Republican" },
-  NY: { name: "Kathy Hochul", party: "Democratic" },
-  FL: { name: "Ron DeSantis", party: "Republican" },
-  AZ: { name: "Katie Hobbs", party: "Democratic" },
+interface ExecutiveSeed {
+  name: string
+  party?: string
+  url?: string
+}
+
+/** Heads of state / government for North American nations (country-level LOD). */
+const NATIONAL_EXECUTIVES: Record<string, CivicFallbackOfficial[]> = {
+  US: [
+    {
+      id: "nat:us:potus",
+      name: "Donald J. Trump",
+      office: "President of the United States",
+      party: "Republican",
+      jurisdiction_name: "United States",
+      urls: ["https://www.whitehouse.gov/"],
+      phones: ["+1-202-456-1111"],
+      address: "1600 Pennsylvania Avenue NW, Washington, DC 20500",
+      term_start: "2025-01-20",
+      term_end: null,
+    },
+    {
+      id: "nat:us:vpotus",
+      name: "JD Vance",
+      office: "Vice President of the United States",
+      party: "Republican",
+      jurisdiction_name: "United States",
+      urls: ["https://www.whitehouse.gov/administration/"],
+      phones: ["+1-202-456-1111"],
+      term_start: "2025-01-20",
+      term_end: null,
+    },
+  ],
+  CA: [
+    {
+      id: "nat:ca:pm",
+      name: "Mark Carney",
+      office: "Prime Minister of Canada",
+      party: "Liberal",
+      jurisdiction_name: "Canada",
+      urls: ["https://www.pm.gc.ca/en"],
+      phones: ["+1-613-992-4211"],
+      address: "Office of the Prime Minister, 80 Wellington Street, Ottawa, ON K1A 0A2",
+      term_start: "2025-03-14",
+      term_end: null,
+    },
+  ],
+  MX: [
+    {
+      id: "nat:mx:potus",
+      name: "Claudia Sheinbaum",
+      office: "President of Mexico",
+      party: "Morena",
+      jurisdiction_name: "Mexico",
+      urls: ["https://www.gob.mx/presidencia"],
+      address: "Palacio Nacional, Plaza de la Constitución S/N, Centro, 06066 Ciudad de México",
+      term_start: "2024-10-01",
+      term_end: null,
+    },
+  ],
+}
+
+const COUNTRY_NAME_TO_CODE: Record<string, string> = {
+  "united states": "US",
+  "united states of america": "US",
+  usa: "US",
+  "u.s.a.": "US",
+  "u.s.": "US",
+  us: "US",
+  america: "US",
+  canada: "CA",
+  ca: "CA",
+  mexico: "MX",
+  méxico: "MX",
+  "estados unidos mexicanos": "MX",
+  mx: "MX",
+}
+
+/** Current U.S. governors (all 50 states). Live MINDEX civic data overrides this. */
+const STATE_EXECUTIVES: Record<string, ExecutiveSeed> = {
+  AL: { name: "Kay Ivey", party: "Republican", url: "https://governor.alabama.gov/" },
+  AK: { name: "Mike Dunleavy", party: "Republican", url: "https://gov.alaska.gov/" },
+  AZ: { name: "Katie Hobbs", party: "Democratic", url: "https://azgovernor.gov/" },
+  AR: { name: "Sarah Huckabee Sanders", party: "Republican", url: "https://governor.arkansas.gov/" },
+  CA: { name: "Gavin Newsom", party: "Democratic", url: "https://www.gov.ca.gov/" },
+  CO: { name: "Jared Polis", party: "Democratic", url: "https://governor.colorado.gov/" },
+  CT: { name: "Ned Lamont", party: "Democratic", url: "https://portal.ct.gov/governor" },
+  DE: { name: "Matt Meyer", party: "Democratic", url: "https://governor.delaware.gov/" },
+  FL: { name: "Ron DeSantis", party: "Republican", url: "https://www.flgov.com/" },
+  GA: { name: "Brian Kemp", party: "Republican", url: "https://gov.georgia.gov/" },
+  HI: { name: "Josh Green", party: "Democratic", url: "https://governor.hawaii.gov/" },
+  ID: { name: "Brad Little", party: "Republican", url: "https://gov.idaho.gov/" },
+  IL: { name: "JB Pritzker", party: "Democratic", url: "https://gov.illinois.gov/" },
+  IN: { name: "Mike Braun", party: "Republican", url: "https://www.in.gov/gov/" },
+  IA: { name: "Kim Reynolds", party: "Republican", url: "https://governor.iowa.gov/" },
+  KS: { name: "Laura Kelly", party: "Democratic", url: "https://governor.kansas.gov/" },
+  KY: { name: "Andy Beshear", party: "Democratic", url: "https://governor.ky.gov/" },
+  LA: { name: "Jeff Landry", party: "Republican", url: "https://gov.louisiana.gov/" },
+  ME: { name: "Janet Mills", party: "Democratic", url: "https://www.maine.gov/governor/mills/" },
+  MD: { name: "Wes Moore", party: "Democratic", url: "https://governor.maryland.gov/" },
+  MA: { name: "Maura Healey", party: "Democratic", url: "https://www.mass.gov/orgs/office-of-governor-maura-healey-and-lt-governor-kim-driscoll" },
+  MI: { name: "Gretchen Whitmer", party: "Democratic", url: "https://www.michigan.gov/whitmer" },
+  MN: { name: "Tim Walz", party: "Democratic-Farmer-Labor", url: "https://mn.gov/governor/" },
+  MS: { name: "Tate Reeves", party: "Republican", url: "https://governorreeves.ms.gov/" },
+  MO: { name: "Mike Kehoe", party: "Republican", url: "https://governor.mo.gov/" },
+  MT: { name: "Greg Gianforte", party: "Republican", url: "https://governor.mt.gov/" },
+  NE: { name: "Jim Pillen", party: "Republican", url: "https://governor.nebraska.gov/" },
+  NV: { name: "Joe Lombardo", party: "Republican", url: "https://gov.nv.gov/" },
+  NH: { name: "Kelly Ayotte", party: "Republican", url: "https://www.governor.nh.gov/" },
+  NJ: { name: "Phil Murphy", party: "Democratic", url: "https://www.nj.gov/governor/" },
+  NM: { name: "Michelle Lujan Grisham", party: "Democratic", url: "https://www.governor.state.nm.us/" },
+  NY: { name: "Kathy Hochul", party: "Democratic", url: "https://www.governor.ny.gov/" },
+  NC: { name: "Josh Stein", party: "Democratic", url: "https://governor.nc.gov/" },
+  ND: { name: "Kelly Armstrong", party: "Republican", url: "https://www.governor.nd.gov/" },
+  OH: { name: "Mike DeWine", party: "Republican", url: "https://governor.ohio.gov/" },
+  OK: { name: "Kevin Stitt", party: "Republican", url: "https://oklahoma.gov/governor.html" },
+  OR: { name: "Tina Kotek", party: "Democratic", url: "https://www.oregon.gov/gov/" },
+  PA: { name: "Josh Shapiro", party: "Democratic", url: "https://www.pa.gov/governor/" },
+  RI: { name: "Dan McKee", party: "Democratic", url: "https://governor.ri.gov/" },
+  SC: { name: "Henry McMaster", party: "Republican", url: "https://governor.sc.gov/" },
+  SD: { name: "Larry Rhoden", party: "Republican", url: "https://governor.sd.gov/" },
+  TN: { name: "Bill Lee", party: "Republican", url: "https://www.tn.gov/governor.html" },
+  TX: { name: "Greg Abbott", party: "Republican", url: "https://gov.texas.gov/" },
+  UT: { name: "Spencer Cox", party: "Republican", url: "https://governor.utah.gov/" },
+  VT: { name: "Phil Scott", party: "Republican", url: "https://governor.vermont.gov/" },
+  VA: { name: "Glenn Youngkin", party: "Republican", url: "https://www.governor.virginia.gov/" },
+  WA: { name: "Bob Ferguson", party: "Democratic", url: "https://governor.wa.gov/" },
+  WV: { name: "Patrick Morrisey", party: "Republican", url: "https://governor.wv.gov/" },
+  WI: { name: "Tony Evers", party: "Democratic", url: "https://evers.wi.gov/" },
+  WY: { name: "Mark Gordon", party: "Republican", url: "https://governor.wyo.gov/" },
+}
+
+/** Canadian provincial premiers (province-level LOD). */
+const CA_PROVINCE_EXECUTIVES: Record<string, ExecutiveSeed> = {
+  AB: { name: "Danielle Smith", party: "United Conservative", url: "https://www.alberta.ca/premier" },
+  BC: { name: "David Eby", party: "BC NDP", url: "https://news.gov.bc.ca/office-of-the-premier" },
+  MB: { name: "Wab Kinew", party: "Manitoba NDP", url: "https://www.gov.mb.ca/premier/" },
+  NB: { name: "Susan Holt", party: "Liberal", url: "https://www2.gnb.ca/" },
+  NS: { name: "Tim Houston", party: "Progressive Conservative", url: "https://novascotia.ca/premier/" },
+  ON: { name: "Doug Ford", party: "Progressive Conservative", url: "https://www.ontario.ca/page/premier" },
+  QC: { name: "François Legault", party: "Coalition Avenir Québec", url: "https://www.quebec.ca/en/premier" },
+  SK: { name: "Scott Moe", party: "Saskatchewan Party", url: "https://www.saskatchewan.ca/government/premier-of-saskatchewan" },
+}
+
+const CA_PROVINCE_NAME_TO_CODE: Record<string, string> = {
+  alberta: "AB",
+  "british columbia": "BC",
+  manitoba: "MB",
+  "new brunswick": "NB",
+  "nova scotia": "NS",
+  ontario: "ON",
+  quebec: "QC",
+  québec: "QC",
+  saskatchewan: "SK",
 }
 
 const CITY_MAYORS: Record<string, { name: string; party?: string }> = {
@@ -172,6 +320,36 @@ function resolveStateCode(state?: string | null): string | null {
   const trimmed = state.trim()
   if (/^[A-Za-z]{2}$/.test(trimmed)) return trimmed.toUpperCase()
   return STATE_NAME_TO_CODE[trimmed.toLowerCase()] ?? null
+}
+
+function resolveCountryCode(country?: string | null): string | null {
+  if (!country) return null
+  const trimmed = country.trim()
+  if (/^[A-Za-z]{2}$/.test(trimmed)) {
+    const upper = trimmed.toUpperCase()
+    if (NATIONAL_EXECUTIVES[upper]) return upper
+  }
+  return COUNTRY_NAME_TO_CODE[trimmed.toLowerCase()] ?? null
+}
+
+function resolveCaProvinceCode(province?: string | null): string | null {
+  if (!province) return null
+  const trimmed = province.trim()
+  if (/^[A-Za-z]{2}$/.test(trimmed) && CA_PROVINCE_EXECUTIVES[trimmed.toUpperCase()]) {
+    return trimmed.toUpperCase()
+  }
+  return CA_PROVINCE_NAME_TO_CODE[trimmed.toLowerCase()] ?? null
+}
+
+function appendNationalExecutives(countryCode: string | null, officials: CivicFallbackOfficial[]) {
+  if (!countryCode) return
+  const nationals = NATIONAL_EXECUTIVES[countryCode]
+  if (!nationals?.length) return
+  const seen = new Set(officials.map((o) => o.id))
+  for (const official of nationals) {
+    if (seen.has(official.id)) continue
+    officials.push(withPortrait(official))
+  }
 }
 
 function formatPersonName(name: Record<string, unknown> | undefined): string {
@@ -270,9 +448,15 @@ export async function fetchCivicFallback(input: {
   country?: string | null
 }): Promise<CivicFallbackResult> {
   const stateCode = resolveStateCode(input.state)
+  const countryCode = resolveCountryCode(input.country)
+  const provinceCode = countryCode === "CA" ? resolveCaProvinceCode(input.state) : null
   const jurisdictionLabel = [input.city, input.state, input.country].filter(Boolean).join(", ")
   const officials: CivicFallbackOfficial[] = []
 
+  // National leadership (head of state / government) — surfaces at country LOD.
+  appendNationalExecutives(countryCode, officials)
+
+  // U.S. state governor.
   if (stateCode && STATE_EXECUTIVES[stateCode]) {
     const exec = STATE_EXECUTIVES[stateCode]
     officials.push(
@@ -282,8 +466,23 @@ export async function fetchCivicFallback(input: {
         office: `Governor of ${input.state ?? stateCode}`,
         party: exec.party,
         jurisdiction_name: input.state ?? stateCode,
-        urls: [`https://www.usa.gov/state-governor`],
-        term_start: "2019-01-07",
+        urls: [exec.url ?? "https://www.usa.gov/state-governor"],
+        term_end: null,
+      }),
+    )
+  }
+
+  // Canadian provincial premier.
+  if (provinceCode && CA_PROVINCE_EXECUTIVES[provinceCode]) {
+    const premier = CA_PROVINCE_EXECUTIVES[provinceCode]
+    officials.push(
+      withPortrait({
+        id: `premier:${provinceCode}`,
+        name: premier.name,
+        office: `Premier of ${input.state ?? provinceCode}`,
+        party: premier.party,
+        jurisdiction_name: input.state ?? provinceCode,
+        urls: premier.url ? [premier.url] : [],
         term_end: null,
       }),
     )
