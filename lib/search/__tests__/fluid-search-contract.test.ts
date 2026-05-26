@@ -65,8 +65,8 @@ describe("earthContextFilters", () => {
 
   it("dolphins near bases enables dolphins and military bases", () => {
     const route = classifyAndRoute("dolphins near bases")
-    expect(route.primaryWidget).toBe("earth")
-    expect(route.secondaryWidgets).toContain("species")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "dolphin" }),
@@ -78,8 +78,8 @@ describe("earthContextFilters", () => {
 
   it("dolphins near sea cables enables submarine cable context", () => {
     const route = classifyAndRoute("dolphins near sea cables")
-    expect(route.primaryWidget).toBe("earth")
-    expect(route.secondaryWidgets).toContain("species")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "dolphin" }),
@@ -90,8 +90,8 @@ describe("earthContextFilters", () => {
 
   it("bees near power plants includes related power lines", () => {
     const route = classifyAndRoute("bees near power plants")
-    expect(route.primaryWidget).toBe("earth")
-    expect(route.secondaryWidgets).toContain("species")
+    expect(route.primaryWidget).toBe("species")
+    expect(route.secondaryWidgets).toContain("earth")
     expect(route.earthContextFilters.enabledFilters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "species", key: "bee" }),

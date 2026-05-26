@@ -155,7 +155,6 @@ const CATEGORY_BY_FAMILY: Record<SearchEntityFamily, string> = {
   weather: "weather-hazard",
   devices: "device-telemetry",
   space: "space-assets",
-  emissions: "emissions",
   marine: "marine",
   transport: "transport",
   economy_content: "content",

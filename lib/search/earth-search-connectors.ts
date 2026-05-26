@@ -31,10 +31,8 @@ import type {
   SpaceWeatherResult,
   CameraResult,
 } from "./unified-search-sdk"
-import * as satellite from "satellite.js"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
-import { nearestCoastalFocus, queryNeedsCoastalFocus } from "@/lib/search/coastal-focus"
 import { getAllPowerPlants } from "@/lib/crep/registries/power-plant-registry"
 
 /** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
@@ -282,44 +280,14 @@ export function isVesselQuery(query: string): boolean {
   return VESSEL_KEYWORDS.some(kw => q.includes(kw))
 }
 
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const r = 6371
-  const dLat = (b.lat - a.lat) * Math.PI / 180
-  const dLng = (b.lng - a.lng) * Math.PI / 180
-  const lat1 = a.lat * Math.PI / 180
-  const lat2 = b.lat * Math.PI / 180
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
-  return 2 * r * Math.asin(Math.sqrt(h))
-}
-
-export async function searchVessels(
-  query: string,
-  origin: string,
-  limit = 20,
-  userLocation?: { lat: number; lng: number }
-): Promise<VesselResult[]> {
+export async function searchVessels(query: string, origin: string, limit = 20): Promise<VesselResult[]> {
   try {
-    const focus = userLocation && queryNeedsCoastalFocus(query)
-      ? nearestCoastalFocus(userLocation) ?? userLocation
-      : userLocation
-    const fetchLimit = focus ? Math.max(limit, 750) : limit
-    const params = new URLSearchParams({ limit: String(fetchLimit) })
-    if (focus) {
-      const latSpan = 8
-      const lngSpan = 10
-      params.set("lamin", String(Math.max(-90, focus.lat - latSpan)))
-      params.set("lamax", String(Math.min(90, focus.lat + latSpan)))
-      params.set("lomin", String(Math.max(-180, focus.lng - lngSpan)))
-      params.set("lomax", String(Math.min(180, focus.lng + lngSpan)))
-    }
-    const res = await safeFetch(`${origin}/api/oei/aisstream?${params.toString()}`, 10000)
+    const res = await safeFetch(`${origin}/api/oei/aisstream?limit=${limit}`, 10000)
     if (!res) return []
     const data = await res.json()
     const vessels = data.entities || data.vessels || data.data || []
 
-    const mapped = (vessels as Record<string, unknown>[]).map((v) => ({
+    return (vessels as Record<string, unknown>[]).slice(0, limit).map((v) => ({
       id: `ais-${v.mmsi || v.id}`,
       name: (v.name as string) || (v.vessel_name as string) || "Unknown",
       mmsi: String(v.mmsi || v.id || ""),
@@ -331,13 +299,6 @@ export async function searchVessels(
       destination: (v.destination as string) || undefined,
       source: "AISstream",
     }))
-      .filter((v) => Number.isFinite(v.lat) && Number.isFinite(v.lng) && (v.lat !== 0 || v.lng !== 0))
-
-    if (focus) {
-      mapped.sort((a, b) => haversineKm(focus, a) - haversineKm(focus, b))
-    }
-
-    return mapped.slice(0, limit)
   } catch {
     return []
   }
@@ -357,81 +318,24 @@ export function isSatelliteQuery(query: string): boolean {
   return SATELLITE_KEYWORDS.some(kw => q.includes(kw))
 }
 
-function num(value: unknown): number | undefined {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN
-  return Number.isFinite(n) ? n : undefined
-}
-
-function propagateSatelliteTle(line1?: unknown, line2?: unknown): { lat: number; lng: number; altitude: number; velocity?: number } | null {
-  if (typeof line1 !== "string" || typeof line2 !== "string" || !line1.trim() || !line2.trim()) return null
-  try {
-    const now = new Date()
-    const satrec = satellite.twoline2satrec(line1.trim(), line2.trim())
-    const pv = satellite.propagate(satrec, now)
-    const positionEci = pv.position
-    if (!positionEci || typeof positionEci === "boolean") return null
-    const gmst = satellite.gstime(
-      satellite.jday(
-        now.getUTCFullYear(),
-        now.getUTCMonth() + 1,
-        now.getUTCDate(),
-        now.getUTCHours(),
-        now.getUTCMinutes(),
-        now.getUTCSeconds(),
-      ),
-    )
-    const positionGd = satellite.eciToGeodetic(positionEci, gmst)
-    const velocityEci = pv.velocity && typeof pv.velocity !== "boolean" ? pv.velocity : null
-    const velocity = velocityEci
-      ? Math.sqrt((velocityEci.x ** 2) + (velocityEci.y ** 2) + (velocityEci.z ** 2))
-      : undefined
-    return {
-      lat: satellite.radiansToDegrees(positionGd.latitude),
-      lng: satellite.radiansToDegrees(positionGd.longitude),
-      altitude: positionGd.height,
-      velocity,
-    }
-  } catch {
-    return null
-  }
-}
-
 export async function searchSatellites(query: string, origin: string, limit = 20): Promise<SatelliteResult[]> {
   try {
-    const params = new URLSearchParams({ limit: String(limit) })
-    if (/\biss\b|international\s+space\s+station/i.test(query)) {
-      params.set("norad", "25544")
-      params.set("category", "stations")
-    } else if (/\bstarlink\b/i.test(query)) {
-      params.set("category", "starlink")
-    } else if (/\bdebris|orbital\s+objects?\b/i.test(query)) {
-      params.set("category", "debris")
-    } else {
-      params.set("category", "active")
-    }
-    const res = await safeFetch(`${origin}/api/oei/satellites?${params.toString()}`, 15000)
+    const res = await safeFetch(`${origin}/api/oei/satellites?limit=${limit}`, 10000)
     if (!res) return []
     const data = await res.json()
     const sats = data.entities || data.satellites || data.data || []
 
-    return (sats as Record<string, unknown>[]).slice(0, limit).map((s) => {
-      const propagated = propagateSatelliteTle(s.line1 || s.tle1, s.line2 || s.tle2)
-      const rawLat = num(s.lat) ?? num(s.latitude)
-      const rawLng = num(s.lng) ?? num(s.lon) ?? num(s.longitude)
-      const usePropagated = propagated && (!Number.isFinite(rawLat) || !Number.isFinite(rawLng) || (rawLat === 0 && rawLng === 0))
-      const norad = String(s.norad_id || s.noradId || s.norad || s.id || "").replace(/^satnogs-/, "")
-      return {
-        id: `sat-${norad || s.id || s.name || "unknown"}`,
-        name: (s.name as string) || (s.title as string) || "Unknown",
-        noradId: norad,
-        category: (s.category as string) || (s.orbitType as string) || "active",
-        lat: usePropagated ? propagated.lat : rawLat ?? 0,
-        lng: usePropagated ? propagated.lng : rawLng ?? 0,
-        altitude: num(s.altitude) ?? num(s.alt) ?? propagated?.altitude ?? 0,
-        velocity: num(s.velocity) ?? propagated?.velocity,
-        source: "CelesTrak",
-      }
-    }).filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    return (sats as Record<string, unknown>[]).slice(0, limit).map((s) => ({
+      id: `sat-${s.norad_id || s.id}`,
+      name: (s.name as string) || "Unknown",
+      noradId: String(s.norad_id || s.noradId || s.id || ""),
+      category: (s.category as string) || "active",
+      lat: (s.lat as number) || (s.latitude as number) || 0,
+      lng: (s.lng as number) || (s.longitude as number) || 0,
+      altitude: (s.altitude as number) || (s.alt as number) || 0,
+      velocity: (s.velocity as number) || undefined,
+      source: "CelesTrak",
+    }))
   } catch {
     return []
   }
@@ -498,24 +402,6 @@ export function isEmissionsQuery(query: string): boolean {
   return EMISSIONS_KEYWORDS.some(kw => q.includes(kw))
 }
 
-function nestedNum(row: Record<string, unknown>, path: string[]): number | undefined {
-  let cur: unknown = row
-  for (const key of path) {
-    if (!cur || typeof cur !== "object") return undefined
-    cur = (cur as Record<string, unknown>)[key]
-  }
-  return num(cur)
-}
-
-function nestedValue(row: Record<string, unknown>, path: string[]): unknown {
-  let cur: unknown = row
-  for (const key of path) {
-    if (!cur || typeof cur !== "object") return undefined
-    cur = (cur as Record<string, unknown>)[key]
-  }
-  return cur
-}
-
 export async function searchEmissions(query: string, origin: string, limit = 20): Promise<EmissionsResult[]> {
   const results: EmissionsResult[] = []
   const q = query.toLowerCase()
@@ -523,34 +409,22 @@ export async function searchEmissions(query: string, origin: string, limit = 20)
   try {
     // Carbon Mapper
     if (q.includes("methane") || q.includes("co2") || q.includes("carbon") || q.includes("emission") || q.includes("plume")) {
-      const cmParams = new URLSearchParams({ limit: String(limit) })
-      if (q.includes("co2") || q.includes("carbon")) cmParams.set("gas_type", "co2")
-      else if (q.includes("methane")) cmParams.set("gas_type", "methane")
-      const cmRes = await safeFetch(`${origin}/api/oei/carbon-mapper?${cmParams.toString()}`)
+      const cmRes = await safeFetch(`${origin}/api/oei/carbon-mapper?limit=${limit}`)
       if (cmRes) {
         const cmData = await cmRes.json()
-        const plumes = cmData.entities || cmData.plumes || cmData.emissions || cmData.data || []
-        const filteredPlumes = (plumes as Record<string, unknown>[]).filter((p) => {
-          const gas = String(p.gasType || p.gas_type || nestedValue(p, ["properties", "gasType"]) || "").toLowerCase()
-          if (q.includes("co2") || q.includes("carbon")) return gas === "co2" || gas === "carbon dioxide"
-          if (q.includes("methane")) return gas === "methane" || gas === "ch4"
-          return true
-        })
-        for (const p of filteredPlumes.slice(0, limit)) {
-          const gasType = String(p.gasType || p.gas_type || nestedValue(p, ["properties", "gasType"]) || "").toLowerCase()
-          const sourceType = String(p.sourceType || p.source_type || (p.properties as Record<string, unknown> | undefined)?.sourceType || "")
-          const emissionRate = num(p.emissionRate) ?? num(p.emission_rate) ?? num((p.properties as Record<string, unknown> | undefined)?.emissionRate)
+        const plumes = cmData.entities || cmData.plumes || cmData.data || []
+        for (const p of (plumes as Record<string, unknown>[]).slice(0, limit)) {
           results.push({
             id: `cm-${p.id}`,
-            type: gasType || (q.includes("methane") ? "methane" : "co2"),
-            title: (p.name as string) || (p.facilityName as string) || (p.source_name as string) || "Emission Source",
-            description: (p.description as string) || `${sourceType || "Unknown"} emission`,
-            lat: num(p.lat) ?? num(p.latitude) ?? nestedNum(p, ["location", "latitude"]) ?? 0,
-            lng: num(p.lng) ?? num(p.lon) ?? num(p.longitude) ?? nestedNum(p, ["location", "longitude"]) ?? 0,
-            value: emissionRate,
+            type: q.includes("methane") ? "methane" : "co2",
+            title: (p.name as string) || (p.source_name as string) || "Emission Source",
+            description: (p.description as string) || `${p.source_type || "Unknown"} emission`,
+            lat: (p.lat as number) || (p.latitude as number) || 0,
+            lng: (p.lng as number) || (p.longitude as number) || 0,
+            value: (p.emission_rate as number) || undefined,
             unit: "kg/hr",
-            sourceType: sourceType || undefined,
-            timestamp: (p.datetime as string) || (p.lastSeenAt as string) || (p.updatedAt as string) || new Date().toISOString(),
+            sourceType: (p.source_type as string) || undefined,
+            timestamp: (p.datetime as string) || new Date().toISOString(),
             source: "Carbon Mapper",
           })
         }
@@ -1158,8 +1032,7 @@ export const earthMindexFirstConnector = defineConnector({
 export async function searchEarthIntelligence(
   query: string,
   origin: string,
-  limit = 20,
-  options: { lat?: number; lng?: number } = {}
+  limit = 20
 ): Promise<{
   events: EventResult[]
   aircraft: AircraftResult[]
@@ -1174,20 +1047,14 @@ export async function searchEarthIntelligence(
 }> {
   const domains = detectEarthDomains(query)
   const isGeneral = !Object.values(domains).some(Boolean)
-  const isBiodiversityGeneral =
-    /\b(species|wildlife|animal|animals|plant|plants|fungi|mushrooms?|birds?|insects?|mammals?|fish|dolphins?|bees?|migration|populations?|biodiversity|inat(?:uralist)?)\b/i.test(query)
-  const userLocation =
-    Number.isFinite(options.lat) && Number.isFinite(options.lng)
-      ? { lat: Number(options.lat), lng: Number(options.lng) }
-      : undefined
 
   /** Live connectors — run in parallel with MINDEX so camera/geo queries are not serialized (MINDEX + OSM). */
   const livePromises = {
-    events: (domains.events || (isGeneral && !isBiodiversityGeneral)) ? searchEvents(query, limit) : Promise.resolve([] as EventResult[]),
+    events: (domains.events || isGeneral) ? searchEvents(query, limit) : Promise.resolve([] as EventResult[]),
     aircraft: domains.aircraft ? searchAircraft(query, limit) : Promise.resolve([] as AircraftResult[]),
-    vessels: domains.vessels ? searchVessels(query, origin, limit, userLocation) : Promise.resolve([] as VesselResult[]),
+    vessels: domains.vessels ? searchVessels(query, origin, limit) : Promise.resolve([] as VesselResult[]),
     satellites: domains.satellites ? searchSatellites(query, origin, limit) : Promise.resolve([] as SatelliteResult[]),
-    weather: (domains.weather || (isGeneral && !isBiodiversityGeneral)) ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
+    weather: (domains.weather || isGeneral) ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
     emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([] as EmissionsResult[]),
     infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([] as InfrastructureResult[]),
     devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([] as DeviceResult[]),

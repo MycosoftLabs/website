@@ -10,7 +10,7 @@
 #   3. Pull new image from GHCR into the idle slot's image env var
 #   4. Start idle slot container
 #   5. Wait for idle /api/health to pass 3× in a row (max 180s)
-#   6. Render nginx conf.d pointing at idle slot + `nginx -s reload` inside proxy
+#   6. Sync nginx.conf, render conf.d pointing at idle slot + `nginx -s reload` inside proxy
 #   7. Flip /opt/mycosoft/state/active-slot to the new slot
 #   8. Purge Cloudflare cache (purge_everything)
 #   9. Public verification: mycosoft.com must serve the new slot (check header)
@@ -50,6 +50,21 @@ PUBLIC_HOST="${PUBLIC_HOST:-mycosoft.com}"
 CF_ZONE_ID="${CF_ZONE_ID:-}"
 CF_API_TOKEN="${CF_API_TOKEN:-}"
 
+# VM-local secrets for manual / SSH deploys (CI passes CF_* via workflow env).
+# File is NOT in git — install with scripts/install-vm-deploy-env.sh on the VM.
+load_deploy_env() {
+  local f="${DEPLOY_ENV_FILE:-/opt/mycosoft/deploy.env}"
+  if [[ -f "$f" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$f"
+    set +a
+  fi
+  CF_ZONE_ID="${CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID_PRODUCTION:-${CLOUDFLARE_ZONE_ID:-}}}"
+  CF_API_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
+}
+load_deploy_env
+
 # ───── Logging ──────────────────────────────────────────────────────────────
 c_red=$'\033[0;31m'; c_grn=$'\033[0;32m'; c_ylw=$'\033[1;33m'; c_blu=$'\033[0;34m'; c_clr=$'\033[0m'
 _ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -60,7 +75,16 @@ err() { echo "${c_red}[$(_ts)] ERR${c_clr} $*" | tee -a "$LOG_FILE" 1>&2; }
 
 # ───── Lock (prevent concurrent deploys) ────────────────────────────────────
 LOCK_FD=9
-LOCK_FILE=/tmp/mycosoft-blue-green.lock
+LOCK_DIR="${LOCK_DIR:-${HOME:-/tmp}/.cache/mycosoft-deploy}"
+mkdir -p "$LOCK_DIR"
+LOCK_FILE="${LOCK_FILE:-${LOCK_DIR}/blue-green.lock}"
+LOCK_PARENT="$(dirname "$LOCK_FILE")"
+if ! mkdir -p "$LOCK_PARENT" 2>/dev/null || ! : > "$LOCK_FILE" 2>/dev/null; then
+  warn "Ignoring unwritable LOCK_FILE=$LOCK_FILE; using $LOCK_DIR/blue-green.lock"
+  LOCK_FILE="${LOCK_DIR}/blue-green.lock"
+  mkdir -p "$LOCK_DIR"
+  : > "$LOCK_FILE"
+fi
 exec {LOCK_FD}>"$LOCK_FILE"
 flock -n "$LOCK_FD" || { err "Another blue/green deploy is already running"; exit 2; }
 
@@ -93,6 +117,18 @@ cd "$DEPLOY_DIR"
 
 # ───── Helpers ──────────────────────────────────────────────────────────────
 compose() { docker compose "${COMPOSE_FILES[@]}" "$@"; }
+
+install_nginx_base_conf() {
+  local src="$DEPLOY_DIR/deploy/nginx/nginx.conf"
+  local dst="$NGINX_DIR/nginx.conf"
+  [[ -f "$src" ]] || { err "Missing nginx base config: $src"; return 1; }
+  if [[ ! -f "$dst" ]] || ! cmp -s "$src" "$dst"; then
+    cp "$src" "$dst"
+    ok "Installed nginx base config ($dst)"
+  else
+    log "nginx base config already current"
+  fi
+}
 
 render_nginx_conf_for() {
   local target="$1" # "blue" or "green"
@@ -217,6 +253,7 @@ if [[ "$MODE" == "rollback" ]]; then
     fi
     wait_healthy "$IDLE" || { err "Rollback failed — idle slot didn't come back"; exit 6; }
   fi
+  install_nginx_base_conf
   render_nginx_conf_for "$IDLE"
   reload_proxy
   echo "$IDLE" > "$ACTIVE_FILE"
@@ -277,6 +314,7 @@ if ! wait_healthy "$IDLE"; then
 fi
 
 # 4. Render nginx conf.d pointing at idle slot + graceful reload
+install_nginx_base_conf
 render_nginx_conf_for "$IDLE"
 if ! reload_proxy; then
   err "nginx reload failed — REVERTING conf"

@@ -107,12 +107,30 @@ export function EarthWidget({
   )
   const isEarthquakeQuery = /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(searchQuery)
   const routeLocation = route?.intent.filters.location
+  const routeViewport = route?.searchPlan?.earth?.viewportTarget
+  const routeZoom = routeViewport?.zoomIntent === "city"
+    ? 7.5
+    : routeViewport?.zoomIntent === "county"
+      ? 6
+      : routeViewport?.zoomIntent === "region"
+        ? 2.5
+        : routeViewport?.zoomIntent === "asset"
+          ? 9
+          : undefined
   const simulatorLocation = searchLocation || (
-    routeLocation?.lat && routeLocation?.lng
+    routeViewport
+      ? {
+          lat: routeViewport.lat,
+          lng: routeViewport.lng,
+          name: routeLocation?.city || routeLocation?.state || routeLocation?.country || routeLocation?.region,
+          zoom: routeZoom,
+        }
+      : routeLocation?.lat && routeLocation?.lng
       ? {
           lat: routeLocation.lat,
           lng: routeLocation.lng,
           name: routeLocation.city || routeLocation.state || routeLocation.country || routeLocation.region,
+          zoom: routeLocation.city ? 7.5 : routeLocation.region || routeLocation.country || routeLocation.state ? 2.5 : undefined,
         }
       : isEarthquakeQuery && userLocation
         ? { ...userLocation, name: "your location" }

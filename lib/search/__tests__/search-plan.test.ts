@@ -27,6 +27,28 @@ describe("SearchPlan orchestration", () => {
     expect(plan?.etlRequests.map((request) => request.entityFamily)).toEqual(expect.arrayContaining(["events", "infrastructure"]))
   })
 
+  it("flights over Pacific uses aviation layers and a stable Pacific region viewport", () => {
+    const route = classifyAndRoute("Flights over Pacific")
+    const plan = route.searchPlan
+
+    expect(plan?.primaryWidget).toBe("earth")
+    expect(plan?.entityFamilies).toEqual(expect.arrayContaining(["vehicles"]))
+    expect(plan?.widgetOrder).toEqual(expect.arrayContaining(["earth", "transport", "aircraft", "answers", "news"]))
+    expect(plan?.earth?.enabledLayers).toEqual(expect.arrayContaining(["aviation", "aviationRoutes", "satImagery", "mapboxSatelliteStreets"]))
+    expect(plan?.earth?.enabledLayers).not.toEqual(expect.arrayContaining(["earthquakes", "ships", "powerPlantsG"]))
+    expect(plan?.earth?.viewportTarget).toMatchObject({ lat: 8, lng: -155, zoomIntent: "region" })
+  })
+
+  it("species searches keep species first while still requiring Earth and science widgets", () => {
+    const route = classifyAndRoute("Amanita muscaria near Oregon")
+    const plan = route.searchPlan
+
+    expect(plan?.primaryWidget).toBe("species")
+    expect(plan?.widgetOrder.slice(0, 2)).toEqual(["species", "earth"])
+    expect(plan?.widgetOrder).toEqual(expect.arrayContaining(["genetics", "chemistry", "research", "news", "answers"]))
+    expect(plan?.earth?.lockedLayerControls).toBe(true)
+  })
+
   it("non-earthquake hazards resolve to event-first Earth bundles instead of species defaults", () => {
     const landslide = classifyAndRoute("active landslides near Oregon").searchPlan
     const oilSpill = classifyAndRoute("oil spills near ports in the Gulf of Mexico").searchPlan
@@ -40,16 +62,6 @@ describe("SearchPlan orchestration", () => {
     expect(oilSpill?.widgetOrder).toEqual(expect.arrayContaining(["earth", "events", "marine", "infrastructure", "answers", "news"]))
     expect(oilSpill?.widgetOrder).not.toContain("species")
     expect(oilSpill?.earth?.enabledLayers).toEqual(expect.arrayContaining(["oilGas", "ports", "ships", "shipRoutes"]))
-  })
-
-  it("spatial species searches prioritize Earth while keeping science widgets", () => {
-    const route = classifyAndRoute("Amanita muscaria near Oregon")
-    const plan = route.searchPlan
-
-    expect(plan?.primaryWidget).toBe("earth")
-    expect(plan?.widgetOrder.slice(0, 2)).toEqual(["earth", "species"])
-    expect(plan?.widgetOrder).toEqual(expect.arrayContaining(["genetics", "chemistry", "research", "news", "answers"]))
-    expect(plan?.earth?.lockedLayerControls).toBe(true)
   })
 
   it("all-map searches produce an executable generated QA scenario", () => {

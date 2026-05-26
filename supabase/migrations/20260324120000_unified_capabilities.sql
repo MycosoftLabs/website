@@ -170,17 +170,29 @@ ALTER TABLE public.mdp_data_streams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mdp_payloads ENABLE ROW LEVEL SECURITY;
 
 -- Allow unrestricted operational backend access for Service Roles
+DROP POLICY IF EXISTS "Operational access all" ON public.avani_avatars;
 CREATE POLICY "Operational access all" ON public.avani_avatars FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.nlm_training_runs;
 CREATE POLICY "Operational access all" ON public.nlm_training_runs FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.nlm_checkpoints;
 CREATE POLICY "Operational access all" ON public.nlm_checkpoints FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.mindex_proxy_cache;
 CREATE POLICY "Operational access all" ON public.mindex_proxy_cache FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.crep_compute_nodes;
 CREATE POLICY "Operational access all" ON public.crep_compute_nodes FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.crep_workloads;
 CREATE POLICY "Operational access all" ON public.crep_workloads FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.global_search_indices;
 CREATE POLICY "Operational access all" ON public.global_search_indices FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.search_query_history;
 CREATE POLICY "Operational access all" ON public.search_query_history FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.mmp_mesh_nodes;
 CREATE POLICY "Operational access all" ON public.mmp_mesh_nodes FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.mmp_routing_tables;
 CREATE POLICY "Operational access all" ON public.mmp_routing_tables FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.mdp_data_streams;
 CREATE POLICY "Operational access all" ON public.mdp_data_streams FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Operational access all" ON public.mdp_payloads;
 CREATE POLICY "Operational access all" ON public.mdp_payloads FOR ALL USING (true) WITH CHECK (true);
 
 GRANT ALL ON public.avani_avatars TO service_role;

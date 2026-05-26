@@ -305,7 +305,7 @@ export default function Page() {
             FUSARIUM programme submitted.
           </li>
           <li>
-            <strong>USAF</strong> — engagement around MycoDrone as a deployment platform for
+            <strong>USAF</strong> — engagement around Agaric as a deployment platform for
             Mushroom 1, MycoNode, and SporeBase.
           </li>
           <li>

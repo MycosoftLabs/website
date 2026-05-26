@@ -331,6 +331,12 @@ All notable changes to this project will be documented in this file.
 - *(docs)* Rewrite overview docs with accurate stack — correct devices, MYCA scope, AVANI, CREP, protocols (#159)
 - *(tos,docs)* Replace broken prose-* modifiers with Tailwind v4 child selectors (#160)
 - Petri glass controls and MYCA identity gates [fast]
+- Harden Supabase Google callback [fast]
+- Harden live auth gateway headers
+- *(deploy)* Auto-load Cloudflare purge credentials on production VM
+- *(agent-resolver)* Also discover devices via /api/mycobrain operator-http
+- *(mycobrain-service-url)* Per-device resolution alongside legacy :8003
+- *(migrations)* Idempotency guards + worldview_v1 RPC table-ref bug
 
 ### CREP
 
@@ -546,6 +552,13 @@ All notable changes to this project will be documented in this file.
 - Expand MYCA article [fast]
 - Publish AVANI article [fast]
 - Publish AVANI article [fast]
+- Publish NLM technical article [fast]
+- Update changelog [skip ci]
+- *(quickstart)* USAF engagement now references Agaric (MycoDrone retired) (#166)
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Publish NLM technical article [fast]
 
 ### Features
 
@@ -723,6 +736,10 @@ All notable changes to this project will be documented in this file.
 - *(docs)* Rebuild /docs as catalog-driven portal with 41 stubs (#156)
 - *(docs)* Add full Overview docs (What is Mycosoft / Quickstart / Glossary) + TOS formatting pass (#158)
 - Add petri artifact storage workflow [fast]
+- Add search intelligence orchestration
+- *(natureos/devices)* Live OpenClaw control + COM7-style command console
+- *(natureos/devices)* MQTT live fleet mirror
+- Add search intelligence orchestration
 
 ### Fix
 
