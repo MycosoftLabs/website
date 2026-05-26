@@ -558,6 +558,33 @@ function hideFungalAtlasLayers(map: maplibregl.Map) {
   setSourceData(map, SAMPLE_SOURCE, EMPTY_FEATURE_COLLECTION)
 }
 
+export const FUNGAL_AM_ECM_RASTER_LAYER_IDS = {
+  am: "crep-fungal-atlas-am-raster",
+  ecm: "crep-fungal-atlas-ecm-raster",
+} as const
+
+/** Mount AM + ECM SPUN raster shells on the map (both sources; toggle visibility). */
+export function bootstrapFungalAmEcmRasters(
+  map: maplibregl.Map | null,
+  options: { showAm?: boolean; showEcm?: boolean; opacity?: number } = {},
+) {
+  if (!mapReady(map)) return
+  const opacity = options.opacity ?? 0.35
+  const showAm = Boolean(options.showAm)
+  const showEcm = Boolean(options.showEcm)
+  const amHeat = HEAT_LAYERS.find((heat) => heat.id === "am")
+  const ecmHeat = HEAT_LAYERS.find((heat) => heat.id === "ecm")
+  if (amHeat) ensureSpunTileHeatLayer(map, amHeat, showAm, opacity)
+  if (ecmHeat) ensureSpunTileHeatLayer(map, ecmHeat, showEcm, opacity)
+  setVisibility(map, layerId("am"), showAm)
+  setVisibility(map, layerId("ecm"), showEcm)
+  try {
+    moveFungalLayersToTop(map)
+  } catch {
+    /* ignore style churn */
+  }
+}
+
 function syncHeatLayerShells(
   map: maplibregl.Map,
   latest: { enabled: FungalLayerEnabled; zoom: number; opacity: number },
@@ -974,8 +1001,8 @@ export function FungalAtlasLayer({
       if (loadTimer) clearTimeout(loadTimer)
       try { map.off("load", schedule) } catch {}
       try { map.off("idle", schedule) } catch {}
-      if (!mapReady(map)) return
-      hideFungalAtlasLayers(map)
+      // AM/ECM SPUN rasters stay mounted; visibility is owned by onLoad bootstrap
+      // and CREPDashboardClient layer sync (same contract as sat/bathy/topo).
     }
   }, [map])
 

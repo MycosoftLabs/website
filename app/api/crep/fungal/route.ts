@@ -28,6 +28,7 @@ import bboxPolygon from "@turf/bbox-polygon"
 import area from "@turf/area"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import { ingestBatchToMINDEX } from "@/lib/crep/species-catalog"
+import { isPlausibleNatureMarkerPlacement } from "@/lib/crep/nature-land-filter"
 
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
@@ -172,6 +173,7 @@ async function fetchMINDEXObservations(
   limit?: number,
   bounds?: { north: number; south: number; east: number; west: number },
   timeoutMs = MINDEX_OBSERVATIONS_TIMEOUT_MS,
+  kingdom?: string,
 ): Promise<FungalObservation[]> {
   try {
     const BATCH_SIZE = 1000
@@ -198,7 +200,9 @@ async function fetchMINDEXObservations(
       if (bboxStr) {
         params.set("bbox", bboxStr)
       }
-      
+      // MINDEX nature-stream ingest currently stores coordinates only (no taxon_id /
+      // kingdom). Kingdom filtering is done after merge with iNaturalist live data.
+
       const response = await fetch(`${MINDEX_API}/api/mindex/observations?${params}`, {
         signal: AbortSignal.timeout(timeoutMs),
         headers: { 
@@ -241,7 +245,16 @@ async function fetchMINDEXObservations(
     
     const taxaLookup = await fetchTaxaForObservations(allObservations, timeoutMs)
     
-    return transformMINDEXData(allObservations, taxaLookup)
+    const transformed = transformMINDEXData(allObservations, taxaLookup)
+    // Drop unlabeled MINDEX rows (no taxon join) so they never masquerade as fungi.
+    return transformed.filter((obs) => {
+      const kingdomToken = normalizeTaxonToken(obs.kingdom)
+      const iconicToken = normalizeTaxonToken(obs.iconicTaxon)
+      if (kingdomToken && kingdomToken !== "unknown") return true
+      if (iconicToken && iconicToken !== "unknown") return true
+      const speciesToken = normalizeTaxonToken(obs.species || obs.scientificName)
+      return speciesToken && speciesToken !== "unknown" && speciesToken !== "unknown species" && Boolean(obs.taxonId)
+    })
   } catch (error) {
     console.error("[CREP/Fungal] Failed to fetch MINDEX data:", error)
     return []
@@ -325,6 +338,10 @@ function isFungiClassification(value: unknown): boolean {
   return token === "fungi" || token === "fungus"
 }
 
+function isFungiOnlyRequest(kingdom?: string): boolean {
+  return isFungiClassification(kingdom)
+}
+
 const NON_FUNGAL_KINGDOM_TOKENS = new Set([
   "animalia",
   "plantae",
@@ -349,6 +366,55 @@ const NON_FUNGAL_ICONIC_TAXON_TOKENS = new Set([
   "plantae",
   "chromista",
 ])
+
+function resolveMindexKingdom(
+  obs: Record<string, unknown>,
+  taxon?: MindexTaxonLookupRecord,
+): { kingdom: string; iconicTaxon: string } {
+  const kingdom =
+    taxon?.kingdom ||
+    obs.kingdom ||
+    obs.taxon?.kingdom ||
+    (obs.metadata as { kingdom?: string } | undefined)?.kingdom ||
+    ""
+  const iconic =
+    taxon?.iconic_taxon_name ||
+    obs.iconic_taxon_name ||
+    obs.taxon?.iconic_taxon_name ||
+    (obs.metadata as { iconic_taxon_name?: string } | undefined)?.iconic_taxon_name ||
+    ""
+  const kingdomToken = normalizeTaxonToken(kingdom)
+  const iconicToken = normalizeTaxonToken(iconic)
+  if (isFungiClassification(kingdomToken) || isFungiClassification(iconicToken)) {
+    return { kingdom: "Fungi", iconicTaxon: iconicToken === "fungi" ? "Fungi" : (iconic || "Fungi") }
+  }
+  if (iconicToken && iconicToken !== "unknown") {
+    return { kingdom: kingdom || iconic, iconicTaxon: iconic }
+  }
+  if (kingdomToken && kingdomToken !== "unknown") {
+    return { kingdom: String(kingdom), iconicTaxon: iconic || String(kingdom) }
+  }
+  return { kingdom: "Unknown", iconicTaxon: "Unknown" }
+}
+
+function isValidCoordinatePair(lat: number, lng: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  if (lat === 0 && lng === 0) return false
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return false
+  return true
+}
+
+function normalizeCoordinatePair(lat: number, lng: number): { lat: number; lng: number } | null {
+  if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) {
+    const swappedLat = lng
+    const swappedLng = lat
+    if (isValidCoordinatePair(swappedLat, swappedLng)) {
+      return { lat: swappedLat, lng: swappedLng }
+    }
+  }
+  if (!isValidCoordinatePair(lat, lng)) return null
+  return { lat, lng }
+}
 
 function isExplicitlyNonFungi(signals: unknown[]): boolean {
   for (const value of signals) {
@@ -442,17 +508,7 @@ function transformMINDEXData(
                          obs.vernacular_name || 
                          obs.common_name
       
-      const normalizedKingdom =
-        taxon?.iconic_taxon_name ||
-        obs.iconic_taxon_name ||
-        (obs.metadata as { iconic_taxon_name?: string } | undefined)?.iconic_taxon_name ||
-        obs.taxon?.iconic_taxon_name ||
-        taxon?.kingdom ||
-        obs.kingdom ||
-        obs.taxon?.kingdom ||
-        "Unknown"
-      const normalizedIconicTaxon =
-        taxon?.iconic_taxon_name || obs.iconic_taxon_name || obs.taxon?.iconic_taxon_name || normalizedKingdom
+      const { kingdom: normalizedKingdom, iconicTaxon: normalizedIconicTaxon } = resolveMindexKingdom(obs, taxon)
 
       return {
         id: `mindex-${obs.id}`,
@@ -488,9 +544,9 @@ function transformMINDEXData(
 function parseCoordinates(obs: any): { lat: number; lng: number } | null {
   // Try direct lat/lng fields first
   if (typeof obs.latitude === "number" && typeof obs.longitude === "number") {
-    return { lat: obs.latitude, lng: obs.longitude }
+    return normalizeCoordinatePair(obs.latitude, obs.longitude)
   }
-  
+
   // Parse MINDEX format: location.coordinates = "lng lat"
   if (obs.location?.coordinates) {
     const coordStr = obs.location.coordinates
@@ -500,21 +556,21 @@ function parseCoordinates(obs: any): { lat: number; lng: number } | null {
         const lng = parseFloat(parts[0])
         const lat = parseFloat(parts[1])
         if (!isNaN(lat) && !isNaN(lng)) {
-          return { lat, lng }
+          return normalizeCoordinatePair(lat, lng)
         }
       }
     }
     // GeoJSON format: [lng, lat]
     if (Array.isArray(coordStr)) {
-      return { lat: coordStr[1], lng: coordStr[0] }
+      return normalizeCoordinatePair(coordStr[1], coordStr[0])
     }
   }
-  
+
   // Try location.lat/lng
-  if (obs.location?.lat && obs.location?.lng) {
-    return { lat: parseFloat(obs.location.lat), lng: parseFloat(obs.location.lng) }
+  if (obs.location?.lat != null && obs.location?.lng != null) {
+    return normalizeCoordinatePair(parseFloat(obs.location.lat), parseFloat(obs.location.lng))
   }
-  
+
   return null
 }
 
@@ -569,6 +625,7 @@ const GLOBAL_FETCH_REGIONS = [
 async function fetchMINDEXGlobalSample(
   limit: number,
   timeoutMs = MINDEX_OBSERVATIONS_TIMEOUT_MS,
+  kingdom?: string,
 ): Promise<FungalObservation[]> {
   const regions = [...GLOBAL_FETCH_REGIONS, ...FUNGAL_HOTSPOT_REGIONS]
   const perRegionLimit = Math.max(250, Math.ceil(limit / Math.max(1, regions.length)))
@@ -584,7 +641,7 @@ async function fetchMINDEXGlobalSample(
           south: region.south,
           east: region.east,
           west: region.west,
-        }, timeoutMs).catch(() => [] as FungalObservation[]),
+        }, timeoutMs, kingdom).catch(() => [] as FungalObservation[]),
       ),
     )
     for (const rows of batchResults) {
@@ -618,9 +675,18 @@ const ALL_ICONIC_TAXA = [
 ]
 
 function resolveIconicTaxon(obs: Record<string, unknown>, fallbackTaxon?: string): string {
-  const fromTaxon = String((obs.taxon as { iconic_taxon_name?: string } | undefined)?.iconic_taxon_name || "").trim()
-  if (fromTaxon && fromTaxon.toLowerCase() !== "unknown") return fromTaxon
-  if (fallbackTaxon && fallbackTaxon !== "all") return fallbackTaxon
+  const taxon = obs.taxon as { iconic_taxon_name?: string; kingdom?: string } | undefined
+  const candidates = [
+    taxon?.iconic_taxon_name,
+    (obs as { iconic_taxon_name?: string }).iconic_taxon_name,
+    taxon?.kingdom,
+    (obs as { kingdom?: string }).kingdom,
+    fallbackTaxon,
+  ]
+  for (const candidate of candidates) {
+    const label = String(candidate || "").trim()
+    if (label && label.toLowerCase() !== "unknown") return label
+  }
   return "Unknown"
 }
 
@@ -715,13 +781,15 @@ async function fetchINaturalistObservations(
                   lng = parseFloat(parts[1])
                 }
               }
+              const normalized = normalizeCoordinatePair(Number(lat) || 0, Number(lng) || 0)
+              if (!normalized) return null
               return {
                 id: `inat-${obs.id}`,
                 species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
                 scientificName: obs.taxon?.name || "Unknown",
                 commonName: obs.taxon?.preferred_common_name,
-                latitude: Number(lat) || 0,
-                longitude: Number(lng) || 0,
+                latitude: normalized.lat,
+                longitude: normalized.lng,
                 timestamp: obs.observed_on || obs.created_at,
                 source: "iNaturalist" as const,
                 verified: obs.quality_grade === "research",
@@ -738,6 +806,7 @@ async function fetchINaturalistObservations(
                 sourceUrl: `https://www.inaturalist.org/observations/${obs.id}`,
               }
             })
+            .filter((row): row is FungalObservation => row != null)
 
           allObservations.push(...regionObs)
           fetchedForTaxon += results.length
@@ -775,24 +844,51 @@ async function fetchINaturalistQuickAllTaxa(
   limit: number,
   bounds?: { north: number; south: number; east: number; west: number },
 ): Promise<FungalObservation[]> {
-  const perTaxon = Math.max(60, Math.ceil(limit / ALL_ICONIC_TAXA.length))
-  const batches = await Promise.all(
-    ALL_ICONIC_TAXA.map(async (taxon) => {
-      const rows = await fetchINaturalistQuick(perTaxon, bounds, taxon).catch(() => [] as FungalObservation[])
-      return rows.map((obs) => {
-        const label =
-          obs.kingdom && obs.kingdom !== "Unknown"
-            ? obs.kingdom
-            : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
-              ? obs.iconicTaxon
-              : taxon
-        return { ...obs, kingdom: label, iconicTaxon: label }
-      })
-    }),
+  const merged: FungalObservation[] = []
+  const seen = new Set<string>()
+
+  const push = (rows: FungalObservation[]) => {
+    for (const obs of rows) {
+      const id = String(obs.id ?? "")
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      merged.push(obs)
+    }
+  }
+
+  // One mixed bbox call first — fast, diverse, and avoids iNat 429s from 10 parallel hits.
+  const mixedBudget = Math.min(Math.max(240, Math.floor(limit * 0.4)), 2000)
+  const mixed = await fetchINaturalistQuick(mixedBudget, bounds).catch(() => [] as FungalObservation[])
+  push(mixed)
+
+  const remaining = Math.max(0, limit - merged.length)
+  const perTaxon = Math.max(40, Math.ceil(remaining / ALL_ICONIC_TAXA.length))
+
+  // Per-taxon top-up in batches of 3 (rate-limit friendly).
+  for (let i = 0; i < ALL_ICONIC_TAXA.length; i += 3) {
+    const slice = ALL_ICONIC_TAXA.slice(i, i + 3)
+    const batch = await Promise.all(
+      slice.map(async (taxon) => {
+        const rows = await fetchINaturalistQuick(perTaxon, bounds, taxon).catch(() => [] as FungalObservation[])
+        return rows.map((obs) => {
+          const label =
+            obs.kingdom && obs.kingdom !== "Unknown"
+              ? obs.kingdom
+              : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
+                ? obs.iconicTaxon
+                : taxon
+          return { ...obs, kingdom: label, iconicTaxon: label }
+        })
+      }),
+    )
+    push(batch.flat())
+    if (merged.length >= limit) break
+  }
+
+  console.log(
+    `[CREP/Life] Quick iNat all-taxa: ${merged.length} observations (mixed=${mixed.length}, taxa batches, ~${perTaxon}/taxon)`,
   )
-  const merged = batches.flat()
-  console.log(`[CREP/Life] Quick iNat all-taxa: ${merged.length} observations (${ALL_ICONIC_TAXA.length} taxa × ~${perTaxon})`)
-  return merged
+  return merged.slice(0, limit)
 }
 
 async function fetchINaturalistQuick(
@@ -829,7 +925,7 @@ async function fetchINaturalistQuick(
 
       const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
         headers: { "Accept": "application/json" },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(bounds ? 8000 : 5000),
         cache: "no-store",
       })
 
@@ -859,14 +955,16 @@ async function fetchINaturalistQuick(
             lng = parseFloat(parts[1])
           }
         }
+        const normalized = normalizeCoordinatePair(Number(lat) || 0, Number(lng) || 0)
+        if (!normalized) return null
         const iconic = resolveIconicTaxon(o, kingdom)
         return {
           id: `inat-${o.id}`,
           species: o.taxon?.preferred_common_name || o.taxon?.name || "Unknown",
           scientificName: o.taxon?.name || "Unknown",
           commonName: o.taxon?.preferred_common_name,
-          latitude: Number(lat) || 0,
-          longitude: Number(lng) || 0,
+          latitude: normalized.lat,
+          longitude: normalized.lng,
           timestamp: o.observed_on || o.created_at,
           source: "iNaturalist" as const,
           verified: o.quality_grade === "research",
@@ -884,6 +982,7 @@ async function fetchINaturalistQuick(
           sourceUrl: `https://www.inaturalist.org/observations/${o.id}`,
         }
       })
+      .filter((row): row is FungalObservation => row != null)
 
     console.log(`[CREP/Fungal] Quick iNat: ${obs.length} observations fetched (requested=${requested})`)
     return obs
@@ -1168,21 +1267,25 @@ export async function GET(request: NextRequest) {
 
     const fetchPromises: Promise<FungalObservation[]>[] = []
 
+    const mindexOnlyRequest = quickMode && (source === "mindex-only" || source === "mindex")
+
     // Always fetch MINDEX (local DB — fast, no rate limits)
-    if (!fallbackOnly && (!source || source === "all" || source === "mindex" || quickMode)) {
+    if (!fallbackOnly && (!source || source === "all" || source === "mindex" || source === "mindex-only" || quickMode)) {
       const mindexTimeoutForRequest = quickMode
         ? Math.max(5000, MINDEX_OBSERVATIONS_TIMEOUT_MS)
         : MINDEX_OBSERVATIONS_TIMEOUT_MS
       const mindexLimit =
-        kingdom === "all" && bounds && limit
-          ? Math.min(300, Math.max(75, Math.floor(limit / 10)))
-          : quickMode && kingdom === "all" && limit
-            ? Math.min(200, Math.max(50, Math.floor(limit / 8)))
-            : limit
+        kingdom !== "all" && bounds && limit
+          ? limit
+          : kingdom === "all" && bounds && limit
+            ? Math.min(2500, Math.max(400, Math.floor(limit / 3)))
+            : quickMode && kingdom === "all" && limit
+              ? Math.min(1200, Math.max(200, Math.floor(limit / 4)))
+              : limit
       fetchPromises.push(
         (bounds
-          ? fetchMINDEXObservations(mindexLimit, bounds, mindexTimeoutForRequest)
-          : fetchMINDEXGlobalSample(mindexLimit || 30000, mindexTimeoutForRequest)
+          ? fetchMINDEXObservations(mindexLimit, bounds, mindexTimeoutForRequest, kingdom)
+          : fetchMINDEXGlobalSample(mindexLimit || 30000, mindexTimeoutForRequest, kingdom)
         ).catch((err) => {
           console.warn("[CREP/Fungal] MINDEX fetch failed:", err?.message)
           return [] as FungalObservation[]
@@ -1190,13 +1293,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // QUICK MODE: parallel iNat fetch per iconic taxon so all enabled kingdom
-    // toggles have data on first paint (not Fungi-only).
-    if (quickMode) {
+    // QUICK MODE: iNat first — MINDEX rows lack taxon/kingdom until ETL enrichment.
+    if (quickMode && !mindexOnlyRequest) {
+      const quickLimit = bounds
+        ? Math.max(limit || 500, isFungiOnlyRequest(kingdom) ? 2000 : 2400)
+        : (limit || 500)
       fetchPromises.push(
         (kingdom === "all"
-          ? fetchINaturalistQuickAllTaxa(limit || 500, bounds)
-          : fetchINaturalistQuick(limit || 500, bounds, kingdom)
+          ? fetchINaturalistQuickAllTaxa(quickLimit, bounds)
+          : fetchINaturalistQuick(quickLimit, bounds, kingdom)
         ).catch((err) => {
           console.warn("[CREP/Fungal] Quick iNat fallback failed:", err?.message)
           return [] as FungalObservation[]
@@ -1232,6 +1337,28 @@ export async function GET(request: NextRequest) {
 
     const results = await Promise.all(fetchPromises)
     allObservations = results.flat()
+
+    if (quickMode) {
+      // Drop unlabeled MINDEX junk so iNat rows with real kingdom labels win first paint.
+      allObservations = allObservations.filter((obs) => {
+        if (obs.source !== "MINDEX") return true
+        const kingdomToken = normalizeTaxonToken(obs.kingdom || obs.iconicTaxon)
+        if (kingdomToken && kingdomToken !== "unknown") return true
+        const speciesToken = normalizeTaxonToken(obs.species || obs.scientificName)
+        if (!speciesToken || speciesToken === "unknown" || speciesToken === "unknown species") {
+          return false
+        }
+        return Boolean(obs.taxonId)
+      })
+    } else {
+      allObservations = allObservations.filter((obs) => {
+        if (obs.source !== "MINDEX") return true
+        const kingdomToken = normalizeTaxonToken(obs.kingdom || obs.iconicTaxon)
+        if (kingdomToken && kingdomToken !== "unknown") return true
+        return Boolean(obs.taxonId) && normalizeTaxonToken(obs.species) !== "unknown"
+      })
+    }
+
     console.log(`[CREP/Life] Dual-source total: ${allObservations.length} observations (MINDEX + live APIs merged)`)
 
     // EMERGENCY iNat FALLBACK: if after all requested sources we still have
@@ -1284,10 +1411,19 @@ export async function GET(request: NextRequest) {
 
     // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
     if (kingdom !== "all") {
-      allObservations = allObservations.filter(obs =>
-        (obs.kingdom || "").toLowerCase() === kingdom.toLowerCase() ||
-        (obs.iconicTaxon || "").toLowerCase() === kingdom.toLowerCase()
-      )
+      const kingdomLower = kingdom.toLowerCase()
+      const fungiFilter = kingdomLower === "fungi"
+      allObservations = allObservations.filter((obs) => {
+        const kingdomToken = normalizeTaxonToken(obs.kingdom)
+        const iconicToken = normalizeTaxonToken(obs.iconicTaxon)
+        if (fungiFilter) {
+          if (isExplicitlyNonFungi([obs.kingdom, obs.iconicTaxon, obs.scientificName, obs.species])) {
+            return false
+          }
+          return isFungiClassification(kingdomToken) || isFungiClassification(iconicToken)
+        }
+        return kingdomToken === kingdomLower || iconicToken === kingdomLower
+      })
     }
 
     // Deduplicate by species name + coordinates (close proximity = same observation)
@@ -1302,16 +1438,21 @@ export async function GET(request: NextRequest) {
         !isNaN(obs.longitude)
     )
 
+    const { kept: landPlausibleObservations, filteredWater } = filterTerrestrialWaterPlacements(validObservations)
+    if (filteredWater > 0) {
+      console.log(`[CREP/Life] Filtered ${filteredWater} terrestrial observations placed in open water`)
+    }
+
     // Apply geographic filter if bounds provided
     const filteredObservations = bounds
-      ? validObservations.filter(
+      ? landPlausibleObservations.filter(
           (obs) =>
             obs.latitude >= bounds.south &&
             obs.latitude <= bounds.north &&
             obs.longitude >= bounds.west &&
             obs.longitude <= bounds.east
         )
-      : validObservations
+      : landPlausibleObservations
 
     // Sort by timestamp (most recent first)
     const sortedObservations = filteredObservations
@@ -1360,6 +1501,7 @@ export async function GET(request: NextRequest) {
         sources,
         kingdoms,
         pendingGeocode,
+        filteredWater,
         cached: false,
         timestamp: new Date().toISOString(),
         dataSource: sources.mindex > 0 && (sources.iNaturalist > 0 || sources.gbif > 0)
@@ -1404,7 +1546,10 @@ function stratifiedObservationLimit(
   }
   const knownKeys = [...buckets.keys()].filter((k) => k && k !== "Unknown")
   const unknownRows = buckets.get("Unknown") || []
-  if (knownKeys.length === 0) return observations.slice(0, cap)
+  if (knownKeys.length === 0) {
+    // All rows unlabeled — prefer returning fewer rows over painting useless Unknown-only markers.
+    return unknownRows.length > 0 ? [] : observations.slice(0, cap)
+  }
 
   const unknownBudget = Math.min(unknownRows.length, Math.max(20, Math.floor(cap * 0.1)))
   const perKnown = Math.max(25, Math.floor((cap - unknownBudget) / knownKeys.length))
@@ -1435,6 +1580,24 @@ function stratifiedObservationLimit(
     }
   }
   return picked.slice(0, cap)
+}
+
+function filterTerrestrialWaterPlacements(observations: FungalObservation[]): {
+  kept: FungalObservation[]
+  filteredWater: number
+} {
+  let filteredWater = 0
+  const kept = observations.filter((obs) => {
+    const plausible = isPlausibleNatureMarkerPlacement(
+      obs.latitude,
+      obs.longitude,
+      obs.kingdom,
+      obs.iconicTaxon,
+    )
+    if (!plausible) filteredWater += 1
+    return plausible
+  })
+  return { kept, filteredWater }
 }
 
 function deduplicateObservations(observations: FungalObservation[]): FungalObservation[] {

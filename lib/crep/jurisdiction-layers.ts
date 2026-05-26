@@ -14,10 +14,19 @@
  *   crep-boundaries-county     — County/district borders (admin_level=6), zoom 7+
  *   crep-fema-regions-fill     — FEMA region shading (10 regions)
  *   crep-fema-regions-line     — FEMA region borders
- *   crep-fema-labels           — FEMA region labels at center
+ *   crep-fema-labels-text      — FEMA region labels at center (tied to FEMA regions toggle)
+ *   crep-state-labels          — State/province names (nolabels basemap strips these)
  */
 
 import { FEMA_REGIONS, type FemaRegion } from "./geo-regions"
+
+/** MapLibre layer ids per jurisdiction toggle group (keep in sync with CREPDashboardClient setVis). */
+export const JURISDICTION_LAYER_GROUPS = {
+  country: ["crep-boundaries-country"],
+  state: ["crep-boundaries-state", "crep-state-labels"],
+  county: ["crep-boundaries-county"],
+  fema: ["crep-fema-regions-fill", "crep-fema-regions-line", "crep-fema-labels-text"],
+} as const
 
 /** FEMA region colors — muted so they don't overwhelm infrastructure layers */
 const FEMA_COLORS: Record<number, string> = {
@@ -94,11 +103,18 @@ function femaRegionLabels() {
 function findVectorSource(map: any): string | null {
   const style = map.getStyle()
   if (!style?.sources) return null
+  if (style.sources.carto?.type === "vector") return "carto"
   for (const [name, source] of Object.entries(style.sources)) {
     if ((source as any).type === "vector") return name
   }
   return null
 }
+
+/** Match Carto vector tile schema (maritime is 0/1, not boolean). */
+const LAND_BOUNDARY_FILTER = ["==", "maritime", 0] as const
+
+/** Globe projection dims unlit lines; emissive keeps borders readable on dark basemap. */
+const GLOBE_LINE_EMISSIVE = { "line-emissive-strength": 1 } as const
 
 /**
  * Add all jurisdiction boundary layers to the map.
@@ -109,16 +125,18 @@ export function addJurisdictionLayers(map: any, options?: {
   showState?: boolean
   showCounty?: boolean
   showFema?: boolean
-  showFemaLabels?: boolean
 }) {
   const opts = {
     showCountry: true,
     showState: true,
     showCounty: true,
-    showFema: true,
-    showFemaLabels: true,
+    showFema: false,
     ...options,
   }
+  const countryVisible = opts.showCountry ? "visible" : "none"
+  const stateVisible = opts.showState ? "visible" : "none"
+  const countyVisible = opts.showCounty ? "visible" : "none"
+  const femaVisible = opts.showFema ? "visible" : "none"
 
   const vectorSource = findVectorSource(map)
 
@@ -146,106 +164,133 @@ export function addJurisdictionLayers(map: any, options?: {
 
   // ── Vector tile boundary layers (from Carto basemap) ──
   if (vectorSource) {
-    // Country borders — always visible, thick dashed line
-    if (opts.showCountry) {
-      safeLayer({
-        id: "crep-boundaries-country",
-        type: "line",
-        source: vectorSource,
-        "source-layer": "boundary",
-        filter: ["all", ["==", "admin_level", 2], ["!=", "maritime", 1]],
-        paint: {
-          "line-color": "#4ade80",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.8, 4, 1.5, 8, 2.5],
-          "line-opacity": 0.6,
-          "line-dasharray": [4, 2],
-        },
-        minzoom: 1,
-      })
-    }
+    // Country borders
+    safeLayer({
+      id: "crep-boundaries-country",
+      type: "line",
+      source: vectorSource,
+      "source-layer": "boundary",
+      filter: ["all", ["==", "admin_level", 2], LAND_BOUNDARY_FILTER],
+      layout: { visibility: countryVisible },
+      paint: {
+        "line-color": "#4ade80",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1.4, 4, 2.2, 8, 3.2],
+        "line-opacity": 0.9,
+        "line-dasharray": [4, 2],
+        ...GLOBE_LINE_EMISSIVE,
+      },
+      minzoom: 1,
+    })
 
-    // State/province borders — visible at zoom 3+
-    if (opts.showState) {
-      safeLayer({
-        id: "crep-boundaries-state",
-        type: "line",
-        source: vectorSource,
-        "source-layer": "boundary",
-        filter: ["all", ["==", "admin_level", 4], ["!=", "maritime", 1]],
-        paint: {
-          "line-color": "#60a5fa",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 6, 1, 10, 1.5],
-          "line-opacity": 0.45,
-          "line-dasharray": [3, 2],
-        },
-        minzoom: 3,
-      })
-    }
+    // State/province borders — bright solid lines (basemap boundary_state is nearly invisible)
+    safeLayer({
+      id: "crep-boundaries-state",
+      type: "line",
+      source: vectorSource,
+      "source-layer": "boundary",
+      filter: ["all", ["==", "admin_level", 4], LAND_BOUNDARY_FILTER],
+      layout: { visibility: stateVisible },
+      paint: {
+        "line-color": "#7dd3fc",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1.2, 4, 2, 7, 2.8, 12, 3.5],
+        "line-opacity": 1,
+        ...GLOBE_LINE_EMISSIVE,
+      },
+      minzoom: 2,
+    })
 
-    // County/district borders — visible at zoom 7+
-    if (opts.showCounty) {
-      safeLayer({
-        id: "crep-boundaries-county",
-        type: "line",
-        source: vectorSource,
-        "source-layer": "boundary",
-        filter: ["all",
-          ["any", ["==", "admin_level", 6], ["==", "admin_level", 8]],
-          ["!=", "maritime", 1],
-        ],
-        paint: {
-          "line-color": "#a78bfa",
-          "line-width": 0.5,
-          "line-opacity": 0.3,
-          "line-dasharray": [2, 2],
-        },
-        minzoom: 7,
-      })
-    }
+    // State names — dark-matter-nolabels strips place_state; add dedicated labels.
+    safeLayer({
+      id: "crep-state-labels",
+      type: "symbol",
+      source: vectorSource,
+      "source-layer": "place",
+      filter: ["==", "class", "state"],
+      layout: {
+        visibility: stateVisible,
+        "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 3, 12, 5, 14, 8, 16],
+        "text-font": ["Montserrat Medium", "Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-transform": "uppercase",
+        "text-max-width": 10,
+        "text-letter-spacing": 0.06,
+        "text-allow-overlap": true,
+        "text-ignore-placement": false,
+      },
+      paint: {
+        "text-color": "#e0f2fe",
+        "text-opacity": 0.95,
+        "text-halo-color": "#020617",
+        "text-halo-width": 2,
+      },
+      minzoom: 3,
+      maxzoom: 12,
+    })
+
+    // County/district borders
+    safeLayer({
+      id: "crep-boundaries-county",
+      type: "line",
+      source: vectorSource,
+      "source-layer": "boundary",
+      filter: ["all",
+        ["any", ["==", "admin_level", 6], ["==", "admin_level", 8]],
+        LAND_BOUNDARY_FILTER,
+      ],
+      layout: { visibility: countyVisible },
+      paint: {
+        "line-color": "#c4b5fd",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1, 10, 1.5],
+        "line-opacity": 0.65,
+        "line-dasharray": [2, 2],
+        ...GLOBE_LINE_EMISSIVE,
+      },
+      minzoom: 7,
+    })
   } else {
     console.warn("[CREP/Jurisdiction] No vector tile source found — boundary layers unavailable. Base style may not include boundary data.")
   }
 
-  // ── FEMA Region overlay (custom GeoJSON) ──
-  if (opts.showFema) {
-    const femaFeatures = FEMA_REGIONS.map(femaRegionToFeature)
-    safeAdd("crep-fema-regions", {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: femaFeatures },
-    })
+  // ── FEMA Region overlay (custom GeoJSON) — always mounted; visibility from toggle ──
+  const femaFeatures = FEMA_REGIONS.map(femaRegionToFeature)
+  safeAdd("crep-fema-regions", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: femaFeatures },
+  })
 
-    // Semi-transparent fill
-    safeLayer({
-      id: "crep-fema-regions-fill",
-      type: "fill",
-      source: "crep-fema-regions",
-      paint: {
-        "fill-color": ["get", "color"],
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.08, 6, 0.04, 10, 0.02],
-      },
-      minzoom: 3,
-      maxzoom: 10,
-    })
+  safeLayer({
+    id: "crep-fema-regions-fill",
+    type: "fill",
+    source: "crep-fema-regions",
+    layout: { visibility: femaVisible },
+    paint: {
+      "fill-color": ["get", "color"],
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.08, 6, 0.04, 10, 0.02],
+    },
+    minzoom: 3,
+    maxzoom: 10,
+  })
 
-    // Border lines
-    safeLayer({
-      id: "crep-fema-regions-line",
-      type: "line",
-      source: "crep-fema-regions",
-      paint: {
-        "line-color": ["get", "borderColor"],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 6, 2, 10, 2.5],
-        "line-opacity": 0.5,
-        "line-dasharray": [6, 3],
-      },
-      minzoom: 3,
-    })
+  safeLayer({
+    id: "crep-fema-regions-line",
+    type: "line",
+    source: "crep-fema-regions",
+    layout: { visibility: femaVisible },
+    paint: {
+      "line-color": ["get", "borderColor"],
+      "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 6, 2, 10, 2.5],
+      "line-opacity": 0.5,
+      "line-dasharray": [6, 3],
+      ...GLOBE_LINE_EMISSIVE,
+    },
+    minzoom: 3,
+  })
 
-    // Click handler for FEMA regions
+  if (!map.__crepFemaClickBound) {
+    map.__crepFemaClickBound = true
     map.on("click", "crep-fema-regions-fill", (e: any) => {
       const props = e.features?.[0]?.properties
       if (props?.name) {
-        // Show a minimal popup with FEMA region info
         console.log(`[CREP/FEMA] Clicked: ${props.name} — HQ: ${props.hqCity}, States: ${props.states}`)
       }
     })
@@ -253,35 +298,34 @@ export function addJurisdictionLayers(map: any, options?: {
     map.on("mouseleave", "crep-fema-regions-fill", () => { map.getCanvas().style.cursor = "" })
   }
 
-  // ── FEMA Region labels ──
-  if (opts.showFemaLabels) {
-    const labels = femaRegionLabels()
-    safeAdd("crep-fema-labels", {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: labels },
-    })
+  // FEMA titles/labels — coupled to FEMA regions (same visibility)
+  const labels = femaRegionLabels()
+  safeAdd("crep-fema-labels", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: labels },
+  })
 
-    safeLayer({
-      id: "crep-fema-labels-text",
-      type: "symbol",
-      source: "crep-fema-labels",
-      layout: {
-        "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 6, 14, 10, 16],
-        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-anchor": "center",
-        "text-allow-overlap": false,
-      },
-      paint: {
-        "text-color": "#ffffff",
-        "text-opacity": 0.7,
-        "text-halo-color": "#000000",
-        "text-halo-width": 1.5,
-      },
-      minzoom: 3,
-      maxzoom: 8,
-    })
-  }
+  safeLayer({
+    id: "crep-fema-labels-text",
+    type: "symbol",
+    source: "crep-fema-labels",
+    layout: {
+      visibility: femaVisible,
+      "text-field": ["get", "name"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 6, 14, 10, 16],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-anchor": "center",
+      "text-allow-overlap": false,
+    },
+    paint: {
+      "text-color": "#ffffff",
+      "text-opacity": 0.7,
+      "text-halo-color": "#000000",
+      "text-halo-width": 1.5,
+    },
+    minzoom: 3,
+    maxzoom: 8,
+  })
 
   console.log("[CREP/Jurisdiction] Boundary layers added — country/state/county/FEMA")
 }
@@ -294,14 +338,7 @@ export function toggleJurisdictionLayer(
   group: "country" | "state" | "county" | "fema",
   visible: boolean
 ) {
-  const layerMap: Record<string, string[]> = {
-    country: ["crep-boundaries-country"],
-    state: ["crep-boundaries-state"],
-    county: ["crep-boundaries-county"],
-    fema: ["crep-fema-regions-fill", "crep-fema-regions-line", "crep-fema-labels-text"],
-  }
-
-  const layers = layerMap[group] || []
+  const layers = [...(JURISDICTION_LAYER_GROUPS[group] || [])]
   for (const id of layers) {
     if (map.getLayer(id)) {
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none")
@@ -314,12 +351,10 @@ export function toggleJurisdictionLayer(
  */
 export function removeJurisdictionLayers(map: any) {
   const layerIds = [
-    "crep-boundaries-country",
-    "crep-boundaries-state",
-    "crep-boundaries-county",
-    "crep-fema-regions-fill",
-    "crep-fema-regions-line",
-    "crep-fema-labels-text",
+    ...JURISDICTION_LAYER_GROUPS.country,
+    ...JURISDICTION_LAYER_GROUPS.state,
+    ...JURISDICTION_LAYER_GROUPS.county,
+    ...JURISDICTION_LAYER_GROUPS.fema,
   ]
   const sourceIds = ["crep-fema-regions", "crep-fema-labels"]
 

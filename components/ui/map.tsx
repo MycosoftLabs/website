@@ -22,148 +22,6 @@ import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-r
 
 import { cn } from "@/lib/utils";
 
-/** Hide DOM markers on the far side of the globe (Earth Simulator). */
-function isLngLatVisibleOnGlobe(
-  map: MapLibreGL.Map,
-  longitude: number,
-  latitude: number,
-): boolean {
-  try {
-    const projection = map.getProjection?.();
-    if (projection?.name !== "globe") return true;
-
-    const transform = (map as { transform?: { isLocationVisible?: (loc: { lng: number; lat: number }) => boolean } }).transform;
-    if (typeof transform?.isLocationVisible === "function") {
-      return transform.isLocationVisible({ lng: longitude, lat: latitude });
-    }
-
-    const center = map.getCenter();
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const lat1 = toRad(center.lat);
-    const lng1 = toRad(center.lng);
-    const lat2 = toRad(latitude);
-    const lng2 = toRad(longitude);
-    const cosAngle =
-      Math.sin(lat1) * Math.sin(lat2) +
-      Math.cos(lat1) * Math.cos(lat2) * Math.cos(lng2 - lng1);
-    return cosAngle > 0.05;
-  } catch {
-    return true;
-  }
-}
-
-function applyEarthMarkerScreenPosition(
-  map: MapLibreGL.Map,
-  element: HTMLElement,
-  longitude: number,
-  latitude: number,
-): void {
-  if (!isLngLatVisibleOnGlobe(map, longitude, latitude)) {
-    element.style.display = "none";
-    element.style.pointerEvents = "none";
-    return;
-  }
-
-  const projected = map.project([longitude, latitude]);
-  const container = map.getContainer();
-  const width = container?.clientWidth ?? 0;
-  const height = container?.clientHeight ?? 0;
-  const margin = 48;
-  if (
-    projected.x < -margin ||
-    projected.y < -margin ||
-    projected.x > width + margin ||
-    projected.y > height + margin
-  ) {
-    element.style.display = "none";
-    element.style.pointerEvents = "none";
-    return;
-  }
-
-  element.style.display = "";
-  element.style.pointerEvents = "auto";
-  // Sub-pixel coords reduce shimmer; translate3d keeps markers on the compositor.
-  element.style.left = `${projected.x}px`;
-  element.style.top = `${projected.y}px`;
-  element.style.transform = "translate(-50%, -50%) translate3d(0, 0, 0)";
-}
-
-type EarthMarkerEntry = {
-  element: HTMLElement;
-  getLngLat: () => [number, number];
-};
-
-type EarthMarkerBatch = {
-  entries: Set<EarthMarkerEntry>;
-  syncPositions: () => void;
-  events: Array<[string, () => void]>;
-};
-
-const earthMarkerBatches = new WeakMap<MapLibreGL.Map, EarthMarkerBatch>();
-
-/** One camera-sync listener per map — avoids N× render handlers when hundreds of markers mount. */
-function registerEarthMarkerBatch(
-  map: MapLibreGL.Map,
-  entry: EarthMarkerEntry,
-): () => void {
-  let batch = earthMarkerBatches.get(map) as EarthMarkerBatch | undefined;
-  if (!batch) {
-    const entries = new Set<EarthMarkerEntry>();
-    let syncRaf: number | null = null;
-    const syncPositionsNow = () => {
-      for (const item of entries) {
-        const [lng, lat] = item.getLngLat();
-        applyEarthMarkerScreenPosition(map, item.element, lng, lat);
-      }
-    };
-    const scheduleSync = () => {
-      if (syncRaf != null) return;
-      syncRaf = requestAnimationFrame(() => {
-        syncRaf = null;
-        syncPositionsNow();
-      });
-    };
-    // Globe: sync while the camera moves (drag/inertia/flyTo). Coalesce via rAF
-    // so multiple MapLibre render events per frame do not run N× project() calls.
-    // When idle, skip render-driven sync; moveend/resize still snap once.
-    const onRender = () => {
-      try {
-        if (map.isMoving()) scheduleSync();
-      } catch {
-        scheduleSync();
-      }
-    };
-    const events: EarthMarkerBatch["events"] = [
-      ["render", onRender],
-      ["moveend", syncPositionsNow],
-      ["resize", scheduleSync],
-    ];
-    for (const [eventName, handler] of events) {
-      map.on(eventName, handler);
-    }
-    batch = { entries, syncPositions: syncPositionsNow, events };
-    earthMarkerBatches.set(map, batch);
-  }
-  batch.entries.add(entry);
-  const [lng, lat] = entry.getLngLat();
-  applyEarthMarkerScreenPosition(map, entry.element, lng, lat);
-  return () => {
-    const current = earthMarkerBatches.get(map) as EarthMarkerBatch | undefined;
-    if (!current) return;
-    current.entries.delete(entry);
-    if (current.entries.size === 0) {
-      for (const [eventName, handler] of current.events) {
-        try {
-          map.off(eventName, handler);
-        } catch {
-          /* ignore teardown races */
-        }
-      }
-      earthMarkerBatches.delete(map);
-    }
-  };
-}
-
 type MapContextValue = {
   map: MapLibreGL.Map | null;
   isLoaded: boolean;
@@ -204,7 +62,7 @@ type MapProps = {
 type MapRef = MapLibreGL.Map;
 
 const DefaultLoader = () => (
-  <div className="absolute inset-0 flex items-center justify-center">
+  <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
     <div className="flex gap-1">
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
       <span className="size-1.5 rounded-full bg-muted-foreground/60" />
@@ -331,7 +189,10 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       window.requestAnimationFrame(() => {
         try {
           map.resize();
-          jumpToInitialCamera();
+          // Earth Simulator: never yank the camera back after the user has panned away.
+          if (!isEarthSimulatorRoute || isAtInitialCamera()) {
+            jumpToInitialCamera();
+          }
         } catch {
           /* ignore transient resize/camera failures during dev reload */
         }
@@ -353,11 +214,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
           } else {
             // Do not leave the map permanently hidden if MapLibre reports a
             // transient camera mismatch during dev reload or style startup.
-            try {
-              jumpToInitialCamera();
-              map.resize();
-            } catch {
-              /* ignore final startup correction failures */
+            if (!(isEarthSimulatorRoute && !isAtInitialCamera())) {
+              try {
+                jumpToInitialCamera();
+                map.resize();
+              } catch {
+                /* ignore final startup correction failures */
+              }
             }
             // Stop retrying after the bounded startup window. Do not keep
             // enforcing startup camera after initial load, or user controls
@@ -370,6 +233,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     };
 
     const applyInitialCamera = () => {
+      if (initialCameraReadyRef.current) return;
       try {
         if (hasInitialCamera && !initialCameraReadyRef.current) setIsInitialCameraReady(false);
         map.resize();
@@ -393,15 +257,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     );
     const forceRevealId = window.setTimeout(() => {
       try {
-        map.stop?.();
-        jumpToInitialCamera();
+        if (isAtInitialCamera()) {
+          map.stop?.();
+          jumpToInitialCamera();
+        }
         map.resize();
       } catch {
         /* do not keep the map hidden forever if startup is mid-HMR */
-      }
-      if (isEarthSimulatorRoute && !isAtInitialCamera()) {
-        cameraConfirmIds.push(window.setTimeout(() => confirmInitialCamera(0), 80));
-        return;
       }
       initialCameraReadyRef.current = true;
       setIsInitialCameraReady(true);
@@ -548,7 +410,11 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const showMapCanvas =
     (isLoaded && isStyleLoaded && isInitialCameraReady) ||
     (!isEarthSimulatorRouteForRender && forceRevealCanvas);
-  const shouldRenderChildren = mapInstance && isLoaded && isInitialCameraReady && (isStyleLoaded || isEarthSimulatorRouteForRender);
+  const shouldRenderChildren =
+    mapInstance &&
+    isLoaded &&
+    (isInitialCameraReady || isEarthSimulatorRouteForRender) &&
+    (isStyleLoaded || isEarthSimulatorRouteForRender);
 
   const contextValue = useMemo(
     () => ({
@@ -651,10 +517,6 @@ function MapMarker({
   ...markerOptions
 }: MapMarkerProps) {
   const { map } = useMap();
-  const isEarthSimulatorRoute =
-    typeof window !== "undefined" &&
-    (window.location.pathname.includes("/natureos/earth-simulator") ||
-      window.location.pathname.includes("/dashboard/crep"));
 
   const triggerMarkerClick = useCallback((e: MouseEvent) => {
     e.stopPropagation?.();
@@ -693,12 +555,6 @@ function MapMarker({
     } catch {
       /* ignore marker element tagging failures */
     }
-    // Earth Simulator uses globe projection; forcing occluded opacity to 0 can
-    // cause intermittent marker disappear/blink during zoom transitions.
-    const isEarthSimulatorRoute =
-      typeof window !== "undefined" &&
-      (window.location.pathname.includes("/natureos/earth-simulator") ||
-        window.location.pathname.includes("/dashboard/crep"));
     try {
       (markerInstance as any).setOccludedOpacity?.(0);
     } catch {
@@ -741,49 +597,13 @@ function MapMarker({
   const lngLatRef = useRef({ longitude, latitude });
   lngLatRef.current = { longitude, latitude };
 
-  const earthPortalElement = useMemo(() => {
-    const el = document.createElement("div");
-    el.setAttribute("data-earth-marker-root", "1");
-    el.style.position = "absolute";
-    el.style.pointerEvents = "auto";
-    el.style.transform = "translate(-50%, -50%)";
-    el.style.willChange = "transform,left,top";
-    return el;
-  }, []);
-
-  useEffect(() => {
-    if (!isEarthSimulatorRoute) return;
-    const handleMouseEnter = (e: Event) => onMouseEnterRef.current?.(e as MouseEvent);
-    const handleMouseLeave = (e: Event) => onMouseLeaveRef.current?.(e as MouseEvent);
-    earthPortalElement.addEventListener("mouseenter", handleMouseEnter);
-    earthPortalElement.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      earthPortalElement.removeEventListener("mouseenter", handleMouseEnter);
-      earthPortalElement.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [earthPortalElement, isEarthSimulatorRoute]);
-
-  useEffect(() => {
-    if (!map || !isEarthSimulatorRoute) return;
-    const canvasContainer = map.getCanvasContainer?.();
-    if (!canvasContainer) return;
-
-    canvasContainer.appendChild(earthPortalElement);
-    const unregister = registerEarthMarkerBatch(map, {
-      element: earthPortalElement,
-      getLngLat: () => {
-        const { longitude: lng, latitude: lat } = lngLatRef.current;
-        return [lng, lat];
-      },
-    });
-
-    return () => {
-      unregister();
-      if (earthPortalElement.parentElement) {
-        earthPortalElement.parentElement.removeChild(earthPortalElement);
-      }
-    };
-  }, [map, isEarthSimulatorRoute, earthPortalElement]);
+  const markerOffsetRef = useRef<[number, number]>([0, 0]);
+  const rawOffset = (markerOptions as MarkerOptions).offset;
+  if (Array.isArray(rawOffset) && rawOffset.length >= 2) {
+    markerOffsetRef.current = [Number(rawOffset[0]) || 0, Number(rawOffset[1]) || 0];
+  } else {
+    markerOffsetRef.current = [0, 0];
+  }
 
   useEffect(() => {
     if (!map) {
@@ -821,16 +641,10 @@ function MapMarker({
       if (!connectedAtAdd) debug.addToDisconnectedMap += 1;
     }
     let added = false;
-    let usingManualCanvasFallback = false;
-    let manualUpdatePosition: (() => void) | null = null;
-    const markerEl = marker.getElement?.();
-    const canvasContainer = map.getCanvasContainer?.();
-
-    if (isEarthSimulatorRoute) {
-      // Earth Simulator renders marker UI via earthPortalElement + batched render loop.
-      added = true;
-    } else {
     try {
+      // Native MapLibre markers anchor to lat/lng on globe projection — required
+      // for Earth Simulator / CREP. Manual canvas-container positioning drifted
+      // off the map during pan/zoom because project() coords ≠ canvas transforms.
       marker.addTo(map);
       added = true;
       if (typeof window !== "undefined") {
@@ -852,22 +666,6 @@ function MapMarker({
         debug.lastMarkerParentClass =
           markerEl?.parentElement?.getAttribute?.("class") ?? null;
       }
-
-      if (markerEl && canvasContainer && !canvasContainer.contains(markerEl)) {
-        usingManualCanvasFallback = true;
-        canvasContainer.appendChild(markerEl);
-        markerEl.style.position = "absolute";
-        markerEl.style.pointerEvents = "auto";
-        markerEl.style.transform = "translate(-50%, -50%)";
-        markerEl.style.willChange = "transform,left,top";
-
-        manualUpdatePosition = () => {
-          applyEarthMarkerScreenPosition(map, markerEl, longitude, latitude);
-        };
-
-        manualUpdatePosition();
-        map.on("render", manualUpdatePosition);
-      }
     } catch (error) {
       if (typeof window !== "undefined") {
         const debug = ((window as any).__map_marker_debug ||= {
@@ -888,13 +686,9 @@ function MapMarker({
       }
       return;
     }
-    }
 
     return () => {
       if (!added) return;
-      if (usingManualCanvasFallback && manualUpdatePosition) {
-        map.off("render", manualUpdatePosition);
-      }
       if (typeof window !== "undefined") {
         const debug = ((window as any).__map_marker_debug ||= {
           addToCalls: 0,
@@ -913,20 +707,12 @@ function MapMarker({
         debug.netActive = Math.max(0, debug.netActive - 1);
         debug.lastMapId = (map as any).__debugMapId || "unknown";
       }
-      const removeMarker = () => {
-        try {
-          if (usingManualCanvasFallback) {
-            const el = marker.getElement?.();
-            if (el && el.parentElement) el.parentElement.removeChild(el);
-          }
-          const element = marker.getElement?.();
-          if (element?.parentNode) marker.remove();
-        } catch {
-          /* map teardown can remove the marker container before React cleanup */
-        }
-      };
-      if (typeof window !== "undefined") window.setTimeout(removeMarker, 0);
-      else removeMarker();
+      try {
+        const element = marker.getElement?.();
+        if (element?.parentNode) marker.remove();
+      } catch {
+        /* map teardown can remove the marker container before React cleanup */
+      }
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -966,7 +752,7 @@ function MapMarker({
       value={{
         marker,
         map,
-        portalElement: isEarthSimulatorRoute ? earthPortalElement : marker.getElement(),
+        portalElement: marker.getElement(),
         triggerClick: triggerMarkerClick,
       }}
     >
@@ -1476,7 +1262,7 @@ function MapControls({
     }
   }, [map]);
 
-  if (!isLoaded) return null;
+  if (!map) return null;
 
   return (
     <div

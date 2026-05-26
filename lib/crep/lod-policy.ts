@@ -68,6 +68,12 @@ export interface LODPolicy {
 
 export type TimeWindow = "6h" | "24h" | "7d" | "30d" | "6m" | "1y" | "5y" | "all"
 
+/** Map display only — never show events older than 7 days (MINDEX unchanged). May 26, 2026 */
+export const MAP_DISPLAY_MAX_EVENT_AGE_MS = 7 * 86400_000
+
+/** Map display only — never show nature observations older than 1 year. May 26, 2026 */
+export const MAP_DISPLAY_MAX_NATURE_AGE_MS = 365 * 86400_000
+
 /** No artificial render cap — show every filtered item in viewport. */
 export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
 
@@ -83,8 +89,11 @@ export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
  */
 export const INFRA_POINT_ICON_MIN_ZOOM = 7
 
-/** Bundled / global infra lines (cables, rails, TX) may paint from world view. */
+/** Bundled / global infra lines (cables, TX) may paint from world view. */
 export const INFRA_LINE_GLOBAL_MIN_ZOOM = 0
+
+/** Railway raster tiles — hidden at continental zoom; visible when zoomed in (May 24, 2026). */
+export const RAILWAY_MIN_ZOOM = 8
 
 export function isCityLevelZoom(
   zoom: number,
@@ -136,7 +145,7 @@ export const LOD_TIERS: LODPolicy[] = [
     // 0 rendered features from any other layer because the main thread
     // was busy). Per-tier caps here bound DOM marker count; spatial grid
     // sampling downstream still distributes them evenly.
-    nature: { timeWindow: "7d", qualityGrade: "all", maxRendered: 3500 },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 3500 },
   },
   // ─── Continent view: last day, medium+ severity ─────────────────────
   {
@@ -145,7 +154,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1800 },
     movers: { aircraft: 3500, vessels: 5500, satellites: 3500, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 5000 },
-    nature: { timeWindow: "30d", qualityGrade: "all", maxRendered: 6000 },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 6000 },
   },
   // ─── Region view: last week, low severity, MINDEX kicks in ──────────
   {
@@ -154,7 +163,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
     movers: { aircraft: 5000, vessels: 7000, satellites: 5000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
-    nature: { timeWindow: "6m", qualityGrade: "all", maxRendered: 9000 },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 9000 },
   },
   // ─── State/metro view: last month, all severity, full infra ────────
   {
@@ -165,23 +174,23 @@ export const LOD_TIERS: LODPolicy[] = [
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 12000 },
   },
-  // ─── City view: uncapped — every enabled filter renders in viewport ─
+  // ─── City view: uncapped count but 7d events / 1y nature max age ───
   {
     tier: "city",
     zoomRange: [10, 13],
-    events: { timeWindow: "all", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
+    events: { timeWindow: "7d", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
     movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
-  // ─── Street view: everything in bbox, uncapped ─────────────────────
+  // ─── Street view: same display-age caps, uncapped render budget ────
   {
     tier: "street",
     zoomRange: [13, 25],
-    events: { timeWindow: "all", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
+    events: { timeWindow: "7d", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
     movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
-    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
 ]
 
@@ -231,14 +240,16 @@ export function applyLODToEvents<T extends { timestamp?: string | number; severi
 ): T[] {
   const lod = getLODForZoom(zoom)
   const maxRendered = isCityLevelZoom(zoom, bounds) ? UNCAPPED_RENDER_LIMIT : lod.events.maxRendered
-  const cutoff = timeWindowToCutoffMs(lod.events.timeWindow)
+  const tierCutoff = timeWindowToCutoffMs(lod.events.timeWindow)
+  const displayCutoff = Date.now() - MAP_DISPLAY_MAX_EVENT_AGE_MS
+  const cutoff =
+    tierCutoff === null ? displayCutoff : Math.max(tierCutoff, displayCutoff)
   let filtered: T[] = events
-  if (cutoff !== null) {
-    filtered = filtered.filter((e) => {
-      const t = typeof e.timestamp === "string" ? new Date(e.timestamp).getTime() : (e.timestamp || 0)
-      return t >= cutoff
-    })
-  }
+  filtered = filtered.filter((e) => {
+    const t = typeof e.timestamp === "string" ? new Date(e.timestamp).getTime() : (e.timestamp || 0)
+    if (t <= 0) return false
+    return t >= cutoff
+  })
   if (lod.events.minSeverity !== "info") {
     filtered = filtered.filter((e) => meetsSeverityFilter(e.severity, lod.events.minSeverity))
   }
@@ -266,17 +277,18 @@ export function applyLODToNature<T extends { observed_on?: string | null; qualit
 ): T[] {
   const lod = getLODForZoom(zoom)
   const maxRendered = isCityLevelZoom(zoom, bounds) ? UNCAPPED_RENDER_LIMIT : lod.nature.maxRendered
-  const cutoff = timeWindowToCutoffMs(lod.nature.timeWindow)
+  const tierCutoff = timeWindowToCutoffMs(lod.nature.timeWindow)
+  const displayCutoff = Date.now() - MAP_DISPLAY_MAX_NATURE_AGE_MS
+  const cutoff =
+    tierCutoff === null ? displayCutoff : Math.max(tierCutoff, displayCutoff)
   let filtered: T[] = observations
   if (lod.nature.qualityGrade === "research") {
     filtered = filtered.filter((o) => o.quality_grade === "research")
   }
-  if (cutoff !== null) {
-    filtered = filtered.filter((o) => {
-      if (!o.observed_on) return false
-      return new Date(o.observed_on).getTime() >= cutoff
-    })
-  }
+  filtered = filtered.filter((o) => {
+    if (!o.observed_on) return false
+    return new Date(o.observed_on).getTime() >= cutoff
+  })
   filtered = [...filtered].sort((a, b) => {
     const at = a.observed_on ? new Date(a.observed_on).getTime() : 0
     const bt = b.observed_on ? new Date(b.observed_on).getTime() : 0

@@ -20,20 +20,29 @@ export const EARTH_SIM_US_BBOX = {
   east: -66,
 } as const
 
-/** Base map + fungal rasters visible at US zoom on refresh. */
+/** San Diego / Tijuana corridor — instant nature + infra preload for city fly-to demos. */
+export const EARTH_SIM_SD_BBOX = {
+  south: 32.45,
+  north: 33.35,
+  west: -117.45,
+  east: -116.85,
+} as const
+
+/** Base map + EcM fungal raster visible at US zoom on refresh (AM off — mutually exclusive). */
 export const EARTH_SIM_BASE_LAYER_IDS = [
   "satImagery",
   "bathymetry",
   "topography",
-  "fungalAtlasAM",
   "fungalAtlasECM",
 ] as const
+
+/** Default fungal atlas layer at Earth Simulator refresh — EcM only, never AM+ECM together. */
+export const EARTH_SIM_DEFAULT_FUNGAL_LAYER_ID = "fungalAtlasECM" as const
 
 /** Infra line layers that paint instantly at z≈3 (PMTiles / line / raster). */
 export const EARTH_SIM_INSTANT_INFRA_LINE_IDS = [
   "submarineCables",
   "txLinesGlobal",
-  "railwayTracks",
 ] as const
 
 /** Infra toggles ON at refresh but point icons gated to z≥7 in MapLibre layers. */
@@ -70,15 +79,19 @@ export const EARTH_SIM_EVENT_LAYER_IDS = [
 
 export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "militaryBases"] as const
 
+/** Fungi only at first paint — movers/cameras load after user opt-in (May 24, 2026 QA crash fix). */
+export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = ["fungi"] as const
+
 /** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
 export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "aviation",
-  "aviationRoutes",
   "ships",
+  "satellites",
+  "eagleEyeCameras",
+  "aviationRoutes",
   "shipRoutes",
   "fishing",
   "containers",
-  "satellites",
   "orbitalDebris",
   "debrisCloud",
   "solar",
@@ -93,7 +106,7 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "earth2Wind",
   "earth2Temp",
   "earth2Precip",
-  "fungi",
+  "fungalAtlasAM",
   "fungalAtlasSamples",
   "fungalAtlasMycelium",
   "fungalAtlasRare",
@@ -125,10 +138,8 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "co2Sources",
   "methaneSources",
   "oilGas",
-  "powerPlants",
   "metalOutput",
   "waterPollution",
-  "eagleEyeCameras",
   "eagleEyeEvents",
   "im3DataCenters",
   "im3DataCenterFootprints",
@@ -168,9 +179,9 @@ const PROJECT_LAYER_PREFIXES = [
 export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BASE_LAYER_IDS,
   ...EARTH_SIM_INSTANT_INFRA_LINE_IDS,
-  ...EARTH_SIM_DEFERRED_INFRA_POINT_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
   ...EARTH_SIM_ALWAYS_ON_INFRA_IDS,
+  ...EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
 ])
 
 /** Nature kingdom fetch allowed; non-fungi kingdoms off at boot. */
@@ -182,7 +193,7 @@ export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
   showReptiles: false,
   showInsects: false,
   showMarineLife: false,
-  showAmFungi: true,
+  showAmFungi: false,
   showEcmFungi: true,
   showMyceliumHeat: false,
   showMycoBrain: false,
@@ -203,8 +214,8 @@ export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
 
 export const EARTH_SIM_FUNGAL_OPACITY = 0.35
 
-/** DOM fungal markers only when zoom ≥ this or user enables Nature Observations. */
-export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 7
+/** DOM fungal markers when zoom ≥ this (US fly-to is z≈3). */
+export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 3
 
 /** Event DOM caps on Earth Simulator (always capped, even at city zoom). */
 export function getEarthSimulatorEventDomCap(zoom: number): number {
@@ -215,7 +226,13 @@ export function getEarthSimulatorEventDomCap(zoom: number): number {
   return 1500
 }
 
-export const EARTH_SIM_NATURE_STORE_CAP = 15_000
+export const EARTH_SIM_NATURE_STORE_CAP = 8_000
+
+/** Instant MINDEX paint limit on Earth Simulator first load. */
+export const EARTH_SIM_NATURE_INSTANT_LIMIT = 4_000
+
+/** Defer live aircraft/vessel/satellite pump until after map settles (ms). */
+export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 18_000
 
 export interface EarthSimBootDebugSnapshot {
   stagedBoot: boolean
@@ -252,23 +269,24 @@ export function isEarthSimProjectLayer(id: string): boolean {
 }
 
 export function getEarthSimInitialFungalLayerIds(): Set<string> {
-  return new Set(["fungalAtlasAM", "fungalAtlasECM"])
+  return new Set([EARTH_SIM_DEFAULT_FUNGAL_LAYER_ID])
 }
 
 export function applyEarthSimulatorBootToLayers<T extends LayerConfigLike>(layers: T[]): T[] {
   const offSet = new Set<string>(EARTH_SIM_OFF_AT_BOOT_LAYER_IDS)
   return layers.map((layer) => {
-    if (layer.id === "fungalAtlasAM" || layer.id === "fungalAtlasECM") {
+    if (layer.id === "fungalAtlasECM") {
       return { ...layer, enabled: true, opacity: EARTH_SIM_FUNGAL_OPACITY }
+    }
+    if (layer.id === "fungalAtlasAM") {
+      return { ...layer, enabled: false, opacity: EARTH_SIM_FUNGAL_OPACITY }
     }
     if (offSet.has(layer.id) || isEarthSimProjectLayer(layer.id)) {
       return { ...layer, enabled: false }
     }
     if (EARTH_SIM_PROFILE_ON_LAYER_IDS.has(layer.id)) {
       const opacity =
-        layer.id === "fungalAtlasAM" || layer.id === "fungalAtlasECM"
-          ? EARTH_SIM_FUNGAL_OPACITY
-          : layer.opacity
+        layer.id === "fungalAtlasECM" ? EARTH_SIM_FUNGAL_OPACITY : layer.opacity
       return { ...layer, enabled: true, opacity }
     }
     return { ...layer, enabled: false }
@@ -295,9 +313,13 @@ export const EARTH_SIMULATOR_BOOT_PROFILE = {
   deferredInfraPoints: EARTH_SIM_DEFERRED_INFRA_POINT_IDS,
   events: EARTH_SIM_EVENT_LAYER_IDS,
   alwaysOnInfra: EARTH_SIM_ALWAYS_ON_INFRA_IDS,
+  instantLiveLayers: EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
   offAtBoot: EARTH_SIM_OFF_AT_BOOT_LAYER_IDS,
   fungalOpacity: EARTH_SIM_FUNGAL_OPACITY,
   fungalDomMinZoom: EARTH_SIM_FUNGAL_DOM_MIN_ZOOM,
+  defaultFungalLayer: EARTH_SIM_DEFAULT_FUNGAL_LAYER_ID,
   natureStoreCap: EARTH_SIM_NATURE_STORE_CAP,
+  natureInstantLimit: EARTH_SIM_NATURE_INSTANT_LIMIT,
+  liveStreamDelayMs: EARTH_SIM_LIVE_STREAM_DELAY_MS,
   usBbox: EARTH_SIM_US_BBOX,
 } as const

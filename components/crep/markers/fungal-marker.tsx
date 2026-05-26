@@ -115,33 +115,38 @@ const KINGDOM_STYLES: Record<string, { Icon: LucideIcon; bg: string; icon: strin
   Fungi:            { Icon: CircleDot, bg: "#b45309", icon: "#fff7ed", border: "rgba(253, 230, 138, 0.95)", glow: "rgba(251, 191, 36, 0.55)", label: "Fungus", emoji: "\u{1F344}" },
   Plantae:          { Icon: Leaf,      bg: "#047857", icon: "#86efac", border: "rgba(134, 239, 172, 0.9)", glow: "rgba(52, 211, 153, 0.5)", label: "Plant" },
   Aves:             { Icon: Bird,      bg: "#0369a1", icon: "#bae6fd", border: "rgba(186, 230, 253, 0.9)", glow: "rgba(56, 189, 248, 0.5)", label: "Bird" },
-  Mammalia:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Mammal" },
+  Mammalia:         { Icon: PawPrint,  bg: "#7c3aed", icon: "#ede9fe", border: "rgba(221, 214, 254, 0.95)", glow: "rgba(167, 139, 250, 0.55)", label: "Mammal" },
   Reptilia:         { Icon: PawPrint,  bg: "#4d7c0f", icon: "#d9f99d", border: "rgba(217, 249, 157, 0.9)", glow: "rgba(132, 204, 22, 0.5)", label: "Reptile" },
   Amphibia:         { Icon: Waves,     bg: "#15803d", icon: "#bbf7d0", border: "rgba(187, 247, 208, 0.9)", glow: "rgba(34, 197, 94, 0.5)", label: "Amphibian" },
   Actinopterygii:   { Icon: Fish,      bg: "#0e7490", icon: "#a5f3fc", border: "rgba(165, 243, 252, 0.9)", glow: "rgba(34, 211, 238, 0.5)", label: "Fish" },
   Mollusca:         { Icon: CircleDot, bg: "#be123c", icon: "#fecdd3", border: "rgba(254, 205, 211, 0.9)", glow: "rgba(244, 63, 94, 0.5)", label: "Mollusk" },
   Arachnida:        { Icon: Bug,       bg: "#991b1b", icon: "#fecaca", border: "rgba(254, 202, 202, 0.9)", glow: "rgba(239, 68, 68, 0.5)", label: "Arachnid" },
   Insecta:          { Icon: Bug,       bg: "#a16207", icon: "#fef08a", border: "rgba(254, 240, 138, 0.95)", glow: "rgba(234, 179, 8, 0.55)", label: "Insect" },
-  Animalia:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Animal" },
+  Animalia:         { Icon: PawPrint,  bg: "#9333ea", icon: "#f3e8ff", border: "rgba(233, 213, 255, 0.9)", glow: "rgba(192, 132, 252, 0.5)", label: "Animal" },
+  Unknown:          { Icon: CircleDot, bg: "#52525b", icon: "#e4e4e7", border: "rgba(228, 228, 231, 0.85)", glow: "rgba(161, 161, 170, 0.35)", label: "Unclassified" },
   Chromista:        { Icon: Leaf,      bg: "#047857", icon: "#86efac", border: "rgba(134, 239, 172, 0.9)", glow: "rgba(52, 211, 153, 0.5)", label: "Chromist" },
   Protozoa:         { Icon: PawPrint,  bg: "#c2410c", icon: "#fed7aa", border: "rgba(254, 215, 170, 0.9)", glow: "rgba(251, 146, 60, 0.5)", label: "Protozoan" },
 };
 
 function getKingdomStyle(kingdom?: string, iconicTaxon?: string) {
-  const raw = `${iconicTaxon || ""} ${kingdom || ""}`.toLowerCase();
+  const iconic = String(iconicTaxon || "").trim().toLowerCase();
+  const kingdomRaw = String(kingdom || "").trim().toLowerCase();
+  const token = iconic && iconic !== "unknown" ? iconic : kingdomRaw;
+  const raw = `${iconic} ${kingdomRaw}`.toLowerCase();
+  if (token.includes("fungi") || token.includes("fungus") || token.includes("mycota")) return KINGDOM_STYLES.Fungi;
   if (raw.includes("plantae") || raw.includes("plant") || raw.includes("magnoliophyta")) return KINGDOM_STYLES.Plantae;
   if (raw.includes("aves") || raw.includes("bird")) return KINGDOM_STYLES.Aves;
-  if (raw.includes("mammalia") || raw.includes("mammal")) return KINGDOM_STYLES.Mammalia;
+  if (raw.includes("mammalia") || raw.includes("mammal") || raw.includes("cetacea") || raw.includes("whale")) return KINGDOM_STYLES.Mammalia;
   if (raw.includes("reptilia") || raw.includes("reptile")) return KINGDOM_STYLES.Reptilia;
   if (raw.includes("amphibia") || raw.includes("amphibian")) return KINGDOM_STYLES.Amphibia;
-  if (raw.includes("actinopterygii") || raw.includes("fish")) return KINGDOM_STYLES.Actinopterygii;
+  if (raw.includes("actinopterygii") || raw.includes("fish") || raw.includes("chondrichthyes")) return KINGDOM_STYLES.Actinopterygii;
   if (raw.includes("mollusca") || raw.includes("mollusk") || raw.includes("mollusc")) return KINGDOM_STYLES.Mollusca;
   if (raw.includes("arachnida") || raw.includes("spider") || raw.includes("arachnid")) return KINGDOM_STYLES.Arachnida;
   if (raw.includes("insecta") || raw.includes("insect")) return KINGDOM_STYLES.Insecta;
   if (raw.includes("chromista")) return KINGDOM_STYLES.Chromista;
   if (raw.includes("protozoa")) return KINGDOM_STYLES.Protozoa;
   if (raw.includes("animalia") || raw.includes("animal")) return KINGDOM_STYLES.Animalia;
-  return KINGDOM_STYLES.Fungi;
+  return KINGDOM_STYLES.Unknown;
 }
 
 // Memoized component to prevent unnecessary re-renders when parent updates
