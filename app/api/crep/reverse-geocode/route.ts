@@ -68,6 +68,10 @@ export async function GET(req: NextRequest) {
   const lat = Number(req.nextUrl.searchParams.get("lat"))
   const lng = Number(req.nextUrl.searchParams.get("lng"))
   const radiusKm = Math.min(5, Math.max(0.25, Number(req.nextUrl.searchParams.get("radius") || 1)))
+  const zoomParam = Number(req.nextUrl.searchParams.get("zoom"))
+  const nominatimZoom = Number.isFinite(zoomParam)
+    ? Math.min(18, Math.max(3, Math.round(zoomParam)))
+    : 14
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.json({ error: "lat/lng required" }, { status: 400 })
   }
@@ -77,7 +81,7 @@ export async function GET(req: NextRequest) {
   // Nominatim — 4s hard deadline
   const addrPromise = withDeadline((async () => {
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=14`
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=${nominatimZoom}`
       const res = await fetch(url, {
         headers: { "User-Agent": "Mycosoft-CREP/1.0 (https://mycosoft.com)" },
         signal: AbortSignal.timeout(3_500),

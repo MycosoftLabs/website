@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server"
+import { filterEagleVideoSources } from "@/lib/crep/eagle-camera-normalize"
 
 /**
  * Eagle Eye — Video source registry (permanent cameras) — Apr 20, 2026 v2
@@ -33,6 +34,7 @@ type VideoSource = {
   id: string
   kind: "permanent" | "ephemeral"
   provider: string
+  name: string | null
   stable_location: boolean
   lat: number
   lng: number
@@ -190,6 +192,7 @@ async function fromMindex(
           id: String(c.id ?? p.id ?? `${lat}-${lng}`),
           kind: (c.kind || p.kind || "permanent") as VideoSource["kind"],
           provider: c.provider || p.provider || "unknown",
+          name: c.name ?? p.name ?? p.title ?? null,
           stable_location: (c.stable_location ?? p.stable_location) !== false,
           lat: Number(lat),
           lng: Number(lng),
@@ -262,6 +265,7 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined, fast
         id: String(c.id || `${c.provider}-${lat}-${lng}`),
         kind: "permanent",
         provider: c.provider || "public-webcam",
+        name: c.name ?? c.title ?? null,
         stable_location: true,
         lat: Number(lat),
         lng: Number(lng),
@@ -276,6 +280,48 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined, fast
     }
   }
   return out
+}
+
+/** Always refresh state DOT feeds — MINDEX cache often has stale stream_url. */
+async function fromStateDotCctv(origin: string, bbox: string | undefined): Promise<VideoSource[]> {
+  const qp = bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""
+  try {
+    const res = await fetch(`${origin}/api/eagle/connectors/state-dot-cctv${qp}`, {
+      signal: AbortSignal.timeout(18_000),
+    })
+    if (!res.ok) return []
+    const j = await res.json()
+    const items: any[] = j.cams || []
+    return items
+      .filter((c: any) => Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng)))
+      .map(
+        (c: any): VideoSource => ({
+          id: String(c.id || `${c.provider}-${c.lat}-${c.lng}`),
+          kind: "permanent",
+          provider: c.provider || "caltrans",
+          name: c.name ?? null,
+          stable_location: true,
+          lat: Number(c.lat),
+          lng: Number(c.lng),
+          location_confidence: 1.0,
+          stream_url: c.stream_url ?? null,
+          embed_url: c.embed_url ?? null,
+          media_url: c.media_url ?? null,
+          source_status: c.source_status ?? "online",
+          permissions: c.permissions ?? { access: "public" },
+          updated_at: c.updated_at ?? null,
+        }),
+      )
+  } catch {
+    return []
+  }
+}
+
+function mergeSourcesLiveWins(base: VideoSource[], incoming: VideoSource[]): VideoSource[] {
+  const byId = new Map<string, VideoSource>()
+  for (const s of base) byId.set(s.id, s)
+  for (const s of incoming) byId.set(s.id, s)
+  return Array.from(byId.values())
 }
 
 export async function GET(req: NextRequest) {
@@ -293,18 +339,40 @@ export async function GET(req: NextRequest) {
 
   let sources = await fromMindex(bbox, kind, provider, limit)
   let liveUsed = false
+  const origin = connectorFetchBase(req)
+
+  // May 24, 2026 — fast=1 (thumbnail grid / first paint) must NOT block on
+  // the 18 s state-dot-cctv fan-out. Return MINDEX + fast-tier immediately;
+  // warm Caltrans/Shinobi in background for the next poll.
+  if (!skipLive && !fast) {
+    const stateDotLive = await fromStateDotCctv(origin, bbox)
+    if (stateDotLive.length) {
+      sources = mergeSourcesLiveWins(sources, stateDotLive)
+      liveUsed = true
+    }
+  } else if (!skipLive && fast) {
+    after(() => {
+      void (async () => {
+        try {
+          const stateDotLive = await fromStateDotCctv(origin, bbox)
+          if (stateDotLive.length) {
+            if (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY) {
+              await persistMergedSourcesToMindex(stateDotLive)
+            }
+          }
+        } catch {
+          /* ignore background warm */
+        }
+      })()
+    })
+  }
 
   const forceLive = url.searchParams.get("live") === "1"
   const mindexCold = sources.length === 0
   if (!skipLive && (mindexCold || forceLive)) {
-    const origin = connectorFetchBase(req)
     const live = await fromLiveConnectors(origin, bbox, fast)
     if (live.length) {
-      const seen = new Set(sources.map((s) => `${s.provider}:${s.id}`))
-      for (const s of live) {
-        const key = `${s.provider}:${s.id}`
-        if (!seen.has(key)) { sources.push(s); seen.add(key) }
-      }
+      sources = mergeSourcesLiveWins(sources, live)
       liveUsed = true
     }
     // If fast mode: kick off the slow tier in background so MINDEX warms
@@ -323,7 +391,6 @@ export async function GET(req: NextRequest) {
       })
     }
   } else if (!skipLive && sources.length < MIN_SOURCES) {
-    const origin = connectorFetchBase(req)
     after(() => {
       void (async () => {
         try {
@@ -347,6 +414,10 @@ export async function GET(req: NextRequest) {
   // doesn't — apply post-filter here).
   if (kind) sources = sources.filter((s) => s.kind === kind)
   if (provider) sources = sources.filter((s) => s.provider === provider)
+
+  // May 24, 2026 — drop AQ/reef/gauge rows mis-ingested as cameras; snap
+  // known US-side border POI coords so pins are not in slough / Mexico.
+  sources = filterEagleVideoSources(sources)
 
   const byProvider: Record<string, number> = {}
   const byKind: Record<string, number> = {}

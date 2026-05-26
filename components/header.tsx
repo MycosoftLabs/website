@@ -307,22 +307,54 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
   )
 }
 
-export function Header() {
+const DARK_LOGO_SRC =
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
+const LIGHT_LOGO_SRC =
+  "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
+
+/** Static shell — identical on SSR and first client paint to avoid hydration mismatch. */
+function HeaderShell() {
+  return (
+    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
+      <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
+        <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
+          <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold">
+            <div className="relative h-7 w-7 md:h-8 md:w-8 pointer-events-none">
+              <Image
+                src={DARK_LOGO_SRC}
+                alt="Mycosoft Logo"
+                fill
+                className="pointer-events-none object-contain"
+                priority
+              />
+            </div>
+            <span className="hidden sm:inline">Mycosoft</span>
+          </Link>
+        </div>
+        <nav className="hidden md:flex flex-1 items-center justify-center gap-1" aria-hidden="true" />
+        <div className="flex items-center gap-2 min-h-[44px]">
+          <div className="h-8 w-[3.15rem] sm:w-[3.6rem] shrink-0 rounded-full bg-muted/25" aria-hidden="true" />
+          <div className="md:hidden h-10 w-10 shrink-0 rounded-md bg-muted/20" aria-hidden="true" />
+        </div>
+      </div>
+    </header>
+  )
+}
+
+function HeaderContent() {
   const { resolvedTheme } = useTheme()
   const { user: supabaseUser, loading: isLoading, signOut } = useSupabaseUser()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const navRef = useRef<HTMLElement>(null)
   const globalDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
 
-  // Filter lists based on authorization (defer company-only until mount — gate can differ SSR vs client)
   const visibleNatureOSItems = natureOSItems.filter(
-    (item) => !item.companyOnly || (mounted && isCompanyUser),
+    (item) => !item.companyOnly || isCompanyUser,
   )
   const visibleAppsItems = appsItems.filter(
-    (item) => !item.companyOnly || (mounted && isCompanyUser),
+    (item) => !item.companyOnly || isCompanyUser,
   )
 
   // Transform supabase user to the expected format
@@ -337,11 +369,6 @@ export function Header() {
             supabaseUser.user_metadata?.picture ||
             "/placeholder.svg",
   } : null
-
-  // Prevent hydration mismatch by only rendering theme-dependent content after mount
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Close dropdown when clicking outside. Use `click` instead of `mousedown`
   // so page navigation is not pre-empted on the first press.
@@ -361,23 +388,17 @@ export function Header() {
     router.push("/")
   }
 
-  const darkLogoSrc =
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
-  const lightLogoSrc =
-    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
-  const logoSrc =
-    mounted && (resolvedTheme ?? "dark") === "light" ? lightLogoSrc : darkLogoSrc
-  const showAuthUi = mounted
+  const logoSrc = (resolvedTheme ?? "dark") === "light" ? LIGHT_LOGO_SRC : DARK_LOGO_SRC
 
   return (
-    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none" suppressHydrationWarning>
+    <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
           <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
             <motion.div
               className="relative h-7 w-7 pointer-events-none md:h-8 md:w-8"
-              whileHover={mounted ? { scale: 1.1, rotate: 5 } : undefined}
+              whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
               <Image
@@ -386,7 +407,6 @@ export function Header() {
                 fill
                 className="pointer-events-none object-contain"
                 priority
-                suppressHydrationWarning
               />
             </motion.div>
             {/* Hide brand name on small mobile to save space */}
@@ -482,7 +502,7 @@ export function Header() {
           />
 
           {/* Security - shown only when authenticated */}
-          {showAuthUi && user && (
+          {user && (
             <a
               href="/security"
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
@@ -498,11 +518,11 @@ export function Header() {
         <div className="flex items-center gap-2">
           <ModeToggle />
 
-          {showAuthUi && isLoading ? (
+          {isLoading ? (
             <Button variant="ghost" size="sm" disabled className="hidden md:flex min-w-[44px] min-h-[44px]">
               <Loader2 className="h-4 w-4 animate-spin" />
             </Button>
-          ) : showAuthUi && user ? (
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-white/5 transition-all duration-300">
@@ -527,7 +547,7 @@ export function Header() {
                 <DropdownMenuItem onClick={handleSignOut}>Sign Out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : showAuthUi ? (
+          ) : (
             <div className="hidden md:flex">
               <Button variant="default" size="sm" className="nav-signin-glass mr-2 transition-all duration-300 hover:scale-105" asChild>
                 <Link href="/login">
@@ -536,7 +556,7 @@ export function Header() {
                 </Link>
               </Button>
             </div>
-          ) : null}
+          )}
           {/* Mobile Navigation */}
           <div className="md:hidden">
             <MobileNav />
@@ -545,4 +565,16 @@ export function Header() {
       </div>
     </header>
   )
+}
+
+export function Header() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return <HeaderShell />
+
+  return <HeaderContent />
 }

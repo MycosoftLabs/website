@@ -82,18 +82,32 @@ export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
  * Zoom ≥ 8 or a viewport smaller than ~170 km × 170 km.
  */
 /**
- * Infrastructure point/symbol icons (plants, substations, cell towers, ports,
- * DCs, etc.) stay hidden until this zoom so the globe refresh stays fast.
+ * Default infrastructure point/symbol icons (plants, substations, ports,
+ * etc.) stay hidden until this zoom so the globe refresh stays fast.
  * Line layers (cables, rails, transmission) render at world zoom when toggles
  * are ON — see production-first-load rules (May 24, 2026).
+ *
+ * Telecom uses tiered floors via getInfraLayerMinZoom (May 24, 2026):
+ *   DATA_CENTER_MIN_ZOOM — globe/country (all DC layers ON from load)
+ *   TELECOM_DETAIL_MIN_ZOOM — state+ (cell towers, radio, signal heatmap)
+ *   TELECOM_CITY_MIN_ZOOM — city (bbox-scoped / regional tower detail)
  */
 export const INFRA_POINT_ICON_MIN_ZOOM = 7
+
+/** Data centers (global + IM3 + regional DC points) — visible at globe zoom. */
+export const DATA_CENTER_MIN_ZOOM = 2
+
+/** Cell towers, AM/FM radio, signal heatmap — state / region detail. */
+export const TELECOM_DETAIL_MIN_ZOOM = 6
+
+/** City-scoped tower/antenna detail (SD/TJ, bbox batchFetch dots). */
+export const TELECOM_CITY_MIN_ZOOM = 8
 
 /** Bundled / global infra lines (cables, TX) may paint from world view. */
 export const INFRA_LINE_GLOBAL_MIN_ZOOM = 0
 
-/** Railway raster tiles — hidden at continental zoom; visible when zoomed in (May 24, 2026). */
-export const RAILWAY_MIN_ZOOM = 8
+/** Railway raster tiles — visible from state/region zoom (May 26, 2026). */
+export const RAILWAY_MIN_ZOOM = 6
 
 export function isCityLevelZoom(
   zoom: number,

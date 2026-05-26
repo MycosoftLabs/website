@@ -45,7 +45,7 @@ export const EARTH_SIM_INSTANT_INFRA_LINE_IDS = [
   "txLinesGlobal",
 ] as const
 
-/** Infra toggles ON at refresh but point icons gated to z≥7 in MapLibre layers. */
+/** Infra toggles ON at refresh; DCs paint z≥2, telecom detail z≥6 (see lod-policy). */
 export const EARTH_SIM_DEFERRED_INFRA_POINT_IDS = [
   "transmissionLines",
   "txLinesFull",
@@ -141,14 +141,12 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "metalOutput",
   "waterPollution",
   "eagleEyeEvents",
-  "im3DataCenters",
   "im3DataCenterFootprints",
   "eiaOperating",
   "eiaPlanned",
   "eiaRetired",
   "eiaCanceled",
   "radar",
-  "signalHeatmap",
   "hospitals",
   "fireStations",
   "universities",
@@ -176,9 +174,23 @@ const PROJECT_LAYER_PREFIXES = [
   "tj",
 ] as const
 
+/** Infra toggles ON at first paint (lines + points + SD/TJ regional detail). */
+export const EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS = [
+  ...EARTH_SIM_DEFERRED_INFRA_POINT_IDS,
+  "railwayTracks",
+] as const
+
+/** Telecom/internet ON from load — DCs at globe zoom, detail layers state+. */
+export const EARTH_SIM_TELECOM_BOOT_LAYER_IDS = [
+  "im3DataCenters",
+  "signalHeatmap",
+] as const
+
 export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BASE_LAYER_IDS,
   ...EARTH_SIM_INSTANT_INFRA_LINE_IDS,
+  ...EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS,
+  ...EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
   ...EARTH_SIM_ALWAYS_ON_INFRA_IDS,
   ...EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
@@ -265,6 +277,9 @@ export function isEarthSimStagedBootActive(): boolean {
 
 export function isEarthSimProjectLayer(id: string): boolean {
   const lower = id.toLowerCase()
+  // SD/TJ regional infra (hospitals, cell towers, sewage, etc.) stays ON for
+  // San Diego / Tijuana demos — only disable generic project-scoped layers.
+  if (lower.startsWith("sdtj")) return false
   return PROJECT_LAYER_PREFIXES.some((prefix) => lower.startsWith(prefix))
 }
 
@@ -311,6 +326,8 @@ export const EARTH_SIMULATOR_BOOT_PROFILE = {
   baseLayers: EARTH_SIM_BASE_LAYER_IDS,
   instantInfraLines: EARTH_SIM_INSTANT_INFRA_LINE_IDS,
   deferredInfraPoints: EARTH_SIM_DEFERRED_INFRA_POINT_IDS,
+  bootInfraOn: EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS,
+  telecomBoot: EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
   events: EARTH_SIM_EVENT_LAYER_IDS,
   alwaysOnInfra: EARTH_SIM_ALWAYS_ON_INFRA_IDS,
   instantLiveLayers: EARTH_SIM_INSTANT_LIVE_LAYER_IDS,

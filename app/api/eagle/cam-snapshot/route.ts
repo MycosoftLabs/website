@@ -84,6 +84,8 @@ const ALLOW_HOSTS = new Set<string>([
   "www.flysfo.com", "www.jfkairport.com",
   // Pikes Peak / weather
   "pikespeakwebcam.com",
+  // CBP border POV viewer pages (headless snapshot — May 24, 2026)
+  "bwt.cbp.gov",
 ])
 
 type CacheEntry = { jpeg: Buffer; t: number }

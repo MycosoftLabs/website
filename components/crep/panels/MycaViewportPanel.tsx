@@ -608,6 +608,34 @@ function MycaViewportPanel({
     [onFlyTo],
   )
 
+  const mentionSlotCount = 2
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const [mentionFade, setMentionFade] = useState(true)
+
+  useEffect(() => {
+    setMentionIndex(0)
+  }, [revisionKey, analysisMentions.length])
+
+  const visibleMentions = useMemo(() => {
+    if (analysisMentions.length === 0) return []
+    if (analysisMentions.length <= mentionSlotCount) return analysisMentions
+    return Array.from({ length: mentionSlotCount }, (_, i) =>
+      analysisMentions[(mentionIndex + i) % analysisMentions.length],
+    )
+  }, [analysisMentions, mentionIndex, mentionSlotCount])
+
+  useEffect(() => {
+    if (analysisMentions.length <= mentionSlotCount) return
+    const timer = window.setInterval(() => {
+      setMentionFade(false)
+      window.setTimeout(() => {
+        setMentionIndex((i) => (i + mentionSlotCount) % analysisMentions.length)
+        setMentionFade(true)
+      }, 140)
+    }, 3200)
+    return () => window.clearInterval(timer)
+  }, [analysisMentions.length, mentionSlotCount])
+
   return (
     <ScrollArea className="h-full">
       <div className="flex min-h-full flex-col gap-2 p-2">
@@ -816,29 +844,42 @@ function MycaViewportPanel({
           </div>
 
           {analysisMentions.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <span className="text-[7px] font-semibold uppercase tracking-wide text-purple-300/80">
-                Worth mentioning
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {analysisMentions.map((mention) => {
+            <div className="mt-1.5 shrink-0">
+              <div className="mb-0.5 flex items-center justify-between gap-1">
+                <span className="text-[6px] font-semibold uppercase tracking-wider text-purple-300/65">
+                  Worth mentioning
+                </span>
+                {analysisMentions.length > mentionSlotCount && (
+                  <span className="text-[6px] tabular-nums text-purple-400/45">
+                    {Math.floor(mentionIndex / mentionSlotCount) + 1}/
+                    {Math.ceil(analysisMentions.length / mentionSlotCount)}
+                  </span>
+                )}
+              </div>
+              <div
+                className={cn(
+                  "flex min-h-[18px] items-center gap-1 transition-opacity duration-150",
+                  mentionFade ? "opacity-100" : "opacity-30",
+                )}
+              >
+                {visibleMentions.map((mention, slotIdx) => {
                   const Icon = mentionIcon(mention.kind)
                   const clickable = mention.lng != null && mention.lat != null
                   return (
                     <button
-                      key={mention.id}
+                      key={`${mention.id}-slot-${slotIdx}`}
                       type="button"
                       disabled={!clickable}
                       onClick={() => handleMentionClick(mention)}
                       title={mention.detail ? `${mention.label} · ${mention.detail}` : mention.label}
                       className={cn(
-                        "inline-flex min-h-[32px] max-w-full items-center gap-1 rounded-full border px-2 py-1 text-left transition-colors",
+                        "inline-flex h-[18px] max-w-[48%] flex-1 items-center gap-0.5 rounded border px-1 text-left transition-colors",
                         mentionTone(mention.kind),
-                        !clickable && "cursor-default opacity-50",
+                        !clickable && "cursor-default opacity-45",
                       )}
                     >
-                      <Icon className="h-3 w-3 shrink-0" />
-                      <span className="truncate text-[8px] font-medium">{mention.label}</span>
+                      <Icon className="h-2 w-2 shrink-0 opacity-90" />
+                      <span className="truncate text-[6px] font-medium leading-none">{mention.label}</span>
                     </button>
                   )
                 })}

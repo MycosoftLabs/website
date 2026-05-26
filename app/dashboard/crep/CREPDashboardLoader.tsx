@@ -21,6 +21,7 @@
  * message — deleted.
  */
 
+import { useEffect } from "react"
 import { MYCAProvider } from "@/contexts/myca-context"
 import { CREPProvider } from "@/contexts/crep-context"
 import { GroundStationProvider } from "@/lib/ground-station/context"
@@ -146,6 +147,42 @@ export interface CREPDashboardEmbedProps {
 }
 
 export default function CREPDashboardLoader(props: CREPDashboardEmbedProps) {
+  useEffect(() => {
+    const key = "crep-chunk-reload-attempted"
+    function isChunkLoadError(reason: unknown): boolean {
+      const err = reason as { name?: string; message?: string } | null
+      const msg = err?.message || String(reason ?? "")
+      return (
+        err?.name === "ChunkLoadError" ||
+        /Loading chunk .* failed/i.test(msg) ||
+        /ChunkLoadError/i.test(msg)
+      )
+    }
+    function reloadOnce() {
+      try {
+        if (sessionStorage.getItem(key)) return
+        sessionStorage.setItem(key, String(Date.now()))
+        const u = new URL(window.location.href)
+        u.searchParams.set("_crep_chunk_reload", String(Date.now()))
+        window.location.replace(u.toString())
+      } catch {
+        window.location.reload()
+      }
+    }
+    const onError = (event: ErrorEvent) => {
+      if (isChunkLoadError(event.error ?? event.message)) reloadOnce()
+    }
+    const onRejection = (event: PromiseRejectionEvent) => {
+      if (isChunkLoadError(event.reason)) reloadOnce()
+    }
+    window.addEventListener("error", onError)
+    window.addEventListener("unhandledrejection", onRejection)
+    return () => {
+      window.removeEventListener("error", onError)
+      window.removeEventListener("unhandledrejection", onRejection)
+    }
+  }, [])
+
   return (
     <MYCAProvider>
       <CREPProvider>

@@ -18,7 +18,7 @@ Full refresh production audit covered **health checks**, **static assets**, **AP
 
 **Proxy fix (May 24):** `/api/mindex/proxy/{aircraft,vessels,satellites}` falls through to OEI when MINDEX bbox returns 0 rows; `normalizeMoverEntity` flattens lat/lng/heading/velocity for client pump.
 
-**Deploy verdict:** **Deployed May 25, 2026** after full automated gate pass. See [EARTH_SIMULATOR_DEPLOY_AUDIT_MAY25_2026.md](./EARTH_SIMULATOR_DEPLOY_AUDIT_MAY25_2026.md).
+**Deploy verdict:** **NOT deployed** — prior merge to main predates ECM-only fix; redeploy blocked until browser verification passes.
 
 ---
 

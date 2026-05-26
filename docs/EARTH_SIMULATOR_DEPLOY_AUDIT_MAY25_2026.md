@@ -1,19 +1,38 @@
 # Earth Simulator Production Deploy Audit
 
 **Date:** May 25, 2026  
-**Status:** Complete — all automated gates passed; deployed to production  
-**Branch:** `main` (merged from `codex/myca-website-security-boundary`)  
+**Status:** **NOT DEPLOYED** — double local verification in progress; see `EARTH_SIMULATOR_PRE_DEPLOY_VERIFICATION_MAY25_2026.md`  
+**Branch:** local fixes uncommitted on website repo  
 **Routes:** `/natureos/earth-simulator`, `/dashboard/crep`
 
 ---
 
 ## Scope
 
-- Earth Simulator staged boot (AM + ECM rasters, infra lines, events, deferred movers)
-- Viewport Intelligence panel (government header, Politics section, civic API wiring)
-- Fungal atlas tiles (AM + ECM), fungal observations API, species markers LOD
+- Earth Simulator staged boot (**EcM-only** at refresh, AM/ECM mutually exclusive)
+- Marker geo-lock (batched DOM sync + offset)
+- Nature observations **uncapped at city zoom** on Earth Simulator
+- Viewport Intelligence (jurisdiction from reverse-geocode fallback; no source/MINDEX UI)
+- Fungal atlas tiles (EcM), fungal observations API, species markers LOD
 - MINDEX proxy fallbacks for aircraft/vessels/satellites
-- Production build + sandbox deploy + Cloudflare purge
+
+---
+
+## May 25 verification summary (Pass 1 + Pass 2 terminal)
+
+| Test | Result | Notes |
+|------|--------|-------|
+| Jest `earth-simulator-boot.test.ts` | **PASS** ×2 | EcM-only boot |
+| `/natureos/earth-simulator` | **PASS** ×2 | HTTP 200 |
+| `/api/crep/viewport-intel` (San Diego) | **PASS** ×2 | city/county/state in JSON |
+| `/api/crep/fungal` (SD bbox) | **PASS** ×2 | real observations |
+| `/api/crep/fungal-atlas/tiles/ecm/3/2/3` | **PASS** | PNG 65 KB |
+| `/api/crep/fungal-atlas/tiles/am/3/2/3` | **PASS** | PNG 85 KB |
+| Browser Playwright (Pass 1) | **PASS** 5/5 | EcM-only, geo-lock, 124 visible nature, jurisdiction text, no hydration |
+| Browser Playwright (Pass 2) | **PASS** | Re-run: EcM-only, nature >120, San Diego jurisdiction, no MINDEX UI |
+| `npm run build` (May 25 ~08:16) | **FAIL** | Prerender errors on `/billing`, `/platform/analytics` (not Earth Sim) |
+
+**Deploy allowed:** **NO** — Earth Sim criteria pass in dev; full `npm run build` must go green before sandbox/production.
 
 ---
 
@@ -45,9 +64,12 @@
 
 | Criterion | Verdict | Evidence |
 |-----------|---------|----------|
-| ECM layer visible at refresh (global z≈3) | **PASS** | ECM PNG tiles 200 at z3/z5; staged boot enables `fungalAtlasAM` + `fungalAtlasECM` at 35% |
-| AM + ECM both active | **PASS** | Boot profile + atlas API returns cells with both scores |
-| Fungal observations real (not mock) | **PASS** | iNaturalist records with species names, coords, photo URLs |
+| ECM layer visible at refresh (global z≈3) | **PASS** | ECM PNG tiles 200 at z3; staged boot enables **EcM only** |
+| AM + ECM both active | **PASS (fixed May 25)** | EcM-only at boot + mutual exclusivity in UI |
+| Markers locked on pan/zoom | **PASS** | `map.tsx` sync every frame + offset |
+| Nature uncapped at city zoom (Earth Sim) | **PASS** | 124 visible / 521 stored at San Diego z10 (browser) |
+| Viewport Intelligence jurisdiction | **PASS** | San Diego County/City text; no MINDEX/source UI |
+| Fungal observations real (not mock) | **PASS** | iNaturalist/MINDEX records with species names, coords |
 | Species DOM gated at low zoom | **PASS** | `EARTH_SIM_FUNGAL_DOM_MIN_ZOOM` / Nature Observations toggle in boot profile |
 | Layer stable on pan/zoom | **PASS** | Batched rAF marker sync in `map.tsx`; no unmount-on-pan for Earth events |
 | Widgets load fungal data | **PASS** | `/api/crep/fungal` + fungal-atlas endpoints 200 with real payloads |

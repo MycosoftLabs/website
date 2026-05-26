@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
+import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load";
 
 interface SignalHeatmapProps {
   map: MapLibreMap | null;
@@ -84,7 +85,7 @@ export default function SignalHeatmapLayer({
         }
 
         if (!map.getLayer(LAYER_ID)) {
-          map.addLayer({
+          map.addLayer(applyInfraPointIconMinZoom({
             id: LAYER_ID,
             type: "heatmap",
             source: SOURCE_ID,
@@ -118,7 +119,7 @@ export default function SignalHeatmapLayer({
                 10, 2,
               ],
             },
-          });
+          }));
         }
 
         addedRef.current = true;

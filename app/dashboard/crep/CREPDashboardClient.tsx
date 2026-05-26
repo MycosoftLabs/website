@@ -8371,18 +8371,32 @@ export default function CREPDashboardPage({
     };
 
     // State/city zoom and Earth Simulator: quick iNat all-taxa first (~2–5s for every
-    // kingdom), then background full enrich. Continental-only views use debounced fetch.
+    // kingdom), then background full enrich. When user expands kingdom filters
+    // (plants/birds/etc.), skip enrich delay so toggles paint without a blank gap.
     const quickFirstNature =
       isEarthSimulatorRoute || isCityLevelZoom(mapZoom, mapBounds) || mapZoom >= 5;
 
     if (quickFirstNature) {
       void fetchViewportNature({ quick: true, showLoading: false });
-      const enrichTimer = setTimeout(() => {
+      const kingdomExpanded = !isFungiOnlyNatureFilter(groundFilter);
+      const enrichDelayMs = kingdomExpanded
+        ? 0
+        : isEarthSimulatorRoute
+          ? 500
+          : isGlobeCrepMapRoute
+            ? 180
+            : 350;
+      const enrichTimer = enrichDelayMs > 0
+        ? setTimeout(() => {
+            void fetchViewportNature({ quick: false, showLoading: false });
+          }, enrichDelayMs)
+        : null;
+      if (kingdomExpanded) {
         void fetchViewportNature({ quick: false, showLoading: false });
-      }, isEarthSimulatorRoute ? 500 : isGlobeCrepMapRoute ? 180 : 350);
+      }
       return () => {
         ctrl.abort();
-        clearTimeout(enrichTimer);
+        if (enrichTimer) clearTimeout(enrichTimer);
       };
     }
 
@@ -12213,7 +12227,7 @@ export default function CREPDashboardPage({
       cellTowersG:      ["crep-celltowers-bbox-dot", "crep-celltowers-global-circle"],
       radioStations:    ["crep-radio-dot"],
       powerPlantsG:     ["crep-pp-global-dot", "crep-plants-global-dot", "crep-plants-global-label"],
-      signalHeatmap:    ["crep-signalheatmap-heat"],
+      signalHeatmap:    ["crep-signal-heatmap-layer"],
       // Power grid
       powerPlants:      ["crep-plants-glow", "crep-plants-circle", "crep-plants-label", "crep-plants-global-dot", "crep-plants-global-label"],
       substations:      ["crep-subs-glow", "crep-subs-circle", "crep-subs-label", "crep-substations-label"],
@@ -15625,7 +15639,7 @@ export default function CREPDashboardPage({
                 // Falls through silently if the file hasn't been generated yet.
                 void (async () => {
                   // Apr 21, 2026 OOM audit: gate on dataCentersG enabled.
-                  const dcOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "dataCentersG")?.enabled ?? false
+                  const dcOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "dataCentersG")?.enabled ?? true
                   if (!dcOn) { console.log("[CREP/Infra] dataCentersG disabled — skipping 4k-feature load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.dataCentersGlobal);
@@ -15996,8 +16010,8 @@ export default function CREPDashboardPage({
                   // coverage at city zoom. Now opens up when EITHER toggle
                   // is on so the default-ON cellTowers gets viewport data.
                   const layersList = (window as any).__crep_layers?.() || [];
-                  const cellTowersMain = layersList.find((l: any) => l.id === "cellTowers")?.enabled ?? false;
-                  const cellTowersGlobal = layersList.find((l: any) => l.id === "cellTowersG")?.enabled ?? false;
+                  const cellTowersMain = layersList.find((l: any) => l.id === "cellTowers")?.enabled ?? true;
+                  const cellTowersGlobal = layersList.find((l: any) => l.id === "cellTowersG")?.enabled ?? true;
                   const cellTowersOn = cellTowersMain || cellTowersGlobal;
                   if (!cellTowersOn) {
                     console.log("[CREP/Infra] cell towers disabled — skipping load");
@@ -17021,9 +17035,9 @@ export default function CREPDashboardPage({
           </MapComponent>
 
           {/* Signal Coverage Heatmap */}
-          {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? false) && <SignalHeatmapLayer
+          {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? true) && <SignalHeatmapLayer
             map={mapRef}
-            enabled={layers.find(l => l.id === "signalHeatmap")?.enabled ?? false}
+            enabled={layers.find(l => l.id === "signalHeatmap")?.enabled ?? true}
             towers={cellTowerPoints}
             opacity={0.4}
             signalType="cellular"
@@ -17072,19 +17086,19 @@ export default function CREPDashboardPage({
             enabled={{
               ports:          !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
               radar:          !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
-              radioStations:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? false),
+              radioStations:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
               powerPlantsG:   !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
               factories:      !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
               orbitalDebris:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
               debrisCloud:    !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
               txLinesGlobal:  !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
-              cellTowersG:    !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? false),
+              cellTowersG:    !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
               // Default these to true while layer state hydrates so they
               // load immediately on refresh as required.
               bathymetry:     layers.find(l => l.id === "bathymetry")?.enabled ?? true,
               topography:     layers.find(l => l.id === "topography")?.enabled ?? true,
               satImagery:     layers.find(l => l.id === "satImagery")?.enabled ?? true,
-              railwayTracks:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? false),
+              railwayTracks:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
               railwayTrains:  !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
               droneNoFly:     !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
               cctv:           !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
@@ -17326,7 +17340,7 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, EIA_IM3_LAYER_IDS) && <EiaIm3Overlays
             map={mapRef}
             enabled={{
-              im3DataCenters:          layers.find(l => l.id === "im3DataCenters")?.enabled ?? false,
+              im3DataCenters:          layers.find(l => l.id === "im3DataCenters")?.enabled ?? true,
               im3DataCenterFootprints: layers.find(l => l.id === "im3DataCenterFootprints")?.enabled ?? false,
               eiaOperating:            layers.find(l => l.id === "eiaOperating")?.enabled   ?? false,
               eiaPlanned:              layers.find(l => l.id === "eiaPlanned")?.enabled     ?? false,

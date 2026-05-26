@@ -80,7 +80,7 @@ const DATASETS: Array<{
     categoryProp: "op",
     valueProp: "sqft",
     valueUnit: "sqft",
-    minzoom: 3,
+    minzoom: 2,
     radiusProp: "sqft",
   },
   {

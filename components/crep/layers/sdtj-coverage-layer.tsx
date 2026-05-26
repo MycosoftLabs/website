@@ -22,6 +22,11 @@
 
 import { useEffect } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import {
+  DATA_CENTER_MIN_ZOOM,
+  TELECOM_CITY_MIN_ZOOM,
+  TELECOM_DETAIL_MIN_ZOOM,
+} from "@/lib/crep/lod-policy"
 
 type Enabled = {
   sdtjHospitals?: boolean
@@ -102,6 +107,12 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
       })
     }
 
+    const minZoomForCategory = (cat: CategoryDef): number => {
+      if (cat.id === "sdtjDataCenters") return DATA_CENTER_MIN_ZOOM
+      if (cat.id === "sdtjCellTowers" || cat.id === "sdtjAmFmAntennas") return TELECOM_CITY_MIN_ZOOM
+      return TELECOM_DETAIL_MIN_ZOOM
+    }
+
     const ensureLoaded = async (cat: CategoryDef) => {
       if (loaded.has(cat.layerId)) return
       try {
@@ -113,6 +124,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
         const gj = await res.json()
         if (cancelled) return
         safeAddSource(cat.sourceId, gj)
+        const categoryMinZoom = minZoomForCategory(cat)
         if (cat.polygon) {
           // Polygon fill + outline
           safeAddLayer({
@@ -124,7 +136,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
               "fill-color": cat.color,
               "fill-opacity": 0.18,
             },
-            minzoom: 6,
+            minzoom: categoryMinZoom,
           })
           safeAddLayer({
             id: cat.layerId + "-outline",
@@ -137,7 +149,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
               "line-opacity": 0.8,
               "line-dasharray": [3, 1.5],
             },
-            minzoom: 6,
+            minzoom: categoryMinZoom,
           })
           // Also a centroid circle for clickability when polygon is tiny
           safeAddLayer({
@@ -152,7 +164,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
               "circle-stroke-color": "#000",
               "circle-stroke-width": 0.6,
             },
-            minzoom: 6,
+            minzoom: categoryMinZoom,
           })
         } else {
           safeAddLayer({
@@ -166,7 +178,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
               "circle-stroke-color": "#000",
               "circle-stroke-width": 0.6,
             },
-            minzoom: 6,
+            minzoom: categoryMinZoom,
           })
         }
 
