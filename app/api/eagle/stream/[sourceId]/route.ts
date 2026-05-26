@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { caltransProxiedSnapshot, resolveCaltransHls } from "@/lib/crep/caltrans-hls-resolve"
+import { normalizeYouTubeEmbedUrlSync } from "@/lib/crep/youtube-embed"
 
 /**
  * Eagle Eye — stream URL resolver — Apr 20, 2026
@@ -128,6 +130,13 @@ function flattenSource(raw: any): any {
   }
 }
 
+function deriveSurflineEmbed(embedUrl: string | null | undefined): string | null {
+  if (!embedUrl) return null
+  const m = /surfline\.com\/surf-report\/[^/]+\/([a-f0-9]{16,})/i.exec(embedUrl)
+  if (!m) return null
+  return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&mute=1&playsinline=1`
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sourceId: string }> },
@@ -136,6 +145,8 @@ export async function GET(
   if (!sourceId) {
     return NextResponse.json({ error: "sourceId required" }, { status: 400 })
   }
+  const qEmbed = req.nextUrl.searchParams.get("embed_url")
+  const qMedia = req.nextUrl.searchParams.get("media_url")
   try {
     // 1) MINDEX by-id (GET /eagle/video-sources/{id}) — O(1), no global bbox.
     // 2) Tight-bbox Caltrans / coord-hinted ids.
@@ -153,25 +164,76 @@ export async function GET(
           String(s?.properties?.source_id ?? "") === sourceId,
       )
     }
-    if (!raw) {
+    const src = raw
+      ? flattenSource(raw)
+      : {
+          id: sourceId,
+          source_id: sourceId,
+          provider: sourceId.startsWith("caltrans-")
+            ? "caltrans"
+            : sourceId.startsWith("surfline-")
+              ? "surfline"
+              : "unknown",
+          kind: "permanent",
+          stream_url: null,
+          embed_url: qEmbed,
+          media_url: qMedia,
+        }
+
+    if (!raw && !qEmbed && !qMedia) {
       return NextResponse.json({ error: "source not found", id: sourceId }, { status: 404 })
     }
-    const src = flattenSource(raw)
+
+    if (qEmbed && !src.embed_url) src.embed_url = qEmbed
+    if (qMedia && !src.media_url) src.media_url = qMedia
+
     const provider = src.provider || "unknown"
     const kind = src.kind || "permanent"
-    const streamUrl = (src.stream_url || "").trim()
+    let streamUrl = (src.stream_url || "").trim()
     const isHls =
       streamUrl.length > 0 &&
       (streamUrl.toLowerCase().endsWith(".m3u8") || streamUrl.toLowerCase().includes(".m3u8?"))
 
-    if (isHls) {
+    if (provider === "caltrans" && !isHls) {
+      const resolved = await resolveCaltransHls({
+        sourceId,
+        stream_url: src.stream_url,
+        embed_url: src.embed_url,
+        media_url: src.media_url,
+      })
+      if (resolved) streamUrl = resolved
+    }
+
+    const resolvedHls =
+      streamUrl.length > 0 &&
+      (streamUrl.toLowerCase().endsWith(".m3u8") || streamUrl.toLowerCase().includes(".m3u8?"))
+
+    if (resolvedHls) {
+      const snapshot =
+        provider === "caltrans"
+          ? caltransProxiedSnapshot(src.embed_url, src.media_url)
+          : null
       return NextResponse.json({
         id: sourceId,
         provider,
         kind,
         stream_url: streamUrl,
+        snapshot_url: snapshot,
         stream_type: "hls",
       })
+    }
+
+    if (provider === "surfline" && src.embed_url) {
+      const surfEmbed = deriveSurflineEmbed(String(src.embed_url))
+      if (surfEmbed) {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          embed_url: surfEmbed,
+          stream_type: "iframe",
+        })
+      }
     }
 
     // Shinobi → proxy through MediaMTX as HLS.
@@ -205,27 +267,57 @@ export async function GET(
       })
     }
 
+    // Caltrans without HLS → proxied auto-refresh JPEG (better than vm/loc iframe).
+    if (provider === "caltrans") {
+      const snap = caltransProxiedSnapshot(src.embed_url, src.media_url)
+      if (snap) {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          stream_url: snap,
+          embed_url: src.embed_url,
+          stream_type: "snapshot",
+        })
+      }
+    }
+
     // Direct embed URL (YouTube, Twitch, Vimeo, EarthCam, Windy, etc.)
     if (src.embed_url) {
+      const yt = normalizeYouTubeEmbedUrlSync(String(src.embed_url))
+      const embed_url = yt || src.embed_url
       return NextResponse.json({
         id: sourceId,
         provider,
         kind,
-        embed_url: src.embed_url,
+        embed_url,
         stream_type: "iframe",
       })
     }
 
-    // Fallback to whatever media_url we have.
-    if (src.media_url) {
+    // Proxied still-frame (Caltrans / state DOT JPEG refresh).
+    if (src.media_url && /\/api\/eagle\/cam-image/i.test(String(src.media_url))) {
       return NextResponse.json({
         id: sourceId,
         provider,
         kind,
         stream_url: src.media_url,
-        stream_type: src.media_url.endsWith(".m3u8")
+        embed_url: src.embed_url,
+        stream_type: "snapshot",
+      })
+    }
+
+    // Fallback to whatever media_url we have.
+    if (src.media_url) {
+      const media = String(src.media_url)
+      return NextResponse.json({
+        id: sourceId,
+        provider,
+        kind,
+        stream_url: media,
+        stream_type: media.endsWith(".m3u8")
           ? "hls"
-          : src.media_url.endsWith(".mpg") || src.media_url.endsWith(".mpeg") || src.media_url.endsWith(".mjpg")
+          : media.endsWith(".mpg") || media.endsWith(".mpeg") || media.endsWith(".mjpg")
           ? "mjpeg"
           : "iframe",
       })

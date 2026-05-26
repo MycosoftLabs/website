@@ -121,6 +121,9 @@ export async function resolveEagleLiveStream(
     })
     if (res.ok) {
       const data = await res.json()
+      if (data.stream_type === "snapshot" && data.stream_url) {
+        return { stream_type: "snapshot", url: data.stream_url }
+      }
       const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
       if (fromApi) return fromApi
     }

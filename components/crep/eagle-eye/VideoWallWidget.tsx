@@ -25,7 +25,7 @@ import {
 } from "@/lib/crep/youtube-embed"
 import { resolveEagleLiveStream } from "@/components/crep/eagle-eye/eagle-live-stream"
 
-type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg"
+type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
 
 interface ResolvedStream {
   id: string
@@ -33,6 +33,7 @@ interface ResolvedStream {
   kind: "permanent" | "ephemeral"
   stream_url?: string
   embed_url?: string
+  snapshot_url?: string
   stream_type: StreamType
   error?: string
 }
@@ -43,22 +44,25 @@ interface ActiveFeed {
   provider: string
   lat: number
   lng: number
-  // For direct-payload events (e.g. YouTube live from the overlay), we
-  // already have embed_url on the click detail — skip the /stream lookup.
   directEmbed?: string
+  embedUrl?: string
+  mediaUrl?: string
   thumbnail?: string
   confidence?: number
   kind: "camera" | "video_event"
 }
 
-async function resolveStream(sourceId: string): Promise<ResolvedStream> {
-  // Apr 23, 2026 audit: no timeout on the stream resolver meant a slow
-  // Eagle Eye backend left every video tile stuck at "Loading stream".
-  // 8 s deadline; on timeout we fall through to iframe embed which at
-  // least lets the user click through to the provider site.
+async function resolveStream(
+  sourceId: string,
+  hints?: { embed_url?: string; media_url?: string },
+): Promise<ResolvedStream> {
+  const qs = new URLSearchParams()
+  if (hints?.embed_url) qs.set("embed_url", hints.embed_url)
+  if (hints?.media_url) qs.set("media_url", hints.media_url)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ""
   try {
-    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}`, {
-      signal: AbortSignal.timeout(8_000),
+    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}${suffix}`, {
+      signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: `HTTP ${res.status}` }
     return res.json()
@@ -508,7 +512,25 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
       />
     )
   }
-  // May 24, 2026 — live video embeds only; no headless JPEG snapshot proxy.
+
+  const SNAPSHOT_PROVIDERS = new Set([
+    "earthcam",
+    "hpwren",
+    "alertwildfire",
+    "alertcalifornia",
+    "surfline",
+    "webcamtaxi",
+    "skylinewebcams",
+    "windy",
+    "nps",
+    "usgs",
+    "caltrans",
+  ])
+  const providerKey = (provider || "").toLowerCase()
+  if (SNAPSHOT_PROVIDERS.has(providerKey) || /earthcam|hpwren|surfline|webcamtaxi|skyline|windy|alert/i.test(url)) {
+    return <SnapshotProxyVideo url={url} provider={provider} name={name} />
+  }
+
   return <NoStreamStatusTile provider={provider} name={name} />
 }
 
@@ -755,21 +777,32 @@ export default function VideoWallWidget() {
     const onCamera = (e: any) => {
       const d = e?.detail || {}
       lastOpenAtRef.current = Date.now()
-      const directEmbed = d.stream_url || d.embed_url || undefined
+      const streamUrl = d.stream_url || undefined
+      const embedUrl = d.embed_url || undefined
+      const mediaUrl = d.media_url || undefined
+      const directEmbed =
+        (streamUrl && /\.m3u8/i.test(streamUrl) ? streamUrl : undefined) ||
+        streamUrl ||
+        embedUrl ||
+        mediaUrl ||
+        undefined
       setFeed({
         id: d.id, name: d.name || `${d.provider} camera`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "camera",
         directEmbed,
+        embedUrl,
+        mediaUrl,
       })
     }
     const onEvent = (e: any) => {
       const d = e?.detail || {}
       lastOpenAtRef.current = Date.now()
-      // Same priority for ephemeral events.
       setFeed({
         id: d.id, name: d.title || d.name || `${d.provider} clip`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "video_event",
         directEmbed: d.stream_url || d.embed_url || undefined,
+        embedUrl: d.embed_url || undefined,
+        mediaUrl: d.media_url || undefined,
         thumbnail: d.thumbnail || undefined,
         confidence: d.confidence,
       })
@@ -808,8 +841,8 @@ export default function VideoWallWidget() {
     }
   }, [feed])
 
-  // May 24, 2026 — Morgan: live HD video only; never route cameras through
-  // JPEG snapshots or cam-image proxies.
+  // May 26, 2026 — Caltrans HLS via stream API when registry lacks m3u8;
+  // proxied JPEG fallback only after HLS fails; Surfline embed-cam iframe.
   useEffect(() => {
     if (!feed) { setResolved(null); setLoading(false); return }
     setLoading(false)
@@ -820,10 +853,12 @@ export default function VideoWallWidget() {
     const isMjpeg  = (u: string) => /\/mjpeg(\?|\/|$)/i.test(u) || /multipart\/x-mixed-replace/i.test(u)
     const isStill  = (u: string) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/api\/eagle\/cam-(snapshot|image)/i.test(u)
 
-    const pickStreamType = (url: string): StreamType => {
+    const pickStreamType = (url: string, apiType?: string): StreamType => {
+      if (apiType === "snapshot") return "snapshot"
       if (isHls(url))        return "hls"
       if (isWhep(url))       return "webrtc"
       if (isMjpeg(url))      return "mjpeg"
+      if (isStill(url))      return "snapshot"
       return "iframe"
     }
 
@@ -838,45 +873,62 @@ export default function VideoWallWidget() {
       if (!embed) return null
       const m = /surfline\.com\/surf-report\/[^/]+\/([a-f0-9]{16,})/i.exec(embed)
       if (!m) return null
-      return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&muted=1`
+      return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&muted=1&playsinline=1`
     }
 
-    const de = pickLiveUrl(feed.directEmbed)
+    const providerLc = (feed.provider || "").toLowerCase()
+    const caltransNeedsResolve =
+      providerLc === "caltrans" &&
+      !(feed.directEmbed && isHls(feed.directEmbed))
+
+    const de = caltransNeedsResolve
+      ? undefined
+      : pickLiveUrl(feed.directEmbed)
 
     // 1: live video (HLS / WebRTC / MJPEG) wins
     if (de && (isHls(de) || isWhep(de) || isMjpeg(de))) {
+      const snap =
+        providerLc === "caltrans"
+          ? proxiedCaltransSnapshot(feed.embedUrl, feed.mediaUrl)
+          : feed.mediaUrl && isStill(feed.mediaUrl)
+            ? feed.mediaUrl
+            : null
       setResolved({
         id: feed.id,
         provider: feed.provider,
         kind: feed.kind === "camera" ? "permanent" : "ephemeral",
         stream_type: isHls(de) ? "hls" : isWhep(de) ? "webrtc" : "mjpeg",
         stream_url: de,
-        embed_url: de,
+        embed_url: feed.embedUrl || de,
+        snapshot_url: snap || undefined,
       })
       return
     }
 
     // 2: Surfline — rewrite surf-report to embed-cam
-    const surflineEmbed = deriveSurflineEmbed(de)
-    if (surflineEmbed) {
-      setResolved({
-        id: feed.id,
-        provider: feed.provider,
-        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-        stream_type: "iframe",
-        stream_url: surflineEmbed,
-        embed_url: surflineEmbed,
-      })
-      return
+    const surflineEmbed = deriveSurflineEmbed(de || feed.embedUrl)
+    if (surflineEmbed || providerLc === "surfline") {
+      const embed = surflineEmbed || de || feed.embedUrl
+      if (embed) {
+        setResolved({
+          id: feed.id,
+          provider: feed.provider,
+          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+          stream_type: "iframe",
+          stream_url: embed,
+          embed_url: embed,
+        })
+        return
+      }
     }
 
     // 3: YouTube — always iframe
-    const providerLc = (feed.provider || "").toLowerCase()
     const isYoutubeFeed =
-      providerLc.includes("youtube") || (de ? isYouTubeUrl(de) : false)
+      providerLc.includes("youtube") || (de ? isYouTubeUrl(de) : false) || (feed.embedUrl ? isYouTubeUrl(feed.embedUrl) : false)
+    const ytRaw = de || feed.embedUrl
 
-    if (de && isYoutubeFeed) {
-      const syncYt = normalizeYouTubeEmbedUrlSync(de)
+    if (ytRaw && isYoutubeFeed) {
+      const syncYt = normalizeYouTubeEmbedUrlSync(ytRaw)
       if (syncYt) {
         setResolved({
           id: feed.id,
@@ -889,22 +941,36 @@ export default function VideoWallWidget() {
         return
       }
       setLoading(true)
-      resolveYouTubeEmbedUrl(de).then((yt) => {
+      resolveYouTubeEmbedUrl(ytRaw).then((yt) => {
         if (cancelled) return
         setResolved({
           id: feed.id,
           provider: feed.provider,
           kind: feed.kind === "camera" ? "permanent" : "ephemeral",
           stream_type: "iframe",
-          embed_url: yt || de,
-          stream_url: yt || de,
+          embed_url: yt || ytRaw,
+          stream_url: yt || ytRaw,
         })
         setLoading(false)
       })
       return
     }
 
-    // 4: any other live directEmbed
+    // 4: proxied still frame when no live URL (Caltrans offline HLS)
+    if (feed.mediaUrl && isStill(feed.mediaUrl) && caltransNeedsResolve) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: feed.mediaUrl,
+        embed_url: feed.embedUrl,
+        snapshot_url: feed.mediaUrl,
+      })
+      return
+    }
+
+    // 5: any other live directEmbed
     if (de) {
       setResolved({
         id: feed.id,
@@ -917,25 +983,43 @@ export default function VideoWallWidget() {
       return
     }
 
-    // 5: server-side live stream resolver
+    // 6: server-side live stream resolver (Caltrans HLS lookup, Surfline, etc.)
     setLoading(true)
-    resolveStream(feed.id).then(async (r) => {
+    resolveStream(feed.id, {
+      embed_url: feed.embedUrl,
+      media_url: feed.mediaUrl,
+    }).then(async (r) => {
       if (cancelled) return
+      if (r.stream_type === "snapshot" && r.stream_url) {
+        setResolved({
+          ...r,
+          embed_url: r.embed_url || feed.embedUrl,
+          snapshot_url: r.stream_url,
+        })
+        setLoading(false)
+        return
+      }
       const liveFromApi = pickLiveUrl(r.stream_url, r.embed_url)
       if (liveFromApi) {
+        const snap =
+          r.snapshot_url ||
+          (providerLc === "caltrans"
+            ? proxiedCaltransSnapshot(feed.embedUrl || r.embed_url, feed.mediaUrl)
+            : null)
         setResolved({
           ...r,
           stream_url: liveFromApi,
-          embed_url: liveFromApi,
-          stream_type: pickStreamType(liveFromApi),
+          embed_url: r.embed_url || feed.embedUrl || liveFromApi,
+          snapshot_url: snap || undefined,
+          stream_type: pickStreamType(liveFromApi, r.stream_type),
         })
         setLoading(false)
         return
       }
       const resolvedLive = await resolveEagleLiveStream({
         id: feed.id,
-        stream_url: r.stream_url,
-        embed_url: r.embed_url,
+        stream_url: r.stream_url || feed.mediaUrl,
+        embed_url: r.embed_url || feed.embedUrl,
         provider: feed.provider,
       })
       if (cancelled) return
@@ -946,7 +1030,23 @@ export default function VideoWallWidget() {
           kind: feed.kind === "camera" ? "permanent" : "ephemeral",
           stream_type: resolvedLive.stream_type,
           stream_url: resolvedLive.url,
-          embed_url: resolvedLive.url,
+          embed_url: feed.embedUrl || resolvedLive.url,
+          snapshot_url:
+            resolvedLive.stream_type === "snapshot"
+              ? resolvedLive.url
+              : feed.mediaUrl && isStill(feed.mediaUrl)
+                ? feed.mediaUrl
+                : undefined,
+        })
+      } else if (feed.mediaUrl && isStill(feed.mediaUrl)) {
+        setResolved({
+          id: feed.id,
+          provider: feed.provider,
+          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+          stream_type: "snapshot",
+          stream_url: feed.mediaUrl,
+          embed_url: feed.embedUrl,
+          snapshot_url: feed.mediaUrl,
         })
       } else {
         setResolved({ ...r, error: r.error || "No live video stream available" })
@@ -955,7 +1055,7 @@ export default function VideoWallWidget() {
     })
 
     return () => { cancelled = true }
-  }, [feed?.id, feed?.directEmbed, feed?.provider, feed?.kind])
+  }, [feed?.id, feed?.directEmbed, feed?.embedUrl, feed?.mediaUrl, feed?.provider, feed?.kind])
 
   if (!feed) return null
 
@@ -1040,10 +1140,32 @@ export default function VideoWallWidget() {
             }
             switch (resolved.stream_type) {
               case "hls":
-                return <HlsPlayer url={url} />
+                return (
+                  <HlsWithSnapshotFallback
+                    url={url}
+                    fallbackSnapshot={
+                      resolved.snapshot_url ||
+                      (feed.provider === "caltrans"
+                        ? proxiedCaltransSnapshot(feed.embedUrl, feed.mediaUrl)
+                        : feed.mediaUrl)
+                    }
+                    embedUrl={resolved.embed_url || feed.embedUrl}
+                    provider={feed.provider}
+                    name={feed.name}
+                  />
+                )
               case "webrtc": return <WebRTCPlayer url={url} />
               case "iframe": return <IframeEmbed url={url} provider={feed.provider} name={feed.name} />
               case "mjpeg": return <MjpegStream url={url} />
+              case "snapshot":
+                return (
+                  <SnapshotStream
+                    url={url}
+                    embedUrl={resolved.embed_url || feed.embedUrl}
+                    provider={feed.provider}
+                    name={feed.name}
+                  />
+                )
               default: return <IframeEmbed url={url} provider={feed.provider} name={feed.name} />
             }
           })()}

@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic"
 
 type Cam = {
   id: string
-  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "txdot"
+  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot"
   name: string | null
   lat: number
   lng: number
@@ -93,16 +93,21 @@ async function pullCaltrans(): Promise<Cam[]> {
           }
           const embedUrl = locViewer
             || `https://cwwp2.dot.ca.gov/vm/iframemap.htm?code=${encodeURIComponent(cctv?.indexCctv || "")}`
+          const inService = cctv?.inService !== "false" && cctv?.inService !== false
+          const proxiedSnap = snapshot
+            ? `/api/eagle/cam-image?url=${encodeURIComponent(snapshot)}`
+            : null
           return {
             id: `caltrans-d${d}-${cctv?.recordId || cctv?.indexCctv || `${lat},${lng}`}`,
             provider: "caltrans",
             name: cctv?.location?.nearbyPlace || cctv?.location?.locationName || `Caltrans D${d} cam`,
             lat,
             lng,
-            stream_url: stream,
+            stream_url: inService ? stream : null,
             embed_url: embedUrl,
-            // Snapshot is ONLY the still JPEG — never the m3u8.
-            media_url: snapshot,
+            // Proxied JPEG refreshes every ~2s upstream; works when HLS 404s.
+            media_url: proxiedSnap,
+            source_status: inService ? "online" : "offline",
             category: "traffic",
           }
         })
@@ -190,29 +195,66 @@ async function pullNYSDOT(): Promise<Cam[]> {
     if (!res.ok) return []
     const items: any[] = await res.json()
     return items
-      .filter((c: any) => Number.isFinite(Number(c.Latitude)) && Number.isFinite(Number(c.Longitude)))
+      .filter(
+        (c: any) =>
+          Number.isFinite(Number(c.Latitude)) &&
+          Number.isFinite(Number(c.Longitude)) &&
+          !c.Disabled &&
+          !c.Blocked,
+      )
       .map((c: any): Cam => {
-        // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
-        // need to work". 511NY ImageUrl is a direct JPEG that 511ny.org
-        // returns — but from the browser it's cross-origin + may drop
-        // without a proper Referer. Wrap in our /api/eagle/cam-image
-        // proxy so the VideoWallWidget's SnapshotStream can load it
-        // same-origin. The proxy has 511ny.org allowlisted.
-        const rawImg = c.ImageUrl || null
-        const proxiedImg = rawImg
-          ? `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}`
-          : null
+        // May 24, 2026 — 511NY no longer populates ImageUrl and
+        // /map/GetImage?id= returns HTTP 404 for every camera. Live
+        // feeds are in VideoUrl (SkyVDN HLS .m3u8). For NYC street
+        // coverage use pullNYCTMC() — ~960 JPEG snapshots that work.
+        const videoUrl = c.VideoUrl || null
         return {
           id: `nysdot-${c.ID}`,
           provider: "nysdot",
-          // Prefer the more descriptive Name + route ref when present
           name: c.Name
             ? (c.RoadwayName ? `${c.Name} (${c.RoadwayName})` : c.Name)
             : `511NY ${c.ID}`,
           lat: Number(c.Latitude),
           lng: Number(c.Longitude),
-          stream_url: null,
+          stream_url: videoUrl,
           embed_url: c.Url || null,
+          media_url: null,
+          category: "traffic",
+        }
+      })
+  } catch { return [] }
+}
+
+// ─── NYC DOT TMC (webcams.nyctmc.org) ───────────────────────────────────
+// May 24, 2026 — Primary NYC traffic camera feed. 511NY GetImage is
+// dead; NYCTMC serves ~960 online cams with direct JPEG snapshots.
+async function pullNYCTMC(): Promise<Cam[]> {
+  try {
+    const res = await fetch("https://webcams.nyctmc.org/api/cameras", {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!res.ok) return []
+    const items: any[] = await res.json()
+    return items
+      .filter(
+        (c: any) =>
+          Number.isFinite(Number(c.latitude)) &&
+          Number.isFinite(Number(c.longitude)) &&
+          String(c.isOnline).toLowerCase() === "true",
+      )
+      .map((c: any): Cam => {
+        const rawImg =
+          c.imageUrl || `https://webcams.nyctmc.org/api/cameras/${c.id}/image`
+        const proxiedImg = `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}`
+        return {
+          id: `nyctmc-${c.id}`,
+          provider: "nyctmc",
+          name: c.name || `NYC TMC ${c.area || "camera"}`,
+          lat: Number(c.latitude),
+          lng: Number(c.longitude),
+          stream_url: null,
+          embed_url: `https://webcams.nyctmc.org/map/camera/${c.id}`,
           media_url: proxiedImg,
           category: "traffic",
         }
@@ -254,14 +296,15 @@ async function pullTxDOT(): Promise<Cam[]> {
 
 export async function GET(req: NextRequest) {
   const bbox = req.nextUrl.searchParams.get("bbox") || undefined
-  const [caltrans, wsdot, fdot, nysdot, txdot] = await Promise.all([
+  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot] = await Promise.all([
     pullCaltrans(),
     pullWSDOT(),
     pullFDOT(),
     pullNYSDOT(),
+    pullNYCTMC(),
     pullTxDOT(),
   ])
-  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...txdot]
+  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot]
   if (bbox) {
     const [w, s, e, n] = bbox.split(",").map(Number)
     if ([w, s, e, n].every(Number.isFinite)) {
@@ -277,6 +320,7 @@ export async function GET(req: NextRequest) {
         wsdot: wsdot.length,
         fdot: fdot.length,
         nysdot: nysdot.length,
+        nyctmc: nyctmc.length,
         txdot: txdot.length,
       },
       cams,
