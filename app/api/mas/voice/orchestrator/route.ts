@@ -223,6 +223,19 @@ function isBrokenFallback(response: string): boolean {
     "Could you try again in a moment",
     "I'm working on it",
     "I encountered an issue processing your request",
+    // Never expose internal infrastructure to users (QA: search + MYCA chat)
+    "short-term conversation context in redis",
+    "long-term facts in postgresql",
+    "semantic embeddings in qdrant",
+    "my memory system has multiple tiers",
+    "redis memory is connected",
+    "running on the mas vm",
+    "192.168.0.",
+    "proxmox vms",
+    "docker containers",
+    "unifi network",
+    "rtx 5090",
+    "moshi 7b",
   ]
   const lower = response.toLowerCase()
   return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
@@ -1571,7 +1584,7 @@ async function getMycaResponse(
     ? ""
     : [
         "[Search Isolation]",
-        "This is a standalone search request. Do not use prior MYCA chat turns, prior teaching context, or conversation memory to answer.",
+        "This is a standalone search request. Do not use prior MYCA chat turns, prior teaching context, or earlier conversation context to answer.",
         "Answer only the current search query and provided search data.",
       ].join("\n")
   const enrichedMessage = [
