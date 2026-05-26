@@ -14,9 +14,10 @@
  * picks them up automatically.
  */
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Building2, FolderKanban, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CREP_COLLAPSE_FLYTO_EVENT } from "@/lib/crep/fly-to-panels"
 
 export interface MycosoftProject {
   /** Stable id used for DOM keys + analytics */
@@ -278,12 +279,23 @@ export function FlyToProjects({ onFlyTo, onEnableLayers, className, compact = fa
   const [projectsOpen, setProjectsOpen] = useState(false)
   const [metrosOpen, setMetrosOpen] = useState(false)
 
+  useEffect(() => {
+    const onCollapse = () => {
+      setProjectsOpen(false)
+      setMetrosOpen(false)
+    }
+    window.addEventListener(CREP_COLLAPSE_FLYTO_EVENT, onCollapse)
+    return () => window.removeEventListener(CREP_COLLAPSE_FLYTO_EVENT, onCollapse)
+  }, [])
+
   const chip = (p: MycosoftProject) => (
     <button
       key={p.id}
       onClick={() => {
         onFlyTo({ center: p.center, zoom: p.zoom, pitch: p.pitch3d, bearing: p.bearing })
         if (p.layersOn && p.layersOn.length && onEnableLayers) onEnableLayers(p.layersOn)
+        setProjectsOpen(false)
+        setMetrosOpen(false)
       }}
       className={cn(
         "rounded-lg border bg-black/40 backdrop-blur-sm transition-all font-mono tracking-wider",

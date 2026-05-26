@@ -33,6 +33,20 @@ import {
   layerSpecForMode,
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
+import { RAILWAY_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import {
+  eagleCameraClickLayerIds,
+  eagleCameraGlowLayer,
+  eagleCameraHitLayer,
+  eagleCameraIconLayer,
+  eagleCameraLabelLayer,
+  eagleCameraLayerIds,
+  ensureEagleCameraMapIcon,
+} from "@/lib/crep/eagle-camera-map-icon"
+
+const CCTV_LAYER_PREFIX = "crep-cctv"
+const CCTV_VISIBILITY_LAYER_IDS = Object.values(eagleCameraLayerIds(CCTV_LAYER_PREFIX))
+const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
 
 interface Props {
   map: MapLibreMap | null
@@ -60,6 +74,8 @@ interface Props {
   }
   bbox?: [number, number, number, number]
   searchContextMode?: boolean
+  /** Current map zoom — railway raster hidden below RAILWAY_MIN_ZOOM. */
+  mapZoom?: number
 }
 
 async function idleLoad<T>(fn: () => Promise<T>): Promise<T> {
@@ -108,7 +124,7 @@ function setLayerVisibility(map: MapLibreMap | null, layerIds: string[], visible
   }
 }
 
-export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false }: Props) {
+export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false, mapZoom = 0 }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
   const landMaskResolutionRef = useRef<"10m" | "50m" | null>(null)
   const [styleReadyTick, setStyleReadyTick] = useState(0)
@@ -1309,14 +1325,20 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     if (!map) return
     const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
-    if (!enabled.railwayTracks) {
+    const railwayVisible = Boolean(enabled.railwayTracks) && mapZoom >= RAILWAY_MIN_ZOOM
+    if (!railwayVisible) {
       try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "none") } catch { /* ignore */ }
-      return
+      if (!enabled.railwayTracks) return
     }
     if (loadedRef.current.railwayTracks) {
-      try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "visible") } catch { /* ignore */ }
+      try {
+        if (map.getLayer("crep-railway-raster")) {
+          map.setLayoutProperty("crep-railway-raster", "visibility", railwayVisible ? "visible" : "none")
+        }
+      } catch { /* ignore */ }
       return
     }
+    if (!enabled.railwayTracks) return
     loadedRef.current.railwayTracks = true
 
     idleLoad(async () => {
@@ -1346,6 +1368,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               id: "crep-railway-raster",
               type: "raster",
               source: srcId,
+              minzoom: RAILWAY_MIN_ZOOM,
+              layout: {
+                visibility: mapZoom >= RAILWAY_MIN_ZOOM ? "visible" : "none",
+              },
               paint: { "raster-opacity": 0.75 },
             },
             beforeId,
@@ -1354,7 +1380,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         console.log(`[ProposalOverlays] railway tracks: OpenRailwayMap tiles attached`)
       } catch (e: any) { console.warn("[ProposalOverlays/railwayTracks]", e.message) }
     })
-  }, [map, styleReadyTick, enabled.railwayTracks])
+  }, [map, styleReadyTick, enabled.railwayTracks, mapZoom])
 
   // ─── 11. Railway Live Trains — Amtrak Track-A-Train ────────────────────
   // Amtrak publishes a public GeoJSON feed of active train positions (named
@@ -1756,7 +1782,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // a "camera" type so the InfraAsset widget opens with the stream URL.
   useEffect(() => {
     if (!map) return
-    const layerIds = ["crep-cctv-core", "crep-cctv-halo"]
+    const layerIds = CCTV_VISIBILITY_LAYER_IDS
     if (!enabled.cctv) {
       setLayerVisibility(map, layerIds, false)
       return
@@ -1794,34 +1820,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           }))
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-cctv")) {
+          await ensureEagleCameraMapIcon(map)
           map.addSource("crep-cctv", { type: "geojson", data: fc, generateId: true })
-          // Halo — soft cyan
-          map.addLayer({
-            id: "crep-cctv-halo",
-            type: "circle",
-            source: "crep-cctv",
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 10, 7, 16, 12],
-              "circle-color": "#22d3ee",
-              "circle-opacity": 0.25,
-              "circle-blur": 1.1,
-            },
-          })
-          // Core — sharp white/cyan
-          map.addLayer({
-            id: "crep-cctv-core",
-            type: "circle",
-            source: "crep-cctv",
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.8, 10, 3.2, 16, 6],
-              "circle-color": "#67e8f9",
-              "circle-opacity": 0.95,
-              "circle-stroke-width": 1.0,
-              "circle-stroke-color": "#0b1220",
-              "circle-stroke-opacity": 0.9,
-            },
-          })
-          map.on("click", "crep-cctv-core", (e: any) => {
+          map.addLayer(eagleCameraHitLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+          map.addLayer(eagleCameraGlowLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+          map.addLayer(eagleCameraIconLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+          map.addLayer(eagleCameraLabelLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+          const onCctvClick = (e: any) => {
             const f = e.features?.[0]
             if (!f) return
             const p = f.properties || {}
@@ -1838,11 +1843,33 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               })
             } catch { /* ignore */ }
             try {
-              window.dispatchEvent(new CustomEvent("crep:camera:click", { detail: { ...p, lat: c?.lat, lng: c?.lng } }))
+              window.dispatchEvent(new CustomEvent("crep:camera:click", {
+                detail: {
+                  ...p,
+                  provider: p.operator || p.source || "cctv",
+                  lat: c?.lat,
+                  lng: c?.lng,
+                  stream_url: p.stream_url,
+                  embed_url: p.embed_url,
+                },
+              }))
+              window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", {
+                detail: {
+                  ...p,
+                  provider: p.operator || p.source || "cctv",
+                  lat: c?.lat,
+                  lng: c?.lng,
+                  stream_url: p.stream_url,
+                  embed_url: p.embed_url,
+                },
+              }))
             } catch { /* ignore */ }
-          })
-          map.on("mouseenter", "crep-cctv-core", () => { map.getCanvas().style.cursor = "pointer" })
-          map.on("mouseleave", "crep-cctv-core", () => { map.getCanvas().style.cursor = "" })
+          }
+          for (const layerId of CCTV_CLICK_LAYER_IDS) {
+            map.on("click", layerId, onCctvClick)
+            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
+            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+          }
           console.log(`[ProposalOverlays] CCTV: ${features.length} cameras loaded (mindex=${j.sources?.mindex || 0}, shinobi=${j.sources?.shinobi || 0})`)
         } else {
           (map.getSource("crep-cctv") as any).setData(fc)

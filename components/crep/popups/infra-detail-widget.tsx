@@ -204,6 +204,28 @@ function getDetailRows(asset: InfraAsset): { label: string; value: string; icon:
       break
   }
 
+  // Civic / viewport-intel contact fields (hospitals, fire stations, etc.)
+  if (p.facility_type && !rows.some((r) => r.label === "Type")) {
+    rows.push({ label: "Type", value: String(p.facility_type), icon: <Building2 className="w-3 h-3" /> })
+  }
+  if (p.operator && !rows.some((r) => r.label === "Operator")) {
+    rows.push({ label: "Operator", value: String(p.operator), icon: <Building2 className="w-3 h-3" /> })
+  }
+  if (p.phone) {
+    rows.push({ label: "Phone", value: String(p.phone), icon: <Phone className="w-3 h-3" /> })
+  }
+  if (p.email) {
+    rows.push({ label: "Email", value: String(p.email), icon: <Mail className="w-3 h-3" /> })
+  }
+  if (p.website) {
+    rows.push({
+      label: "Website",
+      value: String(p.website).replace(/^https?:\/\//, ""),
+      icon: <Globe className="w-3 h-3" />,
+      color: "text-cyan-400",
+    })
+  }
+
   // Always add source if available
   if (p.source && !rows.find(r => r.label === "Reference")) {
     rows.push({ label: "Source", value: p.source.toUpperCase(), icon: <ExternalLink className="w-3 h-3" /> })

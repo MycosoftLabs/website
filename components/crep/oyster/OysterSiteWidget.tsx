@@ -329,6 +329,27 @@ export default function OysterSiteWidget() {
  */
 function CategoryLivePanel({ site }: { site: ClickDetail }) {
   const cat = site.category
+  const live = site.live as { value?: number; unit?: string; parameter?: string; label?: string; color?: string } | undefined
+
+  if (live && typeof live.value === "number" && Number.isFinite(live.value)) {
+    return (
+      <div className="bg-black/30 rounded-lg p-2.5 border border-emerald-500/30 space-y-1.5">
+        <div className="text-[9px] uppercase tracking-[0.15em] text-emerald-300 font-mono">Live reading</div>
+        <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+          <div className="text-white/60">{live.parameter || "Value"}</div>
+          <div className="text-white font-mono text-right" style={{ color: live.color || undefined }}>
+            {live.value.toFixed(live.unit === "AQI" || live.unit === "ppb" ? 0 : 1)} {live.unit}
+          </div>
+          {live.label && (
+            <>
+              <div className="text-white/60">Status</div>
+              <div className="text-white font-mono text-right text-[10px]">{live.label}</div>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // ─── PLUME (UCSD PFM) — fetch live polygon stats ───────────────────
   if (cat === "plume") return <PlumeLivePanel siteId={String(site.id || "")} />
@@ -353,31 +374,192 @@ function CategoryLivePanel({ site }: { site: ClickDetail }) {
 }
 
 function LiveSensorPanel({ site }: { site: ClickDetail }) {
-  // Decide which live feed to render based on the sensor's kind/param.
   const kind = String(site.kind || site.param || "").toLowerCase()
+  const cat = String(site.category || "").toLowerCase()
+  const idStr = String(site.id || "")
   const hasCoords = typeof site.lat === "number" && typeof site.lng === "number"
 
-  // Air quality / AQS / PM2.5 / ozone — AirNow live monitor
-  if (/aqs|aqi|pm2|pm10|ozone|o3|no2|so2|co|ambient|air|arsenic/.test(kind) || site.category === "sensor") {
+  if (kind === "buoy" || /ndbc|sens-buoy|sens-ndbc/.test(idStr)) {
+    return <BuoyMiniPanel site={site} />
+  }
+  if (kind === "tide" || /coops|9410/.test(idStr)) {
+    return <TideMiniPanel site={site} />
+  }
+  if (kind === "streamflow" || /usgs|1101/.test(idStr)) {
+    return <StreamflowMiniPanel site={site} />
+  }
+  if (cat === "river-flow" || kind === "river-flow" || idStr.startsWith("ibwc")) {
+    return <RiverFlowLivePanel />
+  }
+  if (kind === "plume") return <PlumeLivePanel siteId={idStr} />
+  if (kind === "crossborder") return <CrossBorderLivePanel site={site} />
+  if (kind === "emit") return <EmitLivePanel site={site} />
+  if (kind === "h2s" || /sdapcd|h2s/.test(idStr) || /h2s/.test(kind)) {
+    return <H2SLivePanel site={site} />
+  }
+  if (/aqs|aqi|pm2|pm10|ozone|o3|no2|so2|co|ambient|air/.test(kind) || cat === "air-quality") {
+    return <AirQualityLivePanel site={site} />
+  }
+  if (hasCoords) {
     return (
       <div className="space-y-2">
-        <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">Environmental sensor · live feed</div>
-        {hasCoords ? (
-          <LiveAQIWidget lat={Number(site.lat)} lng={Number(site.lng)} radiusMi={25} title={`EPA AirNow · nearest monitor`} />
-        ) : (
-          <div className="bg-black/30 rounded-lg p-2 border border-white/10 text-[10px] text-white/60">
-            No coordinates on this sensor — can't resolve nearest AirNow monitor.
-          </div>
-        )}
-        <div className="bg-black/30 rounded-lg p-2 border border-white/10 text-[10px] text-white/70 space-y-0.5">
-          {site.param && <div><span className="text-white/40">Parameter:</span> <span className="font-mono">{String(site.param)}</span></div>}
-          {site.kind  && <div><span className="text-white/40">Kind:</span> <span className="font-mono">{String(site.kind)}</span></div>}
-          {site.agency && <div><span className="text-white/40">Agency:</span> <span className="font-mono">{String(site.agency)}</span></div>}
-        </div>
+        <div className="text-[9px] uppercase tracking-[0.15em] text-cyan-300 font-mono">Environmental sensor</div>
+        <LiveAQIWidget lat={Number(site.lat)} lng={Number(site.lng)} radiusMi={25} title="EPA AirNow · nearest" />
       </div>
     )
   }
   return null
+}
+
+function H2SLivePanel({ site }: { site: ClickDetail }) {
+  const [reading, setReading] = useState<{ h2s_ppb: number; observed_at?: string | null } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/crep/sdapcd/h2s", { signal: AbortSignal.timeout(10_000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j?.stations) return
+        const id = String(site.id || "")
+        const match =
+          j.stations.find((s: any) => String(s.id) === id) ||
+          j.stations.find((s: any) => {
+            if (typeof site.lat !== "number" || typeof site.lng !== "number") return false
+            const d = (s.lat - site.lat) ** 2 + (s.lng - site.lng) ** 2
+            return d < 0.002
+          })
+        if (match && typeof match.h2s_ppb === "number") {
+          setReading({ h2s_ppb: match.h2s_ppb, observed_at: match.observed_at })
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [site.id, site.lat, site.lng])
+
+  if (!reading) {
+    return <div className="text-[10px] text-white/50 font-mono">No live H₂S reading for this monitor.</div>
+  }
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">SDAPCD H₂S · live</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">H₂S</div>
+        <div className="text-white font-mono text-right">{reading.h2s_ppb.toFixed(1)} ppb</div>
+        {reading.observed_at && (
+          <>
+            <div className="text-white/60">Observed</div>
+            <div className="text-white font-mono text-right text-[10px]">{reading.observed_at}</div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BuoyMiniPanel({ site }: { site: ClickDetail }) {
+  const [obs, setObs] = useState<any | null>(null)
+  useEffect(() => {
+    const stationId =
+      site.station_id ||
+      String(site.id || "").match(/(\d{4,5})/)?.[1]
+    if (!stationId) return
+    let cancelled = false
+    fetch(`/api/crep/buoy/${stationId}`, { signal: AbortSignal.timeout(10_000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.observation) setObs(j.observation) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [site.id, site.station_id])
+
+  if (!obs) return <div className="text-[10px] text-white/50 font-mono">Loading NDBC buoy…</div>
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-cyan-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-cyan-300 font-mono">NDBC buoy · live</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        {obs.water_temp_c != null && (
+          <>
+            <div className="text-white/60">Water temp</div>
+            <div className="text-white font-mono text-right">{Number(obs.water_temp_c).toFixed(1)}°C</div>
+          </>
+        )}
+        {obs.wave_height_m != null && (
+          <>
+            <div className="text-white/60">Wave height</div>
+            <div className="text-white font-mono text-right">{Number(obs.wave_height_m).toFixed(1)} m</div>
+          </>
+        )}
+        {obs.wind_speed_ms != null && (
+          <>
+            <div className="text-white/60">Wind</div>
+            <div className="text-white font-mono text-right">{Number(obs.wind_speed_ms).toFixed(1)} m/s</div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TideMiniPanel({ site }: { site: ClickDetail }) {
+  const [tide, setTide] = useState<{ value: number; observed_at?: string } | null>(null)
+  useEffect(() => {
+    const station = site.station_id || String(site.id || "").match(/941\d{4}/)?.[0]
+    if (!station) return
+    let cancelled = false
+    const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?date=latest&station=${station}&product=water_level&datum=MLLW&units=english&time_zone=lst_ldt&format=json`
+    fetch(url, { signal: AbortSignal.timeout(8_000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return
+        const row = j?.data?.[j.data.length - 1]
+        const value = Number(row?.v)
+        if (Number.isFinite(value)) setTide({ value, observed_at: row?.t })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [site.id, site.station_id])
+
+  if (!tide) return <div className="text-[10px] text-white/50 font-mono">No live tide reading.</div>
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-blue-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-blue-300 font-mono">NOAA CO-OPS · tide</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Water level</div>
+        <div className="text-white font-mono text-right">{tide.value.toFixed(2)} ft MLLW</div>
+      </div>
+    </div>
+  )
+}
+
+function StreamflowMiniPanel({ site }: { site: ClickDetail }) {
+  const [flow, setFlow] = useState<{ value: number; observed_at?: string } | null>(null)
+  useEffect(() => {
+    const siteId = site.station_id || String(site.id || "").match(/110\d{5}/)?.[0]
+    if (!siteId) return
+    let cancelled = false
+    fetch(`https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${siteId}&parameterCd=00060&siteStatus=all`, {
+      signal: AbortSignal.timeout(8_000),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return
+        const values = j?.value?.timeSeries?.[0]?.values?.[0]?.value
+        const latest = Array.isArray(values) ? [...values].reverse().find((v: any) => v?.value && v.value !== "-999999") : null
+        const value = Number(latest?.value)
+        if (Number.isFinite(value)) setFlow({ value, observed_at: latest?.dateTime })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [site.id, site.station_id])
+
+  if (!flow) return <div className="text-[10px] text-white/50 font-mono">No live streamflow reading.</div>
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-amber-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-amber-300 font-mono">USGS streamflow · live</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Discharge</div>
+        <div className="text-white font-mono text-right">{flow.value.toFixed(1)} ft³/s</div>
+      </div>
+    </div>
+  )
 }
 
 function PlumeLivePanel({ siteId: _siteId }: { siteId: string }) {

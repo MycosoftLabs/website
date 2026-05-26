@@ -54,9 +54,7 @@ export function InfrastructureStatsPanel({
   onLayerToggle,
   className,
 }: InfraStatsProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["plants", "transmission", "substations", "datacenters", "cables", "upgrades", "gas", "globe", "labels"])
-  )
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set())
   const [settingsPanel, setSettingsPanel] = useState<"filters" | "plants" | "size" | "datacenters" | "transmission" | "substations" | "labels" | null>(null)
   const [plantStatus, setPlantStatus] = useState<Record<string, boolean>>({
     Operating: true,

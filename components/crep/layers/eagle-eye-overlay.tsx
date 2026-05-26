@@ -8,9 +8,8 @@
  *   PERMANENT cameras  (crep-eagle-cams-*)
  *     Pulled from /api/eagle/sources (MINDEX eagle.video_sources).
  *     Registered / fixed-location feeds: Shinobi, 511 traffic, Windy,
- *     EarthCam, Webcamtaxi, NPS, USGS. Glyph: cyan diamond with live-feed
- *     pulse ring. Distinct colors per provider so at a glance you can
- *     tell a 511 traffic cam from a Windy webcam.
+ *     EarthCam, Webcamtaxi, NPS, USGS. Glyph: neon blue camera icon
+ *     (#00f3ff) — larger hit target than purple cell-tower dots.
  *
  *   EPHEMERAL events  (crep-eagle-events-*)
  *     Pulled from /api/eagle/events (MINDEX eagle.video_events) plus
@@ -32,6 +31,17 @@
 
 import { useEffect, useRef } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import { filterEagleVideoSources } from "@/lib/crep/eagle-camera-normalize"
+import {
+  EAGLE_CAMERA_CLICK_LAYER_IDS,
+  EAGLE_CAMERA_LAYER_IDS,
+  EAGLE_CAMERA_NEON,
+  eagleCameraGlowLayer,
+  eagleCameraHitLayer,
+  eagleCameraIconLayer,
+  eagleCameraLabelLayer,
+  ensureEagleCameraMapIcon,
+} from "@/lib/crep/eagle-camera-map-icon"
 
 export interface EagleEyeEnabled {
   /** Permanent camera registry (Shinobi / 511 / Windy / EarthCam / NPS / USGS). */
@@ -61,17 +71,28 @@ function mapReady(map: MapLibreMap): boolean {
   return !!(map && (map as any).style && typeof map.getSource === "function")
 }
 
+// May 24, 2026 — Morgan: Caltrans/video icons must NOT use solar/power
+// yellow (#fbbf24). All permanent camera feeds share one cyan video color
+// so they read as CCTV, not EIA/WRI power plants.
+const VIDEO_CAMERA_COLOR = EAGLE_CAMERA_NEON
+
 const PROVIDER_COLOR: Record<string, string> = {
-  shinobi: "#22d3ee",     // cyan — first-party
-  "511": "#fbbf24",       // amber — traffic
-  "511ga": "#fbbf24",
-  "511sf": "#fbbf24",
-  windy: "#60a5fa",       // sky — weather
-  earthcam: "#a855f7",    // violet — public webcams
-  webcamtaxi: "#a855f7",
-  nps: "#22c55e",         // green — parks
-  usgs: "#22c55e",
-  "unifi-protect": "#38bdf8",
+  shinobi: VIDEO_CAMERA_COLOR,
+  "511": VIDEO_CAMERA_COLOR,
+  "511ga": VIDEO_CAMERA_COLOR,
+  "511sf": VIDEO_CAMERA_COLOR,
+  nysdot: VIDEO_CAMERA_COLOR,
+  nyctmc: VIDEO_CAMERA_COLOR,
+  caltrans: VIDEO_CAMERA_COLOR,
+  wsdot: VIDEO_CAMERA_COLOR,
+  fdot: VIDEO_CAMERA_COLOR,
+  txdot: VIDEO_CAMERA_COLOR,
+  windy: VIDEO_CAMERA_COLOR,
+  earthcam: VIDEO_CAMERA_COLOR,
+  webcamtaxi: VIDEO_CAMERA_COLOR,
+  nps: VIDEO_CAMERA_COLOR,
+  usgs: VIDEO_CAMERA_COLOR,
+  "unifi-protect": VIDEO_CAMERA_COLOR,
 }
 
 export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
@@ -84,7 +105,12 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
   // ─── Permanent camera plane ─────────────────────────────────────────
   useEffect(() => {
     if (!map) return
-    const ids = ["crep-eagle-cams-halo", "crep-eagle-cams-core", "crep-eagle-cams-label"]
+    const ids = [
+      EAGLE_CAMERA_LAYER_IDS.hit,
+      EAGLE_CAMERA_LAYER_IDS.glow,
+      EAGLE_CAMERA_LAYER_IDS.icon,
+      EAGLE_CAMERA_LAYER_IDS.label,
+    ]
     if (!enabled.eagleEyeCameras) {
       try {
         for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none")
@@ -116,14 +142,22 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     const paintFromSources = (sources: any[]) => {
       const providerFilter = (p: string): boolean => {
         if (p === "shinobi") return enabled.eagleEyeShinobi !== false
-        if (p.startsWith("511")) return enabled.eagleEye511Traffic !== false
+        if (
+          p.startsWith("511") ||
+          p === "nysdot" ||
+          p === "nyctmc" ||
+          p === "caltrans" ||
+          p === "wsdot" ||
+          p === "fdot" ||
+          p === "txdot"
+        ) return enabled.eagleEye511Traffic !== false
         if (p === "windy") return enabled.eagleEyeWeatherCams !== false
         if (p === "earthcam" || p === "webcamtaxi") return enabled.eagleEyeWebcams !== false
         if (p === "nps" || p === "usgs") return enabled.eagleEyeNpsUsgs !== false
         return true
       }
-      const features = (sources || [])
-        .filter((s: any) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && providerFilter(s.provider || ""))
+      const features = filterEagleVideoSources(sources || [])
+        .filter((s: any) => providerFilter(s.provider || ""))
         .map((s: any) => ({
           type: "Feature" as const,
           properties: {
@@ -139,7 +173,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             // path picks these up ONLY if media_url travels with the click.
             media_url: s.media_url,
             status: s.source_status ?? s.status,
-            color: PROVIDER_COLOR[s.provider] || "#22d3ee",
+            color: PROVIDER_COLOR[s.provider] || EAGLE_CAMERA_NEON,
           },
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
         }))
@@ -269,30 +303,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         const res = await fetch(`/api/eagle/sources${bboxParam}`)
         if (!res.ok) return
         const j = await res.json()
-        const providerFilter = (p: string): boolean => {
-          if (p === "shinobi") return enabled.eagleEyeShinobi !== false
-          if (p.startsWith("511")) return enabled.eagleEye511Traffic !== false
-          if (p === "windy") return enabled.eagleEyeWeatherCams !== false
-          if (p === "earthcam" || p === "webcamtaxi") return enabled.eagleEyeWebcams !== false
-          if (p === "nps" || p === "usgs") return enabled.eagleEyeNpsUsgs !== false
-          return true
-        }
-        const features = (j.sources || [])
-          .filter((s: any) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && providerFilter(s.provider || ""))
-          .map((s: any) => ({
-            type: "Feature" as const,
-            properties: {
-              id: s.id,
-              provider: s.provider,
-              kind: s.kind,
-              stream_url: s.stream_url,
-              embed_url: s.embed_url,
-              status: s.source_status,
-              color: PROVIDER_COLOR[s.provider] || "#22d3ee",
-            },
-            geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
-          }))
-        const fc = { type: "FeatureCollection" as const, features }
+        const fc = paintFromSources(j.sources || [])
         const mergedFc = mergeFeatureCollections(
           (map as any).__crepEaglePendingFc,
           bakedCameraFcRef.current,
@@ -308,67 +319,26 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           if (pending?.features?.length) {
             delete (map as any).__crepEaglePendingFc
           }
+          await ensureEagleCameraMapIcon(map)
           map.addSource("crep-eagle-cams", { type: "geojson", data: initialFc, generateId: true })
           loadedRef.current.cams = true
-          map.addLayer({
-            id: "crep-eagle-cams-halo",
-            type: "circle",
-            source: "crep-eagle-cams",
-            minzoom: 2,
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 4, 8, 8, 13, 12],
-              "circle-color": ["get", "color"],
-              "circle-opacity": 0.28,
-              "circle-blur": 1.0,
-            },
-          })
-          map.addLayer({
-            id: "crep-eagle-cams-core",
-            type: "circle",
-            source: "crep-eagle-cams",
-            minzoom: 2,
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.2, 8, 3.8, 13, 6.5],
-              "circle-color": ["get", "color"],
-              "circle-opacity": 0.95,
-              "circle-stroke-width": 1.2,
-              "circle-stroke-color": "#0b1220",
-              "circle-stroke-opacity": 0.9,
-            },
-          })
-          map.addLayer({
-            id: "crep-eagle-cams-label",
-            type: "symbol",
-            source: "crep-eagle-cams",
-            minzoom: 10,
-            layout: {
-              "text-field": ["get", "provider"],
-              "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 15, 11],
-              "text-offset": [0, 1.0],
-              "text-anchor": "top",
-              "text-allow-overlap": false,
-              "text-optional": true,
-              "text-transform": "uppercase",
-              "text-letter-spacing": 0.06,
-            } as any,
-            paint: {
-              "text-color": "#ffffff",
-              "text-halo-color": "rgba(0,0,0,0.8)",
-              "text-halo-width": 1.3,
-            },
-          })
-          map.on("click", "crep-eagle-cams-core", (e: any) => {
+          map.addLayer(eagleCameraHitLayer("crep-eagle-cams") as any)
+          map.addLayer(eagleCameraGlowLayer("crep-eagle-cams") as any)
+          map.addLayer(eagleCameraIconLayer("crep-eagle-cams") as any)
+          map.addLayer(eagleCameraLabelLayer("crep-eagle-cams") as any)
+          const onEagleCamClick = (e: any) => {
             const f = e.features?.[0]
             if (!f) return
             const p = f.properties || {}
             const c = e.lngLat
+            const displayName = p.name || `${p.provider || "camera"} feed`
             try {
               const hook = (window as any).__crep_selectAsset
               if (typeof hook === "function") {
                 hook({
                   type: "camera",
                   id: p.id,
-                  name: `${p.provider} camera`,
+                  name: displayName,
                   lat: c?.lat ?? 0,
                   lng: c?.lng ?? 0,
                   properties: p,
@@ -376,12 +346,17 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
               }
             } catch { /* ignore */ }
             try {
-              window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", { detail: { ...p, lat: c?.lat, lng: c?.lng } }))
+              window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", {
+                detail: { ...p, name: displayName, lat: c?.lat, lng: c?.lng },
+              }))
             } catch { /* ignore */ }
-          })
-          map.on("mouseenter", "crep-eagle-cams-core", () => { map.getCanvas().style.cursor = "pointer" })
-          map.on("mouseleave", "crep-eagle-cams-core", () => { map.getCanvas().style.cursor = "" })
-          console.log(`[EagleEye] ${initialFc.features.length} permanent cameras loaded (api=${features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
+          }
+          for (const layerId of EAGLE_CAMERA_CLICK_LAYER_IDS) {
+            map.on("click", layerId, onEagleCamClick)
+            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
+            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+          }
+          console.log(`[EagleEye] ${initialFc.features.length} permanent cameras loaded (api=${fc.features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(mergedFc.features.length ? mergedFc : fc)
         }

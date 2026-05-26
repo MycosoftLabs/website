@@ -182,11 +182,14 @@ const KINGDOM_ICON_KEYS: Record<string, string> = {
   Animalia: "animalia",
   Chromista: "plantae",  // fallback to plant
   Protozoa: "animalia",  // fallback to animal
+  Unknown: "unknown",
 };
 
 function normalizeKingdom(s: string): string {
   const t = String(s || "").trim().toLowerCase();
-  if (!t) return "Fungi";
+  if (!t || t === "unknown") return "Unknown";
+  if (t === "fungi" || t === "fungus") return "Fungi";
+  if (t === "mammalia" || t === "mammals" || t === "mammal") return "Mammalia";
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
@@ -197,9 +200,9 @@ function getSpeciesIconKey(entity: UnifiedEntity): string {
     (entity.properties?.iconicTaxon as string) ||
     taxon?.iconic_taxon_name ||
     taxon?.kingdom ||
-    "Fungi";
+    "Unknown";
   const kingdom = normalizeKingdom(raw);
-  return KINGDOM_ICON_KEYS[kingdom] || KINGDOM_ICON_KEYS.Fungi;
+  return KINGDOM_ICON_KEYS[kingdom] || KINGDOM_ICON_KEYS.Unknown;
 }
 
 // Single icon occupies the entire 32×32 atlas (for aircraft, vessel, satellite, dot).
@@ -228,7 +231,7 @@ const KINGDOM_COLORS: Record<string, RGBA> = {
   Fungi:          [180, 83,   9, 220],   // amber-700 (brown/earthy)
   Plantae:        [  4, 120,  87, 220],  // emerald-700
   Aves:           [  3, 105, 161, 220],  // sky-700
-  Mammalia:       [194,  65,  12, 220],  // orange-700
+  Mammalia:       [124,  58, 237, 220],  // violet-600 — distinct from fungi brown
   Reptilia:       [ 77, 124,  15, 220],  // lime-700
   Amphibia:       [ 21, 128,  61, 220],  // green-700
   Actinopterygii: [ 14, 116, 144, 220],  // cyan-700
@@ -238,6 +241,7 @@ const KINGDOM_COLORS: Record<string, RGBA> = {
   Animalia:       [194,  65,  12, 220],  // orange-700
   Chromista:      [  4, 120,  87, 220],  // emerald-700 (plant-like)
   Protozoa:       [194,  65,  12, 220],  // orange-700 (animal-like)
+  Unknown:        [113, 113, 122, 180],  // zinc-500 neutral
 };
 
 function entityColor(type: string): RGBA {
@@ -252,9 +256,9 @@ function fungalEntityColor(entity: UnifiedEntity): RGBA {
     (entity.properties?.iconicTaxon as string) ||
     taxon?.iconic_taxon_name ||
     taxon?.kingdom ||
-    "Fungi";
+    "Unknown";
   const kingdom = normalizeKingdom(raw);
-  return KINGDOM_COLORS[kingdom] ?? ENTITY_COLORS.fungal;
+  return KINGDOM_COLORS[kingdom] ?? KINGDOM_COLORS.Unknown;
 }
 
 /** Normalize aviation heading to 0–360 degrees. Accepts degrees or radians (if value in 0..2π). */

@@ -92,8 +92,6 @@ export function selectForZoom<T extends { geometry?: { type?: string; coordinate
   pad = 2,
 ): T[] {
   if (!all?.length) return []
-  void zoom
-  return bbox ? cullToViewport(all, bbox, pad) : all
 
   // World zoom — stratified global sample with ≥ 30% coverage.
   if (!Number.isFinite(zoom) || zoom <= 2) {
@@ -135,4 +133,18 @@ export function selectForZoom<T extends { geometry?: { type?: string; coordinate
     }
   }
   return sampled
+}
+
+/**
+ * Satellites orbit globally — never viewport-cull by ground track bbox.
+ * Zoom only controls stratified sampling density (same world/regional tiers
+ * as vessels, but without bbox filtering). Upstream applyLODToMovers already
+ * caps the pool per LOD tier.
+ */
+export function selectSatellitesForZoom<T extends { geometry?: { type?: string; coordinates?: any }; properties?: Record<string, any> }>(
+  all: T[],
+  zoom: number,
+): T[] {
+  if (!all?.length) return []
+  return selectForZoom(all, null, zoom, 0)
 }
