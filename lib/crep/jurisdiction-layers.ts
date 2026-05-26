@@ -199,7 +199,12 @@ export function addJurisdictionLayers(map: any, options?: {
       minzoom: 2,
     })
 
-    // State names — dark-matter-nolabels strips place_state; add dedicated labels.
+    // State / province / region names — dark-matter-nolabels strips place_state.
+    // Only render once the operator has zoomed into a region (minzoom 4): at
+    // planet/global view these stacked on top of each other (allow-overlap) and
+    // flooded the globe on refresh, hurting both readability and FPS. Collision
+    // detection (allow-overlap:false) now reveals labels progressively as you
+    // zoom in, so a title only appears when its area is actually in focus.
     safeLayer({
       id: "crep-state-labels",
       type: "symbol",
@@ -209,13 +214,14 @@ export function addJurisdictionLayers(map: any, options?: {
       layout: {
         visibility: stateVisible,
         "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 3, 12, 5, 14, 8, 16],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 12, 6, 14, 9, 16],
         "text-font": ["Montserrat Medium", "Open Sans Bold", "Arial Unicode MS Bold"],
         "text-transform": "uppercase",
         "text-max-width": 10,
         "text-letter-spacing": 0.06,
-        "text-allow-overlap": true,
+        "text-allow-overlap": false,
         "text-ignore-placement": false,
+        "text-padding": 6,
       },
       paint: {
         "text-color": "#e0f2fe",
@@ -223,7 +229,7 @@ export function addJurisdictionLayers(map: any, options?: {
         "text-halo-color": "#020617",
         "text-halo-width": 2,
       },
-      minzoom: 3,
+      minzoom: 4,
       maxzoom: 12,
     })
 

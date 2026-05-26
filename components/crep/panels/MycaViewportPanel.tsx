@@ -18,7 +18,6 @@ import {
   Thermometer,
   Wind,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import EagleEyeThumbnailGrid, { openEagleCamera } from "@/components/crep/eagle-eye/EagleEyeThumbnailGrid"
 import ViewportSensorGrid from "@/components/crep/eagle-eye/ViewportSensorGrid"
@@ -29,11 +28,22 @@ import {
   type EagleViewportSource,
 } from "@/lib/crep/eagle-viewport-sources"
 import {
-  esriWorldImageryTileUrl,
   isSignificantViewportChange,
   makeViewportRevisionKey,
   type MapBoundsLike,
 } from "@/lib/crep/viewport-revision"
+
+const DISMISSED_MENTIONS_KEY = "crep:myca:dismissed-mentions"
+
+function loadDismissedMentions(): Set<string> {
+  if (typeof window === "undefined") return new Set()
+  try {
+    const raw = window.sessionStorage.getItem(DISMISSED_MENTIONS_KEY)
+    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
 
 interface GlobalEventLike {
   id: string
@@ -327,11 +337,6 @@ function MycaViewportPanel({
       .map(([name]) => name)
   }, [visibleFungalObservations])
 
-  const satelliteHeroUrl = useMemo(() => {
-    if (!viewportCenter) return null
-    return esriWorldImageryTileUrl(viewportCenter.lat, viewportCenter.lng, Math.max(8, Math.min(14, mapZoom)))
-  }, [viewportCenter, mapZoom])
-
   const fetchAiSummary = useCallback(async () => {
     if (!mapBounds || !revisionKey || !assetsReady) return
     if (lastAiRevision.current === revisionKey) return
@@ -436,43 +441,6 @@ function MycaViewportPanel({
   const current = environment?.weather?.current
   const units = environment?.weather?.units
   const forecastDaily = environment?.weather?.forecastDaily
-  const eventCarousel = useMemo(() => latestViewportEvents.slice(0, 15), [latestViewportEvents])
-  const [carouselIndex, setCarouselIndex] = useState(0)
-  const [carouselVisible, setCarouselVisible] = useState(true)
-  const prevFirstEventIdRef = useRef<string | null>(null)
-
-  // New event at the front → show it immediately (live feed behavior).
-  useEffect(() => {
-    const firstId = eventCarousel[0]?.id ?? null
-    if (!firstId) {
-      setCarouselIndex(0)
-      prevFirstEventIdRef.current = null
-      return
-    }
-    if (firstId !== prevFirstEventIdRef.current) {
-      prevFirstEventIdRef.current = firstId
-      setCarouselIndex(0)
-    }
-  }, [eventCarousel])
-
-  const activeEvent = eventCarousel[carouselIndex] ?? null
-
-  // Fade when the visible slide changes.
-  useEffect(() => {
-    if (!activeEvent) return
-    setCarouselVisible(false)
-    const t = window.setTimeout(() => setCarouselVisible(true), 40)
-    return () => window.clearTimeout(t)
-  }, [activeEvent?.id, carouselIndex])
-
-  // Auto-advance — no manual scroll; rotates through viewport events.
-  useEffect(() => {
-    if (eventCarousel.length <= 1) return
-    const timer = window.setInterval(() => {
-      setCarouselIndex((i) => (i + 1) % eventCarousel.length)
-    }, 5000)
-    return () => window.clearInterval(timer)
-  }, [eventCarousel.length, eventCarousel[0]?.id])
 
   const analysisMentions = useMemo((): AnalysisMention[] => {
     const mentions: AnalysisMention[] = []
@@ -585,8 +553,34 @@ function MycaViewportPanel({
     satelliteCount,
   ])
 
+  // Clicked "worth mentioning" chips are remembered for the session so the
+  // same item is not surfaced again (per-session dedupe, sessionStorage-backed).
+  const [dismissedMentions, setDismissedMentions] = useState<Set<string>>(loadDismissedMentions)
+
+  const dismissMention = useCallback((id: string) => {
+    setDismissedMentions((prev) => {
+      if (prev.has(id)) return prev
+      const next = new Set(prev)
+      next.add(id)
+      try {
+        window.sessionStorage.setItem(DISMISSED_MENTIONS_KEY, JSON.stringify([...next]))
+      } catch {
+        /* sessionStorage unavailable — keep in-memory only */
+      }
+      return next
+    })
+  }, [])
+
+  // Stable list (no auto-rotation): rotating/fading chips were stealing taps,
+  // so every chip is now a fixed, single-tap fly-to target.
+  const shownMentions = useMemo(
+    () => analysisMentions.filter((m) => !dismissedMentions.has(m.id)).slice(0, 10),
+    [analysisMentions, dismissedMentions],
+  )
+
   const handleMentionClick = useCallback(
     (mention: AnalysisMention) => {
+      dismissMention(mention.id)
       if (mention.kind === "camera" && mention.camera) {
         openEagleCamera(mention.camera, onFlyTo)
         return
@@ -600,130 +594,13 @@ function MycaViewportPanel({
           new CustomEvent("crep:analysis:select-event", { detail: { eventId } }),
         )
       }
-
-      if (mention.kind === "camera" && mention.camera) {
-        openEagleCamera(mention.camera, onFlyTo)
-      }
     },
-    [onFlyTo],
+    [onFlyTo, dismissMention],
   )
-
-  const mentionSlotCount = 2
-  const [mentionIndex, setMentionIndex] = useState(0)
-  const [mentionFade, setMentionFade] = useState(true)
-
-  useEffect(() => {
-    setMentionIndex(0)
-  }, [revisionKey, analysisMentions.length])
-
-  const visibleMentions = useMemo(() => {
-    if (analysisMentions.length === 0) return []
-    if (analysisMentions.length <= mentionSlotCount) return analysisMentions
-    return Array.from({ length: mentionSlotCount }, (_, i) =>
-      analysisMentions[(mentionIndex + i) % analysisMentions.length],
-    )
-  }, [analysisMentions, mentionIndex, mentionSlotCount])
-
-  useEffect(() => {
-    if (analysisMentions.length <= mentionSlotCount) return
-    const timer = window.setInterval(() => {
-      setMentionFade(false)
-      window.setTimeout(() => {
-        setMentionIndex((i) => (i + mentionSlotCount) % analysisMentions.length)
-        setMentionFade(true)
-      }, 140)
-    }, 3200)
-    return () => window.clearInterval(timer)
-  }, [analysisMentions.length, mentionSlotCount])
 
   return (
     <ScrollArea className="h-full">
       <div className="flex min-h-full flex-col gap-2 p-2">
-        {/* Satellite / imagery hero */}
-        <div className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-black/40">
-          {satelliteHeroUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={satelliteHeroUrl}
-              alt=""
-              className="h-24 w-full object-cover opacity-90"
-            />
-          ) : (
-            <div className="flex h-24 items-center justify-center bg-gradient-to-br from-slate-900 to-purple-950/40">
-              <Satellite className="h-6 w-6 text-purple-400/60" />
-            </div>
-          )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 py-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-semibold text-purple-200">Viewport imagery</span>
-              {viewportCenter && (
-                <span className="font-mono text-[7px] text-gray-400">
-                  {viewportCenter.lat.toFixed(2)}°, {viewportCenter.lng.toFixed(2)}° · z{mapZoom.toFixed(1)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Live events carousel — auto-rotates; jumps to newest on ingest */}
-        <div className="rounded-lg border border-orange-500/25 bg-orange-950/10 p-1.5">
-          <div className="mb-1 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Radio className="h-3 w-3 text-orange-400" />
-              <span className="text-[9px] font-bold text-orange-200">Latest events</span>
-            </div>
-            <Badge variant="outline" className="border-orange-500/40 px-1 py-0 text-[7px] text-orange-300">
-              {latestViewportEvents.length}
-            </Badge>
-          </div>
-          {eventCarousel.length === 0 ? (
-            <span className="text-[8px] text-gray-500">No events in this viewport.</span>
-          ) : (
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeEvent?.lng != null && activeEvent?.lat != null) {
-                    onFlyTo?.(activeEvent.lng, activeEvent.lat, 10)
-                  }
-                }}
-                className={cn(
-                  "w-full rounded border border-orange-500/25 bg-black/35 px-2 py-1.5 text-left transition-opacity duration-300 hover:border-orange-400/50",
-                  carouselVisible ? "opacity-100" : "opacity-0",
-                )}
-              >
-                <div className="truncate text-[9px] font-medium text-white">{activeEvent?.title}</div>
-                <div className="mt-0.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-[7px] text-gray-500">
-                    {activeEvent?.type || activeEvent?.source || "event"}
-                  </span>
-                  {activeEvent?.severity && (
-                    <span className="shrink-0 text-[7px] uppercase text-orange-300/90">{activeEvent.severity}</span>
-                  )}
-                </div>
-              </button>
-              {eventCarousel.length > 1 && (
-                <div className="flex items-center justify-center gap-1 pt-0.5">
-                  {eventCarousel.map((event, index) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      aria-label={`Show event ${index + 1}: ${event.title}`}
-                      onClick={() => setCarouselIndex(index)}
-                      className={cn(
-                        "h-1.5 rounded-full transition-all",
-                        index === carouselIndex
-                          ? "w-3 bg-orange-400"
-                          : "w-1.5 bg-orange-500/30 hover:bg-orange-400/60",
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Environment + species */}
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/10 p-1.5">
           <div className="mb-1.5 flex items-center justify-between">
@@ -843,43 +720,33 @@ function MycaViewportPanel({
             )}
           </div>
 
-          {analysisMentions.length > 0 && (
+          {shownMentions.length > 0 && (
             <div className="mt-1.5 shrink-0">
-              <div className="mb-0.5 flex items-center justify-between gap-1">
-                <span className="text-[6px] font-semibold uppercase tracking-wider text-purple-300/65">
+              <div className="mb-1 flex items-center justify-between gap-1">
+                <span className="text-[7px] font-semibold uppercase tracking-wider text-purple-300/70">
                   Worth mentioning
                 </span>
-                {analysisMentions.length > mentionSlotCount && (
-                  <span className="text-[6px] tabular-nums text-purple-400/45">
-                    {Math.floor(mentionIndex / mentionSlotCount) + 1}/
-                    {Math.ceil(analysisMentions.length / mentionSlotCount)}
-                  </span>
-                )}
+                <span className="text-[7px] text-purple-400/45">tap to fly</span>
               </div>
-              <div
-                className={cn(
-                  "flex min-h-[18px] items-center gap-1 transition-opacity duration-150",
-                  mentionFade ? "opacity-100" : "opacity-30",
-                )}
-              >
-                {visibleMentions.map((mention, slotIdx) => {
+              <div className="flex flex-wrap gap-1">
+                {shownMentions.map((mention) => {
                   const Icon = mentionIcon(mention.kind)
-                  const clickable = mention.lng != null && mention.lat != null
+                  const clickable = (mention.lng != null && mention.lat != null) || mention.kind === "camera"
                   return (
                     <button
-                      key={`${mention.id}-slot-${slotIdx}`}
+                      key={mention.id}
                       type="button"
                       disabled={!clickable}
                       onClick={() => handleMentionClick(mention)}
                       title={mention.detail ? `${mention.label} · ${mention.detail}` : mention.label}
                       className={cn(
-                        "inline-flex h-[18px] max-w-[48%] flex-1 items-center gap-0.5 rounded border px-1 text-left transition-colors",
+                        "inline-flex min-h-[26px] max-w-full items-center gap-1 rounded border px-1.5 py-1 text-left transition-colors touch-manipulation",
                         mentionTone(mention.kind),
                         !clickable && "cursor-default opacity-45",
                       )}
                     >
-                      <Icon className="h-2 w-2 shrink-0 opacity-90" />
-                      <span className="truncate text-[6px] font-medium leading-none">{mention.label}</span>
+                      <Icon className="h-2.5 w-2.5 shrink-0 opacity-90" />
+                      <span className="truncate text-[8px] font-medium leading-tight">{mention.label}</span>
                     </button>
                   )
                 })}

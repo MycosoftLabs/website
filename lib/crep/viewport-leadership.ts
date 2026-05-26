@@ -37,7 +37,11 @@ function officeLower(office: string): string {
 
 export function isFederalExecutive(office: string): boolean {
   const v = officeLower(office)
-  return v.includes("president") || v.includes("vice president")
+  return (
+    v.includes("president") ||
+    v.includes("vice president") ||
+    v.includes("prime minister")
+  )
 }
 
 export function isStateExecutive(office: string): boolean {
@@ -46,7 +50,8 @@ export function isStateExecutive(office: string): boolean {
     v.includes("governor") ||
     v.includes("lieutenant governor") ||
     v.includes("lt. governor") ||
-    v.includes("lt governor")
+    v.includes("lt governor") ||
+    v.includes("premier")
   )
 }
 

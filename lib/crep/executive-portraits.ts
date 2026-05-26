@@ -46,6 +46,28 @@ const PORTRAIT_BY_NAME: Record<string, string> = {
     "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Joe_Biden_presidential_portrait.jpg/440px-Joe_Biden_presidential_portrait.jpg",
   "donald trump":
     "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Donald_Trump_official_portrait.jpg/440px-Donald_Trump_official_portrait.jpg",
+  "donald j. trump":
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Donald_Trump_official_portrait.jpg/440px-Donald_Trump_official_portrait.jpg",
+  // Below use Wikimedia's Special:FilePath resolver (filename → current file,
+  // hash-independent). A wrong filename 404s and the card falls back to an icon.
+  "jd vance": commonsPortrait("JD Vance Vice Presidential Portrait.jpg"),
+  "claudia sheinbaum": commonsPortrait("Claudia Sheinbaum Pardo (cropped).jpg"),
+  "mark carney": commonsPortrait("Mark Carney 2020 (cropped).jpg"),
+  "jb pritzker": commonsPortrait("JB Pritzker (cropped).jpg"),
+  "gretchen whitmer": commonsPortrait("Gretchen Whitmer (cropped).jpg"),
+  "josh shapiro": commonsPortrait("Josh Shapiro (cropped).jpg"),
+  "glenn youngkin": commonsPortrait("Glenn Youngkin (cropped).jpg"),
+  "wes moore": commonsPortrait("Wes Moore (cropped).jpg"),
+  "brian kemp": commonsPortrait("Brian Kemp (cropped).jpg"),
+  "maura healey": commonsPortrait("Maura Healey (cropped).jpg"),
+  "andy beshear": commonsPortrait("Andy Beshear (cropped).jpg"),
+  "jared polis": commonsPortrait("Jared Polis (cropped).jpg"),
+  "doug ford": commonsPortrait("Doug Ford (cropped).jpg"),
+}
+
+/** Wikimedia Commons file → stable resolver URL (no hash path required). */
+function commonsPortrait(filename: string): string {
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=440`
 }
 
 function bioguidePhotoUrl(id?: string): string | null {

@@ -176,28 +176,73 @@ export function HlsLivePlayer({
     let cleanup = () => {}
     const kickPlay = () => video.play().catch(() => {})
 
+    // Live edge for native HLS (Safari/iOS): duration === Infinity marks a
+    // live playlist — jump to the edge so we show the present, not buffered
+    // history. VOD playlists (finite duration) are left to play normally.
+    const seekNativeToLiveEdge = () => {
+      try {
+        if (video.duration === Infinity && video.seekable.length) {
+          video.currentTime = video.seekable.end(video.seekable.length - 1)
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = playbackUrl
+      video.addEventListener("loadedmetadata", seekNativeToLiveEdge, { once: true })
       kickPlay()
     } else {
       import("hls.js").then((Hls) => {
         const H = (Hls as any).default || Hls
         if (!H.isSupported()) {
           video.src = playbackUrl
+          video.addEventListener("loadedmetadata", seekNativeToLiveEdge, { once: true })
           kickPlay()
           return
         }
+        // Live-tuned config: follow the live edge and keep no back-buffer, so a
+        // stalled feed resumes at "now" instead of replaying the same seconds.
         const hls = new H({
+          lowLatencyMode: true,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          backBufferLength: 0,
           maxBufferLength: 8,
           manifestLoadingTimeOut: 10_000,
           levelLoadingTimeOut: 10_000,
           fragLoadingTimeOut: 10_000,
         })
+        const seekToLiveEdge = () => {
+          try {
+            if (hls.liveSyncPosition != null && Number.isFinite(hls.liveSyncPosition)) {
+              video.currentTime = hls.liveSyncPosition
+            }
+          } catch {
+            /* ignore */
+          }
+        }
         hls.loadSource(playbackUrl)
         hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, kickPlay)
-        hls.on(H.Events.ERROR, (_evt: unknown, data: { fatal?: boolean }) => {
-          if (data?.fatal && retryNonce < 3) setRetryNonce((n) => n + 1)
+        hls.on(H.Events.MANIFEST_PARSED, () => {
+          seekToLiveEdge()
+          kickPlay()
+        })
+        hls.on(H.Events.ERROR, (_evt: unknown, data: { fatal?: boolean; type?: string }) => {
+          if (!data?.fatal) return
+          // Prefer in-place recovery (resumes at live edge) over a hard reload
+          // that would replay the buffered clip from the start.
+          if (data.type === H.ErrorTypes.MEDIA_ERROR) {
+            try {
+              hls.recoverMediaError()
+              seekToLiveEdge()
+              return
+            } catch {
+              /* fall through to reload */
+            }
+          }
+          if (retryNonce < 3) setRetryNonce((n) => n + 1)
         })
         cleanup = () => {
           try {
