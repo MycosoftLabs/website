@@ -89,6 +89,24 @@ async function safeFetch(url: string, timeoutMs = 8000): Promise<Response | null
   }
 }
 
+function serverSelfFetchBases(requestOrigin?: string): string[] {
+  const port = process.env.PORT || "3000"
+  const bases = [
+    resolveInternalBaseUrl(requestOrigin),
+    requestOrigin,
+    `http://127.0.0.1:${port}`,
+    `http://localhost:${port}`,
+  ]
+  const seen = new Set<string>()
+  return bases
+    .map((base) => String(base || "").trim().replace(/\/$/, ""))
+    .filter((base) => {
+      if (!base || seen.has(base)) return false
+      seen.add(base)
+      return true
+    })
+}
+
 // ---------------------------------------------------------------------------
 // 1. Natural Events (NASA EONET + USGS)
 // ---------------------------------------------------------------------------
@@ -254,10 +272,10 @@ function mapAircraftRow(a: Record<string, unknown>): AircraftResult {
 
 export async function searchAircraft(query: string, origin = "", limit = 20): Promise<AircraftResult[]> {
   try {
-    if (origin) {
-      const localParams = aircraftBoundsForQuery(query)
-      localParams.set("limit", String(limit))
-      const localRes = await safeFetch(`${origin}/api/oei/flightradar24?${localParams.toString()}`, 15000)
+    const localParams = aircraftBoundsForQuery(query)
+    localParams.set("limit", String(limit))
+    for (const base of serverSelfFetchBases(origin)) {
+      const localRes = await safeFetch(`${base}/api/oei/flightradar24?${localParams.toString()}`, 15000)
       if (localRes) {
         const localData = await localRes.json()
         const localRows = localData.entities || localData.aircraft || localData.data || []
@@ -368,12 +386,20 @@ export function isSatelliteQuery(query: string): boolean {
 
 export async function searchSatellites(query: string, origin: string, limit = 20): Promise<SatelliteResult[]> {
   try {
-    const res = await safeFetch(`${origin}/api/oei/satellites?category=active&limit=${limit}`, 25000)
-    if (!res) return []
-    const data = await res.json()
-    const sats = data.entities || data.satellites || data.data || []
+    let sats: Record<string, unknown>[] = []
+    for (const base of serverSelfFetchBases(origin)) {
+      const res = await safeFetch(`${base}/api/oei/satellites?category=active&limit=${limit}`, 25000)
+      if (!res) continue
+      const data = await res.json()
+      const rows = data.entities || data.satellites || data.data || []
+      if (Array.isArray(rows) && rows.length > 0) {
+        sats = rows as Record<string, unknown>[]
+        break
+      }
+    }
+    if (sats.length === 0) return []
 
-    return (sats as Record<string, unknown>[]).slice(0, limit).map((s) => ({
+    return sats.slice(0, limit).map((s) => ({
       id: `sat-${s.norad_id || s.id}`,
       name: (s.name as string) || "Unknown",
       noradId: String(s.norad_id || s.noradId || s.id || ""),

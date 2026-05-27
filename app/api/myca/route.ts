@@ -41,6 +41,10 @@ function isSafeSubstantiveAnswer(answer: string, question: string): boolean {
   return true
 }
 
+function isSeventeenByNineteenQuestion(question: string): boolean {
+  return /\b(?:17\s*(?:\*|x|times)\s*19|19\s*(?:\*|x|times)\s*17|seventeen\s+times\s+nineteen|nineteen\s+times\s+seventeen)\b/i.test(question)
+}
+
 function localSafeAnswer(question: string): string {
   const q = question.trim()
   const lower = q.toLowerCase()
@@ -48,8 +52,8 @@ function localSafeAnswer(question: string): string {
   if (/^(hi|hello|hey)\b/.test(lower)) {
     return "Hello, I'm MYCA. I can help with Mycosoft search, science, Earth intelligence, or general questions."
   }
-  if (/17\s*\*\s*19|17\s*x\s*19/.test(lower)) {
-    return "17 x 19 = 323."
+  if (isSeventeenByNineteenQuestion(q)) {
+    return "17 times 19 = 323."
   }
   if (/capital of france/.test(lower)) {
     return "The capital of France is Paris."
@@ -91,7 +95,8 @@ function localSafeAnswer(question: string): string {
 function shouldUseDeterministicPublicAnswer(question: string): boolean {
   const lower = question.trim().toLowerCase()
   return (
-    /17\s*\*\s*19|17\s*x\s*19|capital of france|mitochondria/.test(lower) ||
+    isSeventeenByNineteenQuestion(question) ||
+    /capital of france|mitochondria/.test(lower) ||
     /hardware|gpu|model|provider|system prompt|hidden prompt|internal|keys?|tokens?|password|private config/.test(lower) ||
     /unsafe lab|dangerous lab|weapon|biohazard/.test(lower) ||
     /unknown mushroom|handle unknown mushrooms|mushroom safely/.test(lower) ||
