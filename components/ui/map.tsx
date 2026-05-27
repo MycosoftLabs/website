@@ -172,6 +172,18 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
     mapRef.current = map;
     (map as any).__debugMapId = `map-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    if (isEarthSimulatorRoute && typeof window !== "undefined") {
+      (window as any).__crep_map = map;
+      (window as any).__crep_map_ready = true;
+      (window as any).__crep_map_debug_id = (map as any).__debugMapId;
+      try {
+        window.dispatchEvent(new CustomEvent("crep:map-ready", {
+          detail: { id: (map as any).__debugMapId, source: "MapComponent.create" },
+        }));
+      } catch {
+        /* CustomEvent can be unavailable during odd test shims */
+      }
+    }
 
     const cameraConfirmIds: number[] = [];
 
@@ -382,6 +394,10 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       cameraRetryIds.forEach((id) => clearTimeout(id));
       cameraConfirmIds.forEach((id) => clearTimeout(id));
       mapRef.current = null;
+      if (isEarthSimulatorRoute && typeof window !== "undefined" && (window as any).__crep_map === map) {
+        (window as any).__crep_map = null;
+        (window as any).__crep_map_ready = false;
+      }
       initialCameraReadyRef.current = false;
       const removeMap = () => {
         try { map.remove(); } catch { /* hot reload/dev overlay can dispose first */ }

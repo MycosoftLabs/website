@@ -31,6 +31,36 @@ export type ConnectionState = "disconnected" | "connecting" | "connected" | "rec
 const BASE_RECONNECT_MS = 1500
 const MAX_RECONNECT_MS = 24000
 const MAX_RECONNECT_ATTEMPTS = 10
+const LOCAL_BROWSER_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+  "::1",
+  "[::1]",
+  "host.docker.internal",
+])
+
+function isPublicBrowserOrigin(): boolean {
+  if (typeof window === "undefined") return false
+  const host = window.location.hostname
+  return Boolean(host && !LOCAL_BROWSER_HOSTS.has(host))
+}
+
+function resolvesToLocalMachine(base: string): boolean {
+  try {
+    const url = new URL(base)
+    const host = url.hostname
+    return (
+      LOCAL_BROWSER_HOSTS.has(host) ||
+      host.startsWith("127.") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    )
+  } catch {
+    return !base.trim()
+  }
+}
 
 export class EntityStreamClient {
   private ws: WebSocket | null = null
@@ -45,12 +75,19 @@ export class EntityStreamClient {
   private _connectionState: ConnectionState = "disconnected"
   private messageCount = 0
   private lastMessageAt = 0
+  private disabledReason: string | null = null
   /** Avoid flooding console when MAS stream is down or CSP blocked (notify once until reconnect succeeds). */
   private userErrorNotified = false
 
   constructor(endpointBase?: string) {
     // Use centralized API_URLS config with env var override — no hard-coded IPs
     const masUrl = endpointBase || API_URLS.MAS
+    if (isPublicBrowserOrigin() && resolvesToLocalMachine(masUrl)) {
+      this.endpointBase = ""
+      this.disabledReason =
+        "disabled on public origin because the MAS entity WebSocket resolves to a local/private host"
+      return
+    }
     // Convert http(s) to ws(s)
     this.endpointBase = masUrl.replace(/^http/, "ws")
   }
@@ -99,6 +136,7 @@ export class EntityStreamClient {
   }
 
   updateViewport(bounds: MapBounds, zoom: number): void {
+    if (this.disabledReason) return
     const nextCells = new Set(getViewportCells(bounds, zoom))
     if (this.setsEqual(this.cells, nextCells)) return
     this.cells = nextCells
@@ -122,11 +160,27 @@ export class EntityStreamClient {
 
   private openSocket(): void {
     if (!this.onEntityHandler) return
+    if (this.disabledReason) {
+      this.setConnectionState("disconnected")
+      if (!this.userErrorNotified) {
+        this.userErrorNotified = true
+        console.warn(`[EntityStream] MAS entity stream ${this.disabledReason}. Direct API layers remain active.`)
+      }
+      return
+    }
 
     this.setConnectionState("connecting")
 
     const wsBase = getSecureWebSocketUrl(this.endpointBase)
-    const url = new URL(`${wsBase.replace(/\/$/, "")}/api/entities/stream`)
+    let url: URL
+    try {
+      url = new URL(`${wsBase.replace(/\/$/, "")}/api/entities/stream`)
+    } catch (error) {
+      this.disabledReason = "disabled because no valid WebSocket endpoint is configured"
+      this.setConnectionState("disconnected")
+      this.onError?.(error instanceof Error ? error : new Error(String(error)))
+      return
+    }
     if (this.cells.size > 0) {
       url.searchParams.set("cells", [...this.cells].join(","))
     }
@@ -192,6 +246,9 @@ export class EntityStreamClient {
       if (this.userErrorNotified) return
       this.userErrorNotified = true
       this.onError?.(new Error(`WebSocket connection error (${url.toString()})`))
+      if (isPublicBrowserOrigin()) {
+        this.disabledReason = "disabled after the public WebSocket failed"
+      }
     }
 
     this.ws.onclose = (event) => {
@@ -203,6 +260,10 @@ export class EntityStreamClient {
   }
 
   private scheduleReconnect(): void {
+    if (this.disabledReason) {
+      this.setConnectionState("disconnected")
+      return
+    }
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       console.warn(
         `[EntityStream] MAS entity stream unavailable (optional). Entities use direct API fetch instead.`
@@ -227,6 +288,7 @@ export class EntityStreamClient {
 
   private reconnect(): void {
     if (!this.onEntityHandler) return
+    if (this.disabledReason) return
     this.disconnect()
     this.reconnectAttempts = 0
     this.openSocket()

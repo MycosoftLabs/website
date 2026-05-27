@@ -137,6 +137,11 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
   // Connect to WebSocket
   const connect = useCallback(() => {
     if (!enabled || clientRef.current?.isConnected) return
+    if (typeof url === "string" && !url.trim()) {
+      setIsConnected(false)
+      setIsConnecting(false)
+      return
+    }
     
     setIsConnecting(true)
     
