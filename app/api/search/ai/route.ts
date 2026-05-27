@@ -69,6 +69,26 @@ interface SearchContext {
   focusedWidget?: string
 }
 
+function isUsablePublicAnswer(answer: string): boolean {
+  const text = answer.trim()
+  if (text.length < 20) return false
+  return ![
+    /having a moment of difficulty/i,
+    /could you try again in a moment/i,
+    /reconnecting to my intelligence services/i,
+    /temporarily limited/i,
+    /connection to (?:my )?(?:main )?intelligence/i,
+    /\brtx\s*\d{3,5}\b/i,
+    /\bgpu(?:s)?\b/i,
+    /\bpersonaplex\b/i,
+    /\b(?:api|service)\s+keys?\b/i,
+    /\b(?:redis|postgres(?:ql)?|qdrant|docker|proxmox|ollama)\b/i,
+    /\b(?:192\.168\.|10\.0\.|172\.16\.|localhost:\d+)/i,
+    /\bprovider_timings\b/i,
+    /\bfallback_reason\b/i,
+  ].some((pattern) => pattern.test(text))
+}
+
 // 1. MYCA Consciousness - Intent Engine, memory, full awareness
 async function queryMYCAConsciousness(
   payload: SearchAIRequest,
@@ -103,7 +123,7 @@ async function queryMYCAConsciousness(
     const data = await res.json()
     const answer = data.message || data.response || data.content
 
-    if (!answer || typeof answer !== "string" || answer.length < 10) return null
+    if (!answer || typeof answer !== "string" || !isUsablePublicAnswer(answer)) return null
 
     return {
       answer: answer.trim(),
@@ -146,11 +166,11 @@ async function queryMASBrain(
     const data = await res.json()
     const answer = data.response || data.message || data.content
 
-    if (!answer || typeof answer !== "string" || answer.length < 10) return null
+    if (!answer || typeof answer !== "string" || !isUsablePublicAnswer(answer)) return null
 
     return {
       answer: answer.trim(),
-      source: provider === "auto" ? "MYCA Brain" : `MYCA Brain (${provider})`,
+      source: "MYCA",
       confidence: provider === "auto" ? 0.9 : 0.92,
     }
   } catch {
@@ -293,11 +313,11 @@ async function queryGroqDirect(
     const data = await res.json()
     const answer = data.choices?.[0]?.message?.content
 
-    if (!answer || answer.length < 10) return null
+    if (!isUsablePublicAnswer(answer)) return null
 
     return {
       answer: answer.trim(),
-      source: "MYCA (Groq)",
+      source: "MYCA",
       confidence: 0.85,
     }
   } catch {
@@ -338,11 +358,11 @@ async function queryOllamaDirect(
     const data = await res.json()
     const answer = data.message?.content
 
-    if (!answer || answer.length < 10) return null
+    if (!isUsablePublicAnswer(answer)) return null
 
     return {
       answer: answer.trim(),
-      source: `MYCA (Ollama/${OLLAMA_MODEL})`,
+      source: "MYCA",
       confidence: 0.85,
     }
   } catch {

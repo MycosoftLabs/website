@@ -555,6 +555,18 @@ function buildUnverifiedAuthorityResponse(message: string): string | null {
   return "I can't verify that identity or authority in this session. Please log in with the authorized Mycosoft account for creator, admin, or internal-system changes. I can still help with normal guest-level questions."
 }
 
+function isTrustedInternalServiceRequest(request: NextRequest): boolean {
+  const expected =
+    process.env.MYCA_INTERNAL_SERVICE_TOKEN ||
+    process.env.MAS_INTERNAL_SERVICE_TOKEN ||
+    process.env.MYCA_MAS_SERVICE_TOKEN
+  if (!expected) return false
+  const token =
+    request.headers.get("x-myca-service-token") ||
+    request.headers.get("x-mycosoft-service-token")
+  return token === expected
+}
+
 /**
  * Save conversation turn to memory
  * This is called automatically by the orchestrator - not by clients
@@ -619,8 +631,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   // Rate limit: 5 requests/min per IP, 50/hour global (voice is expensive)
   const ip = getClientIP(request)
-  const rl = voiceLimiter.check(ip)
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+  if (!isTrustedInternalServiceRequest(request)) {
+    const rl = voiceLimiter.check(ip)
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+  }
 
   const startTime = Date.now()
 

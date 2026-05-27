@@ -125,6 +125,72 @@ function buildEarthquakeAnswer(query: string, events: Array<Record<string, unkno
   ].join("\n")
 }
 
+function isDegradedNarrative(answer?: string): boolean {
+  if (!answer) return false
+  return [
+    /having a moment of difficulty/i,
+    /could you try again in a moment/i,
+    /reconnecting to my intelligence services/i,
+    /temporarily limited/i,
+    /connection to (?:my )?(?:main )?intelligence/i,
+    /\brtx\s*\d{3,5}\b/i,
+    /\bgpu(?:s)?\b/i,
+    /\bpersonaplex\b/i,
+    /\b(?:api|service)\s+keys?\b/i,
+    /\b(?:redis|postgres(?:ql)?|qdrant|docker|proxmox|ollama)\b/i,
+    /\b(?:192\.168\.|10\.0\.|172\.16\.|localhost:\d+)/i,
+    /\bprovider_timings\b/i,
+    /\bfallback_reason\b/i,
+  ].some((pattern) => pattern.test(answer))
+}
+
+function buildDataGroundedSearchAnswer(query: string, buckets: Record<string, unknown[]>): string | undefined {
+  const counts = Object.fromEntries(
+    Object.entries(buckets).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0])
+  ) as Record<string, number>
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0)
+  if (total === 0) return undefined
+
+  const lines: string[] = [`I found live results for "${query}".`]
+  const events = Array.isArray(buckets.events) ? buckets.events as Array<Record<string, unknown>> : []
+  const aircraft = Array.isArray(buckets.aircraft) ? buckets.aircraft as Array<Record<string, unknown>> : []
+  const vessels = Array.isArray(buckets.vessels) ? buckets.vessels as Array<Record<string, unknown>> : []
+  const species = Array.isArray(buckets.species) ? buckets.species as Array<Record<string, unknown>> : []
+  const compounds = Array.isArray(buckets.compounds) ? buckets.compounds as Array<Record<string, unknown>> : []
+  const research = Array.isArray(buckets.research) ? buckets.research as Array<Record<string, unknown>> : []
+  const infrastructure = Array.isArray(buckets.infrastructure) ? buckets.infrastructure as Array<Record<string, unknown>> : []
+
+  if (events.length) {
+    const first = events[0]
+    lines.push(`${events.length.toLocaleString()} event records are available; top result: ${String(first.title || first.type || "event")}.`)
+  }
+  if (aircraft.length) {
+    const ids = aircraft.slice(0, 3).map((a) => String(a.callsign || a.icao24 || a.id || "aircraft").trim()).filter(Boolean)
+    lines.push(`${aircraft.length.toLocaleString()} aircraft records are visible${ids.length ? `, including ${ids.join(", ")}` : ""}.`)
+  }
+  if (vessels.length) {
+    const ids = vessels.slice(0, 3).map((v) => String(v.name || v.mmsi || v.id || "vessel").trim()).filter(Boolean)
+    lines.push(`${vessels.length.toLocaleString()} vessel records are visible${ids.length ? `, including ${ids.join(", ")}` : ""}.`)
+  }
+  if (infrastructure.length) {
+    lines.push(`${infrastructure.length.toLocaleString()} infrastructure records are available for map context.`)
+  }
+  if (species.length) {
+    const names = species.slice(0, 3).map((s) => String(s.commonName || s.scientificName || s.name || "species")).filter(Boolean)
+    lines.push(`${species.length.toLocaleString()} species records are available${names.length ? `, including ${names.join(", ")}` : ""}.`)
+  }
+  if (compounds.length) {
+    const names = compounds.slice(0, 3).map((c) => String(c.name || "compound")).filter(Boolean)
+    lines.push(`${compounds.length.toLocaleString()} compound records are available${names.length ? `, including ${names.join(", ")}` : ""}.`)
+  }
+  if (research.length) {
+    lines.push(`${research.length.toLocaleString()} research records are attached for source-backed context.`)
+  }
+
+  lines.push("Use the visible widgets and Earth layers for source details, timestamps, and map focus.")
+  return lines.join(" ")
+}
+
 function isGenericLifeSearchQuery(q: string): boolean {
   const s = q.toLowerCase().trim()
   if (!s) return true
@@ -1516,6 +1582,8 @@ export async function GET(request: NextRequest) {
   const lifeScope = detectLifeScienceScope(baseQuery)
   const earthDomainsObj = detectEarthDomains(baseQuery)
   const isEarthIntent = Object.values(earthDomainsObj).some(Boolean)
+  const isGeneralMapIntent = /\b(show me everything|show me all|all .* on the map|on the map|map)\b/i.test(baseQuery)
+  const shouldSearchEarth = isEarthIntent || isGeneralMapIntent
   const isEarthquakeSearch = isEarthquakeSearchQuery(baseQuery)
   const skipBio = isEarthIntent && !hasLifeScienceIntent(baseQuery)
   /** Cameras/vessels/weather-only queries: skip MAS + research fan-out so unified returns before dev-client timeouts. */
@@ -1596,10 +1664,12 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
       // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
       // infrastructure, devices, space weather — all searched in parallel internally
-      searchEarthIntelligence(baseQuery, origin, limit, {
-        lat: lat != null ? Number(lat) : undefined,
-        lng: lng != null ? Number(lng) : undefined,
-      }).catch(() => null),
+      shouldSearchEarth
+        ? searchEarthIntelligence(baseQuery, origin, limit, {
+            lat: lat != null ? Number(lat) : undefined,
+            lng: lng != null ? Number(lng) : undefined,
+          }).catch(() => null)
+        : Promise.resolve(null),
       USE_MAS_SEARCH && !skipHeavyStackForEarthOnly && !isEarthquakeSearch
         ? callMASSearchExecute(
             {
@@ -1760,9 +1830,15 @@ export async function GET(request: NextRequest) {
       + earthWeather.length + earthEmissions.length + earthInfrastructure.length
       + earthDevices.length + earthSpaceWeather.length + earthCameras.length
 
-    /** Single narrative: MAS `focus` when substantive, else one POST /api/search/ai (see unified-narrative.ts). */
+    /** Single narrative: prefer data-grounded summaries for fast, source-backed search responses. */
     let aiAnswer: string | undefined
-    if (includeAI) {
+    if (isEarthquakeSearch) {
+      aiAnswer = buildEarthquakeAnswer(baseQuery, earthEvents as unknown as Array<Record<string, unknown>>)
+    }
+    if (!aiAnswer) {
+      aiAnswer = buildDataGroundedSearchAnswer(query, resultBuckets as unknown as Record<string, unknown[]>)
+    }
+    if (!aiAnswer && includeAI && !(shouldSearchEarth && totalCount === 0)) {
       aiAnswer = await resolveUnifiedAiNarrative({
         origin,
         baseQuery,
@@ -1775,8 +1851,11 @@ export async function GET(request: NextRequest) {
         useMasSearch: USE_MAS_SEARCH,
       })
     }
-    if (!aiAnswer && isEarthquakeSearch) {
-      aiAnswer = buildEarthquakeAnswer(baseQuery, earthEvents as unknown as Array<Record<string, unknown>>)
+    if (isDegradedNarrative(aiAnswer)) {
+      aiAnswer = undefined
+    }
+    if (!aiAnswer) {
+      aiAnswer = buildDataGroundedSearchAnswer(query, resultBuckets as unknown as Record<string, unknown[]>)
     }
 
     // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──

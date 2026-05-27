@@ -211,7 +211,7 @@ export async function searchEvents(query: string, limit = 20): Promise<EventResu
 const AIRCRAFT_KEYWORDS = [
   "aircraft", "airplane", "plane", "flight", "aviation", "jet",
   "ads-b", "adsb", "airline", "landing", "takeoff", "airspace",
-  "over", "flying",
+  "flying",
 ]
 
 export function isAircraftQuery(query: string): boolean {
@@ -219,8 +219,55 @@ export function isAircraftQuery(query: string): boolean {
   return AIRCRAFT_KEYWORDS.some(kw => q.includes(kw))
 }
 
-export async function searchAircraft(query: string, limit = 20): Promise<AircraftResult[]> {
+function aircraftBoundsForQuery(query: string): URLSearchParams {
+  const q = query.toLowerCase()
+  const params = new URLSearchParams()
+  const setBounds = (south: number, north: number, west: number, east: number) => {
+    params.set("lamin", String(south))
+    params.set("lamax", String(north))
+    params.set("lomin", String(west))
+    params.set("lomax", String(east))
+  }
+
+  if (q.includes("over la") || q.includes("los angeles")) setBounds(29.05, 39.05, -123.24, -113.24)
+  else if (q.includes("over sf") || q.includes("san francisco")) setBounds(33.77, 41.77, -126.42, -118.42)
+  else if (q.includes("pacific")) setBounds(-60, 60, -180, -120)
+  return params
+}
+
+function mapAircraftRow(a: Record<string, unknown>): AircraftResult {
+  return {
+    id: String(a.id || a.icao24 || a.icao || a.hex || `aircraft-${a.callsign || Date.now()}`),
+    callsign: String(a.callsign || "").trim(),
+    icao24: String(a.icao24 || a.icao || a.hex || ""),
+    origin: String(a.origin || a.country || ""),
+    lat: Number(a.lat ?? a.latitude ?? 0),
+    lng: Number(a.lng ?? a.longitude ?? 0),
+    altitude: Number(a.altitude ?? a.alt ?? 0),
+    velocity: Number(a.velocity ?? a.speed ?? 0),
+    heading: Number(a.heading ?? a.track ?? 0),
+    onGround: Boolean(a.onGround ?? a.on_ground ?? false),
+    source: String(a.source || "Aircraft registry"),
+  }
+}
+
+export async function searchAircraft(query: string, origin = "", limit = 20): Promise<AircraftResult[]> {
   try {
+    if (origin) {
+      const localParams = aircraftBoundsForQuery(query)
+      localParams.set("limit", String(limit))
+      const localRes = await safeFetch(`${origin}/api/oei/flightradar24?${localParams.toString()}`, 15000)
+      if (localRes) {
+        const localData = await localRes.json()
+        const localRows = localData.entities || localData.aircraft || localData.data || []
+        const mapped = (localRows as Record<string, unknown>[])
+          .map(mapAircraftRow)
+          .filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng))
+          .slice(0, limit)
+        if (mapped.length > 0) return mapped
+      }
+    }
+
     const res = await safeFetch("https://opensky-network.org/api/states/all?extended=1", 10000)
     if (!res) return []
     const data = await res.json()
@@ -320,7 +367,7 @@ export function isSatelliteQuery(query: string): boolean {
 
 export async function searchSatellites(query: string, origin: string, limit = 20): Promise<SatelliteResult[]> {
   try {
-    const res = await safeFetch(`${origin}/api/oei/satellites?limit=${limit}`, 10000)
+    const res = await safeFetch(`${origin}/api/oei/satellites?category=active&limit=${limit}`, 25000)
     if (!res) return []
     const data = await res.json()
     const sats = data.entities || data.satellites || data.data || []
@@ -377,6 +424,37 @@ export async function searchWeather(query: string, origin: string, limit = 10): 
           timestamp: (a.onset as string) || (a.effective as string) || new Date().toISOString(),
           source: "NWS",
         })
+      }
+    }
+
+    if (results.length === 0) {
+      const place = fallbackCoordsForKnownPlace(query)
+      if (place) {
+        const params = new URLSearchParams({
+          latitude: String(place.lat),
+          longitude: String(place.lon),
+          current: "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code",
+          timezone: "auto",
+        })
+        const meteo = await safeFetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, 10000)
+        if (meteo) {
+          const data = await meteo.json()
+          const current = data.current || {}
+          results.push({
+            id: `openmeteo-${place.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            type: "observation",
+            title: `Current weather near ${place.label}`,
+            description: [
+              Number.isFinite(Number(current.temperature_2m)) ? `${current.temperature_2m} C` : "",
+              Number.isFinite(Number(current.wind_speed_10m)) ? `${current.wind_speed_10m} km/h wind` : "",
+              Number.isFinite(Number(current.precipitation)) ? `${current.precipitation} mm precipitation` : "",
+            ].filter(Boolean).join(" | ") || "Current weather observation",
+            lat: place.lat,
+            lng: place.lon,
+            timestamp: String(current.time || data.current_units?.time || new Date().toISOString()),
+            source: "Open-Meteo",
+          })
+        }
       }
     }
 
@@ -1047,18 +1125,20 @@ export async function searchEarthIntelligence(
 }> {
   const domains = detectEarthDomains(query)
   const isGeneral = !Object.values(domains).some(Boolean)
+  const wantsWeatherContext = domains.weather || isGeneral || domains.aircraft
+  const wantsSpaceWeatherContext = domains.spaceWeather || domains.satellites
 
   /** Live connectors — run in parallel with MINDEX so camera/geo queries are not serialized (MINDEX + OSM). */
   const livePromises = {
     events: (domains.events || isGeneral) ? searchEvents(query, limit) : Promise.resolve([] as EventResult[]),
-    aircraft: domains.aircraft ? searchAircraft(query, limit) : Promise.resolve([] as AircraftResult[]),
+    aircraft: domains.aircraft ? searchAircraft(query, origin, limit) : Promise.resolve([] as AircraftResult[]),
     vessels: domains.vessels ? searchVessels(query, origin, limit) : Promise.resolve([] as VesselResult[]),
     satellites: domains.satellites ? searchSatellites(query, origin, limit) : Promise.resolve([] as SatelliteResult[]),
-    weather: (domains.weather || isGeneral) ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
+    weather: wantsWeatherContext ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
     emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([] as EmissionsResult[]),
     infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([] as InfrastructureResult[]),
     devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([] as DeviceResult[]),
-    spaceWeather: domains.spaceWeather ? searchSpaceWeather(query, origin, limit) : Promise.resolve([] as SpaceWeatherResult[]),
+    spaceWeather: wantsSpaceWeatherContext ? searchSpaceWeather(query, origin, limit) : Promise.resolve([] as SpaceWeatherResult[]),
     cameras: domains.cameras ? searchCameras(query, limit) : Promise.resolve([] as CameraResult[]),
   }
 
@@ -1123,11 +1203,11 @@ export async function searchEarthIntelligence(
       if (domains.aircraft && aircraft.length === 0) aircraft = liveAircraft
       if (domains.vessels && vessels.length === 0) vessels = liveVessels
       if (domains.satellites && satellites.length === 0) satellites = liveSatellites
-      if ((domains.weather || isGeneral) && weather.length === 0) weather = liveWeather
+      if (wantsWeatherContext && weather.length === 0) weather = liveWeather
       if (domains.emissions && emissions.length === 0) emissions = liveEmissions
       if (domains.infrastructure && infrastructure.length === 0) infrastructure = liveInfrastructure
       if (domains.devices && devices.length === 0) devices = liveDevices
-      if (domains.spaceWeather && space_weather.length === 0) space_weather = liveSpaceWeather
+      if (wantsSpaceWeatherContext && space_weather.length === 0) space_weather = liveSpaceWeather
       if (domains.cameras && cameras.length === 0) cameras = filterRenderableCameras(liveCameras)
       if (detectEventCategory(query) === "earthquake" && liveEvents.length > 0) {
         events = deduplicateEarthEvents(liveEvents)

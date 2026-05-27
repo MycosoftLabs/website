@@ -230,6 +230,7 @@ export function useStreamingSearch(
   }, [normalizedQuery, debounceMs, enabled])
 
   const fluidB64 = useMemo(() => encodeFluidForQuery(fluidContext), [fluidContext])
+  const typesKey = useMemo(() => types.join(","), [types])
 
   useEffect(() => {
     if (!enabled || debounced.length < 2) {
@@ -254,31 +255,43 @@ export function useStreamingSearch(
       esRef.current = null
     }
 
+    const requestFluidB64 = fluidB64
+    const requestSessionId = sessionId
     const params = new URLSearchParams()
     params.set("q", debounced)
-    params.set("types", types.join(","))
+    params.set("types", typesKey)
     params.set("limit", String(limit))
     if (includeAI) params.set("ai", "1")
-    if (sessionId) params.set("sessionId", sessionId)
+    if (requestSessionId) params.set("sessionId", requestSessionId)
     if (shouldSendPartialWordFlag(debounced)) params.set("partialWord", "1")
     if (typeof lat === "number" && !Number.isNaN(lat) && typeof lng === "number" && !Number.isNaN(lng)) {
       params.set("lat", String(lat))
       params.set("lng", String(lng))
     }
-    if (fluidB64) params.set("fluidB64", fluidB64)
+    if (requestFluidB64) params.set("fluidB64", requestFluidB64)
 
     const es = new EventSource(`/api/search/stream?${params.toString()}`)
     esRef.current = es
     const fallbackController = new AbortController()
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null
+
+    const clearFallbackTimer = () => {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer)
+        fallbackTimer = null
+      }
+    }
 
     async function fetchUnifiedFallback(reason: string) {
       if (seqRef.current !== mySeq || fallbackController.signal.aborted) return
+      clearFallbackTimer()
 
       const fallbackParams = new URLSearchParams()
       fallbackParams.set("q", debounced)
-      fallbackParams.set("types", types.join(","))
+      fallbackParams.set("types", typesKey)
       fallbackParams.set("limit", String(limit))
       if (includeAI) fallbackParams.set("ai", "true")
+      if (requestSessionId) fallbackParams.set("sessionId", requestSessionId)
       if (typeof lat === "number" && !Number.isNaN(lat) && typeof lng === "number" && !Number.isNaN(lng)) {
         fallbackParams.set("lat", String(lat))
         fallbackParams.set("lng", String(lng))
@@ -286,7 +299,7 @@ export function useStreamingSearch(
 
       try {
         const response = await fetch(`/api/search/unified?${fallbackParams.toString()}`, {
-          headers: fluidB64 ? { "x-fluid-search-context": fluidB64 } : undefined,
+          headers: requestFluidB64 ? { "x-fluid-search-context": requestFluidB64 } : undefined,
           signal: fallbackController.signal,
         })
         if (!response.ok) throw new Error(`Unified search failed (${response.status})`)
@@ -304,6 +317,10 @@ export function useStreamingSearch(
         if (seqRef.current === mySeq && !fallbackController.signal.aborted) setIsLoading(false)
       }
     }
+
+    fallbackTimer = setTimeout(() => {
+      void fetchUnifiedFallback("stream warmup timeout")
+    }, 5000)
 
     es.addEventListener("route", (ev) => {
       if (seqRef.current !== mySeq) return
@@ -323,7 +340,10 @@ export function useStreamingSearch(
           setError(wrap.error)
           return
         }
-        if (wrap.payload) setData(normalizeUnifiedPayload(wrap.payload))
+        if (wrap.payload) {
+          clearFallbackTimer()
+          setData(normalizeUnifiedPayload(wrap.payload))
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "widget-data parse error")
       }
@@ -341,6 +361,7 @@ export function useStreamingSearch(
 
     es.addEventListener("done", () => {
       if (seqRef.current !== mySeq) return
+      clearFallbackTimer()
       setIsLoading(false)
       es.close()
       if (esRef.current === es) esRef.current = null
@@ -354,11 +375,12 @@ export function useStreamingSearch(
     }
 
     return () => {
+      clearFallbackTimer()
       fallbackController.abort()
       es.close()
       if (esRef.current === es) esRef.current = null
     }
-  }, [debounced, enabled, types, limit, includeAI, lat, lng, fluidB64, sessionId, refreshTick])
+  }, [debounced, enabled, typesKey, limit, includeAI, lat, lng, refreshTick])
 
   const results = useMemo(() => {
     if (!data?.results) return { ...EMPTY_RESULTS.results }

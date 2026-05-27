@@ -33,6 +33,7 @@ for (let i = 0; i < scenarios.length; i += 1) {
     const text = msg.text()
     if (/Permissions policy violation: Geolocation access has been blocked/i.test(text)) return
     if (/Failed to fetch RSC payload.*hmrRefresh|hot-reloader-client|webpack-internal:\/\/\/\(app-pages-browser\)\/.*hot-reloader/i.test(text)) return
+    if (/Failed to fetch RSC payload[\s\S]*hmr-refresh-reducer/i.test(text)) return
     if (/Failed to load resource: the server responded with a status of (404|429|503)/i.test(text)) return
     consoleErrors.push(text)
   })
