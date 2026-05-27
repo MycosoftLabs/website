@@ -27,7 +27,7 @@ export function resolveInternalBaseUrl(requestOrigin?: string): string {
     // the platform router — use the request origin there.
     if (process.env.VERCEL) return requestOrigin || "https://localhost"
     const port = process.env.PORT || "3000"
-    return `http://localhost:${port}`
+    return `http://127.0.0.1:${port}`
   }
   return requestOrigin || ""
 }
