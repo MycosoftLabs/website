@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server"
+import fs from "node:fs/promises"
+import path from "node:path"
 import { filterEagleVideoSources } from "@/lib/crep/eagle-camera-normalize"
 
 /**
@@ -57,6 +59,17 @@ type VideoSource = {
 // truly has no rows for this bbox at all (cold start / network split).
 const MIN_SOURCES = 1
 
+const BAKED_GEOJSON_FILES = [
+  "eagle-cameras-registry.geojson",
+  "eagle-cameras-manual-seed.geojson",
+  "eagle-cameras-caltrans-san-diego-seed.geojson",
+  "eagle-cameras-nyc-dc-seed.geojson",
+  "eagle-cameras-vegas-seed.geojson",
+  "eagle-cameras-deployment-sites-seed.geojson",
+] as const
+
+let bakedSourcesPromise: Promise<VideoSource[]> | null = null
+
 const MINDEX_BASE =
   process.env.MINDEX_API_URL ||
   process.env.NEXT_PUBLIC_MINDEX_API_URL ||
@@ -98,6 +111,70 @@ function authHeaders(): Record<string, string> {
   if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
   if (MINDEX_API_KEY) return { "X-API-Key": MINDEX_API_KEY }
   return {}
+}
+
+function parseBbox(bbox: string | undefined): [number, number, number, number] | null {
+  if (!bbox) return null
+  const parts = bbox.split(",").map(Number)
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return null
+  return parts as [number, number, number, number]
+}
+
+function inBbox(src: VideoSource, bbox: [number, number, number, number] | null): boolean {
+  if (!bbox) return true
+  const [west, south, east, north] = bbox
+  if (src.lat < south || src.lat > north) return false
+  if (west <= east) return src.lng >= west && src.lng <= east
+  return src.lng >= west || src.lng <= east
+}
+
+async function loadBakedSources(): Promise<VideoSource[]> {
+  if (!bakedSourcesPromise) {
+    bakedSourcesPromise = (async () => {
+      const merged = new Map<string, VideoSource>()
+      for (const file of BAKED_GEOJSON_FILES) {
+        try {
+          const full = path.join(process.cwd(), "public", "data", "crep", file)
+          const json = JSON.parse(await fs.readFile(full, "utf8"))
+          for (const feature of json?.features || []) {
+            const props = feature?.properties || {}
+            const coords = feature?.geometry?.coordinates || []
+            const lng = Number(coords[0])
+            const lat = Number(coords[1])
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+            const provider = String(props.provider || "camera")
+            const id = String(props.id || `${provider}-${lat}-${lng}`)
+            merged.set(id, {
+              id,
+              kind: (props.kind || "permanent") as VideoSource["kind"],
+              provider,
+              name: props.name ?? props.title ?? null,
+              stable_location: true,
+              lat,
+              lng,
+              location_confidence: 1,
+              stream_url: props.stream_url ?? null,
+              embed_url: props.embed_url ?? null,
+              media_url: props.media_url ?? null,
+              source_status: props.source_status ?? props.status ?? "online",
+              permissions: props.permissions ?? { access: "public" },
+              updated_at: props.updated_at ?? null,
+            })
+          }
+        } catch {
+          /* seed file is optional */
+        }
+      }
+      return Array.from(merged.values())
+    })()
+  }
+  return bakedSourcesPromise
+}
+
+async function fromBakedSeeds(bbox: string | undefined, limit: number): Promise<VideoSource[]> {
+  const parsed = parseBbox(bbox)
+  const baked = await loadBakedSources()
+  return baked.filter((source) => inBbox(source, parsed)).slice(0, limit)
 }
 
 const BULK_UPSERT_CHUNK = 200
@@ -347,11 +424,17 @@ export async function GET(req: NextRequest) {
   const fast = url.searchParams.get("fast") === "1"
 
   let liveUsed = false
+  let bakedUsed = false
   const origin = connectorFetchBase(req)
   const stateDotPromise = !skipLive && !fast
     ? fromStateDotCctv(origin, bbox)
     : Promise.resolve<VideoSource[]>([])
   let sources = await fromMindex(bbox, kind, provider, limit)
+  const bakedSources = await fromBakedSeeds(bbox, limit)
+  if (bakedSources.length) {
+    sources = mergeSourcesLiveWins(bakedSources, sources)
+    bakedUsed = true
+  }
 
   // May 24, 2026 — fast=1 (thumbnail grid / first paint) must NOT block on
   // the 18 s state-dot-cctv fan-out. Return MINDEX + fast-tier immediately;
@@ -446,15 +529,22 @@ export async function GET(req: NextRequest) {
       by_kind: byKind,
       sources,
       generatedAt: new Date().toISOString(),
+      baked_seed_used: bakedUsed,
       live_fanout_used: liveUsed,
       note: liveUsed
         ? "MINDEX sparse → fanned out to connectors (public-webcams + 511 + shinobi)"
-        : undefined,
+        : bakedUsed
+          ? "MINDEX sparse; included baked public camera seed"
+          : undefined,
     },
     {
       headers: {
         "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
-        "X-Source": liveUsed ? "mindex-eagle+live-fanout" : "mindex-eagle",
+        "X-Source": liveUsed
+          ? "mindex-eagle+live-fanout"
+          : bakedUsed
+            ? "mindex-eagle+baked-seed"
+            : "mindex-eagle",
       },
     },
   )
