@@ -34,7 +34,7 @@ export async function POST(
     return NextResponse.json({ error: "config_missing" }, { status: 500 })
   }
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() { return cookieStore.getAll() },

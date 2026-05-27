@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { isYouTubeUrl, normalizeYouTubeEmbedUrlSync } from "@/lib/crep/youtube-embed"
 import type { EagleViewportSource } from "@/lib/crep/eagle-viewport-sources"
+import { hlsLivePlayerConfig, seekVideoToLiveEdge } from "@/lib/crep/hls-live-config"
 
 export type EagleLiveStreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
 
@@ -108,27 +109,36 @@ export async function resolveEagleLiveStream(
   const direct = pickLiveFromUrls(source.stream_url, source.embed_url)
   if (direct) return direct
 
+  try {
+    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(source.id)}`, {
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.stream_type === "hls" && data.stream_url) {
+        return { stream_type: "hls", url: data.stream_url }
+      }
+      if (data.stream_type === "mjpeg" && data.stream_url) {
+        return { stream_type: "mjpeg", url: data.stream_url }
+      }
+      if (data.stream_type === "webrtc" && data.stream_url) {
+        return { stream_type: "webrtc", url: data.stream_url }
+      }
+      const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
+      if (fromApi) return fromApi
+      if (data.stream_type === "iframe" && data.embed_url) {
+        return { stream_type: "iframe", url: data.embed_url }
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+
   const viewerUrl = source.embed_url || source.stream_url
   if (viewerUrl && !isStillImage(viewerUrl)) {
     if (isCbpSource(source) || isSnapshotViewerUrl(viewerUrl)) {
       return { stream_type: "snapshot", url: viewerUrl }
     }
-  }
-
-  try {
-    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(source.id)}`, {
-      signal: AbortSignal.timeout(8_000),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      if (data.stream_type === "snapshot" && data.stream_url) {
-        return { stream_type: "snapshot", url: data.stream_url }
-      }
-      const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
-      if (fromApi) return fromApi
-    }
-  } catch {
-    /* fall through */
   }
 
   if (source.embed_url && !isStillImage(source.embed_url)) {
@@ -178,6 +188,7 @@ export function HlsLivePlayer({
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = playbackUrl
+      video.addEventListener("loadedmetadata", () => seekVideoToLiveEdge(video), { once: true })
       kickPlay()
     } else {
       import("hls.js").then((Hls) => {
@@ -187,19 +198,21 @@ export function HlsLivePlayer({
           kickPlay()
           return
         }
-        const hls = new H({
-          maxBufferLength: 8,
-          manifestLoadingTimeOut: 10_000,
-          levelLoadingTimeOut: 10_000,
-          fragLoadingTimeOut: 10_000,
-        })
+        const hls = new H({ ...hlsLivePlayerConfig() })
         hls.loadSource(playbackUrl)
         hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, kickPlay)
+        hls.on(H.Events.MANIFEST_PARSED, () => {
+          seekVideoToLiveEdge(video, hls)
+          kickPlay()
+        })
         hls.on(H.Events.ERROR, (_evt: unknown, data: { fatal?: boolean }) => {
           if (data?.fatal && retryNonce < 3) setRetryNonce((n) => n + 1)
         })
+        const driftTimer = window.setInterval(() => {
+          if (video.duration === Infinity) seekVideoToLiveEdge(video, hls)
+        }, 12_000)
         cleanup = () => {
+          window.clearInterval(driftTimer)
           try {
             hls.destroy()
           } catch {
@@ -255,7 +268,7 @@ export function SnapshotLivePlayer({
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
       setTick(Date.now())
-    }, 8_000)
+    }, 3_000)
     return () => window.clearInterval(id)
   }, [viewerUrl])
 

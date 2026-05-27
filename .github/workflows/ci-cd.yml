@@ -335,9 +335,13 @@ jobs:
         run: npm ci
 
       - name: Run integration tests
-        run: npm run test:integration --if-present
+        run: |
+          export DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}"
+          npm run test:integration --if-present
         env:
-          DATABASE_URL: postgresql://mycosoft:test@localhost:5432/mycosoft_test
+          DB_USER: mycosoft
+          DB_PASS: test
+          DB_NAME: mycosoft_test
           REDIS_URL: redis://localhost:6379
 
   # ===========================================================================
@@ -448,7 +452,9 @@ jobs:
             echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
-            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
+            if [ -n '${{ secrets.DATABASE_URL }}' ]; then
+              echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> .env
+            fi
             echo "Env vars injected"
           ENVSCRIPT2
 
@@ -877,7 +883,9 @@ jobs:
             echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
-            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
+            if [ -n '${{ secrets.DATABASE_URL }}' ]; then
+              echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> .env
+            fi
           ENVSCRIPT2
 
       - name: Pull GHCR image + blue/green cutover (zero-downtime)

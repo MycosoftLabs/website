@@ -34,6 +34,14 @@ function parseSlugFromSnapshot(snapshotUrl: string | null | undefined): string |
   return m ? m[2].toLowerCase() : null
 }
 
+function parseDistrictFromSnapshot(snapshotUrl: string | null | undefined): number | null {
+  if (!snapshotUrl) return null
+  const m = /cwwp2\.dot\.ca\.gov\/data\/(d\d+)\/cctv\/image\/[^/]+\//i.exec(snapshotUrl)
+  if (!m) return null
+  const n = Number(m[1].replace(/^d/i, ""))
+  return Number.isFinite(n) ? n : null
+}
+
 function parseDistrictFromSourceId(sourceId: string): number | null {
   const m = /^caltrans-d(\d+)-/i.exec(sourceId)
   if (!m) return null
@@ -150,9 +158,10 @@ export function caltransProxiedSnapshot(
     return `/api/eagle/cam-image?url=${encodeURIComponent(upstream)}`
   }
   const slug = parseSlugFromEmbed(embedUrl)
-  const district = parseDistrictFromEmbed(embedUrl)
-  if (slug && district) {
-    const upstreamJpg = `https://cwwp2.dot.ca.gov/data/${district}/cctv/image/${slug}/${slug}.jpg`
+  const districtNum = parseDistrictFromEmbed(embedUrl)
+  if (slug && districtNum) {
+    const districtTag = `d${districtNum}`
+    const upstreamJpg = `https://cwwp2.dot.ca.gov/data/${districtTag}/cctv/image/${slug}/${slug}.jpg`
     return `/api/eagle/cam-image?url=${encodeURIComponent(upstreamJpg)}`
   }
   return null

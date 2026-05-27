@@ -257,7 +257,7 @@ MEMPOOL_API_URL=https://mempool.space/api
 HYPERGRAPH_NODE_URL=http://localhost:9000
 
 # Database
-MINDEX_DATABASE_URL=postgresql://mindex:mindex@192.168.0.187:5434/mindex
+MINDEX_DATABASE_URL=[set from your local secret manager]
 REDIS_URL=redis://192.168.0.187:6379
 ```
 

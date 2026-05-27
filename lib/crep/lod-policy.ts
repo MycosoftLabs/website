@@ -66,7 +66,7 @@ export interface LODPolicy {
   }
 }
 
-export type TimeWindow = "6h" | "24h" | "7d" | "30d" | "6m" | "1y" | "5y" | "all"
+export type TimeWindow = "6h" | "24h" | "7d" | "14d" | "30d" | "6m" | "1y" | "5y" | "all"
 
 /** Map display only — never show events older than 7 days (MINDEX unchanged). May 26, 2026 */
 export const MAP_DISPLAY_MAX_EVENT_AGE_MS = 7 * 86400_000
@@ -88,17 +88,30 @@ export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
  * are ON — see production-first-load rules (May 24, 2026).
  *
  * Telecom uses tiered floors via getInfraLayerMinZoom (May 24, 2026):
- *   DATA_CENTER_MIN_ZOOM — globe/country (all DC layers ON from load)
+ *   INFRA_COUNTRY_REVEAL_MIN_ZOOM — country/state overview
+ *   DATA_CENTER_MIN_ZOOM / POWER_PLANT_MIN_ZOOM — three zoom steps past US fly-to
  *   TELECOM_DETAIL_MIN_ZOOM — state+ (cell towers, radio, signal heatmap)
  *   TELECOM_CITY_MIN_ZOOM — city (bbox-scoped / regional tower detail)
  */
 export const INFRA_POINT_ICON_MIN_ZOOM = 7
 
-/** Data centers (global + IM3 + regional DC points) — visible at globe zoom. */
-export const DATA_CENTER_MIN_ZOOM = 2
+/** Infrastructure begins painting once the user is at country/state scale. */
+export const INFRA_COUNTRY_REVEAL_MIN_ZOOM = 3
+
+/** Heavy point families stay hidden until three zoom steps past the z4 US fly-to view. */
+export const INFRA_HEAVY_POINT_MIN_ZOOM = INFRA_POINT_ICON_MIN_ZOOM
+
+/** Data centers (global + IM3 + regional DC points) — hidden at US fly-to/reload zoom. */
+export const DATA_CENTER_MIN_ZOOM = INFRA_HEAVY_POINT_MIN_ZOOM
+
+/** Power plants (local + global + EIA) — hidden at US fly-to/reload zoom. */
+export const POWER_PLANT_MIN_ZOOM = INFRA_HEAVY_POINT_MIN_ZOOM
+
+/** Data-center names stay hidden until street-close zoom; icons remain visible. */
+export const DATA_CENTER_LABEL_MIN_ZOOM = 12
 
 /** Cell towers, AM/FM radio, signal heatmap — state / region detail. */
-export const TELECOM_DETAIL_MIN_ZOOM = 6
+export const TELECOM_DETAIL_MIN_ZOOM = 5
 
 /** City-scoped tower/antenna detail (SD/TJ, bbox batchFetch dots). */
 export const TELECOM_CITY_MIN_ZOOM = 8
@@ -132,6 +145,7 @@ export function timeWindowToCutoffMs(w: TimeWindow): number | null {
     case "6h": return now - 6 * 3600_000
     case "24h": return now - 24 * 3600_000
     case "7d": return now - 7 * 86400_000
+    case "14d": return now - 14 * 86400_000
     case "30d": return now - 30 * 86400_000
     case "6m": return now - 180 * 86400_000
     case "1y": return now - 365 * 86400_000
@@ -148,9 +162,9 @@ export const LOD_TIERS: LODPolicy[] = [
   {
     tier: "globe",
     zoomRange: [0, 3],
-    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1200 },
+    events: { timeWindow: "7d", minSeverity: "high", maxRendered: 400 },
     movers: { aircraft: 2500, vessels: 4500, satellites: 2500, bboxFilter: false },
-    infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 2000 },
+    infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 500 },
     // Apr 23, 2026 — Morgan: "green dots not selectable, masking cells".
     // Nature is DOM-marker rendered (FungalMarker → maplibregl.Marker per
     // observation). >~1500 markers pins the main thread creating/updating
@@ -165,9 +179,9 @@ export const LOD_TIERS: LODPolicy[] = [
   {
     tier: "continent",
     zoomRange: [3, 5],
-    events: { timeWindow: "30d", minSeverity: "info", maxRendered: 1800 },
+    events: { timeWindow: "14d", minSeverity: "medium", maxRendered: 800 },
     movers: { aircraft: 3500, vessels: 5500, satellites: 3500, bboxFilter: true },
-    infra: { mindexEnabled: false, bundledEnabled: true, maxPerLayer: 5000 },
+    infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 1000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 6000 },
   },
   // ─── Region view: last week, low severity, MINDEX kicks in ──────────

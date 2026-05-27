@@ -5,13 +5,14 @@ import {
   resolveVerifiedIdentity,
   type VerifiedIdentity,
 } from "@/lib/auth/verified-identity"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export function masHttpBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_MAS_API_URL || process.env.MAS_API_URL || "http://localhost:8001").replace(/\/$/, "")
+  return resolveMasServerBaseUrl()
 }
 
 export function masOrchestratorBaseUrl(): string {
-  return (process.env.MAS_ORCHESTRATOR_URL || process.env.MAS_API_URL || "http://localhost:8001").replace(/\/$/, "")
+  return (process.env.MAS_ORCHESTRATOR_URL || resolveMasServerBaseUrl()).replace(/\/$/, "")
 }
 
 export function masJsonHeaders(): HeadersInit {

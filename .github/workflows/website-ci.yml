@@ -22,7 +22,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       # Placeholders so middleware and client bundles compile; not real credentials.
       NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImNpLXBsYWNlaG9sZGVyIn0.ci-placeholder-signature"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-anon-key"
       NEXT_PUBLIC_SITE_URL: "https://mycosoft.com"
       NEXT_PUBLIC_BASE_URL: "https://mycosoft.com"
       NEXTAUTH_URL: "https://mycosoft.com"

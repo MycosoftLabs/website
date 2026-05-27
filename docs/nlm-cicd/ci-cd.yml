@@ -92,7 +92,7 @@ jobs:
       - name: Run tests with coverage
         run: pytest --cov=nlm --cov-report=xml --cov-report=term -v
         env:
-          DATABASE_URL: postgresql://nlm:test@localhost:5432/nlm_test
+          DATABASE_URL: ${{ secrets.CI_NLM_DATABASE_URL }}
           REDIS_URL: redis://localhost:6379
           TESTING: "true"
 

@@ -18,8 +18,9 @@ export type FungalAtlasLayer =
   | "endemic"
   | "fci"
   | "protected"
+  | "uncertainty"
 
-export type FungalAtlasHeatLayer = Exclude<FungalAtlasLayer, "protected">
+export type FungalAtlasHeatLayer = Exclude<FungalAtlasLayer, "protected" | "uncertainty">
 
 export type FungalSampleGroup =
   | "mycelium"
@@ -720,6 +721,7 @@ function scoreCell(cell: FungalAtlasCell | undefined, layer: FungalAtlasLayer): 
     case "endemic": return cell.endemicity
     case "fci": return cell.fciPriority
     case "protected": return clamp01(cell.endemicity * 0.45 + cell.rarity * 0.3 + cell.uncertainty * 0.25)
+    case "uncertainty": return clamp01(cell.uncertainty)
     case "mycelium":
     default: return clamp01(cell.richness * 0.38 + cell.activity * 0.34 + Math.max(cell.amScore, cell.ecmScore) * 0.28)
   }
@@ -1021,12 +1023,23 @@ function predictedFciPriority(lat: number, lng: number, zoom: number): number {
   return clamp01(richness * 0.42 + rarity * 0.26 + uncertainty * 0.2 + deploymentFocus)
 }
 
+function predictedUncertaintyLayer(lat: number, lng: number, zoom: number): number {
+  const richness = predictedMycorrhizalRichness(lat, lng, zoom)
+  const sparseSignal = 1 - Math.min(0.9, richness)
+  const coastalSurveyGap =
+    hotspot(lat, lng, 32.58, -117.11, 0.35) * 0.18 +
+    hotspot(lat, lng, 33.05, -116.95, 0.55) * 0.14
+  const texture = (fungalFbm(lat, lng, 607) - 0.5) * 0.18
+  return clamp01(0.22 + sparseSignal * 0.48 + coastalSurveyGap + texture)
+}
+
 function interpolationRadius(layer: FungalAtlasLayer): number {
   switch (layer) {
     case "rarity":
     case "endemic":
     case "fci":
     case "protected":
+    case "uncertainty":
       return 1.25
     case "am":
     case "ecm":
@@ -1054,6 +1067,8 @@ function stablePredictedSurface(lat: number, lng: number, layer: FungalAtlasLaye
       return predictedFciPriority(plat, plng, STABLE_MODEL_DETAIL_ZOOM)
     case "protected":
       return predictedProtectedOverlap(lat, lng, STABLE_MODEL_DETAIL_ZOOM)
+    case "uncertainty":
+      return predictedUncertaintyLayer(lat, lng, STABLE_MODEL_DETAIL_ZOOM)
     case "mycelium":
     default:
       return predictedMycorrhizalRichness(plat, plng, STABLE_MODEL_DETAIL_ZOOM)
@@ -1061,7 +1076,7 @@ function stablePredictedSurface(lat: number, lng: number, layer: FungalAtlasLaye
 }
 
 function stableAtlasTexture(lat: number, lng: number, layer: FungalAtlasLayer): number {
-  const seed = layer === "am" ? 811 : layer === "ecm" ? 977 : layer === "rarity" ? 1223 : layer === "endemic" ? 1439 : layer === "fci" ? 1613 : 701
+  const seed = layer === "am" ? 811 : layer === "ecm" ? 977 : layer === "rarity" ? 1223 : layer === "endemic" ? 1439 : layer === "fci" ? 1613 : layer === "uncertainty" ? 1789 : 701
   return (
     (valueNoise(lat, lng, 22, seed) - 0.5) * 0.06 +
     (valueNoise(lat, lng, 58, seed + 19) - 0.5) * 0.1 +
@@ -1183,6 +1198,12 @@ function gradient(layer: FungalAtlasLayer, value: number): [number, number, numb
     [0.36, [59, 130, 246, 38]],
     [0.68, [6, 182, 212, 80]],
     [1, [191, 219, 254, 130]],
+  ])
+  if (layer === "uncertainty") return lerpStops(v, [
+    [0.08, [0, 0, 0, 0]],
+    [0.34, [71, 85, 105, 55]],
+    [0.64, [148, 163, 184, 104]],
+    [1, [248, 250, 252, 158]],
   ])
   return lerpStops(v, [
     [0.02, [0, 0, 0, 0]],

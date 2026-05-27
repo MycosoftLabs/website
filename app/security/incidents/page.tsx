@@ -173,7 +173,7 @@ function StatsBar({ stats }: { stats: LiveStats }) {
         label="Active Agents"
         value={stats.active_agents}
         color="text-cyan-400"
-        tooltip="Number of security agents currently monitoring the system. Agents include: Watchdog, Hunter, Guardian, Incident Response, and MICA orchestrator."
+        tooltip="Number of security agents currently monitoring the system. Agents include: Watchdog, Hunter, Guardian, Incident Response, and MYCA orchestrator."
       />
       <StatCard
         icon={Hash}

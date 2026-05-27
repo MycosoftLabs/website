@@ -367,7 +367,7 @@ function buildSignalPacketsFromSnapshot(snapshot: MYCALiveActivitySnapshot): MYC
   const observedAt = Number.isFinite(timestamp) ? timestamp : Date.now()
 
   return (snapshot.sources || [])
-    .map((source) => {
+    .map((source): MYCAChordSignalPacket | null => {
       const edge = SOURCE_SIGNAL_EDGES[source.key]
       if (!edge) return null
       const status = statusFromSource(source)

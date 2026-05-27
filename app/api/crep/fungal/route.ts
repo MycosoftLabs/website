@@ -42,7 +42,7 @@ const MINDEX_OBSERVATIONS_TIMEOUT_MS =
   Number.isFinite(configuredMindexObservationTimeout) && configuredMindexObservationTimeout > 0
     ? configuredMindexObservationTimeout
     : process.env.NODE_ENV === "development"
-      ? 1500
+      ? 8000
       : 5000
 
 /** Fetch with timeout and retry for external APIs (iNaturalist, GBIF) to reduce ConnectTimeoutError */
@@ -57,6 +57,12 @@ async function fetchWithRetry(
     try {
       const { next: _next, ...safeOptions } = options as RequestInit & { next?: unknown }
       const res = await fetch(url, { ...safeOptions, signal, cache: "no-store" })
+      if (res.status === 429 && attempt < retries) {
+        const delay = 1500 * Math.pow(2, attempt)
+        console.warn(`[CREP/Life] Rate limited (429), retry in ${delay}ms: ${url.slice(0, 120)}`)
+        await new Promise((r) => setTimeout(r, delay))
+        continue
+      }
       return res
     } catch (err) {
       lastErr = err
@@ -67,6 +73,15 @@ async function fetchWithRetry(
     }
   }
   throw lastErr
+}
+
+async function fetchQuickExternal(url: string, options: RequestInit = {}): Promise<Response> {
+  const { next: _next, ...safeOptions } = options as RequestInit & { next?: unknown }
+  return fetch(url, {
+    ...safeOptions,
+    signal: AbortSignal.timeout(3000),
+    cache: "no-store",
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -89,8 +104,29 @@ interface MindexTaxonLookupRecord {
 
 let dataCache: CachedData | null = null
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const viewportQuickCache = new Map<string, CachedData>()
+const VIEWPORT_QUICK_CACHE_TTL_MS = 60 * 1000
 // Next.js response payload limit ~2MB - skip cache for large payloads
 const MAX_CACHE_PAYLOAD_BYTES = 1.5 * 1024 * 1024 // 1.5 MB
+
+function recentObservationStartDate(): string {
+  const d = new Date()
+  d.setUTCFullYear(d.getUTCFullYear() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+function recentObservationCutoffMs(): number {
+  const d = new Date()
+  d.setUTCFullYear(d.getUTCFullYear() - 1)
+  return d.getTime()
+}
+
+function observationTimestampMs(obs: FungalObservation): number {
+  const value = obs.timestamp || (obs as { observed_on?: string }).observed_on
+  if (!value) return 0
+  const t = new Date(value).getTime()
+  return Number.isFinite(t) ? t : 0
+}
 
 function isCacheValid(): boolean {
   if (!dataCache) return false
@@ -133,6 +169,72 @@ function setCachedData(
     kingdom,
   }
   console.log(`[CREP/Fungal] Cached ${observations.length} observations (${(payloadSize / 1024).toFixed(0)}KB)`)
+}
+
+function viewportCacheKey(
+  kingdom: string,
+  bounds: { north: number; south: number; east: number; west: number },
+): string {
+  return [
+    normalizeTaxonToken(kingdom) || "all",
+    bounds.south.toFixed(2),
+    bounds.north.toFixed(2),
+    bounds.west.toFixed(2),
+    bounds.east.toFixed(2),
+  ].join(":")
+}
+
+function getViewportQuickCachedData(key: string): CachedData | null {
+  const cached = viewportQuickCache.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.timestamp > VIEWPORT_QUICK_CACHE_TTL_MS) {
+    viewportQuickCache.delete(key)
+    return null
+  }
+  return cached
+}
+
+function setViewportQuickCachedData(
+  key: string,
+  observations: FungalObservation[],
+  sources: { mindex: number; iNaturalist: number; gbif: number },
+  kingdom: string,
+): void {
+  if (observations.length < 10) return
+  viewportQuickCache.set(key, {
+    observations,
+    timestamp: Date.now(),
+    sources,
+    kingdom,
+  })
+  if (viewportQuickCache.size > 80) {
+    const oldest = [...viewportQuickCache.entries()]
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)
+      .slice(0, viewportQuickCache.size - 80)
+    oldest.forEach(([oldKey]) => viewportQuickCache.delete(oldKey))
+  }
+}
+
+async function withSoftTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[CREP/Fungal] ${label} soft-timeout after ${ms}ms`)
+          resolve(fallback)
+        }, ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 export interface FungalObservation {
@@ -371,28 +473,32 @@ function resolveMindexKingdom(
   obs: Record<string, unknown>,
   taxon?: MindexTaxonLookupRecord,
 ): { kingdom: string; iconicTaxon: string } {
+  const obsTaxon = obs.taxon as Record<string, unknown> | undefined
+  const metadata = obs.metadata as Record<string, unknown> | undefined
   const kingdom =
     taxon?.kingdom ||
     obs.kingdom ||
-    obs.taxon?.kingdom ||
-    (obs.metadata as { kingdom?: string } | undefined)?.kingdom ||
+    obsTaxon?.kingdom ||
+    metadata?.kingdom ||
     ""
   const iconic =
     taxon?.iconic_taxon_name ||
     obs.iconic_taxon_name ||
-    obs.taxon?.iconic_taxon_name ||
-    (obs.metadata as { iconic_taxon_name?: string } | undefined)?.iconic_taxon_name ||
+    obsTaxon?.iconic_taxon_name ||
+    metadata?.iconic_taxon_name ||
     ""
   const kingdomToken = normalizeTaxonToken(kingdom)
   const iconicToken = normalizeTaxonToken(iconic)
+  const kingdomLabel = String(kingdom || "")
+  const iconicLabel = String(iconic || "")
   if (isFungiClassification(kingdomToken) || isFungiClassification(iconicToken)) {
-    return { kingdom: "Fungi", iconicTaxon: iconicToken === "fungi" ? "Fungi" : (iconic || "Fungi") }
+    return { kingdom: "Fungi", iconicTaxon: iconicToken === "fungi" ? "Fungi" : (iconicLabel || "Fungi") }
   }
   if (iconicToken && iconicToken !== "unknown") {
-    return { kingdom: kingdom || iconic, iconicTaxon: iconic }
+    return { kingdom: kingdomLabel || iconicLabel, iconicTaxon: iconicLabel }
   }
   if (kingdomToken && kingdomToken !== "unknown") {
-    return { kingdom: String(kingdom), iconicTaxon: iconic || String(kingdom) }
+    return { kingdom: kingdomLabel, iconicTaxon: iconicLabel || kingdomLabel }
   }
   return { kingdom: "Unknown", iconicTaxon: "Unknown" }
 }
@@ -745,6 +851,7 @@ async function fetchINaturalistObservations(
             page: String(page),
             order: "desc",
             order_by: "observed_on",
+            d1: recentObservationStartDate(),
             geo: "true",
             photos: "true",
             nelat: String(region.north),
@@ -844,6 +951,9 @@ async function fetchINaturalistQuickAllTaxa(
   limit: number,
   bounds?: { north: number; south: number; east: number; west: number },
 ): Promise<FungalObservation[]> {
+  const quickLimit = Math.max(120, Math.min(limit || 400, bounds ? 2400 : 800))
+  const broadBounds = bounds ? boundsAreaDegrees(bounds) : null
+  const isBroadViewport = Boolean(broadBounds && (broadBounds.latSpan > 10 || broadBounds.lngSpan > 18))
   const merged: FungalObservation[] = []
   const seen = new Set<string>()
 
@@ -856,39 +966,137 @@ async function fetchINaturalistQuickAllTaxa(
     }
   }
 
-  // One mixed bbox call first — fast, diverse, and avoids iNat 429s from 10 parallel hits.
-  const mixedBudget = Math.min(Math.max(240, Math.floor(limit * 0.4)), 2000)
-  const mixed = await fetchINaturalistQuick(mixedBudget, bounds).catch(() => [] as FungalObservation[])
+  // One mixed bbox call first. For continent/country views this is distributed
+  // across cells so the newest observations from one city do not starve the map.
+  const mixedBudget = Math.min(isBroadViewport ? 800 : 600, Math.max(240, Math.ceil(quickLimit * 0.35)))
+  const perTaxon = Math.max(80, Math.min(200, Math.ceil(quickLimit / ALL_ICONIC_TAXA.length)))
+  const mixedPromise = bounds
+    ? fetchINaturalistQuickDistributed(mixedBudget, bounds).catch(() => [] as FungalObservation[])
+    : fetchINaturalistQuick(mixedBudget, bounds).catch(() => [] as FungalObservation[])
+  const taxaToSample = isBroadViewport
+    ? ["Fungi", "Plantae", "Aves", "Mammalia", "Reptilia", "Insecta"]
+    : ALL_ICONIC_TAXA
+  const taxaFetch = Promise.all(
+    taxaToSample.map(async (taxon) => {
+      const rows = await fetchINaturalistQuick(isBroadViewport ? 90 : perTaxon, bounds, taxon).catch(() => [] as FungalObservation[])
+      return rows.map((obs) => {
+        const label =
+          obs.kingdom && obs.kingdom !== "Unknown"
+            ? obs.kingdom
+            : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
+              ? obs.iconicTaxon
+              : taxon
+        return { ...obs, kingdom: label, iconicTaxon: label }
+      })
+    }),
+  ).catch(() => [] as FungalObservation[][])
+  const taxaPromise = isBroadViewport
+    ? withSoftTimeout(taxaFetch, 3200, [] as FungalObservation[][], "quick iNat broad taxon sample")
+    : taxaFetch
+
+  const [mixed, taxaBatches] = await Promise.all([mixedPromise, taxaPromise])
   push(mixed)
-
-  const remaining = Math.max(0, limit - merged.length)
-  const perTaxon = Math.max(40, Math.ceil(remaining / ALL_ICONIC_TAXA.length))
-
-  // Per-taxon top-up in batches of 3 (rate-limit friendly).
-  for (let i = 0; i < ALL_ICONIC_TAXA.length; i += 3) {
-    const slice = ALL_ICONIC_TAXA.slice(i, i + 3)
-    const batch = await Promise.all(
-      slice.map(async (taxon) => {
-        const rows = await fetchINaturalistQuick(perTaxon, bounds, taxon).catch(() => [] as FungalObservation[])
-        return rows.map((obs) => {
-          const label =
-            obs.kingdom && obs.kingdom !== "Unknown"
-              ? obs.kingdom
-              : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
-                ? obs.iconicTaxon
-                : taxon
-          return { ...obs, kingdom: label, iconicTaxon: label }
-        })
-      }),
-    )
-    push(batch.flat())
-    if (merged.length >= limit) break
-  }
+  for (const batch of taxaBatches) push(batch)
 
   console.log(
-    `[CREP/Life] Quick iNat all-taxa: ${merged.length} observations (mixed=${mixed.length}, taxa batches, ~${perTaxon}/taxon)`,
+    `[CREP/Life] Quick iNat all-taxa: ${merged.length} observations (mixed=${mixed.length}, taxa=${taxaBatches.flat().length}, perTaxon=${isBroadViewport ? 0 : perTaxon})`,
   )
-  return merged.slice(0, limit)
+  return spatialObservationLimit(merged, quickLimit)
+}
+
+function boundsAreaDegrees(bounds: { north: number; south: number; east: number; west: number }) {
+  const latSpan = Math.abs(bounds.north - bounds.south)
+  const lngSpan = bounds.west <= bounds.east
+    ? Math.abs(bounds.east - bounds.west)
+    : 360 - Math.abs(bounds.west - bounds.east)
+  return { latSpan, lngSpan }
+}
+
+function splitBoundsForDistributedFetch(
+  bounds: { north: number; south: number; east: number; west: number },
+): Array<{ north: number; south: number; east: number; west: number }> {
+  const segments = bounds.west <= bounds.east
+    ? [{ west: bounds.west, east: bounds.east }]
+    : [{ west: bounds.west, east: 180 }, { west: -180, east: bounds.east }]
+  const { latSpan, lngSpan } = boundsAreaDegrees(bounds)
+  const rows = latSpan > 40 ? 4 : latSpan > 24 ? 3 : latSpan > 10 ? 2 : 1
+  const colsPerSegment = lngSpan > 70 ? 6 : lngSpan > 40 ? 4 : lngSpan > 18 ? 3 : lngSpan > 10 ? 2 : 1
+  const cells: Array<{ north: number; south: number; east: number; west: number }> = []
+  for (const segment of segments) {
+    const segmentLngSpan = Math.max(0.000001, segment.east - segment.west)
+    const cols = Math.max(1, Math.min(colsPerSegment, Math.ceil(segmentLngSpan / 8)))
+    const latStep = (bounds.north - bounds.south) / rows
+    const lngStep = segmentLngSpan / cols
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        cells.push({
+          south: bounds.south + latStep * row,
+          north: row === rows - 1 ? bounds.north : bounds.south + latStep * (row + 1),
+          west: segment.west + lngStep * col,
+          east: col === cols - 1 ? segment.east : segment.west + lngStep * (col + 1),
+        })
+      }
+    }
+  }
+  return cells
+}
+
+async function fetchINaturalistQuickDistributed(
+  limit: number,
+  bounds: { north: number; south: number; east: number; west: number },
+  kingdom?: string,
+): Promise<FungalObservation[]> {
+  const { latSpan, lngSpan } = boundsAreaDegrees(bounds)
+  const broadViewport = latSpan > 10 || lngSpan > 18
+  const widePromise = fetchINaturalistQuick(Math.min(Math.max(limit, 300), 800), bounds, kingdom)
+    .catch(() => [] as FungalObservation[])
+  const gbifBroadPromise = broadViewport
+    ? withSoftTimeout(
+        fetchGBIFQuickObservations(Math.min(Math.max(limit, 360), 900), kingdom, bounds).catch(() => [] as FungalObservation[]),
+        2500,
+        [] as FungalObservation[],
+        "quick GBIF broad viewport fetch",
+      )
+    : Promise.resolve([] as FungalObservation[])
+  const [wideRows, gbifBroadRows] = await Promise.all([widePromise, gbifBroadPromise])
+  if (broadViewport) {
+    const merged: FungalObservation[] = []
+    const seen = new Set<string>()
+    for (const obs of [...wideRows, ...gbifBroadRows]) {
+      if (!obs.id || seen.has(obs.id)) continue
+      seen.add(obs.id)
+      merged.push(obs)
+    }
+    console.log(
+      `[CREP/Fungal] Broad quick rows: ${merged.length} (inat=${wideRows.length}, gbif=${gbifBroadRows.length}, ${kingdom || "all"})`,
+    )
+    return spatialObservationLimit(merged, limit)
+  }
+  if (latSpan <= 8 && lngSpan <= 10) {
+    return spatialObservationLimit(wideRows.length > 0 ? wideRows : await fetchINaturalistQuick(limit, bounds, kingdom), limit)
+  }
+
+  const cells = splitBoundsForDistributedFetch(bounds).slice(0, latSpan > 10 || lngSpan > 18 ? 8 : 12)
+  const perCell = Math.max(50, Math.min(140, Math.ceil(limit / Math.max(1, cells.length))))
+  const merged: FungalObservation[] = [...wideRows]
+  const seen = new Set<string>(wideRows.map((obs) => String(obs.id ?? "")).filter(Boolean))
+  for (let i = 0; i < cells.length; i += 2) {
+    const batch = cells.slice(i, i + 2)
+    const results = await Promise.all(
+      batch.map((cell) => fetchINaturalistQuick(perCell, cell, kingdom).catch(() => [] as FungalObservation[])),
+    )
+    for (const obs of results.flat()) {
+      if (!obs.id || seen.has(obs.id)) continue
+      seen.add(obs.id)
+      merged.push(obs)
+    }
+    if (merged.length >= limit) break
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  console.log(
+    `[CREP/Fungal] Distributed quick iNat: ${merged.length} observations across ${cells.length} cells (${kingdom || "all"})`,
+  )
+  return spatialObservationLimit(merged, limit)
 }
 
 async function fetchINaturalistQuick(
@@ -897,8 +1105,13 @@ async function fetchINaturalistQuick(
   kingdom?: string,
 ): Promise<FungalObservation[]> {
   try {
-    const requested = Math.max(1, Math.min(limit || 200, 20000))
-    const pages = Math.max(1, Math.min(Math.ceil(requested / 200), 100))
+    const requested = Math.max(1, Math.min(limit || 200, bounds ? 600 : 400))
+    const span = bounds ? boundsAreaDegrees(bounds) : null
+    const pages = bounds
+      ? span && span.latSpan <= 1.5 && span.lngSpan <= 1.5
+        ? Math.min(2, Math.ceil(requested / 200))
+        : 1
+      : 1
     const allResults: any[] = []
 
     for (let page = 1; page <= pages; page++) {
@@ -908,6 +1121,7 @@ async function fetchINaturalistQuick(
         page: String(page),
         order: "desc",
         order_by: "observed_on",
+        d1: recentObservationStartDate(),
         geo: "true",
         photos: "true",
       })
@@ -923,10 +1137,8 @@ async function fetchINaturalistQuick(
         params.set("swlng", String(bounds.west))
       }
 
-      const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
+      const res = await fetchQuickExternal(`${INATURALIST_API}/observations?${params}`, {
         headers: { "Accept": "application/json" },
-        signal: AbortSignal.timeout(bounds ? 8000 : 5000),
-        cache: "no-store",
       })
 
       if (!res.ok) {
@@ -982,7 +1194,7 @@ async function fetchINaturalistQuick(
           sourceUrl: `https://www.inaturalist.org/observations/${o.id}`,
         }
       })
-      .filter((row): row is FungalObservation => row != null)
+      .filter((row): row is NonNullable<typeof row> => row != null) as FungalObservation[]
 
     console.log(`[CREP/Fungal] Quick iNat: ${obs.length} observations fetched (requested=${requested})`)
     return obs
@@ -1000,7 +1212,11 @@ const GBIF_KINGDOMS: Record<string, string> = {
 /**
  * Fetch observations from GBIF - ALL LIFE
  */
-async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<FungalObservation[]> {
+async function fetchGBIFObservations(
+  limit: number,
+  kingdom?: string,
+  bounds?: { north: number; south: number; east: number; west: number },
+): Promise<FungalObservation[]> {
   const allObs: FungalObservation[] = []
   const kingdomsToFetch = kingdom && kingdom !== "all" && GBIF_KINGDOMS[kingdom]
     ? [[kingdom, GBIF_KINGDOMS[kingdom]]]
@@ -1012,14 +1228,18 @@ async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<F
       try {
         const params = new URLSearchParams({
           kingdomKey: kKey,
-          limit: String(Math.min(perKingdom, 100)),
+          limit: String(Math.min(perKingdom, 300)),
           hasCoordinate: "true",
           hasGeospatialIssue: "false",
+          eventDate: `${recentObservationStartDate()},${new Date().toISOString().slice(0, 10)}`,
         })
+        if (bounds) {
+          params.set("decimalLatitude", `${bounds.south},${bounds.north}`)
+          params.set("decimalLongitude", `${bounds.west},${bounds.east}`)
+        }
 
         const response = await fetchWithRetry(`${GBIF_API}/occurrence/search?${params}`, {
           headers: { "Accept": "application/json" },
-          next: { revalidate: 300 },
         })
 
         if (!response.ok) return
@@ -1052,6 +1272,68 @@ async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<F
         console.error(`[CREP/Life] Failed to fetch GBIF ${kName} data:`, error)
       }
     })
+  )
+  return allObs
+}
+
+async function fetchGBIFQuickObservations(
+  limit: number,
+  kingdom?: string,
+  bounds?: { north: number; south: number; east: number; west: number },
+): Promise<FungalObservation[]> {
+  const allObs: FungalObservation[] = []
+  const kingdomsToFetch = kingdom && kingdom !== "all" && GBIF_KINGDOMS[kingdom]
+    ? [[kingdom, GBIF_KINGDOMS[kingdom]]]
+    : Object.entries(GBIF_KINGDOMS)
+  const perKingdom = Math.max(25, Math.ceil(limit / kingdomsToFetch.length))
+
+  await Promise.all(
+    kingdomsToFetch.map(async ([kName, kKey]) => {
+      try {
+        const params = new URLSearchParams({
+          kingdomKey: kKey,
+          limit: String(Math.min(perKingdom, 200)),
+          hasCoordinate: "true",
+          hasGeospatialIssue: "false",
+          eventDate: `${recentObservationStartDate()},${new Date().toISOString().slice(0, 10)}`,
+        })
+        if (bounds) {
+          params.set("decimalLatitude", `${bounds.south},${bounds.north}`)
+          params.set("decimalLongitude", `${bounds.west},${bounds.east}`)
+        }
+
+        const response = await fetchQuickExternal(`${GBIF_API}/occurrence/search?${params}`, {
+          headers: { "Accept": "application/json" },
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        const obs = (data.results || [])
+          .filter((o: any) => o.decimalLatitude && o.decimalLongitude)
+          .map((o: any) => ({
+            id: `gbif-${o.key}`,
+            species: o.vernacularName || o.species || "Unknown",
+            scientificName: o.scientificName || "Unknown",
+            commonName: o.vernacularName,
+            latitude: o.decimalLatitude,
+            longitude: o.decimalLongitude,
+            timestamp: o.eventDate || o.dateIdentified || new Date().toISOString(),
+            source: "GBIF" as const,
+            verified: !o.issues?.length,
+            observer: o.recordedBy || "Unknown",
+            imageUrl: undefined,
+            thumbnailUrl: undefined,
+            location: o.locality || o.country,
+            habitat: o.habitat,
+            hasGps: true,
+            geocodeStatus: "complete" as const,
+            kingdom: o.kingdom || kName,
+            iconicTaxon: o.kingdom || kName,
+          }))
+        allObs.push(...obs)
+      } catch (error) {
+        console.warn(`[CREP/Life] Quick GBIF ${kName} failed:`, (error as Error)?.message)
+      }
+    }),
   )
   return allObs
 }
@@ -1156,7 +1438,7 @@ export async function GET(request: NextRequest) {
   const limit = limitParam ? parseInt(limitParam) : undefined
   const source = searchParams.get("source") // "mindex" | "inat" | "gbif" | "all"
   const fallbackOnly = searchParams.get("fallback") === "true" // Force external API fallback
-  const noCache = searchParams.get("nocache") === "true" // Force cache bypass
+  const noCache = searchParams.has("nocache") && searchParams.get("nocache") !== "false" // Force cache bypass
   // FAST PATH: `?quick=true` or `?source=mindex-only` returns MINDEX-only in <500ms.
   // Skips iNat/GBIF live fetches entirely. Used by the dashboard for instant
   // first-paint, then the full dual-source fetch runs as background enrichment.
@@ -1166,10 +1448,6 @@ export async function GET(request: NextRequest) {
     searchParams.get("live") === "true" ||
     searchParams.get("fallbackLive") === "true" ||
     process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK === "1"
-  const emergencyFallbackEnabled =
-    !quickMode &&
-    (searchParams.get("emergencyFallback") === "true" ||
-      process.env.CREP_ENABLE_EMERGENCY_INAT_FALLBACK === "1")
   const mindexWritebackEnabled =
     searchParams.get("persist") === "true" ||
     process.env.CREP_ENABLE_NATURE_MINDEX_WRITEBACK === "1"
@@ -1217,6 +1495,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const explicitEmergencyFallback =
+    searchParams.get("emergencyFallback") === "true" ||
+    process.env.CREP_ENABLE_EMERGENCY_INAT_FALLBACK === "1"
+  const emergencyFallbackEnabled = !quickMode && explicitEmergencyFallback
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CACHE CHECK - Return cached data if valid (for near-instant response)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1257,6 +1540,33 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const quickViewportCacheKey = quickMode && bounds && !noCache && !fallbackOnly
+    ? viewportCacheKey(kingdom, bounds)
+    : null
+  if (quickViewportCacheKey) {
+    const cached = getViewportQuickCachedData(quickViewportCacheKey)
+    if (cached) {
+      const finalObs = limit && limit > 0
+        ? kingdom === "all"
+          ? stratifiedObservationLimit(cached.observations, limit)
+          : spatialObservationLimit(cached.observations, limit)
+        : cached.observations
+      const latency = Date.now() - startTime
+      logDataCollection("fungal", "viewport-cache", finalObs.length, latency, true, "memory")
+      return NextResponse.json({
+        observations: finalObs,
+        meta: {
+          total: finalObs.length,
+          sources: cached.sources,
+          cached: true,
+          cacheAge: Math.round((Date.now() - cached.timestamp) / 1000),
+          timestamp: new Date().toISOString(),
+          dataSource: "viewport_quick_cache",
+        },
+      })
+    }
+  }
+
   let allObservations: FungalObservation[] = []
 
   try {
@@ -1272,7 +1582,7 @@ export async function GET(request: NextRequest) {
     // Always fetch MINDEX (local DB — fast, no rate limits)
     if (!fallbackOnly && (!source || source === "all" || source === "mindex" || source === "mindex-only" || quickMode)) {
       const mindexTimeoutForRequest = quickMode
-        ? Math.max(5000, MINDEX_OBSERVATIONS_TIMEOUT_MS)
+        ? Math.min(1500, MINDEX_OBSERVATIONS_TIMEOUT_MS)
         : MINDEX_OBSERVATIONS_TIMEOUT_MS
       const mindexLimit =
         kingdom !== "all" && bounds && limit
@@ -1282,14 +1592,17 @@ export async function GET(request: NextRequest) {
             : quickMode && kingdom === "all" && limit
               ? Math.min(1200, Math.max(200, Math.floor(limit / 4)))
               : limit
-      fetchPromises.push(
-        (bounds
+      const mindexPromise = (bounds
           ? fetchMINDEXObservations(mindexLimit, bounds, mindexTimeoutForRequest, kingdom)
           : fetchMINDEXGlobalSample(mindexLimit || 30000, mindexTimeoutForRequest, kingdom)
         ).catch((err) => {
           console.warn("[CREP/Fungal] MINDEX fetch failed:", err?.message)
           return [] as FungalObservation[]
         })
+      fetchPromises.push(
+        quickMode && bounds
+          ? withSoftTimeout(mindexPromise, 1500, [] as FungalObservation[], "quick MINDEX viewport fetch")
+          : mindexPromise,
       )
     }
 
@@ -1301,7 +1614,9 @@ export async function GET(request: NextRequest) {
       fetchPromises.push(
         (kingdom === "all"
           ? fetchINaturalistQuickAllTaxa(quickLimit, bounds)
-          : fetchINaturalistQuick(quickLimit, bounds, kingdom)
+          : bounds
+            ? fetchINaturalistQuickDistributed(quickLimit, bounds, kingdom)
+            : fetchINaturalistQuick(quickLimit, bounds, kingdom)
         ).catch((err) => {
           console.warn("[CREP/Fungal] Quick iNat fallback failed:", err?.message)
           return [] as FungalObservation[]
@@ -1327,7 +1642,7 @@ export async function GET(request: NextRequest) {
       // Optionally include GBIF
       if (!source || source === "all" || source === "gbif") {
         fetchPromises.push(
-          fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom).catch((err) => {
+          fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom, bounds).catch((err) => {
             console.warn("[CREP/Life] GBIF fetch failed:", err?.message)
             return [] as FungalObservation[]
           })
@@ -1337,6 +1652,45 @@ export async function GET(request: NextRequest) {
 
     const results = await Promise.all(fetchPromises)
     allObservations = results.flat()
+
+    if (quickMode && bounds && !mindexOnlyRequest && allObservations.length < 80) {
+      console.warn(`[CREP/Life] Quick viewport sparse (${allObservations.length}) — bounded GBIF fallback`)
+      const gbifFallback = await Promise.race([
+        fetchGBIFQuickObservations(480, kingdom, bounds).catch(() => [] as FungalObservation[]),
+        new Promise<FungalObservation[]>((resolve) => setTimeout(() => resolve([]), 3000)),
+      ])
+      const seenIds = new Set(allObservations.map((o) => o.id))
+      for (const o of gbifFallback) {
+        if (seenIds.has(o.id)) continue
+        seenIds.add(o.id)
+        allObservations.push(o)
+      }
+    }
+
+    if (quickMode && bounds && !mindexOnlyRequest && kingdom === "all") {
+      const presentKingdoms = new Set(
+        allObservations
+          .map((obs) => normalizeTaxonToken(obs.kingdom || obs.iconicTaxon))
+          .filter((token) => token && token !== "unknown"),
+      )
+      const { latSpan, lngSpan } = boundsAreaDegrees(bounds)
+      const broadViewport = latSpan > 10 || lngSpan > 18
+      if (broadViewport && (allObservations.length < 240 || presentKingdoms.size < 3)) {
+        console.warn(
+          `[CREP/Life] Broad all-species quick diversity low (${allObservations.length} obs, ${presentKingdoms.size} kingdoms) - GBIF diversity top-up`,
+        )
+        const gbifDiversity = await Promise.race([
+          fetchGBIFQuickObservations(900, "all", bounds).catch(() => [] as FungalObservation[]),
+          new Promise<FungalObservation[]>((resolve) => setTimeout(() => resolve([]), 3000)),
+        ])
+        const seenIds = new Set(allObservations.map((o) => o.id))
+        for (const o of gbifDiversity) {
+          if (seenIds.has(o.id)) continue
+          seenIds.add(o.id)
+          allObservations.push(o)
+        }
+      }
+    }
 
     if (quickMode) {
       // Drop unlabeled MINDEX junk so iNat rows with real kingdom labels win first paint.
@@ -1361,12 +1715,32 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CREP/Life] Dual-source total: ${allObservations.length} observations (MINDEX + live APIs merged)`)
 
+    const sparseThreshold = bounds ? 80 : 400
+    if (!quickMode && !mindexOnlyRequest && allObservations.length < sparseThreshold) {
+      console.warn(
+        `[CREP/Life] Sparse viewport (${allObservations.length} obs) — GBIF bbox top-up`,
+      )
+      try {
+        const gbifTopUp = await fetchGBIFObservations(
+          Math.min(limit || 2000, 2500),
+          kingdom,
+          bounds,
+        )
+        const seenIds = new Set(allObservations.map((o) => o.id))
+        for (const o of gbifTopUp) {
+          if (!seenIds.has(o.id)) allObservations.push(o)
+        }
+      } catch (err) {
+        console.warn("[CREP/Life] GBIF bbox top-up failed:", (err as Error)?.message)
+      }
+    }
+
     // EMERGENCY iNat FALLBACK: if after all requested sources we still have
     // < 500 observations, fire the FULL multi-region / multi-taxa fanout
     // (fetchINaturalistObservations — 10 hotspot regions × 10 iconic taxa).
     // This returns 2000-5000 observations and saturates the map.
     // A sparse nature layer is unacceptable for demo quality.
-    if (emergencyFallbackEnabled && allObservations.length < 500) {
+    if (!mindexOnlyRequest && emergencyFallbackEnabled && allObservations.length < 500) {
       console.warn(
         `[CREP/Life] Only ${allObservations.length} obs — firing emergency FULL iNat fallback`,
       )
@@ -1438,7 +1812,13 @@ export async function GET(request: NextRequest) {
         !isNaN(obs.longitude)
     )
 
-    const { kept: landPlausibleObservations, filteredWater } = filterTerrestrialWaterPlacements(validObservations)
+    const cutoffMs = recentObservationCutoffMs()
+    const recentObservations = validObservations.filter((obs) => {
+      const t = observationTimestampMs(obs)
+      return t > 0 && t >= cutoffMs
+    })
+
+    const { kept: landPlausibleObservations, filteredWater } = filterTerrestrialWaterPlacements(recentObservations)
     if (filteredWater > 0) {
       console.log(`[CREP/Life] Filtered ${filteredWater} terrestrial observations placed in open water`)
     }
@@ -1462,7 +1842,7 @@ export async function GET(request: NextRequest) {
     const finalObservations = limit && limit > 0
       ? kingdom === "all"
         ? stratifiedObservationLimit(sortedObservations, limit)
-        : sortedObservations.slice(0, limit)
+        : spatialObservationLimit(sortedObservations, limit)
       : sortedObservations
 
     // Queue background geocoding for MINDEX observations without GPS
@@ -1485,6 +1865,8 @@ export async function GET(request: NextRequest) {
     // Cache the data for near-instant subsequent requests
     if (!bounds) {
       setCachedData(finalObservations, sources, kingdom)
+    } else if (quickViewportCacheKey) {
+      setViewportQuickCachedData(quickViewportCacheKey, finalObservations, sources, kingdom)
     }
 
     // Log to MINDEX
@@ -1557,9 +1939,7 @@ function stratifiedObservationLimit(
   const seen = new Set<string>()
 
   for (const key of knownKeys) {
-    const rows = (buckets.get(key) || [])
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, perKnown)
+    const rows = spatialObservationLimit(buckets.get(key) || [], perKnown)
     for (const row of rows) {
       if (seen.has(row.id)) continue
       seen.add(row.id)
@@ -1578,6 +1958,53 @@ function stratifiedObservationLimit(
       picked.push(obs)
       if (picked.length >= cap) break
     }
+  }
+  return picked.slice(0, cap)
+}
+
+function spatialObservationLimit(
+  observations: FungalObservation[],
+  cap: number,
+): FungalObservation[] {
+  if (cap <= 0 || observations.length <= cap) return observations.slice(0, cap)
+  const sorted = observations
+    .slice()
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const lats = sorted.map((obs) => obs.latitude).filter(Number.isFinite)
+  const lngs = sorted.map((obs) => obs.longitude).filter(Number.isFinite)
+  if (lats.length === 0 || lngs.length === 0) return sorted.slice(0, cap)
+
+  const latRange = Math.max(0.0001, Math.max(...lats) - Math.min(...lats))
+  const lngRange = Math.max(0.0001, Math.max(...lngs) - Math.min(...lngs))
+  const gridSize = Math.max(2, Math.ceil(Math.sqrt(cap)))
+  const latCell = Math.max(0.00001, latRange / gridSize)
+  const lngCell = Math.max(0.00001, lngRange / gridSize)
+  const grid = new Map<string, FungalObservation>()
+
+  for (const obs of sorted) {
+    const cellX = Math.floor((obs.longitude + 180) / lngCell)
+    const cellY = Math.floor((obs.latitude + 90) / latCell)
+    const key = `${cellX},${cellY}`
+    const existing = grid.get(key)
+    if (!existing) {
+      grid.set(key, obs)
+      continue
+    }
+    if (new Date(obs.timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+      grid.set(key, obs)
+    }
+  }
+
+  const picked = Array.from(grid.values())
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  if (picked.length >= cap) return picked.slice(0, cap)
+
+  const seen = new Set(picked.map((obs) => obs.id))
+  for (const obs of sorted) {
+    if (seen.has(obs.id)) continue
+    seen.add(obs.id)
+    picked.push(obs)
+    if (picked.length >= cap) break
   }
   return picked.slice(0, cap)
 }

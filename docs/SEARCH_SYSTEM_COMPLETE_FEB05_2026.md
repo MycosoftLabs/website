@@ -373,7 +373,7 @@ MINDEX_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 MYCA_BRAIN_URL=http://${MAS_VM_HOST}:8000
 
 # MAS Backend
-MINDEX_DATABASE_URL=postgresql://mycosoft:...@${MINDEX_VM_HOST}:5432/mindex
+MINDEX_DATABASE_URL=[set from your local secret manager]
 ```
 
 ---

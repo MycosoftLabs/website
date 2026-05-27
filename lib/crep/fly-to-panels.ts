@@ -1,5 +1,9 @@
 /** Collapse country / project / metro fly-to dropdowns (CREP map click-away). */
-import type { ViewportGeographyLod } from "@/lib/crep/viewport-place"
+import type {
+  JurisdictionEntry,
+  ViewportGeographyLod,
+  ViewportPlaceLike,
+} from "@/lib/crep/viewport-place"
 
 export const CREP_COLLAPSE_FLYTO_EVENT = "crep:collapse-flyto"
 
@@ -10,6 +14,10 @@ export interface ViewportGeographyOverrideDetail {
   headline: string
   subheadline?: string
   geographyLod?: ViewportGeographyLod
+
+  place?: ViewportPlaceLike
+
+  jurisdictionStack?: JurisdictionEntry[]
   /** Clear override after map settles (ms). */
   expiresAt: number
 }
@@ -21,7 +29,7 @@ export function collapseFlyToPanels() {
 
 export function setViewportGeographyOverride(
   detail: Omit<ViewportGeographyOverrideDetail, "expiresAt">,
-  ttlMs = 12_000,
+  ttlMs = 45_000,
 ) {
   if (typeof window === "undefined") return
   window.dispatchEvent(
@@ -30,4 +38,4 @@ export function setViewportGeographyOverride(
     }),
   )
 }
-
+

@@ -16,6 +16,552 @@ export interface ViewportPlaceLike {
   lng?: number
 }
 
+interface LocalViewportPlaceHint {
+
+  north: number
+
+  south: number
+
+  east: number
+
+  west: number
+
+  place: ViewportPlaceLike
+
+}
+
+
+
+const LOCAL_VIEWPORT_PLACE_HINTS: LocalViewportPlaceHint[] = [
+
+  {
+
+    north: 32.70,
+
+    south: 32.57,
+
+    east: -116.95,
+
+    west: -117.12,
+
+    place: {
+
+      displayName: "Chula Vista, San Diego County, California, United States",
+
+      city: "Chula Vista",
+
+      county: "San Diego County",
+
+      state: "California",
+
+      country: "United States",
+
+      countryCode: "US",
+
+    },
+
+  },
+
+  {
+
+    north: 33.12,
+
+    south: 32.52,
+
+    east: -116.75,
+
+    west: -117.35,
+
+    place: {
+
+      displayName: "San Diego, San Diego County, California, United States",
+
+      city: "San Diego",
+
+      county: "San Diego County",
+
+      state: "California",
+
+      country: "United States",
+
+      countryCode: "US",
+
+    },
+
+  },
+
+  {
+
+    north: 34.35,
+
+    south: 32.45,
+
+    east: -114.1,
+
+    west: -118.8,
+
+    place: {
+
+      displayName: "Southern California, United States",
+
+      state: "California",
+
+      country: "United States",
+
+      countryCode: "US",
+
+    },
+
+  },
+
+  {
+
+    north: 42.1,
+
+    south: 32.4,
+
+    east: -114.0,
+
+    west: -124.6,
+
+    place: {
+
+      displayName: "California, United States",
+
+      state: "California",
+
+      country: "United States",
+
+      countryCode: "US",
+
+    },
+
+  },
+
+  {
+
+    north: 37.1,
+
+    south: 31.2,
+
+    east: -109.0,
+
+    west: -114.9,
+
+    place: {
+
+      displayName: "Arizona, United States",
+
+      state: "Arizona",
+
+      country: "United States",
+
+      countryCode: "US",
+
+    },
+
+  },
+  {
+    north: 52.75,
+    south: 52.30,
+    east: 13.75,
+    west: 13.05,
+    place: {
+      displayName: "Berlin, Germany",
+      city: "Berlin",
+      country: "Germany",
+      countryCode: "DE",
+    },
+  },
+  {
+    north: 51.05,
+    south: 50.65,
+    east: 4.65,
+    west: 4.10,
+    place: {
+      displayName: "Brussels, Belgium",
+      city: "Brussels",
+      country: "Belgium",
+      countryCode: "BE",
+    },
+  },
+  {
+    north: 52.55,
+    south: 52.20,
+    east: 5.15,
+    west: 4.65,
+    place: {
+      displayName: "Amsterdam, Netherlands",
+      city: "Amsterdam",
+      country: "Netherlands",
+      countryCode: "NL",
+    },
+  },
+  {
+    north: 37.85,
+    south: 37.25,
+    east: 127.30,
+    west: 126.65,
+    place: {
+      displayName: "Seoul, South Korea",
+      city: "Seoul",
+      country: "South Korea",
+      countryCode: "KR",
+    },
+  },
+  {
+    north: -25.85,
+    south: -26.45,
+    east: 28.35,
+    west: 27.75,
+    place: {
+      displayName: "Johannesburg, South Africa",
+      city: "Johannesburg",
+      country: "South Africa",
+      countryCode: "ZA",
+    },
+  },
+  {
+    north: -33.65,
+    south: -34.20,
+    east: 18.75,
+    west: 18.20,
+    place: {
+      displayName: "Cape Town, South Africa",
+      city: "Cape Town",
+      country: "South Africa",
+      countryCode: "ZA",
+    },
+  },
+  {
+    north: 51.2,
+    south: 41.2,
+    east: 9.7,
+    west: -5.2,
+    place: {
+      displayName: "France",
+      country: "France",
+      countryCode: "FR",
+    },
+  },
+  {
+    north: 55.1,
+    south: 47.2,
+    east: 15.2,
+    west: 5.5,
+    place: {
+      displayName: "Germany",
+      country: "Germany",
+      countryCode: "DE",
+    },
+  },
+  {
+    north: 47.2,
+    south: 35.4,
+    east: 18.8,
+    west: 6.3,
+    place: {
+      displayName: "Italy",
+      country: "Italy",
+      countryCode: "IT",
+    },
+  },
+  {
+    north: 44.2,
+    south: 35.5,
+    east: 4.5,
+    west: -9.6,
+    place: {
+      displayName: "Spain",
+      country: "Spain",
+      countryCode: "ES",
+    },
+  },
+  {
+    north: 51.6,
+    south: 49.4,
+    east: 6.5,
+    west: 2.5,
+    place: {
+      displayName: "Belgium",
+      country: "Belgium",
+      countryCode: "BE",
+    },
+  },
+  {
+    north: 53.8,
+    south: 50.7,
+    east: 7.4,
+    west: 3.2,
+    place: {
+      displayName: "Netherlands",
+      country: "Netherlands",
+      countryCode: "NL",
+    },
+  },
+  {
+    north: 38.7,
+    south: 33.0,
+    east: 132.0,
+    west: 124.0,
+    place: {
+      displayName: "South Korea",
+      country: "South Korea",
+      countryCode: "KR",
+    },
+  },
+  {
+    north: -22.0,
+    south: -35.0,
+    east: 33.0,
+    west: 16.0,
+    place: {
+      displayName: "South Africa",
+      country: "South Africa",
+      countryCode: "ZA",
+    },
+  },
+  {
+    north: 14.3,
+    south: 4.0,
+    east: 14.8,
+    west: 2.5,
+    place: {
+      displayName: "Nigeria",
+      country: "Nigeria",
+      countryCode: "NG",
+    },
+  },
+  {
+    north: 31.8,
+    south: 22.0,
+    east: 36.9,
+    west: 24.7,
+    place: {
+      displayName: "Egypt",
+      country: "Egypt",
+      countryCode: "EG",
+    },
+  },
+  {
+    north: 42.3,
+    south: 35.8,
+    east: 44.8,
+    west: 25.5,
+    place: {
+      displayName: "Turkey",
+      country: "Turkey",
+      countryCode: "TR",
+    },
+  },
+  {
+
+    north: 83.2,
+
+    south: 41.4,
+
+    east: -52.0,
+
+    west: -141.2,
+
+    place: {
+
+      displayName: "Canada",
+
+      country: "Canada",
+
+      countryCode: "CA",
+
+    },
+
+  },
+  {
+
+    north: 32.8,
+
+    south: 14.4,
+
+    east: -86.5,
+
+    west: -118.5,
+
+    place: {
+
+      displayName: "Mexico",
+
+      country: "Mexico",
+
+      countryCode: "MX",
+
+    },
+
+  },
+  {
+
+    north: 53.8,
+
+    south: 18.0,
+
+    east: 135.2,
+
+    west: 73.0,
+
+    place: {
+
+      displayName: "China",
+
+      country: "China",
+
+      countryCode: "CN",
+
+    },
+
+  },
+  {
+
+    north: 45.7,
+
+    south: 24.0,
+
+    east: 154.0,
+
+    west: 122.8,
+
+    place: {
+
+      displayName: "Japan",
+
+      country: "Japan",
+
+      countryCode: "JP",
+
+    },
+
+  },
+  {
+
+    north: 61.2,
+
+    south: 49.0,
+
+    east: 2.0,
+
+    west: -8.8,
+
+    place: {
+
+      displayName: "United Kingdom",
+
+      country: "United Kingdom",
+
+      countryCode: "GB",
+
+    },
+
+  },
+  {
+
+    north: 35.7,
+
+    south: 6.5,
+
+    east: 97.5,
+
+    west: 68.0,
+
+    place: {
+
+      displayName: "India",
+
+      country: "India",
+
+      countryCode: "IN",
+
+    },
+
+  },
+  {
+
+    north: -9.0,
+
+    south: -44.0,
+
+    east: 154.0,
+
+    west: 112.0,
+
+    place: {
+
+      displayName: "Australia",
+
+      country: "Australia",
+
+      countryCode: "AU",
+
+    },
+
+  },
+  {
+
+    north: 5.5,
+
+    south: -34.0,
+
+    east: -34.0,
+
+    west: -74.0,
+
+    place: {
+
+      displayName: "Brazil",
+
+      country: "Brazil",
+
+      countryCode: "BR",
+
+    },
+
+  },
+
+]
+
+
+
+export function resolveLocalViewportPlaceHint(
+
+  lat: number,
+
+  lng: number,
+
+): ViewportPlaceLike | null {
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+  const matches = LOCAL_VIEWPORT_PLACE_HINTS.filter((hint) =>
+
+    lat >= hint.south &&
+
+    lat <= hint.north &&
+
+    lng >= hint.west &&
+
+    lng <= hint.east,
+
+  )
+
+  const match = matches.sort((a, b) =>
+    Math.abs((a.north - a.south) * (a.east - a.west)) -
+    Math.abs((b.north - b.south) * (b.east - b.west)),
+  )[0]
+
+  if (!match) return null
+
+  return { ...match.place, lat, lng }
+
+}
+
+
+
 export interface JurisdictionEntry {
   level: string
   name: string
@@ -408,7 +954,7 @@ export async function reverseGeocodePlace(
         Accept: "application/json",
         "User-Agent": "Mycosoft-CREP/1.0 (contact: ops@mycosoft.com)",
       },
-      signal: AbortSignal.timeout(6_000),
+      signal: AbortSignal.timeout(1_500),
       cache: "no-store",
     })
     if (!res.ok) return null
@@ -468,4 +1014,4 @@ export function mergeJurisdictionStacks(
   if (stack.length) return stack
   return fallback
 }
-
+

@@ -14,6 +14,7 @@ interface MYCAChatWidgetProps {
   className?: string
   title?: string
   getContextText?: () => string
+  context?: Record<string, unknown> | (() => Record<string, unknown> | undefined)
   showHeader?: boolean
 }
 
@@ -22,6 +23,7 @@ export function MYCAChatWidget({
   className,
   title = "MYCA",
   getContextText,
+  context,
   showHeader = true,
 }: MYCAChatWidgetProps) {
   const {
@@ -119,8 +121,11 @@ export function MYCAChatWidget({
     setDraftActivity(0)
     // Fire-and-forget intent parse — don't block the LLM send.
     void tryFastIntent(message)
+    const resolvedContext =
+      typeof context === "function" ? context() : context
     await sendMessage(message, {
       contextText: getContextText?.(),
+      context: resolvedContext,
       source: "web",
       wantAudio: false,
     })

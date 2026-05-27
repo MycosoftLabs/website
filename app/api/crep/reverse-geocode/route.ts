@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { resolveLocalViewportPlaceHint } from "@/lib/crep/viewport-place"
 
 /**
  * CREP reverse-geocode + at-point lookup — Apr 22, 2026 v2 (Apr 23 timeout fix)
@@ -77,6 +78,17 @@ export async function GET(req: NextRequest) {
   }
 
   const t0 = Date.now()
+  const localPlaceHint = resolveLocalViewportPlaceHint(lat, lng)
+  const localAddrFallback = localPlaceHint
+    ? {
+        address: localPlaceHint.displayName ?? null,
+        country: localPlaceHint.country ?? null,
+        country_code: localPlaceHint.countryCode ?? null,
+        admin: localPlaceHint.state ?? null,
+        county: localPlaceHint.county ?? null,
+        place: localPlaceHint.city ?? localPlaceHint.suburb ?? null,
+      }
+    : null
 
   // Nominatim — 4s hard deadline
   const addrPromise = withDeadline((async () => {
@@ -84,18 +96,27 @@ export async function GET(req: NextRequest) {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=${nominatimZoom}`
       const res = await fetch(url, {
         headers: { "User-Agent": "Mycosoft-CREP/1.0 (https://mycosoft.com)" },
-        signal: AbortSignal.timeout(3_500),
+        signal: AbortSignal.timeout(1_400),
       })
       if (!res.ok) return null
       const j = await res.json()
       return {
         address: j.display_name || null,
         country: j.address?.country || null,
+        country_code: j.address?.country_code?.toUpperCase?.() || null,
         admin: j.address?.state || j.address?.region || null,
-        place: j.address?.city || j.address?.town || j.address?.village || j.address?.hamlet || null,
+        county: j.address?.county || null,
+        place:
+          j.address?.city ||
+          j.address?.town ||
+          j.address?.village ||
+          j.address?.hamlet ||
+          j.address?.suburb ||
+          j.address?.municipality ||
+          null,
       }
     } catch { return null }
-  })(), 4_000, null as any)
+  })(), 1_600, localAddrFallback as any)
 
   // MINDEX — 5s hard deadline; return [] on any failure.
   const nearbyPromise = withDeadline((async () => {
@@ -105,7 +126,7 @@ export async function GET(req: NextRequest) {
       const url = `${MINDEX_BASE}/api/v1/earth/bbox?bbox=${bbox}&types=power_plant,substation,cable,tx_line,cell_tower,data_center,camera,species_observation,fire,earthquake,alert&limit=200`
       const res = await fetch(url, {
         headers: { Accept: "application/json", ...mindexAuthHeaders() },
-        signal: AbortSignal.timeout(4_500),
+        signal: AbortSignal.timeout(1_100),
       })
       if (!res.ok) return []
       const j = await res.json()
@@ -133,7 +154,7 @@ export async function GET(req: NextRequest) {
       nearby.sort((a, b) => a.dist_m - b.dist_m)
       return nearby.slice(0, 30)
     } catch { return [] }
-  })(), 5_000, [] as any[])
+  })(), 1_250, [] as any[])
 
   const [addr, nearby] = await Promise.all([addrPromise, nearbyPromise])
 
@@ -143,8 +164,10 @@ export async function GET(req: NextRequest) {
     radius_km: radiusKm,
     address: addr?.address ?? null,
     place: addr?.place ?? null,
+    county: addr?.county ?? null,
     admin: addr?.admin ?? null,
     country: addr?.country ?? null,
+    country_code: addr?.country_code ?? null,
     nearby: Array.isArray(nearby) ? nearby : [],
     // Diagnostics for the widget — surfaces which sources were reached
     sources: {

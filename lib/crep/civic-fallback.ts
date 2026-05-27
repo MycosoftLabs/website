@@ -43,6 +43,273 @@ export interface CivicFallbackResult {
   source: "civic-fallback"
 }
 
+/** Curated U.S. federal executives — shown at country zoom via civic fallback. May 24, 2026 */
+const US_FEDERAL_EXECUTIVES: CivicFallbackOfficial[] = [
+  {
+    id: "exec:potus",
+    name: "Donald J. Trump",
+    office: "President of the United States",
+    party: "Republican",
+    jurisdiction_name: "United States",
+    urls: ["https://www.whitehouse.gov/"],
+    term_start: "2025-01-20",
+    term_end: null,
+  },
+  {
+    id: "exec:vpotus",
+    name: "JD Vance",
+    office: "Vice President of the United States",
+    party: "Republican",
+    jurisdiction_name: "United States",
+    urls: ["https://www.whitehouse.gov/administration/vice-president-vance/"],
+    term_start: "2025-01-20",
+    term_end: null,
+  },
+]
+
+/** Congressional leadership — country-level Viewport Intelligence. May 24, 2026 */
+const US_CONGRESS_LEADERSHIP: CivicFallbackOfficial[] = [
+  {
+    id: "congress:senate-majority",
+    name: "John Thune",
+    office: "U.S. Senate Majority Leader",
+    party: "Republican",
+    jurisdiction_name: "United States Senate",
+    urls: ["https://www.thune.senate.gov/"],
+  },
+  {
+    id: "congress:house-speaker",
+    name: "Mike Johnson",
+    office: "Speaker of the U.S. House of Representatives",
+    party: "Republican",
+    jurisdiction_name: "United States House of Representatives",
+    urls: ["https://www.speaker.gov/"],
+  },
+]
+
+type CountryCivicProfile = {
+  aliases: string[]
+  officials: CivicFallbackOfficial[]
+  elections: CivicFallbackElection[]
+  legislation: CivicFallbackLegislation[]
+}
+
+const COUNTRY_CIVIC_PROFILES: CountryCivicProfile[] = [
+  {
+    aliases: ["canada", "ca"],
+    officials: [
+      {
+        id: "ca:pm:carney",
+        name: "Mark Carney",
+        office: "Prime Minister of Canada",
+        jurisdiction_name: "Canada",
+        urls: ["https://www.pm.gc.ca/"],
+        term_start: "2025-03-14",
+        term_end: null,
+      },
+      {
+        id: "ca:monarch:charles-iii",
+        name: "Charles III",
+        office: "King of Canada",
+        jurisdiction_name: "Canada",
+        urls: ["https://www.canada.ca/en/canadian-heritage/services/royal-family/king.html"],
+        term_start: "2022-09-08",
+        term_end: null,
+      },
+    ],
+    elections: [
+      {
+        id: "ca:elections",
+        name: "Federal elections and ridings",
+        jurisdiction_name: "Canada",
+        source_url: "https://www.elections.ca/",
+      },
+    ],
+    legislation: [
+      {
+        id: "ca:parliament",
+        name: "Parliament of Canada proceedings",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://www.parl.ca/",
+      },
+    ],
+  },
+  {
+    aliases: ["mexico", "mx", "méxico", "estados unidos mexicanos"],
+    officials: [
+      {
+        id: "mx:president:sheinbaum",
+        name: "Claudia Sheinbaum Pardo",
+        office: "President of Mexico",
+        jurisdiction_name: "Mexico",
+        urls: ["https://www.gob.mx/presidencia/"],
+        term_start: "2024-10-01",
+        term_end: null,
+      },
+    ],
+    elections: [
+      {
+        id: "mx:ine",
+        name: "Federal and local electoral processes",
+        jurisdiction_name: "Mexico",
+        source_url: "https://www.ine.mx/",
+      },
+    ],
+    legislation: [
+      {
+        id: "mx:congreso",
+        name: "Congress of the Union legislative information",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://www.diputados.gob.mx/",
+      },
+    ],
+  },
+  {
+    aliases: ["china", "cn", "people's republic of china", "peoples republic of china"],
+    officials: [
+      {
+        id: "cn:president:xi",
+        name: "Xi Jinping",
+        office: "President of China; General Secretary of the Chinese Communist Party",
+        jurisdiction_name: "People's Republic of China",
+        urls: ["https://english.www.gov.cn/"],
+        term_start: "2013-03-14",
+        term_end: null,
+      },
+      {
+        id: "cn:premier:li-qiang",
+        name: "Li Qiang",
+        office: "Premier of China",
+        jurisdiction_name: "People's Republic of China",
+        urls: ["https://english.www.gov.cn/"],
+        term_start: "2023-03-11",
+        term_end: null,
+      },
+    ],
+    elections: [
+      {
+        id: "cn:npc",
+        name: "National People's Congress",
+        jurisdiction_name: "People's Republic of China",
+        source_url: "http://www.npc.gov.cn/englishnpc/index.shtml",
+      },
+    ],
+    legislation: [
+      {
+        id: "cn:state-council",
+        name: "State Council policy and legislation",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://english.www.gov.cn/policies/",
+      },
+    ],
+  },
+  {
+    aliases: ["japan", "jp"],
+    officials: [
+      {
+        id: "jp:pm:takaichi",
+        name: "TAKAICHI Sanae",
+        office: "Prime Minister of Japan",
+        jurisdiction_name: "Japan",
+        urls: ["https://japan.kantei.go.jp/"],
+        term_start: "2026-02-18",
+        term_end: null,
+      },
+      {
+        id: "jp:emperor:naruhito",
+        name: "Naruhito",
+        office: "Emperor of Japan",
+        jurisdiction_name: "Japan",
+        urls: ["https://www.kunaicho.go.jp/eindex.html"],
+        term_start: "2019-05-01",
+        term_end: null,
+      },
+    ],
+    elections: [
+      {
+        id: "jp:elections",
+        name: "National elections",
+        jurisdiction_name: "Japan",
+        source_url: "https://www.soumu.go.jp/english/",
+      },
+    ],
+    legislation: [
+      {
+        id: "jp:diet",
+        name: "National Diet legislation",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://www.sangiin.go.jp/eng/",
+      },
+    ],
+  },
+  {
+    aliases: ["european union and united kingdom", "europe", "european union", "eu", "united kingdom", "uk"],
+    officials: [
+      {
+        id: "eu:council:costa",
+        name: "António Costa",
+        office: "President of the European Council",
+        jurisdiction_name: "European Union",
+        urls: ["https://www.consilium.europa.eu/european-council/president/role/"],
+        term_start: "2024-12-01",
+        term_end: null,
+      },
+      {
+        id: "eu:commission:von-der-leyen",
+        name: "Ursula von der Leyen",
+        office: "President of the European Commission",
+        jurisdiction_name: "European Union",
+        urls: ["https://commission.europa.eu/"],
+        term_start: "2024-12-01",
+        term_end: null,
+      },
+      {
+        id: "uk:pm:starmer",
+        name: "Keir Starmer",
+        office: "Prime Minister of the United Kingdom",
+        jurisdiction_name: "United Kingdom",
+        urls: ["https://www.gov.uk/government/ministers/prime-minister"],
+        term_start: "2024-07-05",
+        term_end: null,
+      },
+    ],
+    elections: [
+      {
+        id: "eu:elections",
+        name: "European Parliament elections",
+        jurisdiction_name: "European Union",
+        source_url: "https://elections.europa.eu/",
+      },
+      {
+        id: "uk:elections",
+        name: "UK elections and voting",
+        jurisdiction_name: "United Kingdom",
+        source_url: "https://www.gov.uk/how-to-vote",
+      },
+    ],
+    legislation: [
+      {
+        id: "eu:law",
+        name: "European Union law and policy",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://eur-lex.europa.eu/",
+      },
+      {
+        id: "uk:parliament",
+        name: "UK Parliament bills and legislation",
+        status: "tracked",
+        source: "civic-fallback",
+        source_url: "https://bills.parliament.uk/",
+      },
+    ],
+  },
+]
+
 /** Curated federal delegation (GitHub legislators-current.json removed upstream). */
 const STATE_FEDERAL_OFFICIALS: Record<string, CivicFallbackOfficial[]> = {
   CA: [
@@ -220,6 +487,13 @@ function congressPhotoUrl(bioguide?: string): string | null {
   return `https://bioguide.congress.gov/bioguide/photo/${bioguide[0]}/${bioguide}.jpg`
 }
 
+function resolveCountryProfile(countryNorm: string): CountryCivicProfile | null {
+  if (!countryNorm) return null
+  return COUNTRY_CIVIC_PROFILES.find((profile) =>
+    profile.aliases.some((alias) => countryNorm === alias || countryNorm.includes(alias)),
+  ) ?? null
+}
+
 function buildElections(stateCode: string | null, jurisdictionLabel: string): CivicFallbackElection[] {
   const year = new Date().getFullYear()
   const items: CivicFallbackElection[] = [
@@ -272,6 +546,41 @@ export async function fetchCivicFallback(input: {
   const stateCode = resolveStateCode(input.state)
   const jurisdictionLabel = [input.city, input.state, input.country].filter(Boolean).join(", ")
   const officials: CivicFallbackOfficial[] = []
+
+  const countryNorm = (input.country ?? "").trim().toLowerCase()
+  const isUnitedStates =
+    !countryNorm ||
+    countryNorm === "us" ||
+    countryNorm === "usa" ||
+    countryNorm.includes("united states")
+
+  const countryProfile = isUnitedStates ? null : resolveCountryProfile(countryNorm)
+  if (countryProfile) {
+    return {
+      officials: countryProfile.officials.map(withPortrait),
+      elections: countryProfile.elections,
+      legislation: countryProfile.legislation,
+      source: "civic-fallback",
+    }
+  }
+
+  if (!isUnitedStates) {
+    return {
+      officials: [],
+      elections: [],
+      legislation: [],
+      source: "civic-fallback",
+    }
+  }
+
+  if (isUnitedStates) {
+    for (const exec of US_FEDERAL_EXECUTIVES) {
+      officials.push(withPortrait(exec))
+    }
+    for (const leader of US_CONGRESS_LEADERSHIP) {
+      officials.push(withPortrait(leader))
+    }
+  }
 
   if (stateCode && STATE_EXECUTIVES[stateCode]) {
     const exec = STATE_EXECUTIVES[stateCode]

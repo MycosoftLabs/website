@@ -248,22 +248,43 @@ export const MYCOSOFT_PROJECTS: MycosoftProject[] = [
 // the global layers (CREP live entities, HIFLD infra, AIS, etc.) paint.
 // New city bakes (bake-us-major-cities.mjs) wire their own toggles in
 // later; this list is the navigation baseline.
+/** Layers auto-enabled when flying to a US metro — matches Vegas deployment chips. May 24, 2026 */
+export const GLOBAL_FLY_TO_CONTEXT_LAYERS: string[] = [
+  "fungi",
+  "liveAqi",
+  "eagleEyeCameras",
+  "powerPlants",
+  "powerPlantsG",
+  "transmissionLines",
+  "txLinesGlobal",
+  "txLinesFull",
+  "txLinesSub",
+  "substations",
+  "cellTowers",
+  "cellTowersG",
+  "radioStations",
+  "dataCenters",
+  "dataCentersG",
+]
+
+export const US_METRO_NATURE_LAYERS: string[] = GLOBAL_FLY_TO_CONTEXT_LAYERS
+
 export const US_MAJOR_CITIES: MycosoftProject[] = [
-  { id: "fly-sd",       code: "SD",   label: "San Diego + Tijuana",       pitch: "SDG&E zone, Project Oyster, Mexican border, Navy fleet, Camp Pendleton.", center: [-117.1611, 32.7157], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-la",       code: "LA",   label: "Los Angeles",              pitch: "LA Metro, Port of LA/Long Beach, LAX, CalGuard, wildfires + traffic.",   center: [-118.2437, 34.0522], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-sf",       code: "SF",   label: "San Francisco Bay",        pitch: "BART + Caltrain, Presidio, Mission Bay, Port of Oakland, 49 Mile route.", center: [-122.4194, 37.7749], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-chicago",  code: "CHI",  label: "Chicago",                  pitch: "CTA L, ORD + MDW, Lake Michigan, Ft Sheridan.",                         center: [-87.6298, 41.8781], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-austin",   code: "AUS",  label: "Austin, TX",               pitch: "Capital, SXSW, semi fabs, Ft Hood approach.",                           center: [-97.7431, 30.2672], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-houston",  code: "HOU",  label: "Houston, TX",              pitch: "Port of Houston, Ship Channel, NASA JSC, oil refineries.",              center: [-95.3698, 29.7604], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-miami",    code: "MIA",  label: "Miami, FL",                pitch: "Port of Miami, MIA airport, Homestead AFB, Everglades.",                center: [-80.1918, 25.7617], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-denver",   code: "DEN",  label: "Denver, CO",               pitch: "RTD, Buckley SFB, Cheyenne Mtn approach, Rocky Mtn NP edge.",           center: [-104.9903, 39.7392], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-slc",      code: "SLC",  label: "Salt Lake City, UT",       pitch: "Hill AFB, Wasatch Front, Great Salt Lake.",                             center: [-111.8910, 40.7608], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-seattle",  code: "SEA",  label: "Seattle, WA",              pitch: "Sound Transit, JBLM, Elliott Bay, Boeing.",                             center: [-122.3321, 47.6062], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-boston",   code: "BOS",  label: "Boston, MA",               pitch: "MBTA T, Logan, Hanscom AFB, Harvard/MIT.",                              center: [-71.0589, 42.3601], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-philly",   code: "PHL",  label: "Philadelphia",             pitch: "SEPTA, PHL airport, Philly Navy Yard, DE Valley.",                      center: [-75.1652, 39.9526], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-atlanta",  code: "ATL",  label: "Atlanta, GA",              pitch: "MARTA, ATL, Dobbins ARB, CDC HQ.",                                      center: [-84.3880, 33.7490], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-phoenix",  code: "PHX",  label: "Phoenix, AZ",              pitch: "Luke AFB, Sky Harbor, Intel + TSMC fabs.",                              center: [-112.0740, 33.4484], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
-  { id: "fly-dallas",   code: "DAL",  label: "Dallas-Fort Worth",        pitch: "DART, DFW, NAS JRB Ft Worth, Sheppard AFB.",                            center: [-96.7970, 32.7767], zoom: 10, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-sd",       code: "SD",   label: "San Diego + Tijuana",       pitch: "SDG&E zone, Project Oyster, Mexican border, Navy fleet, Camp Pendleton.", center: [-117.1611, 32.7157], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-la",       code: "LA",   label: "Los Angeles",              pitch: "LA Metro, Port of LA/Long Beach, LAX, CalGuard, wildfires + traffic.",   center: [-118.2437, 34.0522], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-sf",       code: "SF",   label: "San Francisco Bay",        pitch: "BART + Caltrain, Presidio, Mission Bay, Port of Oakland, 49 Mile route.", center: [-122.4194, 37.7749], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-chicago",  code: "CHI",  label: "Chicago",                  pitch: "CTA L, ORD + MDW, Lake Michigan, Ft Sheridan.",                         center: [-87.6298, 41.8781], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-austin",   code: "AUS",  label: "Austin, TX",               pitch: "Capital, SXSW, semi fabs, Ft Hood approach.",                           center: [-97.7431, 30.2672], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-houston",  code: "HOU",  label: "Houston, TX",              pitch: "Port of Houston, Ship Channel, NASA JSC, oil refineries.",              center: [-95.3698, 29.7604], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-miami",    code: "MIA",  label: "Miami, FL",                pitch: "Port of Miami, MIA airport, Homestead AFB, Everglades.",                center: [-80.1918, 25.7617], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-denver",   code: "DEN",  label: "Denver, CO",               pitch: "RTD, Buckley SFB, Cheyenne Mtn approach, Rocky Mtn NP edge.",           center: [-104.9903, 39.7392], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-slc",      code: "SLC",  label: "Salt Lake City, UT",       pitch: "Hill AFB, Wasatch Front, Great Salt Lake.",                             center: [-111.8910, 40.7608], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-seattle",  code: "SEA",  label: "Seattle, WA",              pitch: "Sound Transit, JBLM, Elliott Bay, Boeing.",                             center: [-122.3321, 47.6062], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-boston",   code: "BOS",  label: "Boston, MA",               pitch: "MBTA T, Logan, Hanscom AFB, Harvard/MIT.",                              center: [-71.0589, 42.3601], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-philly",   code: "PHL",  label: "Philadelphia",             pitch: "SEPTA, PHL airport, Philly Navy Yard, DE Valley.",                      center: [-75.1652, 39.9526], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-atlanta",  code: "ATL",  label: "Atlanta, GA",              pitch: "MARTA, ATL, Dobbins ARB, CDC HQ.",                                      center: [-84.3880, 33.7490], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-phoenix",  code: "PHX",  label: "Phoenix, AZ",              pitch: "Luke AFB, Sky Harbor, Intel + TSMC fabs.",                              center: [-112.0740, 33.4484], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
+  { id: "fly-dallas",   code: "DAL",  label: "Dallas-Fort Worth",        pitch: "DART, DFW, NAS JRB Ft Worth, Sheppard AFB.",                            center: [-96.7970, 32.7767], zoom: 11, layersOn: US_METRO_NATURE_LAYERS, accent: "border-orange-500/40 hover:border-orange-400 hover:bg-orange-500/10 text-orange-200" },
 ]
 
 interface FlyToProjectsProps {

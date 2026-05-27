@@ -24,6 +24,7 @@ import {
   normalizeYouTubeEmbedUrlSync,
 } from "@/lib/crep/youtube-embed"
 import { resolveEagleLiveStream } from "@/components/crep/eagle-eye/eagle-live-stream"
+import { hlsLivePlayerConfig, seekVideoToLiveEdge } from "@/lib/crep/hls-live-config"
 
 type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
 
@@ -82,7 +83,15 @@ function withRetryParam(url: string, token: number): string {
   }
 }
 
-function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }) {
+function HlsPlayer({
+  url,
+  onFallback,
+  disableNoFrameWatchdog = false,
+}: {
+  url: string
+  onFallback?: () => void
+  disableNoFrameWatchdog?: boolean
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   // Apr 22, 2026 v2 — Morgan: "caltrans cameras were working fine before
   // now they are just saying loading hls what happend fix that".
@@ -124,16 +133,20 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
     video.addEventListener("playing", markFrame)
     video.addEventListener("timeupdate", markFrame)
     video.addEventListener("error", onVideoError)
-    watchdog = setTimeout(() => {
-      if (!hasFrame && video.readyState < 2) retryInsideWidget("no video frames received")
-    }, 9000)
+    if (!disableNoFrameWatchdog) {
+      watchdog = setTimeout(() => {
+        if (!hasFrame && video.readyState < 2) retryInsideWidget("no video frames received")
+      }, 20_000)
+    }
 
     // Let the browser's own "play" gesture handle readiness. No phase
     // state, no overlay until / unless fatal error.
     const kickPlay = () => video.play().catch(() => { /* autoplay blocked — user clicks play */ })
 
+    const onMeta = () => seekVideoToLiveEdge(video)
+    video.addEventListener("loadedmetadata", onMeta)
+
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Native HLS (Safari / iOS / Edge on macOS)
       video.src = playbackUrl
       kickPlay()
     } else {
@@ -145,10 +158,13 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
           kickPlay()
           return
         }
-        const hls = new H({ maxBufferLength: 10, manifestLoadingTimeOut: 12_000, levelLoadingTimeOut: 12_000, fragLoadingTimeOut: 12_000 })
+        const hls = new H({ ...hlsLivePlayerConfig() })
         hls.loadSource(playbackUrl)
         hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, kickPlay)
+        hls.on(H.Events.MANIFEST_PARSED, () => {
+          seekVideoToLiveEdge(video, hls)
+          kickPlay()
+        })
         let recoveryAttempts = 0
         hls.on(H.Events.ERROR, (_evt: any, data: any) => {
           if (!data?.fatal) return
@@ -176,7 +192,15 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
           setErrMsg(String(detail))
           try { hls.destroy() } catch { /* ignore */ }
         })
-        cleanup = () => { try { hls.destroy() } catch { /* ignore */ } }
+        const driftTimer = window.setInterval(() => {
+          if (video.duration === Infinity || hls.liveSyncPosition != null) {
+            seekVideoToLiveEdge(video, hls)
+          }
+        }, 10_000)
+        cleanup = () => {
+          window.clearInterval(driftTimer)
+          try { hls.destroy() } catch { /* ignore */ }
+        }
       }).catch((err) => {
         video.src = playbackUrl
         video.play().catch(() => {
@@ -187,6 +211,7 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
 
     return () => {
       if (watchdog) clearTimeout(watchdog)
+      video.removeEventListener("loadedmetadata", onMeta)
       video.removeEventListener("loadeddata", markFrame)
       video.removeEventListener("canplay", markFrame)
       video.removeEventListener("playing", markFrame)
@@ -205,6 +230,7 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
         muted
         autoPlay
         playsInline
+        preload="auto"
       />
       {recovering && !errMsg && (
         <div className="absolute right-2 top-2 rounded border border-cyan-500/30 bg-black/70 px-2 py-1 text-[9px] font-mono text-cyan-200">
@@ -224,7 +250,12 @@ function HlsPlayer({ url, onFallback }: { url: string; onFallback?: () => void }
   )
 }
 
-function proxiedCaltransSnapshot(embed: string | undefined): string | null {
+function proxiedCaltransSnapshot(embed: string | undefined, mediaUrl?: string): string | null {
+  if (mediaUrl && /\.(jpe?g|png|webp)(\?|$)/i.test(mediaUrl)) {
+    return mediaUrl.startsWith("/api/")
+      ? mediaUrl
+      : `/api/eagle/cam-image?url=${encodeURIComponent(mediaUrl)}`
+  }
   if (!embed) return null
   const m = /cwwp2\.dot\.ca\.gov\/vm\/loc\/(d\d+)\/([^/.?#]+)\.htm/i.exec(embed)
   if (!m) return null
@@ -247,8 +278,9 @@ function HlsWithSnapshotFallback({
   name?: string
 }) {
   const [useSnapshot, setUseSnapshot] = useState(false)
+  const isCaltrans = (provider || "").toLowerCase() === "caltrans"
   useEffect(() => { setUseSnapshot(false) }, [url, fallbackSnapshot])
-  if (useSnapshot && fallbackSnapshot) {
+  if (useSnapshot && fallbackSnapshot && !isCaltrans) {
     return (
       <SnapshotStream
         url={fallbackSnapshot}
@@ -261,8 +293,9 @@ function HlsWithSnapshotFallback({
   return (
     <HlsPlayer
       url={url}
+      disableNoFrameWatchdog={isCaltrans}
       onFallback={() => {
-        if (fallbackSnapshot) setUseSnapshot(true)
+        if (fallbackSnapshot && !isCaltrans) setUseSnapshot(true)
       }}
     />
   )
@@ -656,7 +689,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
       setT(Date.now())
-    }, 20_000)
+    }, 4_000)
     return () => clearInterval(id)
   }, [])
   // Reset failure state when url changes (different cam selected)
@@ -774,6 +807,11 @@ export default function VideoWallWidget() {
     // these on every source's GeoJSON feature (see eagle-eye-overlay.tsx
     // properties mapping). If present, we skip the /stream lookup
     // entirely and render instantly.
+    const isViewerPage = (u: string) =>
+      /\.htm(\?|$)/i.test(u) ||
+      /cwwp2\.dot\.ca\.gov\/vm\//i.test(u) ||
+      /bwt\.cbp\.gov/i.test(u)
+
     const onCamera = (e: any) => {
       const d = e?.detail || {}
       lastOpenAtRef.current = Date.now()
@@ -782,9 +820,8 @@ export default function VideoWallWidget() {
       const mediaUrl = d.media_url || undefined
       const directEmbed =
         (streamUrl && /\.m3u8/i.test(streamUrl) ? streamUrl : undefined) ||
-        streamUrl ||
-        embedUrl ||
-        mediaUrl ||
+        (streamUrl && !isViewerPage(streamUrl) ? streamUrl : undefined) ||
+        (embedUrl && /\.m3u8/i.test(embedUrl) ? embedUrl : undefined) ||
         undefined
       setFeed({
         id: d.id, name: d.name || `${d.provider} camera`, provider: d.provider,
@@ -956,21 +993,7 @@ export default function VideoWallWidget() {
       return
     }
 
-    // 4: proxied still frame when no live URL (Caltrans offline HLS)
-    if (feed.mediaUrl && isStill(feed.mediaUrl) && caltransNeedsResolve) {
-      setResolved({
-        id: feed.id,
-        provider: feed.provider,
-        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-        stream_type: "snapshot",
-        stream_url: feed.mediaUrl,
-        embed_url: feed.embedUrl,
-        snapshot_url: feed.mediaUrl,
-      })
-      return
-    }
-
-    // 5: any other live directEmbed
+    // 4: any other live directEmbed
     if (de) {
       setResolved({
         id: feed.id,
@@ -983,7 +1006,7 @@ export default function VideoWallWidget() {
       return
     }
 
-    // 6: server-side live stream resolver (Caltrans HLS lookup, Surfline, etc.)
+    // 5: server-side live stream resolver (Caltrans HLS lookup, Surfline, etc.)
     setLoading(true)
     resolveStream(feed.id, {
       embed_url: feed.embedUrl,

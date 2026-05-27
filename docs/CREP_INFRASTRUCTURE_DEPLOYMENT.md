@@ -497,7 +497,7 @@ const aircraft = await fetchWithFailover('aircraft', [
 # ═══════════════════════════════════════════════════════════════════
 # CORE DATABASE
 # ═══════════════════════════════════════════════════════════════════
-POSTGRES_URL=postgresql://mycosoft:password@localhost:5432/mycosoft
+POSTGRES_URL=[set from your local secret manager]
 POSTGRES_PASSWORD=your_secure_password
 
 # ═══════════════════════════════════════════════════════════════════

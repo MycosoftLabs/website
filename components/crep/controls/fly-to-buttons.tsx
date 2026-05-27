@@ -13,8 +13,12 @@ import {
   CREP_COLLAPSE_FLYTO_EVENT,
   setViewportGeographyOverride,
 } from "@/lib/crep/fly-to-panels"
-import type { ViewportGeographyLod } from "@/lib/crep/viewport-place"
-import { useEffect, useState } from "react"
+import type {
+  JurisdictionEntry,
+  ViewportGeographyLod,
+  ViewportPlaceLike,
+} from "@/lib/crep/viewport-place"
+import { useEffect, useRef, useState } from "react"
 import { Globe2 } from "lucide-react"
 
 interface FlyToTarget {
@@ -29,6 +33,7 @@ interface FlyToTarget {
   macroLabel?: string
   geographyLod?: ViewportGeographyLod
   subheadline?: string
+  countryCode?: string
 }
 
 const FLY_TO_TARGETS: FlyToTarget[] = [
@@ -36,12 +41,13 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     id: "us",
     emoji: "🇺🇸",
     label: "United States",
-    center: [-98.5, 39.8],
-    zoom: 3,
-    geographyLabel: "North America",
+    center: [-98.6, 39.5],
+    zoom: 4.75,
+    geographyLabel: "United States",
     macroLabel: "North America",
-    geographyLod: "macro",
-    subheadline: "United States · Canada · Mexico · USMCA",
+    geographyLod: "country",
+    subheadline: "North America",
+    countryCode: "US",
   },
   {
     id: "ca",
@@ -49,10 +55,11 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     label: "Canada",
     center: [-106.3, 56.1],
     zoom: 3.5,
-    geographyLabel: "North America",
+    geographyLabel: "Canada",
     macroLabel: "North America",
-    geographyLod: "macro",
-    subheadline: "Canada · United States · Mexico · USMCA",
+    geographyLod: "country",
+    subheadline: "North America",
+    countryCode: "CA",
   },
   {
     id: "mx",
@@ -64,6 +71,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     macroLabel: "North America",
     geographyLod: "country",
     subheadline: "North America · USMCA",
+    countryCode: "MX",
   },
   {
     id: "eu",
@@ -71,10 +79,10 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     label: "Europe",
     center: [10, 50],
     zoom: 4,
-    geographyLabel: "Europe",
+    geographyLabel: "European Union and United Kingdom",
     macroLabel: "Europe",
     geographyLod: "macro",
-    subheadline: "European Union · United Kingdom",
+    subheadline: "Europe",
   },
   {
     id: "cn",
@@ -84,6 +92,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     zoom: 4,
     geographyLabel: "China",
     geographyLod: "country",
+    countryCode: "CN",
   },
   {
     id: "in",
@@ -93,6 +102,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     zoom: 4.5,
     geographyLabel: "India",
     geographyLod: "country",
+    countryCode: "IN",
   },
   {
     id: "jp",
@@ -102,6 +112,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     zoom: 5.5,
     geographyLabel: "Japan",
     geographyLod: "country",
+    countryCode: "JP",
   },
   {
     id: "au",
@@ -113,6 +124,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     macroLabel: "Oceania",
     geographyLod: "country",
     subheadline: "Oceania",
+    countryCode: "AU",
   },
   {
     id: "br",
@@ -124,6 +136,7 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
     macroLabel: "South America",
     geographyLod: "country",
     subheadline: "South America",
+    countryCode: "BR",
   },
   {
     id: "global",
@@ -136,6 +149,32 @@ const FLY_TO_TARGETS: FlyToTarget[] = [
   },
 ]
 
+function flyToPlace(target: FlyToTarget): ViewportPlaceLike | undefined {
+  if (target.geographyLod === "global") return undefined
+  return {
+    country: target.geographyLabel,
+    countryCode: target.countryCode,
+    displayName: target.geographyLabel,
+    lat: target.center[1],
+    lng: target.center[0],
+  }
+}
+
+function flyToJurisdictionStack(target: FlyToTarget): JurisdictionEntry[] | undefined {
+  if (target.geographyLod === "global") return undefined
+  if (target.id === "eu") {
+    return [
+      { level: "macro", name: "Europe" },
+      { level: "union", name: "European Union" },
+      { level: "country", name: "United Kingdom", code: "GB" },
+    ]
+  }
+  if (target.geographyLod === "country") {
+    return [{ level: "country", name: target.geographyLabel, code: target.countryCode }]
+  }
+  return [{ level: target.geographyLod ?? "macro", name: target.geographyLabel }]
+}
+
 interface FlyToButtonsProps {
   onFlyTo: (center: [number, number], zoom: number) => void
   className?: string
@@ -144,6 +183,8 @@ interface FlyToButtonsProps {
 
 export function FlyToButtons({ onFlyTo, className, compact = false }: FlyToButtonsProps) {
   const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const toggleButtonRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     const onCollapse = () => setOpen(false)
@@ -151,9 +192,79 @@ export function FlyToButtons({ onFlyTo, className, compact = false }: FlyToButto
     return () => window.removeEventListener(CREP_COLLAPSE_FLYTO_EVENT, onCollapse)
   }, [])
 
+  useEffect(() => {
+    const button = toggleButtonRef.current
+    if (!button) return
+
+    const consume = (event: Event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      ;(event as any).stopImmediatePropagation?.()
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary) return
+      if (event.pointerType === "mouse" && event.button !== 0) return
+      consume(event)
+      setOpen((value) => !value)
+    }
+    const onClick = (event: MouseEvent) => consume(event)
+
+    button.addEventListener("pointerdown", onPointerDown, true)
+    button.addEventListener("click", onClick, true)
+    return () => {
+      button.removeEventListener("pointerdown", onPointerDown, true)
+      button.removeEventListener("click", onClick, true)
+    }
+  }, [])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const consume = (event: Event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      ;(event as any).stopImmediatePropagation?.()
+    }
+    const activateTarget = (targetId: string) => {
+      const target = FLY_TO_TARGETS.find((item) => item.id === targetId)
+      if (!target) return
+      setViewportGeographyOverride({
+        headline: target.geographyLabel,
+        subheadline: target.subheadline,
+        geographyLod: target.geographyLod,
+        place: flyToPlace(target),
+        jurisdictionStack: flyToJurisdictionStack(target),
+      })
+      onFlyTo(target.center, target.zoom)
+      setOpen(false)
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary) return
+      if (event.pointerType === "mouse" && event.button !== 0) return
+      const button = (event.target as HTMLElement | null)?.closest?.("[data-crep-fly-to-target]") as HTMLElement | null
+      const targetId = button?.dataset?.crepFlyToTarget
+      if (!targetId) return
+      consume(event)
+      activateTarget(targetId)
+    }
+    const onClick = (event: MouseEvent) => {
+      const button = (event.target as HTMLElement | null)?.closest?.("[data-crep-fly-to-target]") as HTMLElement | null
+      if (button) consume(event)
+    }
+
+    container.addEventListener("pointerdown", onPointerDown, true)
+    container.addEventListener("click", onClick, true)
+    return () => {
+      container.removeEventListener("pointerdown", onPointerDown, true)
+      container.removeEventListener("click", onClick, true)
+    }
+  }, [onFlyTo])
+
   return (
-    <div className={cn("flex flex-col items-end gap-1", className)}>
+    <div ref={containerRef} className={cn("flex flex-col items-end gap-1", className)}>
       <button
+        ref={toggleButtonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={cn(
@@ -172,11 +283,14 @@ export function FlyToButtons({ onFlyTo, className, compact = false }: FlyToButto
           {FLY_TO_TARGETS.map((target) => (
             <button
               key={target.id}
+              data-crep-fly-to-target={target.id}
               onClick={() => {
                 setViewportGeographyOverride({
                   headline: target.geographyLabel,
                   subheadline: target.subheadline,
                   geographyLod: target.geographyLod,
+                  place: flyToPlace(target),
+                  jurisdictionStack: flyToJurisdictionStack(target),
                 })
                 onFlyTo(target.center, target.zoom)
                 setOpen(false)

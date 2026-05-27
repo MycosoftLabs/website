@@ -1,13 +1,10 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
 export const dynamic = "force-dynamic"
 
-const MAS_BASE = (
-  process.env.MAS_API_URL ||
-  process.env.NEXT_PUBLIC_MAS_API_URL ||
-  "http://127.0.0.1:8001"
-).replace(/\/$/, "")
+const MAS_BASE = resolveMasServerBaseUrl()
 
 const FORWARD_HEADER = new Set([
   "content-type",

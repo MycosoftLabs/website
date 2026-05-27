@@ -1,0 +1,5354 @@
+{
+  "startedAt": "2026-05-27T09:35:04.675Z",
+  "steps": [
+    {
+      "label": "initial-load",
+      "at": "2026-05-27T09:35:14.891Z",
+      "state": {
+        "markerDebug": {
+          "route": "earth-simulator",
+          "eventFiltersEnabled": true,
+          "natureFiltersEnabled": true,
+          "natureSpeciesFiltersActive": true,
+          "auditAllOffMode": false,
+          "assetIsolationMode": null,
+          "globalEvents": 6000,
+          "typeFilteredEvents": 1476,
+          "coordinateReadyEvents": 1476,
+          "visibleEvents": 280,
+          "renderedEventsForMap": 280,
+          "fungalObservations": 806,
+          "visibleFungalObservations": 450,
+          "renderedFungalForMap": 450,
+          "mapZoom": 3,
+          "hasMapBounds": true,
+          "mapBounds": {
+            "north": 70.39600252188227,
+            "south": -4.805895209930114,
+            "east": -10.589025231946607,
+            "west": -186.41097476804975
+          },
+          "markerBounds": {
+            "north": 70.39600252188227,
+            "south": -4.805895209930114,
+            "east": -10.589025231946607,
+            "west": -186.41097476804975
+          },
+          "canFetchNatureObservations": true,
+          "viewportNatureFetchNonce": 28,
+          "mapInteractionActive": false,
+          "isMapAnimationActive": false,
+          "isGlobeMarkerListFrozen": false
+        },
+        "audit": {
+          "auditAllOffMode": false,
+          "layers": [
+            {
+              "id": "fungi",
+              "name": "Nature Observations",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mycobrain",
+              "name": "MycoBrain Devices",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMushroom1",
+              "name": "Mushroom 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devHyphae1",
+              "name": "Hyphae 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "sporebase",
+              "name": "SporeBase",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMycoNode",
+              "name": "MycoNode",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devAlarm",
+              "name": "Alarm",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devPsathyrella",
+              "name": "Psathyrella (Buoy)",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "partners",
+              "name": "Partner Networks",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "smartfence",
+              "name": "Smart Fence Network",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "biodiversity",
+              "name": "Biodiversity Hotspots",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasMycelium",
+              "name": "Mycelium Heat",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasAM",
+              "name": "AM Fungi Distribution",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasECM",
+              "name": "EcM Fungi Distribution",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasRare",
+              "name": "Rare / Endemic Fungi",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasProtected",
+              "name": "Fungal Protected Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasUncertainty",
+              "name": "High Uncertainty Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasFci",
+              "name": "FCI Probe Priority",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasSamples",
+              "name": "Fungal Sequence Samples",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "weather",
+              "name": "Weather Overlay",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "buoys",
+              "name": "Ocean Buoys (NDBC)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "earthquakes",
+              "name": "Seismic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "volcanoes",
+              "name": "Volcanic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "wildfires",
+              "name": "Active Wildfires",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "storms",
+              "name": "Storm Systems",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "solar",
+              "name": "Space Weather",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "lightning",
+              "name": "Lightning Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "tornadoes",
+              "name": "Tornado Tracking",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "aviation",
+              "name": "Air Traffic (Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "aviationRoutes",
+              "name": "Flight Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "ships",
+              "name": "Ships (AIS Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "shipRoutes",
+              "name": "Ship Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "fishing",
+              "name": "Fishing Fleets",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "containers",
+              "name": "Container Ships",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vehicles",
+              "name": "Land Vehicles",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "drones",
+              "name": "Drones & UAVs",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satellites",
+              "name": "Satellites (TLE Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "population",
+              "name": "Population Density",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "humanMovement",
+              "name": "Human Movement",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "events_human",
+              "name": "Human Events",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "militaryBases",
+              "name": "Military Bases (Live)",
+              "enabled": true,
+              "category": "military"
+            },
+            {
+              "id": "militaryAir",
+              "name": "Military Aircraft",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryNavy",
+              "name": "Naval Vessels",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "tanks",
+              "name": "Ground Forces",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryDrones",
+              "name": "Military UAVs",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "factories",
+              "name": "Factories & Plants",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "co2Sources",
+              "name": "COâ‚‚ Emission Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "methaneSources",
+              "name": "Methane Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "oilGas",
+              "name": "Oil & Gas Infrastructure",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "powerPlants",
+              "name": "Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "metalOutput",
+              "name": "Metal & Mining",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "waterPollution",
+              "name": "Water Contamination",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "submarineCables",
+              "name": "Submarine Cables",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "dataCenters",
+              "name": "Data Centers (all sources)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowers",
+              "name": "Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "liveTransit",
+              "name": "Live Transit (Trains/Buses)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "liveAqi",
+              "name": "Air Quality (AirNow)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Forecast",
+              "name": "Earth-2 AI Forecast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Nowcast",
+              "name": "Earth-2 Nowcast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Spore",
+              "name": "Spore Dispersal AI",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Wind",
+              "name": "Wind Vectors",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Temp",
+              "name": "Temperature Heatmap",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Precip",
+              "name": "Precipitation",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "auroraOverlay",
+              "name": "Aurora Forecast",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "signalHeatmap",
+              "name": "Signal Coverage",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "hospitals",
+              "name": "Hospitals",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "fireStations",
+              "name": "Fire Stations",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "universities",
+              "name": "Universities",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "ports",
+              "name": "Global Seaports",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "cctv",
+              "name": "CCTV / Webcams",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeCameras",
+              "name": "Eagle Eye — Cameras",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeEvents",
+              "name": "Eagle Eye — Live Events",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "im3DataCenters",
+              "name": "Data Centers (IM3 Atlas)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "im3DataCenterFootprints",
+              "name": "DC Footprints (IM3 buildings)",
+              "enabled": false,
+              "category": "telecom"
+            },
+            {
+              "id": "eiaOperating",
+              "name": "EIA-860M Operating",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaPlanned",
+              "name": "EIA-860M Planned (Projected)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaRetired",
+              "name": "EIA-860M Retired",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaCanceled",
+              "name": "EIA-860M Canceled",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radar",
+              "name": "Radar Sites",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radioStations",
+              "name": "Radio Stations",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "powerPlantsG",
+              "name": "Global Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "factoriesG",
+              "name": "Global Factories",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "orbitalDebris",
+              "name": "Orbital Debris (Catalogued)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "debrisCloud",
+              "name": "Debris 1-10cm (Statistical)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesGlobal",
+              "name": "Global Transmission Lines",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "txLinesFull",
+              "name": "Transmission Lines (ALL voltages)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "substations",
+              "name": "Substations",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesSub",
+              "name": "Sub-Transmission (OSM)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "dataCentersG",
+              "name": "Global Data Centers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowersG",
+              "name": "Global Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "bathymetry",
+              "name": "Ocean Bathymetry",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "topography",
+              "name": "Land Topography",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "railwayTracks",
+              "name": "Railway Network",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "railwayTrains",
+              "name": "Live Trains",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "droneNoFly",
+              "name": "Drone No-Fly Zones",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjHospitals",
+              "name": "Hospitals (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjPolice",
+              "name": "Police / Fire / Border (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjSewage",
+              "name": "Sewage Works (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjCellTowers",
+              "name": "Cell Towers (OSM, SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjAmFmAntennas",
+              "name": "AM/FM / TV antennas (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjMilitary",
+              "name": "Military installations (OSM)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjDataCenters",
+              "name": "Data Centers (SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectNyc",
+              "name": "Project NYC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "nycHospitals",
+              "name": "NYC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycPolice",
+              "name": "NYC — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycSewage",
+              "name": "NYC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycCellTowers",
+              "name": "NYC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAmFmAntennas",
+              "name": "NYC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycMilitary",
+              "name": "NYC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycDataCenters",
+              "name": "NYC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitSubway",
+              "name": "NYC — Subway Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitRail",
+              "name": "NYC — Rail Stations (LIRR/NJT/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAirports",
+              "name": "NYC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycGovtEmbassy",
+              "name": "NYC — Government / Embassy / Consulate",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectDc",
+              "name": "Project DC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "dcHospitals",
+              "name": "DC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcPolice",
+              "name": "DC — Police / Fire / USSS",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcSewage",
+              "name": "DC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcCellTowers",
+              "name": "DC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAmFmAntennas",
+              "name": "DC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcMilitary",
+              "name": "DC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcDataCenters",
+              "name": "DC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitSubway",
+              "name": "DC — WMATA Metro Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitRail",
+              "name": "DC — Rail Stations (MARC/VRE/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAirports",
+              "name": "DC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcGovtEmbassy",
+              "name": "DC — Government / Embassy / IC",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectVegas",
+              "name": "Project Las Vegas — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "vegasHospitals",
+              "name": "Vegas — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasPolice",
+              "name": "Vegas — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasSewage",
+              "name": "Vegas — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasCellTowers",
+              "name": "Vegas — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAmFmAntennas",
+              "name": "Vegas — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasMilitary",
+              "name": "Vegas — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasDataCenters",
+              "name": "Vegas — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitSubway",
+              "name": "Vegas — Monorail + LVCVA tram",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitRail",
+              "name": "Vegas — Rail (Brightline / Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAirports",
+              "name": "Vegas — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasGovtEmbassy",
+              "name": "Vegas — Government",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satImagery",
+              "name": "Satellite Imagery (HD)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mapboxSatelliteStreets",
+              "name": "Mapbox Satellite Streets (HD hybrid)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "mapbox3dBuildings",
+              "name": "3D Buildings (Mapbox extrusions)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "photorealistic3D",
+              "name": "Photorealistic 3D (Google / Cesium)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "realisticClouds",
+              "name": "Realistic Clouds (Earth-2 + Satellite)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "sunEarthImpact",
+              "name": "Sun→Earth Impact",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "jurisdictionCountry",
+              "name": "Country Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionState",
+              "name": "State / Province Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionCounty",
+              "name": "County / District Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionFema",
+              "name": "FEMA Regions",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "tijuanaEstuary",
+              "name": "Project Oyster — Master toggle (Tijuana Estuary)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterPerimeter",
+              "name": "Oyster — Perimeter polygon",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterSites",
+              "name": "Oyster — Restoration sites",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "h2sHotspot",
+              "name": "Oyster — H₂S hotspot (SDAPCD)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjRiverFlow",
+              "name": "Oyster — TJ River + IBWC discharge",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjBeachClosures",
+              "name": "Oyster — Beach closures (SD DEH)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjNavyTraining",
+              "name": "Oyster — Navy training waters",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjEstuaryMonitors",
+              "name": "Oyster — NERR research monitors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCameras",
+              "name": "Oyster — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterBroadcast",
+              "name": "Oyster — AM/FM/TV broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCell",
+              "name": "Oyster — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPower",
+              "name": "Oyster — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterNature",
+              "name": "Oyster — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPlume",
+              "name": "Oyster — UCSD PFM plume tracker",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterEmit",
+              "name": "Oyster — NASA EMIT methane plumes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCrossBorder",
+              "name": "Oyster — Scripps cross-border",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterRails",
+              "name": "Oyster — Rails + Trolley",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCaves",
+              "name": "Oyster — Sea caves + coastal",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterGovernment",
+              "name": "Oyster — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterTourism",
+              "name": "Oyster — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterSensors",
+              "name": "Oyster — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterHeatmap",
+              "name": "Oyster — Pollution heatmap",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePreserve",
+              "name": "Goffs — Mojave Preserve boundary",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGoffs",
+              "name": "Goffs — MYCOSOFT project site",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveWilderness",
+              "name": "Goffs — Wilderness POIs",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveClimate",
+              "name": "Goffs — Climate stations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveINat",
+              "name": "Goffs — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCameras",
+              "name": "Goffs — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveBroadcast",
+              "name": "Goffs — AM/FM broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCell",
+              "name": "Goffs — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePower",
+              "name": "Goffs — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveRails",
+              "name": "Goffs — Rails",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCaves",
+              "name": "Goffs — Caves + lava tubes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGovernment",
+              "name": "Goffs — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveTourism",
+              "name": "Goffs — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveSensors",
+              "name": "Goffs — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveHeatmap",
+              "name": "Goffs — Environmental heatmaps",
+              "enabled": false,
+              "category": "projects"
+            }
+          ],
+          "groundFilter": {
+            "showFungi": true,
+            "showPlants": false,
+            "showBirds": false,
+            "showMammals": false,
+            "showReptiles": false,
+            "showInsects": false,
+            "showMarineLife": false,
+            "showMyceliumHeat": false,
+            "showAmFungi": false,
+            "showEcmFungi": true,
+            "showMushrooms": true,
+            "showMold": false,
+            "showMildew": false,
+            "showYeast": false,
+            "showRareEndemicFungi": false,
+            "showProtectedFungi": false,
+            "showFungalUncertainty": false,
+            "showFciPriority": false,
+            "showFungalSamples": false,
+            "showEarthquakes": true,
+            "showVolcanoes": true,
+            "showWildfires": true,
+            "showStorms": true,
+            "showLightning": true,
+            "showTornadoes": true,
+            "showFloods": true,
+            "showFactories": false,
+            "showPowerPlants": true,
+            "showMining": false,
+            "showOilGas": false,
+            "showWaterPollution": false,
+            "showMilitaryBases": true,
+            "showMycoBrain": false,
+            "showSporeBase": false,
+            "showSmartFence": false,
+            "showPartnerNetworks": false
+          },
+          "aircraftFilter": {
+            "showAirborne": true,
+            "showGround": true,
+            "minAltitude": 0,
+            "maxAltitude": 50000,
+            "airlines": [],
+            "aircraftTypes": [],
+            "showMilitary": true,
+            "showCargo": true,
+            "showPrivate": true,
+            "showCommercial": true
+          },
+          "vesselFilter": {
+            "showCargo": true,
+            "showTanker": true,
+            "showPassenger": true,
+            "showFishing": true,
+            "showTug": true,
+            "showMilitary": true,
+            "showPleasure": true,
+            "minSpeed": 0,
+            "showPortAreas": true,
+            "showShippingLanes": true,
+            "showAnchorages": true
+          },
+          "satelliteFilter": {
+            "showStations": true,
+            "showWeather": true,
+            "showComms": true,
+            "showGPS": true,
+            "showStarlink": true,
+            "showDebris": true,
+            "showActive": true,
+            "orbitTypes": []
+          },
+          "counts": {
+            "aircraftRaw": 0,
+            "aircraftVisible": 0,
+            "vesselsRaw": 0,
+            "vesselsVisible": 0,
+            "satellitesRaw": 0,
+            "satellitesVisible": 0,
+            "eventsRaw": 6000,
+            "eventsVisible": 280,
+            "natureRaw": 806,
+            "natureVisible": 450
+          }
+        },
+        "eagleSource": {
+          "exists": false,
+          "count": 0,
+          "providers": null
+        },
+        "buttons": {
+          "Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Plants": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Birds": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mammals": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Reptiles / Amphibians": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Fish / Marine": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Insects / Arachnids": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "AM Fungi": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "EcM Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mycelium Heat": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Rare / Endemic": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Protected Areas": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "High Uncertainty": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "FCI Priority": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Sequence Samples": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          }
+        },
+        "textHasMyca": true
+      }
+    },
+    {
+      "label": "click-AM Fungi",
+      "clickMs": 796,
+      "pressed": "true",
+      "pass": true
+    },
+    {
+      "label": "click-EcM Fungi",
+      "clickMs": 821,
+      "pressed": "true",
+      "pass": true
+    },
+    {
+      "label": "click-Plants",
+      "clickMs": 1405,
+      "pressed": "true",
+      "pass": true
+    },
+    {
+      "label": "click-Mammals",
+      "clickMs": 2576,
+      "pressed": "true",
+      "pass": true
+    },
+    {
+      "label": "after-filter-clicks",
+      "at": "2026-05-27T09:35:22.238Z",
+      "state": {
+        "markerDebug": {
+          "route": "earth-simulator",
+          "eventFiltersEnabled": true,
+          "natureFiltersEnabled": true,
+          "natureSpeciesFiltersActive": true,
+          "auditAllOffMode": false,
+          "assetIsolationMode": null,
+          "globalEvents": 6000,
+          "typeFilteredEvents": 1476,
+          "coordinateReadyEvents": 1476,
+          "visibleEvents": 280,
+          "renderedEventsForMap": 280,
+          "fungalObservations": 806,
+          "visibleFungalObservations": 450,
+          "renderedFungalForMap": 450,
+          "mapZoom": 3,
+          "hasMapBounds": true,
+          "mapBounds": {
+            "north": 70.39600252188227,
+            "south": -4.805895209930114,
+            "east": -10.589025231946607,
+            "west": -186.41097476804975
+          },
+          "markerBounds": {
+            "north": 70.39600252188227,
+            "south": -4.805895209930114,
+            "east": -10.589025231946607,
+            "west": -186.41097476804975
+          },
+          "canFetchNatureObservations": true,
+          "viewportNatureFetchNonce": 32,
+          "mapInteractionActive": false,
+          "isMapAnimationActive": false,
+          "isGlobeMarkerListFrozen": false
+        },
+        "audit": {
+          "auditAllOffMode": false,
+          "layers": [
+            {
+              "id": "fungi",
+              "name": "Nature Observations",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mycobrain",
+              "name": "MycoBrain Devices",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMushroom1",
+              "name": "Mushroom 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devHyphae1",
+              "name": "Hyphae 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "sporebase",
+              "name": "SporeBase",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMycoNode",
+              "name": "MycoNode",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devAlarm",
+              "name": "Alarm",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devPsathyrella",
+              "name": "Psathyrella (Buoy)",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "partners",
+              "name": "Partner Networks",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "smartfence",
+              "name": "Smart Fence Network",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "biodiversity",
+              "name": "Biodiversity Hotspots",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasMycelium",
+              "name": "Mycelium Heat",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasAM",
+              "name": "AM Fungi Distribution",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasECM",
+              "name": "EcM Fungi Distribution",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasRare",
+              "name": "Rare / Endemic Fungi",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasProtected",
+              "name": "Fungal Protected Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasUncertainty",
+              "name": "High Uncertainty Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasFci",
+              "name": "FCI Probe Priority",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasSamples",
+              "name": "Fungal Sequence Samples",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "weather",
+              "name": "Weather Overlay",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "buoys",
+              "name": "Ocean Buoys (NDBC)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "earthquakes",
+              "name": "Seismic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "volcanoes",
+              "name": "Volcanic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "wildfires",
+              "name": "Active Wildfires",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "storms",
+              "name": "Storm Systems",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "solar",
+              "name": "Space Weather",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "lightning",
+              "name": "Lightning Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "tornadoes",
+              "name": "Tornado Tracking",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "aviation",
+              "name": "Air Traffic (Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "aviationRoutes",
+              "name": "Flight Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "ships",
+              "name": "Ships (AIS Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "shipRoutes",
+              "name": "Ship Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "fishing",
+              "name": "Fishing Fleets",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "containers",
+              "name": "Container Ships",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vehicles",
+              "name": "Land Vehicles",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "drones",
+              "name": "Drones & UAVs",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satellites",
+              "name": "Satellites (TLE Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "population",
+              "name": "Population Density",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "humanMovement",
+              "name": "Human Movement",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "events_human",
+              "name": "Human Events",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "militaryBases",
+              "name": "Military Bases (Live)",
+              "enabled": true,
+              "category": "military"
+            },
+            {
+              "id": "militaryAir",
+              "name": "Military Aircraft",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryNavy",
+              "name": "Naval Vessels",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "tanks",
+              "name": "Ground Forces",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryDrones",
+              "name": "Military UAVs",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "factories",
+              "name": "Factories & Plants",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "co2Sources",
+              "name": "COâ‚‚ Emission Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "methaneSources",
+              "name": "Methane Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "oilGas",
+              "name": "Oil & Gas Infrastructure",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "powerPlants",
+              "name": "Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "metalOutput",
+              "name": "Metal & Mining",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "waterPollution",
+              "name": "Water Contamination",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "submarineCables",
+              "name": "Submarine Cables",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "dataCenters",
+              "name": "Data Centers (all sources)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowers",
+              "name": "Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "liveTransit",
+              "name": "Live Transit (Trains/Buses)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "liveAqi",
+              "name": "Air Quality (AirNow)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Forecast",
+              "name": "Earth-2 AI Forecast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Nowcast",
+              "name": "Earth-2 Nowcast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Spore",
+              "name": "Spore Dispersal AI",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Wind",
+              "name": "Wind Vectors",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Temp",
+              "name": "Temperature Heatmap",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Precip",
+              "name": "Precipitation",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "auroraOverlay",
+              "name": "Aurora Forecast",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "signalHeatmap",
+              "name": "Signal Coverage",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "hospitals",
+              "name": "Hospitals",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "fireStations",
+              "name": "Fire Stations",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "universities",
+              "name": "Universities",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "ports",
+              "name": "Global Seaports",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "cctv",
+              "name": "CCTV / Webcams",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeCameras",
+              "name": "Eagle Eye — Cameras",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeEvents",
+              "name": "Eagle Eye — Live Events",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "im3DataCenters",
+              "name": "Data Centers (IM3 Atlas)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "im3DataCenterFootprints",
+              "name": "DC Footprints (IM3 buildings)",
+              "enabled": false,
+              "category": "telecom"
+            },
+            {
+              "id": "eiaOperating",
+              "name": "EIA-860M Operating",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaPlanned",
+              "name": "EIA-860M Planned (Projected)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaRetired",
+              "name": "EIA-860M Retired",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaCanceled",
+              "name": "EIA-860M Canceled",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radar",
+              "name": "Radar Sites",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radioStations",
+              "name": "Radio Stations",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "powerPlantsG",
+              "name": "Global Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "factoriesG",
+              "name": "Global Factories",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "orbitalDebris",
+              "name": "Orbital Debris (Catalogued)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "debrisCloud",
+              "name": "Debris 1-10cm (Statistical)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesGlobal",
+              "name": "Global Transmission Lines",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "txLinesFull",
+              "name": "Transmission Lines (ALL voltages)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "substations",
+              "name": "Substations",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesSub",
+              "name": "Sub-Transmission (OSM)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "dataCentersG",
+              "name": "Global Data Centers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowersG",
+              "name": "Global Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "bathymetry",
+              "name": "Ocean Bathymetry",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "topography",
+              "name": "Land Topography",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "railwayTracks",
+              "name": "Railway Network",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "railwayTrains",
+              "name": "Live Trains",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "droneNoFly",
+              "name": "Drone No-Fly Zones",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjHospitals",
+              "name": "Hospitals (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjPolice",
+              "name": "Police / Fire / Border (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjSewage",
+              "name": "Sewage Works (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjCellTowers",
+              "name": "Cell Towers (OSM, SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjAmFmAntennas",
+              "name": "AM/FM / TV antennas (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjMilitary",
+              "name": "Military installations (OSM)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjDataCenters",
+              "name": "Data Centers (SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectNyc",
+              "name": "Project NYC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "nycHospitals",
+              "name": "NYC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycPolice",
+              "name": "NYC — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycSewage",
+              "name": "NYC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycCellTowers",
+              "name": "NYC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAmFmAntennas",
+              "name": "NYC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycMilitary",
+              "name": "NYC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycDataCenters",
+              "name": "NYC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitSubway",
+              "name": "NYC — Subway Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitRail",
+              "name": "NYC — Rail Stations (LIRR/NJT/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAirports",
+              "name": "NYC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycGovtEmbassy",
+              "name": "NYC — Government / Embassy / Consulate",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectDc",
+              "name": "Project DC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "dcHospitals",
+              "name": "DC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcPolice",
+              "name": "DC — Police / Fire / USSS",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcSewage",
+              "name": "DC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcCellTowers",
+              "name": "DC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAmFmAntennas",
+              "name": "DC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcMilitary",
+              "name": "DC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcDataCenters",
+              "name": "DC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitSubway",
+              "name": "DC — WMATA Metro Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitRail",
+              "name": "DC — Rail Stations (MARC/VRE/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAirports",
+              "name": "DC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcGovtEmbassy",
+              "name": "DC — Government / Embassy / IC",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectVegas",
+              "name": "Project Las Vegas — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "vegasHospitals",
+              "name": "Vegas — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasPolice",
+              "name": "Vegas — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasSewage",
+              "name": "Vegas — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasCellTowers",
+              "name": "Vegas — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAmFmAntennas",
+              "name": "Vegas — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasMilitary",
+              "name": "Vegas — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasDataCenters",
+              "name": "Vegas — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitSubway",
+              "name": "Vegas — Monorail + LVCVA tram",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitRail",
+              "name": "Vegas — Rail (Brightline / Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAirports",
+              "name": "Vegas — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasGovtEmbassy",
+              "name": "Vegas — Government",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satImagery",
+              "name": "Satellite Imagery (HD)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mapboxSatelliteStreets",
+              "name": "Mapbox Satellite Streets (HD hybrid)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "mapbox3dBuildings",
+              "name": "3D Buildings (Mapbox extrusions)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "photorealistic3D",
+              "name": "Photorealistic 3D (Google / Cesium)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "realisticClouds",
+              "name": "Realistic Clouds (Earth-2 + Satellite)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "sunEarthImpact",
+              "name": "Sun→Earth Impact",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "jurisdictionCountry",
+              "name": "Country Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionState",
+              "name": "State / Province Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionCounty",
+              "name": "County / District Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionFema",
+              "name": "FEMA Regions",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "tijuanaEstuary",
+              "name": "Project Oyster — Master toggle (Tijuana Estuary)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterPerimeter",
+              "name": "Oyster — Perimeter polygon",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterSites",
+              "name": "Oyster — Restoration sites",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "h2sHotspot",
+              "name": "Oyster — H₂S hotspot (SDAPCD)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjRiverFlow",
+              "name": "Oyster — TJ River + IBWC discharge",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjBeachClosures",
+              "name": "Oyster — Beach closures (SD DEH)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjNavyTraining",
+              "name": "Oyster — Navy training waters",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjEstuaryMonitors",
+              "name": "Oyster — NERR research monitors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCameras",
+              "name": "Oyster — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterBroadcast",
+              "name": "Oyster — AM/FM/TV broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCell",
+              "name": "Oyster — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPower",
+              "name": "Oyster — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterNature",
+              "name": "Oyster — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPlume",
+              "name": "Oyster — UCSD PFM plume tracker",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterEmit",
+              "name": "Oyster — NASA EMIT methane plumes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCrossBorder",
+              "name": "Oyster — Scripps cross-border",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterRails",
+              "name": "Oyster — Rails + Trolley",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCaves",
+              "name": "Oyster — Sea caves + coastal",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterGovernment",
+              "name": "Oyster — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterTourism",
+              "name": "Oyster — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterSensors",
+              "name": "Oyster — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterHeatmap",
+              "name": "Oyster — Pollution heatmap",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePreserve",
+              "name": "Goffs — Mojave Preserve boundary",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGoffs",
+              "name": "Goffs — MYCOSOFT project site",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveWilderness",
+              "name": "Goffs — Wilderness POIs",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveClimate",
+              "name": "Goffs — Climate stations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveINat",
+              "name": "Goffs — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCameras",
+              "name": "Goffs — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveBroadcast",
+              "name": "Goffs — AM/FM broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCell",
+              "name": "Goffs — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePower",
+              "name": "Goffs — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveRails",
+              "name": "Goffs — Rails",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCaves",
+              "name": "Goffs — Caves + lava tubes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGovernment",
+              "name": "Goffs — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveTourism",
+              "name": "Goffs — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveSensors",
+              "name": "Goffs — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveHeatmap",
+              "name": "Goffs — Environmental heatmaps",
+              "enabled": false,
+              "category": "projects"
+            }
+          ],
+          "groundFilter": {
+            "showFungi": true,
+            "showPlants": true,
+            "showBirds": false,
+            "showMammals": true,
+            "showReptiles": false,
+            "showInsects": false,
+            "showMarineLife": false,
+            "showMyceliumHeat": false,
+            "showAmFungi": false,
+            "showEcmFungi": true,
+            "showMushrooms": true,
+            "showMold": false,
+            "showMildew": false,
+            "showYeast": false,
+            "showRareEndemicFungi": false,
+            "showProtectedFungi": false,
+            "showFungalUncertainty": false,
+            "showFciPriority": false,
+            "showFungalSamples": false,
+            "showEarthquakes": true,
+            "showVolcanoes": true,
+            "showWildfires": true,
+            "showStorms": true,
+            "showLightning": true,
+            "showTornadoes": true,
+            "showFloods": true,
+            "showFactories": false,
+            "showPowerPlants": true,
+            "showMining": false,
+            "showOilGas": false,
+            "showWaterPollution": false,
+            "showMilitaryBases": true,
+            "showMycoBrain": false,
+            "showSporeBase": false,
+            "showSmartFence": false,
+            "showPartnerNetworks": false
+          },
+          "aircraftFilter": {
+            "showAirborne": true,
+            "showGround": true,
+            "minAltitude": 0,
+            "maxAltitude": 50000,
+            "airlines": [],
+            "aircraftTypes": [],
+            "showMilitary": true,
+            "showCargo": true,
+            "showPrivate": true,
+            "showCommercial": true
+          },
+          "vesselFilter": {
+            "showCargo": true,
+            "showTanker": true,
+            "showPassenger": true,
+            "showFishing": true,
+            "showTug": true,
+            "showMilitary": true,
+            "showPleasure": true,
+            "minSpeed": 0,
+            "showPortAreas": true,
+            "showShippingLanes": true,
+            "showAnchorages": true
+          },
+          "satelliteFilter": {
+            "showStations": true,
+            "showWeather": true,
+            "showComms": true,
+            "showGPS": true,
+            "showStarlink": true,
+            "showDebris": true,
+            "showActive": true,
+            "orbitTypes": []
+          },
+          "counts": {
+            "aircraftRaw": 3000,
+            "aircraftVisible": 2409,
+            "vesselsRaw": 8000,
+            "vesselsVisible": 5500,
+            "satellitesRaw": 0,
+            "satellitesVisible": 0,
+            "eventsRaw": 6000,
+            "eventsVisible": 280,
+            "natureRaw": 806,
+            "natureVisible": 450
+          }
+        },
+        "eagleSource": {
+          "exists": false,
+          "count": 0,
+          "providers": null
+        },
+        "buttons": {
+          "Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Plants": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Birds": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mammals": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Reptiles / Amphibians": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Fish / Marine": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Insects / Arachnids": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "AM Fungi": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "EcM Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mycelium Heat": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Rare / Endemic": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Protected Areas": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "High Uncertainty": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "FCI Priority": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Sequence Samples": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          }
+        },
+        "textHasMyca": true
+      }
+    },
+    {
+      "label": "after-san-diego-jump",
+      "at": "2026-05-27T09:35:31.442Z",
+      "state": {
+        "markerDebug": {
+          "route": "earth-simulator",
+          "eventFiltersEnabled": true,
+          "natureFiltersEnabled": true,
+          "natureSpeciesFiltersActive": true,
+          "auditAllOffMode": false,
+          "assetIsolationMode": null,
+          "globalEvents": 6000,
+          "typeFilteredEvents": 1476,
+          "coordinateReadyEvents": 1476,
+          "visibleEvents": 1,
+          "renderedEventsForMap": 1,
+          "fungalObservations": 806,
+          "visibleFungalObservations": 60,
+          "renderedFungalForMap": 60,
+          "mapZoom": 11.5,
+          "hasMapBounds": true,
+          "mapBounds": {
+            "north": 32.730247505836836,
+            "south": 32.56959188208358,
+            "east": -116.91656443904566,
+            "west": -117.24343556094863
+          },
+          "markerBounds": {
+            "north": 32.730247505836836,
+            "south": 32.56959188208358,
+            "east": -116.91656443904566,
+            "west": -117.24343556094863
+          },
+          "canFetchNatureObservations": true,
+          "viewportNatureFetchNonce": 33,
+          "mapInteractionActive": false,
+          "isMapAnimationActive": false,
+          "isGlobeMarkerListFrozen": false
+        },
+        "audit": {
+          "auditAllOffMode": false,
+          "layers": [
+            {
+              "id": "fungi",
+              "name": "Nature Observations",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mycobrain",
+              "name": "MycoBrain Devices",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMushroom1",
+              "name": "Mushroom 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devHyphae1",
+              "name": "Hyphae 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "sporebase",
+              "name": "SporeBase",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMycoNode",
+              "name": "MycoNode",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devAlarm",
+              "name": "Alarm",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devPsathyrella",
+              "name": "Psathyrella (Buoy)",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "partners",
+              "name": "Partner Networks",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "smartfence",
+              "name": "Smart Fence Network",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "biodiversity",
+              "name": "Biodiversity Hotspots",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasMycelium",
+              "name": "Mycelium Heat",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasAM",
+              "name": "AM Fungi Distribution",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasECM",
+              "name": "EcM Fungi Distribution",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasRare",
+              "name": "Rare / Endemic Fungi",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasProtected",
+              "name": "Fungal Protected Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasUncertainty",
+              "name": "High Uncertainty Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasFci",
+              "name": "FCI Probe Priority",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasSamples",
+              "name": "Fungal Sequence Samples",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "weather",
+              "name": "Weather Overlay",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "buoys",
+              "name": "Ocean Buoys (NDBC)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "earthquakes",
+              "name": "Seismic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "volcanoes",
+              "name": "Volcanic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "wildfires",
+              "name": "Active Wildfires",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "storms",
+              "name": "Storm Systems",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "solar",
+              "name": "Space Weather",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "lightning",
+              "name": "Lightning Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "tornadoes",
+              "name": "Tornado Tracking",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "aviation",
+              "name": "Air Traffic (Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "aviationRoutes",
+              "name": "Flight Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "ships",
+              "name": "Ships (AIS Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "shipRoutes",
+              "name": "Ship Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "fishing",
+              "name": "Fishing Fleets",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "containers",
+              "name": "Container Ships",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vehicles",
+              "name": "Land Vehicles",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "drones",
+              "name": "Drones & UAVs",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satellites",
+              "name": "Satellites (TLE Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "population",
+              "name": "Population Density",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "humanMovement",
+              "name": "Human Movement",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "events_human",
+              "name": "Human Events",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "militaryBases",
+              "name": "Military Bases (Live)",
+              "enabled": true,
+              "category": "military"
+            },
+            {
+              "id": "militaryAir",
+              "name": "Military Aircraft",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryNavy",
+              "name": "Naval Vessels",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "tanks",
+              "name": "Ground Forces",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryDrones",
+              "name": "Military UAVs",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "factories",
+              "name": "Factories & Plants",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "co2Sources",
+              "name": "COâ‚‚ Emission Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "methaneSources",
+              "name": "Methane Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "oilGas",
+              "name": "Oil & Gas Infrastructure",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "powerPlants",
+              "name": "Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "metalOutput",
+              "name": "Metal & Mining",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "waterPollution",
+              "name": "Water Contamination",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "submarineCables",
+              "name": "Submarine Cables",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "dataCenters",
+              "name": "Data Centers (all sources)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowers",
+              "name": "Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "liveTransit",
+              "name": "Live Transit (Trains/Buses)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "liveAqi",
+              "name": "Air Quality (AirNow)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Forecast",
+              "name": "Earth-2 AI Forecast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Nowcast",
+              "name": "Earth-2 Nowcast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Spore",
+              "name": "Spore Dispersal AI",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Wind",
+              "name": "Wind Vectors",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Temp",
+              "name": "Temperature Heatmap",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Precip",
+              "name": "Precipitation",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "auroraOverlay",
+              "name": "Aurora Forecast",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "signalHeatmap",
+              "name": "Signal Coverage",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "hospitals",
+              "name": "Hospitals",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "fireStations",
+              "name": "Fire Stations",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "universities",
+              "name": "Universities",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "ports",
+              "name": "Global Seaports",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "cctv",
+              "name": "CCTV / Webcams",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeCameras",
+              "name": "Eagle Eye — Cameras",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeEvents",
+              "name": "Eagle Eye — Live Events",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "im3DataCenters",
+              "name": "Data Centers (IM3 Atlas)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "im3DataCenterFootprints",
+              "name": "DC Footprints (IM3 buildings)",
+              "enabled": false,
+              "category": "telecom"
+            },
+            {
+              "id": "eiaOperating",
+              "name": "EIA-860M Operating",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaPlanned",
+              "name": "EIA-860M Planned (Projected)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaRetired",
+              "name": "EIA-860M Retired",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaCanceled",
+              "name": "EIA-860M Canceled",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radar",
+              "name": "Radar Sites",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radioStations",
+              "name": "Radio Stations",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "powerPlantsG",
+              "name": "Global Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "factoriesG",
+              "name": "Global Factories",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "orbitalDebris",
+              "name": "Orbital Debris (Catalogued)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "debrisCloud",
+              "name": "Debris 1-10cm (Statistical)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesGlobal",
+              "name": "Global Transmission Lines",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "txLinesFull",
+              "name": "Transmission Lines (ALL voltages)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "substations",
+              "name": "Substations",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesSub",
+              "name": "Sub-Transmission (OSM)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "dataCentersG",
+              "name": "Global Data Centers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowersG",
+              "name": "Global Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "bathymetry",
+              "name": "Ocean Bathymetry",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "topography",
+              "name": "Land Topography",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "railwayTracks",
+              "name": "Railway Network",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "railwayTrains",
+              "name": "Live Trains",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "droneNoFly",
+              "name": "Drone No-Fly Zones",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjHospitals",
+              "name": "Hospitals (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjPolice",
+              "name": "Police / Fire / Border (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjSewage",
+              "name": "Sewage Works (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjCellTowers",
+              "name": "Cell Towers (OSM, SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjAmFmAntennas",
+              "name": "AM/FM / TV antennas (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjMilitary",
+              "name": "Military installations (OSM)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjDataCenters",
+              "name": "Data Centers (SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectNyc",
+              "name": "Project NYC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "nycHospitals",
+              "name": "NYC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycPolice",
+              "name": "NYC — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycSewage",
+              "name": "NYC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycCellTowers",
+              "name": "NYC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAmFmAntennas",
+              "name": "NYC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycMilitary",
+              "name": "NYC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycDataCenters",
+              "name": "NYC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitSubway",
+              "name": "NYC — Subway Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitRail",
+              "name": "NYC — Rail Stations (LIRR/NJT/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAirports",
+              "name": "NYC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycGovtEmbassy",
+              "name": "NYC — Government / Embassy / Consulate",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectDc",
+              "name": "Project DC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "dcHospitals",
+              "name": "DC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcPolice",
+              "name": "DC — Police / Fire / USSS",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcSewage",
+              "name": "DC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcCellTowers",
+              "name": "DC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAmFmAntennas",
+              "name": "DC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcMilitary",
+              "name": "DC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcDataCenters",
+              "name": "DC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitSubway",
+              "name": "DC — WMATA Metro Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitRail",
+              "name": "DC — Rail Stations (MARC/VRE/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAirports",
+              "name": "DC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcGovtEmbassy",
+              "name": "DC — Government / Embassy / IC",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectVegas",
+              "name": "Project Las Vegas — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "vegasHospitals",
+              "name": "Vegas — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasPolice",
+              "name": "Vegas — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasSewage",
+              "name": "Vegas — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasCellTowers",
+              "name": "Vegas — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAmFmAntennas",
+              "name": "Vegas — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasMilitary",
+              "name": "Vegas — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasDataCenters",
+              "name": "Vegas — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitSubway",
+              "name": "Vegas — Monorail + LVCVA tram",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitRail",
+              "name": "Vegas — Rail (Brightline / Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAirports",
+              "name": "Vegas — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasGovtEmbassy",
+              "name": "Vegas — Government",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satImagery",
+              "name": "Satellite Imagery (HD)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mapboxSatelliteStreets",
+              "name": "Mapbox Satellite Streets (HD hybrid)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "mapbox3dBuildings",
+              "name": "3D Buildings (Mapbox extrusions)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "photorealistic3D",
+              "name": "Photorealistic 3D (Google / Cesium)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "realisticClouds",
+              "name": "Realistic Clouds (Earth-2 + Satellite)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "sunEarthImpact",
+              "name": "Sun→Earth Impact",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "jurisdictionCountry",
+              "name": "Country Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionState",
+              "name": "State / Province Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionCounty",
+              "name": "County / District Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionFema",
+              "name": "FEMA Regions",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "tijuanaEstuary",
+              "name": "Project Oyster — Master toggle (Tijuana Estuary)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterPerimeter",
+              "name": "Oyster — Perimeter polygon",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterSites",
+              "name": "Oyster — Restoration sites",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "h2sHotspot",
+              "name": "Oyster — H₂S hotspot (SDAPCD)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjRiverFlow",
+              "name": "Oyster — TJ River + IBWC discharge",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjBeachClosures",
+              "name": "Oyster — Beach closures (SD DEH)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjNavyTraining",
+              "name": "Oyster — Navy training waters",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjEstuaryMonitors",
+              "name": "Oyster — NERR research monitors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCameras",
+              "name": "Oyster — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterBroadcast",
+              "name": "Oyster — AM/FM/TV broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCell",
+              "name": "Oyster — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPower",
+              "name": "Oyster — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterNature",
+              "name": "Oyster — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPlume",
+              "name": "Oyster — UCSD PFM plume tracker",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterEmit",
+              "name": "Oyster — NASA EMIT methane plumes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCrossBorder",
+              "name": "Oyster — Scripps cross-border",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterRails",
+              "name": "Oyster — Rails + Trolley",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCaves",
+              "name": "Oyster — Sea caves + coastal",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterGovernment",
+              "name": "Oyster — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterTourism",
+              "name": "Oyster — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterSensors",
+              "name": "Oyster — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterHeatmap",
+              "name": "Oyster — Pollution heatmap",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePreserve",
+              "name": "Goffs — Mojave Preserve boundary",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGoffs",
+              "name": "Goffs — MYCOSOFT project site",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveWilderness",
+              "name": "Goffs — Wilderness POIs",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveClimate",
+              "name": "Goffs — Climate stations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveINat",
+              "name": "Goffs — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCameras",
+              "name": "Goffs — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveBroadcast",
+              "name": "Goffs — AM/FM broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCell",
+              "name": "Goffs — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePower",
+              "name": "Goffs — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveRails",
+              "name": "Goffs — Rails",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCaves",
+              "name": "Goffs — Caves + lava tubes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGovernment",
+              "name": "Goffs — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveTourism",
+              "name": "Goffs — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveSensors",
+              "name": "Goffs — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveHeatmap",
+              "name": "Goffs — Environmental heatmaps",
+              "enabled": false,
+              "category": "projects"
+            }
+          ],
+          "groundFilter": {
+            "showFungi": true,
+            "showPlants": true,
+            "showBirds": false,
+            "showMammals": true,
+            "showReptiles": false,
+            "showInsects": false,
+            "showMarineLife": false,
+            "showMyceliumHeat": false,
+            "showAmFungi": false,
+            "showEcmFungi": true,
+            "showMushrooms": true,
+            "showMold": false,
+            "showMildew": false,
+            "showYeast": false,
+            "showRareEndemicFungi": false,
+            "showProtectedFungi": false,
+            "showFungalUncertainty": false,
+            "showFciPriority": false,
+            "showFungalSamples": false,
+            "showEarthquakes": true,
+            "showVolcanoes": true,
+            "showWildfires": true,
+            "showStorms": true,
+            "showLightning": true,
+            "showTornadoes": true,
+            "showFloods": true,
+            "showFactories": false,
+            "showPowerPlants": true,
+            "showMining": false,
+            "showOilGas": false,
+            "showWaterPollution": false,
+            "showMilitaryBases": true,
+            "showMycoBrain": false,
+            "showSporeBase": false,
+            "showSmartFence": false,
+            "showPartnerNetworks": false
+          },
+          "aircraftFilter": {
+            "showAirborne": true,
+            "showGround": true,
+            "minAltitude": 0,
+            "maxAltitude": 50000,
+            "airlines": [],
+            "aircraftTypes": [],
+            "showMilitary": true,
+            "showCargo": true,
+            "showPrivate": true,
+            "showCommercial": true
+          },
+          "vesselFilter": {
+            "showCargo": true,
+            "showTanker": true,
+            "showPassenger": true,
+            "showFishing": true,
+            "showTug": true,
+            "showMilitary": true,
+            "showPleasure": true,
+            "minSpeed": 0,
+            "showPortAreas": true,
+            "showShippingLanes": true,
+            "showAnchorages": true
+          },
+          "satelliteFilter": {
+            "showStations": true,
+            "showWeather": true,
+            "showComms": true,
+            "showGPS": true,
+            "showStarlink": true,
+            "showDebris": true,
+            "showActive": true,
+            "orbitTypes": []
+          },
+          "counts": {
+            "aircraftRaw": 3000,
+            "aircraftVisible": 0,
+            "vesselsRaw": 8000,
+            "vesselsVisible": 17,
+            "satellitesRaw": 0,
+            "satellitesVisible": 0,
+            "eventsRaw": 6000,
+            "eventsVisible": 1,
+            "natureRaw": 806,
+            "natureVisible": 60
+          }
+        },
+        "eagleSource": {
+          "exists": false,
+          "count": 0,
+          "providers": null
+        },
+        "buttons": {
+          "Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Plants": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Birds": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mammals": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Reptiles / Amphibians": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Fish / Marine": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Insects / Arachnids": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "AM Fungi": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "EcM Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mycelium Heat": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Rare / Endemic": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Protected Areas": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "High Uncertainty": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "FCI Priority": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Sequence Samples": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          }
+        },
+        "textHasMyca": true
+      }
+    },
+    {
+      "label": "click-Birds",
+      "clickMs": 1358,
+      "pressed": "true",
+      "pass": true
+    },
+    {
+      "label": "click-Birds",
+      "clickMs": 1566,
+      "pressed": "false",
+      "pass": true
+    },
+    {
+      "label": "after-post-move-clicks",
+      "at": "2026-05-27T09:35:36.770Z",
+      "state": {
+        "markerDebug": {
+          "route": "earth-simulator",
+          "eventFiltersEnabled": true,
+          "natureFiltersEnabled": true,
+          "natureSpeciesFiltersActive": true,
+          "auditAllOffMode": false,
+          "assetIsolationMode": null,
+          "globalEvents": 6000,
+          "typeFilteredEvents": 1476,
+          "coordinateReadyEvents": 1476,
+          "visibleEvents": 1,
+          "renderedEventsForMap": 1,
+          "fungalObservations": 806,
+          "visibleFungalObservations": 60,
+          "renderedFungalForMap": 60,
+          "mapZoom": 11.5,
+          "hasMapBounds": true,
+          "mapBounds": {
+            "north": 32.730247505836836,
+            "south": 32.56959188208358,
+            "east": -116.91656443904566,
+            "west": -117.24343556094863
+          },
+          "markerBounds": {
+            "north": 32.730247505836836,
+            "south": 32.56959188208358,
+            "east": -116.91656443904566,
+            "west": -117.24343556094863
+          },
+          "canFetchNatureObservations": true,
+          "viewportNatureFetchNonce": 37,
+          "mapInteractionActive": false,
+          "isMapAnimationActive": false,
+          "isGlobeMarkerListFrozen": false
+        },
+        "audit": {
+          "auditAllOffMode": false,
+          "layers": [
+            {
+              "id": "fungi",
+              "name": "Nature Observations",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mycobrain",
+              "name": "MycoBrain Devices",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMushroom1",
+              "name": "Mushroom 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devHyphae1",
+              "name": "Hyphae 1",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "sporebase",
+              "name": "SporeBase",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devMycoNode",
+              "name": "MycoNode",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devAlarm",
+              "name": "Alarm",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "devPsathyrella",
+              "name": "Psathyrella (Buoy)",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "partners",
+              "name": "Partner Networks",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "smartfence",
+              "name": "Smart Fence Network",
+              "enabled": false,
+              "category": "devices"
+            },
+            {
+              "id": "biodiversity",
+              "name": "Biodiversity Hotspots",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasMycelium",
+              "name": "Mycelium Heat",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasAM",
+              "name": "AM Fungi Distribution",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasECM",
+              "name": "EcM Fungi Distribution",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasRare",
+              "name": "Rare / Endemic Fungi",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasProtected",
+              "name": "Fungal Protected Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasUncertainty",
+              "name": "High Uncertainty Areas",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasFci",
+              "name": "FCI Probe Priority",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "fungalAtlasSamples",
+              "name": "Fungal Sequence Samples",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "weather",
+              "name": "Weather Overlay",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "buoys",
+              "name": "Ocean Buoys (NDBC)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "earthquakes",
+              "name": "Seismic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "volcanoes",
+              "name": "Volcanic Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "wildfires",
+              "name": "Active Wildfires",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "storms",
+              "name": "Storm Systems",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "solar",
+              "name": "Space Weather",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "lightning",
+              "name": "Lightning Activity",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "tornadoes",
+              "name": "Tornado Tracking",
+              "enabled": true,
+              "category": "events"
+            },
+            {
+              "id": "aviation",
+              "name": "Air Traffic (Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "aviationRoutes",
+              "name": "Flight Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "ships",
+              "name": "Ships (AIS Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "shipRoutes",
+              "name": "Ship Trajectories",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "fishing",
+              "name": "Fishing Fleets",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "containers",
+              "name": "Container Ships",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vehicles",
+              "name": "Land Vehicles",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "drones",
+              "name": "Drones & UAVs",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satellites",
+              "name": "Satellites (TLE Live)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "population",
+              "name": "Population Density",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "humanMovement",
+              "name": "Human Movement",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "events_human",
+              "name": "Human Events",
+              "enabled": false,
+              "category": "human"
+            },
+            {
+              "id": "militaryBases",
+              "name": "Military Bases (Live)",
+              "enabled": true,
+              "category": "military"
+            },
+            {
+              "id": "militaryAir",
+              "name": "Military Aircraft",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryNavy",
+              "name": "Naval Vessels",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "tanks",
+              "name": "Ground Forces",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "militaryDrones",
+              "name": "Military UAVs",
+              "enabled": false,
+              "category": "military"
+            },
+            {
+              "id": "factories",
+              "name": "Factories & Plants",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "co2Sources",
+              "name": "COâ‚‚ Emission Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "methaneSources",
+              "name": "Methane Sources",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "oilGas",
+              "name": "Oil & Gas Infrastructure",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "powerPlants",
+              "name": "Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "metalOutput",
+              "name": "Metal & Mining",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "waterPollution",
+              "name": "Water Contamination",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "submarineCables",
+              "name": "Submarine Cables",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "dataCenters",
+              "name": "Data Centers (all sources)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowers",
+              "name": "Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "liveTransit",
+              "name": "Live Transit (Trains/Buses)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "liveAqi",
+              "name": "Air Quality (AirNow)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Forecast",
+              "name": "Earth-2 AI Forecast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Nowcast",
+              "name": "Earth-2 Nowcast",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Spore",
+              "name": "Spore Dispersal AI",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Wind",
+              "name": "Wind Vectors",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Temp",
+              "name": "Temperature Heatmap",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "earth2Precip",
+              "name": "Precipitation",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "auroraOverlay",
+              "name": "Aurora Forecast",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "signalHeatmap",
+              "name": "Signal Coverage",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "hospitals",
+              "name": "Hospitals",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "fireStations",
+              "name": "Fire Stations",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "universities",
+              "name": "Universities",
+              "enabled": false,
+              "category": "facilities"
+            },
+            {
+              "id": "ports",
+              "name": "Global Seaports",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "cctv",
+              "name": "CCTV / Webcams",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeCameras",
+              "name": "Eagle Eye — Cameras",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eagleEyeEvents",
+              "name": "Eagle Eye — Live Events",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "im3DataCenters",
+              "name": "Data Centers (IM3 Atlas)",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "im3DataCenterFootprints",
+              "name": "DC Footprints (IM3 buildings)",
+              "enabled": false,
+              "category": "telecom"
+            },
+            {
+              "id": "eiaOperating",
+              "name": "EIA-860M Operating",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaPlanned",
+              "name": "EIA-860M Planned (Projected)",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaRetired",
+              "name": "EIA-860M Retired",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "eiaCanceled",
+              "name": "EIA-860M Canceled",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radar",
+              "name": "Radar Sites",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "radioStations",
+              "name": "Radio Stations",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "powerPlantsG",
+              "name": "Global Power Plants",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "factoriesG",
+              "name": "Global Factories",
+              "enabled": false,
+              "category": "pollution"
+            },
+            {
+              "id": "orbitalDebris",
+              "name": "Orbital Debris (Catalogued)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "debrisCloud",
+              "name": "Debris 1-10cm (Statistical)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesGlobal",
+              "name": "Global Transmission Lines",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "txLinesFull",
+              "name": "Transmission Lines (ALL voltages)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "substations",
+              "name": "Substations",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "txLinesSub",
+              "name": "Sub-Transmission (OSM)",
+              "enabled": true,
+              "category": "pollution"
+            },
+            {
+              "id": "dataCentersG",
+              "name": "Global Data Centers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "cellTowersG",
+              "name": "Global Cell Towers",
+              "enabled": true,
+              "category": "telecom"
+            },
+            {
+              "id": "bathymetry",
+              "name": "Ocean Bathymetry",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "topography",
+              "name": "Land Topography",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "railwayTracks",
+              "name": "Railway Network",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "railwayTrains",
+              "name": "Live Trains",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "droneNoFly",
+              "name": "Drone No-Fly Zones",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjHospitals",
+              "name": "Hospitals (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjPolice",
+              "name": "Police / Fire / Border (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjSewage",
+              "name": "Sewage Works (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjCellTowers",
+              "name": "Cell Towers (OSM, SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjAmFmAntennas",
+              "name": "AM/FM / TV antennas (SD/TJ)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjMilitary",
+              "name": "Military installations (OSM)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "sdtjDataCenters",
+              "name": "Data Centers (SD/TJ detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectNyc",
+              "name": "Project NYC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "nycHospitals",
+              "name": "NYC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycPolice",
+              "name": "NYC — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycSewage",
+              "name": "NYC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycCellTowers",
+              "name": "NYC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAmFmAntennas",
+              "name": "NYC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycMilitary",
+              "name": "NYC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycDataCenters",
+              "name": "NYC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitSubway",
+              "name": "NYC — Subway Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycTransitRail",
+              "name": "NYC — Rail Stations (LIRR/NJT/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycAirports",
+              "name": "NYC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "nycGovtEmbassy",
+              "name": "NYC — Government / Embassy / Consulate",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectDc",
+              "name": "Project DC — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "dcHospitals",
+              "name": "DC — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcPolice",
+              "name": "DC — Police / Fire / USSS",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcSewage",
+              "name": "DC — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcCellTowers",
+              "name": "DC — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAmFmAntennas",
+              "name": "DC — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcMilitary",
+              "name": "DC — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcDataCenters",
+              "name": "DC — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitSubway",
+              "name": "DC — WMATA Metro Stations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcTransitRail",
+              "name": "DC — Rail Stations (MARC/VRE/Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcAirports",
+              "name": "DC — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "dcGovtEmbassy",
+              "name": "DC — Government / Embassy / IC",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "projectVegas",
+              "name": "Project Las Vegas — anchor + perimeter",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "vegasHospitals",
+              "name": "Vegas — Hospitals",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasPolice",
+              "name": "Vegas — Police / Fire",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasSewage",
+              "name": "Vegas — Sewage Works",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasCellTowers",
+              "name": "Vegas — Cell Towers (detail)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAmFmAntennas",
+              "name": "Vegas — AM/FM / TV antennas",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasMilitary",
+              "name": "Vegas — Military installations",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasDataCenters",
+              "name": "Vegas — Data Centers",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitSubway",
+              "name": "Vegas — Monorail + LVCVA tram",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasTransitRail",
+              "name": "Vegas — Rail (Brightline / Amtrak)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasAirports",
+              "name": "Vegas — Airports",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "vegasGovtEmbassy",
+              "name": "Vegas — Government",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "satImagery",
+              "name": "Satellite Imagery (HD)",
+              "enabled": true,
+              "category": "environment"
+            },
+            {
+              "id": "mapboxSatelliteStreets",
+              "name": "Mapbox Satellite Streets (HD hybrid)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "mapbox3dBuildings",
+              "name": "3D Buildings (Mapbox extrusions)",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "photorealistic3D",
+              "name": "Photorealistic 3D (Google / Cesium)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "realisticClouds",
+              "name": "Realistic Clouds (Earth-2 + Satellite)",
+              "enabled": false,
+              "category": "environment"
+            },
+            {
+              "id": "sunEarthImpact",
+              "name": "Sun→Earth Impact",
+              "enabled": false,
+              "category": "events"
+            },
+            {
+              "id": "jurisdictionCountry",
+              "name": "Country Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionState",
+              "name": "State / Province Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionCounty",
+              "name": "County / District Borders",
+              "enabled": true,
+              "category": "infrastructure"
+            },
+            {
+              "id": "jurisdictionFema",
+              "name": "FEMA Regions",
+              "enabled": false,
+              "category": "infrastructure"
+            },
+            {
+              "id": "tijuanaEstuary",
+              "name": "Project Oyster — Master toggle (Tijuana Estuary)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterPerimeter",
+              "name": "Oyster — Perimeter polygon",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "projectOysterSites",
+              "name": "Oyster — Restoration sites",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "h2sHotspot",
+              "name": "Oyster — H₂S hotspot (SDAPCD)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjRiverFlow",
+              "name": "Oyster — TJ River + IBWC discharge",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjBeachClosures",
+              "name": "Oyster — Beach closures (SD DEH)",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjNavyTraining",
+              "name": "Oyster — Navy training waters",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "tjEstuaryMonitors",
+              "name": "Oyster — NERR research monitors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCameras",
+              "name": "Oyster — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterBroadcast",
+              "name": "Oyster — AM/FM/TV broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCell",
+              "name": "Oyster — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPower",
+              "name": "Oyster — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterNature",
+              "name": "Oyster — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterPlume",
+              "name": "Oyster — UCSD PFM plume tracker",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterEmit",
+              "name": "Oyster — NASA EMIT methane plumes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCrossBorder",
+              "name": "Oyster — Scripps cross-border",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterRails",
+              "name": "Oyster — Rails + Trolley",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterCaves",
+              "name": "Oyster — Sea caves + coastal",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterGovernment",
+              "name": "Oyster — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterTourism",
+              "name": "Oyster — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterSensors",
+              "name": "Oyster — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "oysterHeatmap",
+              "name": "Oyster — Pollution heatmap",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePreserve",
+              "name": "Goffs — Mojave Preserve boundary",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGoffs",
+              "name": "Goffs — MYCOSOFT project site",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveWilderness",
+              "name": "Goffs — Wilderness POIs",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveClimate",
+              "name": "Goffs — Climate stations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveINat",
+              "name": "Goffs — Live iNat observations",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCameras",
+              "name": "Goffs — Cameras",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveBroadcast",
+              "name": "Goffs — AM/FM broadcast",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCell",
+              "name": "Goffs — Cell towers",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojavePower",
+              "name": "Goffs — Power infrastructure",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveRails",
+              "name": "Goffs — Rails",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveCaves",
+              "name": "Goffs — Caves + lava tubes",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveGovernment",
+              "name": "Goffs — Government facilities",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveTourism",
+              "name": "Goffs — Tourism + landmarks",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveSensors",
+              "name": "Goffs — Environmental sensors",
+              "enabled": false,
+              "category": "projects"
+            },
+            {
+              "id": "mojaveHeatmap",
+              "name": "Goffs — Environmental heatmaps",
+              "enabled": false,
+              "category": "projects"
+            }
+          ],
+          "groundFilter": {
+            "showFungi": true,
+            "showPlants": true,
+            "showBirds": false,
+            "showMammals": true,
+            "showReptiles": false,
+            "showInsects": false,
+            "showMarineLife": false,
+            "showMyceliumHeat": false,
+            "showAmFungi": false,
+            "showEcmFungi": true,
+            "showMushrooms": true,
+            "showMold": false,
+            "showMildew": false,
+            "showYeast": false,
+            "showRareEndemicFungi": false,
+            "showProtectedFungi": false,
+            "showFungalUncertainty": false,
+            "showFciPriority": false,
+            "showFungalSamples": false,
+            "showEarthquakes": true,
+            "showVolcanoes": true,
+            "showWildfires": true,
+            "showStorms": true,
+            "showLightning": true,
+            "showTornadoes": true,
+            "showFloods": true,
+            "showFactories": false,
+            "showPowerPlants": true,
+            "showMining": false,
+            "showOilGas": false,
+            "showWaterPollution": false,
+            "showMilitaryBases": true,
+            "showMycoBrain": false,
+            "showSporeBase": false,
+            "showSmartFence": false,
+            "showPartnerNetworks": false
+          },
+          "aircraftFilter": {
+            "showAirborne": true,
+            "showGround": true,
+            "minAltitude": 0,
+            "maxAltitude": 50000,
+            "airlines": [],
+            "aircraftTypes": [],
+            "showMilitary": true,
+            "showCargo": true,
+            "showPrivate": true,
+            "showCommercial": true
+          },
+          "vesselFilter": {
+            "showCargo": true,
+            "showTanker": true,
+            "showPassenger": true,
+            "showFishing": true,
+            "showTug": true,
+            "showMilitary": true,
+            "showPleasure": true,
+            "minSpeed": 0,
+            "showPortAreas": true,
+            "showShippingLanes": true,
+            "showAnchorages": true
+          },
+          "satelliteFilter": {
+            "showStations": true,
+            "showWeather": true,
+            "showComms": true,
+            "showGPS": true,
+            "showStarlink": true,
+            "showDebris": true,
+            "showActive": true,
+            "orbitTypes": []
+          },
+          "counts": {
+            "aircraftRaw": 3000,
+            "aircraftVisible": 0,
+            "vesselsRaw": 8000,
+            "vesselsVisible": 17,
+            "satellitesRaw": 1629,
+            "satellitesVisible": 1629,
+            "eventsRaw": 6000,
+            "eventsVisible": 1,
+            "natureRaw": 806,
+            "natureVisible": 60
+          }
+        },
+        "eagleSource": {
+          "exists": false,
+          "count": 0,
+          "providers": null
+        },
+        "buttons": {
+          "Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Plants": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Birds": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mammals": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Reptiles / Amphibians": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Fish / Marine": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Insects / Arachnids": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "AM Fungi": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "EcM Fungi": {
+            "pressed": "true",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Mycelium Heat": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Rare / Endemic": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Protected Areas": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "High Uncertainty": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "FCI Priority": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          },
+          "Sequence Samples": {
+            "pressed": "false",
+            "disabled": false,
+            "cls": "flex min-w-0 touch-manipulation select-none items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-[transf"
+          }
+        },
+        "textHasMyca": true
+      }
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "summary": {
+    "routeLoaded": true,
+    "controlsClickable": false,
+    "cameraSourceAfterSanDiego": 0,
+    "cameraSourcePass": false,
+    "noDisabledFilterButtons": true,
+    "errors": 5
+  },
+  "pass": false
+}

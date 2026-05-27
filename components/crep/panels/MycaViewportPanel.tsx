@@ -2,10 +2,11 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  Activity,
+  AlertTriangle,
   Bot,
   Camera,
-  ChevronDown,
-  Cloud,
+  Clock3,
   Crosshair,
   Leaf,
   Loader2,
@@ -15,10 +16,9 @@ import {
   Satellite,
   Ship,
   Sparkles,
-  Thermometer,
-  Wind,
+  Users,
+  type LucideIcon,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import EagleEyeThumbnailGrid, { openEagleCamera } from "@/components/crep/eagle-eye/EagleEyeThumbnailGrid"
 import ViewportSensorGrid from "@/components/crep/eagle-eye/ViewportSensorGrid"
@@ -29,12 +29,10 @@ import {
   type EagleViewportSource,
 } from "@/lib/crep/eagle-viewport-sources"
 import {
-  esriWorldImageryTileUrl,
   isSignificantViewportChange,
   makeViewportRevisionKey,
   type MapBoundsLike,
 } from "@/lib/crep/viewport-revision"
-
 interface GlobalEventLike {
   id: string
   title: string
@@ -57,6 +55,7 @@ interface FungalObservationLike {
 }
 
 type AnalysisMentionKind = "event" | "species" | "camera" | "viewport" | "aircraft" | "vessel" | "satellite"
+type AnalysisTriggerReason = "initial" | "camera" | "data" | "selection" | "interaction"
 
 interface AnalysisMention {
   id: string
@@ -69,6 +68,40 @@ interface AnalysisMention {
   camera?: EagleViewportSource
 }
 
+interface SelectedViewportContext {
+  key: string
+  kind: string
+  label: string
+  detail?: string
+  lat?: number
+  lng?: number
+  zoom?: number
+}
+
+interface ViewportIntelLike {
+  place?: {
+    displayName?: string
+    city?: string
+    county?: string
+    state?: string
+    country?: string
+  } | null
+  officials?: unknown[]
+  civic?: { officials?: unknown[] } | null
+  facilities?: { facilities?: unknown[] } | null
+  jurisdiction_stack?: unknown[]
+}
+
+interface AnalysisSection {
+  id: string
+  title: string
+  metric: string
+  detail: string
+  tone: "event" | "nature" | "motion" | "civic" | "sensor" | "selection"
+  Icon: LucideIcon
+  action?: AnalysisMention
+}
+
 interface MycaViewportPanelProps {
   mapBounds: MapBoundsLike | null
   mapZoom: number
@@ -79,6 +112,9 @@ interface MycaViewportPanelProps {
   vesselCount: number
   satelliteCount: number
   onFlyTo?: (lng: number, lat: number, zoom?: number) => void
+  selectedContext?: SelectedViewportContext | null
+  prefetchedIntel?: ViewportIntelLike | null
+  prefetchedIntelLoading?: boolean
   prefetchedEnvironment?: { weather?: EnvWeather; airQuality?: { current?: AirQualityCurrent } } | null
   prefetchedEnvironmentLoading?: boolean
   prefetchedEagleSources?: EagleViewportSource[] | null
@@ -99,6 +135,13 @@ interface EnvWeather {
   units?: Record<string, string>
   forecastDaily?: Record<string, unknown[]>
 }
+
+const ACTIVE_ANALYSIS_MIN_MS = 30_000
+const IDLE_ANALYSIS_MIN_MS = 5 * 60_000
+const INITIAL_ANALYSIS_SETTLE_MS = 2_800
+const INTERACTION_ANALYSIS_SETTLE_MS = 260
+const CAMERA_ANALYSIS_SETTLE_MS = 1_250
+const EMPTY_EAGLE_SOURCES: EagleViewportSource[] = []
 
 function center(bounds: MapBoundsLike) {
   let lng = (bounds.east + bounds.west) / 2
@@ -122,6 +165,47 @@ function formatMetric(value: unknown, digits = 0, suffix = "") {
   const n = Number(value)
   if (!Number.isFinite(n)) return "—"
   return `${n.toFixed(digits)}${suffix}`
+}
+
+function cloneBounds(bounds: MapBoundsLike): MapBoundsLike {
+  return {
+    north: bounds.north,
+    south: bounds.south,
+    east: bounds.east,
+    west: bounds.west,
+  }
+}
+
+function compactText(value: string, max = 30) {
+  return value.length > max ? `${value.slice(0, Math.max(0, max - 3))}...` : value
+}
+
+function listIds<T>(items: T[], getId: (item: T) => unknown, limit = 8) {
+  return items
+    .slice(0, limit)
+    .map((item) => String(getId(item) ?? ""))
+    .filter(Boolean)
+    .join("|")
+}
+
+function arrayCount(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0
+}
+
+function placeLabel(intel?: ViewportIntelLike | null) {
+  const place = intel?.place
+  return (
+    place?.displayName ||
+    [place?.city, place?.county, place?.state, place?.country].filter(Boolean).join(", ") ||
+    "Viewport"
+  )
+}
+
+function formatElapsed(ms: number) {
+  if (!Number.isFinite(ms) || ms < 0) return "now"
+  const seconds = Math.round(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  return `${Math.round(seconds / 60)}m`
 }
 
 function mentionIcon(kind: AnalysisMentionKind) {
@@ -166,6 +250,47 @@ function mentionTone(kind: AnalysisMentionKind) {
   }
 }
 
+function sectionTone(tone: AnalysisSection["tone"]) {
+  switch (tone) {
+    case "event":
+      return "border-orange-500/30 bg-orange-950/20 text-orange-100"
+    case "nature":
+      return "border-emerald-500/30 bg-emerald-950/20 text-emerald-100"
+    case "motion":
+      return "border-sky-500/30 bg-sky-950/20 text-sky-100"
+    case "civic":
+      return "border-violet-500/30 bg-violet-950/20 text-violet-100"
+    case "sensor":
+      return "border-cyan-500/30 bg-cyan-950/20 text-cyan-100"
+    case "selection":
+      return "border-fuchsia-500/35 bg-fuchsia-950/25 text-fuchsia-100"
+    default:
+      return "border-gray-500/30 bg-black/25 text-gray-100"
+  }
+}
+
+function selectedKindToMentionKind(kind?: string): AnalysisMentionKind {
+  switch ((kind || "").toLowerCase()) {
+    case "event":
+      return "event"
+    case "species":
+    case "fungal":
+    case "nature":
+      return "species"
+    case "camera":
+      return "camera"
+    case "aircraft":
+      return "aircraft"
+    case "vessel":
+    case "ship":
+      return "vessel"
+    case "satellite":
+      return "satellite"
+    default:
+      return "viewport"
+  }
+}
+
 function MycaViewportPanel({
   mapBounds,
   mapZoom,
@@ -176,6 +301,9 @@ function MycaViewportPanel({
   vesselCount,
   satelliteCount,
   onFlyTo,
+  selectedContext,
+  prefetchedIntel,
+  prefetchedIntelLoading = false,
   prefetchedEnvironment,
   prefetchedEnvironmentLoading = false,
   prefetchedEagleSources,
@@ -196,26 +324,57 @@ function MycaViewportPanel({
   const [aiSummary, setAiSummary] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
-  const [displayedSummary, setDisplayedSummary] = useState("")
-  const [forecastOpen, setForecastOpen] = useState(false)
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number | null>(null)
+  const [nextAnalysisAt, setNextAnalysisAt] = useState<number | null>(null)
+  const [analysisReason, setAnalysisReason] = useState<AnalysisTriggerReason>("initial")
+  const [interactionNonce, setInteractionNonce] = useState(0)
   const [localEagleSources, setLocalEagleSources] = useState<EagleViewportSource[]>([])
   const lastEagleKey = useRef<string | null>(null)
 
   const snapshotRef = useRef<{ bounds: MapBoundsLike; zoom: number } | null>(null)
   const [localRevisionKey, setLocalRevisionKey] = useState<string | null>(null)
   const revisionKey = useParentRevision ? prefetchedRevisionKey ?? null : localRevisionKey
-  const eagleSources = useParentEaglePrefetch ? (prefetchedEagleSources ?? []) : localEagleSources
+  const eagleSources = useParentEaglePrefetch ? (prefetchedEagleSources ?? EMPTY_EAGLE_SOURCES) : localEagleSources
   const environment = useParentEnvPrefetch
     ? (prefetchedEnvironment as { weather?: EnvWeather } | null)
     : localEnvironment
   const envLoading = useParentEnvPrefetch ? Boolean(prefetchedEnvironmentLoading) : localEnvLoading
-  const lastAiRevision = useRef<string | null>(null)
-  const typewriterRef = useRef<number | null>(null)
+  const aiTimerRef = useRef<number | null>(null)
+  const aiControllerRef = useRef<AbortController | null>(null)
+  const aiInFlightRef = useRef(false)
+  const lastAiRequestKeyRef = useRef<string | null>(null)
+  const lastAnalyzedAtRef = useRef(0)
+  const lastAnalyzedSnapshotRef = useRef<{ bounds: MapBoundsLike; zoom: number } | null>(null)
+  const lastAnalyzedSignalRef = useRef<string | null>(null)
+  const lastAnalyzedEventSignalRef = useRef<string | null>(null)
+  const lastInteractionNonceRef = useRef(0)
 
   const viewportCenter = useMemo(
     () => (mapBounds ? center(mapBounds) : null),
-    [mapBounds?.north, mapBounds?.south, mapBounds?.east, mapBounds?.west],
+    [mapBounds],
   )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const bump = () => setInteractionNonce((n) => n + 1)
+    window.addEventListener("myca-search-action", bump)
+    window.addEventListener("crep:flyto", bump)
+    window.addEventListener("crep:eagle:camera-click", bump)
+    window.addEventListener("crep:analysis:select-event", bump)
+    return () => {
+      window.removeEventListener("myca-search-action", bump)
+      window.removeEventListener("crep:flyto", bump)
+      window.removeEventListener("crep:eagle:camera-click", bump)
+      window.removeEventListener("crep:analysis:select-event", bump)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current)
+      aiControllerRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     if (useParentRevision) return
@@ -287,7 +446,7 @@ function MycaViewportPanel({
       controller.abort()
       window.clearTimeout(timer)
     }
-  }, [revisionKey, mapBounds, mapZoom, useParentEnvPrefetch, prefetchedEnvironment?.airQuality?.current])
+  }, [revisionKey, mapBounds, mapZoom, useParentEnvPrefetch, prefetchedEnvironment])
 
   useEffect(() => {
     if (useParentEaglePrefetch) return
@@ -327,37 +486,149 @@ function MycaViewportPanel({
       .map(([name]) => name)
   }, [visibleFungalObservations])
 
-  const satelliteHeroUrl = useMemo(() => {
-    if (!viewportCenter) return null
-    return esriWorldImageryTileUrl(viewportCenter.lat, viewportCenter.lng, Math.max(8, Math.min(14, mapZoom)))
-  }, [viewportCenter, mapZoom])
+  const tempUnit = useMemo(() => {
+    const env = environment as { unitSystem?: string; weather?: EnvWeather } | null
+    if (env?.unitSystem === "imperial") return "°F"
+    return env?.weather?.units?.temperature_2m || "°C"
+  }, [environment])
 
-  const fetchAiSummary = useCallback(async () => {
-    if (!mapBounds || !revisionKey || !assetsReady) return
-    if (lastAiRevision.current === revisionKey) return
+  const windUnitSuffix = useMemo(() => {
+    const env = environment as { unitSystem?: string; weather?: EnvWeather } | null
+    if (env?.unitSystem === "imperial") return " mph"
+    return ` ${env?.weather?.units?.wind_speed_10m || "km/h"}`
+  }, [environment])
 
+  const eventSignal = useMemo(
+    () => listIds(latestViewportEvents, (event) => `${event.id}:${event.severity ?? ""}:${event.type ?? ""}`, 10),
+    [latestViewportEvents],
+  )
+
+  const speciesSignal = useMemo(
+    () => `${visibleFungalObservations.length}:${topSpecies.join("|")}`,
+    [visibleFungalObservations.length, topSpecies],
+  )
+
+  const eagleSignal = useMemo(
+    () => listIds(eagleSources, (source) => source.id, 8),
+    [eagleSources],
+  )
+
+  const civicSignal = useMemo(() => {
+    const officials = arrayCount(prefetchedIntel?.officials) + arrayCount(prefetchedIntel?.civic?.officials)
+    const facilities = arrayCount(prefetchedIntel?.facilities?.facilities)
+    return `${placeLabel(prefetchedIntel)}:${officials}:${facilities}:${prefetchedIntelLoading ? "loading" : "ready"}`
+  }, [prefetchedIntel, prefetchedIntelLoading])
+
+  const localSummary = useMemo(() => {
+    const place = placeLabel(prefetchedIntel)
+    const placePrefix = place === "Viewport" ? "Current viewport" : `${place} viewport`
+    const pieces = [
+      `${placePrefix}: ${latestViewportEvents.length} events, ${visibleFungalObservations.length} biodiversity records, ${aircraftCount} aircraft, ${vesselCount} vessels, ${satelliteCount} satellites, ${eagleSources.length} cameras, and ${prefetchedSensors?.length ?? 0} sensors.`,
+    ]
+    if (selectedContext?.label) {
+      pieces.push(`Selected: ${selectedContext.label}${selectedContext.detail ? ` (${selectedContext.detail})` : ""}.`)
+    }
+    if (latestViewportEvents.length) {
+      pieces.push(`Event focus: ${latestViewportEvents.slice(0, 3).map((event) => event.title).join("; ")}.`)
+    }
+    if (topSpecies.length) {
+      pieces.push(`Nature focus: ${topSpecies.slice(0, 4).join(", ")}.`)
+    }
+    return pieces.join(" ")
+  }, [
+    prefetchedIntel,
+    latestViewportEvents,
+    visibleFungalObservations.length,
+    aircraftCount,
+    vesselCount,
+    satelliteCount,
+    eagleSources.length,
+    prefetchedSensors?.length,
+    selectedContext,
+    topSpecies,
+  ])
+
+  const analysisSignal = useMemo(
+    () => [
+      eventSignal,
+      speciesSignal,
+      eagleSignal,
+      civicSignal,
+      aircraftCount,
+      vesselCount,
+      satelliteCount,
+      prefetchedSensors?.length ?? 0,
+      selectedContext?.key ?? "none",
+      interactionNonce,
+    ].join("~"),
+    [
+      eventSignal,
+      speciesSignal,
+      eagleSignal,
+      civicSignal,
+      aircraftCount,
+      vesselCount,
+      satelliteCount,
+      prefetchedSensors?.length,
+      selectedContext?.key,
+      interactionNonce,
+    ],
+  )
+
+  const fetchAiSummary = useCallback(async (reason: AnalysisTriggerReason, signalKey: string) => {
+    if (!mapBounds || !assetsReady) return
+    const summaryRevision = revisionKey || makeViewportRevisionKey(mapBounds, mapZoom)
+    const requestKey = `${summaryRevision}:${signalKey}`
+    if (lastAiRequestKeyRef.current === requestKey) return
+
+    const markAnalyzed = () => {
+      const now = Date.now()
+      lastAnalyzedAtRef.current = now
+      lastAnalyzedSnapshotRef.current = { bounds: cloneBounds(mapBounds), zoom: mapZoom }
+      lastAnalyzedSignalRef.current = signalKey
+      lastAnalyzedEventSignalRef.current = eventSignal
+      setLastAnalyzedAt(now)
+    }
+
+    aiControllerRef.current?.abort()
+    const controller = new AbortController()
+    aiControllerRef.current = controller
+    aiInFlightRef.current = true
     setAiLoading(true)
     setAiError(null)
+    setNextAnalysisAt(null)
+    const timeout = window.setTimeout(() => controller.abort(), 12_000)
     try {
       const c = center(mapBounds)
       const current = environment?.weather?.current
-      const units = environment?.weather?.units
       const res = await fetch("/api/crep/viewport-ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
-          revision: revisionKey,
+          revision: summaryRevision,
           context: {
-            revision: revisionKey,
+            revision: summaryRevision,
+            reason,
             zoom: mapZoom,
             center: c,
             bounds: mapBounds,
+            place: placeLabel(prefetchedIntel),
+            selected: selectedContext
+              ? {
+                kind: selectedContext.kind,
+                label: selectedContext.label,
+                detail: selectedContext.detail,
+              }
+              : null,
             counts: {
               events: latestViewportEvents.length,
               species: visibleFungalObservations.length,
               aircraft: aircraftCount,
               vessels: vesselCount,
               satellites: satelliteCount,
+              cameras: eagleSources.length,
+              sensors: prefetchedSensors?.length ?? 0,
             },
             topEvents: latestViewportEvents.slice(0, 6).map((e) => ({
               title: e.title,
@@ -366,27 +637,35 @@ function MycaViewportPanel({
             })),
             topSpecies,
             weather: {
-              temp: current?.temperature_2m != null ? `${formatMetric(current.temperature_2m, 0, units?.temperature_2m || "°C")}` : null,
+              temp: current?.temperature_2m != null ? `${formatMetric(current.temperature_2m, 0, tempUnit)}` : null,
               humidity: current?.relative_humidity_2m != null ? `${formatMetric(current.relative_humidity_2m, 0, "%")}` : null,
               cloud_cover: cloudCover != null ? `${cloudCover}%` : null,
               aqi: airQuality?.us_aqi ?? null,
-              wind: current?.wind_speed_10m != null ? `${formatMetric(current.wind_speed_10m, 0, ` ${units?.wind_speed_10m || "km/h"}`)}` : null,
+              wind: current?.wind_speed_10m != null ? `${formatMetric(current.wind_speed_10m, 0, windUnitSuffix)}` : null,
             },
           },
         }),
       })
       const data = await res.json()
+      if (controller.signal.aborted) return
+      if (aiControllerRef.current === controller) markAnalyzed()
       if (!res.ok || data.error) {
         setAiError(data.error || "MYCA summary unavailable")
         setAiSummary("")
         return
       }
-      lastAiRevision.current = revisionKey
+      lastAiRequestKeyRef.current = requestKey
       setAiSummary(String(data.summary || "").trim())
     } catch (error) {
-      setAiError(error instanceof Error ? error.message : "Summary failed")
+      if ((error as Error)?.name !== "AbortError") {
+        setAiError(error instanceof Error ? error.message : "Summary failed")
+      }
+      if (aiControllerRef.current === controller) markAnalyzed()
     } finally {
-      setAiLoading(false)
+      window.clearTimeout(timeout)
+      if (aiControllerRef.current === controller) aiInFlightRef.current = false
+      if (!controller.signal.aborted) setAiLoading(false)
+      if (controller.signal.aborted && aiControllerRef.current === controller) setAiLoading(false)
     }
   }, [
     mapBounds,
@@ -398,84 +677,112 @@ function MycaViewportPanel({
     aircraftCount,
     vesselCount,
     satelliteCount,
+    eagleSources.length,
+    prefetchedSensors?.length,
     topSpecies,
     environment,
     cloudCover,
     airQuality,
+    tempUnit,
+    windUnitSuffix,
+    prefetchedIntel,
+    selectedContext,
+    eventSignal,
   ])
 
-  useEffect(() => {
-    if (!revisionKey || !assetsReady) return
-    const delay = window.setTimeout(() => {
-      void fetchAiSummary()
-    }, 480)
-    return () => window.clearTimeout(delay)
-  }, [revisionKey, assetsReady, fetchAiSummary])
+  const scheduleAiSummary = useCallback((reason: AnalysisTriggerReason, signalKey: string) => {
+    if (!mapBounds || !assetsReady) return
+    const now = Date.now()
+    const minInterval = reason === "data" ? IDLE_ANALYSIS_MIN_MS : ACTIVE_ANALYSIS_MIN_MS
+    const sinceLast = lastAnalyzedAtRef.current ? now - lastAnalyzedAtRef.current : Number.POSITIVE_INFINITY
+    const cooldownDelay = Math.max(0, minInterval - sinceLast)
+    const settleDelay =
+      reason === "initial"
+        ? INITIAL_ANALYSIS_SETTLE_MS
+        : reason === "selection" || reason === "interaction"
+          ? INTERACTION_ANALYSIS_SETTLE_MS
+          : CAMERA_ANALYSIS_SETTLE_MS
+    const delay = Math.max(settleDelay, cooldownDelay)
+
+    if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current)
+    setAnalysisReason(reason)
+    setNextAnalysisAt(now + delay)
+    aiTimerRef.current = window.setTimeout(() => {
+      aiTimerRef.current = null
+      void fetchAiSummary(reason, signalKey)
+    }, delay)
+  }, [assetsReady, fetchAiSummary, mapBounds])
 
   useEffect(() => {
-    if (typewriterRef.current) window.clearInterval(typewriterRef.current)
-    if (!aiSummary) {
-      setDisplayedSummary("")
+    if (!mapBounds || !assetsReady) return
+    const nextSnapshot = { bounds: mapBounds, zoom: mapZoom }
+    const hasAnalyzed = lastAnalyzedAtRef.current > 0
+    if (aiInFlightRef.current) return
+    const interactionChanged = interactionNonce !== lastInteractionNonceRef.current
+    const spatialChanged =
+      !lastAnalyzedSnapshotRef.current ||
+      isSignificantViewportChange(lastAnalyzedSnapshotRef.current, nextSnapshot)
+    const signalChanged = lastAnalyzedSignalRef.current !== analysisSignal
+    const eventChanged = lastAnalyzedEventSignalRef.current !== eventSignal
+
+    if (!hasAnalyzed) {
+      scheduleAiSummary("initial", analysisSignal)
       return
     }
-    let index = 0
-    setDisplayedSummary("")
-    typewriterRef.current = window.setInterval(() => {
-      index += 2
-      setDisplayedSummary(aiSummary.slice(0, index))
-      if (index >= aiSummary.length && typewriterRef.current) {
-        window.clearInterval(typewriterRef.current)
-        typewriterRef.current = null
-      }
-    }, 16)
-    return () => {
-      if (typewriterRef.current) window.clearInterval(typewriterRef.current)
-    }
-  }, [aiSummary])
 
-  const current = environment?.weather?.current
-  const units = environment?.weather?.units
-  const forecastDaily = environment?.weather?.forecastDaily
-  const eventCarousel = useMemo(() => latestViewportEvents.slice(0, 15), [latestViewportEvents])
-  const [carouselIndex, setCarouselIndex] = useState(0)
-  const [carouselVisible, setCarouselVisible] = useState(true)
-  const prevFirstEventIdRef = useRef<string | null>(null)
+    if (interactionChanged) {
+      lastInteractionNonceRef.current = interactionNonce
+      scheduleAiSummary("interaction", analysisSignal)
+      return
+    }
+
+    if (eventChanged) {
+      scheduleAiSummary("interaction", analysisSignal)
+      return
+    }
+
+    if (selectedContext?.key && signalChanged) {
+      scheduleAiSummary("selection", analysisSignal)
+      return
+    }
+
+    if (spatialChanged) {
+      scheduleAiSummary("camera", analysisSignal)
+      return
+    }
+
+    if (signalChanged) {
+      scheduleAiSummary("data", analysisSignal)
+    }
+  }, [
+    mapBounds,
+    mapZoom,
+    assetsReady,
+    analysisSignal,
+    interactionNonce,
+    selectedContext?.key,
+    eventSignal,
+    lastAnalyzedAt,
+    scheduleAiSummary,
+  ])
+
 
   // New event at the front → show it immediately (live feed behavior).
-  useEffect(() => {
-    const firstId = eventCarousel[0]?.id ?? null
-    if (!firstId) {
-      setCarouselIndex(0)
-      prevFirstEventIdRef.current = null
-      return
-    }
-    if (firstId !== prevFirstEventIdRef.current) {
-      prevFirstEventIdRef.current = firstId
-      setCarouselIndex(0)
-    }
-  }, [eventCarousel])
-
-  const activeEvent = eventCarousel[carouselIndex] ?? null
-
-  // Fade when the visible slide changes.
-  useEffect(() => {
-    if (!activeEvent) return
-    setCarouselVisible(false)
-    const t = window.setTimeout(() => setCarouselVisible(true), 40)
-    return () => window.clearTimeout(t)
-  }, [activeEvent?.id, carouselIndex])
-
   // Auto-advance — no manual scroll; rotates through viewport events.
-  useEffect(() => {
-    if (eventCarousel.length <= 1) return
-    const timer = window.setInterval(() => {
-      setCarouselIndex((i) => (i + 1) % eventCarousel.length)
-    }, 5000)
-    return () => window.clearInterval(timer)
-  }, [eventCarousel.length, eventCarousel[0]?.id])
-
   const analysisMentions = useMemo((): AnalysisMention[] => {
     const mentions: AnalysisMention[] = []
+
+    if (selectedContext?.lat != null && selectedContext.lng != null) {
+      mentions.push({
+        id: `selected-${selectedContext.key}`,
+        kind: selectedKindToMentionKind(selectedContext.kind),
+        label: compactText(selectedContext.label, 28),
+        detail: selectedContext.detail || "selected",
+        lng: selectedContext.lng,
+        lat: selectedContext.lat,
+        zoom: selectedContext.zoom ?? Math.max(12, mapZoom),
+      })
+    }
 
     if (viewportCenter) {
       mentions.push({
@@ -575,6 +882,7 @@ function MycaViewportPanel({
 
     return mentions
   }, [
+    selectedContext,
     viewportCenter,
     mapZoom,
     latestViewportEvents,
@@ -599,10 +907,6 @@ function MycaViewportPanel({
         window.dispatchEvent(
           new CustomEvent("crep:analysis:select-event", { detail: { eventId } }),
         )
-      }
-
-      if (mention.kind === "camera" && mention.camera) {
-        openEagleCamera(mention.camera, onFlyTo)
       }
     },
     [onFlyTo],
@@ -636,176 +940,133 @@ function MycaViewportPanel({
     return () => window.clearInterval(timer)
   }, [analysisMentions.length, mentionSlotCount])
 
+  const analysisSections = useMemo((): AnalysisSection[] => {
+    const sections: AnalysisSection[] = []
+    const centerAction = viewportCenter
+      ? {
+        id: "section-viewport",
+        kind: "viewport" as const,
+        label: "Viewport",
+        detail: placeLabel(prefetchedIntel),
+        lng: viewportCenter.lng,
+        lat: viewportCenter.lat,
+        zoom: Math.max(8, mapZoom),
+      }
+      : undefined
+
+    if (selectedContext) {
+      sections.push({
+        id: "selected",
+        title: "Selected",
+        metric: selectedContext.kind,
+        detail: selectedContext.detail || selectedContext.label,
+        tone: "selection",
+        Icon: Crosshair,
+        action: selectedContext.lat != null && selectedContext.lng != null
+          ? {
+            id: `section-selected-${selectedContext.key}`,
+            kind: selectedKindToMentionKind(selectedContext.kind),
+            label: selectedContext.label,
+            detail: selectedContext.detail,
+            lat: selectedContext.lat,
+            lng: selectedContext.lng,
+            zoom: selectedContext.zoom ?? Math.max(12, mapZoom),
+          }
+          : undefined,
+      })
+    }
+
+    sections.push({
+      id: "events",
+      title: "Events",
+      metric: String(latestViewportEvents.length),
+      detail: latestViewportEvents.length
+        ? latestViewportEvents.slice(0, 3).map((event) => event.title).join("; ")
+        : "No active event marker resolved in view.",
+      tone: "event",
+      Icon: AlertTriangle,
+      action: analysisMentions.find((mention) => mention.kind === "event") ?? centerAction,
+    })
+
+    sections.push({
+      id: "nature",
+      title: "Nature",
+      metric: String(visibleFungalObservations.length),
+      detail: topSpecies.length ? topSpecies.slice(0, 4).join(", ") : "Species signal is still resolving.",
+      tone: "nature",
+      Icon: Leaf,
+      action: analysisMentions.find((mention) => mention.kind === "species") ?? centerAction,
+    })
+
+    sections.push({
+      id: "motion",
+      title: "Movers",
+      metric: `${aircraftCount}/${vesselCount}/${satelliteCount}`,
+      detail: `${aircraftCount} aircraft, ${vesselCount} vessels, ${satelliteCount} satellites in the active viewport.`,
+      tone: "motion",
+      Icon: Activity,
+      action:
+        analysisMentions.find((mention) =>
+          mention.kind === "aircraft" || mention.kind === "vessel" || mention.kind === "satellite",
+        ) ?? centerAction,
+    })
+
+    const officials = arrayCount(prefetchedIntel?.officials) + arrayCount(prefetchedIntel?.civic?.officials)
+    const facilities = arrayCount(prefetchedIntel?.facilities?.facilities)
+    sections.push({
+      id: "civic",
+      title: "Civic",
+      metric: prefetchedIntelLoading ? "..." : String(officials + facilities),
+      detail: `${placeLabel(prefetchedIntel)}: ${officials} officials, ${facilities} facilities.`,
+      tone: "civic",
+      Icon: Users,
+      action: centerAction,
+    })
+
+    sections.push({
+      id: "sensors",
+      title: "Sensors",
+      metric: String((prefetchedSensors?.length ?? 0) + eagleSources.length),
+      detail: `${eagleSources.length} cameras, ${prefetchedSensors?.length ?? 0} sensors, AQI ${airQuality?.us_aqi ?? "-"}.`,
+      tone: "sensor",
+      Icon: Camera,
+      action: analysisMentions.find((mention) => mention.kind === "camera") ?? centerAction,
+    })
+
+    return sections
+  }, [
+    selectedContext,
+    viewportCenter,
+    prefetchedIntel,
+    prefetchedIntelLoading,
+    mapZoom,
+    latestViewportEvents,
+    visibleFungalObservations.length,
+    topSpecies,
+    aircraftCount,
+    vesselCount,
+    satelliteCount,
+    analysisMentions,
+    prefetchedSensors?.length,
+    eagleSources.length,
+    airQuality?.us_aqi,
+  ])
+
+  const analysisCadenceLabel = useMemo(() => {
+    if (aiLoading) return `Reading ${analysisReason}`
+    if (nextAnalysisAt) return `Next ${formatElapsed(nextAnalysisAt - Date.now())}`
+    if (lastAnalyzedAt) return `Read ${formatElapsed(Date.now() - lastAnalyzedAt)} ago`
+    return "Ready"
+  }, [aiLoading, analysisReason, nextAnalysisAt, lastAnalyzedAt])
+
+  const summaryText = aiSummary && lastAnalyzedSignalRef.current === analysisSignal
+    ? aiSummary
+    : localSummary
+
   return (
     <ScrollArea className="h-full">
       <div className="flex min-h-full flex-col gap-2 p-2">
-        {/* Satellite / imagery hero */}
-        <div className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-black/40">
-          {satelliteHeroUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={satelliteHeroUrl}
-              alt=""
-              className="h-24 w-full object-cover opacity-90"
-            />
-          ) : (
-            <div className="flex h-24 items-center justify-center bg-gradient-to-br from-slate-900 to-purple-950/40">
-              <Satellite className="h-6 w-6 text-purple-400/60" />
-            </div>
-          )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 py-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-semibold text-purple-200">Viewport imagery</span>
-              {viewportCenter && (
-                <span className="font-mono text-[7px] text-gray-400">
-                  {viewportCenter.lat.toFixed(2)}°, {viewportCenter.lng.toFixed(2)}° · z{mapZoom.toFixed(1)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Live events carousel — auto-rotates; jumps to newest on ingest */}
-        <div className="rounded-lg border border-orange-500/25 bg-orange-950/10 p-1.5">
-          <div className="mb-1 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Radio className="h-3 w-3 text-orange-400" />
-              <span className="text-[9px] font-bold text-orange-200">Latest events</span>
-            </div>
-            <Badge variant="outline" className="border-orange-500/40 px-1 py-0 text-[7px] text-orange-300">
-              {latestViewportEvents.length}
-            </Badge>
-          </div>
-          {eventCarousel.length === 0 ? (
-            <span className="text-[8px] text-gray-500">No events in this viewport.</span>
-          ) : (
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeEvent?.lng != null && activeEvent?.lat != null) {
-                    onFlyTo?.(activeEvent.lng, activeEvent.lat, 10)
-                  }
-                }}
-                className={cn(
-                  "w-full rounded border border-orange-500/25 bg-black/35 px-2 py-1.5 text-left transition-opacity duration-300 hover:border-orange-400/50",
-                  carouselVisible ? "opacity-100" : "opacity-0",
-                )}
-              >
-                <div className="truncate text-[9px] font-medium text-white">{activeEvent?.title}</div>
-                <div className="mt-0.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-[7px] text-gray-500">
-                    {activeEvent?.type || activeEvent?.source || "event"}
-                  </span>
-                  {activeEvent?.severity && (
-                    <span className="shrink-0 text-[7px] uppercase text-orange-300/90">{activeEvent.severity}</span>
-                  )}
-                </div>
-              </button>
-              {eventCarousel.length > 1 && (
-                <div className="flex items-center justify-center gap-1 pt-0.5">
-                  {eventCarousel.map((event, index) => (
-                    <button
-                      key={event.id}
-                      type="button"
-                      aria-label={`Show event ${index + 1}: ${event.title}`}
-                      onClick={() => setCarouselIndex(index)}
-                      className={cn(
-                        "h-1.5 rounded-full transition-all",
-                        index === carouselIndex
-                          ? "w-3 bg-orange-400"
-                          : "w-1.5 bg-orange-500/30 hover:bg-orange-400/60",
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Environment + species */}
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/10 p-1.5">
-          <div className="mb-1.5 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Leaf className="h-3 w-3 text-emerald-400" />
-              <span className="text-[9px] font-bold text-emerald-200">Environment</span>
-            </div>
-            <span className={cn("text-[7px]", envLoading ? "text-cyan-300" : "text-gray-500")}>
-              {envLoading ? "live…" : "Open-Meteo"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1">
-            <div className="rounded bg-black/35 p-1 text-center">
-              <Thermometer className="mx-auto h-3 w-3 text-orange-300" />
-              <div className="text-[11px] font-bold text-orange-200">
-                {formatMetric(current?.temperature_2m, 0, units?.temperature_2m || "°")}
-              </div>
-              <div className="text-[6px] uppercase text-gray-500">Temp</div>
-            </div>
-            <div className="rounded bg-black/35 p-1 text-center">
-              <Cloud className="mx-auto h-3 w-3 text-sky-300" />
-              <div className="text-[11px] font-bold text-sky-200">
-                {cloudCover != null ? `${Math.round(cloudCover)}%` : "—"}
-              </div>
-              <div className="text-[6px] uppercase text-gray-500">Cloud</div>
-            </div>
-            <div className="rounded bg-black/35 p-1 text-center">
-              <Wind className="mx-auto h-3 w-3 text-cyan-300" />
-              <div className="text-[11px] font-bold text-cyan-200">
-                {formatMetric(current?.relative_humidity_2m, 0, "%")}
-              </div>
-              <div className="text-[6px] uppercase text-gray-500">Humidity</div>
-            </div>
-            <div className="rounded bg-black/35 p-1 text-center">
-              <div className="text-[11px] font-bold text-lime-300">{formatMetric(airQuality?.us_aqi, 0)}</div>
-              <div className="text-[6px] uppercase text-gray-500">AQI</div>
-            </div>
-            <div className="rounded bg-black/35 p-1 text-center">
-              <div className="text-[11px] font-bold text-green-300">{visibleFungalObservations.length}</div>
-              <div className="text-[6px] uppercase text-gray-500">Species obs</div>
-            </div>
-            <div className="rounded bg-black/35 p-1 text-center">
-              <div className="text-[11px] font-bold text-amber-300">{aircraftCount + vesselCount}</div>
-              <div className="text-[6px] uppercase text-gray-500">Traffic</div>
-            </div>
-          </div>
-
-          {topSpecies.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-0.5">
-              {topSpecies.map((name) => (
-                <span key={name} className="rounded border border-green-500/20 bg-black/30 px-1 py-0.5 text-[7px] text-green-200">
-                  {name}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setForecastOpen((o) => !o)}
-            className="mt-1.5 flex w-full items-center justify-between rounded border border-emerald-500/20 bg-black/25 px-1.5 py-1 text-[8px] text-emerald-100"
-          >
-            <span>14-day forecast</span>
-            <ChevronDown className={cn("h-3 w-3 transition-transform", forecastOpen && "rotate-180")} />
-          </button>
-          {forecastOpen && forecastDaily?.time && (
-            <div className="mt-1 max-h-24 space-y-0.5 overflow-y-auto">
-              {(forecastDaily.time as string[]).slice(0, 7).map((day, i) => (
-                <div key={day} className="flex items-center justify-between rounded bg-black/20 px-1 py-0.5 text-[7px]">
-                  <span className="text-gray-400">{day}</span>
-                  <span className="text-orange-200">
-                    {formatMetric((forecastDaily.temperature_2m_max as number[])?.[i], 0, "°")} /
-                    {formatMetric((forecastDaily.temperature_2m_min as number[])?.[i], 0, "°")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* MYCA Analysis room — narrative + clickable assets (no stats grid) */}
+        {/* MYCA Analysis room (Environment tab owns env data) */}
         <div className="flex min-h-[280px] flex-1 flex-col rounded-lg border border-purple-500/35 bg-gradient-to-b from-purple-950/25 to-black/50 p-2">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -814,40 +1075,76 @@ function MycaViewportPanel({
               </div>
               <div>
                 <span className="text-[10px] font-bold text-purple-100">MYCA Analysis</span>
-                <p className="text-[7px] text-purple-300/70">Viewport intelligence · tap icons to fly</p>
+                <p className="text-[7px] text-purple-300/70">Viewport intelligence</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 text-[7px] text-purple-200/80">
               {aiLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-300" />}
+              <Clock3 className="h-3 w-3 text-purple-300/80" />
+              <span className="tabular-nums">{analysisCadenceLabel}</span>
               <Sparkles className="h-3.5 w-3.5 text-purple-400" />
             </div>
           </div>
 
-          <div className="min-h-[140px] flex-1 overflow-y-auto rounded-lg border border-purple-500/25 bg-black/45 p-2.5">
+          <div className="min-h-[92px] shrink-0 overflow-y-auto rounded-lg border border-purple-500/25 bg-black/45 p-2.5">
             {aiError && !aiLoading && (
               <p className="text-[9px] text-red-400">{aiError}</p>
             )}
-            {!aiError && !displayedSummary && !aiLoading && (
+            {!aiError && !summaryText && !aiLoading && (
               <p className="text-[9px] leading-relaxed text-gray-500">
-                MYCA will analyze this viewport after the map finishes rendering. Events, species, cameras, and traffic in view will appear as fly-to chips below.
+                Waiting for a stable viewport and ready data.
               </p>
             )}
-            {aiLoading && !displayedSummary && (
+            {aiLoading && !summaryText && (
               <div className="flex items-center gap-2 text-[9px] text-purple-300">
                 <Bot className="h-3.5 w-3.5 shrink-0" />
-                <span>Reading viewport context…</span>
+                <span>Reading viewport context...</span>
               </div>
             )}
-            {displayedSummary && (
-              <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-gray-100">{displayedSummary}</p>
+            {summaryText && (
+              <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-gray-100">{summaryText}</p>
             )}
+          </div>
+
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            {analysisSections.map((section) => {
+              const Icon = section.Icon
+              return (
+                <div
+                  key={section.id}
+                  className={cn("min-h-[66px] rounded-md border p-1.5", sectionTone(section.tone))}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-1">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <Icon className="h-3 w-3 shrink-0 opacity-90" />
+                      <span className="truncate text-[8px] font-bold uppercase tracking-wide">{section.title}</span>
+                    </div>
+                    <span className="shrink-0 text-[8px] font-bold tabular-nums">{section.metric}</span>
+                  </div>
+                  <p className="line-clamp-2 min-h-[22px] text-[7px] leading-relaxed text-gray-300">
+                    {section.detail}
+                  </p>
+                  {section.action?.lat != null && section.action.lng != null && (
+                    <button
+                      type="button"
+                      onClick={() => handleMentionClick(section.action!)}
+                      className="mt-1 inline-flex h-5 items-center gap-1 rounded border border-white/10 bg-white/10 px-1.5 text-[7px] font-semibold text-white transition-colors hover:border-white/25 hover:bg-white/20"
+                      title={`Fly to ${section.action.label}`}
+                    >
+                      <MapPin className="h-2.5 w-2.5" />
+                      Fly
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {analysisMentions.length > 0 && (
             <div className="mt-1.5 shrink-0">
               <div className="mb-0.5 flex items-center justify-between gap-1">
                 <span className="text-[6px] font-semibold uppercase tracking-wider text-purple-300/65">
-                  Worth mentioning
+                  Fly-to
                 </span>
                 {analysisMentions.length > mentionSlotCount && (
                   <span className="text-[6px] tabular-nums text-purple-400/45">
@@ -871,7 +1168,11 @@ function MycaViewportPanel({
                       type="button"
                       disabled={!clickable}
                       onClick={() => handleMentionClick(mention)}
-                      title={mention.detail ? `${mention.label} · ${mention.detail}` : mention.label}
+                      title={
+                        clickable
+                          ? `${mention.detail ? `${mention.label} - ${mention.detail}` : mention.label} - fly to target`
+                          : mention.label
+                      }
                       className={cn(
                         "inline-flex h-[18px] max-w-[48%] flex-1 items-center gap-0.5 rounded border px-1 text-left transition-colors",
                         mentionTone(mention.kind),

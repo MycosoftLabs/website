@@ -129,6 +129,49 @@ const STATE_SEALS: Record<string, JurisdictionSealEntry> = {
   },
 }
 
+const COUNTRY_SEALS: Record<string, JurisdictionSealEntry> = {
+  US: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg/256px-Great_Seal_of_the_United_States_%28obverse%29.svg.png",
+    alt: "Great Seal of the United States",
+  },
+  CA: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/Coat_of_arms_of_Canada.svg/256px-Coat_of_arms_of_Canada.svg.png",
+    alt: "Coat of arms of Canada",
+  },
+  MX: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Coat_of_arms_of_Mexico.svg/256px-Coat_of_arms_of_Mexico.svg.png",
+    alt: "Coat of arms of Mexico",
+  },
+  CN: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/National_Emblem_of_the_People%27s_Republic_of_China_%282%29.svg/256px-National_Emblem_of_the_People%27s_Republic_of_China_%282%29.svg.png",
+    alt: "National emblem of China",
+  },
+  JP: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Imperial_Seal_of_Japan.svg/256px-Imperial_Seal_of_Japan.svg.png",
+    alt: "Imperial Seal of Japan",
+  },
+  GB: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Royal_Coat_of_Arms_of_the_United_Kingdom_%28HM_Government%29.svg/256px-Royal_Coat_of_Arms_of_the_United_Kingdom_%28HM_Government%29.svg.png",
+    alt: "Royal coat of arms of the United Kingdom",
+  },
+  EU: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Flag_of_Europe.svg/256px-Flag_of_Europe.svg.png",
+    alt: "European Union emblem",
+  },
+  IN: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/256px-Emblem_of_India.svg.png",
+    alt: "State emblem of India",
+  },
+  AU: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Coat_of_arms_of_Australia.svg/256px-Coat_of_arms_of_Australia.svg.png",
+    alt: "Coat of arms of Australia",
+  },
+  BR: {
+    url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Coat_of_arms_of_Brazil.svg/256px-Coat_of_arms_of_Brazil.svg.png",
+    alt: "Coat of arms of Brazil",
+  },
+}
+
 function resolveStateCode(state?: string | null): string | null {
   if (!state) return null
   const trimmed = state.trim()
@@ -206,8 +249,11 @@ export function resolveJurisdictionSeal(
   const stateCode = resolveStateCode(place?.state)
   const stackCity = jurisdictionStack?.find((e) => e.level === "city")?.name
   const stackCounty = jurisdictionStack?.find((e) => e.level === "county")?.name
+  const stackUnion = jurisdictionStack?.find((e) => e.level === "union")?.name
+  const stackCountryCode = jurisdictionStack?.find((e) => e.level === "country" && e.code)?.code
   const cityName = place?.city || place?.suburb || stackCity
   const countyName = place?.county || stackCounty
+  const countryCode = (place?.countryCode || stackCountryCode || "").trim().toUpperCase()
 
   const tryCity = () =>
     cityName ? CITY_SEALS[cityKey(cityName, stateCode, place?.state)] : undefined
@@ -225,12 +271,31 @@ export function resolveJurisdictionSeal(
     return tryState() ?? tryCounty() ?? tryCity() ?? sealsFromMediaGallery(mediaGallery)[0] ?? null
   }
 
-  return tryState() ?? sealsFromMediaGallery(mediaGallery)[0] ?? null
+  return (stackUnion === "European Union" ? COUNTRY_SEALS.EU : undefined) ??
+    (countryCode ? COUNTRY_SEALS[countryCode] : undefined) ??
+    tryState() ??
+    sealsFromMediaGallery(mediaGallery)[0] ??
+    null
 }
 
 export function resolveJurisdictionSealUrls(input: ResolveJurisdictionSealsInput): string[] {
-  const seal = resolveJurisdictionSeal(input)
-  return seal ? [seal.url] : []
+  const seals: JurisdictionSealEntry[] = []
+  const push = (entry: JurisdictionSealEntry | undefined | null) => {
+    if (!entry || seals.some((seal) => seal.url === entry.url)) return
+    seals.push(entry)
+  }
+  const stack = input.jurisdictionStack ?? []
+  if (stack.some((entry) => entry.level === "union" && entry.name === "European Union")) push(COUNTRY_SEALS.EU)
+  for (const entry of stack) {
+    if (entry.level !== "country") continue
+    const code = (entry.code ?? "").trim().toUpperCase()
+    if (code) push(COUNTRY_SEALS[code])
+    if (!code && entry.name === "United Kingdom") push(COUNTRY_SEALS.GB)
+  }
+  const countryCode = (input.place?.countryCode ?? "").trim().toUpperCase()
+  if (countryCode) push(COUNTRY_SEALS[countryCode])
+  push(resolveJurisdictionSeal(input))
+  return seals.map((seal) => seal.url).slice(0, 3)
 }
 
 export function resolveJurisdictionSealAlt(input: ResolveJurisdictionSealsInput): string {

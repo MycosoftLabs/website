@@ -326,7 +326,16 @@ function mergeSourcesLiveWins(base: VideoSource[], incoming: VideoSource[]): Vid
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const bbox = url.searchParams.get("bbox") || undefined
+  let bbox = url.searchParams.get("bbox") || undefined
+  if (!bbox) {
+    const west = Number(url.searchParams.get("west"))
+    const south = Number(url.searchParams.get("south"))
+    const east = Number(url.searchParams.get("east"))
+    const north = Number(url.searchParams.get("north"))
+    if ([west, south, east, north].every(Number.isFinite)) {
+      bbox = `${west},${south},${east},${north}`
+    }
+  }
   const kind = url.searchParams.get("kind") || undefined
   const provider = url.searchParams.get("provider") || undefined
   const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
@@ -337,15 +346,18 @@ export async function GET(req: NextRequest) {
   // The overlay's next 30 s poll picks up the slow-tier cams.
   const fast = url.searchParams.get("fast") === "1"
 
-  let sources = await fromMindex(bbox, kind, provider, limit)
   let liveUsed = false
   const origin = connectorFetchBase(req)
+  const stateDotPromise = !skipLive && !fast
+    ? fromStateDotCctv(origin, bbox)
+    : Promise.resolve<VideoSource[]>([])
+  let sources = await fromMindex(bbox, kind, provider, limit)
 
   // May 24, 2026 — fast=1 (thumbnail grid / first paint) must NOT block on
   // the 18 s state-dot-cctv fan-out. Return MINDEX + fast-tier immediately;
   // warm Caltrans/Shinobi in background for the next poll.
   if (!skipLive && !fast) {
-    const stateDotLive = await fromStateDotCctv(origin, bbox)
+    const stateDotLive = await stateDotPromise
     if (stateDotLive.length) {
       sources = mergeSourcesLiveWins(sources, stateDotLive)
       liveUsed = true

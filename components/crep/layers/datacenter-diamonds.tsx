@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { MapboxOverlay } from "@deck.gl/mapbox"
 import { ScatterplotLayer, TextLayer } from "@deck.gl/layers"
 import type maplibregl from "maplibre-gl"
+import { DATA_CENTER_LABEL_MIN_ZOOM, DATA_CENTER_MIN_ZOOM } from "@/lib/crep/lod-policy"
 
 export interface Datacenter {
   id: string
@@ -53,6 +54,7 @@ export function DatacenterDiamondLayer({
 
   const layers = useMemo(() => {
     if (!visible || datacenters.length === 0) return []
+    if (zoom < DATA_CENTER_MIN_ZOOM) return []
     const result: any[] = []
 
     // Diamond markers (ScatterplotLayer doesn't support diamonds natively,
@@ -93,8 +95,8 @@ export function DatacenterDiamondLayer({
       })
     )
 
-    // Labels at zoom 9+
-    if (zoom >= 9) {
+    // Names only at street-close zoom; markers start at the shared DC floor.
+    if (zoom >= DATA_CENTER_LABEL_MIN_ZOOM) {
       result.push(
         new TextLayer({
           id: "datacenter-labels",

@@ -42,7 +42,7 @@ docker exec -it mindex-postgres psql -U mindex -c "CREATE EXTENSION IF NOT EXIST
 docker exec -it mindex-postgres psql -U mindex -c "CREATE EXTENSION IF NOT EXISTS postgis_topology;"
 
 # 5. Test database connection from MINDEX container
-docker exec -it mindex-api python -c "import psycopg2; psycopg2.connect('postgresql://mindex:mindex@mindex-postgres:5432/mindex')"
+docker exec -it mindex-api python -c "import os, psycopg2; psycopg2.connect(os.environ['DATABASE_URL'])"
 
 # 6. Check network connectivity
 docker network inspect mycosoft-network
@@ -52,9 +52,9 @@ docker network inspect mycosoft-network
 
 1. **Update MINDEX .env file:**
    ```env
-   DATABASE_URL=postgresql://mindex:mindex@mindex-postgres:5432/mindex
+   DATABASE_URL=[set from your local secret manager]
    # OR for external PostgreSQL:
-   DATABASE_URL=postgresql://mindex:password@192.168.x.x:5432/mindex
+   DATABASE_URL=[set from your local secret manager]
    ```
 
 2. **Restart MINDEX services:**

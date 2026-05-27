@@ -71,6 +71,7 @@ function positionsToFeatureCollection(positions: SatellitePosition[]) {
     type: "FeatureCollection" as const,
     features: positions.map((p) => ({
       type: "Feature" as const,
+      id: p.id,
       properties: {
         id: p.id,
         noradId: p.noradId,
@@ -120,6 +121,7 @@ function orbitPathsToFeatureCollection(
       if (segment.length < 2) continue
       features.push({
         type: "Feature",
+        id,
         properties: { id, type: "orbit-path" },
         geometry: {
           type: "LineString",

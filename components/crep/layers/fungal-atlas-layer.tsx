@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type maplibregl from "maplibre-gl"
 
-type HeatLayer = "mycelium" | "am" | "ecm" | "rarity" | "endemic" | "fci" | "protected"
-type FungalLayerEnabled = Partial<Record<HeatLayer, boolean>> & { samples?: boolean; uncertainty?: boolean }
+type HeatLayer = "mycelium" | "am" | "ecm" | "rarity" | "endemic" | "fci" | "protected" | "uncertainty"
+type FungalLayerEnabled = Partial<Record<HeatLayer, boolean>> & { samples?: boolean }
 
 interface Props {
   map: maplibregl.Map | null
@@ -35,7 +35,8 @@ const CELL_SOURCE_PREFIX = "crep-fungal-atlas-cells"
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] } as const
 const STARTUP_FALLBACK_BBOX: [number, number, number, number] = [-180, -55, 180, 85]
 
-const SPUN_TILE_VERSION = "2026-05-24-global-ecm-am-raster-v8"
+const SPUN_TILE_VERSION = "2026-05-24-global-ecm-am-raster-v9-green-am"
+const INACTIVE_SPUN_RASTER_WARM_OPACITY = 0.001
 
 const HEAT_LAYERS: Array<{
   id: HeatLayer
@@ -49,6 +50,8 @@ const HEAT_LAYERS: Array<{
   { id: "rarity", name: "Rare Fungi", opacity: 0.58, minZoom: 1.2 },
   { id: "endemic", name: "Endemic Fungi", opacity: 0.58, minZoom: 1.2 },
   { id: "fci", name: "FCI Priority", opacity: 0.58, minZoom: 1.2 },
+  { id: "protected", name: "Protected Areas", opacity: 0.52, minZoom: 1.2 },
+  { id: "uncertainty", name: "High Uncertainty", opacity: 0.5, minZoom: 1.2 },
 ]
 
 function sourceId(id: HeatLayer) {
@@ -266,7 +269,9 @@ function ensureSpunTileHeatLayer(
 ) {
   const sid = sourceId(heat.id)
   const lid = layerId(heat.id)
-  const opacity = visible ? Math.max(0, Math.min(1, heat.opacity * globalOpacity)) : 0
+  const opacity = visible
+    ? Math.max(0, Math.min(1, heat.opacity * globalOpacity))
+    : INACTIVE_SPUN_RASTER_WARM_OPACITY
 
   if (!map.getSource(sid)) {
     map.addSource(sid, {
@@ -287,7 +292,7 @@ function ensureSpunTileHeatLayer(
       source: sid,
       minzoom: heat.minZoom,
       maxzoom: 20,
-      layout: { visibility: visible ? "visible" : "none" },
+      layout: { visibility: "visible" },
       paint: {
         "raster-opacity": opacity,
         "raster-resampling": "nearest",
@@ -298,7 +303,7 @@ function ensureSpunTileHeatLayer(
     return
   }
 
-  setVisibility(map, lid, visible)
+  setVisibility(map, lid, true)
   try { map.setPaintProperty(lid, "raster-opacity", opacity) } catch {}
   try { map.setPaintProperty(lid, "raster-resampling", "nearest") } catch {}
   try {
@@ -330,12 +335,28 @@ const RICHNESS_STOPS: Array<[number, [number, number, number]]> = [
   [1, [253, 249, 86]],
 ]
 
+const AM_RICHNESS_STOPS = RICHNESS_STOPS
+
 const RARITY_STOPS: Array<[number, [number, number, number]]> = [
   [0, [55, 48, 163]],
   [0.35, [126, 58, 170]],
   [0.62, [217, 91, 99]],
   [0.84, [250, 184, 59]],
   [1, [255, 245, 122]],
+]
+
+const PROTECTED_STOPS: Array<[number, [number, number, number]]> = [
+  [0, [15, 118, 110]],
+  [0.4, [20, 184, 166]],
+  [0.72, [125, 211, 252]],
+  [1, [219, 234, 254]],
+]
+
+const UNCERTAINTY_STOPS: Array<[number, [number, number, number]]> = [
+  [0, [51, 65, 85]],
+  [0.38, [100, 116, 139]],
+  [0.7, [203, 213, 225]],
+  [1, [248, 250, 252]],
 ]
 
 function lerpColor(stops: Array<[number, [number, number, number]]>, value: number) {
@@ -368,6 +389,14 @@ function scoreCellForLayer(cell: any, id: HeatLayer) {
   if (id === "rarity") return clamp01(Number(cell.rarity) || 0)
   if (id === "endemic") return clamp01(Number(cell.endemicity) || 0)
   if (id === "fci") return clamp01(Number(cell.fciPriority) || 0)
+  if (id === "protected") {
+    return clamp01(
+      (Number(cell.endemicity) || 0) * 0.45 +
+      (Number(cell.rarity) || 0) * 0.3 +
+      (Number(cell.uncertainty) || 0) * 0.25,
+    )
+  }
+  if (id === "uncertainty") return clamp01(Number(cell.uncertainty) || 0)
   return clamp01(
     (Number(cell.richness) || 0) * 0.38 +
     (Number(cell.activity) || 0) * 0.34 +
@@ -383,7 +412,16 @@ function cellOpacity(id: HeatLayer, score: number, sampleCount: number) {
 }
 
 function cellsToGeoJson(cells: any[], id: HeatLayer) {
-  const stops = id === "rarity" || id === "endemic" || id === "fci" ? RARITY_STOPS : RICHNESS_STOPS
+  const stops =
+    id === "protected"
+      ? PROTECTED_STOPS
+      : id === "uncertainty"
+        ? UNCERTAINTY_STOPS
+        : id === "rarity" || id === "endemic" || id === "fci"
+          ? RARITY_STOPS
+          : id === "am"
+            ? AM_RICHNESS_STOPS
+            : RICHNESS_STOPS
   return {
     type: "FeatureCollection",
     features: (Array.isArray(cells) ? cells : [])
@@ -501,6 +539,8 @@ function moveFungalLayersToTop(map: maplibregl.Map) {
       moveLayerInRasterSlot(map, layerId(heat.id))
       moveLayerInRasterSlot(map, vectorLayerId(heat.id))
       moveLayerInRasterSlot(map, imageLayerId(heat.id))
+    }
+    for (const heat of HEAT_LAYERS) {
       moveLayerInRasterSlot(map, cellFillLayerId(heat.id))
       moveLayerInRasterSlot(map, cellLineLayerId(heat.id))
     }
@@ -568,16 +608,37 @@ export function bootstrapFungalAmEcmRasters(
   map: maplibregl.Map | null,
   options: { showAm?: boolean; showEcm?: boolean; opacity?: number } = {},
 ) {
-  if (!mapReady(map)) return
-  const opacity = options.opacity ?? 0.35
+  const pendingMap = map as (maplibregl.Map & {
+    __crepFungalRasterRetry?: boolean
+    __crepFungalRasterPendingOptions?: { showAm?: boolean; showEcm?: boolean; opacity?: number }
+  }) | null
+  if (pendingMap) pendingMap.__crepFungalRasterPendingOptions = options
+  if (!mapReady(map)) {
+    if (!pendingMap || pendingMap.__crepFungalRasterRetry) return
+    pendingMap.__crepFungalRasterRetry = true
+    const retry = () => {
+      pendingMap.__crepFungalRasterRetry = false
+      bootstrapFungalAmEcmRasters(pendingMap, pendingMap.__crepFungalRasterPendingOptions ?? options)
+    }
+    try { pendingMap.once?.("load", retry) } catch {}
+    try { pendingMap.once?.("style.load", retry) } catch {}
+    try { pendingMap.once?.("idle", retry) } catch {}
+    if (typeof window !== "undefined") {
+      window.setTimeout(retry, 150)
+      window.setTimeout(retry, 600)
+      window.setTimeout(retry, 1500)
+    }
+    return
+  }
+  const opacity = options.opacity ?? 0.55
   const showAm = Boolean(options.showAm)
   const showEcm = Boolean(options.showEcm)
   const amHeat = HEAT_LAYERS.find((heat) => heat.id === "am")
   const ecmHeat = HEAT_LAYERS.find((heat) => heat.id === "ecm")
   if (amHeat) ensureSpunTileHeatLayer(map, amHeat, showAm, opacity)
   if (ecmHeat) ensureSpunTileHeatLayer(map, ecmHeat, showEcm, opacity)
-  setVisibility(map, layerId("am"), showAm)
-  setVisibility(map, layerId("ecm"), showEcm)
+  setVisibility(map, layerId("am"), true)
+  setVisibility(map, layerId("ecm"), true)
   try {
     moveFungalLayersToTop(map)
   } catch {
@@ -592,13 +653,8 @@ function syncHeatLayerShells(
   for (const heat of HEAT_LAYERS) {
     const visible = isHeatVisible(heat.id, latest.enabled[heat.id], latest.zoom)
     if (isSpunTileHeatLayer(heat.id)) {
-      if (!visible && !map.getLayer(layerId(heat.id)) && !map.getSource(sourceId(heat.id))) {
-        setVisibility(map, cellFillLayerId(heat.id), false)
-        setVisibility(map, cellLineLayerId(heat.id), false)
-        continue
-      }
       ensureSpunTileHeatLayer(map, heat, visible, latest.opacity)
-      setVisibility(map, layerId(heat.id), visible)
+      setVisibility(map, layerId(heat.id), true)
       setVisibility(map, cellFillLayerId(heat.id), false)
       setVisibility(map, cellLineLayerId(heat.id), false)
     } else {
@@ -847,7 +903,6 @@ export function FungalAtlasLayer({
     () => [
       ...HEAT_LAYERS.map((heat) => `${heat.id}:${enabled[heat.id] ? 1 : 0}`),
       `samples:${enabled.samples ? 1 : 0}`,
-      `uncertainty:${enabled.uncertainty ? 1 : 0}`,
     ].join("|"),
     [enabled],
   )
@@ -861,6 +916,7 @@ export function FungalAtlasLayer({
     endemic: [],
     fci: [],
     protected: [],
+    uncertainty: [],
   })
   const latestRef = useRef({ enabled, zoom, opacity })
   latestRef.current = { enabled, zoom, opacity }

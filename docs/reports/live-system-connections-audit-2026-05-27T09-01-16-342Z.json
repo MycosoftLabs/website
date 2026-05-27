@@ -1,0 +1,2833 @@
+{
+  "generatedAt": "2026-05-27T09:01:16.342Z",
+  "workspace": "WEBSITE/website",
+  "scope": {
+    "repos": {
+      "website": true,
+      "mas": true,
+      "mindex": true
+    },
+    "serviceTargets": {
+      "website": {
+        "sourceKey": "NEXT_PUBLIC_BASE_URL/NEXT_PUBLIC_SITE_URL/fallback",
+        "targetClass": "loopback"
+      },
+      "mas": {
+        "sourceKey": "MAS_API_URL",
+        "targetClass": "private-lan"
+      },
+      "mindex": {
+        "sourceKey": "MINDEX_API_URL",
+        "targetClass": "private-lan"
+      },
+      "supabase": {
+        "sourceKey": "NEXT_PUBLIC_SUPABASE_URL",
+        "targetClass": "public-supabase"
+      }
+    }
+  },
+  "envContract": [
+    {
+      "key": "NEXT_PUBLIC_BASE_URL",
+      "configured": true,
+      "targetClass": "loopback",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_SITE_URL",
+      "configured": true,
+      "targetClass": "public-mycosoft",
+      "secretLike": false
+    },
+    {
+      "key": "MAS_API_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "MAS_API_BASE_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": false
+    },
+    {
+      "key": "MAS_ORCHESTRATOR_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_MAS_API_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_MAS_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "MAS_INTERNAL_SERVICE_TOKEN",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "MYCA_INTERNAL_SERVICE_TOKEN",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "MINDEX_API_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "MINDEX_API_BASE_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_MINDEX_API_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_MINDEX_URL",
+      "configured": true,
+      "targetClass": "private-lan",
+      "secretLike": false
+    },
+    {
+      "key": "MINDEX_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "MINDEX_INTERNAL_TOKEN",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "MINDEX_INTERNAL_TOKENS",
+      "configured": false,
+      "secretLike": true
+    },
+    {
+      "key": "DATABASE_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": true
+    },
+    {
+      "key": "MINDEX_DATABASE_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": true
+    },
+    {
+      "key": "MINDEX_DB_DSN",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": true
+    },
+    {
+      "key": "REDIS_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": true
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "configured": true,
+      "targetClass": "public-supabase",
+      "secretLike": false
+    },
+    {
+      "key": "SUPABASE_URL",
+      "configured": false,
+      "targetClass": "unset",
+      "secretLike": false
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "configured": false,
+      "secretLike": true
+    },
+    {
+      "key": "MYCOBRAIN_SERVICE_URL",
+      "configured": true,
+      "targetClass": "loopback",
+      "secretLike": false
+    },
+    {
+      "key": "MYCOBRAIN_API_URL",
+      "configured": true,
+      "targetClass": "loopback",
+      "secretLike": false
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "ANTHROPIC_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "GOOGLE_AI_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "GEMINI_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "GROQ_API_KEY",
+      "configured": true,
+      "secretLike": true
+    },
+    {
+      "key": "XAI_API_KEY",
+      "configured": true,
+      "secretLike": true
+    }
+  ],
+  "routeInventory": {
+    "totalApiRoutes": 658,
+    "groups": {
+      "myca": {
+        "count": 46,
+        "sample": [
+          "/api/mas/myca2-psilo/session/:sessionId",
+          "/api/mas/myca2-psilo/session/:sessionId/edge",
+          "/api/mas/myca2-psilo/session/:sessionId/kill",
+          "/api/mas/myca2-psilo/session/:sessionId/stop",
+          "/api/mas/myca2-psilo/start",
+          "/api/myca",
+          "/api/myca/a2a/agent-card",
+          "/api/myca/a2a/message/send",
+          "/api/myca/activity",
+          "/api/myca/activity/stream",
+          "/api/myca/brain/stream",
+          "/api/myca/capabilities",
+          "/api/myca/connection-proposal",
+          "/api/myca/connectivity",
+          "/api/myca/consciousness/awaken",
+          "/api/myca/consciousness/chat",
+          "/api/myca/consciousness/emotions",
+          "/api/myca/consciousness/identity",
+          "/api/myca/consciousness/soul",
+          "/api/myca/consciousness/status",
+          "/api/myca/consciousness/world",
+          "/api/myca/conversations",
+          "/api/myca/coordination/inbox",
+          "/api/myca/coordination/message",
+          "/api/myca/coordination/status",
+          "/api/myca/devices/visibility",
+          "/api/myca/entity-feed",
+          "/api/myca/grounding",
+          "/api/myca/grounding/ep/:id",
+          "/api/myca/grounding/status",
+          "/api/myca/grounding/thoughts",
+          "/api/myca/intention",
+          "/api/myca/live-activity",
+          "/api/myca/nlq",
+          "/api/myca/openapi",
+          "/api/myca/query",
+          "/api/myca/reflection",
+          "/api/myca/runs",
+          "/api/myca/sync",
+          "/api/myca/thoughts"
+        ]
+      },
+      "mas": {
+        "count": 41,
+        "sample": [
+          "/api/eagle/connectors/mastodon",
+          "/api/mas-proxy/:path*",
+          "/api/mas/agents",
+          "/api/mas/agents/:id",
+          "/api/mas/brain/query",
+          "/api/mas/chat",
+          "/api/mas/commerce/checkout",
+          "/api/mas/commerce/quote",
+          "/api/mas/connections",
+          "/api/mas/csuite/finance/status",
+          "/api/mas/documents/search",
+          "/api/mas/health",
+          "/api/mas/memory",
+          "/api/mas/myca2-psilo/session/:sessionId",
+          "/api/mas/myca2-psilo/session/:sessionId/edge",
+          "/api/mas/myca2-psilo/session/:sessionId/kill",
+          "/api/mas/myca2-psilo/session/:sessionId/stop",
+          "/api/mas/myca2-psilo/start",
+          "/api/mas/mycobrain",
+          "/api/mas/notifications",
+          "/api/mas/orchestrator/action",
+          "/api/mas/raas/worldstate/balance",
+          "/api/mas/raas/worldstate/usage",
+          "/api/mas/registry/apis",
+          "/api/mas/registry/systems",
+          "/api/mas/system-memory",
+          "/api/mas/tasks/submit",
+          "/api/mas/topology",
+          "/api/mas/voice",
+          "/api/mas/voice/confirm",
+          "/api/mas/voice/duplex/session",
+          "/api/mas/voice/orchestrator",
+          "/api/mas/voice/sessions",
+          "/api/mas/world/:path*",
+          "/api/test-voice/mas/brain-chat",
+          "/api/test-voice/mas/memory-health",
+          "/api/test-voice/mas/myca-status",
+          "/api/test-voice/mas/orchestrator-chat",
+          "/api/test-voice/mas/voice-session/:sessionId/end",
+          "/api/test-voice/mas/voice-session/create"
+        ]
+      },
+      "mindex": {
+        "count": 66,
+        "sample": [
+          "/api/etl/mindex-sync",
+          "/api/functions/mindex-query",
+          "/api/gateway/mindex",
+          "/api/mindex/:path*",
+          "/api/mindex/agents/anomalies",
+          "/api/mindex/agents/commands/queue",
+          "/api/mindex/agents/insights/publish",
+          "/api/mindex/agents/telemetry/latest",
+          "/api/mindex/anchor",
+          "/api/mindex/anchor/status",
+          "/api/mindex/compounds/detail",
+          "/api/mindex/devices",
+          "/api/mindex/etl/improvement",
+          "/api/mindex/fungal-atlas/status",
+          "/api/mindex/genetics",
+          "/api/mindex/genetics/detail",
+          "/api/mindex/genetics/ingest-background",
+          "/api/mindex/genome-tracks",
+          "/api/mindex/graft",
+          "/api/mindex/graphql",
+          "/api/mindex/health",
+          "/api/mindex/ingest/:type",
+          "/api/mindex/integrity/proof/:id",
+          "/api/mindex/integrity/record/:id",
+          "/api/mindex/integrity/verify",
+          "/api/mindex/integrity/verify/:id",
+          "/api/mindex/observations",
+          "/api/mindex/playback",
+          "/api/mindex/proxy/:source",
+          "/api/mindex/registry/devices",
+          "/api/mindex/registry/events",
+          "/api/mindex/research/search",
+          "/api/mindex/smells",
+          "/api/mindex/species",
+          "/api/mindex/species/detail",
+          "/api/mindex/species/ingest-background",
+          "/api/mindex/stream/channels",
+          "/api/mindex/stream/publish",
+          "/api/mindex/stream/subscribe",
+          "/api/mindex/taxa"
+        ]
+      },
+      "natureos": {
+        "count": 81,
+        "sample": [
+          "/api/natureos/activity",
+          "/api/natureos/activity-topology",
+          "/api/natureos/activity/recent",
+          "/api/natureos/aerosol/chemicals",
+          "/api/natureos/aerosol/dust",
+          "/api/natureos/aerosol/pollen",
+          "/api/natureos/aerosol/radiation",
+          "/api/natureos/aerosol/spores",
+          "/api/natureos/aerosol/virus",
+          "/api/natureos/analytics/biodiversity",
+          "/api/natureos/analytics/reports/biodiversity",
+          "/api/natureos/analytics/timeseries",
+          "/api/natureos/biology-simulator/unreal-bridge",
+          "/api/natureos/bluesight/:path*",
+          "/api/natureos/devices/:id/telemetry",
+          "/api/natureos/devices/mycobrain",
+          "/api/natureos/devices/telemetry",
+          "/api/natureos/devices/twin",
+          "/api/natureos/earth2",
+          "/api/natureos/export/json",
+          "/api/natureos/feeds/openaq/measurements",
+          "/api/natureos/functions/stats",
+          "/api/natureos/global-events",
+          "/api/natureos/intel-reports",
+          "/api/natureos/lab/chemputer/plan",
+          "/api/natureos/lab/growth/instrument-summary",
+          "/api/natureos/lab/protocols",
+          "/api/natureos/lab/samples",
+          "/api/natureos/lab/samples/:id",
+          "/api/natureos/live-stats",
+          "/api/natureos/matlab/analysis",
+          "/api/natureos/matlab/anomaly-detection",
+          "/api/natureos/matlab/classification",
+          "/api/natureos/matlab/forecast",
+          "/api/natureos/matlab/health",
+          "/api/natureos/matlab/visualization",
+          "/api/natureos/mindex/compounds",
+          "/api/natureos/mindex/containers",
+          "/api/natureos/mindex/devices",
+          "/api/natureos/mindex/etl-status"
+        ]
+      },
+      "crep": {
+        "count": 37,
+        "sample": [
+          "/api/crep/airnow/bbox",
+          "/api/crep/airnow/current",
+          "/api/crep/buoy/:station",
+          "/api/crep/fungal",
+          "/api/crep/fungal-atlas",
+          "/api/crep/fungal-atlas/deployment",
+          "/api/crep/fungal-atlas/samples",
+          "/api/crep/fungal-atlas/tiles/:layer/:z/:x/:y",
+          "/api/crep/geocode",
+          "/api/crep/health",
+          "/api/crep/mojave",
+          "/api/crep/mycosoft-devices",
+          "/api/crep/nature-stream",
+          "/api/crep/nature/preloaded",
+          "/api/crep/oyster/emit",
+          "/api/crep/oyster/plume",
+          "/api/crep/preferences",
+          "/api/crep/reverse-geocode",
+          "/api/crep/sdapcd/h2s",
+          "/api/crep/sdapcd/h2s/chart",
+          "/api/crep/sdapcd/h2s/collect",
+          "/api/crep/services",
+          "/api/crep/species/search",
+          "/api/crep/status",
+          "/api/crep/tijuana-estuary",
+          "/api/crep/tile-render/:layer/:z/:x/:y",
+          "/api/crep/tiles/:tile*",
+          "/api/crep/tiles/satellite/:basemap/:z/:x/:y",
+          "/api/crep/unified",
+          "/api/crep/viewport-ai-summary",
+          "/api/crep/viewport-environment",
+          "/api/crep/viewport-intel",
+          "/api/crep/viewport-sensors",
+          "/api/crep/waypoints",
+          "/api/crep/waypoints/:id",
+          "/api/search/crep",
+          "/api/stream/crep"
+        ]
+      },
+      "eagle": {
+        "count": 17,
+        "sample": [
+          "/api/eagle/cam-image",
+          "/api/eagle/cam-snapshot",
+          "/api/eagle/connectors/bluesky",
+          "/api/eagle/connectors/border-crossing",
+          "/api/eagle/connectors/mastodon",
+          "/api/eagle/connectors/public-webcams",
+          "/api/eagle/connectors/shinobi",
+          "/api/eagle/connectors/state-dot-cctv",
+          "/api/eagle/connectors/traffic-511",
+          "/api/eagle/connectors/twitch",
+          "/api/eagle/connectors/webcamtaxi",
+          "/api/eagle/events",
+          "/api/eagle/hls-proxy",
+          "/api/eagle/sources",
+          "/api/eagle/stream/:sourceId",
+          "/api/eagle/weather/multi",
+          "/api/eagle/youtube-embed"
+        ]
+      },
+      "search": {
+        "count": 33,
+        "sample": [
+          "/api/crep/species/search",
+          "/api/earth-simulator/search",
+          "/api/embeddings/search",
+          "/api/mas/documents/search",
+          "/api/mindex/research/search",
+          "/api/natureos/mindex/search",
+          "/api/search",
+          "/api/search/ai",
+          "/api/search/ai-v2",
+          "/api/search/ai/stream",
+          "/api/search/chat",
+          "/api/search/crep",
+          "/api/search/embeddings",
+          "/api/search/exa",
+          "/api/search/history",
+          "/api/search/location",
+          "/api/search/map-preview",
+          "/api/search/media",
+          "/api/search/memory",
+          "/api/search/memory/session/:sessionId",
+          "/api/search/mindex-enrich",
+          "/api/search/news",
+          "/api/search/qa/artifact",
+          "/api/search/qa/scenarios",
+          "/api/search/research",
+          "/api/search/route",
+          "/api/search/stream",
+          "/api/search/suggestions",
+          "/api/search/trends",
+          "/api/search/unified",
+          "/api/search/unified-v2",
+          "/api/shodan/search",
+          "/api/worldview/v1/search"
+        ]
+      },
+      "health": {
+        "count": 14,
+        "sample": [
+          "/api/crep/health",
+          "/api/earth2/health",
+          "/api/health",
+          "/api/health/media",
+          "/api/health/providers",
+          "/api/mas/health",
+          "/api/mindex/health",
+          "/api/mycobrain/health",
+          "/api/natureos/matlab/health",
+          "/api/natureos/mindex/health",
+          "/api/natureos/tools-hub/health",
+          "/api/sse/health",
+          "/api/test-voice/bridge/health",
+          "/api/worldview/v1/health"
+        ]
+      },
+      "supabase": {
+        "count": 0,
+        "sample": []
+      }
+    }
+  },
+  "envReferences": {
+    "ANTHROPIC_API_KEY": {
+      "references": 9,
+      "files": [
+        "app/api/health/providers/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/myca/connection-proposal/route.ts",
+        "app/api/myca/connectivity/route.ts",
+        "app/api/search/ai-v2/route.ts",
+        "app/api/search/unified-v2/route.ts",
+        "lib/ai/providers/anthropic.ts",
+        "lib/ai/providers/unified-ai.ts"
+      ]
+    },
+    "DATABASE_URL": {
+      "references": 5,
+      "files": [
+        "app/api/crep/services/route.ts",
+        "app/api/ground-station/seed/route.ts",
+        "lib/config/api-urls.ts",
+        "lib/ground-station/db.ts",
+        "scripts/worldview/apply-migration.mjs"
+      ]
+    },
+    "GEMINI_API_KEY": {
+      "references": 2,
+      "files": [
+        "app/api/health/providers/route.ts",
+        "lib/nlm/gemini.ts"
+      ]
+    },
+    "GOOGLE_AI_API_KEY": {
+      "references": 5,
+      "files": [
+        "app/api/health/providers/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/myca/connectivity/route.ts",
+        "lib/ai/providers/google.ts",
+        "lib/ai/providers/unified-ai.ts"
+      ]
+    },
+    "GOOGLE_CLIENT_ID": {
+      "references": 8,
+      "files": [
+        "app/api/auth/providers/route.ts",
+        "app/api/auth/[...nextauth]/route.ts",
+        "app/api/storage/gdrive/route.ts"
+      ]
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "references": 4,
+      "files": [
+        "app/api/auth/providers/route.ts",
+        "app/api/auth/[...nextauth]/route.ts",
+        "app/api/storage/gdrive/route.ts"
+      ]
+    },
+    "GOOGLE_CLOUD_ACCESS_TOKEN": {
+      "references": 1,
+      "files": [
+        "lib/ai/providers/google-vertex.ts"
+      ]
+    },
+    "GOOGLE_CLOUD_LOCATION": {
+      "references": 1,
+      "files": [
+        "lib/ai/providers/google-vertex.ts"
+      ]
+    },
+    "GOOGLE_CLOUD_PROJECT": {
+      "references": 2,
+      "files": [
+        "lib/ai/providers/google-vertex.ts",
+        "lib/ai/providers/unified-ai.ts"
+      ]
+    },
+    "GOOGLE_REFRESH_TOKEN": {
+      "references": 1,
+      "files": [
+        "app/api/storage/gdrive/route.ts"
+      ]
+    },
+    "GROQ_API_KEY": {
+      "references": 13,
+      "files": [
+        "app/api/ai/route.ts",
+        "app/api/chat/route.ts",
+        "app/api/health/providers/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/myca/connectivity/route.ts",
+        "app/api/search/ai/route.ts",
+        "app/api/search/ai/stream/route.ts",
+        "app/api/search/ai-v2/route.ts",
+        "app/api/search/chat/route.ts",
+        "app/api/search/unified-v2/route.ts",
+        "app/api/voice/command/route.ts",
+        "lib/ai/providers/groq.ts",
+        "lib/ai/providers/unified-ai.ts"
+      ]
+    },
+    "MAS_API_BASE_URL": {
+      "references": 1,
+      "files": [
+        "lib/mas-server-url.ts"
+      ]
+    },
+    "MAS_API_KEY": {
+      "references": 12,
+      "files": [
+        "app/api/fusarium/dispersal/route.ts",
+        "app/api/fusarium/risk-zones/route.ts",
+        "app/api/fusarium/route.ts",
+        "app/api/fusarium/species/route.ts",
+        "app/api/fusarium/threats/route.ts",
+        "app/api/mas/tasks/submit/route.ts",
+        "app/api/security/agents/route.ts",
+        "app/api/security/redteam/route.ts",
+        "app/api/security/route.ts",
+        "lib/security/database.ts"
+      ]
+    },
+    "MAS_API_URL": {
+      "references": 156,
+      "files": [
+        "app/api/brain/status/route.ts",
+        "app/api/contact/route.ts",
+        "app/api/crep/status/route.ts",
+        "app/api/defense/briefing/route.ts",
+        "app/api/devices/discover/route.ts",
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/devices/network/route.ts",
+        "app/api/devices/network/[deviceId]/command/route.ts",
+        "app/api/devices/network/[deviceId]/telemetry/route.ts",
+        "app/api/devices/route.ts",
+        "app/api/devices/sporebase/order/route.ts",
+        "app/api/devices/sporebase/route.ts",
+        "app/api/devices/sporebase/samples/route.ts",
+        "app/api/devices/sporebase/telemetry/route.ts",
+        "app/api/devices/[deviceId]/telemetry/route.ts"
+      ]
+    },
+    "MAS_BRIDGE_TOKEN": {
+      "references": 1,
+      "files": [
+        "app/api/oei/sdr/listen/route.ts"
+      ]
+    },
+    "MAS_INTERNAL_API_KEY": {
+      "references": 2,
+      "files": [
+        "app/api/mas/tasks/submit/route.ts",
+        "app/api/security/route.ts"
+      ]
+    },
+    "MAS_INTERNAL_SERVICE_TOKEN": {
+      "references": 1,
+      "files": [
+        "lib/auth/verified-identity.ts"
+      ]
+    },
+    "MAS_ORCHESTRATOR_URL": {
+      "references": 31,
+      "files": [
+        "app/api/autonomous/route.ts",
+        "app/api/bio/dna-storage/route.ts",
+        "app/api/bio/fci/route.ts",
+        "app/api/bio/fci/[id]/[action]/route.ts",
+        "app/api/bio/mycobrain/route.ts",
+        "app/api/brain/route.ts",
+        "app/api/brain/status/route.ts",
+        "app/api/health/providers/route.ts",
+        "app/api/mas/mycobrain/route.ts",
+        "app/api/mas/system-memory/route.ts",
+        "app/api/memory/episodes/route.ts",
+        "app/api/memory/route.ts",
+        "app/api/memory/stats/route.ts",
+        "app/api/mycobrain/[port]/register/route.ts",
+        "app/api/natureos/bluesight/[[...path]]/route.ts"
+      ]
+    },
+    "MAS_REPO_PATH": {
+      "references": 1,
+      "files": [
+        "app/api/test-voice/voice-stack/start/route.ts"
+      ]
+    },
+    "MAS_URL": {
+      "references": 2,
+      "files": [
+        "app/api/oei/sdr/listen/route.ts",
+        "lib/mas-server-url.ts"
+      ]
+    },
+    "MAS_VM_HOST": {
+      "references": 1,
+      "files": [
+        "lib/config/api-urls.ts"
+      ]
+    },
+    "MINDEX_API_BASE_URL": {
+      "references": 8,
+      "files": [
+        "app/api/beta/onboard/route.ts",
+        "app/api/billing/mrr/route.ts",
+        "app/api/mindex/health/route.ts",
+        "app/api/natureos/mindex/genomes/route.ts",
+        "app/api/natureos/telemetry/route.ts",
+        "lib/env.ts",
+        "lib/mindex-base-url.ts"
+      ]
+    },
+    "MINDEX_API_KEY": {
+      "references": 92,
+      "files": [
+        "app/api/ancestry/data-quality/route.ts",
+        "app/api/ancestry/route.ts",
+        "app/api/compounds/species/[id]/route.ts",
+        "app/api/crep/fungal/route.ts",
+        "app/api/crep/fungal-atlas/deployment/route.ts",
+        "app/api/crep/fungal-atlas/route.ts",
+        "app/api/crep/fungal-atlas/samples/route.ts",
+        "app/api/crep/nature/preloaded/route.ts",
+        "app/api/crep/nature-stream/route.ts",
+        "app/api/crep/oyster/emit/route.ts",
+        "app/api/crep/reverse-geocode/route.ts",
+        "app/api/crep/species/search/route.ts",
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts",
+        "app/api/crep/viewport-intel/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts"
+      ]
+    },
+    "MINDEX_API_URL": {
+      "references": 50,
+      "files": [
+        "app/api/beta/onboard/route.ts",
+        "app/api/billing/mrr/route.ts",
+        "app/api/crep/nature/preloaded/route.ts",
+        "app/api/crep/oyster/emit/route.ts",
+        "app/api/crep/species/search/route.ts",
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts",
+        "app/api/eagle/connectors/shinobi/route.ts",
+        "app/api/eagle/connectors/traffic-511/route.ts",
+        "app/api/eagle/events/route.ts",
+        "app/api/eagle/sources/route.ts",
+        "app/api/eagle/stream/[sourceId]/route.ts",
+        "app/api/earth/fungal/route.ts",
+        "app/api/mindex/agents/anomalies/route.ts",
+        "app/api/mindex/agents/commands/queue/route.ts"
+      ]
+    },
+    "MINDEX_DATABASE_URL": {
+      "references": 1,
+      "files": [
+        "app/api/mindex/observations/route.ts"
+      ]
+    },
+    "MINDEX_DB_HOST": {
+      "references": 2,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_DB_NAME": {
+      "references": 2,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_DB_PASSWORD": {
+      "references": 1,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_DB_PORT": {
+      "references": 1,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_DB_SSL": {
+      "references": 1,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_DB_USER": {
+      "references": 2,
+      "files": [
+        "app/api/natureos/nlm-training/mindex/route.ts"
+      ]
+    },
+    "MINDEX_INGEST_TIMEOUT_MS": {
+      "references": 1,
+      "files": [
+        "app/api/mindex/ingest/[type]/route.ts"
+      ]
+    },
+    "MINDEX_INGEST_TOKEN": {
+      "references": 1,
+      "files": [
+        "scripts/etl/crep/fetch-ports-wpi.ts"
+      ]
+    },
+    "MINDEX_INTERNAL_TOKEN": {
+      "references": 27,
+      "files": [
+        "app/api/billing/mrr/route.ts",
+        "app/api/crep/fungal-atlas/route.ts",
+        "app/api/crep/nature/preloaded/route.ts",
+        "app/api/crep/oyster/emit/route.ts",
+        "app/api/crep/reverse-geocode/route.ts",
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts",
+        "app/api/crep/viewport-intel/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts",
+        "app/api/eagle/connectors/shinobi/route.ts",
+        "app/api/eagle/connectors/traffic-511/route.ts",
+        "app/api/eagle/events/route.ts",
+        "app/api/eagle/sources/route.ts",
+        "app/api/eagle/stream/[sourceId]/route.ts",
+        "app/api/myca/waypoint-verify/route.ts",
+        "lib/crep/mindex-ingest.ts"
+      ]
+    },
+    "MINDEX_INTERNAL_TOKENS": {
+      "references": 19,
+      "files": [
+        "app/api/crep/fungal-atlas/route.ts",
+        "app/api/crep/nature/preloaded/route.ts",
+        "app/api/crep/oyster/emit/route.ts",
+        "app/api/crep/reverse-geocode/route.ts",
+        "app/api/crep/viewport-intel/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts",
+        "app/api/eagle/connectors/shinobi/route.ts",
+        "app/api/eagle/connectors/traffic-511/route.ts",
+        "app/api/eagle/events/route.ts",
+        "app/api/eagle/sources/route.ts",
+        "app/api/eagle/stream/[sourceId]/route.ts",
+        "app/api/myca/waypoint-verify/route.ts",
+        "lib/crep/mindex-ingest.ts",
+        "lib/crep/registries/rail-registry.ts",
+        "lib/crep/registries/vessel-registry.ts"
+      ]
+    },
+    "MINDEX_TILE_CACHE_URL": {
+      "references": 1,
+      "files": [
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts"
+      ]
+    },
+    "MINDEX_URL": {
+      "references": 1,
+      "files": [
+        "scripts/etl/crep/fetch-ports-wpi.ts"
+      ]
+    },
+    "MINDEX_VM_HOST": {
+      "references": 1,
+      "files": [
+        "lib/config/api-urls.ts"
+      ]
+    },
+    "MYCA_BRAIN_URL": {
+      "references": 1,
+      "files": [
+        "app/api/mas/brain/query/route.ts"
+      ]
+    },
+    "MYCA_INTERNAL_SERVICE_TOKEN": {
+      "references": 1,
+      "files": [
+        "lib/auth/verified-identity.ts"
+      ]
+    },
+    "MYCA_MAS_API_BASE_URL": {
+      "references": 2,
+      "files": [
+        "lib/env.ts"
+      ]
+    },
+    "MYCA_MAS_API_KEY": {
+      "references": 1,
+      "files": [
+        "lib/env.ts"
+      ]
+    },
+    "MYCA_MAS_SERVICE_TOKEN": {
+      "references": 1,
+      "files": [
+        "lib/auth/verified-identity.ts"
+      ]
+    },
+    "MYCA_PUBLIC_TEXT_CONSCIOUSNESS_TIMEOUT_MS": {
+      "references": 1,
+      "files": [
+        "app/api/mas/voice/orchestrator/route.ts"
+      ]
+    },
+    "MYCA_PUBLIC_TEXT_MAS_TIMEOUT_MS": {
+      "references": 1,
+      "files": [
+        "app/api/mas/voice/orchestrator/route.ts"
+      ]
+    },
+    "MYCA_VOICE_ID": {
+      "references": 3,
+      "files": [
+        "app/api/mas/voice/orchestrator/route.ts",
+        "app/api/mas/voice/route.ts",
+        "app/api/myca/nlq/route.ts"
+      ]
+    },
+    "MYCOBRAIN_API_URL": {
+      "references": 9,
+      "files": [
+        "app/api/devices/discover/route.ts",
+        "app/api/devices/route.ts",
+        "app/api/earth-simulator/devices/route.ts",
+        "app/api/mycobrain/events/route.ts",
+        "app/api/natureos/nlm-training/mycobrain/route.ts",
+        "app/api/spores/detections/route.ts",
+        "lib/mycobrain-service-url.ts"
+      ]
+    },
+    "MYCOBRAIN_OPERATOR_URLS": {
+      "references": 4,
+      "files": [
+        "app/api/mycobrain/route.ts",
+        "app/api/natureos/devices/telemetry/route.ts",
+        "app/api/natureos/live-stats/route.ts",
+        "lib/devices/agent-resolver.ts"
+      ]
+    },
+    "MYCOBRAIN_SERVICE_URL": {
+      "references": 22,
+      "files": [
+        "app/api/devices/discover/route.ts",
+        "app/api/earth-simulator/devices/route.ts",
+        "app/api/mycobrain/events/route.ts",
+        "app/api/mycobrain/ports/clear-locks/route.ts",
+        "app/api/mycobrain/ports/route.ts",
+        "app/api/mycobrain/[port]/buzzer/route.ts",
+        "app/api/mycobrain/[port]/control/route.ts",
+        "app/api/mycobrain/[port]/diagnostics/route.ts",
+        "app/api/mycobrain/[port]/led/route.ts",
+        "app/api/mycobrain/[port]/machine-mode/route.ts",
+        "app/api/mycobrain/[port]/peripherals/route.ts",
+        "app/api/mycobrain/[port]/register/route.ts",
+        "app/api/mycobrain/[port]/sensors/route.ts",
+        "app/api/mycobrain/[port]/serial/route.ts",
+        "app/api/mycobrain/[port]/telemetry/route.ts"
+      ]
+    },
+    "N8N_API_KEY": {
+      "references": 7,
+      "files": [
+        "app/api/myca/workflows/route.ts",
+        "app/api/n8n/executions/route.ts",
+        "app/api/n8n/route.ts",
+        "app/api/n8n/workflows/route.ts",
+        "app/api/natureos/n8n/import/route.ts",
+        "app/api/natureos/n8n/route.ts",
+        "lib/services/nlq-connectors/n8n-connector.ts"
+      ]
+    },
+    "N8N_CLOUD_API_KEY": {
+      "references": 2,
+      "files": [
+        "app/api/n8n/sync/route.ts",
+        "app/api/n8n/workflows/route.ts"
+      ]
+    },
+    "N8N_CLOUD_URL": {
+      "references": 5,
+      "files": [
+        "app/api/myca/workflows/route.ts",
+        "app/api/n8n/sync/route.ts",
+        "app/api/n8n/workflows/route.ts",
+        "app/api/natureos/n8n/import/route.ts",
+        "app/api/natureos/n8n/route.ts"
+      ]
+    },
+    "N8N_LOCAL_URL": {
+      "references": 2,
+      "files": [
+        "app/api/myca/workflows/route.ts",
+        "app/api/natureos/n8n/route.ts"
+      ]
+    },
+    "N8N_PASSWORD": {
+      "references": 4,
+      "files": [
+        "app/api/mas/chat/route.ts",
+        "app/api/n8n/route.ts",
+        "app/api/n8n/sync/route.ts",
+        "app/api/n8n/workflows/route.ts"
+      ]
+    },
+    "N8N_URL": {
+      "references": 12,
+      "files": [
+        "app/api/crep/services/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/mas/voice/confirm/route.ts",
+        "app/api/mas/voice/orchestrator/route.ts",
+        "app/api/n8n/executions/route.ts",
+        "app/api/n8n/route.ts",
+        "app/api/n8n/sync/route.ts",
+        "app/api/n8n/workflows/route.ts",
+        "app/api/natureos/activity/recent/route.ts",
+        "app/api/natureos/activity-topology/route.ts",
+        "lib/config/api-urls.ts",
+        "lib/services/nlq-connectors/n8n-connector.ts"
+      ]
+    },
+    "N8N_USERNAME": {
+      "references": 4,
+      "files": [
+        "app/api/mas/chat/route.ts",
+        "app/api/n8n/route.ts",
+        "app/api/n8n/sync/route.ts",
+        "app/api/n8n/workflows/route.ts"
+      ]
+    },
+    "N8N_WEBHOOK_URL": {
+      "references": 2,
+      "files": [
+        "app/api/natureos/activity/recent/route.ts",
+        "app/api/natureos/activity-topology/route.ts"
+      ]
+    },
+    "N8N_WORKFLOWS_DIR": {
+      "references": 1,
+      "files": [
+        "app/api/natureos/n8n/import/route.ts"
+      ]
+    },
+    "NEXT_PUBLIC_BASE_URL": {
+      "references": 16,
+      "files": [
+        "app/api/chat/route.ts",
+        "app/api/crep/geocode/route.ts",
+        "app/api/devices/register/route.ts",
+        "app/api/mas/voice/orchestrator/route.ts",
+        "app/api/myca/live-activity/route.ts",
+        "app/api/oei/buoys/route.ts",
+        "app/api/search/chat/route.ts",
+        "app/profile/page.tsx",
+        "lib/api-usage-interceptor.ts",
+        "lib/config/api-urls.ts",
+        "lib/hero-youtube.ts",
+        "lib/mas-graph-client-base.ts",
+        "lib/oei/mindex-ingest.ts",
+        "scripts/test-docker-clone-backup.js"
+      ]
+    },
+    "NEXT_PUBLIC_MAS_API_URL": {
+      "references": 55,
+      "files": [
+        "app/admin/page.tsx",
+        "app/admin/treasury/page.tsx",
+        "app/api/eagle/weather/multi/route.ts",
+        "app/api/earth2/_lib/mas-url.ts",
+        "app/api/mas/commerce/checkout/route.ts",
+        "app/api/mas/commerce/quote/route.ts",
+        "app/api/mas/registry/apis/route.ts",
+        "app/api/mas/registry/systems/route.ts",
+        "app/api/mas/tasks/submit/route.ts",
+        "app/api/myca/a2a/agent-card/route.ts",
+        "app/api/myca/a2a/message/send/route.ts",
+        "app/api/myca/brain/stream/route.ts",
+        "app/api/natureos/activity-topology/route.ts",
+        "app/api/natureos/aerosol/radiation/route.ts",
+        "app/api/natureos/aerosol/virus/route.ts"
+      ]
+    },
+    "NEXT_PUBLIC_MAS_URL": {
+      "references": 26,
+      "files": [
+        "app/admin/voice-health/page.tsx",
+        "app/api/autonomous/experiments/route.ts",
+        "app/api/autonomous/experiments/[id]/[action]/route.ts",
+        "app/api/autonomous/route.ts",
+        "app/api/bio/dna-storage/route.ts",
+        "app/api/bio/fci/route.ts",
+        "app/api/bio/fci/[id]/[action]/route.ts",
+        "app/api/bio/mycobrain/route.ts",
+        "app/api/scientific/experiments/route.ts",
+        "app/api/scientific/experiments/[id]/[action]/route.ts",
+        "app/api/scientific/hypotheses/route.ts",
+        "app/api/scientific/hypotheses/[id]/test/route.ts",
+        "app/api/scientific/lab/route.ts",
+        "app/api/scientific/lab/[id]/calibrate/route.ts",
+        "app/api/scientific/safety/route.ts"
+      ]
+    },
+    "NEXT_PUBLIC_MINDEX_API_URL": {
+      "references": 16,
+      "files": [
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts",
+        "app/api/eagle/connectors/shinobi/route.ts",
+        "app/api/eagle/connectors/traffic-511/route.ts",
+        "app/api/eagle/events/route.ts",
+        "app/api/eagle/sources/route.ts",
+        "app/api/eagle/stream/[sourceId]/route.ts",
+        "app/api/myca/waypoint-verify/route.ts",
+        "app/api/oei/cctv/route.ts",
+        "app/profile/page.tsx",
+        "lib/crep/mindex-ingest.ts",
+        "lib/crep/registries/rail-registry.ts",
+        "lib/data/compounds.ts",
+        "lib/mindex-base-url.ts",
+        "lib/myca/waypoint-verifier.ts"
+      ]
+    },
+    "NEXT_PUBLIC_MINDEX_URL": {
+      "references": 8,
+      "files": [
+        "app/api/crep/species/search/route.ts",
+        "app/api/oei/buoys/route.ts",
+        "lib/config/api-urls.ts",
+        "lib/crep/registries/aircraft-registry.ts",
+        "lib/crep/registries/satellite-registry.ts",
+        "lib/crep/registries/vessel-registry.ts",
+        "lib/mindex-base-url.ts",
+        "scripts/etl/crep/fetch-ports-wpi.ts"
+      ]
+    },
+    "NEXT_PUBLIC_SITE_URL": {
+      "references": 16,
+      "files": [
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/mycorrhizae/[[...path]]/route.ts",
+        "app/api/natureos/nlm-training/status/route.ts",
+        "app/auth/callback/route.ts",
+        "app/auth/login/route.ts",
+        "lib/crep/registries/cell-tower-registry.ts",
+        "lib/crep/registries/factory-registry.ts",
+        "lib/crep/registries/orbital-object-registry.ts",
+        "lib/crep/registries/port-registry.ts",
+        "lib/crep/registries/power-plant-registry.ts",
+        "lib/crep/registries/radar-registry.ts",
+        "lib/crep/registries/radio-station-registry.ts",
+        "lib/devices/agent-resolver.ts",
+        "lib/hero-youtube.ts",
+        "lib/mas-graph-client-base.ts"
+      ]
+    },
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
+      "references": 21,
+      "files": [
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/devices/[deviceId]/command/route.ts",
+        "app/api/devices/[deviceId]/openclaw/action/route.ts",
+        "app/api/devices/[deviceId]/openclaw/status/route.ts",
+        "app/api/mas/memory/route.ts",
+        "app/api/memory/route.ts",
+        "app/auth/callback/route.ts",
+        "app/auth/login/route.ts",
+        "lib/agent-auth.ts",
+        "lib/env.ts",
+        "lib/nlm/supabase.ts",
+        "lib/security/agents/prediction-agent.ts",
+        "lib/security/agents/resolution-agent.ts",
+        "lib/security/tests/incident-chain.test.ts",
+        "lib/services/image-service.ts"
+      ]
+    },
+    "NEXT_PUBLIC_SUPABASE_URL": {
+      "references": 54,
+      "files": [
+        "app/api/agent/success/route.ts",
+        "app/api/chat/route.ts",
+        "app/api/contact/route.ts",
+        "app/api/crypto/verify/route.ts",
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/devices/[deviceId]/command/route.ts",
+        "app/api/devices/[deviceId]/openclaw/action/route.ts",
+        "app/api/devices/[deviceId]/openclaw/status/route.ts",
+        "app/api/health/route.ts",
+        "app/api/mas/connections/route.ts",
+        "app/api/mas/memory/route.ts",
+        "app/api/mas/topology/route.ts",
+        "app/api/mas/world/[[...path]]/route.ts",
+        "app/api/memory/route.ts",
+        "app/api/myca/devices/visibility/route.ts"
+      ]
+    },
+    "OPENAIP_API_KEY": {
+      "references": 1,
+      "files": [
+        "app/api/oei/drone-no-fly/route.ts"
+      ]
+    },
+    "OPENAI_API_KEY": {
+      "references": 14,
+      "files": [
+        "app/api/ai/route.ts",
+        "app/api/chat/route.ts",
+        "app/api/health/providers/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/myca/connection-proposal/route.ts",
+        "app/api/myca/connectivity/route.ts",
+        "app/api/search/ai-v2/route.ts",
+        "app/api/search/unified-v2/route.ts",
+        "lib/ai/langchain-setup.ts",
+        "lib/ai/providers/openai.ts",
+        "lib/ai/providers/unified-ai.ts",
+        "lib/supabase/embeddings.ts"
+      ]
+    },
+    "POSTGRES_URL": {
+      "references": 3,
+      "files": [
+        "app/api/crep/services/route.ts",
+        "app/api/ground-station/seed/route.ts",
+        "lib/ground-station/db.ts"
+      ]
+    },
+    "REDIS_URL": {
+      "references": 6,
+      "files": [
+        "app/api/crep/services/route.ts",
+        "lib/config/api-urls.ts",
+        "lib/earth-simulator/cache-manager.ts",
+        "lib/env.ts",
+        "lib/oei/event-bus.ts"
+      ]
+    },
+    "SUPABASE_DB_URL": {
+      "references": 1,
+      "files": [
+        "scripts/worldview/apply-migration.mjs"
+      ]
+    },
+    "SUPABASE_SERVICE_ROLE_KEY": {
+      "references": 35,
+      "files": [
+        "app/api/agent/success/route.ts",
+        "app/api/chat/route.ts",
+        "app/api/contact/route.ts",
+        "app/api/crypto/verify/route.ts",
+        "app/api/mas/connections/route.ts",
+        "app/api/mas/topology/route.ts",
+        "app/api/mas/world/[[...path]]/route.ts",
+        "app/api/myca/devices/visibility/route.ts",
+        "app/api/security/agents/route.ts",
+        "app/api/security/chain-repair/route.ts",
+        "app/api/security/fcl/route.ts",
+        "app/api/security/incidents/causality/route.ts",
+        "app/api/security/incidents/test/route.ts",
+        "app/api/security/tests/route.ts",
+        "app/api/stripe/webhooks/route.ts"
+      ]
+    },
+    "XAI_API_KEY": {
+      "references": 6,
+      "files": [
+        "app/api/health/providers/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/myca/connectivity/route.ts",
+        "app/api/search/ai-v2/route.ts",
+        "lib/ai/providers/unified-ai.ts",
+        "lib/ai/providers/xai.ts"
+      ]
+    }
+  },
+  "probes": [
+    {
+      "name": "website-health",
+      "group": "website",
+      "method": "GET",
+      "path": "/api/health",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 4141,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "timestamp",
+        "version",
+        "uptime",
+        "environment",
+        "services",
+        "memory"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 570,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "crep-health",
+      "group": "crep",
+      "method": "GET",
+      "path": "/api/crep/health",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 648,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "service"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 42,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "myca-connectivity",
+      "group": "myca",
+      "method": "GET",
+      "path": "/api/myca/connectivity",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 3650,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "ok",
+        "chat_route",
+        "mas",
+        "mas_consciousness",
+        "mas_route_mounts",
+        "llm_keys",
+        "summary",
+        "mas_api_target",
+        "total_ms",
+        "timestamp"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 492,
+        "hasHtml": false,
+        "exposesConcreteMasUrl": false,
+        "chatReady": true
+      },
+      "error": null
+    },
+    {
+      "name": "myca-live-activity",
+      "group": "myca",
+      "method": "GET",
+      "path": "/api/myca/live-activity",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 5288,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "timestamp",
+        "session",
+        "sources",
+        "systems"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 4051,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "myca-orchestrator-get",
+      "group": "myca",
+      "method": "GET",
+      "path": "/api/mas/voice/orchestrator",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 44,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "service",
+        "version",
+        "timestamp",
+        "identity"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 155,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "myca-chat-smoke",
+      "group": "myca",
+      "method": "POST",
+      "path": "/api/mas/voice/orchestrator",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 2868,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "conversation_id",
+        "response_text",
+        "agent",
+        "actions",
+        "latency_ms"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 212,
+        "hasHtml": false,
+        "responseTextLength": 50,
+        "disclosureInResponse": false,
+        "hasAudioPayload": false,
+        "hasProviderFields": false,
+        "memorySaved": false
+      },
+      "error": null
+    },
+    {
+      "name": "website-mas-health-proxy",
+      "group": "mas",
+      "method": "GET",
+      "path": "/api/mas/health",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 1471,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "service",
+        "reachable",
+        "latency_ms",
+        "timestamp"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 125,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "website-mindex-health-proxy",
+      "group": "mindex",
+      "method": "GET",
+      "path": "/api/mindex/health",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 2517,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "db",
+        "timestamp",
+        "service",
+        "version",
+        "git_sha"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 119,
+        "hasHtml": false,
+        "service": "mindex",
+        "hasDatabaseSignal": false
+      },
+      "error": null
+    },
+    {
+      "name": "natureos-mindex-health",
+      "group": "mindex",
+      "method": "GET",
+      "path": "/api/natureos/mindex/health",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 473,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "api",
+        "database",
+        "redis",
+        "supabase",
+        "etl",
+        "version",
+        "timestamp",
+        "services"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": true,
+        "bodyBytes": 457,
+        "hasHtml": false,
+        "service": "healthy",
+        "hasDatabaseSignal": true
+      },
+      "error": null
+    },
+    {
+      "name": "crep-fungal-san-diego",
+      "group": "crep",
+      "method": "GET",
+      "path": "/api/crep/fungal?north=33.20&south=32.45&east=-116.70&west=-117.35&limit=200",
+      "targetClass": "loopback",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 19889,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "observations",
+        "meta"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 132731,
+        "hasHtml": false,
+        "observationCount": 200,
+        "total": null
+      },
+      "error": null
+    },
+    {
+      "name": "direct-mas-health",
+      "group": "mas",
+      "method": "GET",
+      "path": "/health",
+      "targetClass": "private-lan",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 136,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "timestamp",
+        "components",
+        "service",
+        "version",
+        "git_sha",
+        "services",
+        "myca_route_mounts",
+        "agents"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": true,
+        "bodyBytes": 768,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "direct-mas-myca-ping",
+      "group": "mas",
+      "method": "GET",
+      "path": "/api/myca/ping",
+      "targetClass": "private-lan",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 1018,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "message"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 65,
+        "hasHtml": false
+      },
+      "error": null
+    },
+    {
+      "name": "direct-mindex-root-health",
+      "group": "mindex",
+      "method": "GET",
+      "path": "/health",
+      "targetClass": "private-lan",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 1017,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 20,
+        "hasHtml": false,
+        "service": "healthy",
+        "hasDatabaseSignal": false
+      },
+      "error": null
+    },
+    {
+      "name": "direct-mindex-health",
+      "group": "mindex",
+      "method": "GET",
+      "path": "/api/mindex/health",
+      "targetClass": "private-lan",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 1037,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "status",
+        "db",
+        "timestamp",
+        "service",
+        "version",
+        "git_sha"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": false,
+        "bodyBytes": 119,
+        "hasHtml": false,
+        "service": "mindex",
+        "hasDatabaseSignal": false
+      },
+      "error": null
+    },
+    {
+      "name": "direct-mindex-health-all",
+      "group": "mindex",
+      "method": "GET",
+      "path": "/api/mindex/health/all",
+      "targetClass": "private-lan",
+      "ok": true,
+      "status": 200,
+      "latencyMs": 18,
+      "contentType": "application/json",
+      "jsonKeys": [
+        "service",
+        "timestamp",
+        "components",
+        "counts"
+      ],
+      "signals": {
+        "internalDisclosureCandidate": true,
+        "bodyBytes": 299,
+        "hasHtml": false,
+        "service": "mindex",
+        "hasDatabaseSignal": true
+      },
+      "error": null
+    },
+    {
+      "name": "supabase-rest-root",
+      "group": "supabase",
+      "method": "GET",
+      "path": "/rest/v1/",
+      "targetClass": "public-supabase",
+      "ok": true,
+      "status": 401,
+      "latencyMs": 67,
+      "contentType": "application/json;charset=UTF-8",
+      "jsonKeys": [
+        "message",
+        "hint"
+      ],
+      "signals": {
+        "supabaseReachable": true,
+        "internalDisclosureCandidate": true,
+        "bodyBytes": 101,
+        "hasHtml": false
+      },
+      "error": null
+    }
+  ],
+  "codeRiskScan": [
+    {
+      "repo": "website",
+      "available": true,
+      "loopbackServiceDefaults": [
+        ".github/workflows/ci-cd.yml",
+        ".github/workflows/deploy-only.yml",
+        ".github/workflows/deploy-sandbox-production.yml",
+        ".github/workflows/natureos-pr-gate.yml",
+        ".github/workflows/network-diagnostics.yml",
+        ".github/workflows/website-ci.yml",
+        "app/admin/page.tsx",
+        "app/admin/voice-health/page.tsx",
+        "app/api/autonomous/experiments/route.ts",
+        "app/api/autonomous/experiments/[id]/[action]/route.ts",
+        "app/api/autonomous/route.ts",
+        "app/api/bio/dna-storage/route.ts",
+        "app/api/bio/fci/route.ts",
+        "app/api/bio/fci/[id]/[action]/route.ts",
+        "app/api/bio/mycobrain/route.ts",
+        "app/api/brain/route.ts",
+        "app/api/brain/status/route.ts",
+        "app/api/contact/route.ts",
+        "app/api/defense/briefing/route.ts",
+        "app/api/devices/discover/route.ts",
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/devices/network/route.ts",
+        "app/api/devices/network/[deviceId]/command/route.ts",
+        "app/api/devices/network/[deviceId]/telemetry/route.ts",
+        "app/api/devices/route.ts",
+        "app/api/devices/sporebase/route.ts",
+        "app/api/devices/sporebase/samples/route.ts",
+        "app/api/devices/sporebase/telemetry/route.ts",
+        "app/api/devices/[deviceId]/telemetry/route.ts",
+        "app/api/earth/fungal/route.ts",
+        "app/api/earth-simulator/devices/route.ts",
+        "app/api/earth2/_lib/mas-url.ts",
+        "app/api/ethics-training/[[...path]]/route.ts",
+        "app/api/fci/correlations/[deviceId]/route.ts",
+        "app/api/fci/events/route.ts",
+        "app/api/fci/fingerprint/[deviceId]/route.ts",
+        "app/api/fci/nlm/[deviceId]/route.ts",
+        "app/api/fci/stimulate/route.ts",
+        "app/api/fci/ws-status/route.ts",
+        "app/api/fusarium/dispersal/route.ts",
+        "app/api/fusarium/risk-zones/route.ts",
+        "app/api/fusarium/route.ts",
+        "app/api/fusarium/species/route.ts",
+        "app/api/fusarium/threats/route.ts",
+        "app/api/grounding/route.ts",
+        "app/api/health/providers/route.ts",
+        "app/api/mas/agents/route.ts",
+        "app/api/mas/agents/[id]/route.ts",
+        "app/api/mas/brain/query/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/mas/commerce/checkout/route.ts",
+        "app/api/mas/commerce/quote/route.ts",
+        "app/api/mas/connections/route.ts",
+        "app/api/mas/csuite/finance/status/route.ts",
+        "app/api/mas/documents/search/route.ts",
+        "app/api/mas/memory/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/edge/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/kill/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/stop/route.ts",
+        "app/api/mas/myca2-psilo/start/route.ts",
+        "app/api/mas/mycobrain/route.ts",
+        "app/api/mas/notifications/route.ts",
+        "app/api/mas/orchestrator/action/route.ts",
+        "app/api/mas/raas/worldstate/balance/route.ts",
+        "app/api/mas/raas/worldstate/usage/route.ts",
+        "app/api/mas/registry/apis/route.ts",
+        "app/api/mas/registry/systems/route.ts",
+        "app/api/mas/system-memory/route.ts",
+        "app/api/mas/topology/route.ts",
+        "app/api/mas/voice/confirm/route.ts",
+        "app/api/mas/voice/duplex/session/route.ts",
+        "app/api/mas/voice/route.ts",
+        "app/api/mas/voice/sessions/route.ts",
+        "app/api/memory/earth2/model-stats/route.ts",
+        "app/api/memory/earth2/route.ts",
+        "app/api/memory/episodes/route.ts",
+        "app/api/memory/route.ts",
+        "app/api/memory/stats/route.ts",
+        "app/api/metabase/route.ts",
+        "app/api/mindex/agents/anomalies/route.ts",
+        "app/api/myca/a2a/agent-card/route.ts",
+        "app/api/myca/a2a/message/send/route.ts",
+        "app/api/myca/activity/route.ts",
+        "app/api/myca/activity/stream/route.ts",
+        "app/api/myca/brain/stream/route.ts",
+        "app/api/myca/consciousness/awaken/route.ts",
+        "app/api/myca/consciousness/chat/route.ts",
+        "app/api/myca/conversations/route.ts",
+        "app/api/myca/grounding/ep/[id]/route.ts",
+        "app/api/myca/grounding/route.ts",
+        "app/api/myca/grounding/status/route.ts",
+        "app/api/myca/grounding/thoughts/route.ts",
+        "app/api/myca/intention/route.ts",
+        "app/api/myca/query/route.ts",
+        "app/api/myca/reflection/route.ts",
+        "app/api/myca/sync/route.ts",
+        "app/api/myca/thoughts/route.ts",
+        "app/api/myca/training/route.ts",
+        "app/api/myca/workflows/route.ts",
+        "app/api/mycobrain/events/route.ts",
+        "app/api/mycobrain/ports/clear-locks/route.ts",
+        "app/api/mycobrain/ports/route.ts",
+        "app/api/mycobrain/[port]/buzzer/route.ts",
+        "app/api/mycobrain/[port]/control/route.ts",
+        "app/api/mycobrain/[port]/diagnostics/route.ts",
+        "app/api/mycobrain/[port]/led/route.ts",
+        "app/api/mycobrain/[port]/machine-mode/route.ts",
+        "app/api/mycobrain/[port]/peripherals/route.ts",
+        "app/api/mycobrain/[port]/register/route.ts",
+        "app/api/mycobrain/[port]/sensors/route.ts",
+        "app/api/mycobrain/[port]/serial/route.ts",
+        "app/api/mycobrain/[port]/telemetry/route.ts",
+        "app/api/natureos/activity/recent/route.ts",
+        "app/api/natureos/activity/route.ts",
+        "app/api/natureos/activity-topology/route.ts",
+        "app/api/natureos/aerosol/radiation/route.ts",
+        "app/api/natureos/aerosol/virus/route.ts",
+        "app/api/natureos/bluesight/[[...path]]/route.ts",
+        "app/api/natureos/devices/[id]/telemetry/route.ts"
+      ],
+      "internalUrlResponseKeys": [
+        "app/api/ancestry/data-quality/route.ts",
+        "app/api/ancestry/route.ts",
+        "app/api/beta/onboard/route.ts",
+        "app/api/billing/mrr/route.ts",
+        "app/api/brain/status/route.ts",
+        "app/api/compounds/simulate/route.ts",
+        "app/api/compounds/species/[id]/route.ts",
+        "app/api/contact/route.ts",
+        "app/api/crep/nature/preloaded/route.ts",
+        "app/api/crep/oyster/emit/route.ts",
+        "app/api/crep/reverse-geocode/route.ts",
+        "app/api/crep/services/route.ts",
+        "app/api/crep/species/search/route.ts",
+        "app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts",
+        "app/api/defense/briefing/route.ts",
+        "app/api/devices/discover/route.ts",
+        "app/api/devices/mqtt/presence/route.ts",
+        "app/api/devices/network/route.ts",
+        "app/api/devices/network/[deviceId]/command/route.ts",
+        "app/api/devices/network/[deviceId]/telemetry/route.ts",
+        "app/api/devices/route.ts",
+        "app/api/devices/sporebase/order/route.ts",
+        "app/api/devices/sporebase/route.ts",
+        "app/api/devices/sporebase/samples/route.ts",
+        "app/api/devices/sporebase/telemetry/route.ts",
+        "app/api/devices/[deviceId]/telemetry/route.ts",
+        "app/api/eagle/connectors/public-webcams/route.ts",
+        "app/api/eagle/connectors/shinobi/route.ts",
+        "app/api/eagle/connectors/traffic-511/route.ts",
+        "app/api/eagle/events/route.ts",
+        "app/api/eagle/sources/route.ts",
+        "app/api/eagle/stream/[sourceId]/route.ts",
+        "app/api/eagle/weather/multi/route.ts",
+        "app/api/earth/fungal/route.ts",
+        "app/api/earth2/alerts/route.ts",
+        "app/api/earth2/forecast/route.ts",
+        "app/api/earth2/health/route.ts",
+        "app/api/earth2/layers/grid/route.ts",
+        "app/api/earth2/layers/route.ts",
+        "app/api/earth2/layers/wind/route.ts",
+        "app/api/earth2/models/route.ts",
+        "app/api/earth2/nowcast/route.ts",
+        "app/api/earth2/nowcast/storms/route.ts",
+        "app/api/earth2/route.ts",
+        "app/api/earth2/spore-dispersal/route.ts",
+        "app/api/ethics-training/[[...path]]/route.ts",
+        "app/api/fci/correlations/[deviceId]/route.ts",
+        "app/api/fci/devices/route.ts",
+        "app/api/fci/events/route.ts",
+        "app/api/fci/fingerprint/[deviceId]/route.ts",
+        "app/api/fci/gfst/route.ts",
+        "app/api/fci/nlm/[deviceId]/route.ts",
+        "app/api/fci/notes/route.ts",
+        "app/api/fci/patterns/route.ts",
+        "app/api/fci/stimulate/route.ts",
+        "app/api/fci/telemetry/route.ts",
+        "app/api/fci/ws-status/route.ts",
+        "app/api/fusarium/dispersal/route.ts",
+        "app/api/fusarium/risk-zones/route.ts",
+        "app/api/fusarium/route.ts",
+        "app/api/fusarium/species/route.ts",
+        "app/api/fusarium/threats/route.ts",
+        "app/api/gateway/mindex/route.ts",
+        "app/api/genetics/[speciesId]/route.ts",
+        "app/api/genetics/[speciesId]/[region]/route.ts",
+        "app/api/ground-station/groups/route.ts",
+        "app/api/ground-station/hardware/route.ts",
+        "app/api/ground-station/seed/route.ts",
+        "app/api/grounding/route.ts",
+        "app/api/growth/predict/route.ts",
+        "app/api/iot/alerts/route.ts",
+        "app/api/iot/alerts/rules/route.ts",
+        "app/api/iot/alerts/rules/[id]/route.ts",
+        "app/api/iot/alerts/[id]/route.ts",
+        "app/api/iot/fleet/bulk/commands/route.ts",
+        "app/api/iot/fleet/firmware/deploy/route.ts",
+        "app/api/iot/fleet/groups/route.ts",
+        "app/api/iot/fleet/groups/[groupId]/route.ts",
+        "app/api/iot/fleet/provisioning/route.ts",
+        "app/api/iot/fleet/provisioning/[token]/route.ts",
+        "app/api/iot/insights/fleet-health/route.ts",
+        "app/api/iot/insights/trends/route.ts",
+        "app/api/mas/agents/route.ts",
+        "app/api/mas/agents/[id]/route.ts",
+        "app/api/mas/chat/route.ts",
+        "app/api/mas/commerce/checkout/route.ts",
+        "app/api/mas/commerce/quote/route.ts",
+        "app/api/mas/connections/route.ts",
+        "app/api/mas/csuite/finance/status/route.ts",
+        "app/api/mas/documents/search/route.ts",
+        "app/api/mas/health/route.ts",
+        "app/api/mas/memory/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/edge/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/kill/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/route.ts",
+        "app/api/mas/myca2-psilo/session/[sessionId]/stop/route.ts",
+        "app/api/mas/myca2-psilo/start/route.ts",
+        "app/api/mas/notifications/route.ts",
+        "app/api/mas/orchestrator/action/route.ts",
+        "app/api/mas/raas/worldstate/balance/route.ts",
+        "app/api/mas/raas/worldstate/usage/route.ts",
+        "app/api/mas/registry/apis/route.ts",
+        "app/api/mas/registry/systems/route.ts",
+        "app/api/mas/system-memory/route.ts",
+        "app/api/mas/tasks/submit/route.ts",
+        "app/api/mas/topology/route.ts",
+        "app/api/mas/voice/confirm/route.ts",
+        "app/api/mas/voice/duplex/session/route.ts",
+        "app/api/mas/voice/orchestrator/route.ts",
+        "app/api/mas/voice/route.ts",
+        "app/api/mas/voice/sessions/route.ts",
+        "app/api/mas/world/[[...path]]/route.ts",
+        "app/api/memory/earth2/model-stats/route.ts",
+        "app/api/memory/earth2/route.ts",
+        "app/api/memory/route.ts",
+        "app/api/metabase/route.ts",
+        "app/api/mindex/agents/anomalies/route.ts",
+        "app/api/mindex/agents/commands/queue/route.ts",
+        "app/api/mindex/compounds/detail/route.ts",
+        "app/api/mindex/genetics/detail/route.ts"
+      ],
+      "secretLiteralCandidates": []
+    },
+    {
+      "repo": "mas",
+      "available": true,
+      "loopbackServiceDefaults": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy-mas-production.yml",
+        ".github/workflows/deploy-to-vms.yml",
+        "agents/definitions/agent-registry.yaml",
+        "agents/definitions/myca-devops.yaml",
+        "agents/definitions/myca-health.yaml",
+        "agents/definitions/myca-secretary.yaml",
+        "config/cloudflared/config.yml",
+        "config.yaml",
+        "docker/docker-compose.agents.yml",
+        "docker-compose.always-on.yml",
+        "docker-compose.local.yml",
+        "docker-compose.mindex.yml",
+        "docker-compose.services.yml",
+        "docker-compose.voice.yml",
+        "docker-compose.website.yml",
+        "docker-compose.yml",
+        "DOCKER_INTEGRATION_PLAN.md",
+        "docs/AGARIC_DEVICE_AND_DEVICE_TRACKER_MAY03_2026.md",
+        "docs/ANOMALIES_ENDPOINT_IMPLEMENTATION_FEB12_2026.md",
+        "docs/AUTO_INDEXING_SETUP.md",
+        "docs/AVANI_NLM_REAL_RUNTIME_MAR14_2026.md",
+        "docs/BACKEND_INTEGRATION_COMPLETE_FEB03_2026.md",
+        "docs/BME688_SUBSCRIPTION_FAILURE_INVESTIGATION.md",
+        "docs/CHEMSPIDER_INTEGRATION.md",
+        "docs/CLOUDFLARE_BRAIN_SANDBOX_ROUTE.md",
+        "docs/CLOUDFLARE_TUNNEL_SETUP.md",
+        "docs/COM7_SANDBOX_COHESION_VERIFICATION_FEB18_2026.md",
+        "docs/COMPLETE_VM_DEPLOYMENT_GUIDE.md",
+        "docs/CREP_VOICE_CONTROL_FEB06_2026.md",
+        "docs/CREP_WEBSITE_DEPLOYMENT_REFERENCE.md",
+        "docs/DEEP_AGENTS_V05_INTEGRATION_PLAN.md",
+        "docs/DEPLOYMENT_INSTRUCTIONS_MASTER.md",
+        "docs/DEPLOYMENT_REQUIREMENTS.md",
+        "docs/DEPLOY_AND_TEST_MYCA_FEB10_2026.md",
+        "docs/DEVICE_MANAGER_AND_GATEWAY_ARCHITECTURE_FEB10_2026.md",
+        "docs/DEVICE_UI_VERIFICATION_COMPLETE_MAR07_2026.md",
+        "docs/DOCUMENT_KNOWLEDGE_BASE_INTEGRATION.md",
+        "docs/EARTH_SIMULATOR_VISION_TASKS.md",
+        "docs/ELEVENLABS_MYCA_TOOLS.md",
+        "docs/FINANCIAL_API_INTEGRATIONS_FEB12_2026.md",
+        "docs/firmware/UPGRADE_CHECKLIST.md",
+        "docs/FULL_INTEGRATION_READ_WRITE_SEARCH_INTERACT_MAR09_2026.md",
+        "docs/HYBRID_FIRMWARE_PLAN.md",
+        "docs/infrastructure/CLOUDFLARE_TUNNEL.md",
+        "docs/infrastructure/MYCOCOMP_DEV_SETUP.md",
+        "docs/INNOVATION_TESTING_GUIDE.md",
+        "docs/INTEGRATIONS_DOCKER_SETUP.md",
+        "docs/INTEGRATION_COMPLETION_MATRIX_MAR19_2026.md",
+        "docs/JETSON_FIRMWARE_IMPLEMENTATION_GUIDE_MAR07_2026.md",
+        "docs/LOCAL_DEV.md",
+        "docs/MASTER_ARCHITECTURE.md",
+        "docs/MASTER_STATUS_JAN24_2026.md",
+        "docs/MAS_CONSCIOUSNESS_API_FIX_FEB12_2026.md",
+        "docs/MAS_DASHBOARD_INTEGRATION.md",
+        "docs/MAS_V2_COMPLETE_DOCUMENTATION.md",
+        "docs/MAS_VM_PROVISIONING_GUIDE.md",
+        "docs/MEMORY_AWARENESS_PROTOCOL_FEB05_2026.md",
+        "docs/MEMORY_UNIFIED_INTEGRATION_FEB05_2026.md",
+        "docs/MINDEX_SMELL_TRAINING_SYSTEM.md",
+        "docs/MINDEX_VM_189_AVX_BUN_ASSESSMENT_FEB09_2026.md",
+        "docs/MINDEX_VM_SNAPSHOT_TEST_FEB04_2026.md",
+        "docs/MYCA_DASHBOARD_VISION.md",
+        "docs/MYCA_EXPORT_SKILLS_MAR16_2026/MYCA_EXPORT_SKILL_deploy-mas-service_MAR16_2026.md",
+        "docs/MYCA_EXPORT_SKILLS_MAR16_2026/MYCA_EXPORT_SKILL_deploy-mindex_MAR16_2026.md",
+        "docs/MYCA_FIRST_LIGHT_AND_SESSION_COMPLETE_FEB25_2026.md",
+        "docs/MYCA_KNOWLEDGE_BASE.md",
+        "docs/MYCA_MEMORY_ARCHITECTURE_FEB05_2026.md",
+        "docs/MYCA_MEMORY_UI_MIGRATION_FEB05_2026.md",
+        "docs/MYCA_Multi_Platform_Architecture.docx.md",
+        "docs/MYCA_PERSONAPLEX_UNIFIED_SYSTEM_PLAN_FEB03_2026.md",
+        "docs/MYCA_THUMB_PHASE0_PHASE1_COMPLETE_FEB17_2026.md",
+        "docs/MYCA_UNIFIED_ORCHESTRATOR_UPGRADE_FEB03_2026.md",
+        "docs/MYCA_VM_DEPLOYMENT_PREPARATION.md",
+        "docs/MYCA_WORLDVIEW_INTEGRATION_AUDIT_FEB17_2026.md",
+        "docs/MYCOBOARD_TECHNICAL_REFERENCE.md",
+        "docs/MYCOBRAIN_BETO_SETUP_GUIDE_FEB09_2026.md",
+        "docs/MYCOBRAIN_COM_PORT_MANAGEMENT.md",
+        "docs/MYCOBRAIN_CONNECTION_REPORT_JAN23_2026.md",
+        "docs/MYCOBRAIN_DEVICE_CREP_SURVEY_AUDIT_MAR07_2026.md",
+        "docs/MYCOBRAIN_FIX_JAN20_2026.md",
+        "docs/MYCOBRAIN_GATEWAY_NODE_RECOGNITION_MAR13_2026.md",
+        "docs/MYCOBRAIN_JETSON_GATEWAY_BUILD_PLAN_MAR07_2026.md",
+        "docs/MYCOBRAIN_LIVE_NETWORK_CONTROL_MAR07_2026.md",
+        "docs/MYCOBRAIN_LORA_GATEWAY_LINK_TEST_PLAN_MAR13_2026.md",
+        "docs/MYCOBRAIN_MDP_GATEWAY_WIRING_COMPLETE_APR15_2026.md",
+        "docs/MYCOBRAIN_SANDBOX_ALWAYS_ON_COMPLETE_MAR07_2026.md",
+        "docs/MYCOBRAIN_SETUP_COMPLETE.md",
+        "docs/MYCOBRAIN_SETUP_FINAL_STATUS.md",
+        "docs/MYCOBRAIN_SETUP_INSTRUCTIONS.md",
+        "docs/MYCOBRAIN_TO_MAS_FLOW_MAR07_2026.md",
+        "docs/MYCOBRAIN_TROUBLESHOOTING_GUIDE.md",
+        "docs/MYCOSOFT_MAS_WEBSITE_DELETION_SUMMARY.md",
+        "docs/MYCOSOFT_STACK_DEPLOYMENT.md",
+        "docs/N8N_INTEGRATION_GUIDE.md",
+        "docs/NATUREOS_TOOLS_INTEGRATION_TASK_COMPLETE_FEB21_2026.md",
+        "docs/NATUREOS_UPGRADE_PREP_FEB19_2026.md",
+        "docs/NLM_README.md",
+        "docs/notion/MYCOBOARD_COMPLETE_GUIDE.md",
+        "docs/OPTICAL_ACOUSTIC_MODEM_INTEGRATION_2026-01-09.md",
+        "docs/PERPLEXITY_AUDIT_RESPONSE_MAR03_2026.md",
+        "docs/PETRI_DEPLOYMENT_HANDOFF_FEB20_2026.md",
+        "docs/PETRI_INTEGRATION_DEMO_WALKTHROUGH_FEB20_2026.md",
+        "docs/PHYSICSNEMO_INTEGRATION_FEB09_2026.md",
+        "docs/PORT_SERVICE_REQUIREMENTS.md",
+        "docs/PRE_PRODUCTION_CHECKLIST_MAR13_2026.md",
+        "docs/PROTOCOL_ROLLOUT_RUNBOOK_FEB17_2026.md",
+        "docs/PROXMOX_VM_SPECIFICATIONS.md",
+        "docs/SANDBOX_DEPLOYMENT_PROCESS.md",
+        "docs/SANDBOX_DEPLOYMENT_RUNBOOK.md",
+        "docs/SANDBOX_MAS_MINDEX_RECOVERY_AND_REDEPLOY_MAR12_2026.md",
+        "docs/SCIENTIFIC_DASHBOARD_COMPLETE_FEB03_2026.md",
+        "docs/SECRET_AUDIT_REPORT_FEB09_2026.md",
+        "docs/SECURITY_TODO_FIXES_FEB12_2026.md",
+        "docs/SERVER_MIGRATION_MASTER_GUIDE.md",
+        "docs/SESSION_SUMMARY_JAN20_2026.md",
+        "docs/SESSION_SUMMARY_JAN20_2026_EVENING.md",
+        "docs/SESSION_SUMMARY_JAN23_2026.md",
+        "docs/setup/DOMAIN_CLOUDFLARE_SETUP.md",
+        "docs/setup/MIGRATION_CHECKLIST.md"
+      ],
+      "internalUrlResponseKeys": [
+        "config/settings.py",
+        "docs/AGENT_SECURITY_GUIDELINES_FEB12_2026.md",
+        "docs/MYCA_EXPORT_SKILLS_MAR16_2026/MYCA_EXPORT_SKILL_create-api-route_MAR16_2026.md",
+        "docs/NATUREOS_OEI_INTEGRATION_PLAN.md",
+        "docs/SECRET_AUDIT_REPORT_FEB09_2026.md",
+        "docs/SECURITY_BUGFIXES_FEB09_2026.md",
+        "docs/setup/SECURITY_HARDENING_GUIDE.md",
+        "infra/csuite/bootstrap_guest_remote.py",
+        "infra/csuite/emit_role_config.py",
+        "mycosoft_mas/agents/clusters/search_discovery/search_agent.py",
+        "mycosoft_mas/agents/clusters/simulation/petri_dish_simulator_agent.py",
+        "mycosoft_mas/agents/lab/chemputer_agent.py",
+        "mycosoft_mas/agents/lab/growth_analytics_agent.py",
+        "mycosoft_mas/agents/meshtastic_agent.py",
+        "mycosoft_mas/agents/research_agent.py",
+        "mycosoft_mas/agents/v2/base_agent_v2.py",
+        "mycosoft_mas/agents/v2/data_agents.py",
+        "mycosoft_mas/agents/v2/grounding_agent.py",
+        "mycosoft_mas/agents/v2/mindex_pipeline_agents.py",
+        "mycosoft_mas/agents/v2/taxonomy_ingestion_agent.py",
+        "mycosoft_mas/agents/workspace/workspace_api.py",
+        "mycosoft_mas/cache/timeline_cache.py",
+        "mycosoft_mas/compliance/control_state.py",
+        "mycosoft_mas/compliance/doc_engine.py",
+        "mycosoft_mas/config/runtime_settings.py",
+        "mycosoft_mas/config/settings.py",
+        "mycosoft_mas/consciousness/self_reflection.py",
+        "mycosoft_mas/consciousness/sensors.py",
+        "mycosoft_mas/consciousness/tool_pipeline.py",
+        "mycosoft_mas/core/change_detector.py",
+        "mycosoft_mas/core/myca_main.py",
+        "mycosoft_mas/core/orchestrator_memory_logger.py",
+        "mycosoft_mas/core/orchestrator_service.py",
+        "mycosoft_mas/core/routers/alert_api.py",
+        "mycosoft_mas/core/routers/compliance_api.py",
+        "mycosoft_mas/core/routers/consciousness_api.py",
+        "mycosoft_mas/core/routers/csuite_api.py",
+        "mycosoft_mas/core/routers/device_registry_api.py",
+        "mycosoft_mas/core/routers/eagle_eye_api.py",
+        "mycosoft_mas/core/routers/fci_api.py",
+        "mycosoft_mas/core/routers/fleet_api.py",
+        "mycosoft_mas/core/routers/fusarium_api.py",
+        "mycosoft_mas/core/routers/fusarium_platform_api.py",
+        "mycosoft_mas/core/routers/grounding_api.py",
+        "mycosoft_mas/core/routers/identity_api.py",
+        "mycosoft_mas/core/routers/incidents_api.py",
+        "mycosoft_mas/core/routers/integrations.py",
+        "mycosoft_mas/core/routers/intention_api.py",
+        "mycosoft_mas/core/routers/iot_analytics_api.py",
+        "mycosoft_mas/core/routers/memory_api.py",
+        "mycosoft_mas/core/routers/meshtastic_api.py",
+        "mycosoft_mas/core/routers/nlm_training_api.py",
+        "mycosoft_mas/core/routers/nlq_api.py",
+        "mycosoft_mas/core/routers/redteam_api.py",
+        "mycosoft_mas/core/routers/scientific_api.py",
+        "mycosoft_mas/core/routers/scientific_datasets_api.py",
+        "mycosoft_mas/core/routers/scientific_equipment_api.py",
+        "mycosoft_mas/core/routers/security_audit_api.py",
+        "mycosoft_mas/core/routers/system_status_api.py",
+        "mycosoft_mas/core/routers/worldstate_api.py",
+        "mycosoft_mas/core/system_monitor.py",
+        "mycosoft_mas/core/workflow_memory_archiver.py",
+        "mycosoft_mas/earth_search/mindex_earth_client.py",
+        "mycosoft_mas/edge/gateway_router.py",
+        "mycosoft_mas/edge/ondevice_operator.py",
+        "mycosoft_mas/engines/reflection/reflection_service.py",
+        "mycosoft_mas/engines/state_service.py",
+        "mycosoft_mas/finance/discovery.py",
+        "mycosoft_mas/harness/static_search.py",
+        "mycosoft_mas/integrations/mqtt_meshtastic_bridge.py",
+        "mycosoft_mas/integrations/mqtt_mycobrain_bridge.py",
+        "mycosoft_mas/integrations/plasticity_registry.py",
+        "mycosoft_mas/integrations/supabase_client.py",
+        "mycosoft_mas/integrations/zeetachec_client.py",
+        "mycosoft_mas/ledger/persistent_chain.py",
+        "mycosoft_mas/llm/constrained/domain_builders.py",
+        "mycosoft_mas/llm/tools/timeline_search_tool.py",
+        "mycosoft_mas/llm/tool_pipeline.py",
+        "mycosoft_mas/mcp/orchestrator_server.py",
+        "mycosoft_mas/memory/analytics.py",
+        "mycosoft_mas/memory/autobiographical.py",
+        "mycosoft_mas/memory/cleanup.py",
+        "mycosoft_mas/memory/earth2_memory.py",
+        "mycosoft_mas/memory/export.py",
+        "mycosoft_mas/memory/gpu_memory.py",
+        "mycosoft_mas/memory/graph_memory.py",
+        "mycosoft_mas/memory/mcp_memory_server.py",
+        "mycosoft_mas/memory/mem0_adapter.py",
+        "mycosoft_mas/memory/memory_modules.py",
+        "mycosoft_mas/memory/n8n_memory.py",
+        "mycosoft_mas/memory/persistent_graph.py",
+        "mycosoft_mas/memory/personaplex_memory.py",
+        "mycosoft_mas/memory/search_memory.py",
+        "mycosoft_mas/memory/service.py",
+        "mycosoft_mas/mindex/memory_bridge.py",
+        "mycosoft_mas/monitoring/health_check.py",
+        "mycosoft_mas/myca/os/crep_bridge.py",
+        "mycosoft_mas/myca/os/gateway.py",
+        "mycosoft_mas/myca/os/mas_bridge.py",
+        "mycosoft_mas/myca/os/mindex_bridge.py",
+        "mycosoft_mas/natureos/memory_connector.py",
+        "mycosoft_mas/natureos/platform.py",
+        "mycosoft_mas/nlm/config.py",
+        "mycosoft_mas/nlm/memory_store.py",
+        "mycosoft_mas/realtime/pubsub.py",
+        "mycosoft_mas/realtime/redis_pubsub.py",
+        "mycosoft_mas/redteam/layer1_safe.py",
+        "mycosoft_mas/redteam/layer2_scoped.py",
+        "mycosoft_mas/redteam/layer3_ai.py",
+        "mycosoft_mas/registry/agent_registry.py",
+        "mycosoft_mas/runtime/agent_pool.py",
+        "mycosoft_mas/runtime/agent_runtime.py",
+        "mycosoft_mas/security/security_integration.py",
+        "mycosoft_mas/services/network_discovery.py",
+        "mycosoft_mas/services/telemetry_pipeline.py",
+        "mycosoft_mas/soc/incident_source_poller.py",
+        "mycosoft_mas/voice/supabase_client.py",
+        "scripts/build_agent_containers.py",
+        "scripts/create_dashboard_and_memory.py",
+        "scripts/create_orchestrator_upgrade.py"
+      ],
+      "secretLiteralCandidates": [
+        {
+          "file": "config.yaml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "deploy_out.txt",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.always-on.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.bio.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.integrations.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.local.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.prod.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.scientific.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docker-compose.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "DOCKER_INTEGRATION_PLAN.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/AGENT_SECURITY_GUIDELINES_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/AUDIT_IMPLEMENTATION_COMPLETE_JAN20_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/COMPLETE_VM_DEPLOYMENT_GUIDE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/CREDENTIAL_MANAGEMENT_BEST_PRACTICES_FEB09_2026.md",
+          "pattern": "openai-like-key"
+        },
+        {
+          "file": "docs/CREP_PHASE_3_LLM_AGENT_MEMORY_FEB06_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/CREP_WEBSITE_DEPLOYMENT_REFERENCE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/development.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/DOCUMENT_KNOWLEDGE_BASE_INTEGRATION.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/infrastructure/AZURE_FAILOVER.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/INTEGRATIONS_DOCKER_SETUP.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MAS_TOPOLOGY_TECHNICAL_DOCS_JAN26_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MAS_VM_ISSUES_AND_FIXES_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MEMORY_SYSTEM_AUDIT_MAR21_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MEMORY_UNIFIED_INTEGRATION_FEB05_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MINDEX_SOLE_DATABASE_IMPLEMENTATION_FEB05_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MYCA_EXPORT_SKILLS_MAR16_2026/MYCA_EXPORT_SKILL_database-migration_MAR16_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MYCA_EXPORT_SKILLS_MAR16_2026/MYCA_EXPORT_SKILL_deploy-mas-service_MAR16_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MYCOSOFT_STACK_DEPLOYMENT.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/NLM_README.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/PR75_AUTH_GUARDS_COMPLETE_MAR09_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/ROTATION_RUNBOOK.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SDK_DATABASE_SCHEMA.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SDK_README.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SEARCH_MEMORY_INTEGRATION_FEB05_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SECRET_AUDIT_REPORT_FEB09_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SECRET_MANAGEMENT_POLICY_FEB09_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SECURITY_AUDIT_SUMMARY_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SECURITY_BUGFIXES_FEB09_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SECURITY_HARDENING_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/SERVER_MIGRATION_MASTER_GUIDE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/setup/MIGRATION_CHECKLIST.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/VOICE_MEMORY_BRIDGE_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/VOICE_MEMORY_BRIDGE_IMPLEMENTATION_SUMMARY_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/VOICE_SYSTEM_FIXES_FEB12_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "env.local.example.txt",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "infra/mindex-vm/docker-compose.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "INSTALLATION_REPORT.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "INTEGRATION_SETUP_GUIDE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/agents/v2/scientific_memory.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/collectors/base_collector.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/core/change_detector.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/core/orchestrator_memory_logger.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/core/routers/security_audit_api.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/core/system_monitor.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/core/workflow_memory_archiver.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/devices/memory_sync.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/integrations/mindex_client.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/integrations/README.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/ledger/persistent_chain.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/llm/tools/timeline_search_tool.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/analytics.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/cleanup.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/export.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/mindex_graph.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/persistent_graph.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/service.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/session_memory.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/user_context.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/memory/vector_memory.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/mindex/memory_bridge.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/monitoring/health_check.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/myca/agent_policies/security/EVALS.md",
+          "pattern": "openai-like-key"
+        },
+        {
+          "file": "mycosoft_mas/natureos/memory_connector.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/nlm/data_pipeline.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/nlm/memory_store.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/registry/system_registry.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/services/README.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mycosoft_mas/voice/supabase_client.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/activate_n8n_workflows.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/add_supabase_env.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/check_n8n_workflows.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/check_voice_sessions.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/compare_webhooks.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/debug_mindex_db.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/debug_myca_workflow.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/deploy_env_vars.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/deploy_full_production.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/deploy_full_system.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/deploy_mycorrhizae.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/deploy_mycorrhizae_vm188.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/deploy_to_vm.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/fix_all_webhook_auth.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/fix_myca_webhook_auth.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/fix_vm_docker_compose.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/full_mas_deploy.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/import_workflows_via_tunnel.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/ingest_myceliumseg.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/list_n8n_cred_types.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/n8n_sync_all.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/recreate_mas_container.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/restart_mas_container.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/run_identity_migration.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/run_sandbox_pull_and_mas_deploy.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/setup_mas_vm_auto.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/setup_n8n_integration.py",
+          "pattern": "jwt-like-token"
+        },
+        {
+          "file": "scripts/temp_deploy_mindex.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/verify_mas_complete.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/vm_apply_mindex_migrations.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/_fix_mas_env.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/_fix_mas_pg_and_check_191.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "services/personaplex-local/personaplex_bridge_nvidia.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "speech/DEPLOYMENT.md",
+          "pattern": "openai-like-key"
+        },
+        {
+          "file": "tests/test_llm_router.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "VOICE_MEMORY_BRIDGE_COMPLETE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_deploy_mas_188.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_rebuild_mas_container.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_restart_mas_vm.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_test_memory_full_integration.py",
+          "pattern": "jwt-like-token"
+        }
+      ]
+    },
+    {
+      "repo": "mindex",
+      "available": true,
+      "loopbackServiceDefaults": [
+        ".github/workflows/deploy-mindex-vm.yml",
+        "docker-compose.yml",
+        "docs/ETL_SYNC_GUIDE.md",
+        "docs/FOR_NATUREOS_TEAM.md",
+        "docs/INTEGRATION_COMPLETE.md",
+        "docs/INTEGRATION_SUMMARY.md",
+        "docs/MINDEX_PROXMOX_MIGRATION_GUIDE.md",
+        "docs/NATUREOS_API_INTEGRATION.md",
+        "docs/NATUREOS_INTEGRATION_GUIDE.md",
+        "docs/NATUREOS_INTEGRATION_QUICKSTART.md",
+        "docs/README_NATUREOS_INTEGRATION.md",
+        "FINAL_FIX_INSTRUCTIONS_FEB11_2026.md",
+        "FIX_MINDEX_DB_CONNECTION_FEB11_2026.md",
+        "MINDEX_AGENT_FIX_INSTRUCTIONS_FEB12_2026.md",
+        "QUICK_FIX_MINDEX_FEB11_2026.md",
+        "scripts/create_all_missing_tables.py",
+        "scripts/create_obs_schema.py",
+        "scripts/enable_postgis_and_create_tables.py",
+        "scripts/enable_postgis_final.py",
+        "scripts/fix_final_tables.py",
+        "scripts/fix_mindex_direct.py",
+        "scripts/fix_mindex_now.py",
+        "scripts/fix_mindex_with_correct_pwd.py",
+        "scripts/fix_observation_columns_and_stats.py",
+        "scripts/fix_postgres_complete.py",
+        "scripts/fix_postgres_user.py",
+        "scripts/fix_without_postgis.py",
+        "scripts/fix_with_correct_user.py",
+        "scripts/MANUAL_FIX_STEPS_FEB11_2026.md",
+        "scripts/_deploy_mindex.py",
+        "scripts/_deploy_mindex_final.py",
+        "scripts/_deploy_mindex_v2.py",
+        "scripts/_deploy_mindex_v3.py",
+        "scripts/_deploy_unified_search_fix.py",
+        "scripts/_fix_mindex.py",
+        "scripts/_full_fix.py",
+        "scripts/_kill_and_restart.py",
+        "scripts/_quick_restart_api.py",
+        "scripts/_restart_mindex_api.py",
+        "scripts/_restart_mindex_fixed.py",
+        "scripts/_test_mindex_api.py",
+        "_check_logs.py",
+        "_check_mindex_health.py",
+        "_deploy_mindex.py",
+        "_fix_db_connection.py",
+        "_fix_mindex_deploy.py",
+        "_fix_mindex_grants2_may24_2026.py",
+        "_fix_mindex_grants3_may24_2026.py",
+        "_fix_mindex_grants_may24_2026.py",
+        "_full_redeploy.py",
+        "_hotfix_crep_fungi_may24_2026.py",
+        "_restart_docker_and_deploy.py",
+        "_start_all_and_test.py",
+        "_sync_civic_to_vm189.py",
+        "_test_mindex_bbox_may24_2026.py",
+        "_test_search.py",
+        "_verify_civic_vm189.py"
+      ],
+      "internalUrlResponseKeys": [
+        "etl_inaturalist.py",
+        "mindex_etl/jobs/sync_chemspider_compounds.py",
+        "mindex_etl/jobs/sync_earth_data.py"
+      ],
+      "secretLiteralCandidates": [
+        {
+          "file": "docker-compose.yml",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/AI_MODELS.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/ETL_SYNC_GUIDE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MINDEX_PROXMOX_MIGRATION_GUIDE.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "docs/MINDEX_SYSTEM_STATUS.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "FIX_MINDEX_DB_CONNECTION_FEB11_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "mindex_etl/config.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "QUICK_FIX_MINDEX_FEB11_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "README.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/apply_migrations.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/MANUAL_FIX_STEPS_FEB11_2026.md",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "scripts/_deploy_mindex_v2.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "tests/test_sql_smoke.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_fix_mindex_deploy.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_full_redeploy.py",
+          "pattern": "credentialed-postgres-dsn"
+        },
+        {
+          "file": "_restart_docker_and_deploy.py",
+          "pattern": "credentialed-postgres-dsn"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "title": "Slow integration probes exceed public MYCA target",
+      "detail": "4 probes took longer than 3000 ms."
+    },
+    {
+      "severity": "medium",
+      "title": "website still has loopback service defaults",
+      "detail": "120 file(s) reference loopback service ports. Verify each is dev-only or routed through a resolver."
+    },
+    {
+      "severity": "critical",
+      "title": "mas contains secret-like literals in source/documentation",
+      "detail": "118 file(s) matched secret-like patterns. Paths only are included in the report."
+    },
+    {
+      "severity": "medium",
+      "title": "mas still has loopback service defaults",
+      "detail": "120 file(s) reference loopback service ports. Verify each is dev-only or routed through a resolver."
+    },
+    {
+      "severity": "critical",
+      "title": "mindex contains secret-like literals in source/documentation",
+      "detail": "16 file(s) matched secret-like patterns. Paths only are included in the report."
+    },
+    {
+      "severity": "medium",
+      "title": "mindex still has loopback service defaults",
+      "detail": "57 file(s) reference loopback service ports. Verify each is dev-only or routed through a resolver."
+    }
+  ]
+}

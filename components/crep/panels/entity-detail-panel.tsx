@@ -644,6 +644,24 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
   // Course over ground (AIS: cog often in properties)
   const cog = vessel.cog ?? vessel.course ?? (vessel.properties?.cog as number) ?? 0;
   const heading = vessel.heading ?? (vessel.properties?.heading as number) ?? cog;
+  const props = vessel.properties || {};
+  const readProp = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = (vessel as any)[key] ?? (props as any)[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return undefined;
+  };
+  const lengthValue = readProp("length", "length_m", "lengthMeters");
+  const beamValue = readProp("width", "beam", "width_m", "beam_m");
+  const dimensions = readProp("dimensions") || (lengthValue && beamValue ? `${lengthValue}m x ${beamValue}m` : undefined);
+  const draught = readProp("draught", "draft", "draught_m", "draft_m");
+  const navStatus = readProp("navigation_status", "nav_status", "status");
+  const aisClass = readProp("ais_class", "aisClass", "class");
+  const rot = readProp("rot", "rate_of_turn", "rateOfTurn");
+  const accuracy = readProp("position_accuracy", "accuracy", "posAccuracy");
+  const source = readProp("source", "provider");
+  const lastUpdate = readProp("last_updated", "lastUpdated", "timestamp", "updated_at", "received_at");
 
   // Apr 20, 2026 (Morgan: "all vessles planes and satelites need images in
   // widget"). Wikipedia lookup by vessel name + AIS ship_type code.
@@ -738,16 +756,58 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
                 <span className="text-white font-mono">{vessel.callsign}</span>
               </>
             )}
-            {(vessel as any).length && (vessel as any).width && (
+            {shipType && shipType !== "Unknown Vessel" && (
               <>
-                <span className="text-gray-500">Dimensions</span>
-                <span className="text-white">{(vessel as any).length}m × {(vessel as any).width}m</span>
+                <span className="text-gray-500">Ship Type</span>
+                <span className="text-white">{String(shipType)}</span>
               </>
             )}
-            {(vessel as any).draught && (
+            {navStatus && (
+              <>
+                <span className="text-gray-500">Nav Status</span>
+                <span className="text-white">{String(navStatus)}</span>
+              </>
+            )}
+            {aisClass && (
+              <>
+                <span className="text-gray-500">AIS Class</span>
+                <span className="text-white">{String(aisClass)}</span>
+              </>
+            )}
+            {dimensions && (
+              <>
+                <span className="text-gray-500">Dimensions</span>
+                <span className="text-white">{String(dimensions)}</span>
+              </>
+            )}
+            {draught && (
               <>
                 <span className="text-gray-500">Draught</span>
-                <span className="text-white">{typeof (vessel as any).draught === 'number' ? (vessel as any).draught.toFixed(1) : (vessel as any).draught}m</span>
+                <span className="text-white">{typeof draught === 'number' ? draught.toFixed(1) : draught}m</span>
+              </>
+            )}
+            {rot !== undefined && (
+              <>
+                <span className="text-gray-500">Rate of Turn</span>
+                <span className="text-white">{String(rot)}</span>
+              </>
+            )}
+            {accuracy !== undefined && (
+              <>
+                <span className="text-gray-500">Position Accuracy</span>
+                <span className="text-white">{String(accuracy)}</span>
+              </>
+            )}
+            {source && (
+              <>
+                <span className="text-gray-500">Source</span>
+                <span className="text-white">{String(source)}</span>
+              </>
+            )}
+            {lastUpdate && (
+              <>
+                <span className="text-gray-500">Last Update</span>
+                <span className="text-white">{formatDate(String(lastUpdate))}</span>
               </>
             )}
             <span className="text-gray-500">Position</span>

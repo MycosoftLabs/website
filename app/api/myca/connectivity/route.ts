@@ -6,8 +6,9 @@
 
 import { NextResponse } from "next/server"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MAS_API_URL = resolveMasServerBaseUrl()
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY
 const HAS_GROQ = !!process.env.GROQ_API_KEY
@@ -113,7 +114,7 @@ export async function GET() {
       mas_route_mounts: results.mas_route_mounts,
       llm_keys: results.llm_keys,
       summary,
-      mas_api_url: MAS_API_URL,
+      mas_api_target: "server-resolved",
       total_ms: Date.now() - start,
       timestamp: new Date().toISOString(),
     })

@@ -452,18 +452,14 @@ export function MapControls({
                       label="AM Fungi"
                       icon={<span className="text-[9px] leading-none font-bold">AM</span>}
                       checked={groundFilter.showAmFungi}
-                      onChange={(v) => onGroundFilterChange(
-                        v ? { showAmFungi: true, showEcmFungi: false } : { showAmFungi: false },
-                      )}
+                      onChange={(v) => onGroundFilterChange({ showAmFungi: v, showEcmFungi: v ? false : groundFilter.showEcmFungi })}
                       color="cyan"
                     />
                     <FilterToggle
                       label="EcM Fungi"
                       icon={<span className="text-[9px] leading-none font-bold">Ec</span>}
                       checked={groundFilter.showEcmFungi}
-                      onChange={(v) => onGroundFilterChange(
-                        v ? { showEcmFungi: true, showAmFungi: false } : { showEcmFungi: false },
-                      )}
+                      onChange={(v) => onGroundFilterChange({ showEcmFungi: v, showAmFungi: v ? false : groundFilter.showAmFungi })}
                       color="purple"
                     />
                     <FilterToggle

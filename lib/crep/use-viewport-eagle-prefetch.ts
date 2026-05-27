@@ -8,8 +8,8 @@ import {
 import {
   getViewportEagleCache,
   setViewportEagleCache,
-  type ViewportBoundsLike,
 } from "@/lib/crep/viewport-eagle-cache"
+import type { ViewportBoundsLike } from "@/lib/crep/viewport-intel-cache"
 import {
   isSignificantViewportChange,
   makeViewportRevisionKey,
@@ -56,10 +56,8 @@ export function useViewportEaglePrefetch(
   const revisionKey = useMemo(() => {
     if (!assetsReady) return null
     const next = { bounds: effectiveBounds, zoom: mapZoom }
-    const cityZoom = mapZoom >= 10
     const shouldRefresh =
       !snapshotRef.current ||
-      cityZoom ||
       isSignificantViewportChange(snapshotRef.current, next)
     if (!shouldRefresh && revisionKeyRef.current) return revisionKeyRef.current
     snapshotRef.current = next

@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
         // 20 s browser cache matches SnapshotStream's refresh cadence so
         // we only hit the upstream once per 20 s regardless of how many
         // widget tabs are open.
-        "Cache-Control": "public, s-maxage=20, stale-while-revalidate=60",
+        "Cache-Control": "no-store, max-age=0",
         "X-Proxied-From": target.hostname,
       },
     })

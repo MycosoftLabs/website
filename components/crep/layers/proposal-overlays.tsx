@@ -33,7 +33,7 @@ import {
   layerSpecForMode,
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
-import { RAILWAY_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM } from "@/lib/crep/lod-policy"
 import {
   eagleCameraClickLayerIds,
   eagleCameraGlowLayer,
@@ -47,6 +47,7 @@ import {
 const CCTV_LAYER_PREFIX = "crep-cctv"
 const CCTV_VISIBILITY_LAYER_IDS = Object.values(eagleCameraLayerIds(CCTV_LAYER_PREFIX))
 const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
+const CCTV_MIN_ZOOM = 7
 
 interface Props {
   map: MapLibreMap | null
@@ -466,6 +467,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           type: "circle",
           source: cfg.sourceId,
           ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
+          minzoom: POWER_PLANT_MIN_ZOOM,
           paint,
         } as any))
         // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY
@@ -1456,6 +1458,11 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 
     const fetchAndPaint = async () => {
       try {
+        const promoteTrainLayers = () => {
+          for (const id of ["crep-trains-live-cars-line", "crep-trains-live-square"]) {
+            try { if (map.getLayer(id)) map.moveLayer(id) } catch { /* style may be changing */ }
+          }
+        }
         const res = await fetch("/api/oei/railway-live?limit=1500")
         if (!res.ok) return
         const j = await res.json()
@@ -1480,10 +1487,12 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           const tailBrg = ((heading + 180) % 360) * Math.PI / 180
           const dLat = (Math.cos(tailBrg) * carsMeters) / 111_320
           const dLng = (Math.sin(tailBrg) * carsMeters) / (111_320 * Math.cos(lat * Math.PI / 180))
+          const id = String(t.id || t.trainNum || `${t.source || "train"}-${lat.toFixed(5)}-${lng.toFixed(5)}`)
           return {
             type: "Feature" as const,
+            id,
             properties: {
-              id: t.id || t.trainNum,
+              id,
               name: t.name || t.routeName,
               operator: t.operator || "Amtrak",
               vehicle_type: t.vehicle_type || "rail",
@@ -1506,6 +1515,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         // line appears to trail the locomotive.
         const lineFeatures = features.map((f) => ({
           type: "Feature" as const,
+          id: f.properties.id,
           properties: { id: f.properties.id, vehicle_type: f.properties.vehicle_type },
           geometry: {
             type: "LineString" as const,
@@ -1519,8 +1529,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const fcLines = { type: "FeatureCollection" as const, features: lineFeatures }
         if (!mapReady()) return
         if (!map.getSource("crep-trains-live")) {
-          map.addSource("crep-trains-live", { type: "geojson", data: fc, generateId: true })
-          map.addSource("crep-trains-live-cars", { type: "geojson", data: fcLines })
+          map.addSource("crep-trains-live", { type: "geojson", data: fc, promoteId: "id" } as any)
+          map.addSource("crep-trains-live-cars", { type: "geojson", data: fcLines, promoteId: "id" } as any)
           // CARS line — drawn BEFORE the symbol so the icon sits on top of
           // its own tail.
           map.addLayer({
@@ -1607,10 +1617,12 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               window.dispatchEvent(new CustomEvent("crep:train:click", { detail: payload }))
             } catch { /* ignore */ }
           })
+          promoteTrainLayers()
         } else {
           (map.getSource("crep-trains-live") as any).setData(fc)
           const lineSrc = map.getSource("crep-trains-live-cars")
           if (lineSrc) (lineSrc as any).setData(fcLines)
+          promoteTrainLayers()
         }
         const byOp = (j.operators || {}) as Record<string, number>
         const ops = Object.entries(byOp).filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(" ")
@@ -1783,25 +1795,71 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   useEffect(() => {
     if (!map) return
     const layerIds = CCTV_VISIBILITY_LAYER_IDS
-    if (!enabled.cctv) {
+    const cctvVisible = Boolean(enabled.cctv) && mapZoom >= CCTV_MIN_ZOOM && Boolean(bbox)
+    if (!cctvVisible) {
       setLayerVisibility(map, layerIds, false)
       return
     }
+    if (!isMapStyleReady(map)) return
     if (loadedRef.current.cctv) {
       setLayerVisibility(map, layerIds, true)
-      return
     }
-    if (!isMapStyleReady(map)) return
     loadedRef.current.cctv = true
 
     const fetchAndPaint = async () => {
       try {
         if (!isMapStyleReady(map)) return
-        const bboxParam = bbox ? `?bbox=${bbox.join(",")}&limit=10000` : "?limit=10000"
-        const res = await fetch(`/api/oei/cctv${bboxParam}`)
-        if (!res.ok) return
-        const j = await res.json()
-        const features = (j.cameras || [])
+        if (!bbox || mapZoom < CCTV_MIN_ZOOM) {
+          setLayerVisibility(map, layerIds, false)
+          return
+        }
+        const cameraQuery = new URLSearchParams({ limit: "1200" })
+        if (bbox) cameraQuery.set("bbox", bbox.join(","))
+        const [legacyRes, eagleRes] = await Promise.all([
+          fetch(`/api/oei/cctv?${cameraQuery.toString()}`).catch(() => null),
+          fetch(`/api/eagle/sources?${cameraQuery.toString()}`).catch(() => null),
+        ])
+        const legacyJson = legacyRes?.ok ? await legacyRes.json() : {}
+        const eagleJson = eagleRes?.ok ? await eagleRes.json() : {}
+        const byId = new Map<string, any>()
+        for (const c of legacyJson.cameras || []) {
+          const id = String(c.id || `${c.source || c.operator || "cctv"}-${c.lat}-${c.lng}`)
+          byId.set(id, {
+            id,
+            name: c.name || "Camera",
+            lat: c.lat,
+            lng: c.lng,
+            stream_url: c.stream_url,
+            embed_url: c.embed_url,
+            media_url: c.media_url,
+            stream_type: c.stream_type,
+            operator: c.operator,
+            country: c.country,
+            resolution: c.resolution,
+            auth_required: c.auth_required,
+            source: c.source,
+          })
+        }
+        for (const c of eagleJson.sources || []) {
+          const id = String(c.id || `${c.provider || "eagle"}-${c.lat}-${c.lng}`)
+          byId.set(id, {
+            id,
+            name: c.name || `${c.provider || "Eagle Eye"} camera`,
+            lat: c.lat,
+            lng: c.lng,
+            stream_url: c.stream_url,
+            embed_url: c.embed_url,
+            media_url: c.media_url,
+            stream_type: c.stream_url ? "hls" : c.media_url ? "image" : c.embed_url ? "iframe" : undefined,
+            operator: c.provider || "eagle-eye",
+            country: c.country,
+            resolution: c.resolution,
+            auth_required: false,
+            source: c.provider || "eagle-eye",
+          })
+        }
+        const cameras = Array.from(byId.values())
+        const features = cameras
           .filter((c: any) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
           .map((c: any) => ({
             type: "Feature" as const,
@@ -1809,6 +1867,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               id: c.id,
               name: c.name || "Camera",
               stream_url: c.stream_url,
+              embed_url: c.embed_url,
+              media_url: c.media_url,
               stream_type: c.stream_type,
               operator: c.operator,
               country: c.country,
@@ -1870,7 +1930,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
             map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
             map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
           }
-          console.log(`[ProposalOverlays] CCTV: ${features.length} cameras loaded (mindex=${j.sources?.mindex || 0}, shinobi=${j.sources?.shinobi || 0})`)
+          console.log(`[ProposalOverlays] CCTV: ${features.length} cameras loaded (mindex=${legacyJson.sources?.mindex || 0}, shinobi=${legacyJson.sources?.shinobi || 0}, eagle=${eagleJson.total || 0})`)
         } else {
           (map.getSource("crep-cctv") as any).setData(fc)
         }
@@ -1879,9 +1939,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 
     idleLoad(fetchAndPaint)
     // Poll every 5 min — cameras move rarely but Shinobi monitor list may change
-    const timer = setInterval(() => { if (enabled.cctv) fetchAndPaint() }, 300_000)
+    const timer = setInterval(() => { if (enabled.cctv && mapZoom >= CCTV_MIN_ZOOM && bbox) fetchAndPaint() }, 300_000)
     return () => clearInterval(timer)
-  }, [map, styleReadyTick, enabled.cctv, bbox])
+  }, [map, styleReadyTick, enabled.cctv, bbox, mapZoom])
 
   return null
 }

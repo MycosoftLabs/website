@@ -1,5 +1,4 @@
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 
 export type CoordinationKind = "messages" | "status" | "memory" | "tasks" | "audit"
@@ -32,10 +31,10 @@ const SECRET_VALUE_PATTERNS = [
 ]
 
 export function getCoordinationStoreRoot() {
-  return (
-    process.env.MYCOSOFT_COORDINATION_HOME ||
-    path.join(os.homedir(), ".mycosoft", "agent-coordination")
-  )
+  if (process.env.MYCOSOFT_COORDINATION_HOME) {
+    return process.env.MYCOSOFT_COORDINATION_HOME
+  }
+  return path.join(process.cwd(), "var", "agent-coordination")
 }
 
 function redactString(value: string) {

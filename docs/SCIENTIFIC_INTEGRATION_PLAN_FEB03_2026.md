@@ -216,7 +216,7 @@ NEXT_PUBLIC_WS_URL=ws://${MAS_VM_HOST:-localhost}:8001/ws
 
 # Production
 MAS_ORCHESTRATOR_URL=http://mas-orchestrator:8001
-MINDEX_DATABASE_URL=postgresql://mindex:password@mindex-db:5432/mindex
+MINDEX_DATABASE_URL=[set from your local secret manager]
 ```
 
 ---

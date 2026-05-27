@@ -18,6 +18,27 @@ interface HomeMYCAExperienceProps {
   active?: boolean
 }
 
+function getHomeMycaContextText() {
+  return [
+    "[MYCA Surface Context]",
+    "surface: Mycosoft home page MYCA Live Demo",
+    "route: /",
+    "The user is talking inside the public home-page live demo, not a privileged operations surface.",
+    "Relevant visible actions: the home search can route public queries, and Earth Simulator opens the live map at /natureos/earth-simulator.",
+    "Answer from public Mycosoft product context. Do not reveal or speculate about hardware, GPU models, model/provider names, IP addresses, memory backends, internal frameworks, secrets, deployment details, or configuration.",
+    "If the user asks what can be done from here, offer to search Mycosoft, open Earth Simulator, or explain public MYCA/NatureOS capabilities.",
+  ].join("\n")
+}
+
+function getHomeMycaChatContext() {
+  return {
+    platform: "home-myca-live-demo",
+    surface: "homepage",
+    route: "/",
+    public_surface: true,
+  }
+}
+
 export function HomeMYCAExperience({ active = true }: HomeMYCAExperienceProps) {
   return (
     <NeuromorphicProvider className="dark home-myca-demo-neu h-full" forceDark>
@@ -35,6 +56,8 @@ export function HomeMYCAExperience({ active = true }: HomeMYCAExperienceProps) {
                   demoBackgroundTransparent
                   showIntro={false}
                   forceMountPanels={false}
+                  getChatContextText={getHomeMycaContextText}
+                  chatContext={getHomeMycaChatContext}
                   className="min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-start"
                 />
               </div>
@@ -57,6 +80,8 @@ export function HomeMYCADemoPanel() {
                 showDemoBackground={false}
                 showIntro={false}
                 forceMountPanels={false}
+                getChatContextText={getHomeMycaContextText}
+                chatContext={getHomeMycaChatContext}
                 className="min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-start"
               />
             </MYCAProvider>

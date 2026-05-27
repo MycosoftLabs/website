@@ -213,11 +213,19 @@ export async function GET(
         provider === "caltrans"
           ? caltransProxiedSnapshot(src.embed_url, src.media_url)
           : null
+      const needsProxy =
+        provider === "caltrans" ||
+        /cwwp2\.dot\.ca\.gov/i.test(streamUrl) ||
+        /wzmedia\.dot\.ca\.gov/i.test(streamUrl)
+      const playable =
+        needsProxy && !streamUrl.startsWith("/api/eagle/hls-proxy")
+          ? `/api/eagle/hls-proxy?url=${encodeURIComponent(streamUrl)}`
+          : streamUrl
       return NextResponse.json({
         id: sourceId,
         provider,
         kind,
-        stream_url: streamUrl,
+        stream_url: playable,
         snapshot_url: snapshot,
         stream_type: "hls",
       })

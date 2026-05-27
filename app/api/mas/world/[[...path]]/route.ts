@@ -27,8 +27,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { checkAndFireBalanceAlerts, fireAgentEvent } from "@/lib/myca-hooks"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MAS_API_URL = resolveMasServerBaseUrl()
 
 // --- Path Allowlist (public API) ---
 const ALLOWED_PATHS = new Set([

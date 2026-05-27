@@ -44,14 +44,76 @@ type Cam = {
   stream_url: string | null
   embed_url: string | null
   media_url: string | null
+  source_status?: string | null
   category: "traffic"
 }
+
+type ParsedBbox = {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
+type Extent = [number, number, number, number]
+
+function parseBbox(raw: string | undefined): ParsedBbox | null {
+  if (!raw) return null
+  const [west, south, east, north] = raw.split(",").map(Number)
+  if (![west, south, east, north].every(Number.isFinite)) return null
+  return {
+    west: Math.max(-180, Math.min(180, west)),
+    south: Math.max(-90, Math.min(90, Math.min(south, north))),
+    east: Math.max(-180, Math.min(180, east)),
+    north: Math.max(-90, Math.min(90, Math.max(south, north))),
+  }
+}
+
+function pointInBbox(cam: Cam, bbox: ParsedBbox): boolean {
+  if (cam.lat < bbox.south || cam.lat > bbox.north) return false
+  if (bbox.west <= bbox.east) return cam.lng >= bbox.west && cam.lng <= bbox.east
+  return cam.lng >= bbox.west || cam.lng <= bbox.east
+}
+
+function bboxIntersectsExtent(bbox: ParsedBbox | null, extent: Extent): boolean {
+  if (!bbox) return true
+  const [west, south, east, north] = extent
+  if (bbox.north < south || bbox.south > north) return false
+  if (bbox.west <= bbox.east) return bbox.east >= west && bbox.west <= east
+  return east >= bbox.west || west <= bbox.east
+}
+
+const CALTRANS_DISTRICT_EXTENTS: Record<number, Extent> = {
+  1: [-124.6, 38.6, -121.0, 42.1],
+  2: [-123.2, 39.0, -119.0, 42.1],
+  3: [-123.1, 37.1, -118.9, 40.4],
+  4: [-123.5, 36.7, -121.0, 38.9],
+  5: [-122.7, 34.3, -119.2, 37.4],
+  6: [-121.2, 35.0, -117.4, 37.7],
+  7: [-119.1, 33.4, -117.5, 34.9],
+  8: [-118.2, 33.3, -114.0, 35.9],
+  9: [-120.6, 35.7, -117.4, 38.4],
+  10: [-122.6, 36.8, -119.0, 39.2],
+  11: [-117.7, 32.4, -114.0, 33.7],
+  12: [-118.2, 33.4, -117.4, 34.2],
+}
+
+const PROVIDER_EXTENTS = {
+  caltrans: [-124.7, 32.4, -114.0, 42.2],
+  wsdot: [-124.9, 45.3, -116.7, 49.1],
+  fdot: [-87.8, 24.3, -79.7, 31.1],
+  nysdot: [-79.9, 40.3, -71.7, 45.2],
+  nyctmc: [-74.3, 40.45, -73.65, 41.0],
+  txdot: [-106.7, 25.8, -93.4, 36.6],
+} satisfies Record<string, Extent>
 
 // ─── Caltrans (CA) ──────────────────────────────────────────────────────
 // Caltrans publishes one JSON per district at cwwp2.dot.ca.gov. Districts
 // 1-12 cover the whole state. Request all 12 in parallel, union results.
-async function pullCaltrans(): Promise<Cam[]> {
-  const DISTRICTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+async function pullCaltrans(bbox: ParsedBbox | null): Promise<Cam[]> {
+  const DISTRICTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((d) =>
+    bboxIntersectsExtent(bbox, CALTRANS_DISTRICT_EXTENTS[d]),
+  )
   const pulls = DISTRICTS.map(async (d): Promise<Cam[]> => {
     try {
       const url = `https://cwwp2.dot.ca.gov/data/d${d}/cctv/cctvStatusD${String(d).padStart(2, "0")}.json`
@@ -296,21 +358,17 @@ async function pullTxDOT(): Promise<Cam[]> {
 
 export async function GET(req: NextRequest) {
   const bbox = req.nextUrl.searchParams.get("bbox") || undefined
+  const parsedBbox = parseBbox(bbox)
   const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot] = await Promise.all([
-    pullCaltrans(),
-    pullWSDOT(),
-    pullFDOT(),
-    pullNYSDOT(),
-    pullNYCTMC(),
-    pullTxDOT(),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.caltrans) ? pullCaltrans(parsedBbox) : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.wsdot) ? pullWSDOT() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.fdot) ? pullFDOT() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nysdot) ? pullNYSDOT() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nyctmc) ? pullNYCTMC() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.txdot) ? pullTxDOT() : Promise.resolve([]),
   ])
   let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot]
-  if (bbox) {
-    const [w, s, e, n] = bbox.split(",").map(Number)
-    if ([w, s, e, n].every(Number.isFinite)) {
-      cams = cams.filter((c) => c.lat >= s && c.lat <= n && c.lng >= w && c.lng <= e)
-    }
-  }
+  if (parsedBbox) cams = cams.filter((c) => pointInBbox(c, parsedBbox))
   return NextResponse.json(
     {
       source: "state-dot-cctv",

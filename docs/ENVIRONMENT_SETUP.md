@@ -10,7 +10,7 @@ MINDEX_API_URL=http://localhost:8000
 MINDEX_API_KEY=local-dev-key
 
 # Database (Neon - optional fallback for ancestry data)
-# NEON_DATABASE_URL=postgresql://user:pass@host/db
+# NEON_DATABASE_URL=[set from your local secret manager]
 
 # Next.js
 NODE_ENV=development

@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
       error: error instanceof Error ? error.message : "Health check failed",
       timestamp: new Date().toISOString(),
       troubleshooting: {
-        mindex_url: env.mindexApiBaseUrl,
+        mindex_target: "server-resolved",
         check_vm: "On the MINDEX host: verify the mindex-api service/container and reachability to MINDEX_API_URL",
         restart_mindex: "On the MINDEX host: restart the mindex-api container or compose service",
       }

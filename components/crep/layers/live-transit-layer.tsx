@@ -28,6 +28,7 @@ import { useEffect, useRef } from "react"
 import type maplibregl from "maplibre-gl"
 
 const SOURCE_ID = "crep-live-transit"
+const TRANSIT_LAYER_IDS = [`${SOURCE_ID}-glow`, `${SOURCE_ID}-dot`] as const
 const TYPE_COLORS: Record<string, string> = {
   subway: "#3b82f6",   // blue-500
   rail: "#06b6d4",     // cyan-500
@@ -35,6 +36,37 @@ const TYPE_COLORS: Record<string, string> = {
   tram: "#14b8a6",     // teal-500
   ferry: "#6366f1",    // indigo-500
   other: "#9ca3af",    // gray-400
+}
+
+function transitFeatureId(feature: any, index: number): string {
+  const p = feature?.properties || {}
+  return String(
+    feature?.id ||
+    p.id ||
+    p.vehicle_id ||
+    p.vehicleId ||
+    p.trip_id ||
+    p.tripId ||
+    `${p.agency || "transit"}-${p.route_short_name || p.route || "route"}-${index}`,
+  )
+}
+
+function normalizeTransitFeature(feature: any, index: number): any {
+  const id = transitFeatureId(feature, index)
+  return {
+    ...feature,
+    id,
+    properties: {
+      ...(feature?.properties || {}),
+      id,
+    },
+  }
+}
+
+function promoteTransitLayers(map: maplibregl.Map) {
+  for (const id of TRANSIT_LAYER_IDS) {
+    try { if (map.getLayer(id)) map.moveLayer(id) } catch {}
+  }
 }
 
 interface Props {
@@ -48,7 +80,11 @@ interface Props {
 
 export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect }: Props) {
   const selectRef = useRef(onSelect)
+  const bboxRef = useRef(bbox)
+  const visibleRef = useRef(visible)
   useEffect(() => { selectRef.current = onSelect }, [onSelect])
+  useEffect(() => { bboxRef.current = bbox }, [bbox])
+  useEffect(() => { visibleRef.current = visible }, [visible])
 
   // ── source + layers once map is ready ──────────────────────────────
   useEffect(() => {
@@ -57,7 +93,7 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
 
     const addLayers = () => {
       if (map.getSource(SOURCE_ID)) return
-      map.addSource(SOURCE_ID, { type: "geojson", data: emptyFC })
+      map.addSource(SOURCE_ID, { type: "geojson", data: emptyFC, promoteId: "id" } as any)
 
       // ── Halo glow (below dots) ────────────────────────────────────
       map.addLayer({
@@ -111,6 +147,7 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
       })
       map.on("mouseenter", `${SOURCE_ID}-dot`, () => { map.getCanvas().style.cursor = "pointer" })
       map.on("mouseleave", `${SOURCE_ID}-dot`, () => { map.getCanvas().style.cursor = "" })
+      promoteTransitLayers(map)
     }
 
     // Apr 23, 2026 — robust readiness: `isStyleLoaded()` can return false
@@ -142,9 +179,10 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
     if (!map) return
     const apply = () => {
       const v = visible ? "visible" : "none"
-      for (const id of [`${SOURCE_ID}-dot`, `${SOURCE_ID}-glow`]) {
+      for (const id of TRANSIT_LAYER_IDS) {
         try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v) } catch {}
       }
+      if (visible) promoteTransitLayers(map)
     }
     if ((map as any).isStyleLoaded?.()) apply()
     else map.once("load", apply)
@@ -173,7 +211,6 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
     //     breaker so we don't spam devtools if the endpoint is dead.
     //   • Success writes window.__crep_last_transit_count + logs the first
     //     successful paint count.
-    const bboxStr = bbox ? bbox.join(",") : ""
     const errCountRef = { v: 0 }
     let firstLogged = false
 
@@ -189,8 +226,9 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
     }
 
     const poll = async () => {
-      if (cancelled) return
+      if (cancelled || !visibleRef.current) return
       try {
+        const bboxStr = bboxRef.current ? bboxRef.current.join(",") : ""
         const url = `/api/transit/all${bboxStr ? `?bbox=${encodeURIComponent(bboxStr)}` : ""}`
         const r = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -200,8 +238,9 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
         if (!src) throw new Error("source 'crep-live-transit' never appeared")
         src.setData({
           type: "FeatureCollection",
-          features: Array.isArray(j?.features) ? j.features : [],
+          features: Array.isArray(j?.features) ? j.features.map(normalizeTransitFeature) : [],
         })
+        promoteTransitLayers(map)
         errCountRef.v = 0
         const n = j?.vehicles_total ?? j?.features?.length ?? 0
         if (typeof window !== "undefined") {
@@ -228,7 +267,7 @@ export function LiveTransitLayer({ map, visible, bbox, pollMs = 45_000, onSelect
     }, pollMs)
 
     return () => { cancelled = true; if (intervalId) clearInterval(intervalId) }
-  }, [map, visible, bbox, pollMs])
+  }, [map, visible, pollMs])
 
   return null
 }

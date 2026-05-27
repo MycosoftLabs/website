@@ -31,7 +31,18 @@ export async function GET(req: Request) {
     runOptionalVoiceProbes(),
   ])
 
-  const checks = [
+  const checks: Array<{
+    id: string
+    name: string
+    layer: string
+    ok: boolean
+    critical: boolean
+    latencyMs: number
+    sloOk: boolean
+    sloTargetMs: number
+    detail?: string
+    data?: unknown
+  }> = [
     ...critical.probes.map((p) => ({
       id: p.id,
       name: p.name,

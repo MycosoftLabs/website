@@ -1,0 +1,1241 @@
+{
+  "generatedAt": "2026-05-27T07:15:38.813Z",
+  "route": "/api/crep/viewport-intel",
+  "count": 30,
+  "pass": 0,
+  "fail": 30,
+  "topFailures": [
+    [
+      "facilities_empty",
+      30
+    ],
+    [
+      "leadership_missing_images",
+      17
+    ],
+    [
+      "missing_government_profile",
+      11
+    ],
+    [
+      "missing_government_type",
+      11
+    ],
+    [
+      "missing_government_tabs",
+      11
+    ],
+    [
+      "missing_politics",
+      11
+    ],
+    [
+      "missing_leadership",
+      11
+    ],
+    [
+      "missing_flag",
+      11
+    ],
+    [
+      "missing_seal",
+      11
+    ],
+    [
+      "route_not_ok",
+      5
+    ],
+    [
+      "missing_place_country",
+      5
+    ],
+    [
+      "missing_expected_profile:ZA",
+      2
+    ],
+    [
+      "missing_expected_profile:FR",
+      1
+    ],
+    [
+      "missing_expected_profile:DE",
+      1
+    ],
+    [
+      "slow:1557ms",
+      1
+    ],
+    [
+      "missing_expected_profile:IT",
+      1
+    ],
+    [
+      "missing_expected_profile:ES",
+      1
+    ],
+    [
+      "missing_expected_profile:BE",
+      1
+    ],
+    [
+      "slow:1566ms",
+      1
+    ],
+    [
+      "missing_expected_profile:NL",
+      1
+    ],
+    [
+      "slow:1549ms",
+      1
+    ],
+    [
+      "slow:1545ms",
+      1
+    ],
+    [
+      "slow:1539ms",
+      1
+    ],
+    [
+      "missing_expected_profile:NG",
+      1
+    ],
+    [
+      "missing_expected_profile:EG",
+      1
+    ],
+    [
+      "missing_expected_profile:TR",
+      1
+    ],
+    [
+      "place_country_mismatch:JP",
+      1
+    ],
+    [
+      "missing_expected_profile:KR",
+      1
+    ]
+  ],
+  "results": [
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=40.9428&south=40.482800000000005&east=-73.776&west=-74.236&zoom=11",
+      "city": "New York",
+      "expectedCountry": "US",
+      "place": {
+        "displayName": "Manhattan, New York County, New York, United States",
+        "city": "New York",
+        "county": "New York County",
+        "state": "New York",
+        "country": "United States",
+        "countryCode": "US",
+        "suburb": "Manhattan",
+        "lat": 40.7128,
+        "lng": -74.006
+      },
+      "profileCodes": [
+        "US"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Executive",
+        "Congress",
+        "Departments",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 6,
+      "leadersWithUrls": 5,
+      "leadersWithImages": 2,
+      "leadersWithContact": 5,
+      "mediaCount": 2,
+      "facilitiesCount": 0,
+      "timingMs": 1038,
+      "pass": false,
+      "fail": [
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=32.945699999999995&south=32.4857&east=-116.9311&west=-117.39110000000001&zoom=11",
+      "city": "San Diego",
+      "expectedCountry": "US",
+      "place": {
+        "displayName": "Chula Vista, San Diego County, California, United States",
+        "city": "Chula Vista",
+        "county": "San Diego County",
+        "state": "California",
+        "country": "United States",
+        "countryCode": "US",
+        "lat": 32.7157,
+        "lng": -117.1611
+      },
+      "profileCodes": [
+        "US"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Executive",
+        "Congress",
+        "Departments",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 11,
+      "leadersWithUrls": 10,
+      "leadersWithImages": 6,
+      "leadersWithContact": 10,
+      "mediaCount": 6,
+      "facilitiesCount": 0,
+      "timingMs": 103,
+      "pass": false,
+      "fail": [
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=43.883199999999995&south=43.4232&east=-79.1532&west=-79.6132&zoom=11",
+      "city": "Toronto",
+      "expectedCountry": "CA",
+      "place": {
+        "displayName": "Canada",
+        "country": "Canada",
+        "countryCode": "CA",
+        "lat": 43.6532,
+        "lng": -79.3832
+      },
+      "profileCodes": [
+        "CA"
+      ],
+      "governmentType": "Federal parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Cabinet",
+        "Parliament",
+        "Provinces"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 3,
+      "leadersWithUrls": 3,
+      "leadersWithImages": 0,
+      "leadersWithContact": 3,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1000,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=49.512699999999995&south=49.0527&east=-122.8907&west=-123.3507&zoom=11",
+      "city": "Vancouver",
+      "expectedCountry": "CA",
+      "place": {
+        "displayName": "Canada",
+        "country": "Canada",
+        "countryCode": "CA",
+        "lat": 49.2827,
+        "lng": -123.1207
+      },
+      "profileCodes": [
+        "CA"
+      ],
+      "governmentType": "Federal parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Cabinet",
+        "Parliament",
+        "Provinces"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 3,
+      "leadersWithUrls": 3,
+      "leadersWithImages": 0,
+      "leadersWithContact": 3,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 999,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=19.6626&south=19.2026&east=-98.9032&west=-99.3632&zoom=11",
+      "city": "Mexico City",
+      "expectedCountry": "MX",
+      "place": {
+        "displayName": "Mexico",
+        "country": "Mexico",
+        "countryCode": "MX",
+        "lat": 19.4326,
+        "lng": -99.1332
+      },
+      "profileCodes": [
+        "MX"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Presidency",
+        "Congress",
+        "Judiciary",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 1,
+      "leadersWithUrls": 1,
+      "leadersWithImages": 0,
+      "leadersWithContact": 1,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 54,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=20.8897&south=20.4297&east=-103.11959999999999&west=-103.5796&zoom=11",
+      "city": "Guadalajara",
+      "expectedCountry": "MX",
+      "place": {
+        "displayName": "Mexico",
+        "country": "Mexico",
+        "countryCode": "MX",
+        "lat": 20.6597,
+        "lng": -103.3496
+      },
+      "profileCodes": [
+        "MX"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Presidency",
+        "Congress",
+        "Judiciary",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 1,
+      "leadersWithUrls": 1,
+      "leadersWithImages": 0,
+      "leadersWithContact": 1,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 939,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=51.737399999999994&south=51.2774&east=0.10220000000000001&west=-0.3578&zoom=11",
+      "city": "London",
+      "expectedCountry": "GB",
+      "place": {
+        "displayName": "United Kingdom",
+        "country": "United Kingdom",
+        "countryCode": "GB",
+        "lat": 51.5074,
+        "lng": -0.1278
+      },
+      "profileCodes": [
+        "GB"
+      ],
+      "governmentType": "Unitary parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Government",
+        "Parliament",
+        "Devolution"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 984,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=53.7108&south=53.250800000000005&east=-2.0126&west=-2.4726&zoom=11",
+      "city": "Manchester",
+      "expectedCountry": "GB",
+      "place": {
+        "displayName": "United Kingdom",
+        "country": "United Kingdom",
+        "countryCode": "GB",
+        "lat": 53.4808,
+        "lng": -2.2426
+      },
+      "profileCodes": [
+        "GB"
+      ],
+      "governmentType": "Unitary parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Government",
+        "Parliament",
+        "Devolution"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 70,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=49.0866&south=48.6266&east=2.5822&west=2.1222&zoom=11",
+      "city": "Paris",
+      "expectedCountry": "FR",
+      "place": {
+        "displayName": "Paris, Île-de-France, France métropolitaine, France",
+        "city": "Paris",
+        "state": "Île-de-France",
+        "country": "France",
+        "countryCode": "FR",
+        "suburb": "Paris",
+        "lat": 48.8566,
+        "lng": 2.3522
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 981,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:FR",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=52.75&south=52.290000000000006&east=13.635&west=13.174999999999999&zoom=11",
+      "city": "Berlin",
+      "expectedCountry": "DE",
+      "place": null,
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1557,
+      "pass": false,
+      "fail": [
+        "route_not_ok",
+        "missing_place_country",
+        "missing_expected_profile:DE",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty",
+        "slow:1557ms"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=42.132799999999996&south=41.6728&east=12.7264&west=12.266399999999999&zoom=11",
+      "city": "Rome",
+      "expectedCountry": "IT",
+      "place": {
+        "displayName": "Roma, Roma Capitale, Lazio, Italia",
+        "city": "Roma",
+        "county": "Roma Capitale",
+        "state": "Lazio",
+        "country": "Italia",
+        "countryCode": "IT",
+        "lat": 41.9028,
+        "lng": 12.4964
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 968,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:IT",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=40.6468&south=40.186800000000005&east=-3.4738&west=-3.9338&zoom=11",
+      "city": "Madrid",
+      "expectedCountry": "ES",
+      "place": {
+        "displayName": "Madrid, Comunidad de Madrid, España",
+        "city": "Madrid",
+        "state": "Comunidad de Madrid",
+        "country": "España",
+        "countryCode": "ES",
+        "lat": 40.4168,
+        "lng": -3.7038
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 983,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:ES",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=51.080299999999994&south=50.6203&east=4.5817000000000005&west=4.1217&zoom=11",
+      "city": "Brussels",
+      "expectedCountry": "BE",
+      "place": null,
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1566,
+      "pass": false,
+      "fail": [
+        "route_not_ok",
+        "missing_place_country",
+        "missing_expected_profile:BE",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty",
+        "slow:1566ms"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=52.5976&south=52.137600000000006&east=5.1341&west=4.674099999999999&zoom=11",
+      "city": "Amsterdam",
+      "expectedCountry": "NL",
+      "place": null,
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1549,
+      "pass": false,
+      "fail": [
+        "route_not_ok",
+        "missing_place_country",
+        "missing_expected_profile:NL",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty",
+        "slow:1549ms"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=40.1342&south=39.674200000000006&east=116.6374&west=116.17739999999999&zoom=11",
+      "city": "Beijing",
+      "expectedCountry": "CN",
+      "place": {
+        "displayName": "China",
+        "country": "China",
+        "countryCode": "CN",
+        "lat": 39.9042,
+        "lng": 116.4074
+      },
+      "profileCodes": [
+        "CN"
+      ],
+      "governmentType": "Unitary Marxist-Leninist one-party socialist republic",
+      "tabLabels": [
+        "CCP",
+        "State",
+        "NPC",
+        "CPPCC"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 989,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=31.4604&south=31.0004&east=121.7037&west=121.24369999999999&zoom=11",
+      "city": "Shanghai",
+      "expectedCountry": "CN",
+      "place": {
+        "displayName": "China",
+        "country": "China",
+        "countryCode": "CN",
+        "lat": 31.2304,
+        "lng": 121.4737
+      },
+      "profileCodes": [
+        "CN"
+      ],
+      "governmentType": "Unitary Marxist-Leninist one-party socialist republic",
+      "tabLabels": [
+        "CCP",
+        "State",
+        "NPC",
+        "CPPCC"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 49,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=35.9062&south=35.446200000000005&east=139.88029999999998&west=139.4203&zoom=11",
+      "city": "Tokyo",
+      "expectedCountry": "JP",
+      "place": {
+        "displayName": "Japan",
+        "country": "Japan",
+        "countryCode": "JP",
+        "lat": 35.6762,
+        "lng": 139.6503
+      },
+      "profileCodes": [
+        "JP"
+      ],
+      "governmentType": "Unitary parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Imperial",
+        "Cabinet",
+        "National Diet",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 945,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=34.9237&south=34.4637&east=135.73229999999998&west=135.2723&zoom=11",
+      "city": "Osaka",
+      "expectedCountry": "JP",
+      "place": {
+        "displayName": "Japan",
+        "country": "Japan",
+        "countryCode": "JP",
+        "lat": 34.6937,
+        "lng": 135.5023
+      },
+      "profileCodes": [
+        "JP"
+      ],
+      "governmentType": "Unitary parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Imperial",
+        "Cabinet",
+        "National Diet",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 934,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=28.8439&south=28.3839&east=77.43900000000001&west=76.979&zoom=11",
+      "city": "New Delhi",
+      "expectedCountry": "IN",
+      "place": {
+        "displayName": "India",
+        "country": "India",
+        "countryCode": "IN",
+        "lat": 28.6139,
+        "lng": 77.209
+      },
+      "profileCodes": [
+        "IN"
+      ],
+      "governmentType": "Federal parliamentary constitutional republic",
+      "tabLabels": [
+        "Executive",
+        "Parliament",
+        "States",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 967,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=19.306&south=18.846&east=73.10770000000001&west=72.6477&zoom=11",
+      "city": "Mumbai",
+      "expectedCountry": "IN",
+      "place": {
+        "displayName": "India",
+        "country": "India",
+        "countryCode": "IN",
+        "lat": 19.076,
+        "lng": 72.8777
+      },
+      "profileCodes": [
+        "IN"
+      ],
+      "governmentType": "Federal parliamentary constitutional republic",
+      "tabLabels": [
+        "Executive",
+        "Parliament",
+        "States",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 970,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-33.6388&south=-34.0988&east=151.4393&west=150.97930000000002&zoom=11",
+      "city": "Sydney",
+      "expectedCountry": "AU",
+      "place": {
+        "displayName": "Australia",
+        "country": "Australia",
+        "countryCode": "AU",
+        "lat": -33.8688,
+        "lng": 151.2093
+      },
+      "profileCodes": [
+        "AU"
+      ],
+      "governmentType": "Federal parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Government",
+        "Parliament",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 3,
+      "leadersWithUrls": 3,
+      "leadersWithImages": 0,
+      "leadersWithContact": 3,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 941,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-37.583600000000004&south=-38.0436&east=145.1931&west=144.7331&zoom=11",
+      "city": "Melbourne",
+      "expectedCountry": "AU",
+      "place": {
+        "displayName": "Australia",
+        "country": "Australia",
+        "countryCode": "AU",
+        "lat": -37.8136,
+        "lng": 144.9631
+      },
+      "profileCodes": [
+        "AU"
+      ],
+      "governmentType": "Federal parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Crown",
+        "Government",
+        "Parliament",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 3,
+      "leadersWithUrls": 3,
+      "leadersWithImages": 0,
+      "leadersWithContact": 3,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 951,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-15.5639&south=-16.0239&east=-47.652800000000006&west=-48.1128&zoom=11",
+      "city": "Brasilia",
+      "expectedCountry": "BR",
+      "place": {
+        "displayName": "Brazil",
+        "country": "Brazil",
+        "countryCode": "BR",
+        "lat": -15.7939,
+        "lng": -47.8828
+      },
+      "profileCodes": [
+        "BR"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Presidency",
+        "Congress",
+        "Judiciary",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1026,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-23.3205&south=-23.7805&east=-46.4033&west=-46.863299999999995&zoom=11",
+      "city": "Sao Paulo",
+      "expectedCountry": "BR",
+      "place": {
+        "displayName": "Brazil",
+        "country": "Brazil",
+        "countryCode": "BR",
+        "lat": -23.5505,
+        "lng": -46.6333
+      },
+      "profileCodes": [
+        "BR"
+      ],
+      "governmentType": "Federal presidential constitutional republic",
+      "tabLabels": [
+        "Presidency",
+        "Congress",
+        "Judiciary",
+        "States"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1053,
+      "pass": false,
+      "fail": [
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-25.9741&south=-26.4341&east=28.2773&west=27.8173&zoom=11",
+      "city": "Johannesburg",
+      "expectedCountry": "ZA",
+      "place": null,
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1545,
+      "pass": false,
+      "fail": [
+        "route_not_ok",
+        "missing_place_country",
+        "missing_expected_profile:ZA",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty",
+        "slow:1545ms"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=-33.694900000000004&south=-34.1549&east=18.6541&west=18.1941&zoom=11",
+      "city": "Cape Town",
+      "expectedCountry": "ZA",
+      "place": null,
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1539,
+      "pass": false,
+      "fail": [
+        "route_not_ok",
+        "missing_place_country",
+        "missing_expected_profile:ZA",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty",
+        "slow:1539ms"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=6.7544&south=6.2943999999999996&east=3.6092&west=3.1492&zoom=11",
+      "city": "Lagos",
+      "expectedCountry": "NG",
+      "place": {
+        "displayName": "Shomolu, Lagos, Nigeria",
+        "county": "Shomolu",
+        "state": "Lagos",
+        "country": "Nigeria",
+        "countryCode": "NG",
+        "lat": 6.5244,
+        "lng": 3.3792
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 943,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:NG",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=30.2744&south=29.8144&east=31.465700000000002&west=31.0057&zoom=11",
+      "city": "Cairo",
+      "expectedCountry": "EG",
+      "place": {
+        "displayName": "القاهرة, مصر",
+        "city": "القاهرة",
+        "state": "القاهرة",
+        "country": "مصر",
+        "countryCode": "EG",
+        "lat": 30.0444,
+        "lng": 31.2357
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1218,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:EG",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=41.2382&south=40.778200000000005&east=29.2084&west=28.7484&zoom=11",
+      "city": "Istanbul",
+      "expectedCountry": "TR",
+      "place": {
+        "displayName": "Cankurtaran Mahallesi, İstanbul, Fatih, İstanbul, Marmara Bölgesi, 34122, Türkiye",
+        "city": "İstanbul",
+        "state": "Marmara Bölgesi",
+        "country": "Türkiye",
+        "countryCode": "TR",
+        "suburb": "Cankurtaran Mahallesi",
+        "postcode": "34122",
+        "lat": 41.0082,
+        "lng": 28.9784
+      },
+      "profileCodes": [],
+      "governmentType": "",
+      "tabLabels": [],
+      "tabItems": 0,
+      "politicsCount": 0,
+      "officialsCount": 0,
+      "leadersWithUrls": 0,
+      "leadersWithImages": 0,
+      "leadersWithContact": 0,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 1210,
+      "pass": false,
+      "fail": [
+        "missing_expected_profile:TR",
+        "missing_government_profile",
+        "missing_government_type",
+        "missing_government_tabs",
+        "missing_politics",
+        "missing_leadership",
+        "missing_flag",
+        "missing_seal",
+        "facilities_empty"
+      ]
+    },
+    {
+      "status": 200,
+      "url": "http://localhost:3010/api/crep/viewport-intel?north=37.796499999999995&south=37.3365&east=127.208&west=126.74799999999999&zoom=11",
+      "city": "Seoul",
+      "expectedCountry": "KR",
+      "place": {
+        "displayName": "Japan",
+        "country": "Japan",
+        "countryCode": "JP",
+        "lat": 37.5665,
+        "lng": 126.978
+      },
+      "profileCodes": [
+        "JP"
+      ],
+      "governmentType": "Unitary parliamentary constitutional monarchy",
+      "tabLabels": [
+        "Imperial",
+        "Cabinet",
+        "National Diet",
+        "Judiciary"
+      ],
+      "tabItems": 6,
+      "politicsCount": 2,
+      "officialsCount": 2,
+      "leadersWithUrls": 2,
+      "leadersWithImages": 0,
+      "leadersWithContact": 2,
+      "mediaCount": 0,
+      "facilitiesCount": 0,
+      "timingMs": 938,
+      "pass": false,
+      "fail": [
+        "place_country_mismatch:JP",
+        "missing_expected_profile:KR",
+        "leadership_missing_images",
+        "facilities_empty"
+      ]
+    }
+  ]
+}

@@ -65,6 +65,7 @@ interface Props {
   map: MapLibreMap | null
   enabled: EagleEyeEnabled
   bbox?: [number, number, number, number]
+  mapZoom?: number
 }
 
 function mapReady(map: MapLibreMap): boolean {
@@ -95,28 +96,71 @@ const PROVIDER_COLOR: Record<string, string> = {
   "unifi-protect": VIDEO_CAMERA_COLOR,
 }
 
-export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
+function sourceInBbox(source: { lat?: number; lng?: number }, bbox?: [number, number, number, number]): boolean {
+  if (!bbox) return true
+  const [west, south, east, north] = bbox
+  const lat = Number(source.lat)
+  const lng = Number(source.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+  if (lat < south || lat > north) return false
+  if (west <= east) return lng >= west && lng <= east
+  return lng >= west || lng <= east
+}
+
+function getMapBbox(map: MapLibreMap | null): [number, number, number, number] | undefined {
+  try {
+    const bounds = map?.getBounds?.()
+    if (!bounds) return undefined
+    return [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
+  } catch {
+    return undefined
+  }
+}
+
+export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Props) {
   const loadedRef = useRef<{ cams?: boolean; events?: boolean }>({})
   const camsTimerRef = useRef<any>(null)
   const eventsTimerRef = useRef<any>(null)
   const bakedCameraFcRef = useRef<any>(null)
+  const cameraFetchAbortRef = useRef<AbortController | null>(null)
   const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
+  const cameraLodVisible = mapZoom >= 7
 
   // ─── Permanent camera plane ─────────────────────────────────────────
   useEffect(() => {
     if (!map) return
+    let cancelled = false
+    let requestSeq = 0
+    let viewportSettledTimer: ReturnType<typeof setTimeout> | null = null
+    const retryTimers = new Set<ReturnType<typeof setTimeout>>()
+    let fetchAndPaint: (() => Promise<void>) | null = null
+    const scheduleRetry = (ms = 700) => {
+      if (cancelled) return
+      const timer = setTimeout(() => {
+        retryTimers.delete(timer)
+        if (cancelled || !fetchAndPaint) return
+        fetchAndPaint().catch(() => { /* retry path is best effort */ })
+      }, ms)
+      retryTimers.add(timer)
+    }
     const ids = [
       EAGLE_CAMERA_LAYER_IDS.hit,
       EAGLE_CAMERA_LAYER_IDS.glow,
       EAGLE_CAMERA_LAYER_IDS.icon,
       EAGLE_CAMERA_LAYER_IDS.label,
     ]
-    if (!enabled.eagleEyeCameras) {
+    const setCameraLayerVisibility = (visible: boolean) => {
       try {
-        for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none")
+        for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none")
       } catch { /* ignore */ }
+    }
+    if (!enabled.eagleEyeCameras) {
+      setCameraLayerVisibility(false)
       if (camsTimerRef.current) { clearInterval(camsTimerRef.current); camsTimerRef.current = null }
       return
+    }
+    if (!cameraLodVisible) {
+      setCameraLayerVisibility(false)
     }
     // Apr 23, 2026 — Morgan: "eagle eye shows nothign get that working now
     // i see no social media youtube shinobi nps usgs no sensors nothing as
@@ -130,16 +174,14 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     // LAYERS have been created (addSource / addLayer must only run once
     // per map lifetime). Every bbox / toggle change still calls
     // fetchAndPaint which refreshes the source data.
-    try {
-      for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
-    } catch { /* ignore */ }
+    if (cameraLodVisible) setCameraLayerVisibility(true)
 
     // Apr 22, 2026 — Morgan: "cameras are PERMANENT assets ... the icon
     // of camera should be hard coded in map unless update shows its gone".
     // First mount: paint the baked registry geojson (instant — 10s of ms,
     // ~3 900 cameras with id + provider + lat/lng + stream_url snapshot).
     // Then API delta for stream_url changes + new cameras only.
-    const paintFromSources = (sources: any[]) => {
+    const paintFromSources = (sources: any[], activeBbox: [number, number, number, number] | undefined = bbox) => {
       const providerFilter = (p: string): boolean => {
         if (p === "shinobi") return enabled.eagleEyeShinobi !== false
         if (
@@ -158,6 +200,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       }
       const features = filterEagleVideoSources(sources || [])
         .filter((s: any) => providerFilter(s.provider || ""))
+        .filter((s: any) => sourceInBbox(s, activeBbox))
         .map((s: any) => ({
           type: "Feature" as const,
           properties: {
@@ -201,7 +244,95 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       return out
     }
 
-    const paintBakedRegistry = async (): Promise<boolean> => {
+    const broadcastCameraCounts = (collection: any) => {
+      try {
+        const providerCounts = countProviders(collection)
+        ;(window as any).__crep_eagle_camera_counts = providerCounts
+        window.dispatchEvent(new CustomEvent("crep:eagle:camera-counts", {
+          detail: { total: collection?.features?.length || 0, by_provider: providerCounts },
+        }))
+      } catch { /* ignore */ }
+    }
+
+    const attachCameraHandlers = () => {
+      const handlerKey = "__crepEagleCameraHandlersAttached"
+      if ((map as any)[handlerKey]) return
+      const onEagleCamClick = (e: any) => {
+        const f = e.features?.[0]
+        if (!f) return
+        try { e.preventDefault?.(); e.originalEvent?.stopPropagation?.() } catch { /* ignore */ }
+        const p = f.properties || {}
+        const c = e.lngLat
+        const displayName = p.name || `${p.provider || "camera"} feed`
+        try {
+          const hook = (window as any).__crep_selectAsset
+          if (typeof hook === "function") {
+            hook({
+              type: "camera",
+              id: p.id,
+              name: displayName,
+              lat: c?.lat ?? 0,
+              lng: c?.lng ?? 0,
+              properties: p,
+            })
+          }
+        } catch { /* ignore */ }
+        try {
+          window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", {
+            detail: { ...p, name: displayName, lat: c?.lat, lng: c?.lng },
+          }))
+        } catch { /* ignore */ }
+      }
+      for (const layerId of EAGLE_CAMERA_CLICK_LAYER_IDS) {
+        map.on("click", layerId, onEagleCamClick)
+        map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
+        map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+      }
+      ;(map as any)[handlerKey] = true
+    }
+
+    const ensureCameraSourceAndLayers = async (fc: any): Promise<boolean> => {
+      if (!fc?.features || !mapReady(map)) {
+        scheduleRetry()
+        return false
+      }
+      try {
+        await ensureEagleCameraMapIcon(map)
+        const sourceId = "crep-eagle-cams"
+        if (!map.getSource(sourceId)) {
+          for (const id of [...ids].reverse()) {
+            try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* ignore */ }
+          }
+          map.addSource(sourceId, { type: "geojson", data: fc, generateId: true })
+        } else {
+          ;(map.getSource(sourceId) as any).setData(fc)
+        }
+
+        const layerDefs = [
+          eagleCameraHitLayer(sourceId),
+          eagleCameraGlowLayer(sourceId),
+          eagleCameraIconLayer(sourceId),
+          eagleCameraLabelLayer(sourceId),
+        ]
+        for (const layer of layerDefs) {
+          try {
+            if (!map.getLayer((layer as any).id)) map.addLayer(layer as any)
+            map.setLayoutProperty((layer as any).id, "visibility", "visible")
+          } catch { /* style may still be settling; retry below */ }
+        }
+        loadedRef.current.cams = true
+        attachCameraHandlers()
+        broadcastCameraCounts(fc)
+        return true
+      } catch (e: any) {
+        loadedRef.current.cams = false
+        console.warn("[EagleEye/cams] camera source paint delayed:", e?.message)
+        scheduleRetry()
+        return false
+      }
+    }
+
+    const paintBakedRegistry = async (activeBbox: [number, number, number, number] | undefined): Promise<boolean> => {
       try {
         // Apr 22, 2026 — Morgan: "find every single publically accessible
         // camera in san diego county on the tijuana bourader and in
@@ -211,9 +342,10 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         // (Surfline / HPWREN / Scripps / NOAA / EarthCam / Skyline /
         // CBP refs / NPS / Border Field / Port of SD). Manual seed wins
         // on id conflict so curated metadata overrides stale bakes.
-        const [rReg, rSeed, rNycDc, rVegas, rDeploy] = await Promise.all([
+        const [rReg, rSeed, rCaltransSd, rNycDc, rVegas, rDeploy] = await Promise.all([
           fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
           // need to work" + DC cams. NYC + DC seed (NYSDOT bridges,
           // EarthCam landmarks, VDOT 511, MDOT CHART, White House/Capitol
@@ -248,6 +380,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         })
         const bakedFeats  = rReg?.ok   ? ((await rReg.json())?.features   || []) : []
         const seedFeats   = rSeed?.ok  ? ((await rSeed.json())?.features  || []) : []
+        const caltransSdFeats = rCaltransSd?.ok ? ((await rCaltransSd.json())?.features || []) : []
         const nycDcFeats  = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
         const vegasFeats  = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
         const deployFeats = rDeploy?.ok ? ((await rDeploy.json())?.features || []) : []
@@ -260,11 +393,12 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         }
         mergeBatch(bakedFeats)
         mergeBatch(seedFeats)
+        mergeBatch(caltransSdFeats)
         mergeBatch(nycDcFeats)
         mergeBatch(vegasFeats)
         mergeBatch(deployFeats)
         const srcLike = Array.from(merged.values())
-        const fc = paintFromSources(srcLike)
+        const fc = paintFromSources(srcLike, activeBbox)
         if (fc.features.length === 0) return false
         bakedCameraFcRef.current = fc
         if (!map.getSource("crep-eagle-cams")) {
@@ -272,7 +406,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(fc)
         }
-        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length} deploy-sites=${deployFeats.length})`)
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} caltrans-sd=${caltransSdFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length} deploy-sites=${deployFeats.length})`)
         return true
       } catch (e: any) {
         console.warn("[EagleEye] baked registry load failed:", e?.message)
@@ -280,36 +414,79 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
       }
     }
 
-    const fetchAndPaint = async () => {
+    fetchAndPaint = async () => {
+      if (cancelled) return
       if (typeof document !== "undefined" && document.hidden) return
+      if (!mapReady(map)) {
+        scheduleRetry()
+        return
+      }
+      const liveZoom = Number(map.getZoom?.() ?? mapZoom ?? 0)
+      if (liveZoom < 7) {
+        setCameraLayerVisibility(false)
+        return
+      }
+      setCameraLayerVisibility(true)
+      const activeBbox = getMapBbox(map) || bbox
+      const activeBboxKey = activeBbox ? activeBbox.map((n) => n.toFixed(6)).join(",") : ""
+      const seq = ++requestSeq
       try {
+        if (loadedRef.current.cams && !map.getSource("crep-eagle-cams")) {
+          loadedRef.current.cams = false
+        }
         // Apr 22, 2026 v2 — baked registry is the instant path. If it
         // paints, the API fetch becomes a DELTA call (pick up new cams,
         // stream_url changes, offline status). If registry is missing
         // (fresh clone without `npm run etl:bake-cameras`), fall back to
         // the prior fast-then-full API fan-out.
-        const bakedPainted = !loadedRef.current.cams && await paintBakedRegistry()
+        const bakedPainted = !loadedRef.current.cams && await paintBakedRegistry(activeBbox)
+        if (bakedPainted && bakedCameraFcRef.current?.features?.length) {
+          await ensureCameraSourceAndLayers(bakedCameraFcRef.current)
+        }
         // After baked paint: use full mode so API deltas include Caltrans
         // + Shinobi. Without baked: use fast-then-full for first mount.
         const fastMode = !loadedRef.current.cams && !bakedPainted
-        const bboxBase = bboxKey ? `bbox=${bboxKey}&limit=10000` : "limit=10000"
-        const bboxParam = `?${bboxBase}${fastMode ? "&fast=1" : ""}`
+        const cameraQuery = new URLSearchParams({ limit: activeBboxKey ? "1200" : "300" })
+        if (activeBboxKey) cameraQuery.set("bbox", activeBboxKey)
+        if (fastMode) cameraQuery.set("fast", "1")
+        const bboxParam = `?${cameraQuery.toString()}`
         if (fastMode) {
           setTimeout(() => {
             if (typeof document !== "undefined" && document.hidden) return
-            fetchAndPaint().catch(() => { /* ignore */ })
+            fetchAndPaint?.().catch(() => { /* ignore */ })
           }, 4_000)
         }
-        const res = await fetch(`/api/eagle/sources${bboxParam}`)
-        if (!res.ok) return
+        cameraFetchAbortRef.current?.abort()
+        const controller = new AbortController()
+        cameraFetchAbortRef.current = controller
+        const timeout = window.setTimeout(() => controller.abort(), 10_000)
+        const res = await fetch(`/api/eagle/sources${bboxParam}`, { signal: controller.signal })
+        window.clearTimeout(timeout)
+        if (cameraFetchAbortRef.current === controller) cameraFetchAbortRef.current = null
+        if (cancelled || seq !== requestSeq) return
+        if (!res.ok) {
+          if (!map.getSource("crep-eagle-cams")) scheduleRetry(2_500)
+          return
+        }
         const j = await res.json()
-        const fc = paintFromSources(j.sources || [])
+        if (cancelled || seq !== requestSeq) return
+        const fc = paintFromSources(j.sources || [], activeBbox)
         const mergedFc = mergeFeatureCollections(
           (map as any).__crepEaglePendingFc,
           bakedCameraFcRef.current,
           fc,
         )
-        if (!map.getSource("crep-eagle-cams")) {
+        if ((map as any).__crepEaglePendingFc?.features?.length) {
+          delete (map as any).__crepEaglePendingFc
+        }
+        const cameraPaintFc = mergedFc.features.length ? mergedFc : fc
+        const hadSource = Boolean(map.getSource("crep-eagle-cams"))
+        const painted = await ensureCameraSourceAndLayers(cameraPaintFc)
+        if (!painted) return
+        if (!hadSource) {
+          console.log(`[EagleEye] ${cameraPaintFc.features.length} permanent cameras loaded (api=${fc.features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
+        }
+        if (!map.getSource("crep-eagle-cams") && !painted) {
           // Apr 23, 2026 — pre-seed with the baked-registry FC if
           // paintBakedRegistry already stashed one (previously it stashed
           // on __crepEaglePendingFc but nothing consumed it, so the
@@ -369,12 +546,37 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
             detail: { total: paintedFc.features.length, by_provider: providerCounts },
           }))
         } catch { /* ignore */ }
-      } catch (e: any) { console.warn("[EagleEye/cams]", e?.message) }
+      } catch (e: any) {
+        if (e?.name !== "AbortError") console.warn("[EagleEye/cams]", e?.message)
+      }
     }
 
     fetchAndPaint()
-    camsTimerRef.current = setInterval(fetchAndPaint, 300_000) // 5 min
+    const onCameraViewportSettled = () => {
+      if (viewportSettledTimer) clearTimeout(viewportSettledTimer)
+      viewportSettledTimer = setTimeout(() => {
+        viewportSettledTimer = null
+        fetchAndPaint?.().catch(() => { /* ignore */ })
+      }, 220)
+    }
+    try {
+      map.on("moveend", onCameraViewportSettled)
+      map.on("zoomend", onCameraViewportSettled)
+    } catch { /* ignore */ }
+    camsTimerRef.current = setInterval(() => {
+      fetchAndPaint?.().catch(() => { /* ignore */ })
+    }, 300_000) // 5 min
     return () => {
+      cancelled = true
+      cameraFetchAbortRef.current?.abort()
+      cameraFetchAbortRef.current = null
+      if (viewportSettledTimer) clearTimeout(viewportSettledTimer)
+      for (const timer of retryTimers) clearTimeout(timer)
+      retryTimers.clear()
+      try {
+        map.off("moveend", onCameraViewportSettled)
+        map.off("zoomend", onCameraViewportSettled)
+      } catch { /* ignore */ }
       if (camsTimerRef.current) { clearInterval(camsTimerRef.current); camsTimerRef.current = null }
     }
   }, [
@@ -386,6 +588,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     enabled.eagleEyeWebcams,
     enabled.eagleEyeNpsUsgs,
     bboxKey,
+    cameraLodVisible,
   ])
 
   // ─── Ephemeral event plane ──────────────────────────────────────────

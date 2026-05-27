@@ -560,7 +560,7 @@ MINDEX_API_KEY=local-dev-key
 NEXT_PUBLIC_MINDEX_API_URL=/api/natureos/mindex
 
 # Optional: Direct database access (not recommended)
-# MINDEX_DATABASE_URL=postgresql://user:pass@localhost:5434/mindex
+# MINDEX_DATABASE_URL=[set from your local secret manager]
 ```
 
 ---

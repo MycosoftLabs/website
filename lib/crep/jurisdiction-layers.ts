@@ -113,9 +113,6 @@ function findVectorSource(map: any): string | null {
 /** Match Carto vector tile schema (maritime is 0/1, not boolean). */
 const LAND_BOUNDARY_FILTER = ["==", "maritime", 0] as const
 
-/** Globe projection dims unlit lines; emissive keeps borders readable on dark basemap. */
-const GLOBE_LINE_EMISSIVE = { "line-emissive-strength": 1 } as const
-
 /**
  * Add all jurisdiction boundary layers to the map.
  * Call this after map style has loaded.
@@ -177,7 +174,6 @@ export function addJurisdictionLayers(map: any, options?: {
         "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1.4, 4, 2.2, 8, 3.2],
         "line-opacity": 0.9,
         "line-dasharray": [4, 2],
-        ...GLOBE_LINE_EMISSIVE,
       },
       minzoom: 1,
     })
@@ -194,9 +190,8 @@ export function addJurisdictionLayers(map: any, options?: {
         "line-color": "#7dd3fc",
         "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1.2, 4, 2, 7, 2.8, 12, 3.5],
         "line-opacity": 1,
-        ...GLOBE_LINE_EMISSIVE,
       },
-      minzoom: 2,
+      minzoom: 4,
     })
 
     // State names — dark-matter-nolabels strips place_state; add dedicated labels.
@@ -209,21 +204,21 @@ export function addJurisdictionLayers(map: any, options?: {
       layout: {
         visibility: stateVisible,
         "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 3, 12, 5, 14, 8, 16],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 9, 13, 11, 15],
         "text-font": ["Montserrat Medium", "Open Sans Bold", "Arial Unicode MS Bold"],
         "text-transform": "uppercase",
         "text-max-width": 10,
         "text-letter-spacing": 0.06,
-        "text-allow-overlap": true,
+        "text-allow-overlap": false,
         "text-ignore-placement": false,
       },
       paint: {
         "text-color": "#e0f2fe",
-        "text-opacity": 0.95,
+        "text-opacity": ["interpolate", ["linear"], ["zoom"], 7, 0, 7.5, 0.95],
         "text-halo-color": "#020617",
         "text-halo-width": 2,
       },
-      minzoom: 3,
+      minzoom: 7,
       maxzoom: 12,
     })
 
@@ -243,9 +238,8 @@ export function addJurisdictionLayers(map: any, options?: {
         "line-width": ["interpolate", ["linear"], ["zoom"], 7, 1, 10, 1.5],
         "line-opacity": 0.65,
         "line-dasharray": [2, 2],
-        ...GLOBE_LINE_EMISSIVE,
       },
-      minzoom: 7,
+      minzoom: 9,
     })
   } else {
     console.warn("[CREP/Jurisdiction] No vector tile source found — boundary layers unavailable. Base style may not include boundary data.")
@@ -281,9 +275,8 @@ export function addJurisdictionLayers(map: any, options?: {
       "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 6, 2, 10, 2.5],
       "line-opacity": 0.5,
       "line-dasharray": [6, 3],
-      ...GLOBE_LINE_EMISSIVE,
     },
-    minzoom: 3,
+    minzoom: 5,
   })
 
   if (!map.__crepFemaClickBound) {
@@ -312,19 +305,19 @@ export function addJurisdictionLayers(map: any, options?: {
     layout: {
       visibility: femaVisible,
       "text-field": ["get", "name"],
-      "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 6, 14, 10, 16],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 8, 13, 10, 15],
       "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
       "text-anchor": "center",
       "text-allow-overlap": false,
     },
     paint: {
       "text-color": "#ffffff",
-      "text-opacity": 0.7,
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 6.5, 0.75],
       "text-halo-color": "#000000",
       "text-halo-width": 1.5,
     },
-    minzoom: 3,
-    maxzoom: 8,
+    minzoom: 6,
+    maxzoom: 9,
   })
 
   console.log("[CREP/Jurisdiction] Boundary layers added — country/state/county/FEMA")

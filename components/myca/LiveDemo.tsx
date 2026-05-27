@@ -173,6 +173,8 @@ export function LiveDemo({
   demoBackgroundTransparent = false,
   showIntro = true,
   forceMountPanels = false,
+  getChatContextText,
+  chatContext,
 }: {
   active?: boolean
   className?: string
@@ -180,6 +182,8 @@ export function LiveDemo({
   demoBackgroundTransparent?: boolean
   showIntro?: boolean
   forceMountPanels?: boolean
+  getChatContextText?: () => string
+  chatContext?: Record<string, unknown> | (() => Record<string, unknown> | undefined)
 }) {
   const [world, setWorld] = useState<WorldState | null>(null)
   const [worldLoading, setWorldLoading] = useState(true)
@@ -316,7 +320,14 @@ export function LiveDemo({
                   className="myca-live-panel overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
                   style={{ height: CHAT_PANEL_HEIGHT }}
                 >
-                  <MYCAChatWidget active={active} showHeader title="Chat with MYCA" className="h-full min-h-0" />
+                  <MYCAChatWidget
+                    active={active}
+                    showHeader
+                    title="Chat with MYCA"
+                    className="h-full min-h-0"
+                    getContextText={getChatContextText}
+                    context={chatContext}
+                  />
                 </div>
               </div>
 

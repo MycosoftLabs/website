@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   getViewportEnvironmentCache,
   setViewportEnvironmentCache,
-  type ViewportBoundsLike,
 } from "@/lib/crep/viewport-environment-cache"
+import type { ViewportBoundsLike } from "@/lib/crep/viewport-intel-cache"
 import {
   isSignificantViewportChange,
   makeViewportRevisionKey,
@@ -69,10 +69,8 @@ export function useViewportEnvironmentPrefetch(
 
   useEffect(() => {
     const next = { bounds: effectiveBounds, zoom: mapZoom }
-    const cityZoom = mapZoom >= 10
     const shouldRefresh =
       !snapshotRef.current ||
-      cityZoom ||
       isSignificantViewportChange(snapshotRef.current, next)
     if (!shouldRefresh) return
 
@@ -129,7 +127,7 @@ export function useViewportEnvironmentPrefetch(
       (environment?.features?.water?.length ?? 0) > 0 ||
       (environment?.features?.ecosystems?.length ?? 0) > 0 ||
       (environment?.features?.geology?.length ?? 0) > 0 ||
-      (environment?.alerts?.items?.length ?? 0) > 0 ||
+      (((environment?.alerts as { items?: unknown[] } | undefined)?.items?.length ?? 0) > 0) ||
       ((environment?.live as { usgsEarthquakes?: unknown[] } | undefined)?.usgsEarthquakes?.length ?? 0) > 0,
   )
 

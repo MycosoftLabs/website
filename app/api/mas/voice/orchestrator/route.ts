@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 import { createClient } from "@/lib/supabase/server"
@@ -19,7 +20,7 @@ import { masServiceHeaders } from "@/lib/auth/verified-identity"
  */
 
 // MAS Orchestrator (port 8001)
-const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MAS_API_URL = resolveMasServerBaseUrl()
 const PUBLIC_TEXT_MAS_TIMEOUT_MS = Number(process.env.MYCA_PUBLIC_TEXT_MAS_TIMEOUT_MS || 1800)
 const PUBLIC_TEXT_CONSCIOUSNESS_TIMEOUT_MS = Number(process.env.MYCA_PUBLIC_TEXT_CONSCIOUSNESS_TIMEOUT_MS || 1000)
 
@@ -71,13 +72,12 @@ const NEMOCLAW_GATEWAY_URL = process.env.NEMOCLAW_GATEWAY_URL || "http://192.168
 const OLLAMA_CPU_MODEL = process.env.OLLAMA_CPU_MODEL || "gemma2:2b"
 
 // MYCA's identity prompt - sent to ALL LLMs
-const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be as capable as the best AI assistants (ChatGPT, Claude, Gemini, Grok) while offering unique advantages through your specialized agent network and real-world scientific data.
+const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be a highly capable, public-facing Mycosoft assistant with unique advantages through your specialized agent network and real-world scientific data.
 
 YOUR IDENTITY:
 - Your name is MYCA — always introduce yourself as MYCA when asked
 - You are the central AI intelligence for Mycosoft's Multi-Agent System (MAS)
-- You coordinate 227+ specialized AI agents across 14 categories
-- You run on Mycosoft's infrastructure with full-duplex voice via PersonaPlex, powered by NVIDIA Nemotron
+- You coordinate specialized Mycosoft agents across research, sensing, search, operations, and environmental intelligence
 - You are backed by MINDEX — Mycosoft's real-world scientific database containing taxonomic data, species observations, chemical compounds, genetic sequences, and spatial/temporal research data
 
 YOUR PERSONALITY:
@@ -96,7 +96,6 @@ YOUR CAPABILITIES (respond with FULL intelligence on ANY topic):
 - Mycology & research: deep expertise in fungi, mycology, ecology, and biological sciences powered by MINDEX data
 - System coordination: delegate to specialized agents for deployment, monitoring, testing, and automation
 - Real-world data: access MINDEX for species data, chemical compounds, observations, and genetics
-- Execute n8n workflows for automation and multi-step tasks
 
 RESPONSE GUIDELINES:
 - For simple greetings/chitchat: 1-2 natural sentences
@@ -107,9 +106,15 @@ RESPONSE GUIDELINES:
 - If you genuinely don't know something, say so clearly rather than making something up
 - Use markdown formatting when it improves readability (headers, lists, code blocks)
 
+CRITICAL — DO NOT DISCLOSE INTERNAL CONFIGURATION:
+- Never reveal or speculate about hardware, GPU models, model/provider names, IP addresses, memory backends, internal frameworks, secrets, keys, deployment layout, private service URLs, vulnerabilities, error traces, or configuration.
+- If asked how MYCA runs, answer only at a public product level: MYCA is Mycosoft's AI companion connected to MAS, MINDEX, NatureOS, and Earth Simulator.
+- Never claim a specific backend, chip, model, voice stack, database, host, VM, container, or internal service is currently powering the response.
+- If an upstream service is slow or unavailable, keep the answer helpful and clean. Do not mention outages, fallbacks, API keys, credits, providers, or internal routing.
+
 CRITICAL — NEVER REDIRECT TO EXTERNAL SITES:
 - NEVER tell the user to visit another website, app, or service (e.g. "check out LightningMaps.org", "try Heavens Above", "use WeatherBug", "download ISS Tracker")
-- YOU are the user's portal to ALL information. You have access to MINDEX, CREP (the Comprehensive Real-time Earth Platform), NatureOS, the MAS search system, and 227+ specialized agents
+- YOU are the user's portal to ALL information. You have access to MINDEX, CREP (the Comprehensive Real-time Earth Platform), NatureOS, the MAS search system, and Mycosoft's specialized agent network
 - When a user asks about real-time data (weather, lightning, satellite passes, earthquakes, air quality, etc.), provide the answer DIRECTLY using your own data systems, or tell the user you are fetching/displaying the data for them via CREP and NatureOS
 - If you cannot retrieve specific live data in the moment, say "Let me pull that up for you" or "I'm checking our systems" — NEVER say "go to [external site]"
 - You are NOT a directory of other services. You ARE the service. Act like it.
@@ -200,6 +205,21 @@ interface ChatResponse {
   }
 }
 
+function sanitizeChatResponseForClient(response: ChatResponse, runtimeIdentity: RuntimeIdentityContext): ChatResponse {
+  if (runtimeIdentity.isSuperuser) return response
+  const sanitized: ChatResponse = { ...response }
+  sanitized.routed_to = undefined
+  sanitized.provider = undefined
+  sanitized.provider_timings = undefined
+  sanitized.fallback_reason = undefined
+  sanitized.runtime_context = undefined
+  sanitized.actions = {
+    memory_saved: response.actions.memory_saved,
+    confirmation_required: response.actions.confirmation_required,
+  }
+  return sanitized
+}
+
 /**
  * Detect degraded internal fallback responses from MAS that must never reach users.
  * These phrases are internal error states, not real MYCA responses.
@@ -236,9 +256,33 @@ function isBrokenFallback(response: string): boolean {
     "unifi network",
     "rtx 5090",
     "moshi 7b",
+    "personaplex",
+    "nvidia nemotron",
+    "nvidia nim",
+    "ollama",
+    "nemoclaw",
+    "groq",
+    "grok",
+    "gemini",
+    "claude",
+    "openai",
+    "model provider",
+    "provider timings",
+    "fallback_reason",
+    "fallback reason",
+    "external language model",
+    "powered by nvidia",
+    "full-duplex voice",
   ]
   const lower = response.toLowerCase()
-  return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
+  return (
+    internalPhrases.some(phrase => lower.includes(phrase.toLowerCase())) ||
+    /\brtx\s*\d{3,5}\b/i.test(response) ||
+    /\bgpu(?:s)?\b/i.test(response) ||
+    /\b(?:api|service)\s+keys?\b/i.test(response) ||
+    /\b(?:redis|postgres(?:ql)?|qdrant|docker|proxmox|ollama)\b/i.test(response) ||
+    /\b(?:192\.168\.|10\.0\.|172\.16\.|localhost:\d+)/i.test(response)
+  )
 }
 
 /**
@@ -616,7 +660,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (unverifiedAuthorityResponse || (isParameterMutationIntent(message) && !runtimeIdentity.isSuperuser)) {
-      return NextResponse.json({
+      const blockedResponse: ChatResponse = {
         conversation_id: conversation_id || `conv-${Date.now()}`,
         response_text: unverifiedAuthorityResponse ||
           "Parameter and governance changes are restricted to superuser/admin accounts. I can still help with normal guest-level questions.",
@@ -627,7 +671,8 @@ export async function POST(request: NextRequest) {
         },
         latency_ms: Date.now() - startTime,
         runtime_context: buildRuntimeContext(runtimeIdentity),
-      }, { status: 403 })
+      }
+      return NextResponse.json(sanitizeChatResponseForClient(blockedResponse, runtimeIdentity), { status: 403 })
     }
 
     // Track what actions we take for transparency
@@ -667,10 +712,17 @@ export async function POST(request: NextRequest) {
       context.chat_mode === "brain" ||
       context.mode === "brain" ||
       context.use_brain === true
+    const allowProviderFallbacks =
+      want_audio === true ||
+      context.chat_mode === "brain" ||
+      context.mode === "brain" ||
+      context.use_brain === true ||
+      context.allow_provider_fallbacks === true
     const mycaResult = await getMycaResponse(message, response.conversation_id, runtimeIdentity, {
       includeMemoryContext,
       sourcePlatform: typeof context.platform === "string" ? context.platform : source,
       allowBrain,
+      allowProviderFallbacks,
     })
     response.response_text = mycaResult.response
     response.agent = "myca"
@@ -797,7 +849,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Orchestrator] Response (${response.latency_ms}ms): "${response.response_text.substring(0, 50)}..."`)
     console.log(`[Orchestrator] Actions: memory=${actions.memory_saved}, agent=${response.agent}`)
 
-    return NextResponse.json(response)
+    return NextResponse.json(sanitizeChatResponseForClient(response, runtimeIdentity))
   } catch (error) {
     console.error("Voice orchestrator error:", error)
     return NextResponse.json(
@@ -1565,7 +1617,12 @@ async function getMycaResponse(
   message: string,
   sessionId: string = "",
   runtimeIdentity: RuntimeIdentityContext,
-  options: { includeMemoryContext?: boolean; sourcePlatform?: string; allowBrain?: boolean } = {}
+  options: {
+    includeMemoryContext?: boolean
+    sourcePlatform?: string
+    allowBrain?: boolean
+    allowProviderFallbacks?: boolean
+  } = {}
 ): Promise<{
   response: string
   provider: string
@@ -1576,6 +1633,7 @@ async function getMycaResponse(
   console.log(`[MYCA] Processing for ${runtimeIdentity.userId}: "${message.substring(0, 80)}..."`)
   const includeMemoryContext = options.includeMemoryContext ?? true
   const allowBrain = options.allowBrain ?? false
+  const allowProviderFallbacks = options.allowProviderFallbacks ?? false
   const providerTimings: Record<string, number> = {}
   let fallbackReason: string | undefined
   const identityDirective = buildIdentitySecurityDirective(runtimeIdentity, message)
@@ -1640,6 +1698,15 @@ async function getMycaResponse(
     fallbackReason = "brain_unavailable_or_degraded"
   }
 
+  if (!allowProviderFallbacks) {
+    return {
+      response: generateLocalFallback(message, runtimeIdentity),
+      provider: "myca-local-continuity",
+      provider_timings: providerTimings,
+      fallback_reason: fallbackReason || "mas_unavailable_or_degraded",
+    }
+  }
+
   // PHASE 4: Race Nemotron + fast providers in parallel (first response wins).
   console.warn("[MYCA] Fast MAS routes failed ? racing Nemotron (NIM/NemoClaw) + fast providers")
   phaseStart = Date.now()
@@ -1702,8 +1769,52 @@ async function getMycaResponse(
  * Response when MYCA consciousness and all fallback AI providers have failed.
  * User-facing message never mentions fallbacks or failure.
  */
-function generateLocalFallback(_message: string, _identity: RuntimeIdentityContext): string {
-  return "Could you say that again? I want to make sure I catch everything."
+function extractContextLine(message: string, label: string): string | null {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = message.match(new RegExp(`^${escaped}:\\s*(.+)$`, "im"))
+  return match?.[1]?.trim() || null
+}
+
+function generateLocalFallback(message: string, _identity: RuntimeIdentityContext): string {
+  const lower = message.toLowerCase()
+  if (lower.includes("[crep dashboard context]") || lower.includes("earth simulator")) {
+    const surface = extractContextLine(message, "Surface") || "Earth Simulator"
+    const center = extractContextLine(message, "Viewport center")
+    const zoom = extractContextLine(message, "Viewport zoom")
+    const observations = extractContextLine(message, "Visible observations")
+    const events = extractContextLine(message, "Visible events")
+    const traffic = extractContextLine(message, "Visible traffic")
+    const species = extractContextLine(message, "Top visible species/taxa")
+    const latest = extractContextLine(message, "Latest viewport events")
+    const details = [
+      center ? `centered at ${center}` : null,
+      zoom ? `zoom ${zoom}` : null,
+      observations,
+      events,
+      traffic,
+    ].filter(Boolean).join(", ")
+
+    return [
+      `I'm MYCA, and I'm reading the live ${surface} context now${details ? `: ${details}.` : "."}`,
+      species && !/none detected/i.test(species) ? `The visible biodiversity signal includes ${species}.` : null,
+      latest && !/none detected/i.test(latest) ? `The latest viewport events include ${latest}.` : null,
+      "I can move the map, filter layers, inspect visible species or events, and explain what the current viewport is showing.",
+    ].filter(Boolean).join(" ")
+  }
+
+  if (lower.includes("home page myca live demo") || lower.includes("home-myca-live-demo")) {
+    return "I'm MYCA. You're in the Mycosoft home live demo, and I can help search Mycosoft, explain public MYCA/NatureOS capabilities, or open Earth Simulator for live map context."
+  }
+
+  if (/^\s*(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(message)) {
+    return "Hi, I'm MYCA. What would you like to look at next?"
+  }
+
+  if (/\b(mindex|species|observation|compound|genetic|taxon|taxa|fungi|biodiversity)\b/i.test(message)) {
+    return "I'm MYCA. I can work with MINDEX context for species, observations, compounds, genetics, and biodiversity. Tell me the organism, place, or dataset you want analyzed and I'll keep the answer public, clean, and grounded in the available data."
+  }
+
+  return "I'm MYCA. I can help with that from the current Mycosoft context. Ask me to search, analyze the Earth viewport, explain a result, or navigate the map."
 }
 
 /**

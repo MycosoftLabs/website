@@ -35,6 +35,7 @@ const VALID_LAYERS = new Set<FungalAtlasLayer>([
   "endemic",
   "fci",
   "protected",
+  "uncertainty",
 ])
 
 const MINDEX_API = resolveMindexServerBaseUrl()

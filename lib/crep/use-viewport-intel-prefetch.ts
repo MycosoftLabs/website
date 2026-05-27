@@ -6,12 +6,12 @@ import {
   buildViewportGeographyContext,
   geographyLodToLabel,
   nominatimZoomForGeographyLod,
+  resolveLocalViewportPlaceHint,
   resolveViewportGeographyLod,
   type ViewportPlaceLike,
 } from "@/lib/crep/viewport-place"
 import {
   buildViewportJurisdictionKey,
-  findStaleViewportIntelCache,
   getViewportIntelCacheByBounds,
   setViewportIntelCache,
   setViewportIntelCacheForBounds,
@@ -85,10 +85,8 @@ export function useViewportIntelPrefetch(
 
   useEffect(() => {
     const next = { bounds: effectiveBounds, zoom: mapZoom }
-    const cityZoom = mapZoom >= 10
     const shouldRefresh =
       !snapshotRef.current ||
-      cityZoom ||
       isSignificantViewportChange(snapshotRef.current, next)
     if (!shouldRefresh) return
 
@@ -101,25 +99,31 @@ export function useViewportIntelPrefetch(
       effectiveBounds,
       mapZoom,
     )
-    const placeHit = findStaleViewportIntelCache<ViewportIntelPrefetchPayload>(
-      boundsHit?.place ?? optimisticPlace,
-      lodLabel,
-    )
-    const cached = placeHit ?? boundsHit
+    const cached = boundsHit
 
     if (cached) {
       setIntel(cached)
       if (cached.place) setOptimisticPlace(cached.place)
+    } else {
+      setIntel(null)
     }
 
     inFlightRef.current?.abort()
     const controller = new AbortController()
     inFlightRef.current = controller
 
-    if (!cached) setFetching(true)
+    setFetching(true)
 
     const center = boundsCenter(effectiveBounds)
     const geoLod = resolveViewportGeographyLod(mapZoom, effectiveBounds)
+    const localPlaceHint = resolveLocalViewportPlaceHint(center.lat, center.lng)
+    setOptimisticPlace(
+      localPlaceHint ?? {
+        displayName: `${geographyLodToLabel(geoLod)} viewport resolving`,
+        lat: center.lat,
+        lng: center.lng,
+      },
+    )
 
     void (async () => {
       try {
@@ -140,11 +144,11 @@ export function useViewportIntelPrefetch(
         const [geocodeRes, intelRes] = await Promise.allSettled([
           fetch(`/api/crep/reverse-geocode?${geocodeQ}`, {
             signal: controller.signal,
-            cache: "force-cache",
+            cache: "no-store",
           }),
           fetch(`/api/crep/viewport-intel?${intelQ}`, {
             signal: controller.signal,
-            cache: "default",
+            cache: "no-store",
           }),
         ])
 
@@ -153,8 +157,10 @@ export function useViewportIntelPrefetch(
           setOptimisticPlace({
             displayName: data.address ?? undefined,
             city: data.place ?? undefined,
+            county: data.county ?? undefined,
             state: data.admin ?? undefined,
             country: data.country ?? undefined,
+            countryCode: data.country_code ?? undefined,
             lat: center.lat,
             lng: center.lng,
           })

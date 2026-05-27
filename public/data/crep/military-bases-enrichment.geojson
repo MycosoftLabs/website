@@ -311,6 +311,25 @@
         "last_updated": "2026-04-23"
       },
       "geometry": { "type": "Point", "coordinates": [-117.158, 32.6767] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "naval-base-point-loma",
+        "name": "Naval Base Point Loma",
+        "aliases": ["NBPL", "Navy Base Point Loma", "Point Loma Naval Base", "Point Loma Navy Base", "Naval Base Loma", "Submarine Base Point Loma"],
+        "branches": ["Navy"],
+        "primary_component": "Navy",
+        "command": "Commander, Navy Region Southwest",
+        "pao_phone": "+1-619-553-0090",
+        "pao_email": "NBPL_PAO@navy.mil",
+        "website": "https://cnrsw.cnic.navy.mil/Installations/NAVBASE-Point-Loma/",
+        "address": "140 Sylvester Road, San Diego, CA 92106-3251",
+        "commissioned": "1998 (consolidated installation)",
+        "notable_tenants": ["Submarine Squadron 11", "Naval Information Warfare Systems Command", "Fleet Anti-Submarine Warfare Training Center", "Navy Mine and Anti-Submarine Warfare Command"],
+        "last_updated": "2026-05-27"
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.2395, 32.7069] }
     }
   ]
 }

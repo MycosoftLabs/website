@@ -225,7 +225,9 @@ jobs:
             echo 'MINDEX_API_KEY=${{ secrets.MINDEX_API_KEY }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             echo 'AIRNOW_API_KEY=${{ secrets.AIRNOW_API_KEY }}' >> .env
-            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
+            if [ -n '${{ secrets.DATABASE_URL }}' ]; then
+              echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> .env
+            fi
           ENVSCRIPT2
 
       - name: Pull GHCR image + blue/green cutover

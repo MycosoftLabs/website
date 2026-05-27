@@ -12,12 +12,12 @@ export const EARTH_SIM_STAGED_BOOT =
 export const EARTH_SIM_DEFAULT_CENTER: [number, number] = [-98.5, 39.8]
 export const EARTH_SIM_DEFAULT_ZOOM = 3
 
-/** Continental US bbox for preload before map bounds are ready. */
+/** North America preload before map bounds are ready: US, Mexico, and Canada. */
 export const EARTH_SIM_US_BBOX = {
-  south: 24,
-  north: 50,
-  west: -125,
-  east: -66,
+  south: 14,
+  north: 62,
+  west: -140,
+  east: -52,
 } as const
 
 /** San Diego / Tijuana corridor — instant nature + infra preload for city fly-to demos. */
@@ -45,7 +45,7 @@ export const EARTH_SIM_INSTANT_INFRA_LINE_IDS = [
   "txLinesGlobal",
 ] as const
 
-/** Infra toggles ON at refresh; DCs paint z≥2, telecom detail z≥6 (see lod-policy). */
+/** Infra toggles ON at refresh; country/state-scale paint is controlled in lod-policy. */
 export const EARTH_SIM_DEFERRED_INFRA_POINT_IDS = [
   "transmissionLines",
   "txLinesFull",
@@ -53,6 +53,10 @@ export const EARTH_SIM_DEFERRED_INFRA_POINT_IDS = [
   "substations",
   "powerPlants",
   "powerPlantsG",
+  "eiaOperating",
+  "eiaPlanned",
+  "eiaRetired",
+  "eiaCanceled",
   "cellTowers",
   "cellTowersG",
   "dataCenters",
@@ -77,21 +81,33 @@ export const EARTH_SIM_EVENT_LAYER_IDS = [
   "events",
 ] as const
 
-export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "militaryBases"] as const
+export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "eagleEyeCameras", "militaryBases"] as const
 
-/** Fungi only at first paint — movers/cameras load after user opt-in (May 24, 2026 QA crash fix). */
+/** Fungi only at first paint — MYCA/nature context stays live immediately. */
 export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = ["fungi"] as const
 
-/** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
-export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
+/** Device/mover master layers ON at boot so child filter chips never lie. */
+export const EARTH_SIM_DEVICE_BOOT_LAYER_IDS = [
   "aviation",
-  "ships",
-  "satellites",
-  "eagleEyeCameras",
   "aviationRoutes",
+  "ships",
   "shipRoutes",
   "fishing",
   "containers",
+  "satellites",
+  "buoys",
+  "liveTransit",
+  "railwayTrains",
+] as const
+
+export const EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS = [
+  "jurisdictionCountry",
+  "jurisdictionState",
+  "jurisdictionCounty",
+] as const
+
+/** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
+export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "orbitalDebris",
   "debrisCloud",
   "solar",
@@ -99,7 +115,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "sunEarthImpact",
   "realisticClouds",
   "liveAqi",
-  "liveTransit",
   "earth2Forecast",
   "earth2Nowcast",
   "earth2Spore",
@@ -124,7 +139,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "smartfence",
   "biodiversity",
   "weather",
-  "buoys",
   "population",
   "humanMovement",
   "events_human",
@@ -135,6 +149,8 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "tanks",
   "militaryDrones",
   "factories",
+  "factoriesG",
+  "pipelines",
   "co2Sources",
   "methaneSources",
   "oilGas",
@@ -142,22 +158,14 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "waterPollution",
   "eagleEyeEvents",
   "im3DataCenterFootprints",
-  "eiaOperating",
-  "eiaPlanned",
-  "eiaRetired",
-  "eiaCanceled",
   "radar",
   "hospitals",
   "fireStations",
   "universities",
-  "railwayTrains",
   "droneNoFly",
   "mapboxSatelliteStreets",
   "mapbox3dBuildings",
   "photorealistic3D",
-  "jurisdictionCountry",
-  "jurisdictionState",
-  "jurisdictionCounty",
   "jurisdictionFema",
 ] as const
 
@@ -191,6 +199,8 @@ export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_INSTANT_INFRA_LINE_IDS,
   ...EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS,
   ...EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
+  ...EARTH_SIM_DEVICE_BOOT_LAYER_IDS,
+  ...EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
   ...EARTH_SIM_ALWAYS_ON_INFRA_IDS,
   ...EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
@@ -221,10 +231,13 @@ export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
   showFloods: true,
   showMilitaryBases: true,
   showPowerPlants: true,
-  showFactories: true,
+  showFactories: false,
+  showMining: false,
+  showOilGas: false,
+  showWaterPollution: false,
 } as const
 
-export const EARTH_SIM_FUNGAL_OPACITY = 0.35
+export const EARTH_SIM_FUNGAL_OPACITY = 0.55
 
 /** DOM fungal markers when zoom ≥ this (US fly-to is z≈3). */
 export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 3
@@ -238,13 +251,13 @@ export function getEarthSimulatorEventDomCap(zoom: number): number {
   return 1500
 }
 
-export const EARTH_SIM_NATURE_STORE_CAP = 8_000
+export const EARTH_SIM_NATURE_STORE_CAP = Number.POSITIVE_INFINITY
 
-/** Instant MINDEX paint limit on Earth Simulator first load. */
-export const EARTH_SIM_NATURE_INSTANT_LIMIT = 4_000
+/** Fast live nature paint budget. Full local/baked stores remain uncapped. */
+export const EARTH_SIM_NATURE_INSTANT_LIMIT = 2_400
 
-/** Defer live aircraft/vessel/satellite pump until after map settles (ms). */
-export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 18_000
+/** Live aircraft/vessel/satellite pump should start fast without blocking first paint. */
+export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 900
 
 export interface EarthSimBootDebugSnapshot {
   stagedBoot: boolean

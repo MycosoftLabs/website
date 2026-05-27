@@ -32,6 +32,11 @@
 
 import { useEffect, useRef } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import {
+  DATA_CENTER_LABEL_MIN_ZOOM,
+  DATA_CENTER_MIN_ZOOM,
+  POWER_PLANT_MIN_ZOOM,
+} from "@/lib/crep/lod-policy"
 
 export interface EiaIm3Enabled {
   im3DataCenters?: boolean
@@ -67,6 +72,8 @@ const DATASETS: Array<{
   minzoom: number
   /** Size scales with capacity (EIA) or sqft (IM3) when available. */
   radiusProp?: string
+  /** Optional close-zoom gate for labels only. */
+  labelMinzoom?: number
 }> = [
   {
     key: "im3DataCenters",
@@ -80,8 +87,9 @@ const DATASETS: Array<{
     categoryProp: "op",
     valueProp: "sqft",
     valueUnit: "sqft",
-    minzoom: 2,
+    minzoom: DATA_CENTER_MIN_ZOOM,
     radiusProp: "sqft",
+    labelMinzoom: DATA_CENTER_LABEL_MIN_ZOOM,
   },
   {
     key: "eiaOperating",
@@ -95,7 +103,7 @@ const DATASETS: Array<{
     categoryProp: "technology",
     valueProp: "capacity_mw",
     valueUnit: "MW",
-    minzoom: 4,
+    minzoom: POWER_PLANT_MIN_ZOOM,
     radiusProp: "capacity_mw",
   },
   {
@@ -110,7 +118,7 @@ const DATASETS: Array<{
     categoryProp: "technology",
     valueProp: "capacity_mw",
     valueUnit: "MW",
-    minzoom: 3,           // planned plants visible sooner — they're the story
+    minzoom: POWER_PLANT_MIN_ZOOM,
     radiusProp: "capacity_mw",
   },
   {
@@ -125,7 +133,7 @@ const DATASETS: Array<{
     categoryProp: "technology",
     valueProp: "capacity_mw",
     valueUnit: "MW",
-    minzoom: 5,
+    minzoom: POWER_PLANT_MIN_ZOOM,
     radiusProp: "capacity_mw",
   },
   {
@@ -140,7 +148,7 @@ const DATASETS: Array<{
     categoryProp: "technology",
     valueProp: "capacity_mw",
     valueUnit: "MW",
-    minzoom: 5,
+    minzoom: POWER_PLANT_MIN_ZOOM,
     radiusProp: "capacity_mw",
   },
 ]
@@ -268,6 +276,9 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
         for (const lid of ds.layerIds) {
           try {
             if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", "visible")
+            if (lid === ds.layerIds[2] && map.getLayer(lid) && ds.labelMinzoom != null) {
+              map.setLayerZoomRange(lid, ds.labelMinzoom, 24)
+            }
           } catch { /* ignore */ }
         }
         continue
@@ -336,7 +347,7 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
               id: ds.layerIds[2],
               type: "symbol",
               source: ds.sourceId,
-              minzoom: 9,
+              minzoom: ds.labelMinzoom ?? 9,
               layout: {
                 "text-field": ds.valueProp
                   ? [
@@ -346,7 +357,7 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
                       ["get", ds.nameProp],
                     ]
                   : ["get", ds.nameProp],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 14, 11, 18, 13],
+                "text-size": ["interpolate", ["linear"], ["zoom"], ds.labelMinzoom ?? 9, 9, 14, 11, 18, 13],
                 "text-offset": [0, 1.0],
                 "text-anchor": "top",
                 "text-allow-overlap": false,

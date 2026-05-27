@@ -20,6 +20,7 @@ export interface EagleViewportSource {
 const BAKED_GEOJSON_URLS = [
   "/data/crep/eagle-cameras-registry.geojson",
   "/data/crep/eagle-cameras-manual-seed.geojson",
+  "/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson",
   "/data/crep/eagle-cameras-nyc-dc-seed.geojson",
   "/data/crep/eagle-cameras-vegas-seed.geojson",
   "/data/crep/eagle-cameras-deployment-sites-seed.geojson",
@@ -172,22 +173,35 @@ export async function loadViewportEagleSources(
   if (instant.length) onUpdate(instant, "instant")
 
   let current = instant
+  const lngSpan = bounds.west <= bounds.east
+    ? bounds.east - bounds.west
+    : 360 - bounds.west + bounds.east
+  const latSpan = bounds.north - bounds.south
+  const focusedViewport = lngSpan <= 5 && latSpan <= 5
 
-  try {
+  const loadFastApi = async () => {
     const fastApi = await fetchEagleApi(bounds, { fast: true, live: false, limit: Math.max(limit, 24) }, signal)
     if (fastApi.length) {
       current = filterSourcesInViewport(mergeEagleSources(current, fastApi), bounds, limit)
       onUpdate(current, "fast")
     }
-  } catch (error) {
-    if ((error as Error)?.name === "AbortError") throw error
   }
 
-  try {
-    const fullApi = await fetchEagleApi(bounds, { fast: true, live: true, limit: Math.max(limit, 24) }, signal)
+  const loadFullApi = async () => {
+    const fullApi = await fetchEagleApi(bounds, { fast: false, live: true, limit: Math.max(limit, 128) }, signal)
     if (fullApi.length) {
       current = filterSourcesInViewport(mergeEagleSources(current, fullApi), bounds, limit)
       onUpdate(current, "full")
+    }
+  }
+
+  try {
+    if (focusedViewport) {
+      await loadFullApi()
+      if (!current.length) await loadFastApi()
+    } else {
+      await loadFastApi()
+      await loadFullApi()
     }
   } catch (error) {
     if ((error as Error)?.name === "AbortError") throw error

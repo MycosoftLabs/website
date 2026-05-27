@@ -6,17 +6,24 @@ import {
   mergeJurisdictionStacks,
   placeNeedsEnrichment,
   reverseGeocodePlace,
+  resolveLocalViewportPlaceHint,
   resolveViewportGeographyLod,
   resolveMacroRegionLabel,
   type ViewportPlaceLike,
 } from "@/lib/crep/viewport-place"
 import { fetchCivicFallback } from "@/lib/crep/civic-fallback"
+import { resolveCivicFacilityHintsForViewport } from "@/lib/crep/civic-facility-hints"
+import {
+  countryGovernmentOfficialWithDefaults,
+  resolveGovernmentProfilesForViewport,
+  type CountryGovernmentProfile,
+} from "@/lib/crep/country-government-profiles"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 86400
 
 const MINDEX_API = resolveMindexServerBaseUrl()
-const MINDEX_TIMEOUT_MS = 12_000
+const MINDEX_TIMEOUT_MS = 900
 
 function finiteNumber(value: string | null, fallback: number) {
   const n = Number(value)
@@ -39,6 +46,164 @@ function normalizePlace(raw: Record<string, unknown> | null | undefined): Viewpo
   }
 }
 
+function normalizeCountryCode(code?: string | null): string {
+  return (code ?? "").trim().toUpperCase()
+}
+
+function countryNamesConflict(a?: ViewportPlaceLike | null, b?: ViewportPlaceLike | null): boolean {
+  const codeA = normalizeCountryCode(a?.countryCode)
+  const codeB = normalizeCountryCode(b?.countryCode)
+  if (codeA && codeB && codeA !== codeB) return true
+  const nameA = (a?.country ?? "").trim().toLowerCase()
+  const nameB = (b?.country ?? "").trim().toLowerCase()
+  return Boolean(nameA && nameB && nameA !== nameB)
+}
+
+function mergeAuthoritativePlace(
+  current: ViewportPlaceLike | null,
+  candidate: ViewportPlaceLike | null,
+): ViewportPlaceLike | null {
+  if (!candidate) return current
+  if (!current || countryNamesConflict(current, candidate)) {
+    return {
+      ...current,
+      ...candidate,
+      displayName: candidate.displayName || current?.displayName,
+    }
+  }
+  return {
+    ...candidate,
+    ...current,
+    displayName: current.displayName || candidate.displayName,
+    city: current.city || candidate.city,
+    county: current.county || candidate.county,
+    state: current.state || candidate.state,
+    country: current.country || candidate.country,
+    countryCode: current.countryCode || candidate.countryCode,
+  }
+}
+
+function centerAppearsInsideUnitedStates(bounds: { north: number; south: number; east: number; west: number }): boolean {
+  const center = boundsCenter(bounds)
+  return center.lat >= 18 && center.lat <= 72 && center.lng >= -170 && center.lng <= -52
+}
+
+function shouldUseUnitedStatesFallback(
+  place: ViewportPlaceLike | null | undefined,
+  bounds: { north: number; south: number; east: number; west: number },
+) {
+  const code = normalizeCountryCode(place?.countryCode)
+  const country = (place?.country ?? "").toLowerCase()
+  if (code && code !== "US") return false
+  if (country && !country.includes("united states")) return false
+  if (code === "US" || country.includes("united states")) return true
+  return centerAppearsInsideUnitedStates(bounds)
+}
+
+function buildGovernmentPayload(profiles: CountryGovernmentProfile[]) {
+  if (!profiles.length) return null
+  return {
+    profiles: profiles.map((profile) => ({
+      key: profile.key,
+      name: profile.name,
+      countryCode: profile.countryCode,
+      flagUrl: profile.flagUrl,
+      sealUrls: profile.sealUrls,
+      governmentType: profile.governmentType,
+      politicalSystem: profile.politicalSystem,
+    })),
+    primaryProfile: profiles[0],
+    tabs: profiles.flatMap((profile) =>
+      profile.governmentTabs.map((tab) => ({
+        ...tab,
+        id: `${profile.key}:${tab.id}`,
+        label: profiles.length > 1 ? `${profile.key} ${tab.label}` : tab.label,
+        shortLabel: profiles.length > 1 ? `${profile.key} ${tab.shortLabel}` : tab.shortLabel,
+      })),
+    ),
+    politics: profiles.flatMap((profile) => profile.politics),
+  }
+}
+
+function profileOfficials(profiles: CountryGovernmentProfile[]) {
+  return profiles.flatMap((profile) => profile.leadership.map(countryGovernmentOfficialWithDefaults))
+}
+
+function profileElectionRecords(profiles: CountryGovernmentProfile[]) {
+  return profiles.flatMap((profile) =>
+    profile.politics
+      .filter((item) => item.kind === "election")
+      .map((item) => ({
+        id: item.id,
+        name: item.title,
+        jurisdiction_name: profile.name,
+        source_url: item.url,
+      })),
+  )
+}
+
+function profileLegislationRecords(profiles: CountryGovernmentProfile[]) {
+  return profiles.flatMap((profile) =>
+    profile.politics
+      .filter((item) => item.kind === "legislation" || item.kind === "institution")
+      .map((item) => ({
+        id: item.id,
+        name: item.title,
+        status: item.subtitle ?? "tracked",
+        source: "country-government-profile",
+        source_url: item.url,
+      })),
+  )
+}
+
+function fallbackFromProfiles(profiles: CountryGovernmentProfile[]) {
+  return {
+    officials: profileOfficials(profiles),
+    elections: profileElectionRecords(profiles),
+    legislation: profileLegislationRecords(profiles),
+  }
+}
+
+function facilityFallbackForViewport(input: {
+  place?: ViewportPlaceLike | null
+  bounds: { north: number; south: number; east: number; west: number }
+}) {
+  return resolveCivicFacilityHintsForViewport({
+    place: input.place,
+    bounds: input.bounds,
+    limit: 12,
+  })
+}
+
+async function fetchFallbackForViewport(input: {
+  profiles: CountryGovernmentProfile[]
+  place: ViewportPlaceLike | null | undefined
+  bounds: { north: number; south: number; east: number; west: number }
+}) {
+  const { profiles, place, bounds } = input
+  const useUnitedStatesFallback = shouldUseUnitedStatesFallback(place, bounds)
+  if (profiles.length && !useUnitedStatesFallback) return fallbackFromProfiles(profiles)
+  if (!useUnitedStatesFallback && !place?.country) {
+    return { officials: [], elections: [], legislation: [] }
+  }
+  return fetchCivicFallback({
+    state: place?.state,
+    city: place?.city,
+    county: place?.county,
+    country: place?.country,
+  })
+}
+
+function mergeOfficials(primary: any[], additions: any[]) {
+  const merged = new Map<string, any>()
+  for (const official of [...primary, ...additions]) {
+    const key = `${official.office ?? ""}|${official.name ?? ""}`.toLowerCase()
+    if (!key.trim()) continue
+    merged.set(key, { ...merged.get(key), ...official })
+  }
+  return Array.from(merged.values())
+}
+
 async function enrichPlaceFromBounds(
   place: ViewportPlaceLike | null,
   bounds: { north: number; south: number; east: number; west: number },
@@ -46,20 +211,15 @@ async function enrichPlaceFromBounds(
 ): Promise<{ place: ViewportPlaceLike | null; jurisdiction_stack: ReturnType<typeof buildJurisdictionStackFromPlace> }> {
   let resolved = place
   const geographyLod = resolveViewportGeographyLod(mapZoom, bounds)
+  const center = boundsCenter(bounds)
+  const localHint = resolveLocalViewportPlaceHint(center.lat, center.lng)
+  if (localHint) {
+    resolved = mergeAuthoritativePlace(resolved, localHint)
+  }
   if (placeNeedsEnrichment(resolved)) {
-    const center = boundsCenter(bounds)
     const geocoded = await reverseGeocodePlace(center.lat, center.lng, geographyLod)
     if (geocoded) {
-      resolved = {
-        ...geocoded,
-        ...resolved,
-        displayName: resolved?.displayName || geocoded.displayName,
-        city: resolved?.city || geocoded.city,
-        county: resolved?.county || geocoded.county,
-        state: resolved?.state || geocoded.state,
-        country: resolved?.country || geocoded.country,
-        countryCode: resolved?.countryCode || geocoded.countryCode,
-      }
+      resolved = mergeAuthoritativePlace(resolved, geocoded)
     }
   }
   const stackFromPlace = buildJurisdictionStackFromPlace(
@@ -74,8 +234,19 @@ function buildEmptyCivicResponse(
   enriched: Awaited<ReturnType<typeof enrichPlaceFromBounds>>,
   startedAt: number,
   status: string,
+  mapZoom = 4,
 ) {
   const totalMs = Date.now() - startedAt
+  const profiles = resolveGovernmentProfilesForViewport({
+    place: enriched.place,
+    jurisdictionStack: enriched.jurisdiction_stack,
+    macroRegion: resolveMacroRegionLabel(bounds, mapZoom),
+  })
+  const government = buildGovernmentPayload(profiles)
+  const officials = profileOfficials(profiles)
+  const profileElections = profileElectionRecords(profiles)
+  const profileLegislation = profileLegislationRecords(profiles)
+  const facilityHints = facilityFallbackForViewport({ place: enriched.place, bounds })
   return NextResponse.json(
     {
       ok: enriched.place != null,
@@ -84,11 +255,16 @@ function buildEmptyCivicResponse(
       center: boundsCenter(bounds),
       place: enriched.place,
       jurisdiction_stack: enriched.jurisdiction_stack,
-      civic: { officials: [], offices: [], elections: [], status },
-      facilities: { facilities: [], status: "unavailable" },
-      officials: [],
-      elections: [],
-      legislation: [],
+      government,
+      government_profiles: profiles,
+      civic: { officials, offices: [], elections: profileElections, status },
+      facilities: {
+        facilities: facilityHints,
+        status: facilityHints.length ? "civic-fallback" : "unavailable",
+      },
+      officials,
+      elections: profileElections,
+      legislation: profileLegislation,
       finance_lobbying: [],
       budgets_debt_defense: [],
       media_gallery: [],
@@ -160,13 +336,21 @@ export async function GET(req: NextRequest) {
     const geocoded = await geocodePromise
 
     if (!upstreamOk || !body) {
-      const fallback = await fetchCivicFallback({
-        state: geocoded.place?.state,
-        city: geocoded.place?.city,
-        county: geocoded.place?.county,
-        country: geocoded.place?.country,
+      const profiles = resolveGovernmentProfilesForViewport({
+        place: geocoded.place,
+        jurisdictionStack: geocoded.jurisdiction_stack,
+        macroRegion: resolveMacroRegionLabel(bounds, zoom),
+      })
+      const profileLeadership = profileOfficials(profiles)
+      const government = buildGovernmentPayload(profiles)
+      const fallback = await fetchFallbackForViewport({
+        profiles,
+        place: geocoded.place,
+        bounds,
       })
       if (fallback.officials.length) {
+        const officialsWithProfiles = mergeOfficials(fallback.officials, profileLeadership)
+        const facilityHints = facilityFallbackForViewport({ place: geocoded.place, bounds })
         const totalMs = Date.now() - startedAt
         return NextResponse.json({
           ok: true,
@@ -176,19 +360,24 @@ export async function GET(req: NextRequest) {
           center: boundsCenter(bounds),
           place: geocoded.place,
           jurisdiction_stack: geocoded.jurisdiction_stack,
+          government,
+          government_profiles: profiles,
           civic: {
-            officials: fallback.officials,
+            officials: officialsWithProfiles,
             offices: [],
             elections: fallback.elections,
             status: "fallback",
           },
-          facilities: { facilities: [], status: "unavailable" },
-          officials: fallback.officials,
+          facilities: {
+            facilities: facilityHints,
+            status: facilityHints.length ? "civic-fallback" : "unavailable",
+          },
+          officials: officialsWithProfiles,
           elections: fallback.elections,
           legislation: fallback.legislation,
           finance_lobbying: [],
           budgets_debt_defense: [],
-          media_gallery: fallback.officials
+          media_gallery: officialsWithProfiles
             .filter((o) => o.image_url)
             .map((o) => ({
               entity_type: "official",
@@ -204,7 +393,7 @@ export async function GET(req: NextRequest) {
           },
         })
       }
-      return buildEmptyCivicResponse(bounds, geocoded, startedAt, "unavailable")
+      return buildEmptyCivicResponse(bounds, geocoded, startedAt, "unavailable", zoom)
     }
 
     const totalMs = Date.now() - startedAt
@@ -215,9 +404,17 @@ export async function GET(req: NextRequest) {
 
     const mindexPlace = normalizePlace(body?.place as Record<string, unknown> | undefined)
     const mindexPlaceComplete = Boolean(mindexPlace && !placeNeedsEnrichment(mindexPlace))
-    const enriched = mindexPlaceComplete
+    const enrichedRaw = mindexPlaceComplete
       ? { place: mindexPlace, jurisdiction_stack: buildJurisdictionStackFromPlace(mindexPlace) }
       : await enrichPlaceFromBounds(mindexPlace, bounds)
+    const authoritativePlace = mergeAuthoritativePlace(enrichedRaw.place, geocoded.place)
+    const enriched = {
+      place: authoritativePlace,
+      jurisdiction_stack: buildJurisdictionStackFromPlace(
+        authoritativePlace,
+        resolveMacroRegionLabel(bounds, zoom),
+      ),
+    }
     const jurisdiction_stack = mergeJurisdictionStacks(
       Array.isArray(body?.jurisdiction_stack) ? body.jurisdiction_stack : [],
       mergeJurisdictionStacks(
@@ -225,8 +422,15 @@ export async function GET(req: NextRequest) {
         mindexPlaceComplete ? enriched.jurisdiction_stack : geocoded.jurisdiction_stack,
       ),
     )
+    const profiles = resolveGovernmentProfilesForViewport({
+      place: enriched.place,
+      jurisdictionStack: jurisdiction_stack,
+      macroRegion: resolveMacroRegionLabel(bounds, zoom),
+    })
+    const government = buildGovernmentPayload(profiles)
+    const profileLeadership = profileOfficials(profiles)
 
-    let mappedOfficials = officials.map((official: Record<string, unknown>) => ({
+    let mappedOfficials: any[] = officials.map((official: Record<string, unknown>) => ({
       id: official.id,
       name: official.name,
       office: official.office,
@@ -243,19 +447,34 @@ export async function GET(req: NextRequest) {
     let mergedElections = elections
     let mergedLegislation = Array.isArray(body?.legislation) ? body.legislation : []
 
-    if (!mappedOfficials.length) {
-      const fallback = await fetchCivicFallback({
-        state: enriched.place?.state ?? geocoded.place?.state,
-        city: enriched.place?.city ?? geocoded.place?.city,
-        county: enriched.place?.county ?? geocoded.place?.county,
-        country: enriched.place?.country ?? geocoded.place?.country,
+    mappedOfficials = mergeOfficials(mappedOfficials, profileLeadership)
+
+    const fallbackPlace = {
+      ...(geocoded.place ?? {}),
+      ...(enriched.place ?? {}),
+      state: enriched.place?.state ?? geocoded.place?.state,
+      city: enriched.place?.city ?? geocoded.place?.city,
+      county: enriched.place?.county ?? geocoded.place?.county,
+      country: enriched.place?.country ?? geocoded.place?.country,
+      countryCode: enriched.place?.countryCode ?? geocoded.place?.countryCode,
+    } as ViewportPlaceLike
+    const shouldUseUsFallback = shouldUseUnitedStatesFallback(fallbackPlace, bounds)
+    if (!officials.length || shouldUseUsFallback || (!profiles.length && !mappedOfficials.length)) {
+      const fallback = await fetchFallbackForViewport({
+        profiles,
+        place: fallbackPlace,
+        bounds,
       })
       if (fallback.officials.length) {
-        mappedOfficials = fallback.officials
+        mappedOfficials = mergeOfficials(mappedOfficials, fallback.officials)
         if (!mergedElections.length) mergedElections = fallback.elections
         if (!mergedLegislation.length) mergedLegislation = fallback.legislation
       }
     }
+    const facilityHints = facilities.length
+      ? []
+      : facilityFallbackForViewport({ place: enriched.place ?? fallbackPlace, bounds })
+    const mergedFacilities = facilities.length ? facilities : facilityHints
 
     const response = NextResponse.json({
       ok: true,
@@ -264,6 +483,8 @@ export async function GET(req: NextRequest) {
       bounds: body?.bounds ?? bounds,
       center: body?.center ?? boundsCenter(bounds),
       place: enriched.place ?? (mindexPlaceComplete ? mindexPlace : geocoded.place),
+      government,
+      government_profiles: profiles,
       civic: {
         officials: mappedOfficials,
         offices,
@@ -271,8 +492,8 @@ export async function GET(req: NextRequest) {
         status: mappedOfficials.length || mergedElections.length ? "live" : "empty",
       },
       facilities: {
-        facilities,
-        status: facilities.length ? "live" : "empty",
+        facilities: mergedFacilities,
+        status: facilities.length ? "live" : facilityHints.length ? "civic-fallback" : "empty",
       },
       jurisdiction_stack,
       officials: mappedOfficials,
@@ -306,13 +527,21 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const geocoded = await geocodePromise
     try {
-      const fallback = await fetchCivicFallback({
-        state: geocoded.place?.state,
-        city: geocoded.place?.city,
-        county: geocoded.place?.county,
-        country: geocoded.place?.country,
+      const profiles = resolveGovernmentProfilesForViewport({
+        place: geocoded.place,
+        jurisdictionStack: geocoded.jurisdiction_stack,
+        macroRegion: resolveMacroRegionLabel(bounds, zoom),
+      })
+      const government = buildGovernmentPayload(profiles)
+      const profileLeadership = profileOfficials(profiles)
+      const fallback = await fetchFallbackForViewport({
+        profiles,
+        place: geocoded.place,
+        bounds,
       })
       if (fallback.officials.length) {
+        const officialsWithProfiles = mergeOfficials(fallback.officials, profileLeadership)
+        const facilityHints = facilityFallbackForViewport({ place: geocoded.place, bounds })
         const totalMs = Date.now() - startedAt
         return NextResponse.json({
           ok: true,
@@ -322,19 +551,24 @@ export async function GET(req: NextRequest) {
           center: boundsCenter(bounds),
           place: geocoded.place,
           jurisdiction_stack: geocoded.jurisdiction_stack,
+          government,
+          government_profiles: profiles,
           civic: {
-            officials: fallback.officials,
+            officials: officialsWithProfiles,
             offices: [],
             elections: fallback.elections,
             status: "fallback",
           },
-          facilities: { facilities: [], status: "unavailable" },
-          officials: fallback.officials,
+          facilities: {
+            facilities: facilityHints,
+            status: facilityHints.length ? "civic-fallback" : "unavailable",
+          },
+          officials: officialsWithProfiles,
           elections: fallback.elections,
           legislation: fallback.legislation,
           finance_lobbying: [],
           budgets_debt_defense: [],
-          media_gallery: fallback.officials
+          media_gallery: officialsWithProfiles
             .filter((o) => o.image_url)
             .map((o) => ({
               entity_type: "official",
@@ -353,7 +587,7 @@ export async function GET(req: NextRequest) {
     } catch {
       /* fall through to empty */
     }
-    const response = buildEmptyCivicResponse(bounds, geocoded, startedAt, "unavailable")
+    const response = buildEmptyCivicResponse(bounds, geocoded, startedAt, "unavailable", zoom)
     response.headers.set("Server-Timing", `total;dur=${Date.now() - startedAt}`)
     return response
   }

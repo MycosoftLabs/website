@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { ScatterplotLayer, TextLayer } from "@deck.gl/layers"
 import type maplibregl from "maplibre-gl"
+import { POWER_PLANT_MIN_ZOOM } from "@/lib/crep/lod-policy"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,7 @@ export function usePowerPlantLayers({
 }: Omit<PowerPlantLayerProps, "map">): any[] {
   return useMemo(() => {
     if (!visible || plants.length === 0) return []
+    if (zoom < POWER_PLANT_MIN_ZOOM) return []
 
     const result: any[] = []
 
@@ -183,7 +185,7 @@ export function usePowerPlantLayers({
     )
 
     // ── Text labels at zoom 7+ ──────────────────────────────────────────
-    if (zoom >= 7) {
+    if (zoom >= Math.max(7, POWER_PLANT_MIN_ZOOM)) {
       // Only label plants > 50MW at zoom 7-9, all plants at zoom 10+
       const labelThreshold = zoom >= 10 ? 0 : zoom >= 9 ? 10 : 50
       const labeledPlants = plants.filter((p) => p.capacity_mw >= labelThreshold)

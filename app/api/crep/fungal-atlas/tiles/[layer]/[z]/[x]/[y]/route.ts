@@ -21,6 +21,7 @@ const VALID_LAYERS = new Set<string>([
   "endemic",
   "fci",
   "protected",
+  "uncertainty",
   "composite",
 ])
 
@@ -38,6 +39,8 @@ const RICHNESS_RAMP: Array<[number, number, number]> = [
   [54, 176, 125],
   [255, 255, 102],
 ]
+
+const AM_RICHNESS_RAMP = RICHNESS_RAMP
 
 const ENDEMISM_RAMP: Array<[number, number, number]> = [
   [92, 83, 165],
@@ -60,7 +63,7 @@ type TileLayerConfig = {
 const TILE_LAYER_CONFIG: Record<string, TileLayerConfig> = {
   am: {
     dataset: FELT_DATASETS.amRichness,
-    ramp: RICHNESS_RAMP,
+    ramp: AM_RICHNESS_RAMP,
     domain: [55, 150],
     alpha: 244,
     source: "SPUN AM predicted richness",
@@ -187,12 +190,57 @@ async function renderNativeTile(layer: string, zoom: number, tileX: number, tile
     return encodeNativeTilePng(rendered.rgba, rendered.size)
   }
   const rendered = await renderFungalAtlasTileRgba(
-    layer as "mycelium" | "am" | "ecm" | "rarity" | "endemic" | "fci" | "protected",
+    layer as "mycelium" | "am" | "ecm" | "rarity" | "endemic" | "fci" | "protected" | "uncertainty",
     zoom,
     tileX,
     tileY,
   )
   return encodeNativeTilePng(rendered.rgba, rendered.size)
+}
+
+function shouldBoundNativeFallback(layer: string, zoom: number) {
+  return (layer === "am" || layer === "ecm") && zoom >= 9
+}
+
+async function renderNativeTileBounded(
+  layer: string,
+  zoom: number,
+  tileX: number,
+  tileY: number,
+  layersRaw = "",
+  timeoutMs = 450,
+) {
+  if (!shouldBoundNativeFallback(layer, zoom)) {
+    return renderNativeTile(layer, zoom, tileX, tileY, layersRaw)
+  }
+  return Promise.race<Buffer | null>([
+    renderNativeTile(layer, zoom, tileX, tileY, layersRaw),
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
+
+async function nativeFallbackResponse(
+  layer: string,
+  zoom: number,
+  tileX: number,
+  tileY: number,
+  layersRaw: string,
+  source: string,
+) {
+  const nativeTile = await renderNativeTileBounded(layer, zoom, tileX, tileY, layersRaw)
+  if (!nativeTile) return transparentTile(`${layer}:native-fallback-timeout`)
+  return new NextResponse(pngBody(nativeTile), {
+    status: 200,
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+      "X-Fungal-Atlas-Layer": layer,
+      "X-Fungal-Atlas-Source": source,
+      "X-Fungal-Atlas-Cache": "native-fallback",
+      "X-External-Atlas-Used": "false",
+      "X-Precision-Note": "continuous-global-land-coverage-native-surface",
+    },
+  })
 }
 
 function interpolateRamp(ramp: Array<[number, number, number]>, value: number): [number, number, number] {
@@ -335,23 +383,18 @@ export async function GET(
         Accept: "image/png",
         "User-Agent": "Mycosoft-CREP-Earth-Simulator/1.0",
       },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(1200),
     })
 
     if (!upstream.ok) {
-      const nativeTile = await renderNativeTile(tileLayer || layer, zoom, tileX, tileY, layers)
-      return new NextResponse(pngBody(nativeTile), {
-        status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-          "X-Fungal-Atlas-Layer": tileLayer || layer,
-          "X-Fungal-Atlas-Source": `native-fallback-upstream-${upstream.status}`,
-          "X-Fungal-Atlas-Cache": "native-fallback",
-          "X-External-Atlas-Used": "false",
-          "X-Precision-Note": "continuous-global-land-coverage-native-surface",
-        },
-      })
+      return nativeFallbackResponse(
+        tileLayer || layer,
+        zoom,
+        tileX,
+        tileY,
+        layers,
+        `native-fallback-upstream-${upstream.status}`,
+      )
     }
 
     const upstreamBuffer = Buffer.from(await upstream.arrayBuffer())
@@ -379,19 +422,7 @@ export async function GET(
       message: error instanceof Error ? error.message : String(error),
     })
     try {
-      const nativeTile = await renderNativeTile(tileLayer || layer, zoom, tileX, tileY, layers)
-      return new NextResponse(pngBody(nativeTile), {
-        status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
-          "X-Fungal-Atlas-Layer": tileLayer || layer,
-          "X-Fungal-Atlas-Source": "native-fallback-fetch-error",
-          "X-Fungal-Atlas-Cache": "native-fallback",
-          "X-External-Atlas-Used": "false",
-          "X-Precision-Note": "continuous-global-land-coverage-native-surface",
-        },
-      })
+      return nativeFallbackResponse(tileLayer || layer, zoom, tileX, tileY, layers, "native-fallback-fetch-error")
     } catch {
       return transparentTile(`${layer}:fetch-error`)
     }

@@ -74,8 +74,9 @@ export const API_URLS = {
   // Redis Cache (VM 189, port 6379)
   REDIS: process.env.REDIS_URL || `redis://${MINDEX_VM_IP}:${REDIS_PORT}`,
   
-  // PostgreSQL Database (VM 189, port 5432)
-  POSTGRES: process.env.DATABASE_URL || `postgresql://postgres:postgres@${MINDEX_VM_IP}:${POSTGRES_PORT}/mindex`,
+  // PostgreSQL Database. Do not ship credential-bearing fallbacks; production
+  // and local services must provide DATABASE_URL through their environment.
+  POSTGRES: process.env.DATABASE_URL || "",
   
   // Qdrant Vector Database (VM 189, port 6333)
   QDRANT: process.env.QDRANT_URL || `http://${MINDEX_VM_IP}:${QDRANT_PORT}`,

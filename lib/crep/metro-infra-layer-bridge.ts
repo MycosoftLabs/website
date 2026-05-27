@@ -78,6 +78,65 @@ export const DATA_CENTER_DUPLICATE_PANEL_IDS = new Set<string>([
   "im3DataCenterFootprints",
 ]);
 
+/** Unified power-plant toggle — one control drives global + EIA status layers. */
+export const POWER_PLANT_LAYER_IDS = [
+  "powerPlants",
+  "powerPlantsG",
+  "eiaOperating",
+  "eiaPlanned",
+  "eiaRetired",
+  "eiaCanceled",
+] as const;
+
+export const POWER_PLANT_DUPLICATE_PANEL_IDS = new Set<string>([
+  "powerPlantsG",
+  "eiaOperating",
+  "eiaPlanned",
+  "eiaRetired",
+  "eiaCanceled",
+]);
+
+/** Unified transmission toggle — high-voltage/global and full-voltage lines. */
+export const TRANSMISSION_LAYER_IDS = [
+  "transmissionLines",
+  "txLinesGlobal",
+  "txLinesFull",
+] as const;
+
+export const TRANSMISSION_DUPLICATE_PANEL_IDS = new Set<string>([
+  "transmissionLines",
+  "txLinesFull",
+]);
+
+/** Unified cell-tower toggle — local/bbox towers + global PMTiles towers. */
+export const CELL_TOWER_LAYER_IDS = [
+  "cellTowers",
+  "cellTowersG",
+] as const;
+
+export const CELL_TOWER_DUPLICATE_PANEL_IDS = new Set<string>([
+  "cellTowersG",
+]);
+
+/** Device child filter chips own these parent mover layers in the panel. */
+export const MOVER_DUPLICATE_PANEL_IDS = new Set<string>([
+  "aviation",
+  "aviationRoutes",
+  "ships",
+  "shipRoutes",
+  "fishing",
+  "containers",
+  "satellites",
+]);
+
+export const REMOVED_FROM_INFRA_PANEL_IDS = new Set<string>([
+  "photorealistic3D",
+  "mapbox3dBuildings",
+  "population",
+  "humanMovement",
+  "events_human",
+]);
+
 const CELL_PARENT_IDS = ["cellTowers", "cellTowersG"] as const;
 const RADIO_PARENT_IDS = ["radioStations"] as const;
 const HOSPITAL_PARENT_IDS = ["hospitals"] as const;
@@ -113,7 +172,12 @@ export function isHiddenFromLayerPanel(layerId: string): boolean {
   return (
     METRO_INFRA_DETAIL_LAYER_IDS.has(layerId) ||
     SDTJ_COVERAGE_DETAIL_LAYER_IDS.has(layerId) ||
-    DATA_CENTER_DUPLICATE_PANEL_IDS.has(layerId)
+    DATA_CENTER_DUPLICATE_PANEL_IDS.has(layerId) ||
+    POWER_PLANT_DUPLICATE_PANEL_IDS.has(layerId) ||
+    TRANSMISSION_DUPLICATE_PANEL_IDS.has(layerId) ||
+    CELL_TOWER_DUPLICATE_PANEL_IDS.has(layerId) ||
+    MOVER_DUPLICATE_PANEL_IDS.has(layerId) ||
+    REMOVED_FROM_INFRA_PANEL_IDS.has(layerId)
   );
 }
 
@@ -121,6 +185,15 @@ export function isHiddenFromLayerPanel(layerId: string): boolean {
 export function expandLayerToggleIds(layerId: string): string[] {
   if (DATA_CENTER_LAYER_IDS.includes(layerId as (typeof DATA_CENTER_LAYER_IDS)[number])) {
     return [...DATA_CENTER_LAYER_IDS];
+  }
+  if (POWER_PLANT_LAYER_IDS.includes(layerId as (typeof POWER_PLANT_LAYER_IDS)[number])) {
+    return [...POWER_PLANT_LAYER_IDS];
+  }
+  if (TRANSMISSION_LAYER_IDS.includes(layerId as (typeof TRANSMISSION_LAYER_IDS)[number])) {
+    return [...TRANSMISSION_LAYER_IDS];
+  }
+  if (CELL_TOWER_LAYER_IDS.includes(layerId as (typeof CELL_TOWER_LAYER_IDS)[number])) {
+    return [...CELL_TOWER_LAYER_IDS];
   }
   return [layerId];
 }
