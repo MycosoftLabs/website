@@ -34,6 +34,7 @@ import type {
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
 import { getAllPowerPlants } from "@/lib/crep/registries/power-plant-registry"
+import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 
 /** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
 function asEarthBucket<T>(v: unknown): T[] {
@@ -1127,18 +1128,19 @@ export async function searchEarthIntelligence(
   const isGeneral = !Object.values(domains).some(Boolean)
   const wantsWeatherContext = domains.weather || isGeneral || domains.aircraft
   const wantsSpaceWeatherContext = domains.spaceWeather || domains.satellites
+  const internalOrigin = resolveInternalBaseUrl(origin)
 
   /** Live connectors — run in parallel with MINDEX so camera/geo queries are not serialized (MINDEX + OSM). */
   const livePromises = {
     events: (domains.events || isGeneral) ? searchEvents(query, limit) : Promise.resolve([] as EventResult[]),
-    aircraft: domains.aircraft ? searchAircraft(query, origin, limit) : Promise.resolve([] as AircraftResult[]),
-    vessels: domains.vessels ? searchVessels(query, origin, limit) : Promise.resolve([] as VesselResult[]),
-    satellites: domains.satellites ? searchSatellites(query, origin, limit) : Promise.resolve([] as SatelliteResult[]),
-    weather: wantsWeatherContext ? searchWeather(query, origin, limit) : Promise.resolve([] as WeatherResult[]),
-    emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([] as EmissionsResult[]),
-    infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([] as InfrastructureResult[]),
-    devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([] as DeviceResult[]),
-    spaceWeather: wantsSpaceWeatherContext ? searchSpaceWeather(query, origin, limit) : Promise.resolve([] as SpaceWeatherResult[]),
+    aircraft: domains.aircraft ? searchAircraft(query, internalOrigin, limit) : Promise.resolve([] as AircraftResult[]),
+    vessels: domains.vessels ? searchVessels(query, internalOrigin, limit) : Promise.resolve([] as VesselResult[]),
+    satellites: domains.satellites ? searchSatellites(query, internalOrigin, limit) : Promise.resolve([] as SatelliteResult[]),
+    weather: wantsWeatherContext ? searchWeather(query, internalOrigin, limit) : Promise.resolve([] as WeatherResult[]),
+    emissions: domains.emissions ? searchEmissions(query, internalOrigin, limit) : Promise.resolve([] as EmissionsResult[]),
+    infrastructure: domains.infrastructure ? searchInfrastructure(query, internalOrigin, limit) : Promise.resolve([] as InfrastructureResult[]),
+    devices: domains.devices ? searchDevices(query, internalOrigin, limit) : Promise.resolve([] as DeviceResult[]),
+    spaceWeather: wantsSpaceWeatherContext ? searchSpaceWeather(query, internalOrigin, limit) : Promise.resolve([] as SpaceWeatherResult[]),
     cameras: domains.cameras ? searchCameras(query, limit) : Promise.resolve([] as CameraResult[]),
   }
 
