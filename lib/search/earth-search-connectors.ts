@@ -94,6 +94,8 @@ function serverSelfFetchBases(requestOrigin?: string): string[] {
   const bases = [
     resolveInternalBaseUrl(requestOrigin),
     requestOrigin,
+    process.env.NEXT_PUBLIC_BASE_URL,
+    process.env.NEXTAUTH_URL,
     `http://127.0.0.1:${port}`,
     `http://localhost:${port}`,
   ]
@@ -105,6 +107,14 @@ function serverSelfFetchBases(requestOrigin?: string): string[] {
       seen.add(base)
       return true
     })
+}
+
+async function safeFetchSelfPath(requestOrigin: string | undefined, path: string, timeoutMs = 8000): Promise<Response | null> {
+  for (const base of serverSelfFetchBases(requestOrigin)) {
+    const res = await safeFetch(`${base}${path}`, timeoutMs)
+    if (res) return res
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +358,7 @@ export function isVesselQuery(query: string): boolean {
 
 export async function searchVessels(query: string, origin: string, limit = 20): Promise<VesselResult[]> {
   try {
-    const res = await safeFetch(`${origin}/api/oei/aisstream?limit=${limit}`, 10000)
+    const res = await safeFetchSelfPath(origin, `/api/oei/aisstream?limit=${limit}`, 10000)
     if (!res) return []
     const data = await res.json()
     const vessels = data.entities || data.vessels || data.data || []
@@ -436,7 +446,7 @@ export async function searchWeather(query: string, origin: string, limit = 10): 
     const results: WeatherResult[] = []
 
     // NWS Alerts
-    const alertsRes = await safeFetch(`${origin}/api/oei/nws-alerts?limit=${limit}`)
+    const alertsRes = await safeFetchSelfPath(origin, `/api/oei/nws-alerts?limit=${limit}`)
     if (alertsRes) {
       const alertsData = await alertsRes.json()
       const alerts = alertsData.entities || alertsData.alerts || alertsData.data || []
@@ -514,7 +524,7 @@ export async function searchEmissions(query: string, origin: string, limit = 20)
   try {
     // Carbon Mapper
     if (q.includes("methane") || q.includes("co2") || q.includes("carbon") || q.includes("emission") || q.includes("plume")) {
-      const cmRes = await safeFetch(`${origin}/api/oei/carbon-mapper?limit=${limit}`)
+      const cmRes = await safeFetchSelfPath(origin, `/api/oei/carbon-mapper?limit=${limit}`)
       if (cmRes) {
         const cmData = await cmRes.json()
         const plumes = cmData.entities || cmData.plumes || cmData.data || []
@@ -538,7 +548,7 @@ export async function searchEmissions(query: string, origin: string, limit = 20)
 
     // OpenAQ
     if (q.includes("air quality") || q.includes("pm") || q.includes("ozone") || q.includes("no2") || q.includes("so2") || q.includes("aqi") || q.includes("pollution")) {
-      const aqRes = await safeFetch(`${origin}/api/oei/openaq?limit=${limit}`)
+      const aqRes = await safeFetchSelfPath(origin, `/api/oei/openaq?limit=${limit}`)
       if (aqRes) {
         const aqData = await aqRes.json()
         const measurements = aqData.entities || aqData.measurements || aqData.data || []
@@ -627,7 +637,7 @@ export async function searchInfrastructure(query: string, origin: string, limit 
 
     // Railway data
     if (q.includes("railway") || q.includes("railroad") || q.includes("train")) {
-      const rRes = await safeFetch(`${origin}/api/oei/railways?limit=${limit}`)
+      const rRes = await safeFetchSelfPath(origin, `/api/oei/railways?limit=${limit}`)
       if (rRes) {
         const rData = await rRes.json()
         const stations = rData.entities || rData.stations || rData.data || []
@@ -712,7 +722,7 @@ function mapMasRegistryRow(d: Record<string, unknown>): DeviceResult {
 
 export async function searchDevices(query: string, origin: string, limit = 20): Promise<DeviceResult[]> {
   try {
-    const res = await safeFetch(`${origin}/api/natureos/devices/mycobrain`)
+    const res = await safeFetchSelfPath(origin, "/api/natureos/devices/mycobrain")
     const data = res ? await res.json() : {}
     const devices = (data.devices || data.data || data || []) as Record<string, unknown>[]
 
@@ -720,7 +730,7 @@ export async function searchDevices(query: string, origin: string, limit = 20): 
 
     /** MAS device registry (LAN / VM) — real rows when local MycoBrain serial service has none */
     if (rows.length === 0) {
-      const net = await safeFetch(`${origin}/api/devices/network?include_offline=true`, 12_000)
+      const net = await safeFetchSelfPath(origin, "/api/devices/network?include_offline=true", 12_000)
       if (net) {
         const jd = (await net.json()) as { devices?: Record<string, unknown>[] }
         const list = jd.devices || []
@@ -752,7 +762,7 @@ export function isSpaceWeatherQuery(query: string): boolean {
 
 export async function searchSpaceWeather(query: string, origin: string, _limit = 10): Promise<SpaceWeatherResult[]> {
   try {
-    const res = await safeFetch(`${origin}/api/oei/space-weather`)
+    const res = await safeFetchSelfPath(origin, "/api/oei/space-weather")
     if (!res) return []
     const data = await res.json()
 
