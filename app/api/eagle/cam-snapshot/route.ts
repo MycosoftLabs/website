@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { error: "snapshot temporarily unavailable" },
       {
-        status: 503,
+        status: 404,
         headers: {
           "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
           "Retry-After": "60",
@@ -284,7 +284,16 @@ export async function GET(req: NextRequest) {
     : await snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
   if (!buf) {
     failureCache.set(cacheKey, now)
-    return NextResponse.json({ error: "snapshot render failed" }, { status: 502 })
+    return NextResponse.json(
+      { error: "snapshot render failed" },
+      {
+        status: 404,
+        headers: {
+          "Cache-Control": "public, s-maxage=15, stale-while-revalidate=45",
+          "X-Snapshot-Source": "selector-miss",
+        },
+      },
+    )
   }
   failureCache.delete(cacheKey)
   cache.set(cacheKey, { jpeg: buf, t: now })
