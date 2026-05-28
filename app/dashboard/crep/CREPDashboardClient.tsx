@@ -7482,12 +7482,13 @@ export default function CREPDashboardPage({
     fungalAtlasDesiredRef.current = { showAm, showEcm, opacity: nextOpacity };
     const map = mapNativeRef.current || mapRef;
     if (!map) return;
+    const warmInactiveRasters = getEarthSimViewportPerfClass() === "desktop";
     const setImmediateRasterPaint = (layerId: string, enabled: boolean) => {
       try {
         if (!map.getLayer?.(layerId)) return;
-        map.setLayoutProperty?.(layerId, "visibility", "visible");
+        map.setLayoutProperty?.(layerId, "visibility", enabled || warmInactiveRasters ? "visible" : "none");
         map.setPaintProperty?.(layerId, "raster-opacity-transition", { duration: 0, delay: 0 });
-        map.setPaintProperty?.(layerId, "raster-opacity", enabled ? nextOpacity : FUNGAL_ATLAS_WARM_RASTER_OPACITY);
+        map.setPaintProperty?.(layerId, "raster-opacity", enabled ? nextOpacity : warmInactiveRasters ? FUNGAL_ATLAS_WARM_RASTER_OPACITY : 0);
       } catch {
         /* style may still be settling; bootstrap retries below */
       }
@@ -20051,8 +20052,8 @@ export default function CREPDashboardPage({
               // or transparent PNGs â€” the client just asks honestly for what
               // the user toggled.
               mycelium: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.mycelium,
-              am: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.am,
-              ecm: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.ecm,
+              am: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.am && mycorrhizalMode === "am",
+              ecm: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.ecm && mycorrhizalMode === "ecm",
               rarity: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.rare,
               endemic: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.rare,
               protected: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.protected,
