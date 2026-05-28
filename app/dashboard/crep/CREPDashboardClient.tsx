@@ -1773,22 +1773,22 @@ function getNatureDomMarkerCapForZoom(
     const perfClass = getEarthSimViewportPerfClass();
     if (perfClass === "phone") {
       const phoneCap =
-        zoom >= 11 ? 110 :
-        zoom >= 9 ? 95 :
-        zoom >= 7 ? 80 :
-        zoom >= 5 ? 70 :
-        zoom >= 3 ? 60 :
-        50;
+        zoom >= 11 ? 70 :
+        zoom >= 9 ? 55 :
+        zoom >= 7 ? 50 :
+        zoom >= 5 ? 45 :
+        zoom >= 3 ? 40 :
+        35;
       return phoneCap;
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 11 ? 240 :
-        zoom >= 9 ? 200 :
-        zoom >= 7 ? 170 :
-        zoom >= 5 ? 145 :
-        zoom >= 3 ? 120 :
-        100;
+        zoom >= 11 ? 145 :
+        zoom >= 9 ? 105 :
+        zoom >= 7 ? 95 :
+        zoom >= 5 ? 85 :
+        zoom >= 3 ? 75 :
+        65;
       return Math.min(EARTH_SIM_DOM_MARKER_CAP, tabletCap);
     }
     const tierCap =
@@ -7587,10 +7587,43 @@ export default function CREPDashboardPage({
   const [isGlobeMarkerListFrozen, setIsGlobeMarkerListFrozen] = useState(false);
   /** Bumped when the map settles so viewport nature fetch runs after pan/zoom (bounds may not change again). */
   const [viewportNatureFetchNonce, setViewportNatureFetchNonce] = useState(0);
+  const lastViewportNatureFetchRequestAtRef = useRef(0);
+  const pendingViewportNatureFetchTimerRef = useRef<number | null>(null);
   const mapInteractionClearTimerRef = useRef<number | null>(null);
   const earthNatureBootPreloadStartedRef = useRef(false);
   const requestViewportNatureFetch = useCallback(() => {
-    setViewportNatureFetchNonce((n) => n + 1);
+    if (!isEarthSimulatorRoute) {
+      setViewportNatureFetchNonce((n) => n + 1);
+      return;
+    }
+    const now = Date.now();
+    const minDelayMs = 15_000;
+    const run = () => {
+      lastViewportNatureFetchRequestAtRef.current = Date.now();
+      pendingViewportNatureFetchTimerRef.current = null;
+      setViewportNatureFetchNonce((n) => n + 1);
+    };
+    const elapsed = now - lastViewportNatureFetchRequestAtRef.current;
+    if (elapsed >= minDelayMs) {
+      if (pendingViewportNatureFetchTimerRef.current != null) {
+        window.clearTimeout(pendingViewportNatureFetchTimerRef.current);
+        pendingViewportNatureFetchTimerRef.current = null;
+      }
+      run();
+      return;
+    }
+    if (pendingViewportNatureFetchTimerRef.current == null) {
+      pendingViewportNatureFetchTimerRef.current = window.setTimeout(run, minDelayMs - elapsed);
+    }
+  }, [isEarthSimulatorRoute]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingViewportNatureFetchTimerRef.current != null) {
+        window.clearTimeout(pendingViewportNatureFetchTimerRef.current);
+        pendingViewportNatureFetchTimerRef.current = null;
+      }
+    };
   }, []);
   /** Last non-empty rendered marker lists â€” pan freeze must never fall back to []. */
   const lastRenderedFungalForPanRef = useRef<FungalObservation[]>([]);
@@ -7713,7 +7746,9 @@ export default function CREPDashboardPage({
         setIsMapAnimationActive(false);
         setLiveMarkerBounds(null);
       });
-      requestViewportNatureFetch();
+      // MapLibre can emit idle repeatedly while tiles/symbol placement churn.
+      // moveend/zoomend already request the settled viewport refresh; letting
+      // idle do it too caused phone/tablet main-thread starvation.
       try { window.dispatchEvent(new CustomEvent("crep:mover-pump-request")); } catch {}
     };
     try {
@@ -7757,6 +7792,9 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (!earthStrictPerfMode || !mapRef) return;
+    const perfClass = getEarthSimViewportPerfClass();
+    const sampleWindowMs = perfClass === "desktop" ? 1_000 : 250;
+    const sampleIntervalMs = perfClass === "desktop" ? 2_000 : 8_000;
     let rafId: number | null = null;
     let intervalId: number | null = null;
     let frames = 0;
@@ -7790,7 +7828,7 @@ export default function CREPDashboardPage({
       frames += 1;
       frameTimeSum += dt;
       const elapsed = now - windowStartAt;
-      if (elapsed >= 1000) {
+      if (elapsed >= sampleWindowMs) {
         publishSample((frames * 1000) / elapsed, frameTimeSum / Math.max(1, frames));
         frames = 0;
         frameTimeSum = 0;
@@ -7812,7 +7850,7 @@ export default function CREPDashboardPage({
       rafId = window.requestAnimationFrame(sample);
     };
 
-    intervalId = window.setInterval(startSampleWindow, 2000);
+    intervalId = window.setInterval(startSampleWindow, sampleIntervalMs);
     startSampleWindow();
 
     return () => {
@@ -9909,7 +9947,8 @@ export default function CREPDashboardPage({
     return () => { cancelled = true; };
   }, [auditAllOffMode, assetIsolationMode, canFetchEvents, isEmbeddedEarthquakeSearch]);
 
-  const ENABLE_BAKED_INAT_PRELOAD = isEarthSimulatorRoute;
+  const ENABLE_BAKED_INAT_PRELOAD =
+    isEarthSimulatorRoute && getEarthSimViewportPerfClass() === "desktop";
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // BAKED HISTORICAL iNAT â€” Apr 23, 2026
   //
@@ -10058,7 +10097,9 @@ export default function CREPDashboardPage({
     const scheduleNatureBatch = () => {
       natureBatchDirty = true;
       if (natureBatchTimer != null) return;
-      const delayMs = isEarthSimulatorRoute && EARTH_SIM_STAGED_BOOT ? 100 : 0;
+      const delayMs = isEarthSimulatorRoute && EARTH_SIM_STAGED_BOOT
+        ? getEarthSimViewportPerfClass() === "desktop" ? 250 : 2_000
+        : 0;
       if (delayMs <= 0) {
         flushNatureBatch();
         return;
