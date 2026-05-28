@@ -19,7 +19,8 @@ import {
   X, Cable, Zap, MapPin, Building2, Radio, Server,
   Calendar, Hash, ExternalLink, Globe, Signal,
   Activity, ArrowRight, CircleDot, Factory, Navigation,
-  Phone, Mail, Users, Shield as ShieldIcon
+  Phone, Mail, Users, Shield as ShieldIcon, Landmark,
+  BookOpen, Cross, Flame
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -31,7 +32,24 @@ import { findEnrichment, type MilitaryEnrichment } from "@/lib/crep/military-enr
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type InfraAssetType = "cable" | "substation" | "transmission_line" | "plant" | "cell_tower" | "datacenter" | "military" | "airport"
+export type InfraAssetType =
+  | "cable"
+  | "substation"
+  | "transmission_line"
+  | "plant"
+  | "cell_tower"
+  | "datacenter"
+  | "military"
+  | "airport"
+  | "civic"
+  | "government"
+  | "police"
+  | "hospital"
+  | "library"
+  | "fire_station"
+  | "school"
+  | "university"
+  | "asset"
 
 export interface InfraAsset {
   type: InfraAssetType
@@ -87,6 +105,15 @@ function assetTypeIcon(type: InfraAssetType) {
     case "datacenter": return <Server className="w-4 h-4 text-pink-400" />
     case "military": return <Building2 className="w-4 h-4 text-red-400" />
     case "airport": return <Globe className="w-4 h-4 text-teal-400" />
+    case "civic":
+    case "government": return <Landmark className="w-4 h-4 text-teal-300" />
+    case "police": return <ShieldIcon className="w-4 h-4 text-sky-300" />
+    case "hospital": return <Cross className="w-4 h-4 text-rose-300" />
+    case "library": return <BookOpen className="w-4 h-4 text-yellow-300" />
+    case "fire_station": return <Flame className="w-4 h-4 text-orange-300" />
+    case "school":
+    case "university": return <BookOpen className="w-4 h-4 text-violet-300" />
+    default: return <MapPin className="w-4 h-4 text-cyan-300" />
   }
 }
 
@@ -100,6 +127,15 @@ function assetTypeLabel(type: InfraAssetType): string {
     case "datacenter": return "Data Center"
     case "military": return "Military Installation"
     case "airport": return "Airport"
+    case "civic":
+    case "government": return "Civic Facility"
+    case "police": return "Police Station"
+    case "hospital": return "Hospital"
+    case "library": return "Library"
+    case "fire_station": return "Fire Station"
+    case "school": return "School"
+    case "university": return "University"
+    default: return "Map Asset"
   }
 }
 
@@ -113,6 +149,15 @@ function assetTypeAccent(type: InfraAssetType): string {
     case "datacenter": return "border-pink-500/50 from-pink-900/30"
     case "military": return "border-red-500/50 from-red-900/30"
     case "airport": return "border-teal-500/50 from-teal-900/30"
+    case "civic":
+    case "government": return "border-teal-500/50 from-teal-900/30"
+    case "police": return "border-sky-500/50 from-sky-900/30"
+    case "hospital": return "border-rose-500/50 from-rose-900/30"
+    case "library": return "border-yellow-500/50 from-yellow-900/30"
+    case "fire_station": return "border-orange-500/50 from-orange-900/30"
+    case "school":
+    case "university": return "border-violet-500/50 from-violet-900/30"
+    default: return "border-cyan-500/50 from-cyan-900/30"
   }
 }
 
@@ -207,6 +252,15 @@ function getDetailRows(asset: InfraAsset): { label: string; value: string; icon:
   // Civic / viewport-intel contact fields (hospitals, fire stations, etc.)
   if (p.facility_type && !rows.some((r) => r.label === "Type")) {
     rows.push({ label: "Type", value: String(p.facility_type), icon: <Building2 className="w-3 h-3" /> })
+  }
+  if (p.address) {
+    rows.push({ label: "Address", value: String(p.address), icon: <MapPin className="w-3 h-3" /> })
+  }
+  if (p.description) {
+    rows.push({ label: "Summary", value: String(p.description), icon: <CircleDot className="w-3 h-3" /> })
+  }
+  if (p.agency && !rows.some((r) => r.label === "Agency")) {
+    rows.push({ label: "Agency", value: String(p.agency), icon: <Landmark className="w-3 h-3" /> })
   }
   if (p.operator && !rows.some((r) => r.label === "Operator")) {
     rows.push({ label: "Operator", value: String(p.operator), icon: <Building2 className="w-3 h-3" /> })
@@ -305,6 +359,17 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
         return p.sub_type || p.type || "Military"
       case "airport":
         return [p.iata_code, p.icao].filter(Boolean).join(" / ") || "Airport"
+      case "civic":
+      case "government":
+      case "police":
+      case "hospital":
+      case "library":
+      case "fire_station":
+      case "school":
+      case "university":
+        return p.address || p.operator || p.agency || p.sub_type || p.facility_type || "Civic Facility"
+      default:
+        return p.address || p.operator || p.source || "Map Asset"
     }
   })()
 

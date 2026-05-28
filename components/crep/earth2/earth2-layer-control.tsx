@@ -42,8 +42,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -360,7 +358,7 @@ export function Earth2LayerControl({
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[300px]">
+            <div className="h-[300px] overflow-auto pr-1">
               {/* Layers Tab */}
               <TabsContent value="layers" className="m-0 p-2 space-y-3">
                 {/* Weather Layers */}
@@ -570,13 +568,15 @@ export function Earth2LayerControl({
                     </Button>
                   </div>
 
-                  <Slider
+                  <input
+                    type="range"
                     min={0}
                     max={modelInfo.maxHours}
                     step={filter.stepHours}
-                    value={[filter.forecastHours]}
-                    onValueChange={([v]) => onFilterChange({ forecastHours: v })}
-                    className="w-full"
+                    value={filter.forecastHours}
+                    aria-label="Earth2 forecast hour"
+                    onChange={(event) => onFilterChange({ forecastHours: Number(event.currentTarget.value) })}
+                    className="h-1 w-full cursor-pointer accent-emerald-400"
                   />
                   <div className="flex justify-between text-[9px] text-gray-500">
                     <span>Now</span>
@@ -590,13 +590,15 @@ export function Earth2LayerControl({
                     <span className="text-[10px] text-emerald-400/70">Layer Opacity</span>
                     <span className="text-[10px] text-emerald-400">{Math.round(filter.opacity * 100)}%</span>
                   </div>
-                  <Slider
+                  <input
+                    type="range"
                     min={0}
                     max={1}
                     step={0.05}
-                    value={[filter.opacity]}
-                    onValueChange={([v]) => onFilterChange({ opacity: v })}
-                    className="w-full"
+                    value={filter.opacity}
+                    aria-label="Earth2 layer opacity"
+                    onChange={(event) => onFilterChange({ opacity: Number(event.currentTarget.value) })}
+                    className="h-1 w-full cursor-pointer accent-emerald-400"
                   />
                 </div>
               </TabsContent>
@@ -631,13 +633,15 @@ export function Earth2LayerControl({
                     <span className="text-[10px] text-emerald-400/70">Ensemble Members</span>
                     <span className="text-[10px] text-emerald-400">{filter.ensembleMembers}</span>
                   </div>
-                  <Slider
+                  <input
+                    type="range"
                     min={1}
                     max={50}
                     step={1}
-                    value={[filter.ensembleMembers]}
-                    onValueChange={([v]) => onFilterChange({ ensembleMembers: v })}
-                    className="w-full"
+                    value={filter.ensembleMembers}
+                    aria-label="Earth2 ensemble members"
+                    onChange={(event) => onFilterChange({ ensembleMembers: Number(event.currentTarget.value) })}
+                    className="h-1 w-full cursor-pointer accent-emerald-400"
                   />
                   <p className="text-[9px] text-gray-500">More members = better uncertainty estimation</p>
                 </div>
@@ -855,7 +859,7 @@ export function Earth2LayerControl({
                   </div>
                 )}
               </TabsContent>
-            </ScrollArea>
+            </div>
           </Tabs>
         </>
       )}

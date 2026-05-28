@@ -2,11 +2,10 @@
  * CREP Nature Stream (Server-Sent Events)
  *
  * Long-running SSE endpoint the CREP dashboard can subscribe to for
- * live nature observations. Polls iNaturalist every 60 seconds for
- * any observation created since the last poll, pushes each new one
- * as a `nature` event to every connected client, and in the background
- * also fires the bulk POST to MINDEX so the observation is persisted
- * at the same time it reaches the user's map.
+ * live nature observations. Website-side iNaturalist polling is disabled by
+ * default: live acquisition and persistence belong on MINDEX/MAS workers, not
+ * the website VM or Earth Simulator runtime. Set CREP_WEBSITE_ALLOW_NATURE_STREAM=1
+ * only for a controlled operator diagnostic.
  *
  * Usage (browser):
  *   const es = new EventSource("/api/crep/nature-stream");
@@ -36,9 +35,44 @@ const MINDEX_API = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 const POLL_MS = 60_000 // 1 minute
 const HEARTBEAT_MS = 30_000 // 30s
+const WEBSITE_NATURE_STREAM_ENABLED = process.env.CREP_WEBSITE_ALLOW_NATURE_STREAM === "1"
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder()
+
+  if (!WEBSITE_NATURE_STREAM_ENABLED) {
+    const stream = new ReadableStream({
+      start(controller) {
+        const heartbeat = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(`: heartbeat\n\n`))
+          } catch {}
+        }, HEARTBEAT_MS)
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `event: hello\ndata: ${JSON.stringify({
+                ts: new Date().toISOString(),
+                note: "CREP nature stream is MINDEX-owned; website polling disabled",
+              })}\n\n`,
+            ),
+          )
+        } catch {}
+        req.signal.addEventListener("abort", () => {
+          clearInterval(heartbeat)
+          try { controller.close() } catch {}
+        })
+      },
+    })
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    })
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -177,6 +211,11 @@ async function cloneToMindex(observations: any[]) {
         uri: o.uri ?? `https://www.inaturalist.org/observations/${o.id}`,
         place_guess: o.place_guess ?? null,
         quality_grade: o.quality_grade ?? null,
+        taxon_name: o.taxon?.name ?? null,
+        taxon_common_name: o.taxon?.preferred_common_name ?? null,
+        taxon_inat_id: o.taxon?.id ?? null,
+        iconic_taxon_name: o.taxon?.iconic_taxon_name ?? null,
+        kingdom: o.taxon?.iconic_taxon_name ?? null,
         etl_pipeline: "nature-stream-sse",
       },
     }))

@@ -62,6 +62,7 @@ export const SDTJ_COVERAGE_DETAIL_LAYER_IDS = new Set<string>([
   "sdtjAmFmAntennas",
   "sdtjMilitary",
   "sdtjDataCenters",
+  "sdtjCivicFacilities",
 ]);
 
 /** Unified data-center toggle — one control drives all DC layer ids. */
@@ -140,12 +141,12 @@ export const REMOVED_FROM_INFRA_PANEL_IDS = new Set<string>([
 const CELL_PARENT_IDS = ["cellTowers", "cellTowersG"] as const;
 const RADIO_PARENT_IDS = ["radioStations"] as const;
 const HOSPITAL_PARENT_IDS = ["hospitals"] as const;
-const POLICE_PARENT_IDS = ["fireStations"] as const;
+const POLICE_PARENT_IDS = ["policeStations", "fireStations"] as const;
 const MILITARY_PARENT_IDS = ["militaryBases"] as const;
 const TRANSIT_PARENT_IDS = ["liveTransit", "railwayTrains", "railwayTracks"] as const;
 const SEWAGE_PARENT_IDS = ["waterPollution"] as const;
 const AIRPORT_PARENT_IDS = ["aviation", "aviationRoutes"] as const;
-const GOVT_PARENT_IDS = ["events_human", "universities"] as const;
+const GOVT_PARENT_IDS = ["civicFacilities", "events_human", "universities"] as const;
 
 const ALL_METRO_PARENT_IDS = [
   ...CELL_PARENT_IDS,
@@ -215,6 +216,7 @@ export interface SdtjCoverageEnabled {
   sdtjAmFmAntennas: boolean;
   sdtjMilitary: boolean;
   sdtjDataCenters: boolean;
+  sdtjCivicFacilities: boolean;
 }
 
 export function deriveSdtjCoverageEnabled(layers: LayerToggle[]): SdtjCoverageEnabled {
@@ -226,6 +228,7 @@ export function deriveSdtjCoverageEnabled(layers: LayerToggle[]): SdtjCoverageEn
     sdtjAmFmAntennas: isAnyLayerEnabled(layers, RADIO_PARENT_IDS),
     sdtjMilitary: isAnyLayerEnabled(layers, MILITARY_PARENT_IDS),
     sdtjDataCenters: isAnyLayerEnabled(layers, DATA_CENTER_LAYER_IDS),
+    sdtjCivicFacilities: isAnyLayerEnabled(layers, GOVT_PARENT_IDS),
   };
 }
 

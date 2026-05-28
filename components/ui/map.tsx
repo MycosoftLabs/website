@@ -16,6 +16,7 @@ import {
   useState,
   type ReactNode,
   type CSSProperties,
+  type HTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
@@ -786,19 +787,77 @@ type MarkerContentProps = {
   "data-marker"?: string;
   /** Data attribute for observation ID (used for fallback click handling on CREP species markers) */
   "data-observation-id"?: string;
-};
+} & Omit<HTMLAttributes<HTMLDivElement>, "children" | "className" | "onClick">;
 
-function MarkerContent({ children, className, "data-marker": dataMarker, "data-observation-id": dataObservationId }: MarkerContentProps) {
+function MarkerContent({
+  children,
+  className,
+  "data-marker": dataMarker,
+  "data-observation-id": dataObservationId,
+  onMouseDown,
+  onMouseUp,
+  onPointerDown,
+  onPointerUp,
+  onDoubleClick,
+  ...rest
+}: MarkerContentProps) {
   const { portalElement, triggerClick } = useMarkerContext();
+
+  useEffect(() => {
+    if (!portalElement || !dataMarker) return;
+    const previousMarker = portalElement.getAttribute("data-marker-root");
+    const previousZIndex = portalElement.style.zIndex;
+    const previousPointerEvents = portalElement.style.pointerEvents;
+
+    portalElement.setAttribute("data-marker-root", dataMarker);
+    portalElement.style.pointerEvents = "auto";
+    if (dataMarker === "device") {
+      portalElement.style.zIndex = "1500";
+    }
+
+    return () => {
+      if (previousMarker == null) portalElement.removeAttribute("data-marker-root");
+      else portalElement.setAttribute("data-marker-root", previousMarker);
+      portalElement.style.zIndex = previousZIndex;
+      portalElement.style.pointerEvents = previousPointerEvents;
+    };
+  }, [dataMarker, portalElement]);
 
   return createPortal(
     <div 
+      {...rest}
       className={cn("relative cursor-pointer", className)} 
       data-marker={dataMarker}
       data-observation-id={dataObservationId}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
+        onPointerDown?.(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
+        onPointerUp?.(e);
+      }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
+        onMouseDown?.(e);
+      }}
+      onMouseUp={(e) => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
+        onMouseUp?.(e);
+      }}
       onClick={(e) => {
         e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
         triggerClick?.(e.nativeEvent as MouseEvent);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation?.();
+        onDoubleClick?.(e);
       }}
     >
       {children || <DefaultMarkerIcon />}
@@ -1051,12 +1110,99 @@ type MapControlsProps = {
   onLocate?: (coords: { longitude: number; latitude: number }) => void;
 };
 
+type UserLocationCoords = {
+  longitude: number;
+  latitude: number;
+  accuracy?: number;
+  timestamp?: number;
+};
+
+const USER_LOCATION_INTENT_KEY = "mycosoft.map.userLocationRequested.v1";
+const USER_LOCATION_LAST_KEY = "mycosoft.map.lastUserLocation.v1";
+const REMEMBERED_LOCATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 const positionClasses = {
   "top-left": "top-2 left-2",
   "top-right": "top-2 right-2",
   "bottom-left": "bottom-2 left-2",
   "bottom-right": "bottom-10 right-2",
 };
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function readRememberedUserLocation(): UserLocationCoords | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(USER_LOCATION_LAST_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<UserLocationCoords> | null;
+    if (!parsed || !isFiniteNumber(parsed.longitude) || !isFiniteNumber(parsed.latitude)) {
+      return null;
+    }
+    const timestamp = isFiniteNumber(parsed.timestamp) ? parsed.timestamp : 0;
+    if (timestamp > 0 && Date.now() - timestamp > REMEMBERED_LOCATION_MAX_AGE_MS) {
+      return null;
+    }
+    return {
+      longitude: parsed.longitude,
+      latitude: parsed.latitude,
+      accuracy: isFiniteNumber(parsed.accuracy) ? parsed.accuracy : undefined,
+      timestamp: timestamp || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberUserLocation(coords: UserLocationCoords) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      USER_LOCATION_LAST_KEY,
+      JSON.stringify({
+        longitude: coords.longitude,
+        latitude: coords.latitude,
+        accuracy: coords.accuracy,
+        timestamp: coords.timestamp ?? Date.now(),
+      })
+    );
+  } catch {
+    // Local storage can be unavailable in strict privacy modes.
+  }
+}
+
+function setUserLocationIntent(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(USER_LOCATION_INTENT_KEY, enabled ? "true" : "false");
+  } catch {
+    // Best-effort preference only.
+  }
+}
+
+function shouldResumeUserLocation() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(USER_LOCATION_INTENT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function describeGeolocationError(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) {
+    return error.message || "Location permission was denied.";
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return error.message || "Location is unavailable from this device.";
+  }
+  if (error.code === error.TIMEOUT) {
+    return error.message || "Location lookup timed out.";
+  }
+  return error.message || "Location lookup failed.";
+}
 
 function ControlGroup({ children }: { children: React.ReactNode }) {
   return (
@@ -1106,24 +1252,55 @@ function MapControls({
   const [waitingForLocation, setWaitingForLocation] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [userCoords, setUserCoords] = useState<{ longitude: number; latitude: number } | null>(null);
+  const [locationStatus, setLocationStatus] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<UserLocationCoords | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const userMarkerRef = useRef<MapLibreGL.Marker | null>(null);
   const hasFirstFixRef = useRef(false);
+  const lastUserCoordsRef = useRef<UserLocationCoords | null>(null);
+  const hasCheckedResumeRef = useRef(false);
+
+  const clearLocationWatch = useCallback(() => {
+    if (watchIdRef.current !== null && "geolocation" in navigator) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  const flyToUserLocation = useCallback(
+    (coords: UserLocationCoords, duration = 1000) => {
+      if (!map) return;
+      map.flyTo({
+        center: [coords.longitude, coords.latitude],
+        zoom: Math.max(map.getZoom(), 14),
+        duration,
+        essential: true,
+      });
+    },
+    [map]
+  );
+
+  const useRememberedLocation = useCallback(() => {
+    const remembered = readRememberedUserLocation();
+    if (!remembered) return false;
+    lastUserCoordsRef.current = remembered;
+    setUserCoords(remembered);
+    onLocate?.(remembered);
+    flyToUserLocation(remembered, 700);
+    setLocationStatus("Using your last saved location.");
+    return true;
+  }, [flyToUserLocation, onLocate]);
 
   // Clean up watchPosition and marker on unmount
   useEffect(() => {
     return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
+      clearLocationWatch();
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
         userMarkerRef.current = null;
       }
     };
-  }, []);
+  }, [clearLocationWatch]);
 
   // Disable follow mode when the user manually pans or zooms
   useEffect(() => {
@@ -1175,18 +1352,54 @@ function MapControls({
   }, [map, userCoords]);
 
   const startTracking = useCallback(() => {
-    if (!("geolocation" in navigator) || !map) return;
+    if (!map) return;
+
+    setUserLocationIntent(true);
+
+    if (!("geolocation" in navigator)) {
+      setWaitingForLocation(false);
+      setIsTracking(false);
+      setIsFollowing(false);
+      setLocationStatus("Location is not available in this browser.");
+      useRememberedLocation();
+      return;
+    }
+
+    clearLocationWatch();
 
     setWaitingForLocation(true);
+    setLocationStatus("Finding your location...");
     hasFirstFixRef.current = false;
 
     const onPosition = (pos: GeolocationPosition) => {
-      const coords = {
+      const coords: UserLocationCoords = {
         longitude: pos.coords.longitude,
         latitude: pos.coords.latitude,
+        accuracy: pos.coords.accuracy,
+        timestamp: pos.timestamp || Date.now(),
       };
-      setUserCoords(coords);
-      onLocate?.(coords);
+      const previous = lastUserCoordsRef.current;
+      const unchanged = Boolean(
+        previous &&
+          Math.abs(previous.longitude - coords.longitude) < 0.000001 &&
+          Math.abs(previous.latitude - coords.latitude) < 0.000001 &&
+          Math.abs((previous.accuracy ?? 0) - (coords.accuracy ?? 0)) < 0.5,
+      );
+      if (!unchanged) {
+        lastUserCoordsRef.current = coords;
+        setUserCoords(coords);
+        rememberUserLocation(coords);
+        setUserLocationIntent(true);
+        setLocationStatus(
+          isFiniteNumber(coords.accuracy)
+            ? `Location active within about ${Math.round(coords.accuracy)} meters.`
+            : "Location active."
+        );
+        onLocate?.(coords);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("mycosoft:user-location", { detail: coords }));
+        }
+      }
 
       // On first fix, fly to location
       if (!hasFirstFixRef.current) {
@@ -1194,29 +1407,76 @@ function MapControls({
         setWaitingForLocation(false);
         setIsTracking(true);
         setIsFollowing(true);
-        map.flyTo({
-          center: [coords.longitude, coords.latitude],
-          zoom: Math.max(map.getZoom(), 14),
-          duration: 1500,
-        });
+        flyToUserLocation(coords, 1200);
       }
     };
 
     const onError = (error: GeolocationPositionError) => {
-      console.error("Geolocation error:", error);
+      const message = describeGeolocationError(error);
+      if (!hasFirstFixRef.current) {
+        setIsTracking(false);
+        setIsFollowing(false);
+      }
       setWaitingForLocation(false);
+      setLocationStatus(message);
+      if (error.code === error.PERMISSION_DENIED) {
+        setUserLocationIntent(false);
+        clearLocationWatch();
+      }
+      console.warn("[MapControls] Geolocation unavailable:", {
+        code: error.code,
+        message,
+      });
+      useRememberedLocation();
     };
+
+    navigator.geolocation.getCurrentPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 300000,
+    });
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       onPosition,
       onError,
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 15000,
+        maximumAge: 5000,
       }
     );
-  }, [map, onLocate]);
+  }, [clearLocationWatch, flyToUserLocation, map, onLocate, useRememberedLocation]);
+
+  useEffect(() => {
+    if (!showLocate || !map || hasCheckedResumeRef.current) return;
+    hasCheckedResumeRef.current = true;
+    if (!shouldResumeUserLocation()) return;
+
+    const remembered = readRememberedUserLocation();
+    if (remembered) {
+      setUserCoords(remembered);
+      onLocate?.(remembered);
+      setLocationStatus("Location ready from your last saved fix.");
+    }
+
+    if (!("permissions" in navigator) || !("geolocation" in navigator)) return;
+
+    let cancelled = false;
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((permission) => {
+        if (!cancelled && permission.state === "granted") {
+          startTracking();
+        }
+      })
+      .catch(() => {
+        // Some browsers do not expose geolocation permission state.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [map, showLocate]);
 
   // When following + coords update, smoothly pan to keep user centered
   useEffect(() => {
@@ -1235,26 +1495,22 @@ function MapControls({
     } else if (!isFollowing && userCoords) {
       // Re-enable follow mode and fly back to user
       setIsFollowing(true);
-      map?.flyTo({
-        center: [userCoords.longitude, userCoords.latitude],
-        zoom: Math.max(map?.getZoom() ?? 14, 14),
-        duration: 1000,
-      });
+      flyToUserLocation(userCoords, 800);
     } else if (isFollowing) {
       // Tapping while already following: stop tracking entirely
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
+      clearLocationWatch();
       setIsTracking(false);
       setIsFollowing(false);
+      setWaitingForLocation(false);
+      setLocationStatus("Location tracking paused.");
+      setUserLocationIntent(false);
       setUserCoords(null);
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
         userMarkerRef.current = null;
       }
     }
-  }, [isTracking, isFollowing, userCoords, map, startTracking]);
+  }, [clearLocationWatch, flyToUserLocation, isFollowing, isTracking, startTracking, userCoords]);
 
   const handleZoomIn = useCallback(() => {
     map?.zoomTo(map.getZoom() + 1, { duration: 300 });
@@ -1308,6 +1564,7 @@ function MapControls({
           <button
             onClick={handleLocate}
             aria-label={isFollowing ? "Stop tracking location" : isTracking ? "Re-center on my location" : "Find my location"}
+            title={locationStatus ?? (isFollowing ? "Tracking your location" : isTracking ? "Re-center on my location" : "Find my location")}
             type="button"
             className={cn(
               "flex items-center justify-center size-8 transition-colors",
@@ -1321,7 +1578,7 @@ function MapControls({
             disabled={waitingForLocation}
           >
             {waitingForLocation ? (
-              <Loader2 className="size-4" />
+              <Loader2 className="size-4 animate-spin" />
             ) : isFollowing ? (
               <Navigation2 className="size-4" />
             ) : (

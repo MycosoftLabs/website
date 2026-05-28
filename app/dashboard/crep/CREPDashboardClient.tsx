@@ -2,10 +2,10 @@
 
 /**
  * CREP - Common Relevant Environmental Picture
- * 
+ *
  * Intelligence-grade operational environmental awareness dashboard.
  * Built on mapcn/MapLibre GL with comprehensive data overlays and tactical UI.
- * 
+ *
  * Features:
  * - MapLibre GL powered world map with dark tactical styling
  * - Floating left Intel Feed with real-time event data
@@ -14,24 +14,24 @@
  * - Device location tracking with status indicators
  * - MYCA agent integration for mission planning
  * - NatureOS/MINDEX data integration
- * 
+ *
  * Route: /dashboard/crep
  */
 
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo, startTransition, type ReactNode, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo, startTransition, type ReactNode, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   ArrowDown,
-  Maximize2, 
-  Minimize2, 
-  Shield, 
-  Globe, 
-  Activity, 
-  Radio, 
+  Maximize2,
+  Minimize2,
+  Shield,
+  Globe,
+  Activity,
+  Radio,
   Zap,
   Sun,
   ChevronDown,
@@ -68,6 +68,7 @@ import {
   Clock,
   ExternalLink,
   Target,
+  Box,
   Cpu,
   Database,
   Wifi,
@@ -145,9 +146,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -159,8 +158,8 @@ import { toast } from "sonner";
 // Apr 20, 2026 (Morgan: "the fuckling crep site keeps reloadiong wtf is is
 // doing"). Chunk-load timeouts on this dynamic import were the trigger:
 // dev-server compilation took longer than the webpack chunk-fetch deadline,
-// which threw ChunkLoadError → Next dev overlay auto-reloaded the page →
-// next load had to recompile → same timeout → infinite reload loop.
+// which threw ChunkLoadError â†’ Next dev overlay auto-reloaded the page â†’
+// next load had to recompile â†’ same timeout â†’ infinite reload loop.
 // Switching to a static import folds it into the main chunk, no dynamic
 // chunk fetch, no timeout window, no reload trigger. The 329-line widget
 // adds negligible weight to the main bundle vs. the reload misery it
@@ -168,8 +167,8 @@ import { toast } from "sonner";
 import { SpaceWeatherWidget } from "@/components/crep/space-weather-widget";
 // Apr 21, 2026 (Morgan: "crep crashing ... Loading chunk _app-pages-browser_components_crep_flight-tracker-widget_tsx failed").
 // Same ChunkLoadError reload-loop pattern as SpaceWeatherWidget above:
-// dev-server chunk compilation exceeded webpack's fetch deadline → Next
-// error boundary auto-reloaded → recompile → timeout → forever. Flipping
+// dev-server chunk compilation exceeded webpack's fetch deadline â†’ Next
+// error boundary auto-reloaded â†’ recompile â†’ timeout â†’ forever. Flipping
 // all three CREP tracker widgets + the conservation demo + ground-station
 // widgets to static imports eliminates the dynamic chunk fetch and the
 // timeout window entirely. They all render unconditionally inside the
@@ -178,11 +177,11 @@ import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
 import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
 import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
 
-// Conservation Demo Widgets (Feb 05, 2026) — static to avoid chunk timeouts
+// Conservation Demo Widgets (Feb 05, 2026) â€” static to avoid chunk timeouts
 import { SmartFenceWidget } from "@/components/crep/smart-fence-widget";
 import { PresenceDetectionWidget } from "@/components/crep/presence-detection-widget";
 
-// Ground Station Integration (Mar 2026) — static to avoid chunk timeouts
+// Ground Station Integration (Mar 2026) â€” static to avoid chunk timeouts
 import { GSOverlayPanel } from "@/components/crep/ground-station/GSOverlayPanel";
 import { GSPassTimeline } from "@/components/crep/ground-station/GSPassTimeline";
 import { GSSatelliteInfoPanel } from "@/components/crep/ground-station/GSSatelliteInfoPanel";
@@ -200,34 +199,17 @@ import { TrajectoryLines } from "@/components/crep/trajectory-lines";
 
 // Satellite Orbit Lines for ground track visualization
 
-// NVIDIA Earth-2 AI Weather Components
-import { 
-  Earth2LayerControl,
-  Earth2TileRasterLayers,
-  WeatherHeatmapLayer,
-  SporeDispersalLayer,
-  WindVectorLayer,
-  CloudLayer,
-  PrecipitationLayer,
-  PressureLayer,
-  StormCellsLayer,
-  HumidityLayer,
-  ForecastTimeline,
-  AlertPanel,
-  useEarth2Alerts,
-  DEFAULT_EARTH2_FILTER,
-  type Earth2Filter,
-  type EoImageryFilter,
-  type Earth2Alert,
-} from "@/components/crep/earth2";
+// Earth-2 GPU controls/layers are intentionally inert until the GPU service is production-ready.
+import type { Earth2Filter } from "@/components/crep/earth2/earth2-layer-control";
+import type { EoImageryFilter } from "@/components/crep/earth2/gibs-eo-overlays";
 
 // Device Type to Widget Mapper (Feb 12, 2026)
-import { 
-  getDeviceWidgetConfig, 
-  getDeviceEmoji, 
+import {
+  getDeviceWidgetConfig,
+  getDeviceEmoji,
   getIAQQuality,
   formatSensorValue,
-  type MycoBrainDeviceRole 
+  type MycoBrainDeviceRole
 } from "@/lib/crep/device-widget-mapper";
 import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
@@ -257,18 +239,18 @@ import {
 import { useGroundStation } from "@/lib/ground-station/context";
 
 // Phase 2-6: New CREP layers and panels
-// Static import — the dynamic() version was hitting ChunkLoadError during
+// Static import â€” the dynamic() version was hitting ChunkLoadError during
 // HMR (same crash pattern as signal-heatmap-layer). Static is safe because
 // the module is client-only and guards against map being undefined.
 import GibsBaseLayers from "@/components/crep/layers/gibs-base-layers";
-// Static import — same ChunkLoadError pattern as signal-heatmap-layer and
+// Static import â€” same ChunkLoadError pattern as signal-heatmap-layer and
 // gibs-base-layers. Layer is client-only ("use client") with mapReady guards,
 // so there's no benefit to code-splitting and every benefit to HMR stability.
 import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 // Statically imported (was dynamic). The chunk for this file was hitting
-// a ChunkLoadError during HMR rebuilds — "loading chunk_app-pages-
+// a ChunkLoadError during HMR rebuilds â€” "loading chunk_app-pages-
 // heatmap-browser_components_crep_layers_signal-heatmap-layer_tsx failed"
-// — which crashed the whole CREP dashboard tree. It's <200 lines and
+// â€” which crashed the whole CREP dashboard tree. It's <200 lines and
 // server-only-safe (guards against map being undefined), so the code-
 // split savings aren't worth the reliability cost.
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
@@ -279,23 +261,23 @@ import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import MycaViewportPanel from "@/components/crep/panels/MycaViewportPanel";
-// Apr 23, 2026 — RegisterCrepDataServiceWorker removed, superseded by /crep-sw.js
+// Apr 23, 2026 â€” RegisterCrepDataServiceWorker removed, superseded by /crep-sw.js
 // (cache-first SW inline-registered in CREPDashboardPage). The old component
 // still exists at components/crep/register-crep-data-sw.tsx for any other
 // callers but is no longer imported here.
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
-// Realistic cloud rendering — Three.js volumetric + satellite-texture pipeline
+// Realistic cloud rendering â€” Three.js volumetric + satellite-texture pipeline
 // driven by /api/eagle/weather/multi (Open-Meteo + NWS + Windy + OWM + Earth-2).
-// Apr 20, 2026 — Morgan: "realistic clouds over the crep map and globe in both
+// Apr 20, 2026 â€” Morgan: "realistic clouds over the crep map and globe in both
 // 2d and 3d realistically with altitude on 3d and density on both".
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
-// Right-click → waypoint / places-saving system. Apr 20, 2026 (Morgan:
+// Right-click â†’ waypoint / places-saving system. Apr 20, 2026 (Morgan:
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
 import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
 import LookupHereWidget from "@/components/crep/waypoints/LookupHereWidget";
-// Apr 22, 2026 — MYCA waypoint→verify→auto-add pipeline. User drops a
-// waypoint → POST /api/myca/waypoint-verify → when confidence ≥ 0.85,
+// Apr 22, 2026 â€” MYCA waypointâ†’verifyâ†’auto-add pipeline. User drops a
+// waypoint â†’ POST /api/myca/waypoint-verify â†’ when confidence â‰¥ 0.85,
 // MYCA publishes to SSE /api/myca/entity-feed which this component
 // subscribes to and renders live markers + perimeter polygons.
 import MycaVerifiedEntityFeed from "@/components/crep/myca/MycaVerifiedEntityFeed";
@@ -303,24 +285,24 @@ import MycaVerifiedEntityFeed from "@/components/crep/myca/MycaVerifiedEntityFee
 // inline MarkerPopup with a beautiful floating high-tech dialog with
 // explicit GPS state surfacing + sparkline telemetry cards.
 import DeviceWidget from "@/components/crep/devices/DeviceWidget";
-// Tijuana Estuary / Project Oyster (MYCODAO + MYCOSOFT) — pollution +
+// Tijuana Estuary / Project Oyster (MYCODAO + MYCOSOFT) â€” pollution +
 // environmental data showcase for the SD-MX border zone. Apr 20, 2026.
-// Renders Project Oyster perimeter + H₂S hotspot + river flow line +
+// Renders Project Oyster perimeter + Hâ‚‚S hotspot + river flow line +
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
-// Apr 22, 2026 — SD + TJ data coverage expansion: 7 OSM-derived
+// Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
 // layers (hospitals, police, sewage, cell towers, AM/FM, military,
 // data centers) that fill the gap HIFLD + global cell-towers-global
 // didn't cover. Baked by scripts/etl/crep/bake-sdtj-coverage.mjs.
 import SdtjCoverageLayer from "@/components/crep/layers/sdtj-coverage-layer";
-// Apr 23, 2026 — Project NYC + Project DC expansion (Morgan: "massive
+// Apr 23, 2026 â€” Project NYC + Project DC expansion (Morgan: "massive
 // amount of missing data ... cameras cell towers all environmental
 // sensors ... fly to and layers of details perimeters and special icon
 // locations for dc and new york"). Parallel to Oyster / Goffs pattern.
 import ProjectNycDcLayer from "@/components/crep/layers/project-nyc-dc-layer";
-// Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
+// Mojave National Preserve + Goffs, CA (MYCOSOFT project site) â€” Apr 21, 2026
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
 import { LiveTransitLayer } from "@/components/crep/layers/live-transit-layer";
@@ -339,7 +321,7 @@ import {
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
 
-// Globe/Map Projection Toggle (Apr 2026 — OpenGridWorks-style)
+// Globe/Map Projection Toggle (Apr 2026 â€” OpenGridWorks-style)
 import { GlobeToggle, type ProjectionMode } from "@/components/crep/controls/globe-toggle";
 
 // PMTiles Protocol Registration (Apr 2026)
@@ -348,7 +330,7 @@ import { registerPMTilesProtocol } from "@/lib/crep/pmtiles-source";
 // Static-infra PMTiles-first loader (preferred path for bulk vector layers)
 import { addInfraSourceWithFallback, layerSpecForMode, INFRA_LAYERS } from "@/lib/crep/static-infra-loader";
 
-// Static infrastructure bundle — zero-latency point markers (Morgan rule, Apr 2026)
+// Static infrastructure bundle â€” zero-latency point markers (Morgan rule, Apr 2026)
 // Permanent facility LOCATIONS don't change per-request. Load once on mount.
 import { MAJOR_PORTS, MAJOR_DATACENTERS } from "@/lib/crep/static-infra";
 
@@ -514,9 +496,58 @@ interface GlobalEvent {
     depth?: number; // For earthquakes (km)
     windSpeed?: number; // For storms (mph)
     containment?: number; // For wildfires (%)
-    affectedArea?: number; // kmÂ² affected
+    affectedArea?: number; // kmÃ‚Â² affected
     affectedPopulation?: number; // People affected
 }
+
+type HoverPoint = { x: number; y: number };
+
+type MapAssetHoverPayload = {
+  type?: string;
+  kind?: string;
+  id?: string | number;
+  name?: string;
+  label?: string;
+  detail?: string;
+  lat?: number;
+  lng?: number;
+  x?: number;
+  y?: number;
+  screenX?: number;
+  screenY?: number;
+  source?: string;
+  properties?: Record<string, any>;
+};
+
+type MapHoverContext = {
+  key: string;
+  kind: string;
+  label: string;
+  detail?: string;
+  facts?: MycaContextFact[];
+  lat?: number;
+  lng?: number;
+  zoom?: number;
+  x: number;
+  y: number;
+  source?: string;
+};
+
+type MycaSelectedMapContext = {
+  key: string;
+  kind: string;
+  label: string;
+  detail?: string;
+  facts?: MycaContextFact[];
+  lat?: number;
+  lng?: number;
+  zoom?: number;
+};
+
+type MycaContextFact = {
+  label: string;
+  value: string;
+};
 
 const EARTHQUAKE_QUERY_RE = /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i;
 
@@ -543,6 +574,223 @@ function entityNumber(entity: UnifiedEntity, keys: string[]) {
 
 function entityLink(entity: UnifiedEntity) {
   return entityString(entity, ["sourceUrl", "link", "url"]);
+}
+
+function firstHoverValue(record: Record<string, any> | undefined, keys: string[], fallback = ""): string {
+  if (!record) return fallback;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return fallback;
+}
+
+function readLooseValue(entity: any, keys: string[]): unknown {
+  const bags = [
+    entity,
+    entity?.properties,
+    entity?.metadata,
+    entity?.properties?.metadata,
+    entity?.raw,
+    entity?.feature?.properties,
+  ];
+  for (const bag of bags) {
+    if (!bag || typeof bag !== "object") continue;
+    for (const key of keys) {
+      const value = bag[key];
+      if (value == null || value === "") continue;
+      if (typeof value === "number" && !Number.isFinite(value)) continue;
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function formatMycaFactValue(value: unknown, suffix = ""): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "number") return Number.isFinite(value) ? `${Math.round(value)}${suffix}` : "";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (Array.isArray(value)) return value.filter(Boolean).slice(0, 3).join(", ");
+  if (value instanceof Date) return value.toLocaleString();
+  if (typeof value === "object") return "";
+  const text = String(value).trim();
+  return text ? `${text}${suffix}` : "";
+}
+
+function formatMycaDateFact(value: unknown): string {
+  const text = formatMycaFactValue(value);
+  if (!text) return "";
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+  return text;
+}
+
+function pushMycaFact(facts: MycaContextFact[], label: string, value: unknown, suffix = "") {
+  const formatted = formatMycaFactValue(value, suffix);
+  if (!formatted) return;
+  const normalized = `${label}:${formatted}`.toLowerCase();
+  if (facts.some((fact) => `${fact.label}:${fact.value}`.toLowerCase() === normalized)) return;
+  facts.push({ label, value: formatted });
+}
+
+function buildHoverFacts(payload: MapAssetHoverPayload): MycaContextFact[] {
+  const props = payload.properties || {};
+  const facts: MycaContextFact[] = [];
+  pushMycaFact(facts, "Type", props.type || props.sub_type || props.kind || payload.kind || payload.type);
+  pushMycaFact(facts, "Operator", props.operator || props.op || props.owner || props.OWNER || props.provider);
+  pushMycaFact(facts, "Status", props.status || props.source_status);
+  const capacity = Number(props.capacity_mw ?? props.capacityMW);
+  if (Number.isFinite(capacity) && capacity > 0) pushMycaFact(facts, "Capacity", capacity, " MW");
+  const voltage = Number(props.voltage_kv ?? props.v ?? props.VOLTAGE);
+  if (Number.isFinite(voltage) && voltage > 0) pushMycaFact(facts, "Voltage", voltage > 1000 ? Math.round(voltage / 1000) : voltage, " kV");
+  pushMycaFact(facts, "Speed", props.speed ?? props.sog ?? props.velocity ?? props.groundSpeed, props.sog != null ? " kt" : "");
+  pushMycaFact(facts, "Heading", props.heading ?? props.cog ?? props.course, " deg");
+  pushMycaFact(facts, "Source", payload.source || props.source || props.src);
+  return facts.slice(0, 6);
+}
+
+function buildSelectedMapWidgetContext(kind: string, detail: any): MycaSelectedMapContext | null {
+  if (!detail || typeof detail !== "object") return null;
+  const normalizedKind = kind.toLowerCase();
+  const props = detail.properties || detail;
+  const label = String(
+    detail.label ||
+    detail.name ||
+    detail.title ||
+    props.name ||
+    props.title ||
+    props.label ||
+    normalizedKind,
+  ).trim();
+  const lat = Number(detail.lat ?? detail.latitude ?? props.lat ?? props.latitude);
+  const lng = Number(detail.lng ?? detail.lon ?? detail.longitude ?? props.lng ?? props.lon ?? props.longitude);
+  const id = detail.id ?? props.id ?? props.station_id ?? props.source_id ?? label;
+  const payload: MapAssetHoverPayload = {
+    type: kind,
+    kind,
+    id,
+    name: label,
+    label,
+    detail: detail.detail || props.detail || props.description,
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lng: Number.isFinite(lng) ? lng : undefined,
+    source: detail.source || props.source || props.provider,
+    properties: props,
+    x: 0,
+    y: 0,
+  };
+  const facts = buildHoverFacts(payload);
+  pushMycaFact(facts, "Provider", props.provider || detail.provider || props.source);
+  pushMycaFact(facts, "Camera", props.camera_id || props.station_id || props.id);
+  pushMycaFact(facts, "Stream", props.stream_url || props.streamUrl || props.embed_url || props.media_url ? "available" : "");
+  return {
+    key: `${formatHoverKeyPart(kind, "asset")}:${formatHoverKeyPart(id, label)}`,
+    kind,
+    label: label || kind,
+    detail: formatHoverDetail(payload) || props.description || props.provider || props.source,
+    facts: facts.slice(0, 8),
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lng: Number.isFinite(lng) ? lng : undefined,
+    zoom: normalizedKind.includes("camera") ? 14 : 12,
+  };
+}
+
+function formatHoverKeyPart(value: string | number | undefined, fallback: string): string {
+  return String(value ?? fallback).trim().toLowerCase().replace(/\s+/g, "-").slice(0, 90) || fallback;
+}
+
+function formatHoverDetail(payload: MapAssetHoverPayload): string {
+  if (payload.detail?.trim()) return payload.detail.trim();
+  const props = payload.properties || {};
+  const parts: string[] = [];
+  const add = (label: string, value: unknown, suffix = "") => {
+    if (value == null || value === "") return;
+    if (typeof value === "number" && !Number.isFinite(value)) return;
+    const text = String(value).trim();
+    if (!text || parts.some((part) => part.toLowerCase() === `${label}: ${text}${suffix}`.toLowerCase())) return;
+    parts.push(`${label}: ${text}${suffix}`);
+  };
+  add("Status", props.status || props.source_status);
+  add("Operator", props.operator || props.op || props.owner || props.OWNER);
+  add("Provider", props.provider);
+  add("Type", props.type || props.sub_type || props.kind || props.radio || props.device_type);
+  const capacity = Number(props.capacity_mw ?? props.capacityMW);
+  if (Number.isFinite(capacity) && capacity > 0) add("Capacity", Math.round(capacity), " MW");
+  const voltage = Number(props.voltage_kv ?? props.v ?? props.VOLTAGE);
+  if (Number.isFinite(voltage) && voltage > 0) add("Voltage", voltage > 1000 ? Math.round(voltage / 1000) : Math.round(voltage), " kV");
+  add("Source", payload.source || props.source || props.src);
+  return parts.slice(0, 3).join(" / ");
+}
+
+function normalizeHoverPayload(payload: MapAssetHoverPayload): MapHoverContext | null {
+  const props = payload.properties || {};
+  const kind = String(payload.kind || payload.type || props.type || "asset").replace(/[_-]+/g, " ");
+  const label =
+    payload.label ||
+    payload.name ||
+    firstHoverValue(props, ["name", "n", "title", "label", "callsign", "station_id", "id"], kind);
+  const rawLat = payload.lat ?? props.lat ?? props.latitude;
+  const rawLng = payload.lng ?? props.lng ?? props.lon ?? props.longitude;
+  const lat = Number(rawLat);
+  const lng = Number(rawLng);
+  const x = Number(payload.x ?? payload.screenX);
+  const y = Number(payload.y ?? payload.screenY);
+  const id = payload.id ?? props.id ?? props.plant_id ?? props.station_id ?? props.mmsi ?? props.imo;
+  if (!label || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    key: `${formatHoverKeyPart(kind, "asset")}:${formatHoverKeyPart(id, label)}`,
+    kind,
+    label,
+    detail: formatHoverDetail(payload),
+    facts: buildHoverFacts(payload),
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lng: Number.isFinite(lng) ? lng : undefined,
+    x,
+    y,
+    source: payload.source || firstHoverValue(props, ["source", "src", "provider"]),
+  };
+}
+
+function hoverToneClass(kind: string) {
+  const normalized = kind.toLowerCase();
+  if (normalized.includes("camera")) return "border-sky-300/50 bg-sky-950/80 text-sky-100 shadow-sky-500/25";
+  if (normalized.includes("plant") || normalized.includes("transmission") || normalized.includes("substation")) return "border-amber-300/50 bg-amber-950/80 text-amber-100 shadow-amber-500/25";
+  if (normalized.includes("species") || normalized.includes("fung")) return "border-emerald-300/50 bg-emerald-950/80 text-emerald-100 shadow-emerald-500/25";
+  if (normalized.includes("event") || normalized.includes("fire") || normalized.includes("earthquake")) return "border-orange-300/50 bg-orange-950/80 text-orange-100 shadow-orange-500/25";
+  if (normalized.includes("aircraft") || normalized.includes("vessel") || normalized.includes("satellite")) return "border-cyan-300/50 bg-cyan-950/80 text-cyan-100 shadow-cyan-500/25";
+  return "border-purple-300/50 bg-purple-950/80 text-purple-100 shadow-purple-500/25";
+}
+
+function MapAssetHoverPreview({ hover }: { hover: MapHoverContext | null }) {
+  if (!hover || typeof window === "undefined") return null;
+  const left = Math.max(12, Math.min(window.innerWidth - 286, hover.x + 16));
+  const top = Math.max(12, Math.min(window.innerHeight - 132, hover.y + 16));
+  const coordinates =
+    hover.lat != null && hover.lng != null
+      ? `${hover.lat.toFixed(4)}, ${hover.lng.toFixed(4)}`
+      : null;
+
+  return (
+    <div
+      data-testid="crep-hover-preview"
+      className={cn(
+        "pointer-events-none fixed z-[80] w-[270px] rounded-md border p-2 shadow-2xl backdrop-blur-md",
+        hoverToneClass(hover.kind),
+      )}
+      style={{ left, top }}
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="truncate text-[8px] font-bold uppercase tracking-wide opacity-80">{hover.kind}</span>
+        {hover.source && <span className="shrink-0 text-[7px] uppercase opacity-60">{hover.source}</span>}
+      </div>
+      <div className="truncate text-[11px] font-bold text-white">{hover.label}</div>
+      {hover.detail && <div className="mt-1 line-clamp-2 text-[9px] leading-snug text-white/80">{hover.detail}</div>}
+      {coordinates && <div className="mt-1 font-mono text-[8px] text-white/55">{coordinates}</div>}
+    </div>
+  );
 }
 
 function eventTimeMs(event: Pick<GlobalEvent, "timestamp">) {
@@ -632,7 +880,7 @@ function isFungiOnlyNatureFilter(filter: GroundFilter): boolean {
   );
 }
 
-/** API kingdom param — Fungi when only fungi toggled (fast MINDEX index path). */
+/** API kingdom param â€” Fungi when only fungi toggled (fast MINDEX index path). */
 function natureKingdomApiParam(filter: GroundFilter): string {
   const enabled = enabledNatureKingdomBuckets(filter);
   if (enabled.length === 1) {
@@ -706,11 +954,11 @@ function natureKingdomBucket(obs: FungalObservation): NatureKingdomBucket {
   }
 }
 
-/** Client-side filter — must match enabled legend toggles instantly (no fetch wait). */
+/** Client-side filter â€” must match enabled legend toggles instantly (no fetch wait). */
 function observationMatchesNatureFilter(obs: FungalObservation, filter: GroundFilter): boolean {
   const bucket = natureKingdomBucket(obs);
   if (bucket === "Other") {
-    // Never paint unclassified rows as fungi — avoids whales/rabbits with missing kingdom.
+    // Never paint unclassified rows as fungi â€” avoids whales/rabbits with missing kingdom.
     if (isFungiOnlyNatureFilter(filter)) {
       return false;
     }
@@ -1096,9 +1344,19 @@ interface Device {
     name: string;
     lat: number;
     lng: number;
-    status: "online" | "offline";
+    status: "online" | "offline" | "connected";
   type?: string;
   port?: string;
+  registryId?: string;
+  agentUrl?: string;
+  host?: string;
+  pageHref?: string;
+  source?: string;
+  locationLabel?: string;
+  gpsLockState?: "locked" | "drift" | "unavailable" | "manual" | string | null;
+  manualLocation?: string | null;
+  signalConnectionType?: string | null;
+  lastSeen?: string;
   firmware?: string;
   protocol?: string;
   // Sensor data from MycoBrain (Feb 05, 2026)
@@ -1114,6 +1372,61 @@ interface Device {
     uptime?: number;
   };
   lastUpdate?: string;
+}
+
+const FIELD_MYCOBRAIN_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1"]);
+const FIELD_MYCOBRAIN_REGISTRY_IDS = new Set(["mycobrain-mushroom1-jetson-123", "mycobrain-hyphae1-jetson-228"]);
+
+function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
+  return (Array.isArray(rawDevices) ? rawDevices : [])
+    .filter((d: any) => (
+      FIELD_MYCOBRAIN_DEVICE_IDS.has(String(d.id || "")) ||
+      FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(d.registry_id || d.registryId || d.device_id || ""))
+    ))
+    .map((d: any, index: number) => {
+      const rawLat = Number(d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude);
+      const rawLng = Number(d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude);
+      const hasValidLocation = Number.isFinite(rawLat) && Number.isFinite(rawLng) &&
+        Math.abs(rawLat) > 0.1 && Math.abs(rawLng) > 0.1 &&
+        !(Math.abs(rawLat - 49) < 1 && Math.abs(rawLng + 123) < 1);
+      const sensorData = d.telemetry || d.sensor_data || d.extra?.latest_telemetry || d.device_info?.sensor_data || {};
+      const info = d.device_info || d.info || {};
+      const connected = d.connected ?? (d.status === "connected" || d.status === "online");
+      const registryId = d.registry_id || d.registryId || d.device_id || d.id;
+      return {
+        id: d.id || d.device_id || `field-mycobrain-${index}`,
+        registryId,
+        name: d.name || d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
+        lat: hasValidLocation ? rawLat : 0,
+        lng: hasValidLocation ? rawLng : 0,
+        status: connected ? "online" : "offline",
+        type: d.role || d.device_role || d.type || "mushroom1",
+        port: registryId,
+        firmware: d.firmware_version || d.firmware || info.firmware_version || info.firmware,
+        protocol: d.protocol || "MAS field heartbeat",
+        agentUrl: d.agent_url,
+        host: d.host,
+        pageHref: d.page_href,
+        source: d.source,
+        locationLabel: d.location_label || d.location?.name,
+        gpsLockState: hasValidLocation ? "locked" : "unavailable",
+        manualLocation: d.location_label || d.location?.name || null,
+        signalConnectionType: d.host === "192.168.0.228" ? "ethernet" : d.host === "192.168.0.123" ? "wifi" : null,
+        sensorData: {
+          temperature: sensorData.temperature_c ?? sensorData.temperature,
+          humidity: sensorData.humidity_pct ?? sensorData.humidity,
+          pressure: sensorData.pressure_hpa ?? sensorData.pressure,
+          gasResistance: sensorData.gas_resistance_ohm ?? sensorData.gas_resistance,
+          iaq: sensorData.iaq,
+          iaqAccuracy: sensorData.iaq_accuracy,
+          co2Equivalent: sensorData.eco2_ppm ?? sensorData.co2_equivalent,
+          vocEquivalent: sensorData.bvoc_ppm ?? sensorData.voc_equivalent,
+          uptime: sensorData.uptime_seconds || sensorData.uptime_s,
+        },
+        lastUpdate: sensorData.captured_at || sensorData.last_update || d.lastSeen || d.last_seen || new Date().toISOString(),
+        lastSeen: d.lastSeen || d.last_seen,
+      };
+    });
 }
 
 type LayerDataStatus = "real" | "planned_real" | "mock";
@@ -1312,7 +1625,7 @@ function selectDistributedEvents(
   if (cap <= 0) return [];
 
   const previousIds = new Set(previousVisible.map((event) => String(event.id ?? "")));
-  const bucketOrder = ["earthquake", "wildfire", "storm", "volcano", "tornado", "other"];
+  const bucketOrder = ["earthquake", "wildfire", "storm", "flood", "lightning", "volcano", "tornado", "other"];
   const buckets = new Map<string, GlobalEvent[]>();
   for (const event of events) {
     const key = eventTypeBucketKey(event);
@@ -1369,7 +1682,7 @@ function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
   if (earthSimulator) {
     return getEarthSimulatorEventDomCap(zoom);
   }
-  // City/metro: no DOM cap — every enabled event in viewport renders.
+  // City/metro: no DOM cap â€” every enabled event in viewport renders.
   if (zoom >= 9) return UNCAPPED_RENDER_LIMIT;
   // Aggressive world-view budget to protect FPS during refresh/pan.
   if (zoom < 3) return 180;
@@ -1379,7 +1692,7 @@ function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
   return UNCAPPED_RENDER_LIMIT;
 }
 
-/** Zoom-tier DOM budget for FungalMarker — always capped so MapLibre WebGL stays at 30+ FPS. */
+/** Zoom-tier DOM budget for FungalMarker â€” always capped so MapLibre WebGL stays at 30+ FPS. */
 function getNatureDomMarkerCapForZoom(
   zoom: number,
   enabledKingdoms = 7,
@@ -1469,7 +1782,7 @@ function sortEventsByRecency(events: GlobalEvent[]): GlobalEvent[] {
   });
 }
 
-/** MYCA panel feed — recency-sorted viewport events, not map DOM/LOD capped. */
+/** MYCA panel feed â€” recency-sorted viewport events, not map DOM/LOD capped. */
 function selectMycaLatestViewportEvents(
   events: GlobalEvent[],
   bounds: MapBoundsLike | null,
@@ -1478,7 +1791,7 @@ function selectMycaLatestViewportEvents(
   const nowMs = Date.now();
   const ageEligible = events.filter((event) => {
     const ts = getEventTimestampMs(event);
-    return ts === 0 || ts >= nowMs - MAP_DISPLAY_MAX_EVENT_AGE_MS;
+    return ts > 0 && ts >= nowMs - MAP_DISPLAY_MAX_EVENT_AGE_MS;
   });
   if (!bounds) {
     return sortEventsByRecency(ageEligible).slice(0, limit);
@@ -1617,12 +1930,6 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "biodiversity",
   "weather",
   "liveAqi",
-  "earth2Forecast",
-  "earth2Nowcast",
-  "earth2Spore",
-  "earth2Wind",
-  "earth2Temp",
-  "earth2Precip",
   "realisticClouds",
 ]);
 
@@ -1687,6 +1994,7 @@ const SDTJ_COVERAGE_LAYER_IDS = new Set<string>([
   "sdtjAmFmAntennas",
   "sdtjMilitary",
   "sdtjDataCenters",
+  "sdtjCivicFacilities",
 ]);
 
 const METRO_PROJECT_LAYER_IDS = new Set<string>([
@@ -1761,7 +2069,7 @@ const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
   "earth2Temp",
   "earth2Precip",
   "sunEarthImpact",
-  // No live collector/API wired — ALL ON must not enable these (layerMetadata source "—").
+  // No live collector/API wired â€” ALL ON must not enable these (layerMetadata source "â€”").
   "militaryAir",
   "militaryNavy",
   "tanks",
@@ -1771,7 +2079,7 @@ const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
 ]);
 
 const EVENT_DOM_MARKER_CAP = 800;
-/** Hard ceiling for React FungalMarker DOM nodes — above ~1200 the main thread starves MapLibre WebGL (lod-policy). */
+/** Hard ceiling for React FungalMarker DOM nodes â€” above ~1200 the main thread starves MapLibre WebGL (lod-policy). */
 const NATURE_DOM_MARKER_CAP = 1400;
 /** Earth Simulator: DOM markers starve WebGL paint above ~150 (see lod-policy.ts). Raised May 24 2026 so regional zoom keeps icons mounted. */
 const EARTH_SIM_DOM_MARKER_CAP = 400;
@@ -1795,11 +2103,15 @@ const V3_OVERLAY_LAYER_IDS = new Set<string>([
   "volcanoes",
   "wildfires",
   "storms",
+  "floods",
   "lightning",
   "tornadoes",
   "hospitals",
   "fireStations",
   "universities",
+  "policeStations",
+  "libraries",
+  "civicFacilities",
   "oilGas",
   "methaneSources",
   "metalOutput",
@@ -1848,6 +2160,7 @@ const EARTH_NATURE_EVENT_FOCUS_LAYER_IDS = new Set([
   "volcanoes",
   "wildfires",
   "storms",
+  "floods",
   "lightning",
   "tornadoes",
   "solar",
@@ -1874,6 +2187,36 @@ type AssetIsolationMode = "funga" | "assets-off" | null;
 // come from real MINDEX/native tile data only.
 const ALLOW_GENERATED_FUNGAL_ATLAS = false;
 const EARTH2_BACKEND_ENABLED = false;
+const EARTH2_DISABLED_FILTER: Earth2Filter = {
+  showForecast: false,
+  showNowcast: false,
+  showSporeDispersal: false,
+  showWind: false,
+  showPrecipitation: false,
+  showTemperature: false,
+  showHumidity: false,
+  showPressure: false,
+  showStormCells: false,
+  showClouds: false,
+  showDownscaled: false,
+  showFires: false,
+  showSmoke: false,
+  showLightning: false,
+  selectedModel: "atlas_era5",
+  ensembleMembers: 1,
+  forecastHours: 0,
+  stepHours: 6,
+  opacity: 0.7,
+  windDensity: "medium",
+  animated: false,
+  sporeSpeciesFilter: [],
+  showSporeGradient: false,
+  showUncertainty: false,
+  resolution: "native",
+  useHdWeatherTiles: false,
+  gpuMode: "off",
+  cpuFallbackEnabled: false,
+};
 const CREP_DEFAULT_CENTER: [number, number] = [-98.5, 39.8];
 // Canonical reset/refresh view: the same North America globe view as the US
 // fly-to control. Keep filters off, but always show base imagery context.
@@ -2088,7 +2431,7 @@ function isGlobeCrepRoute(): boolean {
   }
 }
 
-/** @deprecated Lightweight fungi-only startup removed — production first-load (May 24, 2026). */
+/** @deprecated Lightweight fungi-only startup removed â€” production first-load (May 24, 2026). */
 const startsInLightweightEarthMode = false;
 
 function applyGroundFilterIsolation(
@@ -2440,14 +2783,15 @@ function applyFungalAtlasMapVisibility(map: any, activeFungalLayerIds: Set<strin
 }
 
 // Event marker component with detailed popup
-const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClick, onDoubleClick, onClose, onFlyTo }: { 
-  event: GlobalEvent; 
+const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClick, onDoubleClick, onClose, onFlyTo, onHover }: {
+  event: GlobalEvent;
   isSelected: boolean;
   isNew?: boolean;
   onClick: () => void;
   onDoubleClick?: () => void;
   onClose: () => void;
   onFlyTo?: (lat: number, lng: number, zoom?: number) => void;
+  onHover?: (event: GlobalEvent | null, point?: HoverPoint) => void;
 }) {
   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
   const isCritical = event.severity === "critical" || event.severity === "extreme";
@@ -2456,7 +2800,7 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
   const eventLng = Number(event.lng);
   const formatNumber = (value: number | undefined, digits = 1) =>
     typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "N/A";
-  
+
   // Guard against missing coordinates
   if (!Number.isFinite(eventLat) || !Number.isFinite(eventLng)) {
     return null;
@@ -2556,14 +2900,20 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
   const mapPreviewUrl = isEarthquake
     ? `/api/search/map-preview?lat=${encodeURIComponent(String(event.lat))}&lng=${encodeURIComponent(String(event.lng))}&mag=${encodeURIComponent(String(event.magnitude ?? 0))}&depth=${encodeURIComponent(String(event.depth ?? ""))}&zoom=8&title=${encodeURIComponent(event.title)}`
     : null;
-  
+
   return (
-    <MapMarker 
-      longitude={eventLng} 
+    <MapMarker
+      longitude={eventLng}
       latitude={eventLat}
       onClick={onClick}
     >
-      <MarkerContent className="relative cursor-pointer" data-marker="event">
+      <MarkerContent
+        className="relative cursor-pointer"
+        data-marker="event"
+        onMouseEnter={(e: React.MouseEvent) => onHover?.(event, { x: e.clientX, y: e.clientY })}
+        onMouseMove={(e: React.MouseEvent) => onHover?.(event, { x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => onHover?.(null)}
+      >
         <div
           role="button"
           tabIndex={0}
@@ -2581,38 +2931,38 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
         >
         <div className={cn(
           // May 21 2026 (Morgan: "events flicker on every zoom"). Dropped
-          // `transition-transform` — the CSS transition was firing on every
+          // `transition-transform` â€” the CSS transition was firing on every
           // re-render of the markers during zoom and made every marker
           // visibly scale, looking like a blink. Plain scale class with no
           // transition is snappier and stable.
           "relative flex items-center justify-center",
           isSelected ? "scale-150" : "scale-100"
         )}>
-          {/* Blinking "NEW" ring – event just appeared on map (within viewport) */}
+          {/* Blinking "NEW" ring â€“ event just appeared on map (within viewport) */}
           {isNew && (
-            <div 
+            <div
               className="absolute w-7 h-7 rounded-full border-2 border-amber-400/80 pointer-events-none"
               style={{ animationDuration: "1.2s" }}
             />
           )}
           {/* Pulsing ring ONLY for critical events - REDUCED opacity */}
           {isCritical && (
-            <div 
+            <div
               className="absolute w-6 h-6 rounded-full pointer-events-none"
               style={{ backgroundColor: `${config.color}20` }}
             />
           )}
           {/* Subtle glow - REDUCED */}
-          <div 
+          <div
             className="absolute w-5 h-5 rounded-full blur-[2px]"
             style={{ backgroundColor: `${config.color}25` }}
           />
-          <div 
+          <div
             className={cn(
               "relative w-4 h-4 rounded-full border flex items-center justify-center",
               isSelected && "ring-2 ring-white"
             )}
-            style={{ 
+            style={{
               backgroundColor: config.color,
               borderColor: isSelected ? "#fff" : `${config.color}80`,
               boxShadow: isSelected ? `0 0 8px ${config.color}` : `0 0 4px ${config.color}40`
@@ -2623,10 +2973,10 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
         </div>
         </div>
       </MarkerContent>
-      
+
       {/* ENHANCED EVENT POPUP - Much larger with more data */}
       {isSelected && (
-        <MarkerPopup 
+        <MarkerPopup
           className={cn(
             "min-w-[320px] max-w-[380px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden",
             "border-2 border-gray-600/40"
@@ -2638,14 +2988,14 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
           onClose={onClose}
         >
         {/* Header with severity gradient */}
-        <div 
+        <div
           className="px-3 py-2 border-b border-gray-700/50"
-          style={{ 
+          style={{
             background: `linear-gradient(135deg, ${config.color}40 0%, ${config.color}15 100%)`,
           }}
         >
           <div className="flex items-start gap-2">
-            <div 
+            <div
               className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: `${config.color}50` }}
             >
@@ -2655,8 +3005,8 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
               <h3 className="text-sm font-bold text-white leading-tight">{event.title}</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] text-gray-400 uppercase">{config.label}</span>
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
                   className={cn("text-[8px] px-1.5 py-0", severityColors[event.severity || "medium"])}
             >
                   {(event.severity || "medium").toUpperCase()}
@@ -2745,7 +3095,7 @@ const EventMarker = memo(function EventMarker({ event, isSelected, isNew, onClic
               <div className="text-left">
                 <div className="text-[9px] text-gray-500 uppercase">Coordinates</div>
                 <div className="text-[11px] text-cyan-400 font-mono">
-                  {(event.lat ?? 0).toFixed(5)}Â°, {(event.lng ?? 0).toFixed(5)}Â°
+                  {(event.lat ?? 0).toFixed(5)}Ã‚Â°, {(event.lng ?? 0).toFixed(5)}Ã‚Â°
                 </div>
               </div>
             </div>
@@ -2993,7 +3343,7 @@ function EarthquakeEventPopupOverlay({
 // home with no gps on it at the moment but this widget is shit make it
 // way better mycobrain-sidea-10b41d"). The popup body now mounts the new
 // glass-morphism <DeviceWidget> from components/crep/devices/DeviceWidget.tsx
-// — it explicitly surfaces GPS state (locked / drift / unavailable / manual)
+// â€” it explicitly surfaces GPS state (locked / drift / unavailable / manual)
 // so it's obvious when a device's pin is approximate, has a richer header
 // with status orb + signal-strength bars, sparkline-bearing telemetry
 // cards, and styled quick-control buttons. Pulls history from a per-device
@@ -3005,27 +3355,43 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
   history?: import("@/components/crep/devices/DeviceWidget").SensorHistory;
   onControl?: (peripheral: string, params?: Record<string, any>) => Promise<void>;
 }) {
-  const isOnline = device.status === "online";
+  const isOnline = device.status === "online" || device.status === "connected";
   const [controlLoading, setControlLoading] = useState<string | null>(null);
-  
+  const isFieldMycoBrain = FIELD_MYCOBRAIN_DEVICE_IDS.has(device.id) ||
+    FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(device.registryId || device.port || ""));
+
   // Get device-specific widget configuration based on device type (Feb 12, 2026)
   const widgetConfig = getDeviceWidgetConfig(device.type);
   const deviceEmoji = getDeviceEmoji(device.type);
-  
+
   // Control functions for MycoBrain device
   const sendControl = async (peripheral: string, params?: Record<string, any>) => {
-    if (!device.port) return;
+    const registryDeviceId = device.registryId || (typeof device.port === "string" && device.port.startsWith("mycobrain-") ? device.port : undefined);
+    if (!registryDeviceId && !device.port) return;
     setControlLoading(peripheral);
     try {
-      const response = await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/control`, {
+      const command =
+        peripheral === "neopixel" && params?.effect === "rainbow" ? "led pattern rainbow" :
+        peripheral === "neopixel" && params?.effect === "off" ? "led rgb 0 0 0" :
+        peripheral === "buzzer" ? `beep ${Number(params?.frequency ?? 1000)} ${Number(params?.duration ?? params?.duration_ms ?? 100)}` :
+        typeof params?.cmd === "string" ? params.cmd :
+        peripheral;
+      const response = registryDeviceId ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
+      }) : await fetch(`/api/mycobrain/${encodeURIComponent(String(device.port))}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ peripheral, ...params }),
       });
       const result = await response.json();
-      if (!result.success) {
+      if (!response.ok || !result.success) {
         // Short message only - avoid description; Next.js dev overlay intercepts console.error
-        toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
+        toast(response.status === 401 || response.status === 403
+          ? "Admin sign-in required to control this MycoBrain device."
+          : "Device may be offline. Check MycoBrain connection.",
+          { duration: 5000 });
       }
     } catch {
       toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
@@ -3033,20 +3399,20 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
       setControlLoading(null);
     }
   };
-  
+
   // Use device-widget-mapper for IAQ quality (Feb 12, 2026)
   const iaqInfo = getIAQQuality(device.sensorData?.iaq);
-  
+
   return (
-    <MapMarker 
-      longitude={device.lng} 
+    <MapMarker
+      longitude={device.lng}
       latitude={device.lat}
       onClick={onClick}
     >
       <MarkerContent className="relative" data-marker="device">
         <div className={cn(
           // May 21 2026 (Morgan: "events flicker on every zoom"). Dropped
-          // `transition-transform` — the CSS transition was firing on every
+          // `transition-transform` â€” the CSS transition was firing on every
           // re-render of the markers during zoom and made every marker
           // visibly scale, looking like a blink. Plain scale class with no
           // transition is snappier and stable.
@@ -3055,21 +3421,24 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
         )}>
           {isOnline && (
             <div className={cn(
-              "absolute w-6 h-6 rounded-sm",
-              widgetConfig.bgColor.replace("/20", "/30")
+              isFieldMycoBrain ? "absolute h-9 w-9 rounded-md" : "absolute w-6 h-6 rounded-sm",
+              widgetConfig.bgColor.replace("/20", "/30"),
+              "motion-safe:animate-ping"
             )} />
           )}
-          <div 
+          <div
             className={cn(
-              "relative w-5 h-5 rounded-sm border-2 flex items-center justify-center text-[10px]",
-              isOnline 
+              "relative rounded-sm border-2 flex items-center justify-center",
+              isFieldMycoBrain ? "h-7 w-7 text-[12px]" : "w-5 h-5 text-[10px]",
+              isOnline
                 ? cn(widgetConfig.bgColor.replace("/20", "/80"), widgetConfig.borderColor)
                 : "bg-red-500/80 border-red-400",
-              isSelected && "ring-2 ring-white"
+              isSelected && "ring-2 ring-white",
+              isOnline && "motion-safe:animate-pulse"
             )}
-            style={{ boxShadow: `0 0 10px ${isOnline ? widgetConfig.glowColor : "#ef4444"}` }}
+            style={{ boxShadow: `0 0 ${isFieldMycoBrain ? 16 : 10}px ${isOnline ? widgetConfig.glowColor : "#ef4444"}` }}
           >
-            {deviceEmoji}
+            {isFieldMycoBrain ? <Box className="h-4 w-4 text-white" strokeWidth={2.4} /> : deviceEmoji}
           </div>
         </div>
       </MarkerContent>
@@ -3081,13 +3450,13 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
           onControl={onControl || sendControl}
         />
       )}
-      {/* Old MarkerPopup body removed — replaced by DeviceWidget above. */}
+      {/* Old MarkerPopup body removed â€” replaced by DeviceWidget above. */}
     </MapMarker>
   );
 }
 
 // Human & Machines Baseline Data
-// STATIC REFERENCE ESTIMATES — not live data. These are approximate global totals
+// STATIC REFERENCE ESTIMATES â€” not live data. These are approximate global totals
 // sourced from public statistics (World Bank, ICAO, IMO, FAA, IEA). The "active"
 // counters below use random jitter to simulate variation but are NOT real-time feeds.
 // TODO: Replace with real API data (WorldPop, FlightAware stats, IMO/AIS global count).
@@ -3332,7 +3701,7 @@ type ViewportIntelOfficial = {
 function formatOfficialTerm(official: ViewportIntelOfficial): string | null {
   const start = official.term_start?.slice(0, 10);
   const end = official.term_end?.slice(0, 10);
-  if (start && end) return `${start} – ${end}`;
+  if (start && end) return `${start} â€“ ${end}`;
   if (start) return `Term since ${start}`;
   if (end) return `Term ends ${end}`;
   return null;
@@ -3478,6 +3847,8 @@ type ViewportIntelFacility = {
   phone?: string;
   email?: string;
   website?: string;
+  address?: string;
+  description?: string;
   source: string;
 };
 
@@ -3847,7 +4218,7 @@ function buildPoliticsItems(intel: ViewportIntelResponse | null): ViewportPoliti
       id,
       kind: "election",
       title: election.name || "Election",
-      subtitle: [election.jurisdiction_name, election.election_day].filter(Boolean).join(" · ") || "Date pending",
+      subtitle: [election.jurisdiction_name, election.election_day].filter(Boolean).join(" Â· ") || "Date pending",
       url: election.source_url,
     });
   }
@@ -3859,7 +4230,7 @@ function buildPoliticsItems(intel: ViewportIntelResponse | null): ViewportPoliti
       id,
       kind: "legislation",
       title: bill.name || "Legislation",
-      subtitle: [bill.status, bill.source].filter(Boolean).join(" · ") || "Tracked",
+      subtitle: [bill.status, bill.source].filter(Boolean).join(" Â· ") || "Tracked",
       url: bill.source_url,
     });
   }
@@ -3966,7 +4337,7 @@ function ViewportGovernmentSection({
           <span className="text-[10px] font-bold text-white">GOVERNMENT</span>
         </div>
         <span className={cn("text-[7px]", loading ? "text-cyan-300" : "text-gray-500")}>
-          {loading ? "updating" : hasProfileTabs ? `${profileCount} records` : officials.length ? `${officials.length} officials` : "—"}
+          {loading ? "updating" : hasProfileTabs ? `${profileCount} records` : officials.length ? `${officials.length} officials` : "â€”"}
         </span>
       </div>
 
@@ -4059,7 +4430,7 @@ function ViewportGovernmentSection({
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[9px] font-semibold text-white">{official.name}</div>
                       <div className="truncate text-[8px] text-gray-400">
-                        {district ? `${district} · ` : ""}
+                        {district ? `${district} Â· ` : ""}
                         {official.office}
                       </div>
                     </div>
@@ -4087,7 +4458,7 @@ function ViewportGovernmentSection({
                     <div className="text-[9px] font-semibold text-amber-100">{official.office}</div>
                     <div className="mt-0.5 text-[8px] text-white">
                       {official.name}
-                      {official.party ? ` · ${official.party}` : ""}
+                      {official.party ? ` Â· ${official.party}` : ""}
                     </div>
                     {official.jurisdiction_name && (
                       <div className="mt-0.5 text-[8px] text-gray-400">{official.jurisdiction_name}</div>
@@ -4113,7 +4484,7 @@ function ViewportGovernmentSection({
 function formatViewportCoordinates(lat: number, lng: number): string {
   const latHem = lat >= 0 ? "N" : "S";
   const lngHem = lng >= 0 ? "E" : "W";
-  return `${Math.abs(lat).toFixed(2)}°${latHem} ${Math.abs(lng).toFixed(2)}°${lngHem}`;
+  return `${Math.abs(lat).toFixed(2)}Â°${latHem} ${Math.abs(lng).toFixed(2)}Â°${lngHem}`;
 }
 
 function approximateViewportSpanKm(bounds: {
@@ -4261,7 +4632,7 @@ function ViewportLeadershipSection({
           <span className="text-[10px] font-bold text-white">LEADERSHIP</span>
         </div>
         <span className="text-[7px] text-gray-500 capitalize">
-          {leadershipOfficials.length} · {leadershipLabel}
+          {leadershipOfficials.length} Â· {leadershipLabel}
         </span>
       </div>
       <div className="max-h-[280px] overflow-y-auto overflow-x-hidden rounded border border-gray-800/80 bg-black/25">
@@ -4276,7 +4647,7 @@ function ViewportLeadershipSection({
               <div className="break-words text-[9px] font-medium leading-snug text-amber-100/90">{official.office}</div>
               {(official.party || formatOfficialTerm(official)) && (
                 <div className="mt-0.5 break-words text-[8px] leading-snug text-gray-400">
-                  {[official.party, formatOfficialTerm(official)].filter(Boolean).join(" · ")}
+                  {[official.party, formatOfficialTerm(official)].filter(Boolean).join(" Â· ")}
                 </div>
               )}
               {official.jurisdiction_name && (
@@ -4325,7 +4696,7 @@ function ViewportIntelligenceReportHeader({
                 loading ? "border-cyan-400/40 text-cyan-300" : "border-emerald-500/40 text-emerald-300",
               )}
             >
-              {loading ? "Updating…" : "Live"}
+              {loading ? "Updatingâ€¦" : "Live"}
             </Badge>
           </div>
           <h3 className="mt-1 break-words text-sm font-semibold leading-snug text-white sm:text-[15px]">
@@ -4449,6 +4820,12 @@ function inferViewportFacilityInfraType(typeLabel: string, id: string): InfraAss
   if (id.startsWith("plant-")) return "plant";
   if (id.startsWith("sub-")) return "substation";
   const t = typeLabel.toLowerCase();
+  if (t.includes("city hall") || t.includes("town hall") || t.includes("civic") || t.includes("municipal") || t.includes("government") || t.includes("courthouse") || t.includes("mayor") || t.includes("council")) return "civic";
+  if (t.includes("police") || t.includes("sheriff")) return "police";
+  if (t.includes("library")) return "library";
+  if (t.includes("hospital") || t.includes("clinic") || t.includes("medical")) return "hospital";
+  if (t.includes("fire station") || t.includes("fire department")) return "fire_station";
+  if (t.includes("school") || t.includes("university") || t.includes("college")) return "university";
   if (t.includes("substation")) return "substation";
   if (t.includes("plant") || t.includes("power") || t.includes("generation")) return "plant";
   if (t.includes("cable")) return "cable";
@@ -4457,7 +4834,7 @@ function inferViewportFacilityInfraType(typeLabel: string, id: string): InfraAss
   if (t.includes("data center") || t.includes("datacenter")) return "datacenter";
   if (t.includes("military") || t.includes("base") || t.includes("fort ")) return "military";
   if (t.includes("airport") || t.includes("airfield")) return "airport";
-  return "datacenter";
+  return "civic";
 }
 
 function buildInfraAssetFromViewportFacility(
@@ -4526,6 +4903,8 @@ function buildInfraAssetFromViewportFacility(
       phone: facility.phone,
       email: facility.email,
       website: facility.website,
+      address: facility.address,
+      description: facility.description,
       source: facility.source || "viewport-intel",
     },
   };
@@ -4782,7 +5161,7 @@ function ViewportCivilizationPanel({
     const ctx = buildViewportGeographyContext(place, mapZoom, effectiveBounds, {
       flyToLabel: geographyOverride?.headline ?? null,
       jurisdictionStack,
-      regionLabel: loading && !place ? "Resolving location…" : "Pan or fly to a city, county, or state",
+      regionLabel: loading && !place ? "Resolving locationâ€¦" : "Pan or fly to a city, county, or state",
     });
     if (geographyOverride?.headline) {
       const lod = geographyOverride.geographyLod ?? ctx.lod;
@@ -4982,7 +5361,7 @@ function ViewportCivilizationPanel({
             <span className="text-[10px] font-bold text-white">POLITICS</span>
           </div>
           <span className="text-[7px] text-gray-500">
-            {politicsItems.length ? `${politicsItems.length} records` : loading ? "…" : "—"}
+            {politicsItems.length ? `${politicsItems.length} records` : loading ? "â€¦" : "â€”"}
           </span>
         </div>
         <div className="space-y-1">
@@ -4991,7 +5370,7 @@ function ViewportCivilizationPanel({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-[9px] font-semibold text-indigo-100">{item.title}</div>
-                  <div className="truncate text-[8px] capitalize text-gray-400">{item.kind}{item.subtitle ? ` · ${item.subtitle}` : ""}</div>
+                  <div className="truncate text-[8px] capitalize text-gray-400">{item.kind}{item.subtitle ? ` Â· ${item.subtitle}` : ""}</div>
                 </div>
                 {item.url && (
                   <a
@@ -5040,6 +5419,7 @@ function ViewportCivilizationPanel({
                 <span className="truncate text-[9px] font-semibold text-cyan-100">{facility.name}</span>
               </div>
               <div className="truncate text-[8px] text-gray-400">{facility.type}{facility.agency ? ` - ${facility.agency}` : ""}</div>
+              {facility.address && <div className="truncate text-[7px] text-gray-500">{facility.address}</div>}
               <div className="mt-1 flex flex-wrap gap-1">
                 {facility.email && <a onClick={(e) => e.stopPropagation()} href={`mailto:${facility.email}`} className="rounded border border-cyan-500/30 px-1 py-0.5 text-[7px] text-cyan-300">email</a>}
                 {facility.phone && <a onClick={(e) => e.stopPropagation()} href={`tel:${facility.phone}`} className="rounded border border-green-500/30 px-1 py-0.5 text-[7px] text-green-300">call</a>}
@@ -5086,16 +5466,6 @@ function EnvironmentIntelPanel({
   mapZoom,
   filteredEvents,
   visibleFungalObservations,
-  earth2Filter,
-  earth2Loading,
-  earth2Available,
-  earth2Alerts,
-  earth2ForecastHours,
-  onEarth2FilterChange,
-  onEarth2Refresh,
-  onEarth2ForecastHoursChange,
-  onEarth2AlertClick,
-  onEarth2AlertDismiss,
   prefetchedEnvironment,
   prefetchedEnvironmentLoading,
   prefetchedEnvironmentRefreshing,
@@ -5104,16 +5474,6 @@ function EnvironmentIntelPanel({
   mapZoom: number;
   filteredEvents: GlobalEvent[];
   visibleFungalObservations: FungalObservation[];
-  earth2Filter: Earth2Filter;
-  earth2Loading: boolean;
-  earth2Available: boolean;
-  earth2Alerts: Earth2Alert[];
-  earth2ForecastHours: number;
-  onEarth2FilterChange: (filter: Partial<Earth2Filter>) => void;
-  onEarth2Refresh: () => void;
-  onEarth2ForecastHoursChange: (hours: number) => void;
-  onEarth2AlertClick: (alert: Earth2Alert) => void;
-  onEarth2AlertDismiss: (alertId: string) => void;
   prefetchedEnvironment?: ViewportEnvironmentResponse | null;
   prefetchedEnvironmentLoading?: boolean;
   prefetchedEnvironmentRefreshing?: boolean;
@@ -5181,7 +5541,7 @@ function EnvironmentIntelPanel({
   const airQualityUnits = environment?.airQuality?.units;
   const alertItems = environment?.alerts?.items ?? [];
   const usgsEarthquakes = environment?.live?.usgsEarthquakes ?? [];
-  const tempUnit = units?.temperature_2m || (environment?.unitSystem === "imperial" ? "°F" : "°C");
+  const tempUnit = units?.temperature_2m || (environment?.unitSystem === "imperial" ? "Â°F" : "Â°C");
   const precipUnit = units?.precipitation || (environment?.unitSystem === "imperial" ? " in" : " mm");
   const windUnit = units?.wind_speed_10m || (environment?.unitSystem === "imperial" ? " mph" : " km/h");
   const historyTemp = averageDailyTemperature(historyDaily);
@@ -5225,7 +5585,7 @@ function EnvironmentIntelPanel({
               {loading ? "loading" : refreshing ? "updating" : liveStatus}
             </span>
             <Badge variant="outline" className="border-emerald-500/40 text-[8px] text-emerald-300">
-              {environment?.unitSystem === "imperial" ? "°F" : "°C"}
+              {environment?.unitSystem === "imperial" ? "Â°F" : "Â°C"}
             </Badge>
           </div>
         </div>
@@ -5243,7 +5603,7 @@ function EnvironmentIntelPanel({
             {alertItems.slice(0, 6).map((alert) => (
               <div key={alert.id} className="rounded border border-red-500/25 bg-red-950/15 p-1.5">
                 <div className="truncate text-[9px] font-semibold text-red-100">{alert.title}</div>
-                <div className="truncate text-[7px] text-gray-500">{alert.severity}{alert.area ? ` · ${alert.area}` : ""}</div>
+                <div className="truncate text-[7px] text-gray-500">{alert.severity}{alert.area ? ` Â· ${alert.area}` : ""}</div>
               </div>
             ))}
           </div>
@@ -5253,8 +5613,8 @@ function EnvironmentIntelPanel({
       <EnvironmentSection icon={<Wind className="h-3.5 w-3.5 text-teal-300" />} title="AIR QUALITY" badge={environment?.airQuality?.status || "live"}>
         <div className="grid grid-cols-2 gap-1">
           <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">US AQI</div><div className="text-[10px] font-semibold text-lime-200">{formatMetric(airQuality?.us_aqi, 0, "")}</div></div>
-          <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">PM2.5</div><div className="text-[10px] font-semibold text-amber-200">{formatMetric(airQuality?.pm2_5, 1, ` ${airQualityUnits?.pm2_5 || "µg/m³"}`)}</div></div>
-          <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">Ozone</div><div className="text-[10px] font-semibold text-sky-200">{formatMetric(airQuality?.ozone, 1, ` ${airQualityUnits?.ozone || "µg/m³"}`)}</div></div>
+          <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">PM2.5</div><div className="text-[10px] font-semibold text-amber-200">{formatMetric(airQuality?.pm2_5, 1, ` ${airQualityUnits?.pm2_5 || "Âµg/mÂ³"}`)}</div></div>
+          <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">Ozone</div><div className="text-[10px] font-semibold text-sky-200">{formatMetric(airQuality?.ozone, 1, ` ${airQualityUnits?.ozone || "Âµg/mÂ³"}`)}</div></div>
           <div className="rounded bg-black/30 p-1.5"><div className="text-[7px] text-gray-500">UV Index</div><div className="text-[10px] font-semibold text-orange-200">{formatMetric(airQuality?.uv_index, 1, "")}</div></div>
         </div>
       </EnvironmentSection>
@@ -5287,7 +5647,7 @@ function EnvironmentIntelPanel({
         {nwsObservation?.text && (
           <div className="mb-1 rounded border border-sky-500/20 bg-sky-950/10 p-1.5 text-[8px] text-sky-100">
             NWS {nwsObservation.station}: {nwsObservation.text}
-            {nwsObservation.temperature_f != null ? ` · ${Math.round(nwsObservation.temperature_f)}°F` : ""}
+            {nwsObservation.temperature_f != null ? ` Â· ${Math.round(nwsObservation.temperature_f)}Â°F` : ""}
           </div>
         )}
         <div className="grid grid-cols-2 gap-1">
@@ -5323,7 +5683,7 @@ function EnvironmentIntelPanel({
               <div key={quake.id} className="rounded border border-orange-500/20 bg-orange-950/10 p-1.5">
                 <div className="truncate text-[9px] font-semibold text-orange-100">{quake.title}</div>
                 <div className="truncate text-[7px] text-gray-500">
-                  {quake.magnitude != null ? `M${quake.magnitude}` : "USGS"} · {quake.place || "near viewport"}
+                  {quake.magnitude != null ? `M${quake.magnitude}` : "USGS"} Â· {quake.place || "near viewport"}
                 </div>
               </div>
             ))}
@@ -5345,52 +5705,7 @@ function EnvironmentIntelPanel({
         {featureList(ecosystems, "Parks, protected habitats, and known ecosystems load as map detail increases.")}
       </EnvironmentSection>
 
-      <details className="group rounded-lg border border-emerald-500/25 bg-emerald-950/10 p-2">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <Zap className="h-3.5 w-3.5 text-emerald-300" />
-            <span className="text-[10px] font-bold text-white">MODELING</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="border-emerald-500/30 text-[7px] text-emerald-300">{earth2Available ? "ONLINE" : "STANDBY"}</Badge>
-            <ChevronDown className="h-3 w-3 text-gray-400 group-open:rotate-180" />
-          </div>
-        </summary>
-        <div className="mt-2 space-y-2">
-          <Earth2LayerControl
-            filter={earth2Filter}
-            onFilterChange={onEarth2FilterChange}
-            onRefresh={onEarth2Refresh}
-            isLoading={earth2Loading}
-            serviceAvailable={earth2Available}
-            activeAlerts={earth2Alerts.length}
-          />
-          <ForecastTimeline
-            minHours={0}
-            maxHours={360}
-            stepHours={6}
-            currentHours={earth2ForecastHours}
-            modelType="forecast"
-            forecastStartTime={new Date()}
-            onTimeChange={onEarth2ForecastHoursChange}
-          />
-          <AlertPanel
-            alerts={earth2Alerts}
-            onAlertClick={onEarth2AlertClick}
-            onDismiss={onEarth2AlertDismiss}
-            compact={true}
-          />
-          <div className="border-t border-gray-700/30 pt-2">
-            <div className="mb-2 text-[9px] text-gray-400">Active Models</div>
-            <div className="flex flex-wrap gap-1">
-              <Badge variant="outline" className="h-3 px-1 py-0 text-[7px] text-cyan-400 border-cyan-500/30">Atlas</Badge>
-              <Badge variant="outline" className="h-3 px-1 py-0 text-[7px] text-yellow-400 border-yellow-500/30">StormScope</Badge>
-              <Badge variant="outline" className="h-3 px-1 py-0 text-[7px] text-green-400 border-green-500/30">CorrDiff</Badge>
-              <Badge variant="outline" className="h-3 px-1 py-0 text-[7px] text-purple-400 border-purple-500/30">HealDA</Badge>
-            </div>
-          </div>
-        </div>
-      </details>
+      {/* Earth2 modeling controls intentionally disabled until the GPU service is ready. */}
     </div>
   );
 }
@@ -5399,7 +5714,7 @@ function EnvironmentIntelPanel({
 function HumanMachinesPanel({ liveAircraft = 0, liveVessels = 0, liveSatellites = 0 }: { liveAircraft?: number; liveVessels?: number; liveSatellites?: number }) {
   const [population, setPopulation] = useState(HUMAN_MACHINE_DATA.population.total);
 
-  // Use LIVE counts from registries — fall back to estimates only when 0
+  // Use LIVE counts from registries â€” fall back to estimates only when 0
   const activeData = {
     aircraft: liveAircraft || HUMAN_MACHINE_DATA.aircraft.inFlight,
     ships: liveVessels || HUMAN_MACHINE_DATA.ships.atSea,
@@ -5504,11 +5819,11 @@ function HumanMachinesPanel({ liveAircraft = 0, liveVessels = 0, liveSatellites 
         <div className="grid grid-cols-3 gap-1">
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-red-400">{formatNum(HUMAN_MACHINE_DATA.totalCO2PerDay)}</div>
-            <div className="text-[7px] text-gray-500">t COâ‚‚</div>
+            <div className="text-[7px] text-gray-500">t COÃ¢â€šâ€š</div>
           </div>
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-amber-400">{formatNum(HUMAN_MACHINE_DATA.totalMethanePerDay)}</div>
-            <div className="text-[7px] text-gray-500">t CHâ‚„</div>
+            <div className="text-[7px] text-gray-500">t CHÃ¢â€šâ€ž</div>
           </div>
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-orange-400">{formatNum(HUMAN_MACHINE_DATA.fuelPerDay)}</div>
@@ -5561,7 +5876,7 @@ function LayerControlPanel({
     telecom: true,
     facilities: true,
   }));
-  
+
   // Group layers by category
   const groupedLayers = useMemo(() => {
     const visibleLayers = assetIsolationMode
@@ -5624,7 +5939,7 @@ function LayerControlPanel({
         const categoryConfig = layerCategories[category as keyof typeof layerCategories];
         const activeCount = categoryLayers.filter(l => l.enabled).length;
         const isCategoryExpanded = expandedCategories[category] ?? true;
-        
+
         return (
           <div key={category} className="rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
             <button
@@ -5650,19 +5965,19 @@ function LayerControlPanel({
             </button>
             {isCategoryExpanded && <div className="p-2 space-y-1">
               {categoryLayers.map(layer => (
-                <div 
-                  key={layer.id} 
+                <div
+                  key={layer.id}
                   className={cn(
                     "rounded transition-all",
                     expandedLayer === layer.id ? "bg-black/30" : "hover:bg-black/20"
                   )}
                 >
-                  <div 
+                  <div
                     className="flex items-center justify-between p-2 cursor-pointer"
                     onClick={() => setExpandedLayer(expandedLayer === layer.id ? null : layer.id)}
                   >
                     <div className="flex items-center gap-2">
-                      <div 
+                      <div
                         className="w-5 h-5 rounded flex items-center justify-center"
                         style={{ backgroundColor: `${layer.color}25` }}
                       >
@@ -5682,13 +5997,15 @@ function LayerControlPanel({
                       <p className="text-[9px] text-gray-500">{layer.description}</p>
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] text-gray-500">Opacity</span>
-                        <Slider
-                          value={[layer.opacity * 100]}
+                        <input
+                          type="range"
+                          value={Math.round((layer.opacity ?? 1) * 100)}
                           min={0}
                           max={100}
                           step={5}
-                          className="flex-1"
-                          onValueChange={(v) => onOpacityChange(layer.id, v[0] / 100)}
+                          aria-label={`${layer.name} opacity`}
+                          className="h-1 flex-1 cursor-pointer accent-emerald-400"
+                          onChange={(event) => onOpacityChange(layer.id, Number(event.currentTarget.value) / 100)}
                         />
                         <span className="text-[9px] text-gray-400 w-8 text-right">{Math.round(layer.opacity * 100)}%</span>
                       </div>
@@ -5712,10 +6029,11 @@ function ServicesPanel() {
     const check = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       try {
-        const res = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(5000) });
+        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(5000), cache: "no-store" });
         const data = await res.json();
-        const connected = data.serviceHealthy === true || (data.devices?.length > 0 && !data.error);
-        setMycoStatus({ connected, devices: data.devices?.length ?? 0 });
+        const devices = Array.isArray(data.devices) ? data.devices : [];
+        const connected = devices.some((device: any) => device.status === "connected" || device.status === "online");
+        setMycoStatus({ connected, devices: devices.length });
       } catch {
         setMycoStatus({ connected: false, devices: 0 });
       }
@@ -5743,8 +6061,8 @@ function ServicesPanel() {
   return (
     <div className="space-y-2">
       {services.map(service => (
-        <div 
-          key={service.id} 
+        <div
+          key={service.id}
           className="flex items-center gap-3 p-2.5 rounded-lg bg-black/40 border border-gray-700/50 hover:border-gray-600/50 transition-colors cursor-pointer"
         >
           <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-black/50", service.color)}>
@@ -6124,6 +6442,112 @@ function selectedEntityLabel(entity: any, fallback: string): string {
   return fallback;
 }
 
+function buildEventMycaFacts(event: any): MycaContextFact[] {
+  const facts: MycaContextFact[] = [];
+  pushMycaFact(facts, "Type", event?.type ?? readLooseValue(event, ["type", "eventType", "category"]));
+  pushMycaFact(facts, "Severity", event?.severity ?? readLooseValue(event, ["severity", "level", "status"]));
+  pushMycaFact(facts, "Magnitude", readLooseValue(event, ["magnitude", "mag"]));
+  pushMycaFact(facts, "Depth", readLooseValue(event, ["depth", "depth_km"]), " km");
+  pushMycaFact(facts, "Wind", readLooseValue(event, ["windSpeed", "wind_speed", "max_wind_mph"]), " mph");
+  pushMycaFact(facts, "Containment", readLooseValue(event, ["containment", "percentContained", "contained"]), "%");
+  const eventDate = formatMycaDateFact(event?.timestamp ?? readLooseValue(event, ["timestamp", "time", "updated", "observed_on"]));
+  if (eventDate) facts.push({ label: "Updated", value: eventDate });
+  pushMycaFact(facts, "Source", event?.source ?? readLooseValue(event, ["source", "provider"]));
+  return facts.slice(0, 8);
+}
+
+function buildFungalMycaFacts(observation: FungalObservation): MycaContextFact[] {
+  const facts: MycaContextFact[] = [];
+  pushMycaFact(facts, "Species", observation.taxon?.name || observation.species);
+  pushMycaFact(facts, "Taxon", observation.iconicTaxon || observation.kingdom);
+  const observed = formatMycaDateFact(observation.observed_on);
+  if (observed) facts.push({ label: "Observed", value: observed });
+  pushMycaFact(facts, "Grade", observation.quality_grade);
+  pushMycaFact(facts, "Source", observation.source);
+  pushMycaFact(facts, "User", observation.user);
+  pushMycaFact(facts, "Habitat", observation.habitat);
+  return facts.slice(0, 8);
+}
+
+function buildSelectedAssetDetail(kind: string, entity: any): string {
+  const normalized = kind.toLowerCase();
+  if (normalized.includes("aircraft")) {
+    return [
+      readLooseValue(entity, ["aircraftType", "aircraft_type", "type"]),
+      readLooseValue(entity, ["airline", "operator"]),
+      readLooseValue(entity, ["origin"]) && readLooseValue(entity, ["destination"])
+        ? `${readLooseValue(entity, ["origin"])} -> ${readLooseValue(entity, ["destination"])}`
+        : "",
+    ].map((value) => formatMycaFactValue(value)).filter(Boolean).slice(0, 2).join(" / ");
+  }
+  if (normalized.includes("vessel") || normalized.includes("ship")) {
+    return [
+      readLooseValue(entity, ["shipType", "ship_type", "type"]),
+      readLooseValue(entity, ["destination"]),
+      readLooseValue(entity, ["status"]),
+    ].map((value) => formatMycaFactValue(value)).filter(Boolean).slice(0, 2).join(" / ");
+  }
+  if (normalized.includes("satellite")) {
+    return [
+      readLooseValue(entity, ["type", "category"]),
+      readLooseValue(entity, ["country", "owner"]),
+      readLooseValue(entity, ["noradId", "norad_id"]),
+    ].map((value) => formatMycaFactValue(value)).filter(Boolean).slice(0, 2).join(" / ");
+  }
+  if (normalized.includes("power") || normalized.includes("infrastructure") || normalized.includes("device")) {
+    return [
+      readLooseValue(entity, ["type", "category", "facility_type", "asset_type"]),
+      readLooseValue(entity, ["operator", "owner", "agency", "provider"]),
+      readLooseValue(entity, ["status", "source_status"]),
+    ].map((value) => formatMycaFactValue(value)).filter(Boolean).slice(0, 3).join(" / ");
+  }
+  return formatMycaFactValue(readLooseValue(entity, ["type", "category", "facility_type", "asset_type", "kind"]));
+}
+
+function buildSelectedAssetFacts(kind: string, entity: any): MycaContextFact[] {
+  const normalized = kind.toLowerCase();
+  const facts: MycaContextFact[] = [];
+  if (normalized.includes("aircraft")) {
+    pushMycaFact(facts, "Callsign", readLooseValue(entity, ["callsign", "flightNumber"]));
+    pushMycaFact(facts, "Type", readLooseValue(entity, ["aircraftType", "aircraft_type", "type"]));
+    pushMycaFact(facts, "Airline", readLooseValue(entity, ["airline", "operator"]));
+    pushMycaFact(facts, "Reg", readLooseValue(entity, ["registration", "reg"]));
+    pushMycaFact(facts, "Altitude", readLooseValue(entity, ["altitude", "altitude_ft"]), " ft");
+    pushMycaFact(facts, "Speed", readLooseValue(entity, ["velocity", "speed", "groundSpeed"]), " kt");
+    pushMycaFact(facts, "Heading", readLooseValue(entity, ["heading", "track"]), " deg");
+    const route = readLooseValue(entity, ["origin"]) && readLooseValue(entity, ["destination"])
+      ? `${readLooseValue(entity, ["origin"])} -> ${readLooseValue(entity, ["destination"])}`
+      : "";
+    pushMycaFact(facts, "Route", route);
+  } else if (normalized.includes("vessel") || normalized.includes("ship")) {
+    pushMycaFact(facts, "MMSI", readLooseValue(entity, ["mmsi"]));
+    pushMycaFact(facts, "IMO", readLooseValue(entity, ["imo"]));
+    pushMycaFact(facts, "Callsign", readLooseValue(entity, ["callsign"]));
+    pushMycaFact(facts, "Type", readLooseValue(entity, ["shipType", "ship_type", "type"]));
+    pushMycaFact(facts, "Speed", readLooseValue(entity, ["sog", "speed"]), " kt");
+    pushMycaFact(facts, "Course", readLooseValue(entity, ["cog", "course", "heading"]), " deg");
+    pushMycaFact(facts, "Destination", readLooseValue(entity, ["destination"]));
+    pushMycaFact(facts, "Status", readLooseValue(entity, ["status"]));
+  } else if (normalized.includes("satellite")) {
+    pushMycaFact(facts, "NORAD", readLooseValue(entity, ["noradId", "norad_id"]));
+    pushMycaFact(facts, "Type", readLooseValue(entity, ["type", "category"]));
+    pushMycaFact(facts, "Altitude", readLooseValue(entity, ["altitude"]), " km");
+    pushMycaFact(facts, "Velocity", readLooseValue(entity, ["velocity"]), " km/s");
+    pushMycaFact(facts, "Country", readLooseValue(entity, ["country"]));
+    const launched = formatMycaDateFact(readLooseValue(entity, ["launch_date", "launchDate"]));
+    if (launched) facts.push({ label: "Launch", value: launched });
+  } else {
+    pushMycaFact(facts, "Type", readLooseValue(entity, ["type", "category", "facility_type", "asset_type", "kind"]));
+    pushMycaFact(facts, "Operator", readLooseValue(entity, ["operator", "owner", "agency", "provider"]));
+    pushMycaFact(facts, "Status", readLooseValue(entity, ["status", "source_status"]));
+    pushMycaFact(facts, "Voltage", readLooseValue(entity, ["voltage_kv", "voltage", "v", "VOLTAGE"]), " kV");
+    pushMycaFact(facts, "Capacity", readLooseValue(entity, ["capacity_mw", "capacityMW", "capacity"]), " MW");
+    pushMycaFact(facts, "Address", readLooseValue(entity, ["address", "addr", "locationName", "location"]));
+    pushMycaFact(facts, "Source", readLooseValue(entity, ["source", "src", "provider"]));
+  }
+  return facts.slice(0, 8);
+}
+
 function assetIdentity(entity: any): string[] {
   return [
     entity?.id,
@@ -6185,7 +6609,7 @@ export default function CREPDashboardPage({
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Apr 23, 2026 — Morgan: "crep locally is supper laggy now even slowing
+  // Apr 23, 2026 â€” Morgan: "crep locally is supper laggy now even slowing
   // my pc down". Service worker caches /data/crep/*.geojson + /crep/icons
   // + /_next/static with a cache-first strategy so return visits never
   // touch the network for ~80-200 MB of baked infra + iNat + sprite
@@ -6208,23 +6632,24 @@ export default function CREPDashboardPage({
       })
   }, [])
 
-  // ════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // Silence MapLibre AJAXError unhandled rejections so the Next.js dev
-  // error overlay doesn't pop up over the dashboard (blocks all clicks →
+  // error overlay doesn't pop up over the dashboard (blocks all clicks â†’
   // "no widgets selectable"). MapLibre surfaces image-source load
   // failures as async rejections that don't bubble to any try/catch at
-  // the component level. These are non-fatal — the affected raster layer
+  // the component level. These are non-fatal â€” the affected raster layer
   // simply doesn't paint and the rest of the map works fine.
-  // ════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
+    const mapLibreSourceUrlPattern = /(blob:|pmtiles:\/\/|https?:\/\/|\/api\/|\/data\/)/i;
     const isMapLibreAjax = (msg: string) =>
-      /AJAXError/.test(msg) && /(blob:|https?:\/\/)/.test(msg);
+      /AJAXError/i.test(msg) && (mapLibreSourceUrlPattern.test(msg) || /Failed to fetch/i.test(msg));
     // Apr 21, 2026 (Morgan: "crep is still reloading in browser"). React
     // 18/19 can throw "Cannot read properties of null (reading
     // 'removeChild')" + "Should not already be working" when MapLibre's
     // native DOM (canvas + control buttons) gets cleaned up via
     // map.remove() while React's reconciler is mid-commit. These errors
-    // are non-fatal to CREP — MapLibre has already torn itself down —
+    // are non-fatal to CREP â€” MapLibre has already torn itself down â€”
     // but Next.js Fast Refresh treats them as unrecoverable and
     // full-page-reloads. Suppress to break the reload loop.
     const isReactReconcilerNoise = (msg: string) =>
@@ -6234,10 +6659,26 @@ export default function CREPDashboardPage({
     // MapLibre hover queries during live source updates (globe spin + aircraft rAF).
     const isMapLibreFeatureIndexNoise = (msg: string) =>
       /feature index out of bounds/i.test(msg);
+    const isMapLibrePlacementNoise = (msg: string, stack = "") =>
+      /Cannot read properties of undefined \(reading 'get'\)/.test(msg) &&
+      /maplibre|continuePlacement|new It/i.test(stack);
+    const isMapLibreWorkerTransferNoise = (msg: string, stack = "") =>
+      /Cannot read properties of undefined \(reading '_classRegistryKey'\)/.test(msg) &&
+      /maplibre|web_worker_transfer|processTask|Worker/i.test(`${msg}\n${stack}`);
+    const isNonFatalMapNoise = (msg: string, stack = "") =>
+      isMapLibreAjax(msg) ||
+      isReactReconcilerNoise(msg) ||
+      isMapLibreFeatureIndexNoise(msg) ||
+      isMapLibrePlacementNoise(msg, stack) ||
+      isMapLibreWorkerTransferNoise(msg, stack);
     const onUnhandled = (e: PromiseRejectionEvent) => {
       const reason = e.reason as any;
       const msg = reason?.message || String(reason);
-      if (isMapLibreAjax(msg) || isReactReconcilerNoise(msg) || isMapLibreFeatureIndexNoise(msg)) {
+      const stack = reason?.stack || "";
+      if (isNonFatalMapNoise(msg, stack)) {
+        const bucket = ((window as any).__crepSilencedErrors ||= []);
+        bucket.push({ kind: "unhandledrejection", msg, stack, ts: Date.now() });
+        if (bucket.length > 40) bucket.shift();
         e.preventDefault();  // keep Next dev overlay from surfacing
         e.stopImmediatePropagation?.();
         console.warn("[CREP] silenced non-fatal error:", msg.slice(0, 140));
@@ -6245,15 +6686,30 @@ export default function CREPDashboardPage({
     };
     const onError = (e: ErrorEvent) => {
       const msg = e?.error?.message || e?.message || "";
-      if (isMapLibreAjax(msg) || isReactReconcilerNoise(msg) || isMapLibreFeatureIndexNoise(msg)) {
+      const stack = e?.error?.stack || "";
+      if (isNonFatalMapNoise(msg, stack)) {
+        const bucket = ((window as any).__crepSilencedErrors ||= []);
+        bucket.push({ kind: "error", msg, stack, ts: Date.now() });
+        if (bucket.length > 40) bucket.shift();
         e.preventDefault();
         e.stopImmediatePropagation?.();
         console.warn("[CREP] silenced non-fatal error (error):", msg.slice(0, 140));
       }
     };
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      const msg = args.map((arg: any) => arg?.message || String(arg)).join(" ");
+      const stack = args.map((arg: any) => arg?.stack || "").join("\n");
+      if (isNonFatalMapNoise(msg, stack)) {
+        console.warn("[CREP] silenced non-fatal console error:", msg.slice(0, 140));
+        return;
+      }
+      originalConsoleError.apply(console, args as any);
+    };
     window.addEventListener("unhandledrejection", onUnhandled, true);
     window.addEventListener("error", onError, true);
     return () => {
+      console.error = originalConsoleError;
       window.removeEventListener("unhandledrejection", onUnhandled, true);
       window.removeEventListener("error", onError, true);
     };
@@ -6262,7 +6718,7 @@ export default function CREPDashboardPage({
   const [rightPanelOpen, setRightPanelOpen] = useState(!embedded);
   const [rightPanelTab, setRightPanelTab] = useState("myca");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
-  /** Row 2: Events | Devices — independent of Nature/Infra/MYCA row 1 selection */
+  /** Row 2: Events | Devices â€” independent of Nature/Infra/MYCA row 1 selection */
   const [leftSecondaryTab, setLeftSecondaryTab] = useState<"events" | "devices" | null>(null);
   const [assetIsolationMode, setAssetIsolationMode] = useState<AssetIsolationMode>(null);
   const [auditAllOffMode, setAuditAllOffMode] = useState(() => getInitialAuditAllOffMode() || getInitialFiltersOffMode());
@@ -6278,6 +6734,22 @@ export default function CREPDashboardPage({
     setLeftPanelTab(tab);
     setLeftSecondaryTab(null);
   }, []);
+  useEffect(() => {
+    if (embedded || typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const applyResponsivePanelDefaults = () => {
+      if (mq.matches) {
+        setLeftPanelOpen(false);
+        setRightPanelOpen(false);
+      } else {
+        setLeftPanelOpen(true);
+        setRightPanelOpen(true);
+      }
+    };
+    applyResponsivePanelDefaults();
+    mq.addEventListener("change", applyResponsivePanelDefaults);
+    return () => mq.removeEventListener("change", applyResponsivePanelDefaults);
+  }, [embedded]);
   const DEVICE_LEGEND_GROUP_KEYS = useMemo(
     () => new Set(["airspace", "maritime", "rail", "devices", "ground"]),
     [],
@@ -6337,7 +6809,7 @@ export default function CREPDashboardPage({
       "oilGas",
     ].includes(id),
   );
-  
+
   // Map reference for auto-zoom and pan functionality
   const [mapRef, setMapRef] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -6345,15 +6817,15 @@ export default function CREPDashboardPage({
   const initialUrlFocusRef = useRef(getInitialMapFocusFromUrl());
   const lastAppliedExplicitFocusRef = useRef<string | null>(null);
 
-  // Globe/Map projection mode (Apr 2026 — OpenGridWorks-style).
+  // Globe/Map projection mode (Apr 2026 â€” OpenGridWorks-style).
   // The canonical Earth Simulator opens as the native globe over North America.
   // so AM/EcM/protected surfaces paint consistently instead of clipping on globe projection.
   const [projectionMode, setProjectionMode] = useState<ProjectionMode>("globe");
-  
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
   // Shows more markers when zoomed in, fewer when zoomed out for performance
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const [mapZoom, setMapZoom] = useState(CREP_DEFAULT_ZOOM);
   const [mapBounds, setMapBounds] = useState<{
     north: number;
@@ -6368,7 +6840,19 @@ export default function CREPDashboardPage({
     east: number;
     west: number;
   } | null>(null);
-  /** Live bounds during globe pan — recomputed on move so icons cull without waiting for idle. */
+  const committedPanelBoundsRef = useRef<{
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null>(null);
+  const committedMarkerBoundsRef = useRef<{
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null>(null);
+  /** Live bounds during globe pan â€” recomputed on move so icons cull without waiting for idle. */
   const [liveMarkerBounds, setLiveMarkerBounds] = useState<{
     north: number;
     south: number;
@@ -6378,16 +6862,52 @@ export default function CREPDashboardPage({
   const markerBounds = isGlobeCrepMapRoute
     ? (liveMarkerBounds ?? markerMapBounds ?? mapBounds)
     : mapBounds;
-  
+  const footerViewportCenter = useMemo(() => {
+    const bounds = mapBounds ?? markerBounds;
+    if (bounds) {
+      const rawLng = bounds.west <= bounds.east
+        ? (bounds.west + bounds.east) / 2
+        : (((bounds.west + bounds.east + 360) / 2 + 540) % 360) - 180;
+      return {
+        lat: (bounds.north + bounds.south) / 2,
+        lng: rawLng,
+      };
+    }
+    try {
+      const center = mapRef?.getCenter?.();
+      if (center) return { lat: center.lat, lng: center.lng };
+    } catch {
+      /* map may be tearing down */
+    }
+    return null;
+  }, [mapBounds, markerBounds, mapRef]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stats = {
+      zoom: Number(mapZoom.toFixed(3)),
+      centerLat: footerViewportCenter ? Number(footerViewportCenter.lat.toFixed(6)) : null,
+      centerLng: footerViewportCenter ? Number(footerViewportCenter.lng.toFixed(6)) : null,
+      bounds: mapBounds,
+      updatedAt: Date.now(),
+    };
+    try {
+      (window as any).__crep_viewport_stats = stats;
+      window.dispatchEvent(new CustomEvent("crep:viewport-stats", { detail: stats }));
+    } catch {
+      /* debug only */
+    }
+  }, [footerViewportCenter, mapBounds, mapZoom]);
+
   // Debounce ref for viewport updates (prevents rapid-fire recalculations)
   const viewportUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Separate loading state for fungal data to prevent blinking
   const [fungalLoading, setFungalLoading] = useState(true);
-  
+
   // Data states
   const [globalEvents, setGlobalEvents] = useState<GlobalEvent[]>([]);
-  // Persistent event store — merge incoming, never fully replace (prevents blink)
+  // Persistent event store â€” merge incoming, never fully replace (prevents blink)
   const eventStoreRef = useRef<Map<string, GlobalEvent>>(new Map());
   const [devices, setDevices] = useState<Device[]>([]);
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
@@ -6397,10 +6917,94 @@ export default function CREPDashboardPage({
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
   const [trackedAssetLock, setTrackedAssetLock] = useState<TrackedAssetLock | null>(null);
 
+  useEffect(() => {
+    if (auditAllOffMode || isEmbeddedEarthquakeSearch || assetIsolationMode) return;
+    let cancelled = false;
+    const fetchFieldDevices = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      try {
+        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(8000), cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const nextDevices = normalizeFieldMycoBrainDevices(data.devices || []);
+        if (!cancelled) {
+          setDevices(nextDevices);
+          if (typeof window !== "undefined") (window as any).__crep_field_mycobrain_devices = nextDevices;
+        }
+      } catch {
+        /* Field devices are also refreshed by the broader CREP data pass. */
+      }
+    };
+    fetchFieldDevices();
+    const interval = window.setInterval(fetchFieldDevices, 30_000);
+    const onVisibility = () => {
+      if (!document.hidden) fetchFieldDevices();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [auditAllOffMode, isEmbeddedEarthquakeSearch, assetIsolationMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_devices = devices;
+    const openDeviceWidget = (payload: any) => {
+      const payloadId = String(payload?.id ?? "");
+      const payloadRegistryId = String(payload?.registryId ?? payload?.registry_id ?? payload?.mycobrainId ?? payload?.mycobrain_id ?? "");
+      const matched = devices.find((device) => (
+        String(device.id) === payloadId ||
+        String(device.registryId ?? "") === payloadRegistryId ||
+        String(device.port ?? "") === payloadRegistryId
+      ));
+      if (matched) {
+        setSelectedDevice(matched);
+        return;
+      }
+      const telemetry = payload?.telemetry || {};
+      const lat = Number(payload?.lat);
+      const lng = Number(payload?.lng);
+      setSelectedDevice({
+        id: payloadId || payloadRegistryId || "field-mycobrain",
+        registryId: payloadRegistryId || undefined,
+        name: payload?.name || "MycoBrain device",
+        lat: Number.isFinite(lat) ? lat : 0,
+        lng: Number.isFinite(lng) ? lng : 0,
+        status: payload?.status === "connected" ? "online" : (payload?.status || "online"),
+        type: payload?.deviceType || telemetry.device_type || "mycobrain",
+        port: payloadRegistryId || undefined,
+        firmware: telemetry.firmware,
+        protocol: "MAS field heartbeat",
+        agentUrl: telemetry.agent_url,
+        host: telemetry.host,
+        pageHref: telemetry.page_href,
+        source: telemetry.source,
+        gpsLockState: Number.isFinite(lat) && Number.isFinite(lng) ? "locked" : "unavailable",
+        signalConnectionType: telemetry.host === "192.168.0.228" ? "ethernet" : telemetry.host === "192.168.0.123" ? "wifi" : null,
+        sensorData: {
+          temperature: telemetry.temperature_c,
+          humidity: telemetry.humidity_pct,
+          pressure: telemetry.pressure_hpa,
+          gasResistance: telemetry.gas_resistance_ohm,
+          iaq: telemetry.iaq,
+          co2Equivalent: telemetry.eco2_ppm,
+        },
+        lastUpdate: telemetry.last_seen || new Date().toISOString(),
+        lastSeen: telemetry.last_seen,
+      });
+    };
+    (window as any).__crep_openDeviceWidget = openDeviceWidget;
+    return () => {
+      if ((window as any).__crep_openDeviceWidget === openDeviceWidget) delete (window as any).__crep_openDeviceWidget;
+    };
+  }, [devices]);
+
   // Apr 19, 2026 (Morgan: "boats finally visible but no widgets working for
-  // them" — same bug likely for planes + sats). The click handlers in
+  // them" â€” same bug likely for planes + sats). The click handlers in
   // MapComponent.onLoad capture these entity arrays in a CLOSURE at the
-  // moment the map loads — when all three are still []. Widget lookup
+  // moment the map loads â€” when all three are still []. Widget lookup
   // (`filteredX.find(...)`) against the stale empty array never matches.
   // Expose each latest array on window so the handlers can do a LIVE lookup.
   useEffect(() => {
@@ -6410,7 +7014,7 @@ export default function CREPDashboardPage({
     (window as any).__crep_satellites = satellites;
   }, [aircraft, vessels, satellites]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SPACE PIGGYBACK (Apr 19, 2026)
   // Morgan (OpenGridView parity): "they have a button called space piggyback
   // that zooms in follows and changes close up angle of the satelite".
@@ -6421,7 +7025,7 @@ export default function CREPDashboardPage({
   // crep-live-satellites source and easeTo there with a slight pitch so it
   // feels like a chase-cam. Press Esc or click the map (outside the sat)
   // to disengage.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const [piggybackSatelliteId, setPiggybackSatelliteId] = useState<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -6454,8 +7058,8 @@ export default function CREPDashboardPage({
         setTrackedAssetLock(null);
       }
     };
-    // Apr 22, 2026 — Morgan: MYCA "should be instant and move the map".
-    // crep:flyto is MYCA's fast-lane map-control event — dispatched by
+    // Apr 22, 2026 â€” Morgan: MYCA "should be instant and move the map".
+    // crep:flyto is MYCA's fast-lane map-control event â€” dispatched by
     // the chat widget BEFORE the LLM response (intent parser matches
     // "show me / fly to / go to <place>"). Moves the camera immediately
     // even while the LLM is still thinking.
@@ -6510,24 +7114,24 @@ export default function CREPDashboardPage({
     return () => clearInterval(interval);
   }, [piggybackSatelliteId]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
-  // Persistent observation store — merge incoming data, never fully replace (prevents blink)
+  // Persistent observation store â€” merge incoming data, never fully replace (prevents blink)
   const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [manualRefreshNonce, setManualRefreshNonce] = useState(0);
   const initialDataLoadedRef = useRef(false);
-  
+
   // Conservation Demo widget data (fence/presence - empty until real MAS devices exist)
   const [fenceSegments, setFenceSegments] = useState<FenceSegment[]>([]);
   const [presenceReadings, setPresenceReadings] = useState<PresenceReading[]>([]);
-  
+
   // Individual widget toggle states (Feb 17, 2026) - default OFF per user request
   const [showSmartFenceWidget, setShowSmartFenceWidget] = useState(false);
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
 
   // Ground Station overlay state (Mar 2026)
-  const [showGroundStation, setShowGroundStation] = useState(false); // Hidden by default — only show when user opens it
+  const [showGroundStation, setShowGroundStation] = useState(false); // Hidden by default â€” only show when user opens it
 
-  
+
   // Selected entity states for map interaction
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
@@ -6535,6 +7139,192 @@ export default function CREPDashboardPage({
   const [selectedFungal, setSelectedFungal] = useState<FungalObservation | null>(null);
   const [selectedBuoy, setSelectedBuoy] = useState<any | null>(null);
   const [selectedOther, setSelectedOther] = useState<UnifiedEntity | null>(null);
+  const [selectedMapWidgetContext, setSelectedMapWidgetContext] = useState<MycaSelectedMapContext | null>(null);
+  const [hoverAssetContext, setHoverAssetContext] = useState<MapHoverContext | null>(null);
+  const [sustainedHoverContext, setSustainedHoverContext] = useState<MapHoverContext | null>(null);
+  const hoverLatestRef = useRef<MapHoverContext | null>(null);
+  const hoverKeyRef = useRef<string | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const hoverLastCommitRef = useRef<{ key: string; x: number; y: number; ts: number } | null>(null);
+
+  const handleMapAssetHover = useCallback((payload: MapAssetHoverPayload | null) => {
+    if (typeof window === "undefined") return;
+    if (!payload) {
+      if (!hoverLatestRef.current && !hoverKeyRef.current && !hoverLastCommitRef.current) return;
+      if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+      hoverKeyRef.current = null;
+      hoverLatestRef.current = null;
+      hoverLastCommitRef.current = null;
+      setHoverAssetContext(null);
+      setSustainedHoverContext(null);
+      return;
+    }
+
+    const next = normalizeHoverPayload(payload);
+    if (!next) return;
+    const now = Date.now();
+    const last = hoverLastCommitRef.current;
+    hoverLatestRef.current = next;
+
+    if (
+      last &&
+      last.key === next.key &&
+      now - last.ts < 70 &&
+      Math.abs(last.x - next.x) < 8 &&
+      Math.abs(last.y - next.y) < 8
+    ) {
+      return;
+    }
+
+    hoverLastCommitRef.current = { key: next.key, x: next.x, y: next.y, ts: now };
+    setHoverAssetContext(next);
+
+    if (hoverKeyRef.current !== next.key) {
+      hoverKeyRef.current = next.key;
+      setSustainedHoverContext(null);
+      if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = window.setTimeout(() => {
+        const latest = hoverLatestRef.current;
+        if (!latest || hoverKeyRef.current !== latest.key) return;
+        setSustainedHoverContext({
+          ...latest,
+          key: `hover:${latest.key}`,
+          kind: `hovered ${latest.kind}`,
+          detail: latest.detail || "Map hover focus",
+        });
+      }, 2200);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_hoverAsset = handleMapAssetHover;
+    const onHover = (event: Event) => {
+      const detail = (event as CustomEvent<MapAssetHoverPayload | null>).detail ?? null;
+      handleMapAssetHover(detail);
+    };
+    window.addEventListener("crep:asset:hover", onHover);
+    return () => {
+      if ((window as any).__crep_hoverAsset === handleMapAssetHover) {
+        try { delete (window as any).__crep_hoverAsset; } catch { /* noop */ }
+      }
+      window.removeEventListener("crep:asset:hover", onHover);
+      if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+    };
+  }, [handleMapAssetHover]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const selectMapWidget = (kind: string, detail: any) => {
+      const context = buildSelectedMapWidgetContext(kind, detail);
+      if (context) setSelectedMapWidgetContext(context);
+    };
+    const onCamera = (event: Event) => selectMapWidget("camera", (event as CustomEvent).detail);
+    const onEagleCamera = (event: Event) => selectMapWidget("camera", (event as CustomEvent).detail);
+    const onEagleEvent = (event: Event) => selectMapWidget("video event", (event as CustomEvent).detail);
+    window.addEventListener("crep:camera:click", onCamera as EventListener);
+    window.addEventListener("crep:eagle:camera-click", onEagleCamera as EventListener);
+    window.addEventListener("crep:eagle:event-click", onEagleEvent as EventListener);
+    return () => {
+      window.removeEventListener("crep:camera:click", onCamera as EventListener);
+      window.removeEventListener("crep:eagle:camera-click", onEagleCamera as EventListener);
+      window.removeEventListener("crep:eagle:event-click", onEagleEvent as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    let pointerClearTimer: number | null = null;
+    const clearHover = () => handleMapAssetHover(null);
+    const schedulePointerClear = (event: PointerEvent) => {
+      const latest = hoverLatestRef.current;
+      const last = hoverLastCommitRef.current;
+      if (!latest || !last) return;
+      const movedAway = Math.abs(event.clientX - last.x) > 34 || Math.abs(event.clientY - last.y) > 34;
+      if (!movedAway) return;
+      if (pointerClearTimer) window.clearTimeout(pointerClearTimer);
+      pointerClearTimer = window.setTimeout(() => {
+        pointerClearTimer = null;
+        const current = hoverLastCommitRef.current;
+        if (!current) return;
+        if (Math.abs(event.clientX - current.x) > 28 || Math.abs(event.clientY - current.y) > 28) {
+          clearHover();
+        }
+      }, 90);
+    };
+    const onVisibility = () => {
+      if (document.hidden) clearHover();
+    };
+    window.addEventListener("pointermove", schedulePointerClear, true);
+    window.addEventListener("blur", clearHover);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (pointerClearTimer) window.clearTimeout(pointerClearTimer);
+      window.removeEventListener("pointermove", schedulePointerClear, true);
+      window.removeEventListener("blur", clearHover);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [handleMapAssetHover]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!hoverAssetContext) {
+      setSustainedHoverContext(null);
+      return;
+    }
+    const hoverKey = hoverAssetContext.key;
+    const timer = window.setTimeout(() => {
+      const latest = hoverLatestRef.current ?? hoverAssetContext;
+      if (!latest || latest.key !== hoverKey) return;
+      setSustainedHoverContext({
+        ...latest,
+        key: `hover:${latest.key}`,
+        kind: `hovered ${latest.kind}`,
+        detail: latest.detail || "Map hover focus",
+      });
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [hoverAssetContext?.key]);
+
+  const handleEventHover = useCallback((event: GlobalEvent | null, point?: HoverPoint) => {
+    if (!event || !point) {
+      handleMapAssetHover(null);
+      return;
+    }
+    handleMapAssetHover({
+      type: "event",
+      id: event.id,
+      name: event.title,
+      detail: [event.type, event.severity, event.source].filter(Boolean).join(" / "),
+      lat: event.lat,
+      lng: event.lng,
+      x: point.x,
+      y: point.y,
+      source: event.source,
+      properties: event as unknown as Record<string, any>,
+    });
+  }, [handleMapAssetHover]);
+
+  const handleFungalHover = useCallback((observation: FungalObservation | null, point?: HoverPoint) => {
+    if (!observation || !point) {
+      handleMapAssetHover(null);
+      return;
+    }
+    const label = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Species observation";
+    handleMapAssetHover({
+      type: "species",
+      id: observation.id,
+      name: label,
+      detail: [observation.kingdom || observation.iconicTaxon, observation.quality_grade, observation.source].filter(Boolean).join(" / "),
+      lat: observation.latitude,
+      lng: observation.longitude,
+      x: point.x,
+      y: point.y,
+      source: observation.source,
+      properties: observation as unknown as Record<string, any>,
+    });
+  }, [handleMapAssetHover]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -6552,7 +7342,7 @@ export default function CREPDashboardPage({
   // Timestamp when deck.gl entity was clicked - used to avoid map click-away dismissing the popup
   const lastEntityPickTimeRef = useRef(0);
 
-  // Streaming state — Earth Simulator staged boot enables live layers at refresh.
+  // Streaming state â€” Earth Simulator staged boot enables live layers at refresh.
   const [isStreaming, setIsStreaming] = useState(() => {
     if (getInitialFiltersOffMode()) return false;
     return true;
@@ -6564,8 +7354,8 @@ export default function CREPDashboardPage({
   const [extrapolatedCoords, setExtrapolatedCoords] = useState<Record<string, [number, number]>>({});
   type LiveMoverAnchor = { lng: number; lat: number; velLng: number; velLat: number; heading: number; ts: number };
   const lastKnownRef = useRef<Record<string, LiveMoverAnchor>>({});
-  const MAX_EXTRAPOLATION_MS = 30000; // cap at 30s — positions older than this use API data directly
-  // Direct map ref for live entity data pump — bypasses React state propagation issues.
+  const MAX_EXTRAPOLATION_MS = 30000; // cap at 30s â€” positions older than this use API data directly
+  // Direct map ref for live entity data pump â€” bypasses React state propagation issues.
   // Set in onLoad callback, read in the data pump effect.
   const mapNativeRef = useRef<any>(null);
   const [mycorrhizalMode, setMycorrhizalMode] = useState<"am" | "ecm" | "off">(() => {
@@ -6686,7 +7476,7 @@ export default function CREPDashboardPage({
 
   const navigationPauseUntilRef = useRef(0);
   const mapInteractionActiveRef = useRef(false);
-  /** Synced from natureSpeciesFilterKey each render — used by pan/zoom freeze handlers. */
+  /** Synced from natureSpeciesFilterKey each render â€” used by pan/zoom freeze handlers. */
   const natureSpeciesFilterKeyRef = useRef("");
   /** Globe CREP + Earth Simulator: track camera movement; live bounds drive culling during pan. */
   const [isGlobeMarkerListFrozen, setIsGlobeMarkerListFrozen] = useState(false);
@@ -6697,7 +7487,7 @@ export default function CREPDashboardPage({
   const requestViewportNatureFetch = useCallback(() => {
     setViewportNatureFetchNonce((n) => n + 1);
   }, []);
-  /** Last non-empty rendered marker lists — pan freeze must never fall back to []. */
+  /** Last non-empty rendered marker lists â€” pan freeze must never fall back to []. */
   const lastRenderedFungalForPanRef = useRef<FungalObservation[]>([]);
   const lastRenderedEventsForPanRef = useRef<GlobalEvent[]>([]);
   const visibleFungalObservationsStableRef = useRef<{ filterKey: string; idKey: string; list: any[] }>({
@@ -6805,6 +7595,7 @@ export default function CREPDashboardPage({
         setIsMapAnimationActive(false);
       });
       requestViewportNatureFetch();
+      try { window.dispatchEvent(new CustomEvent("crep:mover-pump-request")); } catch {}
     };
     const onIdle = () => {
       if (mapInteractionClearTimerRef.current != null) {
@@ -6818,6 +7609,7 @@ export default function CREPDashboardPage({
         setLiveMarkerBounds(null);
       });
       requestViewportNatureFetch();
+      try { window.dispatchEvent(new CustomEvent("crep:mover-pump-request")); } catch {}
     };
     try {
       map.on?.("movestart", onMoveStart);
@@ -6876,7 +7668,7 @@ export default function CREPDashboardPage({
       };
       const el = fpsOverlayRef.current;
       if (el) {
-        el.textContent = `${snapshot.fps.toFixed(1)} FPS · ${snapshot.frameMs.toFixed(2)} ms`;
+        el.textContent = `${snapshot.fps.toFixed(1)} FPS Â· ${snapshot.frameMs.toFixed(2)} ms`;
       }
       try {
         (window as any).__crep_fps = snapshot;
@@ -7079,10 +7871,10 @@ export default function CREPDashboardPage({
       window.removeEventListener("crep:resource-governor", onCustom);
     };
   }, [auditAllOffMode, earthStrictPerfMode, isStreaming, runResourceGovernor, shouldPauseLiveWork]);
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INFRASTRUCTURE STATE — OpenGridWorks-style layers (Apr 2026)
-  // ═══════════════════════════════════════════════════════════════════════════
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // INFRASTRUCTURE STATE â€” OpenGridWorks-style layers (Apr 2026)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const [powerPlants, setPowerPlants] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant[]>([]);
   const [selectedPlant, setSelectedPlant] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant | null>(null);
   const [infraSubstations, setInfraSubstations] = useState<any[]>([]);
@@ -7093,11 +7885,54 @@ export default function CREPDashboardPage({
   const [bubbleScale, setBubbleScale] = useState(1.0);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  useEffect(() => {
+    if (
+      selectedMapWidgetContext &&
+      (selectedEvent || selectedFungal || selectedAircraft || selectedVessel || selectedSatellite || selectedDevice || selectedPlant || selectedInfraAsset || selectedOther)
+    ) {
+      setSelectedMapWidgetContext(null);
+    }
+  }, [
+    selectedMapWidgetContext,
+    selectedEvent,
+    selectedFungal,
+    selectedAircraft,
+    selectedVessel,
+    selectedSatellite,
+    selectedDevice,
+    selectedPlant,
+    selectedInfraAsset,
+    selectedOther,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_selected_debug = {
+      selectedEventId: selectedEvent?.id ?? null,
+      selectedFungalId: selectedFungal?.id ?? null,
+      selectedInfraId: selectedInfraAsset?.id ?? null,
+      selectedInfraType: selectedInfraAsset?.type ?? null,
+      selectedAircraftId: selectedAircraft?.id ?? null,
+      selectedVesselId: selectedVessel?.id ?? null,
+      selectedSatelliteId: selectedSatellite?.id ?? null,
+      selectedPlantId: selectedPlant?.id ?? null,
+    };
+  }, [
+    selectedAircraft?.id,
+    selectedEvent?.id,
+    selectedFungal?.id,
+    selectedInfraAsset?.id,
+    selectedInfraAsset?.type,
+    selectedPlant?.id,
+    selectedSatellite?.id,
+    selectedVessel?.id,
+  ]);
+
   // Power plant layers now integrated directly into infraDeckLayers below
   // with OpenGridWorks-style LOD rendering (bubbles only at zoom 3+)
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INFRASTRUCTURE DECK.GL LAYERS — OpenGridWorks-style LOD rendering
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // INFRASTRUCTURE DECK.GL LAYERS â€” OpenGridWorks-style LOD rendering
   //
   // Zoom 0-3:  Submarine cables only (thin cyan lines across oceans)
   // Zoom 3-5:  + Power plant bubbles (large, colored by fuel, sized by MW)
@@ -7106,21 +7941,21 @@ export default function CREPDashboardPage({
   // Zoom 10+:  + Everything at full detail
   //
   // This matches OpenGridWorks visual hierarchy exactly.
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Infrastructure rendered via MapLibre native layers (not deck.gl) — NO FLICKERING.
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Infrastructure rendered via MapLibre native layers (not deck.gl) â€” NO FLICKERING.
   // Layers added directly to map in onLoad handler via map.addSource/addLayer.
-  // infraDeckLayers is empty — deck.gl only handles dynamic entities.
+  // infraDeckLayers is empty â€” deck.gl only handles dynamic entities.
   const infraDeckLayers: any[] = [];
-  // Old deck.gl infra code removed — now using MapLibre native layers
+  // Old deck.gl infra code removed â€” now using MapLibre native layers
   // See onLoad handler above for map.addSource/addLayer calls
 
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
-  
+
   // Client-side clock to prevent hydration mismatch
   const [clientTime, setClientTime] = useState<string>("");
   const [clientDate, setClientDate] = useState<string>("");
-  
+
   // Update clock only on client side
   useEffect(() => {
     const updateClock = () => {
@@ -7132,9 +7967,9 @@ export default function CREPDashboardPage({
     return () => clearInterval(interval);
   }, []);
 
-  // ════════════════════════════════════════════════════════════════════
-  // LIVE ENTITY PUMP (Fix B — Apr 18, 2026)
-  // ════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // LIVE ENTITY PUMP (Fix B â€” Apr 18, 2026)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // Independent of the main fetchData() effect so MycoBrain / global-events
   // timeouts can never block aircraft/vessels/satellites from loading.
   // Runs on mount + every 30s thereafter. Each fetch is error-isolated.
@@ -7144,7 +7979,9 @@ export default function CREPDashboardPage({
   // fetchData chain was awaiting slow upstream calls serially before
   // reaching Promise.allSettled. Extracting the pump into its own effect
   // removes that failure mode entirely.
-  // ════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const liveEntityPumpInFlightRef = useRef(false);
+
   useEffect(() => {
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
@@ -7152,11 +7989,9 @@ export default function CREPDashboardPage({
     if (!embeddedAllowsAircraft && !embeddedAllowsVessels && !embeddedAllowsSatellites) return;
     let cancelled = false;
 
-    const liveMoverLayerOn = (layerId: string) =>
-      layersRef.current.find((layer) => layer.id === layerId)?.enabled ?? false;
-
     const pumpLive = async () => {
       if (cancelled) return;
+      if (liveEntityPumpInFlightRef.current) return;
       if (!isStreaming) return;
       const shouldPauseMoverPump = () => {
         if (auditAllOffMode || assetIsolationMode) return true;
@@ -7165,15 +8000,16 @@ export default function CREPDashboardPage({
       };
       if (shouldPauseMoverPump()) return;
       const allowAircraft =
-        embeddedAllowsAircraft && (isSearchEmbedded || liveMoverLayerOn("aviation"));
+        embeddedAllowsAircraft;
       const allowVessels =
-        embeddedAllowsVessels && (isSearchEmbedded || liveMoverLayerOn("ships"));
+        embeddedAllowsVessels;
       const allowSatellites =
-        embeddedAllowsSatellites && (isSearchEmbedded || liveMoverLayerOn("satellites"));
+        embeddedAllowsSatellites;
       if (!allowAircraft && !allowVessels && !allowSatellites) return;
+      liveEntityPumpInFlightRef.current = true;
       console.log("[CREP/pump] live-entity tick at", new Date().toISOString());
 
-      // Each fetch is independent — Promise.allSettled + per-call try/catch.
+      // Each fetch is independent â€” Promise.allSettled + per-call try/catch.
       // Apr 21, 2026 (Morgan OOM audit): per-endpoint circuit-breaker so a
       // dead upstream stops spamming console + burning CPU on retries.
       // After 3 consecutive failures, skip for 5 minutes, then retry.
@@ -7210,12 +8046,33 @@ export default function CREPDashboardPage({
         if (!response.ok) return null;
         return response.json();
       }
+      const dedupeMoverRows = (
+        rows: any[],
+        idKey: (row: any) => string | number | undefined | null,
+        preferIncoming?: (incoming: any, existing: any) => boolean,
+      ) => {
+        const byId = new Map<string, any>();
+        for (const row of rows) {
+          if (!row) continue;
+          const id = idKey(row);
+          if (!id) continue;
+          const key = String(id);
+          const existing = byId.get(key);
+          if (!existing || preferIncoming?.(row, existing)) byId.set(key, row);
+        }
+        return Array.from(byId.values());
+      };
+      const satelliteHasTle = (row: any) =>
+        Boolean(row?.line1 && row?.line2) ||
+        Boolean(row?.properties?.line1 && row?.properties?.line2) ||
+        Boolean(row?.properties?.tle1 && row?.properties?.tle2);
 
-      await Promise.allSettled([
+      try {
+        await Promise.allSettled([
         (async () => {
           if (!allowAircraft || breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
-            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${RESOURCE_LIMITS.normal.aircraft}`, { signal: AbortSignal.timeout(15000) });
+            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${RESOURCE_LIMITS.normal.aircraft}`, { signal: AbortSignal.timeout(90_000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             const aircraftRows = readMoverRows(data, "aircraft");
@@ -7242,28 +8099,42 @@ export default function CREPDashboardPage({
           // /api/oei/aisstream goes through the multi-source vessel
           // registry which currently returns 0 from all 9 sub-sources
           // (MarineTraffic / VesselFinder / etc. all dry). The persistent
-          // AISstream WebSocket singleton IS collecting vessels though —
+          // AISstream WebSocket singleton IS collecting vessels though â€”
           // ?publish=true drops the registry fan-out and serves directly
           // from the AIS client's internal cache. Live probe: 15,815
           // vessels returned vs 0 via the multi-source path.
           try {
-            const res = await fetch(`/api/mindex/proxy/vessels?limit=${RESOURCE_LIMITS.normal.vessels}`, { signal: AbortSignal.timeout(15000) });
-            if (!res.ok || cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
-            const data = await res.json();
-            const vesselRows = readMoverRows(data, "vessels");
+            const currentBounds = mapBoundsRef.current;
+            const currentZoom = mapZoomRef.current ?? 0;
+            const vesselUrls = [
+              currentBounds && currentZoom >= 3
+                ? `/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${currentBounds.west}&lomax=${currentBounds.east}&limit=${RESOURCE_LIMITS.normal.vessels}`
+                : null,
+              `/api/oei/aisstream?limit=${RESOURCE_LIMITS.normal.vessels}`,
+            ].filter(Boolean) as string[];
+            const vesselPayloads = await Promise.allSettled(
+              vesselUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
+            );
+            if (cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
+            const vesselRows = dedupeMoverRows(
+              vesselPayloads.flatMap((result) =>
+                result.status === "fulfilled" && result.value ? readMoverRows(result.value, "vessels") : [],
+              ),
+              (v: any) => v.mmsi || v.properties?.mmsi || v.id,
+            );
             if (vesselRows.length > 0) {
-              // Apr 22, 2026 v3 — Morgan: "world zoom i need ≥30% of all
-              // vessels". Cap bumped 6k → 20k so the pool is deep enough
+              // Apr 22, 2026 v3 â€” Morgan: "world zoom i need â‰¥30% of all
+              // vessels". Cap bumped 6k â†’ 20k so the pool is deep enough
               // for stratified LOD to show ~30% globally without starving.
               // GPU upload is still capped via lodSelectForZoom() at
               // render time, so main-thread React diff cost only scales
               // with selected set (not full 20k).
-              // Apr 23, 2026 — Morgan: "fix it all so that never happens and
+              // Apr 23, 2026 â€” Morgan: "fix it all so that never happens and
               // never crashes or refreshes the site in overload". Browser
               // audit caught the tab crashing at z=4 with 20 000 vessels +
               // 2 269 aircraft + 224 layers in play. Dropped the vessel
-              // working set to 8 000 — still deep enough for lodSelectForZoom
-              // to sample the 30 % global floor (z≤2) and hit 100 % at z≥6,
+              // working set to 8 000 â€” still deep enough for lodSelectForZoom
+              // to sample the 30 % global floor (zâ‰¤2) and hit 100 % at zâ‰¥6,
               // but keeps the React diff + feature array cost well under the
               // GPU upload budget on an average Chrome tab.
               setVessels((prev) => mergeById(prev, vesselRows, {
@@ -7271,7 +8142,7 @@ export default function CREPDashboardPage({
                 ttlMs: ENTITY_TTL_MS.vessel,
                 maxEntries: Number.POSITIVE_INFINITY,
               }));
-              console.log(`[CREP/pump] vessels: ${vesselRows.length} (merged into persistent union)`);
+              console.log(`[CREP/pump] vessels: ${vesselRows.length} (viewport + live union merged)`);
               try { syncToMINDEX("vessels", vesselRows); } catch {}
             }
             breakerMark("__crep_pump_vessels_breaker", true, "vessels")
@@ -7282,19 +8153,22 @@ export default function CREPDashboardPage({
           }
         })(),
         (async () => {
-          if (!allowSatellites || breakerSkip("__crep_pump_satellites_breaker")) return
-          try {
-            const satellitePayloads = await Promise.allSettled([
-              fetchJsonWithTimeout(`/api/mindex/proxy/satellites?limit=${RESOURCE_LIMITS.normal.satellites}`, 20_000),
-              fetchJsonWithTimeout(`/api/oei/satellites?category=active&limit=${RESOURCE_LIMITS.normal.satellites}`, 20_000),
-            ]);
+            if (!allowSatellites || breakerSkip("__crep_pump_satellites_breaker")) return
+            try {
+              const satellitePayloads = await Promise.allSettled([
+                fetchJsonWithTimeout(`/api/oei/satellites?category=active&mode=registry&limit=${RESOURCE_LIMITS.normal.satellites}`, 90_000),
+              ]);
             if (cancelled) {
               breakerMark("__crep_pump_satellites_breaker", false, "satellites")
               return
             }
-            const sats = satellitePayloads
-              .flatMap((result) => result.status === "fulfilled" && result.value ? [readMoverRows(result.value, "satellites")] : [])
-              .find((rows) => rows.length > 0) ?? [];
+            const sats = dedupeMoverRows(
+              satellitePayloads.flatMap((result) =>
+                result.status === "fulfilled" && result.value ? readMoverRows(result.value, "satellites") : [],
+              ),
+              (s: any) => s.noradId || s.norad_id || s.properties?.noradId || s.properties?.norad_id || s.id,
+              (incoming, existing) => satelliteHasTle(incoming) && !satelliteHasTle(existing),
+            );
             initialSatelliteLoadDoneRef.current = true
             if (sats && sats.length > 0) {
               setSatellites((prev) => mergeById(prev, sats as any[], {
@@ -7315,14 +8189,17 @@ export default function CREPDashboardPage({
             if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites (${s}/3):`, (e as Error)?.message)
           }
         })(),
-      ]);
+        ]);
+      } finally {
+        liveEntityPumpInFlightRef.current = false;
+      }
     };
 
-    const initialPumpTimer = window.setTimeout(pumpLive, 900);
+    const initialPumpTimers = [900, 3000, 7000, 15000].map((delay) => window.setTimeout(pumpLive, delay));
     // Apr 20, 2026 perf-1 (Morgan: "make all map load faster every single
     // asset and system can have small if not micro efficiency improvments").
     // Visibility-aware throttle: skip the live-entity pump when the tab is
-    // backgrounded — no point burning ~3 API calls + 3 setState's every 30s
+    // backgrounded â€” no point burning ~3 API calls + 3 setState's every 30s
     // when nobody's looking. Last poll persists; rAF backstop keeps painting
     // existing positions. When user returns + visibilitychange fires, we
     // do an immediate pump to catch up.
@@ -7333,12 +8210,19 @@ export default function CREPDashboardPage({
     const onVisible = () => {
       if (!shouldPauseLiveWork()) pumpLive()
     }
+    const onMoverPumpRequest = () => {
+      window.setTimeout(() => {
+        if (!shouldPauseLiveWork()) pumpLive()
+      }, 250)
+    }
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("crep:mover-pump-request", onMoverPumpRequest as EventListener)
     return () => {
       cancelled = true
-      clearTimeout(initialPumpTimer)
+      initialPumpTimers.forEach((timer) => clearTimeout(timer))
       clearInterval(interval)
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("crep:mover-pump-request", onMoverPumpRequest as EventListener)
     }
   }, [auditAllOffMode, embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites, shouldPauseLiveWork, assetIsolationMode, isStreaming]);
 
@@ -7358,7 +8242,7 @@ export default function CREPDashboardPage({
       showCommercial: !filtersOff,
     };
   });
-  
+
   const [vesselFilter, setVesselFilter] = useState<VesselFilter>(() => {
     const filtersOff = getInitialFiltersOffMode();
     return {
@@ -7375,7 +8259,7 @@ export default function CREPDashboardPage({
       showAnchorages: !filtersOff,
     };
   });
-  
+
   const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>(() => {
     const filtersOff = getInitialFiltersOffMode();
     return {
@@ -7389,14 +8273,14 @@ export default function CREPDashboardPage({
       orbitTypes: [],
     };
   });
-  
+
   // Apr 20, 2026 (Morgan: "fix and turn off sun filters its causing crep
   // to reload over and over"). Every default-on space-weather filter
   // here triggers an /api/oei/space-weather poll on mount, and the
   // SpaceWeatherWidget + SunEarthImpactLayer subscribe to multiple of
   // these. With several upstream NOAA / DONKI / SWPC endpoints flapping
   // at once, the cascade was visibly stalling the dashboard. Default
-  // ALL space-weather toggles OFF — operator can re-enable from the
+  // ALL space-weather toggles OFF â€” operator can re-enable from the
   // Space Weather panel when they want them.
   const [spaceWeatherFilter, setSpaceWeatherFilter] = useState<SpaceWeatherFilter>({
     showSolarFlares: false,
@@ -7430,7 +8314,7 @@ export default function CREPDashboardPage({
     showFungalUncertainty: false,
     showFciPriority: false,
     showFungalSamples: false,
-    // Natural Events – earthquakes off at globe zoom by default (enable in layer panel)
+    // Natural Events â€“ earthquakes off at globe zoom by default (enable in layer panel)
     showEarthquakes: false,
     showVolcanoes: true,
     showWildfires: true,
@@ -7438,15 +8322,15 @@ export default function CREPDashboardPage({
     showLightning: true,
     showTornadoes: true,
     showFloods: true,
-    // Infrastructure – heavy layers off by default for tablet FPS
+    // Infrastructure â€“ heavy layers off by default for tablet FPS
     showFactories: false,
     showPowerPlants: false,
     showMining: true,
     showOilGas: true,
     showWaterPollution: true,
-    // Military & Defense – off until user enables
+    // Military & Defense â€“ off until user enables
     showMilitaryBases: false,
-    // Sensors – on by default
+    // Sensors â€“ on by default
     showMycoBrain: true,
     showSporeBase: true,
     showSmartFence: true,
@@ -7558,7 +8442,7 @@ export default function CREPDashboardPage({
   const canFetchEvents = embeddedAllowsEvents && eventFiltersActive;
   const canFetchNatureObservations = embeddedAllowsNature && natureSpeciesFiltersActive;
 
-  // Earth Observation imagery (NASA GIBS layers) – all off by default
+  // Earth Observation imagery (NASA GIBS layers) â€“ all off by default
   const [eoImageryFilter, setEoImageryFilter] = useState<EoImageryFilter>({
     showModis: false,
     showViirs: false,
@@ -7567,7 +8451,7 @@ export default function CREPDashboardPage({
     showEonet: false,
   });
 
-  // Basemap preference (dark | satellite) – stored in preferences
+  // Basemap preference (dark | satellite) â€“ stored in preferences
   const [, setBasemap] = useState<"dark" | "satellite" | null>(null);
 
   // Species filter for fungal observations (map overlay dropdown)
@@ -7577,7 +8461,7 @@ export default function CREPDashboardPage({
   const [fungalDropdownOpen, setFungalDropdownOpen] = useState(false);
   const fungalDropdownCloseTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Ground Station — consume context to render satellite positions + station on map
+  // Ground Station â€” consume context to render satellite positions + station on map
   const { state: gsState, selectGroup } = useGroundStation();
 
   const layerMetadataById: Record<string, { status: LayerDataStatus; source: string }> = {
@@ -7615,11 +8499,11 @@ export default function CREPDashboardPage({
     population: { status: "planned_real", source: "Census/WorldPop" },
     humanMovement: { status: "planned_real", source: "Mobility Providers" },
     events_human: { status: "planned_real", source: "Event Feeds" },
-    militaryAir: { status: "planned_real", source: "—" },
-    militaryNavy: { status: "planned_real", source: "—" },
+    militaryAir: { status: "planned_real", source: "â€”" },
+    militaryNavy: { status: "planned_real", source: "â€”" },
     militaryBases: { status: "real", source: "OSM+MINDEX" },
-    tanks: { status: "planned_real", source: "—" },
-    militaryDrones: { status: "planned_real", source: "—" },
+    tanks: { status: "planned_real", source: "â€”" },
+    militaryDrones: { status: "planned_real", source: "â€”" },
     factories: { status: "planned_real", source: "Industrial Registries" },
     co2Sources: { status: "planned_real", source: "Emissions Inventories" },
     methaneSources: { status: "planned_real", source: "Methane Datasets" },
@@ -7627,12 +8511,6 @@ export default function CREPDashboardPage({
     powerPlants: { status: "planned_real", source: "Power Plants" },
     metalOutput: { status: "planned_real", source: "Mining Data" },
     waterPollution: { status: "planned_real", source: "Water Quality" },
-    earth2Forecast: { status: "planned_real", source: "Earth-2" },
-    earth2Nowcast: { status: "planned_real", source: "Earth-2" },
-    earth2Spore: { status: "planned_real", source: "Earth-2" },
-    earth2Wind: { status: "planned_real", source: "Earth-2" },
-    earth2Temp: { status: "planned_real", source: "Earth-2" },
-    earth2Precip: { status: "planned_real", source: "Earth-2" },
   };
 
   // Layer states - NATURE DATA FIRST, transport/military OFF by default
@@ -7640,9 +8518,9 @@ export default function CREPDashboardPage({
   // Secondary layers: Transport, military - toggleable demos for correlation analysis
   const [layers, setLayers] = useState<LayerConfig[]>(() => {
     const initialLayers = applyRequestedFungalLayersToLayers(applyAssetIsolationToLayers([
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
     { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
@@ -7652,11 +8530,11 @@ export default function CREPDashboardPage({
     { id: "sporebase", name: "SporeBase", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "SporeBase environmental spore detection sensors" },
     { id: "devMycoNode", name: "MycoNode", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoNode edge compute node (Jetson + MycoBrain bridge to MQTT / MDP / MMP)" },
     { id: "devAlarm", name: "Alarm", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Alarm sensor (MycoBrain-powered event trigger)" },
-    { id: "devPsathyrella", name: "Psathyrella (Buoy)", category: "devices", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1, color: "#38bdf8", description: "Psathyrella aquatic MycoBrain buoy — marine spore + water chemistry" },
+    { id: "devPsathyrella", name: "Psathyrella (Buoy)", category: "devices", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1, color: "#38bdf8", description: "Psathyrella aquatic MycoBrain buoy â€” marine spore + water chemistry" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
     { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
-    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas. Apr 22 2026 flipped ON per Morgan — all permanent infra + project layers on from start." },
+    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas. Apr 22 2026 flipped ON per Morgan â€” all permanent infra + project layers on from start." },
     { id: "fungalAtlasMycelium", name: "Mycelium Heat", category: "environment", icon: <span className="text-[11px]">{"\u{1F344}"}</span>, enabled: false, opacity: 1, color: "#22c55e", description: "MINDEX fungal atlas predicted mycorrhizal richness surface." },
     { id: "fungalAtlasAM", name: "AM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">AM</span>, enabled: false, opacity: 0.55, color: "#22c55e", description: "Native arbuscular mycorrhizal richness layer." },
     { id: "fungalAtlasECM", name: "EcM Fungi Distribution", category: "environment", icon: <span className="text-[9px] font-bold">Ec</span>, enabled: false, opacity: 0.55, color: "#d946ef", description: "Native ectomycorrhizal richness layer." },
@@ -7667,21 +8545,22 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasSamples", name: "Fungal Sequence Samples", category: "environment", icon: <Database className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f59e0b", description: "Zoom-gated GlobalFungi/GlobalAMFungi/GSMc sample points; raw sequences stay server-side." },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
     { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
     // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
+    { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
     { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
     { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
     { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
@@ -7695,150 +8574,148 @@ export default function CREPDashboardPage({
     { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
     { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
     { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM â€” US + global" },
     { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
     { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
     { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
-    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
+    { id: "co2Sources", name: "COÃ¢â€šâ€š Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "Major COÃ¢â€šâ€š emitters and hotspots" },
     { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
     { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
-    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants — OpenGridWorks-style" },
+    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants â€” OpenGridWorks-style" },
     { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
     { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
-    // TELECOM & INFRASTRUCTURE — OpenGridWorks-style (Apr 2026)
+    // TELECOM & INFRASTRUCTURE â€” OpenGridWorks-style (Apr 2026)
     { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
     { id: "dataCenters", name: "Data Centers (all sources)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Unified toggle: OSM + global + IM3 atlas + IM3 footprints. NYC/DC/Vegas/SD-TJ metro detail follows this filter automatically." },
     { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
-    // ═══════════════════════════════════════════════════════════════════════
-    // LIVE TRANSIT — Apr 23 2026, Morgan: "compete with google maps live
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // LIVE TRANSIT â€” Apr 23 2026, Morgan: "compete with google maps live
     // traffic public transportation". Polls /api/transit/all every 15 s,
     // aggregated feed from MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/
     // Amtrak/SEPTA/Metrolink/DART. Colored by vehicle_type.
-    // ═══════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "liveTransit", name: "Live Transit (Trains/Buses)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "Live US transit: MTA, WMATA, BART, MBTA, Bay Area 511, CTA, TriMet, MARTA, Amtrak, SEPTA, Metrolink, DART" },
-    // Apr 23, 2026 — Morgan: "all aqi live feeds not working fix them".
+    // Apr 23, 2026 â€” Morgan: "all aqi live feeds not working fix them".
     // Fixed the AIRNOW_API_KEY config on the sandbox; now adding the
     // MapLibre dot layer so every AirNow monitor in viewport renders
-    // color-coded by EPA AQI category. Click → LiveAQIWidget popup.
-    { id: "liveAqi", name: "Air Quality (AirNow)", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#00e400", description: "Live AQI from AirNow monitors — ~2 000 US + partner sites, updated hourly. Circles colored EPA Good→Hazardous. Click a monitor for the per-pollutant widget." },
-    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // color-coded by EPA AQI category. Click â†’ LiveAQIWidget popup.
+    { id: "liveAqi", name: "Air Quality (AirNow)", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#00e400", description: "Live AQI from AirNow monitors â€” ~2 000 US + partner sites, updated hourly. Circles colored EPA Goodâ†’Hazardous. Click a monitor for the per-pollutant widget." },
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
+    // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+    // Earth2/GPU weather controls are disabled until the production GPU service is ready.
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
-    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
-    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
-    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
-    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
-    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // EARTH OBSERVATION IMAGERY — controlled by on-map MapLayersPopup
+    // EARTH OBSERVATION IMAGERY â€” controlled by on-map MapLayersPopup
     // GIBS rendering handled via eoImageryFilter state + GibsBaseLayers
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ADDITIONAL TELECOM (non-duplicate)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ADDITIONAL FACILITIES (real data via Overpass API)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
     { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
     { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
+    { id: "policeStations", name: "Police Stations", category: "facilities", icon: <ShieldIcon className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#38bdf8", description: "Police, sheriff, and public-safety facilities from OSM and baked civic data" },
+    { id: "libraries", name: "Libraries", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#facc15", description: "Public library civic facilities from OSM and baked civic data" },
+    { id: "civicFacilities", name: "Civic Buildings", category: "facilities", icon: <Landmark className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#14b8a6", description: "City halls, town halls, courthouses, and municipal buildings" },
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // PROPOSAL OVERLAYS (Apr 2026) â€” Army contract deliverable coverage
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
-    // CCTV / webcam feeds — MINDEX crep.cctv_cameras + Shinobi on MAS VM
+    // CCTV / webcam feeds â€” MINDEX crep.cctv_cameras + Shinobi on MAS VM
     // (Cursor deployed Apr 20, 2026). Empty registry until seeded; filter
     // toggle + click widget still work.
     { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
 
-    // ═══ Eagle Eye — Video Intelligence Layer (Phase 1 — Apr 20, 2026) ═══
+    // â•â•â• Eagle Eye â€” Video Intelligence Layer (Phase 1 â€” Apr 20, 2026) â•â•â•
     // Dual-plane: registered cameras (permanent) + ephemeral social video
     // (YouTube Live + Bluesky/Mastodon/X feeds). Cursor applied the
     // eagle.* MINDEX schema on VM 189 and deployed MediaMTX on MAS 188.
     // See components/crep/layers/eagle-eye-overlay.tsx.
-    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "Permanent video sources — Shinobi + Caltrans/511 traffic + Windy + EarthCam + NPS/USGS + ALERTWildfire / HPWREN + Surfline. Small cyan dots (same scale as cell towers, not solar-yellow power plants). Click for live stream or snapshot." },
-    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky / Mastodon / Twitch video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier (native > platform-inferred > text-inferred)." },
+    { id: "eagleEyeCameras", name: "Eagle Eye â€” Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "Permanent video sources â€” Shinobi + Caltrans/511 traffic + Windy + EarthCam + NPS/USGS + ALERTWildfire / HPWREN + Surfline. Small cyan dots (same scale as cell towers, not solar-yellow power plants). Click for live stream or snapshot." },
+    { id: "eagleEyeEvents", name: "Eagle Eye â€” Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky / Mastodon / Twitch video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier (native > platform-inferred > text-inferred)." },
 
-    // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
+    // â•â•â• EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) â•â•â•
     // Canonical US datasets that OpenGridView uses. See
     // components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md
     // for provenance + refresh policy.
-    { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 — 1,479 existing US data centers with building/campus classification + sqft + operator" },
-    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom ≥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
-    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
-    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
-    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
-    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
+    { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 â€” 1,479 existing US data centers with building/campus classification + sqft + operator" },
+    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom â‰¥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
+    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 â€” 27,716 operating utility-scale generators with technology + capacity" },
+    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 â€” 1,946 PLANNED generators with operation year + technology (future grid)" },
+    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 â€” 7,201 retired generators with retirement year" },
+    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 â€” 1,605 canceled or postponed generators" },
     { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
     { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
     { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
-    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
-    { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst. OFF by default — 22k animated SGP4 dots alongside active satellites + everything else pushes the GPU into frame-drop territory." },
-    { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud. OFF by default: rendering 1.2M deck.gl points + everything else crashes the browser. Enable explicitly when the orbital debris view is the focus." },
-    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) — 22,760 lines. Apr 22 2026 flipped ON per Morgan — served via PMTiles so only viewport tiles hit heap." },
-    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — 52,244 lines incl. 69/115/138/230 kV feeders. Apr 22 2026 flipped ON per Morgan — PMTiles path only. If prod shows OOM, switch back to PMTiles-only fallback (static-infra-loader handles mode selection)." },
+    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM â€” bbox-scoped" },
+    { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst. OFF by default â€” 22k animated SGP4 dots alongside active satellites + everything else pushes the GPU into frame-drop territory." },
+    { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution â€” density cloud. OFF by default: rendering 1.2M deck.gl points + everything else crashes the browser. Enable explicitly when the orbital debris view is the focus." },
+    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) â€” 22,760 lines. Apr 22 2026 flipped ON per Morgan â€” served via PMTiles so only viewport tiles hit heap." },
+    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM â€” 52,244 lines incl. 69/115/138/230 kV feeders. Apr 22 2026 flipped ON per Morgan â€” PMTiles path only. If prod shows OOM, switch back to PMTiles-only fallback (static-infra-loader handles mode selection)." },
     { id: "substations", name: "Substations", category: "infrastructure", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 0.82, color: "#a78bfa", description: "HIFLD + OSM + MINDEX electrical substations; viewport and zoom gated so dense regions do not stall navigation." },
-    // Apr 22, 2026 — Morgan: "example i see a substation with no line to
+    // Apr 22, 2026 â€” Morgan: "example i see a substation with no line to
     // it that doesnt make sense ... THIS NEEDS TO BE FIXED ACROSS ALL
-    // INFRA GLOBALLY". HIFLD only carries ≥115 kV; this layer fills the
-    // ≤115 kV sub-transmission gap from OSM (baked weekly via GHA cron).
+    // INFRA GLOBALLY". HIFLD only carries â‰¥115 kV; this layer fills the
+    // â‰¤115 kV sub-transmission gap from OSM (baked weekly via GHA cron).
     // Dashed lines differentiate community OSM from authoritative HIFLD.
-    { id: "txLinesSub", name: "Sub-Transmission (OSM)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.65, color: "#f97316", description: "OSM community-mapped sub-transmission lines (≤115 kV). Fills the 69/34.5 kV feeder gap HIFLD misses — Loveland, Jamacha, Otay, Chula Vista etc. Dashed rendering. Rebuilt weekly by the OSM harvester (bake-osm-sub-transmission.mjs)." },
-    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally). Apr 22 2026 flipped ON per Morgan — bbox-scoped so viewport-relevant only." },
-    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan — viewport-scoped tile render only keeps wide-area OOM at bay." },
+    { id: "txLinesSub", name: "Sub-Transmission (OSM)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.65, color: "#f97316", description: "OSM community-mapped sub-transmission lines (â‰¤115 kV). Fills the 69/34.5 kV feeder gap HIFLD misses â€” Loveland, Jamacha, Otay, Chula Vista etc. Dashed rendering. Rebuilt weekly by the OSM harvester (bake-osm-sub-transmission.mjs)." },
+    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5â€“7k globally). Apr 22 2026 flipped ON per Morgan â€” bbox-scoped so viewport-relevant only." },
+    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM â€” bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan â€” viewport-scoped tile render only keeps wide-area OOM at bay." },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
-    { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
+    { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap â€” global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
-    { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan — the fill polygons block icon clicks underneath the zone." },
-    // Apr 22, 2026 — SD + TJ coverage expansion layers (Morgan: "massive
+    { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace â€” CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan â€” the fill polygons block icon clicks underneath the zone." },
+    // Apr 22, 2026 â€” SD + TJ coverage expansion layers (Morgan: "massive
     // amount of missing data from TIJUANA including infra cell towers
     // enviornmental sensors, military, police, hospitals, sewage line
     // data centers, am fm antennas same with san diego missing data").
     // Baked by scripts/etl/crep/bake-sdtj-coverage.mjs from OSM Overpass.
     { id: "sdtjHospitals",    name: "Hospitals (SD/TJ)",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped hospitals + clinics within the SD County + Tijuana bbox (136 points). Fills gaps HIFLD doesn't cover in Mexico and municipal-scale care facilities." },
-    { id: "sdtjPolice",       name: "Police / Fire / Border (SD/TJ)", category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "OSM police stations, fire stations, border-control posts in SD + TJ (128 points). US CBP, SD PD, SD Fire, Policía Municipal de Tijuana, Bomberos TJ." },
-    { id: "sdtjSewage",       name: "Sewage Works (SD/TJ)",           category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "OSM sewage treatment plants + wastewater facilities (1 major — SBIWTP etc.). Relevant to cross-border contamination tracking for Project Oyster." },
+    { id: "sdtjPolice",       name: "Police / Fire / Border (SD/TJ)", category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "OSM police stations, fire stations, border-control posts in SD + TJ (128 points). US CBP, SD PD, SD Fire, PolicÃ­a Municipal de Tijuana, Bomberos TJ." },
+    { id: "sdtjSewage",       name: "Sewage Works (SD/TJ)",           category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "OSM sewage treatment plants + wastewater facilities (1 major â€” SBIWTP etc.). Relevant to cross-border contamination tracking for Project Oyster." },
     { id: "sdtjCellTowers",   name: "Cell Towers (OSM, SD/TJ detail)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast in SD + TJ (449 points). Supplements the global OpenCellID dataset for local detail, especially Mexican carriers Telcel / AT&T Mexico / Movistar." },
     { id: "sdtjAmFmAntennas", name: "AM/FM / TV antennas (SD/TJ)",    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + tower:type=broadcast (84 points). AM/FM radio + TV transmit antennas not in the global datacenter set." },
     { id: "sdtjMilitary",     name: "Military installations (OSM)",   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* boundaries and landuse=military polygons (229 features). Covers US Navy + USMC + Army + the Mexican SEDENA side of the border. Supplements the existing Navy base overlay with smaller depots/guard stations." },
     { id: "sdtjDataCenters",  name: "Data Centers (SD/TJ detail)",    category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center + building=data_center (13 points). Complements the global data-centers file with carrier-hotel details." },
 
-    // Apr 23, 2026 — Project NYC (Morgan: "massive amount of missing data
+    // Apr 23, 2026 â€” Project NYC (Morgan: "massive amount of missing data
     // ... fly to and layers of details perimeters and special icon locations
     // for dc and new york"). 11 OSM-baked regional layers + project anchor.
-    { id: "projectNyc",         name: "Project NYC — anchor + perimeter",  category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT Project NYC anchor + 5-borough perimeter + landmark POIs (Times Sq, Central Park, WTC, etc). Fly to with __crep_flyTo('project-nyc')." },
-    { id: "nycHospitals",       name: "NYC — Hospitals",                   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped NYC 5-borough + NJ approach hospitals + clinics (~400)." },
-    { id: "nycPolice",          name: "NYC — Police / Fire",               category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "NYPD + FDNY precincts + firehouses (OSM)." },
-    { id: "nycSewage",          name: "NYC — Sewage Works",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "NYC DEP wastewater treatment plants (Newtown Creek etc.)." },
-    { id: "nycCellTowers",      name: "NYC — Cell Towers (detail)",        category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast across NYC." },
-    { id: "nycAmFmAntennas",    name: "NYC — AM/FM / TV antennas",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + broadcast tower." },
-    { id: "nycMilitary",        name: "NYC — Military installations",      category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* NYC bbox (Army Reserves, USCG, Ft Hamilton etc.)." },
-    { id: "nycDataCenters",     name: "NYC — Data Centers",                category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center NYC detail (60 Hudson, 111 8th, 325 Hudson etc.)." },
-    { id: "nycTransitSubway",   name: "NYC — Subway Stations",             category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "MTA NYC subway stations (all lines)." },
-    { id: "nycTransitRail",     name: "NYC — Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
-    { id: "nycAirports",        name: "NYC — Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
-    { id: "nycGovtEmbassy",     name: "NYC — Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
-    // Apr 23, 2026 — per Morgan ("that data should not be icon different then
+    { id: "projectNyc",         name: "Project NYC â€” anchor + perimeter",  category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT Project NYC anchor + 5-borough perimeter + landmark POIs (Times Sq, Central Park, WTC, etc). Fly to with __crep_flyTo('project-nyc')." },
+    { id: "nycHospitals",       name: "NYC â€” Hospitals",                   category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM-mapped NYC 5-borough + NJ approach hospitals + clinics (~400)." },
+    { id: "nycPolice",          name: "NYC â€” Police / Fire",               category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "NYPD + FDNY precincts + firehouses (OSM)." },
+    { id: "nycSewage",          name: "NYC â€” Sewage Works",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "NYC DEP wastewater treatment plants (Newtown Creek etc.)." },
+    { id: "nycCellTowers",      name: "NYC â€” Cell Towers (detail)",        category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM communications_tower + mast across NYC." },
+    { id: "nycAmFmAntennas",    name: "NYC â€” AM/FM / TV antennas",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM man_made=antenna + broadcast tower." },
+    { id: "nycMilitary",        name: "NYC â€” Military installations",      category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* NYC bbox (Army Reserves, USCG, Ft Hamilton etc.)." },
+    { id: "nycDataCenters",     name: "NYC â€” Data Centers",                category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "OSM telecom=data_center NYC detail (60 Hudson, 111 8th, 325 Hudson etc.)." },
+    { id: "nycTransitSubway",   name: "NYC â€” Subway Stations",             category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "MTA NYC subway stations (all lines)." },
+    { id: "nycTransitRail",     name: "NYC â€” Rail Stations (LIRR/NJT/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "LIRR, Metro-North, NJ Transit, Amtrak rail stations." },
+    { id: "nycAirports",        name: "NYC â€” Airports",                    category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "JFK, LGA, Newark, Teterboro, heliports." },
+    { id: "nycGovtEmbassy",     name: "NYC â€” Government / Embassy / Consulate", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "UN, foreign consulates, courthouses, city government." },
+    // Apr 23, 2026 â€” per Morgan ("that data should not be icon different then
     // all the other nature data") baked NYC + DC iNat observations now flow
     // into the shared `fungalObservations` state at mount and render through
-    // FungalMarker just like the live SSE stream. The old "NYC/DC — Nature
+    // FungalMarker just like the live SSE stream. The old "NYC/DC â€” Nature
     // observations (iNat)" standalone toggles were tied to a separate
     // MapLibre circle layer that no longer exists; removed so the layer
     // panel doesn't show a duplicate "Nature observations" entry that does
@@ -7846,50 +8723,50 @@ export default function CREPDashboardPage({
     // ANY iNat (baked or live) renders.
 
     // Project DC
-    { id: "projectDc",          name: "Project DC — anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
-    { id: "dcHospitals",        name: "DC — Hospitals",                    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals DC + Arlington + Bethesda + Walter Reed (152 features)." },
-    { id: "dcPolice",           name: "DC — Police / Fire / USSS",         category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "MPD + USSS + Capitol Police + AFD + Arlington County fire (117 points)." },
-    { id: "dcSewage",           name: "DC — Sewage Works",                 category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "DC Water + regional WW treatment (Blue Plains etc.)." },
-    { id: "dcCellTowers",       name: "DC — Cell Towers (detail)",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "530 OSM comms towers + masts across the NCR." },
-    { id: "dcAmFmAntennas",     name: "DC — AM/FM / TV antennas",          category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas (25 points)." },
-    { id: "dcMilitary",         name: "DC — Military installations",       category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* — Pentagon, Ft Myer, JB Andrews, Ft Meade, Ft Belvoir, Walter Reed, NSA (86 features)." },
-    { id: "dcDataCenters",      name: "DC — Data Centers",                 category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Ashburn cluster + NoVA + DC proper." },
-    { id: "dcTransitSubway",    name: "DC — WMATA Metro Stations",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "WMATA Metrorail (all lines)." },
-    { id: "dcTransitRail",      name: "DC — Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
-    { id: "dcAirports",         name: "DC — Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
-    { id: "dcGovtEmbassy",      name: "DC — Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
-    // dcInat removed — see nycInat comment above. Baked DC iNat observations
+    { id: "projectDc",          name: "Project DC â€” anchor + perimeter",   category: "projects",       icon: <Sparkles className="w-3 h-3" />,   enabled: true,  opacity: 1.0, color: "#facc15", description: "MYCOSOFT Project DC anchor + NCR perimeter + landmark POIs (White House, Capitol, Pentagon, CIA HQ). Fly to with __crep_flyTo('project-dc')." },
+    { id: "dcHospitals",        name: "DC â€” Hospitals",                    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals DC + Arlington + Bethesda + Walter Reed (152 features)." },
+    { id: "dcPolice",           name: "DC â€” Police / Fire / USSS",         category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "MPD + USSS + Capitol Police + AFD + Arlington County fire (117 points)." },
+    { id: "dcSewage",           name: "DC â€” Sewage Works",                 category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "DC Water + regional WW treatment (Blue Plains etc.)." },
+    { id: "dcCellTowers",       name: "DC â€” Cell Towers (detail)",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "530 OSM comms towers + masts across the NCR." },
+    { id: "dcAmFmAntennas",     name: "DC â€” AM/FM / TV antennas",          category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas (25 points)." },
+    { id: "dcMilitary",         name: "DC â€” Military installations",       category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "OSM military=* â€” Pentagon, Ft Myer, JB Andrews, Ft Meade, Ft Belvoir, Walter Reed, NSA (86 features)." },
+    { id: "dcDataCenters",      name: "DC â€” Data Centers",                 category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Ashburn cluster + NoVA + DC proper." },
+    { id: "dcTransitSubway",    name: "DC â€” WMATA Metro Stations",         category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "WMATA Metrorail (all lines)." },
+    { id: "dcTransitRail",      name: "DC â€” Rail Stations (MARC/VRE/Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "MARC, VRE, Amtrak Union Station + regional." },
+    { id: "dcAirports",         name: "DC â€” Airports",                     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Reagan National, Dulles, BWI, Joint Base Andrews." },
+    { id: "dcGovtEmbassy",      name: "DC â€” Government / Embassy / IC",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Embassies, WH/Capitol, departments, courthouses, IC buildings (CIA, NGA, NSA etc.)." },
+    // dcInat removed â€” see nycInat comment above. Baked DC iNat observations
     // load into the same fungalObservations state as the live stream.
 
-    // Apr 23, 2026 — Morgan (Vegas trip prep): "project Las Vegas and
+    // Apr 23, 2026 â€” Morgan (Vegas trip prep): "project Las Vegas and
     // add filters and cameras and naturedata ... i want massive extra
     // las vegas data icons real live on the las vegas strip and fremont
     // street". 11 city layers mirroring NYC/DC, using the vegas-* OSM
     // bakes from PR #110's 15-metro job. Strip + Fremont + City Hall +
     // Bellagio + Sphere + Hoover Dam YouTube-live cams ship via the
     // eagle-cameras-vegas-seed.geojson loaded in EagleEyeOverlay.
-    { id: "projectVegas",       name: "Project Las Vegas — anchor + perimeter", category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f43f5e", description: "MYCOSOFT Project Las Vegas anchor + metro perimeter + landmark POIs (Strip, Fremont, Bellagio, Sphere, Hoover Dam, Red Rock Canyon, Nellis AFB). Fly to with __crep_flyTo('project-vegas')." },
-    { id: "vegasHospitals",     name: "Vegas — Hospitals",                 category: "infrastructure", icon: <Cross className="w-3 h-3" />,      enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals — UMC, Sunrise, Valley, Summerlin, Desert Springs, Nellis AFB medical." },
-    { id: "vegasPolice",        name: "Vegas — Police / Fire",             category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "LVMPD + Clark County + North Las Vegas + Henderson + Fire/Rescue stations." },
-    { id: "vegasSewage",        name: "Vegas — Sewage Works",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "Clark County Water Reclamation District + Henderson WRF." },
-    { id: "vegasCellTowers",    name: "Vegas — Cell Towers (detail)",      category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM comms towers across the Las Vegas Valley." },
-    { id: "vegasAmFmAntennas",  name: "Vegas — AM/FM / TV antennas",       category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas covering LV Valley + Black Mountain." },
-    { id: "vegasMilitary",      name: "Vegas — Military installations",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "Nellis AFB + Creech AFB + NTTR — unclassified OSM perimeters only." },
-    { id: "vegasDataCenters",   name: "Vegas — Data Centers",              category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Switch SUPERNAP campus + Summerlin DCs + colo facilities." },
-    { id: "vegasTransitSubway", name: "Vegas — Monorail + LVCVA tram",     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "Las Vegas Monorail + Mandalay Bay tram + Vegas Loop (Boring Co.) stations from OSM." },
-    { id: "vegasTransitRail",   name: "Vegas — Rail (Brightline / Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "Amtrak bus/rail + Brightline LV-LA stations (where published in OSM)." },
-    { id: "vegasAirports",      name: "Vegas — Airports",                  category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Harry Reid International (LAS) + North Las Vegas (VGT) + Henderson Executive (HND) + heliports." },
-    { id: "vegasGovtEmbassy",   name: "Vegas — Government",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Las Vegas City Hall + Clark County gov + federal courthouse + courthouses + LVCVA." },
-    // vegasInat (no toggle) — baked Vegas iNat observations load into the
+    { id: "projectVegas",       name: "Project Las Vegas â€” anchor + perimeter", category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f43f5e", description: "MYCOSOFT Project Las Vegas anchor + metro perimeter + landmark POIs (Strip, Fremont, Bellagio, Sphere, Hoover Dam, Red Rock Canyon, Nellis AFB). Fly to with __crep_flyTo('project-vegas')." },
+    { id: "vegasHospitals",     name: "Vegas â€” Hospitals",                 category: "infrastructure", icon: <Cross className="w-3 h-3" />,      enabled: true,  opacity: 0.85, color: "#f43f5e", description: "OSM hospitals â€” UMC, Sunrise, Valley, Summerlin, Desert Springs, Nellis AFB medical." },
+    { id: "vegasPolice",        name: "Vegas â€” Police / Fire",             category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.85, color: "#3b82f6", description: "LVMPD + Clark County + North Las Vegas + Henderson + Fire/Rescue stations." },
+    { id: "vegasSewage",        name: "Vegas â€” Sewage Works",              category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.6,  color: "#a16207", description: "Clark County Water Reclamation District + Henderson WRF." },
+    { id: "vegasCellTowers",    name: "Vegas â€” Cell Towers (detail)",      category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.8,  color: "#ec4899", description: "OSM comms towers across the Las Vegas Valley." },
+    { id: "vegasAmFmAntennas",  name: "Vegas â€” AM/FM / TV antennas",       category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#a855f7", description: "OSM broadcast antennas covering LV Valley + Black Mountain." },
+    { id: "vegasMilitary",      name: "Vegas â€” Military installations",    category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.5,  color: "#10b981", description: "Nellis AFB + Creech AFB + NTTR â€” unclassified OSM perimeters only." },
+    { id: "vegasDataCenters",   name: "Vegas â€” Data Centers",              category: "infrastructure", icon: <Building2 className="w-3 h-3" />,  enabled: true,  opacity: 0.85, color: "#06b6d4", description: "Switch SUPERNAP campus + Summerlin DCs + colo facilities." },
+    { id: "vegasTransitSubway", name: "Vegas â€” Monorail + LVCVA tram",     category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#f59e0b", description: "Las Vegas Monorail + Mandalay Bay tram + Vegas Loop (Boring Co.) stations from OSM." },
+    { id: "vegasTransitRail",   name: "Vegas â€” Rail (Brightline / Amtrak)", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.85, color: "#eab308", description: "Amtrak bus/rail + Brightline LV-LA stations (where published in OSM)." },
+    { id: "vegasAirports",      name: "Vegas â€” Airports",                  category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true,  opacity: 0.9,  color: "#8b5cf6", description: "Harry Reid International (LAS) + North Las Vegas (VGT) + Henderson Executive (HND) + heliports." },
+    { id: "vegasGovtEmbassy",   name: "Vegas â€” Government",                category: "infrastructure", icon: <Shield className="w-3 h-3" />,     enabled: true,  opacity: 0.8,  color: "#14b8a6", description: "Las Vegas City Hall + Clark County gov + federal courthouse + courthouses + LVCVA." },
+    // vegasInat (no toggle) â€” baked Vegas iNat observations load into the
     // shared fungalObservations state alongside NYC/DC when the file is
     // present at /data/crep/vegas-inat.geojson. Gated by the master
     // "fungi" layer toggle.
-    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
-    { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap — competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
-    { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default — vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
-    { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14. OFF by default — the Cesium Ion loader pulls GBs of 3D mesh data; enable explicitly at high zoom over a city." },
-    { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both. OFF by default (Morgan: too much on load) — stacked raster layers + 5-min weather poll add up. Toggle on when you want cloud cover in the view." },
-    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay). OFF by default (Morgan: too much on load) — polls DONKI + NOAA SWPC + aurora oval APIs on mount. Toggle on when space-weather view is the focus." },
+    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery â€” Google-Earth-level detail to zoom 19, free, no key" },
+    { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid â€” high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN). OFF by default: alternate basemap â€” competes with ESRI Satellite Imagery if both on. Pick one. Routes through MINDEX tile cache when available." },
+    { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom â‰¥ 14 â€” real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic. OFF by default â€” vector-tile extrusion is GPU-heavy at z14+. Toggle on for MYCA device placement / urban analysis." },
+    { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom â‰¥ 14. OFF by default â€” the Cesium Ion loader pulls GBs of 3D mesh data; enable explicitly at high zoom over a city." },
+    { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both. OFF by default (Morgan: too much on load) â€” stacked raster layers + 5-min weather poll add up. Toggle on when you want cloud cover in the view." },
+    { id: "sunEarthImpact", name: "Sunâ†’Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspotâ†’earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay). OFF by default (Morgan: too much on load) â€” polls DONKI + NOAA SWPC + aurora oval APIs on mount. Toggle on when space-weather view is the focus." },
 
     // May 21 2026 (Morgan: "where are the filters for the FEMA regions and
     // everything else that is on the map?"). addJurisdictionLayers used to
@@ -7899,65 +8776,65 @@ export default function CREPDashboardPage({
     // map.setLayoutProperty calls on the corresponding crep-boundaries-*
     // and crep-fema-regions-* maplibre layer ids.
     { id: "jurisdictionCountry", name: "Country Borders", category: "infrastructure", icon: <Globe className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#4ade80", description: "Country-level admin boundaries from the basemap vector tiles. Dashed green lines, always visible at zoom 1+." },
-    { id: "jurisdictionState", name: "State / Province Borders", category: "infrastructure", icon: <Landmark className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#38bdf8", description: "State / province outlines + uppercase name labels (sky blue). Visible from zoom 2+ on the globe; labels from zoom 3–11." },
+    { id: "jurisdictionState", name: "State / Province Borders", category: "infrastructure", icon: <Landmark className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#38bdf8", description: "State / province outlines + uppercase name labels (sky blue). Visible from zoom 2+ on the globe; labels from zoom 3â€“11." },
     { id: "jurisdictionCounty", name: "County / District Borders", category: "infrastructure", icon: <MapPin className="w-3 h-3" />, enabled: true, opacity: 0.3, color: "#a78bfa", description: "County / district admin boundaries from the basemap vector tiles. Dashed purple lines, visible at zoom 7+." },
-    { id: "jurisdictionFema", name: "FEMA Regions", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "FEMA 10-region overlay: colored fill, borders, and center titles (FEMA 1–10) — all controlled by this single toggle. OFF at startup." },
+    { id: "jurisdictionFema", name: "FEMA Regions", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "FEMA 10-region overlay: colored fill, borders, and center titles (FEMA 1â€“10) â€” all controlled by this single toggle. OFF at startup." },
 
-    // ═══════════════════════════════════════════════════════════════
-    // MYCOSOFT PROJECTS — dedicated category (Apr 21, 2026)
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // MYCOSOFT PROJECTS â€” dedicated category (Apr 21, 2026)
     // Morgan: "both need to be there in their own area on the filters
     // as Project filters" + "massive increase in data icons showing
     // cameras, am, fm, cell, power, live naturedata, rails, caves,
     // places related to goverment, tourism and any sensors or other
     // devices with live environmental data with heatmaps and overlays
     // of that data specifically for those projects".
-    // ═══════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-    // ── PROJECT OYSTER (MYCODAO + MYCOSOFT) — Tijuana Estuary / Imperial Beach / south SD ──
-    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley, Imperial Beach + south San Diego. Master switch for all Oyster sub-layers. ON by default (Apr 21 2026 — Morgan: all project filters on from load)." },
-    { id: "projectOysterPerimeter",  name: "Oyster — Perimeter polygon",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
-    { id: "projectOysterSites",      name: "Oyster — Restoration sites",                       category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
-    { id: "h2sHotspot",              name: "Oyster — H₂S hotspot (SDAPCD)",                    category: "projects", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
-    { id: "tjRiverFlow",             name: "Oyster — TJ River + IBWC discharge",               category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
-    { id: "tjBeachClosures",         name: "Oyster — Beach closures (SD DEH)",                  category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
-    { id: "tjNavyTraining",          name: "Oyster — Navy training waters",                    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
-    { id: "tjEstuaryMonitors",       name: "Oyster — NERR research monitors",                  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
+    // â”€â”€ PROJECT OYSTER (MYCODAO + MYCOSOFT) â€” Tijuana Estuary / Imperial Beach / south SD â”€â”€
+    { id: "tijuanaEstuary",          name: "Project Oyster â€” Master toggle (Tijuana Estuary)", category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) â€” federated pollution + environmental data layer for the Tijuana River Valley, Imperial Beach + south San Diego. Master switch for all Oyster sub-layers. ON by default (Apr 21 2026 â€” Morgan: all project filters on from load)." },
+    { id: "projectOysterPerimeter",  name: "Oyster â€” Perimeter polygon",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
+    { id: "projectOysterSites",      name: "Oyster â€” Restoration sites",                       category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
+    { id: "h2sHotspot",              name: "Oyster â€” Hâ‚‚S hotspot (SDAPCD)",                    category: "projects", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
+    { id: "tjRiverFlow",             name: "Oyster â€” TJ River + IBWC discharge",               category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
+    { id: "tjBeachClosures",         name: "Oyster â€” Beach closures (SD DEH)",                  category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
+    { id: "tjNavyTraining",          name: "Oyster â€” Navy training waters",                    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado â€” exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
+    { id: "tjEstuaryMonitors",       name: "Oyster â€” NERR research monitors",                  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
     // NEW (Apr 21, 2026 v2 expansion for Oyster):
-    { id: "oysterCameras",    name: "Oyster — Cameras",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "Surf cams + CBP POE + Caltrans I-5/SR-75 CCTV + NOAA buoy cams + EarthCam Imperial Beach + Coronado skyline cams." },
-    { id: "oysterBroadcast",  name: "Oyster — AM/FM/TV broadcast",  category: "projects", icon: <Radio className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM/TV stations covering SD/TJ cross-border corridor." },
-    { id: "oysterCell",       name: "Oyster — Cell towers",         category: "projects", icon: <Wifi className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#a855f7", description: "Curated cell sites across Imperial Beach, Coronado, Tijuana cross-border overlap." },
-    { id: "oysterPower",      name: "Oyster — Power infrastructure",category: "projects", icon: <Zap className="w-3 h-3" />,     enabled: true, opacity: 1.0, color: "#fbbf24", description: "SDG&E substations, Otay Mesa Generating, South Bay Power Plant, San Onofre (decommissioned), PG&E tie-ins." },
-    { id: "oysterNature",     name: "Oyster — Live iNat observations",category:"projects", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations (~200 per fetch) in TJ Estuary + Imperial Beach + Silver Strand bbox + La Jolla tide pools." },
-    { id: "oysterPlume",      name: "Oyster — UCSD PFM plume tracker", category: "projects", icon: <Waves className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#dc2626", description: "Pacific Forecast Model sewage plume tracker (SCCOOS / Scripps UCSD). Live fecal-indicator-bacteria (FIB) + ocean current modeling for IB / Silver Strand / Coronado." },
-    { id: "oysterEmit",       name: "Oyster — NASA EMIT methane plumes", category: "projects", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f97316", description: "NASA EMIT instrument (ISS) methane + CO2 + mineral dust plume detections over SD-TJ corridor." },
-    { id: "oysterCrossBorder",name: "Oyster — Scripps cross-border",    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#ef4444", description: "Scripps cross-border pollution monitoring network — water quality, aerosol, H2S, volatile organics at IB + border wall." },
-    { id: "oysterRails",      name: "Oyster — Rails + Trolley",     category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "SD Metropolitan Transit Blue Line trolley (San Ysidro → Downtown), BNSF freight, Coaster, Sprinter." },
-    { id: "oysterCaves",      name: "Oyster — Sea caves + coastal",  category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Sunset Cliffs sea caves, La Jolla sea caves, Point Loma grottos — coastal formations in the Oyster bbox." },
-    { id: "oysterGovernment", name: "Oyster — Government facilities",category: "projects", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#7dd3fc", description: "CBP San Ysidro POE, Navy bases (NAS North Island, NAB Coronado, NSWC), NOAA SWFSC, EPA Region 9, USCG Sector SD." },
-    { id: "oysterTourism",    name: "Oyster — Tourism + landmarks",  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Hotel del Coronado, Imperial Beach Pier, Border Field State Park, Balboa Park, USS Midway, Cabrillo Nat'l Monument." },
-    { id: "oysterSensors",    name: "Oyster — Environmental sensors",category: "projects", icon: <Gauge className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air quality, NOAA tide gauges, USGS stream gauges, SDAPCD monitors, SCRIPPS Pier, UCSD Ellen Browning Scripps Pier, TJ NERR sondes." },
-    { id: "oysterHeatmap",    name: "Oyster — Pollution heatmap",    category: "projects", icon: <Cloud className="w-3 h-3" />,   enabled: true, opacity: 0.55, color: "#ef4444", description: "Combined pollution intensity heatmap — H₂S + PM2.5 + sewage concentration + beach bacteria indices." },
+    { id: "oysterCameras",    name: "Oyster â€” Cameras",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "Surf cams + CBP POE + Caltrans I-5/SR-75 CCTV + NOAA buoy cams + EarthCam Imperial Beach + Coronado skyline cams." },
+    { id: "oysterBroadcast",  name: "Oyster â€” AM/FM/TV broadcast",  category: "projects", icon: <Radio className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM/TV stations covering SD/TJ cross-border corridor." },
+    { id: "oysterCell",       name: "Oyster â€” Cell towers",         category: "projects", icon: <Wifi className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#a855f7", description: "Curated cell sites across Imperial Beach, Coronado, Tijuana cross-border overlap." },
+    { id: "oysterPower",      name: "Oyster â€” Power infrastructure",category: "projects", icon: <Zap className="w-3 h-3" />,     enabled: true, opacity: 1.0, color: "#fbbf24", description: "SDG&E substations, Otay Mesa Generating, South Bay Power Plant, San Onofre (decommissioned), PG&E tie-ins." },
+    { id: "oysterNature",     name: "Oyster â€” Live iNat observations",category:"projects", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations (~200 per fetch) in TJ Estuary + Imperial Beach + Silver Strand bbox + La Jolla tide pools." },
+    { id: "oysterPlume",      name: "Oyster â€” UCSD PFM plume tracker", category: "projects", icon: <Waves className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#dc2626", description: "Pacific Forecast Model sewage plume tracker (SCCOOS / Scripps UCSD). Live fecal-indicator-bacteria (FIB) + ocean current modeling for IB / Silver Strand / Coronado." },
+    { id: "oysterEmit",       name: "Oyster â€” NASA EMIT methane plumes", category: "projects", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f97316", description: "NASA EMIT instrument (ISS) methane + CO2 + mineral dust plume detections over SD-TJ corridor." },
+    { id: "oysterCrossBorder",name: "Oyster â€” Scripps cross-border",    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#ef4444", description: "Scripps cross-border pollution monitoring network â€” water quality, aerosol, H2S, volatile organics at IB + border wall." },
+    { id: "oysterRails",      name: "Oyster â€” Rails + Trolley",     category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "SD Metropolitan Transit Blue Line trolley (San Ysidro â†’ Downtown), BNSF freight, Coaster, Sprinter." },
+    { id: "oysterCaves",      name: "Oyster â€” Sea caves + coastal",  category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Sunset Cliffs sea caves, La Jolla sea caves, Point Loma grottos â€” coastal formations in the Oyster bbox." },
+    { id: "oysterGovernment", name: "Oyster â€” Government facilities",category: "projects", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#7dd3fc", description: "CBP San Ysidro POE, Navy bases (NAS North Island, NAB Coronado, NSWC), NOAA SWFSC, EPA Region 9, USCG Sector SD." },
+    { id: "oysterTourism",    name: "Oyster â€” Tourism + landmarks",  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Hotel del Coronado, Imperial Beach Pier, Border Field State Park, Balboa Park, USS Midway, Cabrillo Nat'l Monument." },
+    { id: "oysterSensors",    name: "Oyster â€” Environmental sensors",category: "projects", icon: <Gauge className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air quality, NOAA tide gauges, USGS stream gauges, SDAPCD monitors, SCRIPPS Pier, UCSD Ellen Browning Scripps Pier, TJ NERR sondes." },
+    { id: "oysterHeatmap",    name: "Oyster â€” Pollution heatmap",    category: "projects", icon: <Cloud className="w-3 h-3" />,   enabled: true, opacity: 0.55, color: "#ef4444", description: "Combined pollution intensity heatmap â€” Hâ‚‚S + PM2.5 + sewage concentration + beach bacteria indices." },
 
-    // ── PROJECT GOFFS (MYCOSOFT) — Mojave National Preserve + east Mojave ──
+    // â”€â”€ PROJECT GOFFS (MYCOSOFT) â€” Mojave National Preserve + east Mojave â”€â”€
     // Apr 21, 2026 (Morgan: "why is there no data at goffs ca ... massive
     // increase in data icons"). Goffs is a Mycosoft biz-dev vertical
     // thesis site. Garret completed the 16/16 item thesis Apr 18.
-    { id: "mojavePreserve",   name: "Goffs — Mojave Preserve boundary",     category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary. Dashed amber outline + ~20% fill. Live NPS Land Resources Division service." },
-    { id: "mojaveGoffs",      name: "Goffs — MYCOSOFT project site",        category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Pulsing teal halo + cyan core marker." },
-    { id: "mojaveWilderness", name: "Goffs — Wilderness POIs",               category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome / Kelso Dunes / Mitchell Caverns / Cinder Cones / Hole-in-the-Wall / New York Mts / Castle Peaks / Granite Mts UC Reserve." },
-    { id: "mojaveClimate",    name: "Goffs — Climate stations",              category: "projects", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
-    { id: "mojaveINat",       name: "Goffs — Live iNat observations",        category: "projects", icon: <TreePine className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations in a bbox around Goffs — desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (~200 obs per fetch)." },
+    { id: "mojavePreserve",   name: "Goffs â€” Mojave Preserve boundary",     category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary. Dashed amber outline + ~20% fill. Live NPS Land Resources Division service." },
+    { id: "mojaveGoffs",      name: "Goffs â€” MYCOSOFT project site",        category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Pulsing teal halo + cyan core marker." },
+    { id: "mojaveWilderness", name: "Goffs â€” Wilderness POIs",               category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome / Kelso Dunes / Mitchell Caverns / Cinder Cones / Hole-in-the-Wall / New York Mts / Castle Peaks / Granite Mts UC Reserve." },
+    { id: "mojaveClimate",    name: "Goffs â€” Climate stations",              category: "projects", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS â€” live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
+    { id: "mojaveINat",       name: "Goffs â€” Live iNat observations",        category: "projects", icon: <TreePine className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations in a bbox around Goffs â€” desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (~200 obs per fetch)." },
     // NEW (Apr 21, 2026 v2 expansion for Goffs):
-    { id: "mojaveCameras",    name: "Goffs — Cameras",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "HPWREN wildfire cams (Clark Mtn, Cima) + ALERTWildfire + Caltrans I-40 CCTV + NPS Kelso Depot + Windy skyline cams." },
-    { id: "mojaveBroadcast",  name: "Goffs — AM/FM broadcast",                category: "projects", icon: <Radio className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM stations covering east Mojave + Colorado River Valley (Needles, Bullhead, Vegas fringe)." },
-    { id: "mojaveCell",       name: "Goffs — Cell towers",                    category: "projects", icon: <Wifi className="w-3 h-3" />,     enabled: false, opacity: 1.0, color: "#a855f7", description: "Curated FCC ASR + OpenCelliD towers in east Mojave (Verizon, AT&T, T-Mobile, FirstNet)." },
-    { id: "mojavePower",      name: "Goffs — Power infrastructure",           category: "projects", icon: <Zap className="w-3 h-3" />,      enabled: true, opacity: 1.0, color: "#fbbf24", description: "Ivanpah Solar (392 MW CSP), Mohave Generating (retired), LUGO/Eldorado/Kramer/Mead substations, LADWP Intermountain HVDC corridor." },
-    { id: "mojaveRails",      name: "Goffs — Rails",                          category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "BNSF Cajon Sub + UP Caliente Sub + Goffs Depot (1902 Santa Fe) + Kelso Depot (1924 UP) + Amtrak Southwest Chief @ Needles." },
-    { id: "mojaveCaves",      name: "Goffs — Caves + lava tubes",             category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Mitchell Caverns (El Pakiva + Tecopa), Crystal Cave, Amboy Crater lava tubes, Cinder Cone volcanic shafts, Kelbaker lava tube." },
-    { id: "mojaveGovernment", name: "Goffs — Government facilities",          category: "projects", icon: <Shield className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#7dd3fc", description: "NPS MOJA HQ, BLM Needles, CBP, Fort Irwin NTC, Edwards AFB, USGS stream gauges, FAA Needles TRACON, DoD Ivanpah Aux Field." },
-    { id: "mojaveTourism",    name: "Goffs — Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
-    { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
-    { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
+    { id: "mojaveCameras",    name: "Goffs â€” Cameras",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "HPWREN wildfire cams (Clark Mtn, Cima) + ALERTWildfire + Caltrans I-40 CCTV + NPS Kelso Depot + Windy skyline cams." },
+    { id: "mojaveBroadcast",  name: "Goffs â€” AM/FM broadcast",                category: "projects", icon: <Radio className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM stations covering east Mojave + Colorado River Valley (Needles, Bullhead, Vegas fringe)." },
+    { id: "mojaveCell",       name: "Goffs â€” Cell towers",                    category: "projects", icon: <Wifi className="w-3 h-3" />,     enabled: false, opacity: 1.0, color: "#a855f7", description: "Curated FCC ASR + OpenCelliD towers in east Mojave (Verizon, AT&T, T-Mobile, FirstNet)." },
+    { id: "mojavePower",      name: "Goffs â€” Power infrastructure",           category: "projects", icon: <Zap className="w-3 h-3" />,      enabled: true, opacity: 1.0, color: "#fbbf24", description: "Ivanpah Solar (392 MW CSP), Mohave Generating (retired), LUGO/Eldorado/Kramer/Mead substations, LADWP Intermountain HVDC corridor." },
+    { id: "mojaveRails",      name: "Goffs â€” Rails",                          category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "BNSF Cajon Sub + UP Caliente Sub + Goffs Depot (1902 Santa Fe) + Kelso Depot (1924 UP) + Amtrak Southwest Chief @ Needles." },
+    { id: "mojaveCaves",      name: "Goffs â€” Caves + lava tubes",             category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Mitchell Caverns (El Pakiva + Tecopa), Crystal Cave, Amboy Crater lava tubes, Cinder Cone volcanic shafts, Kelbaker lava tube." },
+    { id: "mojaveGovernment", name: "Goffs â€” Government facilities",          category: "projects", icon: <Shield className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#7dd3fc", description: "NPS MOJA HQ, BLM Needles, CBP, Fort Irwin NTC, Edwards AFB, USGS stream gauges, FAA Needles TRACON, DoD Ivanpah Aux Field." },
+    { id: "mojaveTourism",    name: "Goffs â€” Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
+    { id: "mojaveSensors",    name: "Goffs â€” Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
+    { id: "mojaveHeatmap",    name: "Goffs â€” Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ], assetIsolationMode, isolatedFungalLayerIds), getRequestedFungalLayerIdsFromUrl());
     const layersWithInitialFilters =
       EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()
@@ -8100,7 +8977,6 @@ export default function CREPDashboardPage({
       "crep-radio-dot", "crep-radar-dot", "crep-mycosoft-devices-glow", "crep-mycosoft-devices-core",
       "crep-railway-raster", "crep-orbital-debris-dot", "crep-debris-cloud-heat",
       "crep-volcanoes-dot", "crep-wildfires-dot", "crep-storms-dot", "crep-lightning-dot", "crep-tornadoes-dot",
-      "crep-search-earthquake-events-glow", "crep-search-earthquake-events-dot", "crep-search-earthquake-events-hotspot",
     ];
     const clearSources = [
       "crep-live-aircraft",
@@ -8113,7 +8989,6 @@ export default function CREPDashboardPage({
       "crep-storms",
       "crep-lightning",
       "crep-tornadoes",
-      "crep-search-earthquake-events",
     ];
     try {
       for (const id of hideLayerIds) {
@@ -8169,15 +9044,15 @@ export default function CREPDashboardPage({
       showPartnerNetworks: allowed.has("partners"),
     }));
   }, [embedded, embeddedLayerKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  
+
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
-  
-  // Earth-2 AI Weather state — ALL OFF by default. The clouds +
-  // precipitation layers paint full-globe 0.25° rasters on every frame
-  // (≈1M cells × 2 layers = dashboard-wide lag). Operator opts each layer
+
+  // Earth-2 AI Weather state â€” ALL OFF by default. The clouds +
+  // precipitation layers paint full-globe 0.25Â° rasters on every frame
+  // (â‰ˆ1M cells Ã— 2 layers = dashboard-wide lag). Operator opts each layer
   // on from the Data Filters panel when they want it.
   const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
-    ...DEFAULT_EARTH2_FILTER,
+    ...EARTH2_DISABLED_FILTER,
     showTemperature: false,
     showWind: false,
     showPressure: false,
@@ -8193,26 +9068,16 @@ export default function CREPDashboardPage({
     () => gridResolutionDegrees({ resolution: earth2Filter.resolution, gpuMode: earth2Filter.gpuMode }),
     [earth2Filter.resolution, earth2Filter.gpuMode],
   );
-  
-  // Use Earth-2 alerts hook for automatic updates
-  const { alerts: fetchedEarth2Alerts } = useEarth2Alerts(60000, EARTH2_BACKEND_ENABLED && !assetIsolationMode && !auditAllOffMode);
-  const [earth2Alerts, setEarth2Alerts] = useState<Earth2Alert[]>([]);
-  
-  // Sync fetched alerts to state
-  useEffect(() => {
-    if (fetchedEarth2Alerts.length > 0) {
-      setEarth2Alerts(fetchedEarth2Alerts);
-    }
-  }, [fetchedEarth2Alerts]);
-  
-  const [earth2Loading, setEarth2Loading] = useState(false);
-  const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
-  const [earth2Available, setEarth2Available] = useState(false);
-  
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  const [, setEarth2Alerts] = useState<unknown[]>([]);
+  const [, setEarth2Loading] = useState(false);
+  const [, setEarth2Available] = useState(false);
+
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // EARTH-2 STATUS CHECK - Fetch status on mount
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   useEffect(() => {
+    return;
     if (!EARTH2_BACKEND_ENABLED) {
       setEarth2Available(false);
       setEarth2Loading(false);
@@ -8235,10 +9100,10 @@ export default function CREPDashboardPage({
         setEarth2Available(false);
       }
     };
-    
+
     if (mounted) {
       checkEarth2Status();
-      // Check status every 60 seconds — skip when document.hidden (perf-3).
+      // Check status every 60 seconds â€” skip when document.hidden (perf-3).
       const interval = setInterval(() => {
         if (typeof document !== "undefined" && document.hidden) return
         checkEarth2Status()
@@ -8246,7 +9111,6 @@ export default function CREPDashboardPage({
       return () => clearInterval(interval);
     }
   }, [assetIsolationMode, auditAllOffMode, embeddedAllowsSpaceWeather, embeddedLayerKey, isSearchEmbedded, mounted]);
-
   const currentLocationSearch = typeof window !== "undefined" ? window.location.search : "";
   useEffect(() => {
     if (!mounted || !mapRef) return;
@@ -8298,12 +9162,12 @@ export default function CREPDashboardPage({
     focusLocation?.zoom,
     earthStrictPerfMode,
   ]);
-  
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // Canonical Earth Simulator opening view.
   // Keep the native globe over North America unless an explicit URL/search
   // focus is provided.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   useEffect(() => {
     if (embedded || hasAutoZoomed || !mounted || !mapRef || initialUrlFocusRef.current || getInitialMapFocusFromUrl()) return;
     if (mapRef?.jumpTo) {
@@ -8314,19 +9178,19 @@ export default function CREPDashboardPage({
       setHasAutoZoomed(true);
       return;
     }
-    
+
     // Get user's location via browser Geolocation API
     if (typeof navigator !== "undefined" && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          console.log(`[CREP] User location detected: ${latitude.toFixed(4)}Â°, ${longitude.toFixed(4)}Â°`);
+          console.log(`[CREP] User location detected: ${latitude.toFixed(4)}Ã‚Â°, ${longitude.toFixed(4)}Ã‚Â°`);
           setUserLocation({ lat: latitude, lng: longitude });
-          
+
           // Determine appropriate zoom level based on continent
           // Zoom 4-5 for continent view, showing relevant fungal data
           const zoomLevel = 5;
-          
+
           // If we have a map reference, fly to user's location
           if (mapRef && mapRef.flyTo) {
             mapRef.flyTo({
@@ -8389,7 +9253,7 @@ export default function CREPDashboardPage({
       /* map can be mid-hot-reload */
     }
   }, [earthStrictPerfMode, embedded, mounted, mapRef, focusLocation]);
-  
+
   // Update map projection when toggle changes (Apr 2026)
   useEffect(() => {
     if (!mapRef?.setProjection) return;
@@ -8466,7 +9330,7 @@ export default function CREPDashboardPage({
       setIsLoading(false);
       return () => clearTimeout(spinnerDeadline);
     }
-    
+
     async function fetchData() {
       if (shouldPauseLiveWork()) return;
       const showSpinner = !initialDataLoadedRef.current;
@@ -8476,7 +9340,7 @@ export default function CREPDashboardPage({
         if (canFetchEvents) try {
           const eventsUrl = isEmbeddedEarthquakeSearch
             ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-            : "/api/natureos/global-events";
+            : "/api/natureos/global-events?days=3&limit=25000";
           const eventsRes = await fetch(eventsUrl, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
           if (eventsRes.ok) {
             const data = await eventsRes.json();
@@ -8504,18 +9368,18 @@ export default function CREPDashboardPage({
                 affectedArea: e.affected?.area_km2,
                 affectedPopulation: e.affected?.population,
               }));
-              
+
             // Filter by search query if it came from the overlay parent
             const urlQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q")?.toLowerCase() : null;
             if (urlQuery && !isEmbeddedEarthquakeSearch) {
-              formattedEvents = formattedEvents.filter((e: any) => 
+              formattedEvents = formattedEvents.filter((e: any) =>
                 (e.title && e.title.toLowerCase().includes(urlQuery)) ||
                 (e.description && e.description.toLowerCase().includes(urlQuery)) ||
                 (e.locationName && e.locationName.toLowerCase().includes(urlQuery)) ||
                 (e.type && e.type.toLowerCase().includes(urlQuery))
               );
             }
-            
+
             // Keep space-weather data in dedicated overlays, not event icons.
             for (const [id, ev] of eventStoreRef.current.entries()) {
               if (shouldSuppressEventIcon((ev as any)?.type)) eventStoreRef.current.delete(id);
@@ -8534,51 +9398,20 @@ export default function CREPDashboardPage({
 
         // Fetch MycoBrain devices - use /api/mycobrain (merges local + MAS registry, fallback when service down)
         // Apr 21, 2026 (Morgan OOM audit): circuit-break after 3 consecutive
-        // failures. Was retrying every fetch cycle forever → spam.
+        // failures. Was retrying every fetch cycle forever â†’ spam.
         const mbKey = "__crep_mycobrain_fails";
         const failCount = (window as any)[mbKey] ?? 0;
-        if (!embeddedAllowsDevices || failCount >= 3) {
-          // Skip silently — endpoint is dead, don't burn retries
+        const mycoLayerEnabled = layersRef.current.find((layer) => layer.id === "mycobrain")?.enabled ?? false;
+        if (!embeddedAllowsDevices || failCount >= 3 || (isEarthSimulatorRoute && !mycoLayerEnabled)) {
+          // Skip silently â€” endpoint is dead, don't burn retries
         } else try {
-          const devicesRes = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(8000) });
+          const devicesRes = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(8000), cache: "no-store" });
           if (devicesRes.ok) {
             (window as any)[mbKey] = 0; // reset on success
             const data = await devicesRes.json();
             const rawDevices = data.devices || [];
-            // MycoBrain devices - default to San Diego 91910 when no GPS
-            const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
-            const formattedDevices = rawDevices.map((d: any, index: number) => {
-              const hasValidLocation = d.location?.lat && d.location?.lng &&
-                Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
-                !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
-              const sensorData = d.sensor_data || d.device_info?.sensor_data || {};
-              const info = d.device_info || d.info || {};
-              const connected = d.connected ?? (d.status === "online");
-              return {
-                id: d.device_id || d.id || `device-${index}`,
-                name: d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
-                lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
-                lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
-                status: connected ? "online" : "offline",
-                type: d.device_role || "mushroom1",
-                port: d.port,
-                firmware: info.firmware_version || info.firmware,
-                protocol: d.protocol || "MDP",
-                sensorData: {
-                  temperature: sensorData.temperature,
-                  humidity: sensorData.humidity,
-                  pressure: sensorData.pressure,
-                  gasResistance: sensorData.gas_resistance,
-                  iaq: sensorData.iaq,
-                  iaqAccuracy: sensorData.iaq_accuracy,
-                  co2Equivalent: sensorData.co2_equivalent,
-                  vocEquivalent: sensorData.voc_equivalent,
-                  uptime: sensorData.uptime_seconds || sensorData.uptime_s,
-                },
-                lastUpdate: sensorData.last_update || new Date().toISOString(),
-              };
-            });
-            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (source: ${data.source || "mycobrain"})`);
+            const formattedDevices = normalizeFieldMycoBrainDevices(rawDevices);
+            console.log(`[CREP] Loaded ${formattedDevices.length} field MycoBrain devices (source: ${data.source || "earth-simulator/devices"})`);
             setDevices(formattedDevices);
           } else {
             (window as any)[mbKey] = failCount + 1;
@@ -8587,18 +9420,18 @@ export default function CREPDashboardPage({
           (window as any)[mbKey] = failCount + 1;
           if (failCount === 0 || failCount + 1 >= 3) {
             console.warn(`[CREP] MycoBrain fetch failed (${failCount + 1}/3):`, (e as Error)?.message);
-            if (failCount + 1 >= 3) console.warn(`[CREP] MycoBrain circuit-broken — giving up.`);
+            if (failCount + 1 >= 3) console.warn(`[CREP] MycoBrain circuit-broken â€” giving up.`);
           }
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // PARALLEL FETCH — Aircraft, Vessels, Satellites, Space Weather
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // PARALLEL FETCH â€” Aircraft, Vessels, Satellites, Space Weather
         // All fetched simultaneously so one slow source doesn't block others.
-        // Each has independent error handling — one failure never kills the rest.
-        // NO AbortSignal.timeout here — it was aborting in-flight StrictMode
+        // Each has independent error handling â€” one failure never kills the rest.
+        // NO AbortSignal.timeout here â€” it was aborting in-flight StrictMode
         // second-mount fetches and silently wiping state. If a fetch is slow
         // we'd rather have the data late than lose it entirely.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         const fetchWithTimeout = (url: string, timeoutMs = 12_000) =>
           fetch(url, { signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
 
@@ -8608,14 +9441,14 @@ export default function CREPDashboardPage({
             if (!res.ok) return null;
             const data = await res.json();
             if (data.aircraft && Array.isArray(data.aircraft) && data.aircraft.length > 0) {
-              // Apr 22, 2026 — merge into persistent union instead of replacing
+              // Apr 22, 2026 â€” merge into persistent union instead of replacing
               // (prior behaviour dropped 100s of planes on every short fetch).
               setAircraft((prev) => mergeById(prev, data.aircraft, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
                 maxEntries: Number.POSITIVE_INFINITY,
               }));
-              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} → merged`);
+              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} â†’ merged`);
               syncToMINDEX("aircraft", data.aircraft);
             }
             return data;
@@ -8630,7 +9463,7 @@ export default function CREPDashboardPage({
                 ttlMs: ENTITY_TTL_MS.vessel,
                 maxEntries: Number.POSITIVE_INFINITY,
               }));
-              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → merged`);
+              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} â†’ merged`);
               syncToMINDEX("vessels", data.vessels);
             }
             return data;
@@ -8646,7 +9479,7 @@ export default function CREPDashboardPage({
                 ttlMs: ENTITY_TTL_MS.satellite,
                 maxEntries: Number.POSITIVE_INFINITY,
               }));
-              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} → merged`);
+              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} â†’ merged`);
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);
             }
             return data;
@@ -8674,11 +9507,11 @@ export default function CREPDashboardPage({
         // Space weather already handled in the parallel fetch above
         if (spaceWxResult.status === "rejected") console.warn("[CREP] Space weather failed:", spaceWxResult.reason);
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
         // FETCH FUNGAL OBSERVATIONS - PRIMARY DATA SOURCE (MINDEX - NO LIMIT)
         // MINDEX contains THOUSANDS of pre-imported iNaturalist/GBIF observations
         // with photos, coordinates, names, timestamps, and source links
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
         // FUNGAL: Viewport-based fetching happens in the bounds effect below.
         // Pre-load: seed the species catalog from MINDEX, fall back to search API.
         if (canFetchNatureObservations && !auditAllOffMode) try {
@@ -8733,10 +9566,10 @@ export default function CREPDashboardPage({
     shouldPauseLiveWork,
   ]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BUOY DATA FETCH — NOAA NDBC ocean buoys (every 5 minutes)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // BUOY DATA FETCH â€” NOAA NDBC ocean buoys (every 5 minutes)
   // ~1300 active stations worldwide with wave, wind, temp, pressure data
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
@@ -8766,14 +9599,15 @@ export default function CREPDashboardPage({
     return () => clearInterval(interval)
   }, [embeddedAllowsMarine, auditAllOffMode, assetIsolationMode]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MILITARY BASES FETCH — OSM + MINDEX military installations (every 5 minutes)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // MILITARY BASES FETCH â€” OSM + MINDEX military installations (every 5 minutes)
   // Fetches military bases, airfields, ranges, barracks, training areas globally
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
     if (!embeddedAllowsMilitary) return;
+    if (isEarthSimulatorRoute) return;
     const fetchMilitary = async () => {
       try {
         const res = await fetch("/api/oei/military");
@@ -8800,13 +9634,13 @@ export default function CREPDashboardPage({
   // Infrastructure data fetched via map onLoad + moveend handler above (not useEffect)
   // This avoids React strict mode double-render abort issues with AbortController
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INSTANT NATURE-DATA PAINT — fires on mount, BEFORE the map is ready.
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // INSTANT NATURE-DATA PAINT â€” fires on mount, BEFORE the map is ready.
   // Hits MINDEX directly (no bounds, no iNat/GBIF) via `?quick=true` and gets
   // 2K observations in ~300-800ms. The viewport-based fetch below still runs
   // once the map is ready and refines the set. This eliminates the 3-minute
   // wait users saw before ANY species dots appeared.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (assetIsolationMode) {
       setFungalLoading(false);
@@ -8897,7 +9731,7 @@ export default function CREPDashboardPage({
           store.set(id, candidate);
         }
         setFungalObservations(Array.from(store.values()));
-        console.log(`[CREP] ⚡ Instant MINDEX paint: ${raw.length} observations in ${data.meta?.total ?? raw.length}ms`);
+        console.log(`[CREP] âš¡ Instant MINDEX paint: ${raw.length} observations in ${data.meta?.total ?? raw.length}ms`);
       } catch (e) {
         if ((e as Error).name !== "AbortError") console.warn("[CREP] Instant MINDEX paint failed:", e);
       }
@@ -8905,7 +9739,7 @@ export default function CREPDashboardPage({
     return () => ctrl.abort();
   }, [canFetchNatureObservations, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, natureObservationFilter, natureSpeciesFilterKey, mapBounds, mapZoom]);
 
-  // Instant global events — independent of fetchData() so earthquakes/storms paint at load.
+  // Instant global events â€” independent of fetchData() so earthquakes/storms paint at load.
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || !canFetchEvents) return;
     let cancelled = false;
@@ -8913,7 +9747,7 @@ export default function CREPDashboardPage({
       try {
         const eventsUrl = isEmbeddedEarthquakeSearch
           ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-          : "/api/natureos/global-events";
+          : "/api/natureos/global-events?days=3&limit=25000";
         const eventsRes = await fetch(eventsUrl, { signal: AbortSignal.timeout(20_000), cache: "no-store" });
         if (!eventsRes.ok || cancelled) return;
         const data = await eventsRes.json();
@@ -8947,7 +9781,7 @@ export default function CREPDashboardPage({
         if (initialEventIdsRef.current === null) {
           initialEventIdsRef.current = new Set(formattedEvents.map((e: GlobalEvent) => e.id));
         }
-        console.log(`[CREP] ⚡ Instant events paint: ${formattedEvents.length} events`);
+        console.log(`[CREP] âš¡ Instant events paint: ${formattedEvents.length} events`);
       } catch (e) {
         if (!cancelled) console.warn("[CREP] Instant events fetch failed:", (e as Error)?.message);
       }
@@ -8956,15 +9790,15 @@ export default function CREPDashboardPage({
   }, [auditAllOffMode, assetIsolationMode, canFetchEvents, isEmbeddedEarthquakeSearch]);
 
   const ENABLE_BAKED_INAT_PRELOAD = isEarthSimulatorRoute;
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BAKED HISTORICAL iNAT — Apr 23, 2026
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // BAKED HISTORICAL iNAT â€” Apr 23, 2026
   //
   // Morgan: "naturedata from inat goes into mindex we just need more historical
-  // data in those cities for obvious reasons you did that wrong" — previously
+  // data in those cities for obvious reasons you did that wrong" â€” previously
   // we rendered the baked 10k-per-region files as a separate MapLibre circle
   // layer (crep-nyc-inat / crep-dc-inat) with different styling, paint, and
   // click-widget wiring than the live SSE observations. That was backwards.
-  // Historical + live iNat are the SAME data type from the SAME source — they
+  // Historical + live iNat are the SAME data type from the SAME source â€” they
   // should use the SAME FungalMarker + species popup. Source and time are
   // irrelevant; relevance is what matters.
   //
@@ -8972,25 +9806,26 @@ export default function CREPDashboardPage({
   // a FungalObservation, merge into the shared fungalStoreRef via setData().
   // The existing visibleFungalObservations pipeline does viewport cull +
   // kingdom filter + species filter. FungalMarker renders them identically
-  // to live-stream observations. Click → species popup. Done.
+  // to live-stream observations. Click â†’ species popup. Done.
   //
   // More cities can be added to BAKED_REGIONS without any rendering changes.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (!ENABLE_BAKED_INAT_PRELOAD) return;
-    // Apr 23, 2026 — Morgan (Vegas demo): "naturedata live in las vegas".
+    // Apr 23, 2026 â€” Morgan (Vegas demo): "naturedata live in las vegas".
     // Baked Vegas iNat geojson added to BAKED_REGIONS; flows through the
     // same fungalObservations state as NYC/DC and live SSE.
     if (assetIsolationMode) return;
     if (auditAllOffMode) return;
     if (!canFetchNatureObservations) return;
-    const BAKED_REGIONS = ["sdtj", "la", "sf", "nyc", "dc", "vegas"] as const;
+    const BAKED_REGIONS = ["sdtj", "la", "sf", "peninsula", "nyc", "dc", "vegas"] as const;
+    const BAKED_INAT_VERSION = "20260527-bayarea";
     let cancelled = false;
     (async () => {
       for (const region of BAKED_REGIONS) {
         if (cancelled) return;
         try {
-          const res = await fetch(`/data/crep/${region}-inat.geojson`, { cache: "force-cache" });
+          const res = await fetch(`/data/crep/${region}-inat.geojson?v=${BAKED_INAT_VERSION}`, { cache: "force-cache" });
           if (!res.ok) { console.log(`[CREP/iNat-baked] ${region} missing`); continue; }
           const gj = await res.json();
           const features: any[] = Array.isArray(gj?.features) ? gj.features : [];
@@ -9008,9 +9843,9 @@ export default function CREPDashboardPage({
             const id = String(rawId != null ? rawId : "");
             if (!id) continue;
             // Don't clobber a live-stream entry that already exists with
-            // richer / fresher data — only fill gaps with baked history.
+            // richer / fresher data â€” only fill gaps with baked history.
             if (store.has(id)) continue;
-            // Snake_case (baked) OR camelCase (live) — accept both.
+            // Snake_case (baked) OR camelCase (live) â€” accept both.
             const commonName = p.commonName || p.common_name || p.name || p.species;
             const sciName = p.scientificName || p.sci_name || p.scientific_name || p.name || "Unknown";
             const photoUrl = Array.isArray(p.photos)
@@ -9044,7 +9879,7 @@ export default function CREPDashboardPage({
             added++;
           }
           if (!cancelled) setFungalObservations(Array.from(store.values()));
-          console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations → merged into fungalObservations (total now ${store.size})`);
+          console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations â†’ merged into fungalObservations (total now ${store.size})`);
         } catch (e) {
           if (!cancelled) console.warn(`[CREP/iNat-baked] ${region} failed:`, (e as Error)?.message);
         }
@@ -9053,12 +9888,12 @@ export default function CREPDashboardPage({
     return () => { cancelled = true; };
   }, [canFetchNatureObservations, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute]); // mount only when search-controlled nature layers are enabled
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LIVE NATURE STREAM (SSE) — dots pop onto the map as iNat publishes them
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // LIVE NATURE STREAM (SSE) â€” dots pop onto the map as iNat publishes them
   // Backend (/api/crep/nature-stream) polls iNat every 60s for new observations
   // and pushes each as a "nature" event. Simultaneously writes to MINDEX so
   // the CREP-live stream and MINDEX persistence happen at the same moment.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (assetIsolationMode) return;
     if (auditAllOffMode) return;
@@ -9123,7 +9958,7 @@ export default function CREPDashboardPage({
           setFungalObservations(Array.from(store.values()));
           setFungalLoading(false);
         } catch (e) {
-          // Preload unreachable → fine, SSE will fill in. No log spam.
+          // Preload unreachable â†’ fine, SSE will fill in. No log spam.
         }
       }
     };
@@ -9202,8 +10037,8 @@ export default function CREPDashboardPage({
     };
   }, [canFetchNatureObservations, markNatureObservationLive, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute]); // mount only when search-controlled nature layers are enabled
 
-  // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
-  // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
+  // Bounds-based fungal refetch â€“ when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
+  // LOD: Pass zoom-derived limit to API for faster loads â€“ fewer observations when zoomed out (Mar 11, 2026)
   useEffect(() => {
     if (!isEarthSimulatorRoute || !EARTH_SIM_STAGED_BOOT) return;
     if (assetIsolationMode || auditAllOffMode || !canFetchNatureObservations) return;
@@ -9342,7 +10177,7 @@ export default function CREPDashboardPage({
     // to server default of 2000 observations. Dense urban/coastal bboxes
     // (San Diego, Bay Area, NYC, Tokyo) need 10-20k to saturate. Now
     // explicitly request 20k at zoom 5+ so the server's pagination loop
-    // (fetchINaturalistObservations page 1-10 × 10 iconic taxa = 20k
+    // (fetchINaturalistObservations page 1-10 Ã— 10 iconic taxa = 20k
     // ceiling) kicks in and we actually see the observations that exist.
     let zoomLimit = mapZoom < 2 ? 1200
       : mapZoom < 4 ? 2200
@@ -9469,7 +10304,7 @@ export default function CREPDashboardPage({
       }
     };
 
-    // State/city zoom and Earth Simulator: quick iNat all-taxa first (~2–5s for every
+    // State/city zoom and Earth Simulator: quick iNat all-taxa first (~2â€“5s for every
     // kingdom), then background full enrich. When user expands kingdom filters
     // (plants/birds/etc.), skip enrich delay so toggles paint without a blank gap.
     const quickFirstNature =
@@ -9507,7 +10342,7 @@ export default function CREPDashboardPage({
     };
   }, [canFetchNatureObservations, mapBounds, mapZoom, selectedFungal?.id, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isGlobeCrepMapRoute, natureObservationFilter, natureSpeciesFilterKey, requestViewportNatureFetch, viewportNatureFetchNonce]);
 
-  // Periodic refresh of live events (earthquakes, lightning, fire, etc.) – new events pop up and blink
+  // Periodic refresh of live events (earthquakes, lightning, fire, etc.) â€“ new events pop up and blink
   const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode) return;
@@ -9517,7 +10352,7 @@ export default function CREPDashboardPage({
       try {
         const eventsUrl = isEmbeddedEarthquakeSearch
           ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-          : "/api/natureos/global-events";
+          : "/api/natureos/global-events?days=3&limit=25000";
         const eventsRes = await fetch(eventsUrl);
         if (!eventsRes.ok) return;
         const data = await eventsRes.json();
@@ -9594,44 +10429,44 @@ export default function CREPDashboardPage({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // CLICK-AWAY HANDLER: Dismiss popups when clicking outside
   // Uses click event in BUBBLING phase so that marker stopPropagation() works
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   useEffect(() => {
     const handleClickAway = (e: MouseEvent) => {
       const target = e.target;
-      
+
       // Skip if no popups are selected - nothing to dismiss
       if (!selectedEvent && !selectedFungal && !selectedInfraAsset && !selectedOther) return;
-      
+
       // Guard: Ensure target is an Element with closest() method
       if (!target || !(target instanceof Element)) {
         return;
       }
-      
+
       // If we just picked a deck.gl entity (<400ms ago), do NOT dismiss - deck.gl onClick
       // may run after this; clicking species/plane/vessel icons was being cleared immediately.
       if (Date.now() - lastEntityPickTimeRef.current < 400) return;
-      
+
       // Check if click is on the map (MapLibre canvas, deck.gl overlay, etc.) - never dismiss
       // in full CREP; map's own click handler handles empty-map dismiss with delay.
       const isOnMap = target.closest('[data-crep-map]') !== null;
       if (isOnMap && !embedded) return;
-      
+
       // Check if click is inside any popup (content + close button + tip)
       const isInsidePopup = target.closest(".maplibregl-popup") !== null;
-      
+
       // Check if click is inside a marker button (multiple selectors for robustness)
-      const isInsideMarker = target.closest('[data-marker]') !== null || 
+      const isInsideMarker = target.closest('[data-marker]') !== null ||
                              target.closest('.maplibregl-marker') !== null;
 
       // Check if click is inside side panels (Intel Feed / right panel)
       const isInsidePanel = target.closest('[data-panel]') !== null;
-      
+
       // Check if click is inside Intel Feed event cards
       const isInsideEventCard = target.closest('[data-event-card]') !== null;
-      
+
       // If clicking outside popup, marker, panel, and event cards - dismiss all
       if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
         console.log("[CREP] Click-away (doc): dismissing popups");
@@ -9648,9 +10483,9 @@ export default function CREPDashboardPage({
     return () => document.removeEventListener('click', handleClickAway, false);
   }, [embedded, selectedEvent, selectedFungal, selectedInfraAsset, selectedOther]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ESC KEY HANDLER: Dismiss all popups/selections on Escape
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -9690,7 +10525,7 @@ export default function CREPDashboardPage({
     persistFungaSelection(null);
   }, [assetIsolationMode]);
 
-  /** AM and EcM are mutually exclusive — update layers, ground filter, and map rasters atomically. */
+  /** AM and EcM are mutually exclusive â€” update layers, ground filter, and map rasters atomically. */
   const switchMycorrhizalFungiLayer = useCallback((mode: "am" | "ecm" | "off") => {
     const showAm = mode === "am";
     const showEcm = mode === "ecm";
@@ -9967,12 +10802,12 @@ export default function CREPDashboardPage({
   // that replaced the FUNGA chip in the top toolbar.
   //
   // What ON means here:
-  //   • every layer in the layer list -> enabled
-  //   • every groundFilter.show* -> true (except showAmFungi, which is the
+  //   â€¢ every layer in the layer list -> enabled
+  //   â€¢ every groundFilter.show* -> true (except showAmFungi, which is the
   //     mutually-exclusive twin of showEcmFungi; we keep EcM on as primary
   //     and let the AM/EcM useEffect enforce the rule)
-  //   • aircraft/vessel/satellite/space-weather/earth2/EO filter sets all on
-  //   • showInfraLayers true, streaming on, audit mode off, asset-isolation
+  //   â€¢ aircraft/vessel/satellite/space-weather/earth2/EO filter sets all on
+  //   â€¢ showInfraLayers true, streaming on, audit mode off, asset-isolation
   //     cleared
   const enableAllAuditFilters = useCallback(() => {
     startTransition(() => {
@@ -10368,13 +11203,13 @@ export default function CREPDashboardPage({
 
   // MYCA layer-control bridge.
   // Gives MYCA (and any browser-side consumer) a single, stable API for
-  // flipping any layer the Data Filter panel controls — no React context,
+  // flipping any layer the Data Filter panel controls â€” no React context,
   // no import from outside the dashboard tree.
   //
-  //   window.__crep_setLayer("cellTowersG", true)         → enable
-  //   window.__crep_setLayer("fungi", false)              → disable
-  //   window.__crep_setLayer("satellites")                → toggle
-  //   window.__crep_layers()                              → snapshot of
+  //   window.__crep_setLayer("cellTowersG", true)         â†’ enable
+  //   window.__crep_setLayer("fungi", false)              â†’ disable
+  //   window.__crep_setLayer("satellites")                â†’ toggle
+  //   window.__crep_layers()                              â†’ snapshot of
   //       [{id, name, enabled, category, opacity}, ...]
   //
   // Also dispatches a `crep:layer` CustomEvent on every change so other
@@ -10467,17 +11302,17 @@ export default function CREPDashboardPage({
           return;
         }
       }
-      // Apr 23, 2026 — Morgan: "none of these green dots in dc are
+      // Apr 23, 2026 â€” Morgan: "none of these green dots in dc are
       // selectable i dont know what they are and i see no nature data".
       // Baked iNat layers (crep-{region}-inat) were routing through
       // __crep_selectAsset (generic infra widget) which just shows
-      // "asset" metadata — useless for a nature observation. When the
+      // "asset" metadata â€” useless for a nature observation. When the
       // selectType marks it as iNat, short-circuit to the species
       // popup instead so the user gets photos, scientific name, source
       // link, kingdom colour, grade, etc.
       if (payload.type === "inat-observation") {
         const p = payload.properties || {};
-        // Apr 23, 2026 — baked iNat features use snake_case keys
+        // Apr 23, 2026 â€” baked iNat features use snake_case keys
         // (`name` = common name, `sci_name`, `iconic_taxon`, `photo`, `url`)
         // from scripts/etl/crep/bake-nyc-dc-inat.mjs; SSE live features use
         // camelCase (`species`, `scientificName`, `iconicTaxon`, `photos`,
@@ -10512,11 +11347,11 @@ export default function CREPDashboardPage({
         setSelectedFungal(obs);
         return;
       }
-      // Apr 22, 2026 — Morgan: "we dont need that ring at all anywhere".
+      // Apr 22, 2026 â€” Morgan: "we dont need that ring at all anywhere".
       // The OpenGridWorks-style cyan highlight ring was firing on every
-      // asset click and being misread as a "selecting…" state, especially
+      // asset click and being misread as a "selectingâ€¦" state, especially
       // when the detail widget took a moment to mount. Ring disabled
-      // globally — selection is signalled by the widget opening.
+      // globally â€” selection is signalled by the widget opening.
       setSelectedAircraft(null);
       setSelectedVessel(null);
       setSelectedSatellite(null);
@@ -10529,7 +11364,7 @@ export default function CREPDashboardPage({
         properties: payload.properties || {},
       });
     };
-    // Apr 23, 2026 — separate hook the baked iNat circle layers call
+    // Apr 23, 2026 â€” separate hook the baked iNat circle layers call
     // directly (avoids going through __crep_selectAsset's shape check).
     (window as any).__crep_selectFungal = (obs: FungalObservation) => {
       if (!obs) return;
@@ -10671,7 +11506,7 @@ export default function CREPDashboardPage({
   const mapCommandHandlers = useMemo<MapCommandHandlers>(() => {
     const voiceToLayer: Record<string, string> = {
       planes: "aviation", vessels: "ships", ships: "ships", satellites: "satellites",
-      fungal: "fungi", fungi: "fungi", earth2: "earth2Forecast",
+      fungal: "fungi", fungi: "fungi",
       mycelium: "fungalAtlasMycelium", "mycelium heat": "fungalAtlasMycelium",
       "am fungi": "fungalAtlasAM", "ecm fungi": "fungalAtlasECM",
       "rare fungi": "fungalAtlasRare", "protected fungi": "fungalAtlasProtected",
@@ -10790,23 +11625,23 @@ export default function CREPDashboardPage({
     mapCommandHandlers,
   ]);
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
-  // 
+  //
   // DESIGN PRINCIPLE: When zoomed in, show MORE markers, not fewer!
   // The user expectation is: zoom in = see more detail = more markers
-  // 
+  //
   // What's shown in Intel Feed MUST match what's rendered on the map.
   // This is critical for user trust and accurate data representation.
   //
   // Zoom Level Strategy (GENEROUS at higher zoom):
-  //   0-2  (world view)       â†’ 2000 markers  (global sampling)
-  //   2-3  (multi-continent)  â†’ 5000 markers
-  //   3-4  (continent view)   â†’ 10000 markers
-  //   4-5  (large country)    â†’ 20000 markers
-  //   5-6  (country/region)   â†’ 30000 markers
-  //   6+   (local view)       â†’ ALL in viewport (no cap)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  //   0-2  (world view)       Ã¢â€ â€™ 2000 markers  (global sampling)
+  //   2-3  (multi-continent)  Ã¢â€ â€™ 5000 markers
+  //   3-4  (continent view)   Ã¢â€ â€™ 10000 markers
+  //   4-5  (large country)    Ã¢â€ â€™ 20000 markers
+  //   5-6  (country/region)   Ã¢â€ â€™ 30000 markers
+  //   6+   (local view)       Ã¢â€ â€™ ALL in viewport (no cap)
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // Species stats for Fungi dropdown (per-species counts)
   const fungalSpeciesStats = useMemo(() => {
     const counts = new Map<string, number>();
@@ -10821,7 +11656,7 @@ export default function CREPDashboardPage({
 
   // Stability ref: nature observations memo also re-derives on every mapBounds
   // tick and was contributing to the side-panel flicker. Same trick as
-  // visibleEvents — compute the new set, hash by id, return prior array
+  // visibleEvents â€” compute the new set, hash by id, return prior array
   // reference when membership is unchanged. (May 21 2026, Morgan)
   const stabilizeNatureResult = (list: any[]) => {
     const filterKey = natureSpeciesFilterKeyRef.current;
@@ -10832,7 +11667,7 @@ export default function CREPDashboardPage({
     return list;
   };
   useLayoutEffect(() => {
-    // Refetch when kingdom toggles change — do not wipe marker caches (caused tablet crash/OOM).
+    // Refetch when kingdom toggles change â€” do not wipe marker caches (caused tablet crash/OOM).
     requestViewportNatureFetch();
   }, [natureSpeciesFilterKey, requestViewportNatureFetch]);
   const natureFiltersEnabled = useMemo(() => (
@@ -10985,8 +11820,8 @@ export default function CREPDashboardPage({
         fungalObservations.filter((obs) => observationMatchesNatureFilter(obs, natureObservationFilter)),
       );
     }
-    
-    // Step 0: Filter by ground kingdom toggles (instant — no network)
+
+    // Step 0: Filter by ground kingdom toggles (instant â€” no network)
     const kingdomFiltered = fungalObservations.filter((obs) =>
       observationMatchesNatureFilter(obs, natureObservationFilter),
     );
@@ -11002,11 +11837,11 @@ export default function CREPDashboardPage({
     // Step 1: Filter to viewport bounds FIRST (fast culling)
     //
     // May 21 2026 (Morgan: "nature data disappears to zero when I zoom in").
-    // The original 0.001° padding (~100 m) was too tight: when the user
+    // The original 0.001Â° padding (~100 m) was too tight: when the user
     // zoomed in, every observation that wasn't dead-center of the new
     // viewport fell outside the bbox and the count crashed to 0. Match the
-    // event memo's pattern — pad 25 % of the viewport span on each side,
-    // capped at 15° lat / 30° lng so we don't pull half the planet at
+    // event memo's pattern â€” pad 25 % of the viewport span on each side,
+    // capped at 15Â° lat / 30Â° lng so we don't pull half the planet at
     // globe view. Same approach keeps already-visible observations alive
     // through a zoom or a small pan.
     const latSpanRaw = Math.abs(markerBounds.north - markerBounds.south);
@@ -11035,7 +11870,7 @@ export default function CREPDashboardPage({
     const kingdomCount = enabledNatureKingdomCount(natureObservationFilter);
     const domHardCap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, earthStrictPerfMode, markerBounds);
 
-    // Recency-first LOD for nature (Fix D — Apr 18, 2026)
+    // Recency-first LOD for nature (Fix D â€” Apr 18, 2026)
     const preLodCount = inViewport.length
     const maxNatureAgeMs = getMaxNatureAgeMsForZoom(mapZoom);
     const ageFilteredNature = Number.isFinite(maxNatureAgeMs)
@@ -11046,7 +11881,7 @@ export default function CREPDashboardPage({
         })
       : inViewport;
 
-    // City zoom: every in-viewport observation ≤1y — no LOD cap, no spatial grid (May 24, 2026).
+    // City zoom: every in-viewport observation â‰¤1y â€” no LOD cap, no spatial grid (May 24, 2026).
     if (isCityLevelZoom(mapZoom, markerBounds)) {
       const sorted = [...ageFilteredNature].sort(
         (a, b) => observationResourceRank(b as any) - observationResourceRank(a as any),
@@ -11079,22 +11914,22 @@ export default function CREPDashboardPage({
     inViewport.length = 0;
     inViewport.push(...mergedNature);
     if (Math.random() < 0.03) {
-      console.log(`[CREP/LOD] Nature z=${mapZoom.toFixed(1)} tier=${lodLevel} viewport=${preLodCount} → ${inViewport.length} after recency+quality`);
+      console.log(`[CREP/LOD] Nature z=${mapZoom.toFixed(1)} tier=${lodLevel} viewport=${preLodCount} â†’ ${inViewport.length} after recency+quality`);
     }
-    
+
     // Step 3: If within limit, show ALL in viewport
     if (inViewport.length <= maxMarkers) {
       if (Math.random() < 0.05) {
-        console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) â†’ ALL ${inViewport.length} in viewport`);
+        console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) Ã¢â€ â€™ ALL ${inViewport.length} in viewport`);
       }
       return stabilizeNatureResult(inViewport);
     }
-    
+
     // May 21 2026 (Morgan: "nature data flickering when I zoom"). Two
     // changes here:
     //   1. Grid origin is now ABSOLUTE (anchored at lat=0, lng=0) instead of
     //      relative to mapBounds.south/west. That way the same observation
-    //      always falls in the same cell across pans — pan-induced cell-
+    //      always falls in the same cell across pans â€” pan-induced cell-
     //      key changes were the original flicker source.
     //   2. Sticky LOD: observations that were visible last frame and are
     //      still in the (padded) viewport stay visible. Only fresh
@@ -11128,7 +11963,7 @@ export default function CREPDashboardPage({
     const grid = new Map<string, typeof inViewport[0]>();
     const prevIds = new Set(visibleFungalObservationsStableRef.current.list.map((o: any) => String(o.id ?? "")));
     // First pass: lock in any prior-visible obs that's still in viewport.
-    // This is the "sticky" half — markers don't blink in/out as the grid
+    // This is the "sticky" half â€” markers don't blink in/out as the grid
     // origin shifts across panning.
     for (const obs of inViewport) {
       if (!prevIds.has(String((obs as any).id ?? ""))) continue;
@@ -11226,7 +12061,7 @@ export default function CREPDashboardPage({
   }, [visibleFungalObservations, selectedFungal?.id, mapZoom, markerBounds, natureSpeciesFilterKey, earthStrictPerfMode, isMapAnimationActive, liveMarkerBounds]);
 
   const renderFungalDomMarkers = useMemo(() => {
-    // May 23 handoff: never hide Nature DOM icons during zoom/pan — only cap membership upstream.
+    // May 23 handoff: never hide Nature DOM icons during zoom/pan â€” only cap membership upstream.
     if (natureFiltersEnabled || natureSpeciesFiltersActive) return true;
     if (!earthStrictPerfMode || !EARTH_SIM_STAGED_BOOT) return true;
     if (isCityLevelZoom(mapZoom, markerBounds)) return true;
@@ -11235,16 +12070,16 @@ export default function CREPDashboardPage({
   }, [earthStrictPerfMode, layers, mapZoom, markerBounds, natureFiltersEnabled, natureSpeciesFiltersActive]);
 
   // May 23 2026 regression lock (docs/codex-handoffs/2026-05-23-earth-simulator-handoff.md):
-  // NEVER unmount Event/Nature DOM markers during pan — update positions only (map.tsx batch sync).
+  // NEVER unmount Event/Nature DOM markers during pan â€” update positions only (map.tsx batch sync).
   const shouldRenderDomMarkers = true;
   const shouldRenderHeavyOverlays = !(earthStrictPerfMode && isMapAnimationActive);
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
   // When a user clicks a fungal marker, the popup is attached directly to the marker.
   // This handler ensures the map pans to keep the popup visible and not behind panels.
   // Panel widths: Left = 288px (w-72), Right = 320px (w-80) + 12px margins each
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleSelectFungal = useCallback((obs: FungalObservation | null) => {
     // Clear event selection when selecting fungal
     setSelectedEvent(null);
@@ -11254,37 +12089,37 @@ export default function CREPDashboardPage({
       setSelectedFungal(null);
       return;
     }
-    
+
     // Toggle selection
     if (selectedFungal?.id === obs.id) {
       setSelectedFungal(null);
       return;
     }
-    
+
     // Select the new observation
     setSelectedFungal(obs);
-    
+
     // Smart pan: Ensure the marker + popup are visible and not behind panels
     if (mapRef && mapRef.getContainer) {
       const container = mapRef.getContainer();
       if (!container) return;
-      
+
       const containerWidth = container.offsetWidth;
       const containerHeight = container.offsetHeight;
-      
+
       // Calculate visible viewport accounting for panels
       // Left panel: 288px + 12px margin = 300px when open
       // Right panel: 320px + 12px margin = 332px when open
       const leftPanelWidth = leftPanelOpen ? 300 : 0;
       const rightPanelWidth = rightPanelOpen ? 340 : 0;
-      
+
       // Popup dimensions (approximate) - popup is ~320px wide, ~250px tall
       const popupWidth = 320;
       const popupHeight = 280;
-      
+
       // Convert marker lat/lng to screen position
       const point = mapRef.project([obs.longitude, obs.latitude]);
-      
+
       // Define the "safe zone" where the marker + popup should be visible
       // Adding padding for the popup which appears ABOVE the marker
       const safeZone = {
@@ -11293,11 +12128,11 @@ export default function CREPDashboardPage({
         top: popupHeight + 40, // popup height + padding
         bottom: containerHeight - 60 // bottom status bar area
       };
-      
+
       // Calculate if pan is needed
       let panX = 0;
       let panY = 0;
-      
+
       // Check if marker is too far left (behind left panel)
       if (point.x < safeZone.left) {
         panX = safeZone.left - point.x + popupWidth / 2;
@@ -11306,7 +12141,7 @@ export default function CREPDashboardPage({
       else if (point.x > safeZone.right - popupWidth / 2) {
         panX = safeZone.right - popupWidth / 2 - point.x;
       }
-      
+
       // Check if marker is too close to top (popup would go off screen)
       if (point.y < safeZone.top) {
         panY = safeZone.top - point.y;
@@ -11315,7 +12150,7 @@ export default function CREPDashboardPage({
       else if (point.y > safeZone.bottom) {
         panY = safeZone.bottom - point.y;
       }
-      
+
       // If pan is needed, smoothly pan the map
       if (Math.abs(panX) > 10 || Math.abs(panY) > 10) {
         mapRef.panBy([-panX, -panY], { duration: 300 });
@@ -11323,27 +12158,27 @@ export default function CREPDashboardPage({
     }
   }, [mapRef, leftPanelOpen, rightPanelOpen, selectedFungal]);
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // SMART MAP AUTO-PAN: Event Marker Selection Handler
   // When a user clicks an event marker or event in the list, the popup shows attached.
   // This handler ensures the map pans to keep the popup visible and not behind panels.
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const handleSelectEvent = useCallback((event: GlobalEvent | null, shouldFlyTo = false) => {
     // Clear fungal selection when selecting an event
     setSelectedFungal(null);
-    
+
     // If deselecting, just clear selection
     if (!event) {
       setSelectedEvent(null);
       return;
     }
-    
+
     // Toggle selection if same event
     if (selectedEvent?.id === event.id) {
       setSelectedEvent(null);
       return;
     }
-    
+
     // Select the new event
     setSelectedEvent(event);
     // Mark this event as "seen" so blinking stops
@@ -11358,28 +12193,28 @@ export default function CREPDashboardPage({
       });
       return; // Pan will happen after flyTo due to flyend event
     }
-    
+
     // Smart pan: Ensure the marker + popup are visible and not behind panels
     if (mapRef && mapRef.getContainer) {
       // Short delay to ensure the popup has rendered
       setTimeout(() => {
         const container = mapRef.getContainer();
         if (!container) return;
-        
+
         const containerWidth = container.offsetWidth;
         const containerHeight = container.offsetHeight;
-        
+
         // Calculate visible viewport accounting for panels
         const leftPanelWidth = leftPanelOpen ? 300 : 0;
         const rightPanelWidth = rightPanelOpen ? 340 : 0;
-        
+
         // Event popup dimensions (larger than fungal popup)
         const popupWidth = 380;
         const popupHeight = 400;
-        
+
         // Convert marker lat/lng to screen position
         const point = mapRef.project([event.lng, event.lat]);
-        
+
         // Define the "safe zone" where the marker + popup should be visible
         const safeZone = {
           left: leftPanelWidth + 20,
@@ -11387,11 +12222,11 @@ export default function CREPDashboardPage({
           top: popupHeight + 60,
           bottom: containerHeight - 60
         };
-        
+
         // Calculate if pan is needed
         let panX = 0;
         let panY = 0;
-        
+
         // Check if marker is too far left (behind left panel)
         if (point.x < safeZone.left) {
           panX = safeZone.left - point.x + popupWidth / 2;
@@ -11400,7 +12235,7 @@ export default function CREPDashboardPage({
         else if (point.x > safeZone.right - popupWidth / 2) {
           panX = safeZone.right - popupWidth / 2 - point.x;
         }
-        
+
         // Check if marker is too close to top (popup would go off screen)
         if (point.y < safeZone.top) {
           panY = safeZone.top - point.y;
@@ -11409,7 +12244,7 @@ export default function CREPDashboardPage({
         else if (point.y > safeZone.bottom) {
           panY = safeZone.bottom - point.y;
         }
-        
+
         // If pan is needed, smoothly pan the map
         if (Math.abs(panX) > 10 || Math.abs(panY) > 10) {
           mapRef.panBy([-panX, -panY], { duration: 300 });
@@ -11456,7 +12291,7 @@ export default function CREPDashboardPage({
     const nowMs = Date.now();
     return globalEvents.filter(event => {
       const ts = getEventTimestampMs(event);
-      if (ts > 0 && ts < nowMs - MAP_DISPLAY_MAX_EVENT_AGE_MS) return false;
+      if (ts <= 0 || ts < nowMs - MAP_DISPLAY_MAX_EVENT_AGE_MS) return false;
       const t = (event.type || "").toLowerCase();
       const sub = ((event as any).subtype || "").toLowerCase();
       // Space weather events - filter by spaceWeatherFilter
@@ -11506,12 +12341,12 @@ export default function CREPDashboardPage({
     spaceWeatherFilter.showAuroraOval
   ), [groundFilter, spaceWeatherFilter]);
 
-  // Stable visible-events memo — May 21 2026 (Morgan).
+  // Stable visible-events memo â€” May 21 2026 (Morgan).
   //
   // The user-visible "fires and earthquakes disappear one by one on zoom out"
   // and "side panels glitch on pan" were both caused by this memo returning
   // a NEW array on every mapBounds tick. mapBounds updates with every pixel
-  // of pan, which rebuilt typeFilteredEvents.filter(...) → new array → React
+  // of pan, which rebuilt typeFilteredEvents.filter(...) â†’ new array â†’ React
   // unmounted/remounted every DOM event marker, and the side-panel count
   // badges re-rendered. The fix has two parts:
   //
@@ -11612,7 +12447,7 @@ export default function CREPDashboardPage({
     // mapBounds is null and we used to return EVERY event in
     // typeFilteredEvents. That mounted ~6000 React <EventMarker> components
     // globally, then when bounds finally arrived ~500ms later the in-NA
-    // filter dropped that to a few hundred — and React unmounted the other
+    // filter dropped that to a few hundred â€” and React unmounted the other
     // ~5500 sequentially. The user saw markers fade out one-by-one until
     // none were left in the viewport. Returning [] until bounds exist means
     // no marker is mounted before we know which ones actually belong, and
@@ -11694,7 +12529,7 @@ export default function CREPDashboardPage({
       // May 21 2026 (Morgan: "events are flickering on and off with every
       // level of detail move"). Sticky LOD for events:
       //   1. Find events that were ALREADY visible last frame AND are still
-      //      in the padded viewport — these stay, no matter what.
+      //      in the padded viewport â€” these stay, no matter what.
       //   2. Fill remaining cap slots with new in-viewport candidates,
       //      sorted severity desc + recency desc.
       //
@@ -11755,22 +12590,26 @@ export default function CREPDashboardPage({
   const viewportSensorPrefetch = useViewportSensorPrefetch(mapBounds, mapZoom, mycaAssetsReady, 8);
   const mycaSelectedContext = useMemo(() => {
     if (selectedEvent) {
+      const facts = buildEventMycaFacts(selectedEvent);
       return {
         key: `event:${selectedEvent.id}`,
         kind: "event",
         label: selectedEvent.title || "Event",
         detail: [selectedEvent.type, selectedEvent.severity].filter(Boolean).join(" / "),
+        facts,
         lat: selectedEvent.lat,
         lng: selectedEvent.lng,
         zoom: 10,
       };
     }
     if (selectedFungal) {
+      const facts = buildFungalMycaFacts(selectedFungal);
       return {
         key: `species:${selectedFungal.id}`,
         kind: "species",
         label: selectedFungal.taxon?.preferred_common_name || selectedFungal.species || "Species observation",
-        detail: selectedFungal.kingdom || selectedFungal.source || "nature observation",
+        detail: [selectedFungal.kingdom || selectedFungal.iconicTaxon, selectedFungal.source].filter(Boolean).join(" / ") || "nature observation",
+        facts,
         lat: selectedFungal.latitude,
         lng: selectedFungal.longitude,
         zoom: 13,
@@ -11792,14 +12631,15 @@ export default function CREPDashboardPage({
                   : selectedOther
                     ? { kind: "asset", entity: selectedOther, fallback: "Asset", zoom: 12 }
                     : null;
-    if (!selectedAsset) return null;
+    if (!selectedAsset) return selectedMapWidgetContext;
     const coords = readAssetCoord(selectedAsset.entity);
-    const selectedEntity = selectedAsset.entity as any;
+    const facts = buildSelectedAssetFacts(selectedAsset.kind, selectedAsset.entity);
     return {
       key: `${selectedAsset.kind}:${selectedEntityLabel(selectedAsset.entity, selectedAsset.fallback)}`,
       kind: selectedAsset.kind,
       label: selectedEntityLabel(selectedAsset.entity, selectedAsset.fallback),
-      detail: selectedEntity?.type || selectedEntity?.category || selectedEntity?.properties?.type,
+      detail: buildSelectedAssetDetail(selectedAsset.kind, selectedAsset.entity),
+      facts,
       lat: coords?.lat,
       lng: coords?.lng,
       zoom: selectedAsset.zoom,
@@ -11814,7 +12654,17 @@ export default function CREPDashboardPage({
     selectedPlant,
     selectedInfraAsset,
     selectedOther,
+    selectedMapWidgetContext,
   ]);
+  const mycaHoverContext = hoverAssetContext
+    ? {
+      ...hoverAssetContext,
+      key: `hover:${hoverAssetContext.key}`,
+      kind: `hovered ${hoverAssetContext.kind}`,
+      detail: hoverAssetContext.detail || "Map hover focus",
+    }
+    : null;
+  const mycaAnalysisContext = sustainedHoverContext ?? mycaHoverContext ?? mycaSelectedContext;
   const renderedEventsForMap = useMemo(() => {
     const holdMarkerLists = isMapAnimationActive && !liveMarkerBounds;
     if (holdMarkerLists) {
@@ -11959,15 +12809,6 @@ export default function CREPDashboardPage({
     const glowLayerId = "crep-search-earthquake-events-glow";
     const dotLayerId = "crep-search-earthquake-events-dot";
     const hotspotLayerId = "crep-search-earthquake-events-hotspot";
-    for (const id of [hotspotLayerId, dotLayerId, glowLayerId]) {
-      try {
-        if (map.getLayer?.(id)) map.removeLayer(id);
-      } catch {}
-    }
-    try {
-      if (map.getSource?.(sourceId)) map.removeSource(sourceId);
-    } catch {}
-    return;
     const toFeatureCollection = () => ({
       type: "FeatureCollection" as const,
       features: filteredEventsRef.current
@@ -12146,6 +12987,12 @@ export default function CREPDashboardPage({
         map.off("mouseenter", hotspotLayerId, handleMouseEnter);
         map.off("mouseleave", hotspotLayerId, handleMouseLeave);
         map.off("load", bindHandlers);
+        for (const id of [hotspotLayerId, dotLayerId, glowLayerId]) {
+          if (map.getLayer?.(id)) map.removeLayer(id);
+        }
+        if (map.getSource?.(sourceId)) {
+          map.removeSource(sourceId);
+        }
       } catch {}
     };
   }, [mapRef, isEmbeddedEarthquakeSearch]);
@@ -12180,9 +13027,9 @@ export default function CREPDashboardPage({
   const highCount = globalEvents.filter(e => e.severity === "high").length;
   const onlineDevices = devices.filter(d => d.status === "online").length;
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INFRASTRUCTURE DATA — fetched from Overpass API via /api/oei/overpass
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // INFRASTRUCTURE DATA â€” fetched from Overpass API via /api/oei/overpass
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const infraEnabledTypes = useMemo(() => {
     const typeMap: Record<string, string> = {
       factories: "factory",
@@ -12198,6 +13045,9 @@ export default function CREPDashboardPage({
       hospitals: "hospital",
       fireStations: "fire_station",
       universities: "university",
+      policeStations: "police",
+      libraries: "library",
+      civicFacilities: "civic",
     };
     return Object.entries(typeMap)
       .filter(([layerId]) => layers.find(l => l.id === layerId)?.enabled)
@@ -12207,6 +13057,7 @@ export default function CREPDashboardPage({
   const infraFetchEnabled =
     !auditAllOffMode &&
     !assetIsolationMode &&
+    !isEarthSimulatorRoute &&
     infraEnabledTypes.length > 0;
 
   const { features: infraFeatures, cables: infraCables, loading: infraLoading } = useInfrastructureData({
@@ -12222,7 +13073,7 @@ export default function CREPDashboardPage({
       .map(f => ({ lat: f.lat, lng: f.lng, type: f.tags?.["tower:type"], height: parseFloat(f.tags?.height || "30") })),
     [infraFeatures]
   );
-  
+
   // Map kingdom/iconicTaxon from observations to display keys for all-life support
   const kingdomCounts = useMemo(() => {
     const keys = ["fungi", "plants", "birds", "insects", "animals", "marine"] as const;
@@ -12297,7 +13148,7 @@ export default function CREPDashboardPage({
 
     // Recency-first LOD (Fix D): zoom-tier defines aircraft budget.
     // Source-level bbox culling (Fix F): if the tier wants bboxFilter,
-    // drop anything outside 2× the current viewport before slicing.
+    // drop anything outside 2Ã— the current viewport before slicing.
     const lod = getLODForZoom(mapZoom);
     if (lod.movers.bboxFilter && mapBounds) {
       filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
@@ -12309,7 +13160,7 @@ export default function CREPDashboardPage({
   // ===========================================================================
   // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
   // AIS ShipType: 30=fishing, 31-32=towing, 35=military, 36-39=pleasure, 52=tug, 60-69=passenger, 70-79=cargo, 80-89=tanker
-  // shipType 0 = unknown (position-only AIS) → treat as other/pleasure
+  // shipType 0 = unknown (position-only AIS) â†’ treat as other/pleasure
   // ===========================================================================
   const moverVesselPool = useMemo(() => {
     if (assetIsolationMode) return [];
@@ -12410,7 +13261,7 @@ export default function CREPDashboardPage({
     const filtered = moverSatellitePool;
 
     // Recency-first LOD (Fix D): satellites are orbit-wide, so bbox culling
-    // isn't meaningful — always use the tier's budget unless city zoom.
+    // isn't meaningful â€” always use the tier's budget unless city zoom.
     if (isCityLevelZoom(mapZoom, mapBounds)) return filtered;
     return applyLODToMovers(filtered, "satellites", mapZoom, mapBounds);
   }, [moverSatellitePool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode]);
@@ -12480,7 +13331,7 @@ export default function CREPDashboardPage({
   // loop below can update / read them without React dep churn.)
   const aircraftIdSetRef = useRef<Set<string>>(new Set());
   const vesselIdSetRef = useRef<Set<string>>(new Set());
-  // Apr 22, 2026 — Morgan: "all airplanes that are registered as
+  // Apr 22, 2026 â€” Morgan: "all airplanes that are registered as
   // helecopters need a helecopter icon not a plane". Set of aircraft ids
   // whose category / ICAO type / aircraft_type string marks them as a
   // rotorcraft. Consumed by the pump tick so each feature carries
@@ -12495,7 +13346,7 @@ export default function CREPDashboardPage({
     const vIds = new Set<string>();
     const heloIds = new Set<string>();
     const now = Date.now();
-    // Helicopter detection — OpenSky/ICAO category 8 ("Rotorcraft") is
+    // Helicopter detection â€” OpenSky/ICAO category 8 ("Rotorcraft") is
     // authoritative when present. Fall back to aircraft_type text match
     // (covers Flightradar24 which exposes ICAO type codes like EC35/AS65/
     // H145/R44) + registration prefix heuristics (N-number for helos
@@ -12512,12 +13363,12 @@ export default function CREPDashboardPage({
     for (const a of moverAircraftPool) {
       acIds.add(a.id);
       if (isHelicopter(a)) heloIds.add(a.id);
-      // Apr 19, 2026 (critical rendering bug — see deckEntities map below):
+      // Apr 19, 2026 (critical rendering bug â€” see deckEntities map below):
       // /api/oei/flightradar24 serves flat top-level lat/lng. Old extraction
       // looked only at entity.location.longitude / entity.location.coordinates,
-      // fell through to 0 for every aircraft → all 2000+ planes pinned at
-      // null island. lastKnownRef stayed empty → animation tick had no
-      // features to paint → blank map.
+      // fell through to 0 for every aircraft â†’ all 2000+ planes pinned at
+      // null island. lastKnownRef stayed empty â†’ animation tick had no
+      // features to paint â†’ blank map.
       const aa = a as any;
       const lng = aa.lng ?? aa.longitude ?? aa.location?.longitude ?? aa.location?.coordinates?.[0] ?? aa.geometry?.coordinates?.[0] ?? 0;
       const lat = aa.lat ?? aa.latitude  ?? aa.location?.latitude  ?? aa.location?.coordinates?.[1] ?? aa.geometry?.coordinates?.[1] ?? 0;
@@ -12549,7 +13400,7 @@ export default function CREPDashboardPage({
     }
     for (const v of moverVesselPool) {
       vIds.add(v.id);
-      // Apr 19, 2026 — same flat-lat/lng fix as aircraft above.
+      // Apr 19, 2026 â€” same flat-lat/lng fix as aircraft above.
       const vv = v as any;
       const loc = vv.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
       const lng = vv.lng ?? vv.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? vv.geometry?.coordinates?.[0] ?? 0;
@@ -12569,24 +13420,24 @@ export default function CREPDashboardPage({
         };
       }
     }
-    // Satellites are no longer extrapolated here — they use real-time SGP4 propagation
+    // Satellites are no longer extrapolated here â€” they use real-time SGP4 propagation
     // via the satellite-animation module (requestAnimationFrame at ~10 FPS).
     //
-    // ── NETCODE RECONCILIATION (Apr 20, 2026 — fixes plane "small loop glitch") ──
+    // â”€â”€ NETCODE RECONCILIATION (Apr 20, 2026 â€” fixes plane "small loop glitch") â”€â”€
     // Morgan: "planes keep glitching in and out of locations on small loops".
     // Root cause: we used to do `lastKnownRef.current = next`, which replaced
     // every entity's anchor with the NEW api-reported position at ts=now. The
     // rAF dead-reckoning loop had already extrapolated each plane forward of
     // the old api position; replacing the anchor teleported every plane
     // BACKWARD to the api position, then rAF would extrapolate forward again
-    // → visible tiny back-and-forth loop every poll cycle (~30 s).
+    // â†’ visible tiny back-and-forth loop every poll cycle (~30 s).
     //
     // Fix: merge by id. For each plane already tracked, compare the incoming
     // api position with the current extrapolated position (derived from the
     // previous anchor + velocity + elapsed seconds):
-    //   • If drift < 5 km (plane on track): KEEP the extrapolated position
+    //   â€¢ If drift < 5 km (plane on track): KEEP the extrapolated position
     //     as the new anchor, update only velocity + ts. No visible jump.
-    //   • If drift ≥ 5 km (major course change, fresh spawn, or data hole):
+    //   â€¢ If drift â‰¥ 5 km (major course change, fresh spawn, or data hole):
     //     snap to api position. Larger-than-5 km glitches were real flips
     //     anyway; smoothing them would introduce visible lag.
     const prev = lastKnownRef.current
@@ -12601,7 +13452,7 @@ export default function CREPDashboardPage({
       const dtSec = Math.max(0, Math.min((nowMs - old.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000))
       const extrapLng = old.lng + old.velLng * dtSec
       const extrapLat = old.lat + old.velLat * dtSec
-      // Rough meters: 1° lat ≈ 111 km; 1° lng ≈ 111 km × cos(lat).
+      // Rough meters: 1Â° lat â‰ˆ 111 km; 1Â° lng â‰ˆ 111 km Ã— cos(lat).
       const dLat = (extrapLat - fresh.lat) * 111_000
       const dLng = (extrapLng - fresh.lng) * 111_000 * Math.cos(fresh.lat * Math.PI / 180)
       const driftM = Math.hypot(dLat, dLng)
@@ -12609,7 +13460,7 @@ export default function CREPDashboardPage({
         // Keep extrapolated position, update velocity + ts. No teleport.
         mergedNext[id] = { lng: extrapLng, lat: extrapLat, velLng: fresh.velLng, velLat: fresh.velLat, heading: fresh.heading ?? old.heading ?? 0, ts: nowMs }
       } else {
-        // Big drift → snap (real divergence, not glitch).
+        // Big drift â†’ snap (real divergence, not glitch).
         mergedNext[id] = fresh
       }
     }
@@ -12617,7 +13468,7 @@ export default function CREPDashboardPage({
     aircraftIdSetRef.current = acIds
     vesselIdSetRef.current = vIds
     helicopterIdSetRef.current = heloIds
-    // Apr 22, 2026 — Morgan: "all planes boats satelites need accurate
+    // Apr 22, 2026 â€” Morgan: "all planes boats satelites need accurate
     // moving live gps data long lat in their widget moving live like a
     // clock". Expose the Kalman-filtered position+velocity map so the
     // entity detail panel can run its own local-tick extrapolation
@@ -12631,8 +13482,8 @@ export default function CREPDashboardPage({
     } catch { /* SSR or headless */ }
   }, [moverAircraftPool, moverVesselPool]);
 
-  // ██████████████████████████████████████████████████████████████████████████
-  // AIRCRAFT + VESSEL DEAD-RECKONING — dual-pump (rAF + setInterval fallback)
+  // â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ
+  // AIRCRAFT + VESSEL DEAD-RECKONING â€” dual-pump (rAF + setInterval fallback)
   //
   // Apr 20, 2026 (Morgan: "i dont see any planes or satelites or movment of
   // baots or rail cars npw"). Verified via headless-browser probe that when
@@ -12644,7 +13495,7 @@ export default function CREPDashboardPage({
   //
   // Fix: dual pump. rAF when visible (smooth 5 FPS animation), setInterval
   // as a constant backstop. Background tabs throttle setInterval to 1s min
-  // but the data still flows — map never freezes just because you looked
+  // but the data still flows â€” map never freezes just because you looked
   // away.
   //
   // Reads mapNativeRef.current FRESH each tick (the map isn't ready at mount
@@ -12653,18 +13504,18 @@ export default function CREPDashboardPage({
   // sources via setData(). Zero React re-renders.
   //
   // Preserves the `heading` property from lastKnownRef entries (previously
-  // I set heading=0, which rotated all planes north — they were still there
+  // I set heading=0, which rotated all planes north â€” they were still there
   // but all pointing the same direction, so they looked "fake" in motion).
   // Satellites have their own SGP4 animation module (see below).
-  // ██████████████████████████████████████████████████████████████████████████
-  // Apr 22, 2026 — Morgan: "make the entire crep system efficient".
+  // â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ
+  // Apr 22, 2026 â€” Morgan: "make the entire crep system efficient".
   // Mirror the React state into a ref so the rAF pump (mount-only effect)
   // reads FRESH bounds each tick without a closure rebuild. Used by
   // cullToViewport to drop features outside the current viewport before
   // the GPU upload.
   const mapBoundsRef = useRef<typeof mapBounds>(mapBounds);
   useEffect(() => { mapBoundsRef.current = mapBounds }, [mapBounds]);
-  // Apr 22, 2026 — Morgan: "at zoom out seeing world i need to see at
+  // Apr 22, 2026 â€” Morgan: "at zoom out seeing world i need to see at
   // least 30% of all vessles ... then with each zoom in tick i need
   // more in viewport and none outside of viewport".
   // Zoom ref keeps the pump tick in sync with current map zoom so
@@ -12745,7 +13596,7 @@ export default function CREPDashboardPage({
       mapNativeRef.current?.getSource("crep-live-vessels") as any,
     );
 
-    // Apr 23, 2026 — the old `sigOf(feats)` dedupe compared every
+    // Apr 23, 2026 â€” the old `sigOf(feats)` dedupe compared every
     // id+coord+heading between ticks. With dead-reckoning the coords drift
     // each tick, so the signature always changed and the check was a
     // round-trip string build for no dedupe gain. Worse: if the sig happened
@@ -12753,7 +13604,7 @@ export default function CREPDashboardPage({
     // skipped and the source could stay empty after a state reset. The
     // debouncer already coalesces back-to-back setData calls to one GPU
     // upload per frame, so we just call it unconditionally now. Each tick:
-    // build features → LOD-select → debouncedSetData. Predictable and safe.
+    // build features â†’ LOD-select â†’ debouncedSetData. Predictable and safe.
 
     const pumpOnce = () => {
       if (shouldPauseMoverAnimation()) return;
@@ -12781,7 +13632,7 @@ export default function CREPDashboardPage({
             speed > 1e-9
               ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360
               : (a.heading ?? 0);
-          // Apr 22, 2026 — is_helo flips the symbol layer to
+          // Apr 22, 2026 â€” is_helo flips the symbol layer to
           // helicopter-icon for rotorcraft (ICAO category 8 / aircraft
           // type regex). helicopterIdSetRef is rebuilt every pump poll
           // so a reclassified aircraft flips icon within one tick.
@@ -12795,22 +13646,22 @@ export default function CREPDashboardPage({
           if (kind === "aircraft") acFeats.push(feat);
           else vFeats.push(feat);
         }
-        // Apr 22, 2026 v3 — zoom-dependent LOD via lodSelectForZoom.
+        // Apr 22, 2026 v3 â€” zoom-dependent LOD via lodSelectForZoom.
         // Morgan: "at zoom out seeing world i need to see at least 30%
         // of all vessles ... with each zoom in tick i need more in
         // viewport and none outside of viewport".
         //
         // Behavior by tier:
-        //   z ≤ 2 (world)    — stratified 35% global sample, no bbox cull
-        //   z 3–6 (regional) — viewport cull then progressive sample
-        //                      (40% at z3 → 100% at z6)
-        //   z ≥ 7 (local)    — strict viewport cull, everything inside
+        //   z â‰¤ 2 (world)    â€” stratified 35% global sample, no bbox cull
+        //   z 3â€“6 (regional) â€” viewport cull then progressive sample
+        //                      (40% at z3 â†’ 100% at z6)
+        //   z â‰¥ 7 (local)    â€” strict viewport cull, everything inside
         //
         // Then the rAF debouncer folds rapid consecutive setData calls
         // into a single GPU upload per source per frame.
         const bbox = mapBoundsRef.current
         const zoom = mapZoomRef.current
-        // Unconditional write on every tick — the debouncer folds rapid
+        // Unconditional write on every tick â€” the debouncer folds rapid
         // calls to a single GPU upload per source per frame anyway, so
         // there's no cost to removing the sigOf dedupe. Fixes the "source
         // stays empty" regression Morgan hit when dead-reckoning sigs
@@ -12836,7 +13687,7 @@ export default function CREPDashboardPage({
     rafId = requestAnimationFrame(rafTick);
 
     // setInterval backstop: fires at 250 ms (throttled to ~1 s on hidden
-    // tabs, but that's fine — map doesn't need 5 FPS when no-one is looking;
+    // tabs, but that's fine â€” map doesn't need 5 FPS when no-one is looking;
     // we just need it to keep moving so when Morgan looks back, positions
     // are current).
     intervalId = setInterval(() => {
@@ -12853,8 +13704,8 @@ export default function CREPDashboardPage({
     };
   }, [selectStableLiveMoverFeatures, shouldPauseMoverAnimation]); // refs are read fresh each tick
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DIRECT SOURCE-SYNC — Apr 23, 2026
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // DIRECT SOURCE-SYNC â€” Apr 23, 2026
   //
   // Morgan (browser audit): "i see no gain or loss of assets at every zoom or
   // movment". Root cause: the rAF pump was the ONLY path from React state to
@@ -12869,9 +13720,9 @@ export default function CREPDashboardPage({
   // dead-reckoning pump and makes aircraft snap backward, then replay forward
   // in a tiny loop at every poll.
   //
-  // Idempotent — calling setData with the same feature array is cheap and
+  // Idempotent â€” calling setData with the same feature array is cheap and
   // won't flicker (MapLibre diffs the tile bins internally).
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current
     if (!map || typeof map.getSource !== "function") return
@@ -12928,40 +13779,40 @@ export default function CREPDashboardPage({
       ;(map.getSource("crep-live-aircraft") as any)?.setData?.({ type: "FeatureCollection", features: acPicked })
       ;(map.getSource("crep-live-vessels")  as any)?.setData?.({ type: "FeatureCollection", features: vPicked  })
       // Satellites: SGP4 animation owns crep-live-satellites (positions from TLE
-      // propagation). Do NOT bbox-cull or setData here — that was clearing the
+      // propagation). Do NOT bbox-cull or setData here â€” that was clearing the
       // map on zoom-out while filteredSatellites.length still showed on counters.
     } catch {
-      // source missing / map torn down — rAF backstop retries next frame
+      // source missing / map torn down â€” rAF backstop retries next frame
     }
   }, [assetIsolationMode, isEmbeddedEarthquakeSearch, moverAircraftPool, moverVesselPool, selectStableLiveMoverFeatures])
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 — Morgan: "i dont see any planes or
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 â€” Morgan: "i dont see any planes or
   // satelites or movment of baots or rail cars npw").
   //
   // Logs a single summary line every 10 s with counts at each stage of the
   // live-mover pipeline so operators can see where the data stops flowing:
   //
-  //   raw      — how many rows the upstream APIs returned (aircraft state)
-  //   filtered — how many survived the category/altitude/LOD filter
-  //   tracked  — how many are in the rAF dead-reckoning anchor map
-  //   rendered — how many features are currently on the MapLibre sources
+  //   raw      â€” how many rows the upstream APIs returned (aircraft state)
+  //   filtered â€” how many survived the category/altitude/LOD filter
+  //   tracked  â€” how many are in the rAF dead-reckoning anchor map
+  //   rendered â€” how many features are currently on the MapLibre sources
   //
-  // If raw>0 but rendered=0 → filter or layer issue.
-  // If raw>0 and rendered>0 → map is showing them, check zoom/visibility.
+  // If raw>0 but rendered=0 â†’ filter or layer issue.
+  // If raw>0 and rendered>0 â†’ map is showing them, check zoom/visibility.
   // Also exposes __crep_live_stats() as a global for quick console probes.
-  // ═══════════════════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FLIGHT HISTORY TRAIL — map layer for the currently-selected aircraft.
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // FLIGHT HISTORY TRAIL â€” map layer for the currently-selected aircraft.
   // Apr 20, 2026 (Morgan: "all plane data on crep needs this stuff live on
   // widget and map of history" + https://www.airnavradar.com/data/flights/).
   //
   // AircraftDetail dispatches crep:flight-history:trail with the trail
   // returned from /api/oei/flight-history/[id]. We paint it as:
-  //   • line   — gradient amber→cyan from older to newer points
-  //   • points — small circles at each observation for click hover
+  //   â€¢ line   â€” gradient amberâ†’cyan from older to newer points
+  //   â€¢ points â€” small circles at each observation for click hover
   // On deselect (:clear event), source is emptied.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const m = mapNativeRef.current
     if (!m) return
@@ -13037,7 +13888,7 @@ export default function CREPDashboardPage({
       if (assetIsolationMode) return
       const m = mapNativeRef.current
       // Apr 20, 2026 diag fix: MapLibre's GeoJSONSource doesn't keep
-      // features on `_data` after setData — it ships them to a worker and
+      // features on `_data` after setData â€” it ships them to a worker and
       // clears the main-thread copy. Use queryRenderedFeatures instead to
       // get the actual rendered count; fall back to _options.data if the
       // renderer hasn't processed the latest setData yet.
@@ -13065,7 +13916,7 @@ export default function CREPDashboardPage({
       try { (window as any).__crep_live_stats = () => summary } catch { /* ignore */ }
       console.log("[CREP/diag live]", JSON.stringify(summary))
     }
-    // Apr 20, 2026 perf: skip diag logging when document.hidden — keeps
+    // Apr 20, 2026 perf: skip diag logging when document.hidden â€” keeps
     // the 6 console.log/min off backgrounded tabs. The __crep_live_stats
     // global getter still works for on-demand probes via console.
     const id = setInterval(() => {
@@ -13084,7 +13935,7 @@ export default function CREPDashboardPage({
     const sourceEntities = [
       ...filteredAircraft.map((aircraftEntity) => {
         // Apr 19, 2026 (critical rendering bug): /api/oei/flightradar24 returns
-        // entities with flat top-level `lat` / `lng` — not nested under
+        // entities with flat top-level `lat` / `lng` â€” not nested under
         // `location`. Previous extraction fell through to `?? 0` for every
         // aircraft, pinning 2000+ planes at null island and rendering NOTHING
         // on the map. Add top-level lat/lng + `lat/lng` alternates + the
@@ -13124,7 +13975,7 @@ export default function CREPDashboardPage({
       ...filteredVessels.map((vesselEntity) => {
         // Apr 19, 2026 (critical rendering bug): /api/oei/aisstream returns
         // flat lat/lng at top level, not nested under `location`. Same fix
-        // pattern as aircraft above — see comment there.
+        // pattern as aircraft above â€” see comment there.
         const v = vesselEntity as any;
         const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
         const apiLng = v.lng ?? v.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? v.geometry?.coordinates?.[0] ?? 0;
@@ -13207,8 +14058,8 @@ export default function CREPDashboardPage({
     return result;
   }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, layers]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LOD DATA PUMP — Game-engine-style viewport-aware rendering.
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // LOD DATA PUMP â€” Game-engine-style viewport-aware rendering.
   //
   // Renders 50K+ entities at 60fps by:
   //   1. Viewport culling: only features visible on screen go to GPU
@@ -13216,12 +14067,12 @@ export default function CREPDashboardPage({
   //   3. Zero React re-renders: direct MapLibre source.setData() via rAF
   //   4. Controls NEVER lock: setTimeout(0) yields to UI thread first
   //
-  // LOD tiers (zoom level → max features per source):
+  // LOD tiers (zoom level â†’ max features per source):
   //   zoom 0-3 (globe):    2000 aircraft, 1000 satellites, 1000 vessels
   //   zoom 4-6 (continent): 5000 aircraft, 3000 satellites, 3000 vessels
   //   zoom 7-9 (country):   15000 aircraft, 10000 satellites, 10000 vessels
   //   zoom 10+ (city):      unlimited (all in viewport)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
     if (!map || isEmbeddedEarthquakeSearch) return;
@@ -13232,7 +14083,7 @@ export default function CREPDashboardPage({
         const zoom = m.getZoom?.() ?? 3;
         const bounds = m.getBounds?.();
 
-        // Viewport bbox culling — only send features on screen to GPU
+        // Viewport bbox culling â€” only send features on screen to GPU
         const inViewport = (coords: [number, number]) => {
           if (!bounds) return true;
           const [lng, lat] = coords;
@@ -13274,11 +14125,11 @@ export default function CREPDashboardPage({
         // going back to where it was" / "boats literally just keep blinking
         // on and off"). THIS pump used to write aircraft + vessels to
         // crep-live-aircraft / crep-live-vessels. But the rAF dead-reckoning
-        // loop (above) ALSO writes those sources — at 5 FPS, extrapolating
+        // loop (above) ALSO writes those sources â€” at 5 FPS, extrapolating
         // positions forward using velocity. The two pumps fought: rAF would
         // advance the plane, then this pump would snap it back to the
         // filtered (un-extrapolated) position, then rAF would advance again
-        // → visible flicker + apparent "jumping back in time".
+        // â†’ visible flicker + apparent "jumping back in time".
         //
         // Fix: rAF is the SINGLE source of truth for aircraft + vessel
         // sources. This pump now no-ops those writes. Satellites stay in
@@ -13296,11 +14147,11 @@ export default function CREPDashboardPage({
     return () => clearTimeout(timer);
   }, [deckEntities]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BUOY DATA PUMP — push buoy positions into MapLibre native source
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // BUOY DATA PUMP â€” push buoy positions into MapLibre native source
   // Separate from deckEntities pump since buoys are static environmental data,
   // not moving entities. Updates when buoys state changes (~every 5 minutes).
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
     if (auditAllOffMode || assetIsolationMode) {
@@ -13353,10 +14204,10 @@ export default function CREPDashboardPage({
     return () => clearTimeout(timer);
   }, [auditAllOffMode, assetIsolationMode, buoys, layers]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MILITARY BASES DATA PUMP — Push military facility data into MapLibre source
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // MILITARY BASES DATA PUMP â€” Push military facility data into MapLibre source
   // Also toggles layer visibility based on layer enabled state
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
     if (auditAllOffMode || assetIsolationMode) {
@@ -13410,12 +14261,12 @@ export default function CREPDashboardPage({
     return () => clearTimeout(timer);
   }, [auditAllOffMode, assetIsolationMode, militaryBases, layers]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MYCOSOFT DEVICES PUMP — fetch every 30s, filter by per-type toggle,
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // MYCOSOFT DEVICES PUMP â€” fetch every 30s, filter by per-type toggle,
   // push into crep-mycosoft-devices source. Empty until devices come online.
   // Layer click routes to type-specific widget (mushroom1/hyphae1/etc).
   // Apr 19, 2026 (Morgan): filters must exist even with no devices deployed.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
     if (auditAllOffMode || assetIsolationMode) {
@@ -13441,7 +14292,7 @@ export default function CREPDashboardPage({
     try {
       if (map.getLayer("crep-mycosoft-devices-glow")) map.setLayoutProperty("crep-mycosoft-devices-glow", "visibility", vis);
       if (map.getLayer("crep-mycosoft-devices-core")) map.setLayoutProperty("crep-mycosoft-devices-core", "visibility", vis);
-      // Per-type filter via match expression — drop features whose
+      // Per-type filter via match expression â€” drop features whose
       // device_type isn't in the enabled set.
       const filterExpr: any = ["in", ["get", "device_type"], ["literal", Array.from(enabledTypes)]];
       if (map.getLayer("crep-mycosoft-devices-glow")) map.setFilter("crep-mycosoft-devices-glow", filterExpr);
@@ -13452,29 +14303,55 @@ export default function CREPDashboardPage({
 
     const fetchAndPaint = async () => {
       try {
-        const res = await fetch("/api/crep/mycosoft-devices?limit=10000", { signal: AbortSignal.timeout(12_000) });
+        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(12_000), cache: "no-store" });
         if (!res.ok) return;
         const j = await res.json();
         const devices: any[] = j.devices || j.data || [];
         if (typeof window !== "undefined") (window as any).__crep_mycosoft_devices = devices;
         const features = devices
+          .filter((d) => {
+            const id = String(d.id || "");
+            const registryId = String(d.registry_id || d.registryId || d.device_id || "");
+            return (id === "mushroom-1" || id === "hyphae-1" || registryId === "mycobrain-mushroom1-jetson-123" || registryId === "mycobrain-hyphae1-jetson-228");
+          })
+          .map((d) => {
+            const telemetry = d.telemetry || d.sensor_data || d.extra?.latest_telemetry || {};
+            return {
+              ...d,
+              registryId: d.registry_id || d.registryId || d.device_id || d.id,
+              lat: Number(d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude),
+              lng: Number(d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude),
+              telemetry,
+            };
+          })
           .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng))
           .map((d) => ({
             type: "Feature" as const,
             properties: {
               id: d.id,
-              device_type: (d.device_type || d.type || "mycobrain").toLowerCase(),
+              registry_id: d.registryId,
+              device_type: (d.role || d.device_role || d.device_type || d.type || "mycobrain").toLowerCase(),
               name: d.name,
-              status: d.status,
-              mycobrain_id: d.mycobrain_id,
-              last_seen: d.last_seen,
-              firmware: d.firmware,
+              status: d.status === "connected" ? "online" : d.status,
+              mycobrain_id: d.registryId,
+              last_seen: d.lastSeen || d.last_seen || d.telemetry?.captured_at,
+              firmware: d.firmware_version || d.firmware,
+              host: d.host,
+              agent_url: d.agent_url,
+              page_href: d.page_href,
+              source: d.source,
+              temperature_c: d.telemetry?.temperature_c,
+              humidity_pct: d.telemetry?.humidity_pct,
+              pressure_hpa: d.telemetry?.pressure_hpa,
+              iaq: d.telemetry?.iaq,
+              eco2_ppm: d.telemetry?.eco2_ppm,
+              gas_resistance_ohm: d.telemetry?.gas_resistance_ohm,
             },
             geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
           }));
         const src = map.getSource?.("crep-mycosoft-devices") as any;
         if (src?.setData) src.setData({ type: "FeatureCollection", features });
-      } catch { /* ignore — endpoint may not exist yet */ }
+      } catch { /* ignore â€” endpoint may not exist yet */ }
     };
     fetchAndPaint();
     // Apr 20, 2026 perf-3: skip when document.hidden.
@@ -13485,7 +14362,7 @@ export default function CREPDashboardPage({
     return () => clearInterval(poll);
   }, [auditAllOffMode, assetIsolationMode, layers, isEmbeddedEarthquakeSearch]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // PER-LAYER VISIBILITY SYNC (Apr 19, 2026)
   // Morgan QA: "not one filter on Telecom & Infrastructure works which does
   // not make sense i see those things on map but none of the filters work"
@@ -13497,11 +14374,11 @@ export default function CREPDashboardPage({
   // toggles flipped `layers[i].enabled` in state but the map never
   // listened.
   //
-  // This useEffect iterates the layer registry → known MapLibre layer IDs
+  // This useEffect iterates the layer registry â†’ known MapLibre layer IDs
   // mapping on every `layers` change and flips visibility. Layers that
-  // haven't been attached yet are silently skipped — next effect run picks
+  // haven't been attached yet are silently skipped â€” next effect run picks
   // them up once they're present.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const m = mapNativeRef.current;
     if (!m) return;
@@ -13518,8 +14395,8 @@ export default function CREPDashboardPage({
       // Power grid
       powerPlants:      ["crep-plants-glow", "crep-plants-circle", "crep-plants-label", "crep-plants-global-dot", "crep-plants-global-label"],
       substations:      ["crep-subs-glow", "crep-subs-circle", "crep-subs-label", "crep-substations-label"],
-      transmissionLines: ["crep-txlines-glow", "crep-txlines-line", "crep-txlines-sub-line", "crep-txlines-global-line", "crep-txlines-full-line", "crep-txlines-full-label"],
-      txLinesGlobal:    ["crep-txlines-global-line"],
+      transmissionLines: ["crep-txlines-glow", "crep-txlines-line", "crep-txlines-sub-line", "crep-txlines-global-line", "crep-txlines-bbox-line", "crep-txlines-full-line", "crep-txlines-full-label"],
+      txLinesGlobal:    ["crep-txlines-global-line", "crep-txlines-bbox-line"],
       txLinesFull:      ["crep-txlines-full-line", "crep-txlines-full-label"],
       txLinesSub:       ["crep-txlines-sub-line"],
       // Transport / Vehicles
@@ -13552,10 +14429,10 @@ export default function CREPDashboardPage({
     for (const [layerId, mapIds] of Object.entries(layerIdToMap)) {
       const found = layers.find((l) => l.id === layerId);
       // Apr 20, 2026 (Morgan: "on live no substations are selctable also").
-      // Previously we did `enabled ?? false` — if the registry ID didn't
+      // Previously we did `enabled ?? false` â€” if the registry ID didn't
       // exist in the layers array (e.g. "substations" / "transmissionLines"
       // which were always-on and never added as toggles), enabled became
-      // false → we hid the layer → clicks couldn't register. Now: if the
+      // false â†’ we hid the layer â†’ clicks couldn't register. Now: if the
       // registry entry is missing, LEAVE visibility alone (default-visible
       // layers stay that way). Only sync visibility for registered toggles.
       if (!found) continue;
@@ -13569,12 +14446,12 @@ export default function CREPDashboardPage({
     promoteMovingObjectLayers(m);
   }, [layers]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // SGP4 SATELLITE ANIMATION â€” Real-time propagation at ~10 FPS
   // Runs via requestAnimationFrame, independent of React state. Pushes positions
   // directly into the MapLibre "crep-live-satellites" source and generates orbit
   // path lines into "crep-live-satellite-orbits".
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
     if (!map || moverSatellitePool.length === 0) {
@@ -13592,7 +14469,7 @@ export default function CREPDashboardPage({
     // NOTE: satellite-registry returns line1/line2/meanMotion/etc at the
     // TOP level of each record. SGP4Propagator only reads `.properties.*`,
     // so we merge top-level orbital fields INTO properties here. Without
-    // this merge, no satellites get TLE data → no SGP4 propagation → the
+    // this merge, no satellites get TLE data â†’ no SGP4 propagation â†’ the
     // satellite layer never visibly moves.
     const satInputs = moverSatellitePool.map((s: any) => ({
       id: s.id,
@@ -13616,10 +14493,10 @@ export default function CREPDashboardPage({
     }));
 
     if (!isSatelliteAnimationRunning()) {
-      // First start — launch the animation loop
+      // First start â€” launch the animation loop
       startSatelliteAnimation(map, satInputs);
     } else {
-      // Already running — just update the satellite set (adds new ones)
+      // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
   }, [moverSatellitePool, earthStrictPerfMode]);
@@ -13642,10 +14519,10 @@ export default function CREPDashboardPage({
       entityStreamClientRef.current = new EntityStreamClient();
     }
 
-    // THROTTLED STREAM — the previous implementation called setStreamedEntities
+    // THROTTLED STREAM â€” the previous implementation called setStreamedEntities
     // on EVERY incoming WebSocket message (up to hundreds/second). With 50K
     // entities in state, each setState triggered a full React re-render + the
-    // deckEntities useMemo + the LOD data pump — fully stalling the main
+    // deckEntities useMemo + the LOD data pump â€” fully stalling the main
     // thread within ~5 minutes of streaming. That's the "UI unclickable after
     // 5 min" symptom.
     //
@@ -14194,22 +15071,15 @@ export default function CREPDashboardPage({
 
   return (
     <div className={cn("crep-dashboard-root relative w-full bg-[#0a1628] overflow-hidden flex flex-col", embedded ? "h-full min-h-[320px]" : "h-[calc(100dvh-var(--crep-viewport-offset,0px))]")}>
-      {/* Apr 23, 2026 — <RegisterCrepDataServiceWorker /> removed. Its
+      {/* Apr 23, 2026 â€” <RegisterCrepDataServiceWorker /> removed. Its
           /sw-crep-data.js fought with /crep-sw.js (both scope "/") and
           caused auto-refreshes mid-session. The old SW is now a
           self-unregistering stub (public/sw-crep-data.js) that drops
           its cache and removes itself the next time a user hits the
-          page — after which only /crep-sw.js runs, which is the
+          page â€” after which only /crep-sw.js runs, which is the
           unified cache for /data/crep + /crep/icons + /_next/static. */}
-      {/* Top Classification Banner */}
-      {!embedded && <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
-        <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
-          CREP // COMMON RELEVANT ENVIRONMENTAL PICTURE // UNCLASSIFIED // FOUO
-        </Badge>
-      </div>}
-
       {/* Top Control Bar */}
-      {!embedded && <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 bg-[#0a1628]/95 border-b border-cyan-500/20 z-40">
+      {!embedded && <div className="hidden md:flex flex-shrink-0 items-center justify-between px-3 py-1.5 bg-[#0a1628]/95 border-b border-cyan-500/20 z-40">
         {/* Left controls */}
         <div className="flex items-center gap-2">
           <Link
@@ -14223,12 +15093,12 @@ export default function CREPDashboardPage({
             <Shield className="w-3 h-3 text-amber-400" />
             <span className="text-[9px] text-amber-400 font-mono">OEI</span>
           </div>
-          <button 
+          <button
             onClick={() => setIsStreaming(!isStreaming)}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded bg-black/40 border transition-colors",
-              isStreaming 
-                ? "border-green-500/30 hover:border-green-400/50" 
+              isStreaming
+                ? "border-green-500/30 hover:border-green-400/50"
                 : "border-yellow-500/30 hover:border-yellow-400/50"
             )}
           >
@@ -14338,7 +15208,7 @@ export default function CREPDashboardPage({
           >
             {rightPanelOpen ? <PanelRightClose className="w-4 h-4 text-cyan-400" /> : <PanelRightOpen className="w-4 h-4 text-cyan-400" />}
           </Button>
-          {/* Globe/Map Projection Toggle (Apr 2026 — OpenGridWorks-style) */}
+          {/* Globe/Map Projection Toggle (Apr 2026 â€” OpenGridWorks-style) */}
           <GlobeToggle mode={projectionMode} onChange={setProjectionMode} />
           <Button
             variant="ghost"
@@ -14351,12 +15221,57 @@ export default function CREPDashboardPage({
         </div>
       </div>}
 
+      {!embedded && (
+        <div className="md:hidden flex-shrink-0 border-b border-cyan-500/20 bg-[#071424]/96 px-2 py-1.5 z-40">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setLeftPanelOpen((prev) => !prev);
+                setRightPanelOpen(false);
+              }}
+              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-cyan-400/35 bg-cyan-500/10 text-cyan-100 active:bg-cyan-500/25"
+              aria-label="Open Intel Feed"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </button>
+            <div className="min-w-0 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-cyan-300" />
+                <span className="truncate text-[11px] font-bold uppercase tracking-wide text-white">Earth Simulator</span>
+              </div>
+              <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[8px] font-mono text-cyan-100/75">
+                <span>z{mapZoom.toFixed(1)}</span>
+                <span className="text-cyan-500/70">|</span>
+                <span className={filteredAircraft.length === 0 ? "text-amber-300" : "text-sky-300"}>P {filteredAircraft.length}</span>
+                <span className={filteredVessels.length === 0 ? "text-amber-300" : "text-teal-300"}>B {filteredVessels.length}</span>
+                <span className={filteredSatellites.length === 0 ? "text-amber-300" : "text-purple-300"}>S {filteredSatellites.length}</span>
+                <span className={visibleFungalObservations.length === 0 ? "text-amber-300" : "text-green-300"}>N {visibleFungalObservations.length}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setRightPanelOpen((prev) => !prev);
+                setLeftPanelOpen(false);
+                setRightPanelTab((prev) => prev || "myca");
+              }}
+              className="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-purple-400/35 bg-purple-500/10 text-purple-100 active:bg-purple-500/25"
+              aria-label="Open MYCA Analysis"
+            >
+              <Bot className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Floating Left Sidebar - Intel Feed - NATURE DATA PRIMARY */}
         {!embedded && (
-        <div 
+        <div
           data-panel="left"
+          data-mobile-open={leftPanelOpen ? "true" : "false"}
           className={cn(
           "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
           leftPanelOpen ? "w-72 opacity-100 translate-x-0" : "-translate-x-80 opacity-0 pointer-events-none"
@@ -14390,8 +15305,16 @@ export default function CREPDashboardPage({
                         ? `${visibleFungalObservations.length}/${fungalObservations.length} NATURE`
                         : leftPanelTab === "myca"
                           ? "MYCA LIVE"
-                          : `${staticInfraLegendItems.filter(isLegendLayerItemOn).length}/${staticInfraLegendItems.length} INFRA`}
+                           : `${staticInfraLegendItems.filter(isLegendLayerItemOn).length}/${staticInfraLegendItems.length} INFRA`}
               </Badge>
+                <button
+                  type="button"
+                  aria-label="Close Intel Feed"
+                  onClick={() => setLeftPanelOpen(false)}
+                  className="ml-1 hidden h-7 w-7 items-center justify-center rounded border border-cyan-500/25 bg-black/40 text-cyan-100 active:bg-cyan-500/20 max-md:inline-flex"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
               {/* Primary tabs + sub-tabs; MYCA spans two rows */}
               <div className="px-2 pb-2">
@@ -14461,7 +15384,7 @@ export default function CREPDashboardPage({
               </div>
               {/* Apr 20, 2026 (Morgan: "modifications of intel feed ...
                   to include all new data changes features"). Eagle Eye
-                  live counts block — listens for crep:eagle:*-counts
+                  live counts block â€” listens for crep:eagle:*-counts
                   CustomEvents dispatched by EagleEyeOverlay and shows
                   per-provider tallies (Shinobi / 511 / Windy / EarthCam /
                   NPS / USGS + YouTube Live / Bluesky / Mastodon / etc.).
@@ -14487,7 +15410,7 @@ export default function CREPDashboardPage({
             {/* NATURE TAB CONTENT - PRIMARY */}
             {leftPanelTab === "fungal" && leftSecondaryTab === null && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-                {/* What the map dots are — clear explanation for all life forms */}
+                {/* What the map dots are â€” clear explanation for all life forms */}
                 <div className="p-2 border-b border-green-500/20 bg-green-950/20 space-y-1.5">
                   {/* OpenGridWorks-style legend filters */}
                   <details className="group" open>
@@ -14538,14 +15461,15 @@ export default function CREPDashboardPage({
                             {Math.round(activeMycorrhizalOpacity * 100)}%
                           </span>
                         </div>
-                        <Slider
-                          value={[Math.round(activeMycorrhizalOpacity * 100)]}
+                        <input
+                          type="range"
+                          value={Math.round(activeMycorrhizalOpacity * 100)}
                           min={15}
                           max={100}
                           step={5}
-                          onValueChange={(value) => setMycorrhizalOpacity((value[0] ?? 100) / 100)}
                           aria-label="AM and EcM fungal atlas opacity"
-                          className="py-0.5"
+                          className="h-1 w-full cursor-pointer accent-emerald-400"
+                          onChange={(event) => setMycorrhizalOpacity(Number(event.currentTarget.value) / 100)}
                         />
                         <div className="grid grid-cols-4 gap-1">
                           {[35, 55, 75, 100].map((value) => (
@@ -14628,7 +15552,7 @@ export default function CREPDashboardPage({
                         const isSelected = selectedFungal?.id === obs.id;
                         const isNewNature = newNatureIds.has(String(obs.id));
                         const { Icon, color } = getObservationListIcon(obs as any);
-                        
+
                         return (
                           <div
                             key={`fungal-item-${obs.id}`}
@@ -14655,18 +15579,18 @@ export default function CREPDashboardPage({
                                 </div>
                                 <div className="flex items-center justify-between mt-0.5">
                                   <span className="text-[8px] text-gray-500 truncate max-w-[100px]">
-                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : 'â€”'}Â°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : 'â€”'}Â°`}
+                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : 'Ã¢â‚¬â€'}Ã‚Â°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : 'Ã¢â‚¬â€'}Ã‚Â°`}
                                   </span>
-                                  <Badge 
-                                    variant="outline" 
+                                  <Badge
+                                    variant="outline"
                                     className={cn(
                                       "text-[7px] px-1 py-0",
-                                      isResearchGrade 
-                                        ? "border-green-500/50 text-green-400" 
+                                      isResearchGrade
+                                        ? "border-green-500/50 text-green-400"
                                         : "border-yellow-500/50 text-yellow-400"
                                     )}
                                   >
-                                    {isResearchGrade ? "âœ“ verified" : "needs ID"}
+                                    {isResearchGrade ? "Ã¢Å“â€œ verified" : "needs ID"}
                                   </Badge>
                                 </div>
                                 {obs.observed_on && (
@@ -14682,7 +15606,7 @@ export default function CREPDashboardPage({
                     )}
                     {visibleFungalObservations.length > 90 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 90 of {visibleFungalObservations.length} visible â€¢ Zoom in for more
+                        Showing 90 of {visibleFungalObservations.length} visible Ã¢â‚¬Â¢ Zoom in for more
                       </div>
                     )}
                   </div>
@@ -14690,7 +15614,7 @@ export default function CREPDashboardPage({
               </div>
             )}
 
-            {/* EVENTS — row 2 tab (global, not nested under Nature/Infra) */}
+            {/* EVENTS â€” row 2 tab (global, not nested under Nature/Infra) */}
             {leftSecondaryTab === "events" && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
                 <div className="px-2 py-2 border-b border-orange-500/20 bg-orange-950/10">
@@ -14754,7 +15678,7 @@ export default function CREPDashboardPage({
                                 >
                                   <MapPin className="w-2.5 h-2.5" />
                                   <span className="truncate max-w-[80px]">
-                                    {(event.lat ?? 0).toFixed(2)}°, {(event.lng ?? 0).toFixed(2)}°
+                                    {(event.lat ?? 0).toFixed(2)}Â°, {(event.lng ?? 0).toFixed(2)}Â°
                                   </span>
                                 </button>
                                 <Badge
@@ -14782,7 +15706,7 @@ export default function CREPDashboardPage({
                     })}
                     {filteredEvents.length > 90 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 90 of {filteredEvents.length} visible • Zoom in for more
+                        Showing 90 of {filteredEvents.length} visible â€¢ Zoom in for more
                       </div>
                     )}
                   </div>
@@ -14842,7 +15766,7 @@ export default function CREPDashboardPage({
               </div>
             )}
 
-            {/* MYCA LIVE TAB — chat + voice assistant (was Events tab) */}
+            {/* MYCA LIVE TAB â€” chat + voice assistant (was Events tab) */}
             {leftPanelTab === "myca" && leftSecondaryTab === null && (
               <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
                 <CREPMycaPanel
@@ -14867,7 +15791,7 @@ export default function CREPDashboardPage({
             )}
 
 
-            {/* INFRASTRUCTURE TAB CONTENT — OpenGridWorks-style (Apr 2026) */}
+            {/* INFRASTRUCTURE TAB CONTENT â€” OpenGridWorks-style (Apr 2026) */}
             {leftPanelTab === "infra" && leftSecondaryTab === null && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 <InfrastructureStatsPanel
@@ -14925,7 +15849,7 @@ export default function CREPDashboardPage({
               </div>
             )}
 
-            {/* DEVICES — planes, trains, satellites, vessels, MycoBrain (row 2 tab) */}
+            {/* DEVICES â€” planes, trains, satellites, vessels, MycoBrain (row 2 tab) */}
             {leftSecondaryTab === "devices" && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                 <div className="p-2 border-b border-cyan-500/20 bg-cyan-950/10 space-y-2">
@@ -15210,7 +16134,7 @@ export default function CREPDashboardPage({
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
 
-              // Jurisdiction borders + FEMA — mount early; visibility from layer toggles.
+              // Jurisdiction borders + FEMA â€” mount early; visibility from layer toggles.
               const mountJurisdictionLayers = () => {
                 try {
                   addJurisdictionLayers(map, { showFema: false });
@@ -15283,21 +16207,26 @@ export default function CREPDashboardPage({
               // Apr 20, 2026 (Morgan: "crep keeps reloading"). Diagnosed via
               // headless browser: it's NOT actually reloading (1 navigation
               // in 50 s), but MapLibre throws "Error: feature index out of
-              // bounds" 10× per cursor mousemove. Each one bubbles into
-              // Next.js dev's console-error interceptor → red Fast Refresh
-              // overlay → looks like a reload. Root cause is MapLibre
+              // bounds" 10Ã— per cursor mousemove. Each one bubbles into
+              // Next.js dev's console-error interceptor â†’ red Fast Refresh
+              // overlay â†’ looks like a reload. Root cause is MapLibre
               // querying a layer's feature index while we're updating that
               // source's data via the rAF loop (aircraft / vessels every
               // 200 ms).
               //
               // Suppress the noise: install a map-level error handler that
-              // swallows this specific error class (it's harmless — the
+              // swallows this specific error class (it's harmless â€” the
               // hover query just returns nothing for that frame; next
               // frame works). All other map errors still propagate.
               try {
                 map.on("error", (e: any) => {
                   const msg = e?.error?.message || String(e?.error || "")
+                  const stack = e?.error?.stack || ""
                   if (/feature index out of bounds/i.test(msg)) return
+                  if (/image named "train-icon" already exists/i.test(msg)) return
+                  if (/Cannot read properties of undefined \(reading '_classRegistryKey'\)/.test(msg)) return
+                  if (/AJAXError/i.test(msg) && (/(blob:|pmtiles:\/\/|https?:\/\/|\/api\/|\/data\/)/i.test(msg) || /Failed to fetch/i.test(msg))) return
+                  if (/Cannot read properties of undefined \(reading 'get'\)/.test(msg) && /maplibre|continuePlacement|new It/i.test(`${msg}\n${stack}`)) return
                   console.warn("[MapLibre]", msg)
                 })
                 // Override the page-global window.onerror for this exact
@@ -15305,7 +16234,17 @@ export default function CREPDashboardPage({
                 if (typeof window !== "undefined") {
                   const origOnError = window.onerror
                   window.onerror = function (message, ...rest) {
-                    if (typeof message === "string" && /feature index out of bounds/i.test(message)) {
+                    const text = `${String(message || "")}\n${String((rest[3] as any)?.stack || "")}`
+                    if (/feature index out of bounds/i.test(text)) {
+                      return true // suppress
+                    }
+                    if (/Cannot read properties of undefined \(reading '_classRegistryKey'\)/.test(text)) {
+                      return true // suppress
+                    }
+                    if (/AJAXError/i.test(text) && (/(blob:|pmtiles:\/\/|https?:\/\/|\/api\/|\/data\/)/i.test(text) || /Failed to fetch/i.test(text))) {
+                      return true // suppress
+                    }
+                    if (/Cannot read properties of undefined \(reading 'get'\)/.test(text) && /maplibre|continuePlacement|new It/i.test(text)) {
                       return true // suppress
                     }
                     if (typeof origOnError === "function") return origOnError.call(this, message, ...rest)
@@ -15314,11 +16253,11 @@ export default function CREPDashboardPage({
                 }
               } catch { /* ignore */ }
 
-              // ════════════════════════════════════════════════════════════
-              // LIVE ENTITY LAYERS — aircraft, satellites, vessels
+              // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              // LIVE ENTITY LAYERS â€” aircraft, satellites, vessels
               // Created empty here, data pumped in by useEffect every 250ms.
               // MapLibre native = 100% reliable, no deck.gl issues.
-              // ════════════════════════════════════════════════════════════
+              // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               if (assetIsolationMode) {
                 const updateIsolatedViewport = () => {
                   const newZoom = map.getZoom?.() ?? 2;
@@ -15352,6 +16291,72 @@ export default function CREPDashboardPage({
               }
 
               const emptyFC = { type: "FeatureCollection" as const, features: [] as any[] };
+              let nativeHoverHighlightKey: string | null = null;
+              const emitMapFeatureHover = (
+                e: any,
+                options: {
+                  type: string;
+                  labelKeys?: string[];
+                  detailKeys?: string[];
+                  idKeys?: string[];
+                  sourceKeys?: string[];
+                  detail?: (props: Record<string, any>) => string;
+                },
+              ) => {
+                const feature = e?.features?.[0];
+                if (!feature) return;
+                const props = feature.properties || {};
+                const label = firstHoverValue(props, options.labelKeys || ["name", "n", "title", "label", "id"], options.type);
+                const id = firstHoverValue(props, options.idKeys || ["id", "plant_id", "station_id", "mmsi", "imo"], String(feature.id ?? label));
+                const detail = options.detail
+                  ? options.detail(props)
+                  : (options.detailKeys?.length
+                    ? options.detailKeys
+                        .map((key) => firstHoverValue(props, [key]))
+                        .filter(Boolean)
+                        .slice(0, 3)
+                        .join(" / ")
+                    : undefined);
+                const coords = e.lngLat;
+                const hoverKey = `${options.type}:${id || label}`;
+                if (nativeHoverHighlightKey !== hoverKey) {
+                  nativeHoverHighlightKey = hoverKey;
+                  try { highlightFromEvent(map, e); } catch { /* hover highlight is best effort */ }
+                }
+                handleMapAssetHover({
+                  type: options.type,
+                  id,
+                  name: label,
+                  detail,
+                  lat: coords?.lat,
+                  lng: coords?.lng,
+                  x: e.originalEvent?.clientX,
+                  y: e.originalEvent?.clientY,
+                  source: firstHoverValue(props, options.sourceKeys || ["source", "src", "provider"]),
+                  properties: props,
+                });
+                map.getCanvas().style.cursor = "pointer";
+              };
+              const clearMapFeatureHover = () => {
+                nativeHoverHighlightKey = null;
+                handleMapAssetHover(null);
+                try { map.getCanvas().style.cursor = ""; } catch { /* map may be tearing down */ }
+              };
+              const bindFeatureHoverPreview = (
+                layerId: string,
+                options: Parameters<typeof emitMapFeatureHover>[1],
+              ) => {
+                map.on("mousemove", layerId, (e: any) => emitMapFeatureHover(e, options));
+                map.on("mouseleave", layerId, clearMapFeatureHover);
+              };
+              try {
+                for (const eventName of ["movestart", "zoomstart", "dragstart", "rotatestart", "pitchstart", "styledata"]) {
+                  map.on(eventName, clearMapFeatureHover);
+                }
+                map.getCanvas?.()?.addEventListener?.("mouseleave", clearMapFeatureHover);
+              } catch {
+                /* hover cleanup is defensive only */
+              }
               const safeHasImage = (name: string) => {
                 try {
                   return Boolean(map?.isStyleLoaded?.() && (map as any).style?.imageManager && map.hasImage?.(name));
@@ -15372,14 +16377,14 @@ export default function CREPDashboardPage({
 
               // May 21 2026 (Morgan: "aircraft and satellites are tracked but
               // not rendered"). Root cause was an icon race: loadDetailedIcon
-              // tries safeAddImage immediately, retries once at 250 ms — but
+              // tries safeAddImage immediately, retries once at 250 ms â€” but
               // if the style still wasn't ready at 250 ms the icon was lost
               // for the session. Symbol layers using "aircraft-icon" /
               // "satellite-icon" then rendered NOTHING. Fix: register a
               // styleimagemissing listener so MapLibre asks for the icon
               // exactly when it needs one, and we serve it from a per-name
               // pending cache populated by loadDetailedIcon. Layers paint
-              // as soon as the icon arrives — no fixed-delay races.
+              // as soon as the icon arrives â€” no fixed-delay races.
               const pendingIconData = ((window as any).__crep_pending_icons ??= new Map<string, { data: ImageData; options?: any }>());
               try { map.off("styleimagemissing", (window as any).__crep_style_image_missing_handler); } catch { /* ignore */ }
               const onStyleImageMissing = (e: { id?: string }) => {
@@ -15396,12 +16401,12 @@ export default function CREPDashboardPage({
               (window as any).__crep_style_image_missing_handler = onStyleImageMissing;
               map.on("styleimagemissing", onStyleImageMissing);
 
-              // ─────────────────────────────────────────────────────────────
+              // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               // Helper: rasterize an SVG URL into an HTMLImageElement, then
               // register with map.addImage(). Using non-SDF mode preserves
               // the full-color detailed artwork (gradients, shadows, etc.)
-              // SDF would strip it down to a one-color mask → dots again.
-              // ─────────────────────────────────────────────────────────────
+              // SDF would strip it down to a one-color mask â†’ dots again.
+              // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               const SPRITE_SIZE = 128; // high-res so planes stay crisp zoomed in
               const loadDetailedIcon = (url: string, name: string, size = SPRITE_SIZE): Promise<void> =>
                 new Promise((resolve) => {
@@ -15417,7 +16422,7 @@ export default function CREPDashboardPage({
                       const data = ctx.getImageData(0, 0, size, size);
                       const options = { pixelRatio: 2 };
                       // Cache the rasterized data for the styleimagemissing
-                      // handler — that's how MapLibre asks for an icon mid-
+                      // handler â€” that's how MapLibre asks for an icon mid-
                       // render when it discovers a symbol layer needs one
                       // that hasn't been registered yet. Without this, the
                       // 250 ms retry below was the only fallback and any
@@ -15433,21 +16438,21 @@ export default function CREPDashboardPage({
                     resolve();
                   };
                   img.onerror = () => {
-                    console.warn(`[CREP/icons] failed to load ${url} — using fallback silhouette`);
+                    console.warn(`[CREP/icons] failed to load ${url} â€” using fallback silhouette`);
                     resolve();
                   };
                   img.src = url;
                 });
 
               try {
-                // ═══════════════════════════════════════════════════════════
-                // ✈ AIRCRAFT — Detailed plane sprite (fuselage + wings +
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // âœˆ AIRCRAFT â€” Detailed plane sprite (fuselage + wings +
                 // engines + cabin windows + nav lights) loaded from SVG.
                 // Colored artwork preserved (not flat amber dot).
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-aircraft", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/aircraft.svg", "aircraft-icon");
-                // Apr 22, 2026 — Morgan: "all airplanes that are registered
+                // Apr 22, 2026 â€” Morgan: "all airplanes that are registered
                 // as helecopters need a helecopter icon not a plane".
                 // Load a second sprite for rotorcraft so the icon-image
                 // expression below can switch per-feature.
@@ -15455,7 +16460,7 @@ export default function CREPDashboardPage({
                 // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
-                // Aircraft ICON (symbol layer — rotates by heading, detailed plane sprite)
+                // Aircraft ICON (symbol layer â€” rotates by heading, detailed plane sprite)
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
                   layout: {
                     // Helicopters: ICAO category 8 (Rotorcraft), OpenSky
@@ -15469,7 +16474,7 @@ export default function CREPDashboardPage({
                       "helicopter-icon",
                       "aircraft-icon",
                     ],
-                    // Detailed sprite → render at ~22–50px screen size
+                    // Detailed sprite â†’ render at ~22â€“50px screen size
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.24, 6, 0.3, 10, 0.38, 14, 0.52],
                     "icon-rotate": ["get", "heading"],
                     "icon-rotation-alignment": "map",
@@ -15497,21 +16502,24 @@ export default function CREPDashboardPage({
                     setSelectedAircraft(ac);
                   }
                 });
-                map.on("mouseenter", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = "pointer"; });
-                map.on("mouseleave", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = ""; });
+                bindFeatureHoverPreview("crep-live-aircraft-dot", {
+                  type: "aircraft",
+                  labelKeys: ["name", "callsign", "id"],
+                  detailKeys: ["heading", "altitude", "type"],
+                });
 
-                // ═══════════════════════════════════════════════════════════
-                // 🛰 SATELLITES — Detailed satellite sprite (solar panels +
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // ðŸ›° SATELLITES â€” Detailed satellite sprite (solar panels +
                 // bus body + dish + antennas) loaded from SVG. Not a dot.
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-satellites", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/satellite.svg", "satellite-icon");
                 // Apr 20, 2026 (Morgan: "look at how all satelites are shown
                 // with altitude on their globe"). Satellites now color-tiered
                 // by orbital class:
-                //   LEO (<2000 km)  — cyan    — Starlink, ISS, Landsat…
-                //   MEO (2k-20k km) — purple  — GPS, GLONASS, Galileo…
-                //   GEO (>20k km)   — amber   — geostationary comms
+                //   LEO (<2000 km)  â€” cyan    â€” Starlink, ISS, Landsatâ€¦
+                //   MEO (2k-20k km) â€” purple  â€” GPS, GLONASS, Galileoâ€¦
+                //   GEO (>20k km)   â€” amber   â€” geostationary comms
                 // Halo size also scales with altitude tier so higher orbits
                 // read as "further away" glyph-size cues. Reads from
                 // feature.properties.altitude (km) pushed by the SGP4 loop.
@@ -15549,7 +16557,7 @@ export default function CREPDashboardPage({
                   layout: {
                     "icon-image": "satellite-icon",
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.16, 6, 0.22, 10, 0.32, 14, 0.46],
-                    // Slow spin from SGP4 heading if present — otherwise stay put
+                    // Slow spin from SGP4 heading if present â€” otherwise stay put
                     "icon-rotate": ["coalesce", ["get", "heading"], 0],
                     "icon-rotation-alignment": "viewport",
                     "icon-allow-overlap": true, "icon-ignore-placement": true }});
@@ -15571,21 +16579,24 @@ export default function CREPDashboardPage({
                     setSelectedSatellite(sat);
                   }
                 });
-                map.on("mouseenter", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = "pointer"; });
-                map.on("mouseleave", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = ""; });
+                bindFeatureHoverPreview("crep-live-satellites-dot", {
+                  type: "satellite",
+                  labelKeys: ["name", "satellite_name", "id"],
+                  detailKeys: ["altitude_km", "altitude", "heading"],
+                });
 
-                // ═══════════════════════════════════════════════════════════
-                // 🛰 SATELLITE ORBIT PATHS — thin purple dashed lines
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // ðŸ›° SATELLITE ORBIT PATHS â€” thin purple dashed lines
                 // SGP4-propagated orbit ground tracks (next 90 min)
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-satellite-orbits", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
                   paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
 
-                // ═══════════════════════════════════════════════════════════
-                // 🚢 VESSELS — Detailed cargo-ship sprite (hull + deck +
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // ðŸš¢ VESSELS â€” Detailed cargo-ship sprite (hull + deck +
                 // bridge superstructure + stack + lifeboats) from SVG.
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/vessel.svg", "vessel-icon");
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
@@ -15614,14 +16625,17 @@ export default function CREPDashboardPage({
                     setSelectedVessel(v);
                   }
                 });
-                map.on("mouseenter", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = "pointer"; });
-                map.on("mouseleave", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = ""; });
+                bindFeatureHoverPreview("crep-live-vessels-dot", {
+                  type: "vessel",
+                  labelKeys: ["name", "mmsi", "imo", "id"],
+                  detailKeys: ["heading", "speed", "type"],
+                });
                 promoteMovingObjectLayers(map);
 
-                // ═══════════════════════════════════════════════════════════
-                // OCEAN BUOYS — Yellow-green dots (NOAA NDBC stations)
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // OCEAN BUOYS â€” Yellow-green dots (NOAA NDBC stations)
                 // ~1300 active ocean buoys with weather/wave data
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-buoys", { type: "geojson", data: emptyFC });
                 // Outer glow
                 map.addLayer({ id: "crep-live-buoys-glow", type: "circle", source: "crep-live-buoys",
@@ -15648,12 +16662,15 @@ export default function CREPDashboardPage({
                     } catch {}
                   }
                 });
-                map.on("mouseenter", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = "pointer"; });
-                map.on("mouseleave", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = ""; });
+                bindFeatureHoverPreview("crep-live-buoys-dot", {
+                  type: "buoy",
+                  labelKeys: ["name", "station_id", "id"],
+                  detailKeys: ["source", "status"],
+                });
 
-                // ═══════════════════════════════════════════════════════════
-                // MILITARY BASES — OSM/MINDEX perimeters + shield pins (no zoom-scaling circles)
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // MILITARY BASES â€” OSM/MINDEX perimeters + shield pins (no zoom-scaling circles)
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-military", { type: "geojson", data: emptyFC });
                 // Generate military shield icon via canvas
                 const milCanvas = document.createElement("canvas");
@@ -15673,7 +16690,7 @@ export default function CREPDashboardPage({
                 milCtx.lineTo(11, 26); milCtx.lineTo(13, 20); milCtx.lineTo(8, 16);
                 milCtx.lineTo(14, 16); milCtx.closePath(); milCtx.fill();
                 safeAddImage("military-shield", milCtx.getImageData(0, 0, 32, 32), { sdf: true });
-                // Shield icon for point-only bases (no OSM polygon); fixed size — no zoom-scaling circles
+                // Shield icon for point-only bases (no OSM polygon); fixed size â€” no zoom-scaling circles
                 map.addLayer({ id: "crep-live-military-dot", type: "symbol", source: "crep-live-military",
                   layout: {
                     "icon-image": "military-shield",
@@ -15681,13 +16698,13 @@ export default function CREPDashboardPage({
                     "icon-allow-overlap": true, "icon-ignore-placement": true,
                     visibility: "visible" },
                   paint: { "icon-color": "#dc2626", "icon-halo-color": "#000", "icon-halo-width": 1.5 }});
-                // Military base PERIMETER polygons — exact boundary outlines from OSM
+                // Military base PERIMETER polygons â€” exact boundary outlines from OSM
                 map.addSource("crep-military-perimeters", { type: "geojson", data: emptyFC });
-                // Translucent red fill showing restricted zone — VISIBLE at all zooms
+                // Translucent red fill showing restricted zone â€” VISIBLE at all zooms
                 map.addLayer({ id: "crep-military-perimeters-fill", type: "fill", source: "crep-military-perimeters",
                   paint: { "fill-color": "#dc2626", "fill-opacity": 0.15 },
                   layout: { visibility: "visible" }});
-                // BRIGHT red perimeter boundary line — thick enough to see at all zooms
+                // BRIGHT red perimeter boundary line â€” thick enough to see at all zooms
                 map.addLayer({ id: "crep-military-perimeters-line", type: "line", source: "crep-military-perimeters",
                   paint: {
                     "line-color": "#dc2626",
@@ -15758,32 +16775,35 @@ export default function CREPDashboardPage({
                   if (props) openMilitaryFacilityPopup(props, coords?.lat, coords?.lng);
                 });
                 for (const milLayerId of ["crep-live-military-dot", "crep-military-perimeters-fill", "crep-military-perimeters-line"]) {
-                  map.on("mouseenter", milLayerId, () => { map.getCanvas().style.cursor = "pointer"; });
-                  map.on("mouseleave", milLayerId, () => { map.getCanvas().style.cursor = ""; });
+                  bindFeatureHoverPreview(milLayerId, {
+                    type: "military",
+                    labelKeys: ["name", "id"],
+                    detailKeys: ["type", "operator"],
+                  });
                 }
 
-                console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels, buoy lime-green");
+                console.log("[CREP/Live] Native entity layers created â€” âœˆ amber + labels, ðŸ›° purple + labels, ðŸš¢ cyan + labels, buoy lime-green");
 
-                // ═══════════════════════════════════════════════════════════
-                // MYCOSOFT DEVICES (Apr 19, 2026) — unified source, per-type
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // MYCOSOFT DEVICES (Apr 19, 2026) â€” unified source, per-type
                 // styling + click routing. All devices have a MycoBrain
                 // inside; the feature's `device_type` property determines
                 // which dedicated widget opens on click.
                 //
                 // Device types (match lib/mycobrain/types.ts + components/
                 // crep/devices/*-widget.tsx):
-                //   mushroom1   — Mushroom 1 fruiting-body monitor
-                //   hyphae1     — Hyphae 1 mycelium VOC sensor
-                //   sporebase   — SporeBase spore counter
-                //   myconode    — MycoNode edge compute (Jetson + MQTT)
-                //   alarm       — Event-trigger sensor
-                //   psathyrella — Aquatic MycoBrain buoy
+                //   mushroom1   â€” Mushroom 1 fruiting-body monitor
+                //   hyphae1     â€” Hyphae 1 mycelium VOC sensor
+                //   sporebase   â€” SporeBase spore counter
+                //   myconode    â€” MycoNode edge compute (Jetson + MQTT)
+                //   alarm       â€” Event-trigger sensor
+                //   psathyrella â€” Aquatic MycoBrain buoy
                 //
                 // Source populated by /api/crep/mycosoft-devices (proxies
                 // MQTT broker / MDP / MMP via the Jetson-MycoBrain bridge).
-                // Empty until devices come online — filter toggles exist
+                // Empty until devices come online â€” filter toggles exist
                 // regardless so the UI is ready.
-                // ═══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-mycosoft-devices", { type: "geojson", data: emptyFC, generateId: true });
                 // Soft halo ring (device identity glow)
                 map.addLayer({
@@ -15830,7 +16850,7 @@ export default function CREPDashboardPage({
                   },
                 });
 
-                // Click → parse device_type → hand payload to the global
+                // Click â†’ parse device_type â†’ hand payload to the global
                 // device-widget dispatcher. Each widget (mushroom1, hyphae1,
                 // sporebase, myconode, alarm) already exists under
                 // components/crep/devices/ and subscribes to the MycoBrain
@@ -15854,6 +16874,10 @@ export default function CREPDashboardPage({
                       lat: coords?.lat ?? 0,
                       lng: coords?.lng ?? 0,
                       status: p.status,
+                      registryId: p.registry_id || p.registryId,
+                      agentUrl: p.agent_url,
+                      host: p.host,
+                      pageHref: p.page_href,
                       mycobrainId: p.mycobrain_id || p.mycobrainId,
                       telemetry: p,
                     };
@@ -15871,9 +16895,12 @@ export default function CREPDashboardPage({
                     window.dispatchEvent(new CustomEvent("crep:device:click", { detail: payload }));
                   } catch { /* ignore */ }
                 });
-                map.on("mouseenter", "crep-mycosoft-devices-core", () => { map.getCanvas().style.cursor = "pointer"; });
-                map.on("mouseleave", "crep-mycosoft-devices-core", () => { map.getCanvas().style.cursor = ""; });
-                // Initial data pump — fill entity sources 1s after creation so aircraft/sats show immediately.
+                bindFeatureHoverPreview("crep-mycosoft-devices-core", {
+                  type: "device",
+                  labelKeys: ["name", "id"],
+                  detailKeys: ["device_type", "status", "mycobrain_id"],
+                });
+                // Initial data pump â€” fill entity sources 1s after creation so aircraft/sats show immediately.
                 // The React data pump effect may miss the first render if deckEntities was set before mapNativeRef.
                 setTimeout(() => {
                   try {
@@ -15896,35 +16923,35 @@ export default function CREPDashboardPage({
                     const v = entities.filter((e: any) => e.type === "vessel");
                     const acFc = toFC(ac);
                     const vFc = toFC(v);
-                    // Apr 22, 2026 v3 — LOD-aware initial pump so the
+                    // Apr 22, 2026 v3 â€” LOD-aware initial pump so the
                     // first paint also respects world-zoom 30% floor +
                     // strict viewport cull on zoom-in.
                     const acFeatures = lodSelectForZoom(acFc.features, bbox, zoom, 2);
                     const vFeatures = lodSelectForZoom(vFc.features, bbox, zoom, 2);
                     (map.getSource("crep-live-aircraft") as any)?.setData({ type: "FeatureCollection", features: acFeatures });
-                    // Satellites are handled by SGP4 satellite-animation module — not pumped here
+                    // Satellites are handled by SGP4 satellite-animation module â€” not pumped here
                     (map.getSource("crep-live-vessels") as any)?.setData({ type: "FeatureCollection", features: vFeatures });
-                    console.log(`[CREP/Live] Initial pump: ✈${ac.length}→${acFeatures.length} 🚢${v.length}→${vFeatures.length} @z${zoom.toFixed(1)} (LOD-selected)`);
+                    console.log(`[CREP/Live] Initial pump: âœˆ${ac.length}â†’${acFeatures.length} ðŸš¢${v.length}â†’${vFeatures.length} @z${zoom.toFixed(1)} (LOD-selected)`);
                   } catch {}
                 }, 1000);
               } catch (err: any) {
                 console.warn("[CREP/Live] Failed to create entity layers:", err.message);
               }
 
-              // ════════════════════════════════════════════════════════════
-              // PERMANENT INFRASTRUCTURE — MapLibre native layers
+              // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              // PERMANENT INFRASTRUCTURE â€” MapLibre native layers
               // Rendered directly by MapLibre (not deck.gl) = NO FLICKERING
               // Loads ONCE from MINDEX, added as GeoJSON sources + layers.
-              // This is how OpenGridWorks renders — permanent infra in the
+              // This is how OpenGridWorks renders â€” permanent infra in the
               // map pipeline, dynamic entities in deck.gl overlay.
-              // ════════════════════════════════════════════════════════════
+              // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               let infraLoaded = false;
               const loadPermanentInfra = () => {
                 if (infraLoaded) return;
                 infraLoaded = true;
                 console.log("[CREP/Infra] Loading permanent infrastructure into MapLibre...");
 
-                // Safe source/layer add — handles HMR re-runs where source already exists
+                // Safe source/layer add â€” handles HMR re-runs where source already exists
                 // Helpers must be resilient: the map may be torn down (React
                 // re-mount, HMR, navigation) between the async fetch kicking
                 // off and the callback trying to addSource. Guard against
@@ -15978,12 +17005,12 @@ export default function CREPDashboardPage({
                   }
                 };
 
-                // ════════════════════════════════════════════════════════
-                // ZERO-LATENCY STATIC LAYER — permanent infra locations
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // ZERO-LATENCY STATIC LAYER â€” permanent infra locations
                 // (ports, data centers) bundled with the client. No network
                 // round-trip, no MINDEX query, no Overpass fetch. Paints
                 // INSTANTLY on map load.
-                // ════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 try {
                   const portFeatures = MAJOR_PORTS.map((p) => ({
                     type: "Feature" as const,
@@ -16003,7 +17030,7 @@ export default function CREPDashboardPage({
                         6, ["max", 3, ["*", ["sqrt", ["max", 0.5, ["to-number", ["get", "teuM"], 1]]], 1.4]],
                         10, ["max", 4, ["*", ["sqrt", ["max", 0.5, ["to-number", ["get", "teuM"], 1]]], 2.2]],
                       ],
-                      "circle-color": "#0891b2",  // cyan-600 — anchors & shipping
+                      "circle-color": "#0891b2",  // cyan-600 â€” anchors & shipping
                       "circle-opacity": 0.75,
                       "circle-stroke-width": 1,
                       "circle-stroke-color": "#0e7490",
@@ -16029,7 +17056,7 @@ export default function CREPDashboardPage({
                     minzoom: DATA_CENTER_MIN_ZOOM,
                     paint: {
                       "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4, 10, 6],
-                      "circle-color": "#7c3aed",  // violet-600 — data centers
+                      "circle-color": "#7c3aed",  // violet-600 â€” data centers
                       "circle-opacity": 0.8,
                       "circle-stroke-width": 1,
                       "circle-stroke-color": "#5b21b6",
@@ -16041,12 +17068,12 @@ export default function CREPDashboardPage({
                 }
 
                 // Use reasonable bounds that PostGIS can handle efficiently
-                // Full global for now — MINDEX returns up to 2000 per query
+                // Full global for now â€” MINDEX returns up to 2000 per query
                 const globalBounds = {
                   north: 85, south: -60, east: 180, west: -180,
                 };
 
-                // Helper: fuel type → color
+                // Helper: fuel type â†’ color
                 const fuelColor = (sub: string) => {
                   const f = (sub || "").toLowerCase();
                   if (f.includes("solar")) return "#f59e0b";
@@ -16063,17 +17090,17 @@ export default function CREPDashboardPage({
                   return "#6b7280";
                 };
 
-                // ── Submarine cables (global) — multi-color like submarinecablemap.com ──
+                // â”€â”€ Submarine cables (global) â€” multi-color like submarinecablemap.com â”€â”€
                 // Split into 2 hemispheres to avoid PostGIS full-globe bbox issues
                 const cableColors = ["#06b6d4","#3b82f6","#a855f7","#ec4899","#f59e0b","#22c55e","#ef4444","#8b5cf6","#14b8a6","#f97316"];
 
-                // Antimeridian fix: split LineStrings that cross ±180° longitude
+                // Antimeridian fix: split LineStrings that cross Â±180Â° longitude
                 // Without this, cables from Japan to US draw a line across the entire map
                 const splitAntimeridian = (geom: any) => {
                   if (!geom?.coordinates?.length) return geom;
                   const coords = geom.coordinates;
                   if (geom.type === "MultiLineString") {
-                    // Already multi — split each sub-line
+                    // Already multi â€” split each sub-line
                     const newCoords: number[][][] = [];
                     for (const line of coords) {
                       newCoords.push(...splitLineCoords(line));
@@ -16092,7 +17119,7 @@ export default function CREPDashboardPage({
                   for (let i = 1; i < coords.length; i++) {
                     const prevLng = coords[i - 1][0];
                     const currLng = coords[i][0];
-                    // Longitude jump > 180° = antimeridian crossing
+                    // Longitude jump > 180Â° = antimeridian crossing
                     if (Math.abs(currLng - prevLng) > 180) {
                       segments.push(current);
                       current = [];
@@ -16104,17 +17131,17 @@ export default function CREPDashboardPage({
                   return segments.filter(s => s.length >= 2);
                 };
 
-                // ════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // PRIMARY CABLE SOURCE: static /data/crep/submarine-cables.geojson
-                // ════════════════════════════════════════════════════════
-                // 710 cables sourced from TeleGeography (CC-BY 4.0) — REAL
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // 710 cables sourced from TeleGeography (CC-BY 4.0) â€” REAL
                 // seafloor routes with antimeridian splits already applied.
                 // Loads ~725KB once (browser-cached on subsequent visits),
                 // ZERO MINDEX / Overpass round-trip, accurate to the meter.
                 //
                 // MINDEX is ONLY used as a metadata-enrichment fallback if
                 // the static file fails to load (network issue).
-                // ════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 const loadStaticCables = async (): Promise<any | null> => {
                   try {
                     const res = await fetch("/data/crep/submarine-cables.geojson", {
@@ -16224,8 +17251,11 @@ export default function CREPDashboardPage({
                       setSelectedPlant(null);
                     }
                   });
-                  map.on("mouseenter", "crep-cables-line", () => { map.getCanvas().style.cursor = "pointer"; });
-                  map.on("mouseleave", "crep-cables-line", () => { map.getCanvas().style.cursor = ""; });
+                  bindFeatureHoverPreview("crep-cables-line", {
+                    type: "submarine cable",
+                    labelKeys: ["name", "cable_id", "id"],
+                    detailKeys: ["status", "owners", "length_km"],
+                  });
                   // Apr 19, 2026 (Morgan: "sea cables only highlight part
                   // seen in viewport not entire cable"). Register the full
                   // feature list so highlightFromEvent uses it instead of
@@ -16235,28 +17265,28 @@ export default function CREPDashboardPage({
                     registerLineFeatures("crep-cables", features);
                   } catch { /* ignore dynamic import failure */ }
                   setInfraCableRoutes(features as any);
-                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color, registered for full-line highlight)`);
+                  console.log(`[CREP/Infra] ${features.length} cables â†’ MapLibre (multi-color, registered for full-line highlight)`);
                 }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
-                // ══════════════════════════════════════════════════════════
-                // VIEWPORT-SCOPED INFRA FETCH (Fix A — Apr 18, 2026)
-                // ══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // VIEWPORT-SCOPED INFRA FETCH (Fix A â€” Apr 18, 2026)
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // Previous approach fanned out 116 parallel MINDEX queries per
                 // source (1 per state/province/country bbox) on mount. That
-                // meant 4 sources × 116 bboxes = 464 concurrent 30-second
+                // meant 4 sources Ã— 116 bboxes = 464 concurrent 30-second
                 // requests, 97+116 of which timed out per audit. The
                 // substations source ended up with ZERO features after 2,530
                 // cumulative seconds of wasted requests + 51 MB of transfer.
                 //
                 // New approach: fetch ONLY the viewport bbox, only when
                 // zoomed in enough to benefit from MINDEX live infra (zoom
-                // ≥ 5). At lower zoom, the bundled static GeoJSONs in
+                // â‰¥ 5). At lower zoom, the bundled static GeoJSONs in
                 // public/data/crep/ provide US-wide coverage. LRU-cached by
                 // bbox for 60s. Debounced on moveend.
                 //
                 // Result: ~4 requests per mount (one per source) instead
                 // of 464. ~200 ms each instead of 26+ seconds.
-                // ══════════════════════════════════════════════════════════
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
                 const INFRA_MINZOOM = INFRA_POINT_ICON_MIN_ZOOM // MINDEX point infra: icons only when zoomed in
                 const BBOX_TTL_MS = 60_000
@@ -16280,7 +17310,7 @@ export default function CREPDashboardPage({
                 const batchFetch = async (source: string, limit: number, onFirstBatch?: (results: any[]) => void) => {
                   const zoom = map.getZoom()
                   if (zoom < INFRA_MINZOOM) {
-                    // Below zoom 5 → bundled static GeoJSON is sufficient
+                    // Below zoom 5 â†’ bundled static GeoJSON is sufficient
                     if (onFirstBatch) try { onFirstBatch([]) } catch {}
                     return []
                   }
@@ -16299,7 +17329,7 @@ export default function CREPDashboardPage({
                     const result = await mindexFetch(source as any, bbox, limit)
                     const results = [result]
                     bboxCache.set(key, { ts: Date.now(), data: results })
-                    console.log(`[CREP/Infra] ${source}: 1 viewport request → ${result?.entities?.length || 0} features`)
+                    console.log(`[CREP/Infra] ${source}: 1 viewport request â†’ ${result?.entities?.length || 0} features`)
                     if (onFirstBatch) try { onFirstBatch(results) } catch {}
                     return results
                   } catch (e) {
@@ -16345,9 +17375,13 @@ export default function CREPDashboardPage({
                     }
                   }, 350)
                 }
-                map.on("moveend", scheduleInfraRefetch);
+                if (!isEarthSimulatorRoute) {
+                  map.on("moveend", scheduleInfraRefetch);
+                } else {
+                  console.log("[CREP/Static] Earth Simulator moveend infra refetch disabled; permanent layers are bundled");
+                }
 
-                // Helper: convert raw facility entities → GeoJSON features
+                // Helper: convert raw facility entities â†’ GeoJSON features
                 const facilitiesToFeatures = (entities: any[]) => entities
                   .filter((e: any) => e.lat != null && e.lng != null)
                   .map((e: any) => ({
@@ -16394,7 +17428,7 @@ export default function CREPDashboardPage({
                     minzoom: POWER_PLANT_MIN_ZOOM,
                   });
                   // OpenGridWorks-style: radius scaled by sqrt(capacity_mw), CAPPED at 20px max
-                  // Clamp capacity to 5000 MW max for sizing — prevents outliers (1.9M MW) from being huge
+                  // Clamp capacity to 5000 MW max for sizing â€” prevents outliers (1.9M MW) from being huge
                   safeAddLayer({
                     id: "crep-plants-circle", type: "circle", source: "crep-plants",
                     paint: {
@@ -16418,7 +17452,7 @@ export default function CREPDashboardPage({
                   });
                   // Apr 19, 2026 (OpenGridView parity): plant name + MW
                   // label above the circle, e.g. "Peregrine Energy Storage
-                  // LLC · 200 MW". Shown at zoom ≥ 10 to avoid world-view
+                  // LLC Â· 200 MW". Shown at zoom â‰¥ 10 to avoid world-view
                   // text floods.
                   safeAddLayer({
                     id: "crep-plants-label",
@@ -16429,7 +17463,7 @@ export default function CREPDashboardPage({
                       "text-field": [
                         "case",
                         [">", ["to-number", ["get", "capacity_mw"], 0], 0],
-                        ["concat", ["get", "name"], " · ", ["to-string", ["get", "capacity_mw"]], " MW"],
+                        ["concat", ["get", "name"], " Â· ", ["to-string", ["get", "capacity_mw"]], " MW"],
                         ["get", "name"],
                       ],
                       "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 12, 18, 14],
@@ -16473,30 +17507,37 @@ export default function CREPDashboardPage({
                         setSelectedPlant(null);
                       }
                     });
-                    map.on("mouseenter", "crep-plants-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-                    map.on("mouseleave", "crep-plants-circle", () => { map.getCanvas().style.cursor = ""; });
+                    bindFeatureHoverPreview("crep-plants-circle", {
+                      type: "power plant",
+                      labelKeys: ["name", "plant_id", "id"],
+                      detailKeys: ["capacity_mw", "status", "operator"],
+                    });
                   }
-                  console.log(`[CREP/Infra] ${features.length} plants → MapLibre (${label})`);
+                  console.log(`[CREP/Infra] ${features.length} plants â†’ MapLibre (${label})`);
                 };
 
-                // Yield helper — gives browser time to process clicks between heavy operations
+                // Yield helper â€” gives browser time to process clicks between heavy operations
                 const yieldToUI = () => new Promise<void>(r => setTimeout(r, 0));
 
-                batchFetch("facilities", 20000, (vpResults) => {
-                  // Early render: show viewport plants immediately
-                  const vpEntities = vpResults.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = vpEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderFacilities(unique, "viewport");
-                }).then(async (results) => {
-                  const allEntities = results.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = allEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderFacilities(unique, "global");
-                  await yieldToUI(); // Let browser process pending clicks
-                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
+                if (!isEarthSimulatorRoute) {
+                  batchFetch("facilities", 20000, (vpResults) => {
+                    // Early render: show viewport plants immediately
+                    const vpEntities = vpResults.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = vpEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderFacilities(unique, "viewport");
+                  }).then(async (results) => {
+                    const allEntities = results.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = allEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderFacilities(unique, "global");
+                    await yieldToUI(); // Let browser process pending clicks
+                  }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
+                } else {
+                  console.log("[CREP/Static] Earth Simulator power plants use bundled PMTiles; MINDEX facility fetch skipped");
+                }
 
-                // ── Substations ── (jurisdictional sub-region split, viewport-first)
+                // â”€â”€ Substations â”€â”€ (jurisdictional sub-region split, viewport-first)
                 const subsToFeatures = (entities: any[]) => entities
                   .filter((e: any) => e.lat && e.lng)
                   .map((e: any) => ({
@@ -16547,9 +17588,9 @@ export default function CREPDashboardPage({
                   });
                   // Apr 19, 2026 (Morgan OpenGridView parity: "every single
                   // asset name line widget live data from all widgets in
-                  // opengridview … using san diego as discrepency example").
-                  // Substation text labels — "Old Town · 230 kV" style,
-                  // shown at zoom ≥ 10 so the world-view isn't a text
+                  // opengridview â€¦ using san diego as discrepency example").
+                  // Substation text labels â€” "Old Town Â· 230 kV" style,
+                  // shown at zoom â‰¥ 10 so the world-view isn't a text
                   // tornado. text-allow-overlap=false keeps them readable.
                   safeAddLayer({
                     id: "crep-subs-label",
@@ -16560,7 +17601,7 @@ export default function CREPDashboardPage({
                       "text-field": [
                         "case",
                         [">", ["to-number", ["get", "voltage_kv"], 0], 0],
-                        ["concat", ["get", "name"], " · ", ["to-string", ["get", "voltage_kv"]], " kV"],
+                        ["concat", ["get", "name"], " Â· ", ["to-string", ["get", "voltage_kv"]], " kV"],
                         ["get", "name"],
                       ],
                       "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 11, 18, 13],
@@ -16595,12 +17636,128 @@ export default function CREPDashboardPage({
                         setSelectedPlant(null);
                       }
                     });
-                    map.on("mouseenter", "crep-subs-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-                    map.on("mouseleave", "crep-subs-circle", () => { map.getCanvas().style.cursor = ""; });
+                    bindFeatureHoverPreview("crep-subs-circle", {
+                      type: "substation",
+                      labelKeys: ["name", "id"],
+                      detailKeys: ["voltage_kv", "status", "operator"],
+                    });
                   }
                   setInfraSubstations(entities.filter((e: any) => e.lat && e.lng));
-                  console.log(`[CREP/Infra] ${features.length} substations → MapLibre (${label})`);
+                  console.log(`[CREP/Infra] ${features.length} substations â†’ MapLibre (${label})`);
                 };
+
+                const renderStaticSubstations = async () => {
+                  const subsOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "substations")?.enabled ?? true;
+                  if (!subsOn || !mapReady()) return;
+                  ;(window as any).__crep_substations_loaded = true;
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.substations);
+                    if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
+                    const spec = layerSpecForMode(result.mode, INFRA_LAYERS.substations);
+                    const sourceLayerSpec = spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {};
+                    const voltageKvExpr: any = [
+                      "coalesce",
+                      ["to-number", ["get", "voltage_kv"]],
+                      ["/", ["to-number", ["get", "v"]], 1000],
+                      ["/", ["to-number", ["get", "VOLTAGE"]], 1000],
+                      0,
+                    ];
+                    const subNameExpr: any = ["coalesce", ["get", "name"], ["get", "n"], "Substation"];
+                    safeAddLayer({
+                      id: "crep-subs-glow",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...sourceLayerSpec,
+                      paint: {
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 5, 9, 8, 12, 13],
+                        "circle-color": ["interpolate", ["linear"], voltageKvExpr,
+                          0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
+                        "circle-opacity": 0.22,
+                        "circle-blur": 1.0,
+                      },
+                      minzoom: INFRA_COUNTRY_REVEAL_MIN_ZOOM,
+                    } as any);
+                    safeAddLayer({
+                      id: "crep-subs-circle",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...sourceLayerSpec,
+                      paint: {
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 9, 3.5, 12, 6],
+                        "circle-color": ["interpolate", ["linear"], voltageKvExpr,
+                          0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
+                        "circle-opacity": 0.95,
+                        "circle-stroke-width": 0.8,
+                        "circle-stroke-color": "#0b1220",
+                      },
+                      minzoom: INFRA_COUNTRY_REVEAL_MIN_ZOOM,
+                    } as any);
+                    safeAddLayer({
+                      id: "crep-subs-label",
+                      type: "symbol",
+                      source: result.sourceId,
+                      ...sourceLayerSpec,
+                      minzoom: 10,
+                      layout: {
+                        "text-field": [
+                          "case",
+                          [">", voltageKvExpr, 0],
+                          ["concat", subNameExpr, " · ", ["to-string", ["round", voltageKvExpr]], " kV"],
+                          subNameExpr,
+                        ],
+                        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 11, 18, 13],
+                        "text-offset": [0, 0.9],
+                        "text-anchor": "top",
+                        "text-allow-overlap": false,
+                        "text-ignore-placement": false,
+                        "text-optional": true,
+                        "text-max-width": 8,
+                        "text-letter-spacing": 0.02,
+                      } as any,
+                      paint: {
+                        "text-color": "#ffffff",
+                        "text-halo-color": "rgba(0,0,0,0.85)",
+                        "text-halo-width": 1.4,
+                        "text-halo-blur": 0.6,
+                      },
+                    } as any);
+                    if (!subsClickBound) {
+                      subsClickBound = true;
+                      map.on("click", "crep-subs-circle", (e: any) => {
+                        const feature = e.features?.[0];
+                        const props = feature?.properties || {};
+                        lastEntityPickTimeRef.current = Date.now();
+                        highlightFromEvent(map, e);
+                        const coords = e.lngLat;
+                        const rawVoltage = Number(props.voltage_kv ?? props.v ?? props.VOLTAGE ?? 0);
+                        setSelectedInfraAsset({
+                          type: "substation",
+                          id: props.id ?? props.OBJECTID ?? feature?.id,
+                          name: props.name || props.n || "Substation",
+                          lat: coords?.lat ?? 0,
+                          lng: coords?.lng ?? 0,
+                          properties: {
+                            ...props,
+                            voltage_kv: rawVoltage > 1000 ? Math.round(rawVoltage / 1000) : rawVoltage,
+                            operator: props.operator ?? props.op ?? props.OWNER,
+                            source: props.source ?? props.src ?? "static-pmtiles",
+                          },
+                        });
+                        setSelectedPlant(null);
+                      });
+                      bindFeatureHoverPreview("crep-subs-circle", {
+                        type: "substation",
+                        labelKeys: ["name", "n", "id"],
+                        detailKeys: ["voltage_kv", "v", "operator", "op"],
+                      });
+                    }
+                    console.log(`[CREP/Static] ${INFRA_LAYERS.substations.label}: ${result.mode} active -> crep-subs-circle`);
+                  } catch (e) {
+                    console.warn("[CREP/Static] substations PMTiles path failed:", (e as Error)?.message);
+                    ;(window as any).__crep_substations_loaded = false;
+                  }
+                };
+                void renderStaticSubstations();
 
                 // Defer heavy parsing until the browser is idle so the map's
                 // first paint doesn't stall on 14 MB + 12 MB GeoJSON. If
@@ -16614,8 +17771,8 @@ export default function CREPDashboardPage({
                   }
                 };
 
-                // ════════════════════════════════════════════════════════
-                // STATIC SUBSTATIONS — 76,065 US power substations.
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // STATIC SUBSTATIONS â€” 76,065 US power substations.
                 // Deferred via idleLoad so the 12MB GeoJSON doesn't block
                 // first paint. The renderSubstations layer has its own
                 // minzoom guard so it won't clutter the world view.
@@ -16627,7 +17784,7 @@ export default function CREPDashboardPage({
                 // user's zoom. On a laptop dev box this + the 14 MB TX
                 // lines load = 26 MB raw JSON parsed + 3 MapLibre sources
                 // held whether or not the user ever zooms in. Now we gate
-                // the idleLoad on zoom ≥ 3 AND re-attempt on moveend when
+                // the idleLoad on zoom â‰¥ 3 AND re-attempt on moveend when
                 // the user zooms in.
                 const loadSubstationsOnceAtZoom = () => {
                   if ((window as any).__crep_substations_loaded) return
@@ -16672,20 +17829,24 @@ export default function CREPDashboardPage({
                 loadSubstationsOnceAtZoom();
                 map.on("zoomend", loadSubstationsOnceAtZoom);
 
-                batchFetch("substations", 20000, (vpResults) => {
-                  const vpSubs = vpResults.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = vpSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderSubstations(unique, "viewport");
-                }).then(async (results) => {
-                  const allSubs = results.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = allSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderSubstations(unique, "global");
-                  await yieldToUI();
-                }).catch((err) => console.warn("[CREP/Infra] Substations error:", err?.message || err));
+                if (!isEarthSimulatorRoute) {
+                  batchFetch("substations", 20000, (vpResults) => {
+                    const vpSubs = vpResults.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = vpSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderSubstations(unique, "viewport");
+                  }).then(async (results) => {
+                    const allSubs = results.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = allSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderSubstations(unique, "global");
+                    await yieldToUI();
+                  }).catch((err) => console.warn("[CREP/Infra] Substations error:", err?.message || err));
+                } else {
+                  console.log("[CREP/Static] Earth Simulator substations use bundled PMTiles only; MINDEX viewport fetch skipped");
+                }
 
-                // ── Transmission lines ── (jurisdictional sub-region split, viewport-first)
+                // â”€â”€ Transmission lines â”€â”€ (jurisdictional sub-region split, viewport-first)
                 const txLinesToFeatures = (entities: any[]) => entities
                   .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
                   .map((e: any) => ({
@@ -16755,30 +17916,34 @@ export default function CREPDashboardPage({
                         setSelectedPlant(null);
                       }
                     });
-                    map.on("mouseenter", "crep-txlines-line", () => { map.getCanvas().style.cursor = "pointer"; });
-                    map.on("mouseleave", "crep-txlines-line", () => { map.getCanvas().style.cursor = ""; });
+                    bindFeatureHoverPreview("crep-txlines-line", {
+                      type: "transmission line",
+                      labelKeys: ["name", "id"],
+                      detailKeys: ["voltage_kv", "status", "operator"],
+                    });
                   }
                   setInfraTransmissionLines(features as any);
-                  console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre (${label})`);
+                  console.log(`[CREP/Infra] ${features.length} TX lines â†’ MapLibre (${label})`);
                 };
 
-                // ════════════════════════════════════════════════════════
-                // OSM SUB-TRANSMISSION — Apr 22, 2026.
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // OSM SUB-TRANSMISSION â€” Apr 22, 2026.
                 // Morgan flagged Loveland / Jamacha / Otay / Chula Vista
                 // substations showing with no connecting lines because
-                // HIFLD only carries ≥115 kV. OSM has the sub-transmission
+                // HIFLD only carries â‰¥115 kV. OSM has the sub-transmission
                 // feeders (69 kV) and this layer surfaces them as DASHED
                 // lines (so users see provenance differs from HIFLD solid).
                 // File is baked by scripts/etl/crep/bake-osm-sub-
                 // transmission.mjs and refreshed weekly by GHA cron.
-                // ════════════════════════════════════════════════════════
-                idleLoad(async () => {
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                if (!isEarthSimulatorRoute) {
+                  idleLoad(async () => {
                   const subTxOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesSub")?.enabled ?? true
                   if (!subTxOn) { console.log("[CREP/Static] sub-transmission disabled"); return }
                   try {
                     const res = await fetch("/data/crep/transmission-lines-sub-transmission.geojson", { cache: "default" })
                     if (!res.ok) {
-                      console.log("[CREP/Static] sub-transmission geojson not baked yet — falling back to HIFLD-only")
+                      console.log("[CREP/Static] sub-transmission geojson not baked yet â€” falling back to HIFLD-only")
                       return
                     }
                     const gj = await res.json()
@@ -16801,10 +17966,10 @@ export default function CREPDashboardPage({
                         id: "crep-txlines-sub-line", type: "line", source: "crep-txlines-sub",
                         paint: {
                           "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
-                            0,  "#6b7280",  // unknown / distribution — cool gray
-                            31, "#f97316",  // 31-69 kV MV — orange
-                            69, "#eab308",  // 69-115 kV MV — amber
-                            115, "#f43f5e"],// 115+ (if OSM tagged but HIFLD missed) — rose
+                            0,  "#6b7280",  // unknown / distribution â€” cool gray
+                            31, "#f97316",  // 31-69 kV MV â€” orange
+                            69, "#eab308",  // 69-115 kV MV â€” amber
+                            115, "#f43f5e"],// 115+ (if OSM tagged but HIFLD missed) â€” rose
                           "line-width": ["interpolate", ["linear"], ["zoom"],
                             4, 0.6, 8, 1.2, 12, 2.0],
                           "line-opacity": 0.65,
@@ -16812,11 +17977,11 @@ export default function CREPDashboardPage({
                           // from the solid HIFLD backbone.
                           "line-dasharray": [2, 1.5],
                         },
-                        // minzoom 5 — sub-transmission is irrelevant at
+                        // minzoom 5 â€” sub-transmission is irrelevant at
                         // world view and would obscure the HIFLD backbone.
                         minzoom: 5,
                       })
-                      // Click popup — shows voltage + operator
+                      // Click popup â€” shows voltage + operator
                       map.on("click", "crep-txlines-sub-line", (e: any) => {
                         const f = e.features?.[0]
                         if (!f) return
@@ -16838,8 +18003,11 @@ export default function CREPDashboardPage({
                           })
                         }
                       })
-                      map.on("mouseenter", "crep-txlines-sub-line", () => { map.getCanvas().style.cursor = "pointer" })
-                      map.on("mouseleave", "crep-txlines-sub-line", () => { map.getCanvas().style.cursor = "" })
+                      bindFeatureHoverPreview("crep-txlines-sub-line", {
+                        type: "subtransmission line",
+                        labelKeys: ["name", "id"],
+                        detailKeys: ["voltage_kv", "voltage_class", "operator"],
+                      })
                       console.log(`[CREP/Static] ${features.length} OSM sub-transmission lines rendered (dashed, zoom>=5)`)
                     }
                   } catch (e) {
@@ -16847,17 +18015,17 @@ export default function CREPDashboardPage({
                   }
                 })
 
-                // ════════════════════════════════════════════════════════
-                // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV.
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                // STATIC TRANSMISSION LINES â€” 22,760 US lines >=345kV.
                 // Deferred via idleLoad (declared above).
                 // Apr 21, 2026 (Morgan OOM audit): gate on txLinesGlobal
                 // enabled flag so invisible-by-default doesn't cost 14 MB
                 // of heap.
-                // ════════════════════════════════════════════════════════
-                idleLoad(async () => {
+                // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                void (async () => {
                   const txOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesGlobal" || l.id === "txLinesFull")?.enabled ?? (isEarthSimulatorRoute ? true : false)
                   if (!txOn) {
-                    console.log("[CREP/Static] txLines disabled — skipping 22k-line static load (14 MB)")
+                    console.log("[CREP/Static] txLines disabled â€” skipping 22k-line static load (14 MB)")
                     return
                   }
                   try {
@@ -16898,20 +18066,27 @@ export default function CREPDashboardPage({
                   } catch (e) {
                     console.warn("[CREP/Static] transmission-lines load failed:", (e as Error)?.message);
                   }
-                });
+                  });
+                } else {
+                  console.log("[CREP/Static] Earth Simulator uses bundled transmission PMTiles; raw major-line GeoJSON load skipped");
+                }
 
-                batchFetch("transmission-lines", 20000, (vpResults) => {
-                  const vpLines = vpResults.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = vpLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderTxLines(unique, "viewport");
-                }).then(async (results) => {
-                  const allLines = results.flatMap(r => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = allLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderTxLines(unique, "global");
-                  await yieldToUI();
-                }).catch((err) => console.warn("[CREP/Infra] TX lines error:", err?.message || err));
+                if (!isEarthSimulatorRoute) {
+                  batchFetch("transmission-lines", 20000, (vpResults) => {
+                    const vpLines = vpResults.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = vpLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderTxLines(unique, "viewport");
+                  }).then(async (results) => {
+                    const allLines = results.flatMap(r => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = allLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderTxLines(unique, "global");
+                    await yieldToUI();
+                  }).catch((err) => console.warn("[CREP/Infra] TX lines error:", err?.message || err));
+                } else {
+                  console.log("[CREP/Static] Earth Simulator transmission-line MINDEX viewport fetch skipped");
+                }
 
                 // Apr 19, 2026 (Morgan: "missing lots of powerlines and
                 // transmission lines"): ALSO wire the PMTiles vector-tile
@@ -16919,18 +18094,18 @@ export default function CREPDashboardPage({
                 // tippecanoe's automatic simplification / clustering. The
                 // existing geojson path stays minzoom:4 (22k lines would
                 // render-storm at world view), but PMTiles carries the
-                // pre-cluster from tippecanoe so z2–z3 is fast.
+                // pre-cluster from tippecanoe so z2â€“z3 is fast.
                 void (async () => {
                   // Apr 21, 2026 OOM audit: gate on txLinesGlobal enabled.
                   const txgOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesGlobal")?.enabled ?? (isEarthSimulatorRoute ? true : false)
-                  if (!txgOn) { console.log("[CREP/Infra] txLinesGlobal disabled — skipping"); return }
+                  if (!txgOn) { console.log("[CREP/Infra] txLinesGlobal disabled â€” skipping"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionLines);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
                     const spec = layerSpecForMode(result.mode, INFRA_LAYERS.transmissionLines);
                     // Use a different layer id so this coexists with the
                     // existing crep-txlines-line (minzoom:4 geojson path).
-                    // At zoom ≥4 both paint; the geojson path has
+                    // At zoom â‰¥4 both paint; the geojson path has
                     // voltage-granular routing, the PMTiles path has
                     // simplified geometry good for low-zoom overview.
                     safeAddLayer({
@@ -16950,27 +18125,27 @@ export default function CREPDashboardPage({
                           2, 0.45, 4, 0.6, 8, 0.75, 12, 0.8,
                         ],
                       },
-                      // No minzoom — pmtiles carries pre-clustered geometry
+                      // No minzoom â€” pmtiles carries pre-clustered geometry
                       // all the way down to z2, so world view renders the
                       // high-voltage backbone cleanly.
                     });
-                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionLines.label}: ${result.mode} active → crep-txlines-global-line (no minzoom gate)`);
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionLines.label}: ${result.mode} active â†’ crep-txlines-global-line (no minzoom gate)`);
                   } catch (e) {
                     console.warn("[CREP/Infra] transmission-lines PMTiles path failed:", (e as Error)?.message);
                   }
                 })();
 
-                // ─── FULL transmission lines (ALL voltages) — Apr 19, 2026 ───────
+                // â”€â”€â”€ FULL transmission lines (ALL voltages) â€” Apr 19, 2026 â”€â”€â”€â”€â”€â”€â”€
                 // Morgan: San Diego missing Jamacha / Miguel / Suncrest feeders.
                 // This layer uses the full HIFLD + OSM + MINDEX dataset generated
                 // by scripts/etl/crep/fetch-transmission-full.mjs. Paints ONLY if
-                // the PMTiles / geojson file has been generated and shipped —
+                // the PMTiles / geojson file has been generated and shipped â€”
                 // addInfraSourceWithFallback gracefully skips when neither exists.
                 void (async () => {
                   // Apr 21, 2026 OOM audit: gate on txLinesFull enabled.
-                  // This is the BIGGEST single offender — 52k lines / 78 MB.
+                  // This is the BIGGEST single offender â€” 52k lines / 78 MB.
                   const txfOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesFull")?.enabled ?? false
-                  if (!txfOn) { console.log("[CREP/Infra] txLinesFull disabled — skipping 52k-line / 78MB load"); return }
+                  if (!txfOn) { console.log("[CREP/Infra] txLinesFull disabled â€” skipping 52k-line / 78MB load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionFull);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
@@ -16983,7 +18158,7 @@ export default function CREPDashboardPage({
                       paint: {
                         // Voltage-graduated color, width scales with zoom.
                         // Matches OpenGridWorks palette: gray<100k, orange
-                        // 100-230k, pink 230-345k, blue 345-500k, cyan ≥500k.
+                        // 100-230k, pink 230-345k, blue 345-500k, cyan â‰¥500k.
                         "line-color": [
                           "interpolate", ["linear"],
                           ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0],
@@ -17007,7 +18182,7 @@ export default function CREPDashboardPage({
                     });
                     // Apr 19, 2026 (Morgan: "non of the infra power lines
                     // not clickable no widgets shown no selection"). Add
-                    // click → InfraAsset widget + hover cursor. Click
+                    // click â†’ InfraAsset widget + hover cursor. Click
                     // dispatches through the shared selection hook so the
                     // same widget handles major + full TX lines identically.
                     const txFullClickFired = { bound: false };
@@ -17036,8 +18211,11 @@ export default function CREPDashboardPage({
                         });
                         setSelectedPlant(null);
                       });
-                      map.on("mouseenter", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = "pointer"; });
-                      map.on("mouseleave", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = ""; });
+                      bindFeatureHoverPreview("crep-txlines-full-line", {
+                        type: "transmission line",
+                        labelKeys: ["name", "NAME", "id", "OBJECTID"],
+                        detailKeys: ["v", "VOLTAGE", "OWNER"],
+                      });
                     }
                     // Apr 19, 2026 (OpenGridView parity): voltage labels
                     // ALONG the transmission lines ("230 kV", "500 kV"
@@ -17073,29 +18251,29 @@ export default function CREPDashboardPage({
                       },
                       filter: [">", ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0], 34000],
                     });
-                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line (click + hover wired, kV labels at zoom 9+)`);
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active â†’ crep-txlines-full-line (click + hover wired, kV labels at zoom 9+)`);
                   } catch (e) {
                     console.warn("[CREP/Infra] transmission-full PMTiles path failed (file not generated yet?):", (e as Error)?.message);
                   }
                 })();
 
-                // ─── Global data centers (Apr 19, 2026) ──────────────────────────
+                // â”€â”€â”€ Global data centers (Apr 19, 2026) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 // OSM + PeeringDB + MINDEX. OpenGridWorks-style glowing squares.
                 // Generated by scripts/etl/crep/fetch-datacenters-global.mjs.
                 // Falls through silently if the file hasn't been generated yet.
                 void (async () => {
                   // Apr 21, 2026 OOM audit: gate on dataCentersG enabled.
                   const dcOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "dataCentersG")?.enabled ?? true
-                  if (!dcOn) { console.log("[CREP/Infra] dataCentersG disabled — skipping 4k-feature load"); return }
+                  if (!dcOn) { console.log("[CREP/Infra] dataCentersG disabled â€” skipping 4k-feature load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.dataCentersGlobal);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
                     const spec = layerSpecForMode(result.mode, INFRA_LAYERS.dataCentersGlobal);
                     // Apr 19, 2026 (Morgan: "larger glowing blue squares for
                     // data centers, neon like on opengridview"). Three-layer
-                    // stack — outer cyan halo (big blur), mid cyan glow
+                    // stack â€” outer cyan halo (big blur), mid cyan glow
                     // (medium blur), core bright-blue pixel (sharp edge +
-                    // white stroke) — reads as a neon-lit data center from
+                    // white stroke) â€” reads as a neon-lit data center from
                     // world view through city zoom.
                     safeAddLayer({
                       id: "crep-dcs-global-halo",
@@ -17104,7 +18282,7 @@ export default function CREPDashboardPage({
                       minzoom: DATA_CENTER_MIN_ZOOM,
                       ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                       paint: {
-                        // ~3× larger than the old glow; far wider at deep zoom.
+                        // ~3Ã— larger than the old glow; far wider at deep zoom.
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
                           2, 8, 5, 13, 8, 20, 12, 32, 16, 48,
@@ -17159,26 +18337,28 @@ export default function CREPDashboardPage({
                     // signature DC glyph). Names stay hidden until close zoom.
                     try {
                       if (!safeHasImage("dc-diamond")) {
-                        const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <defs>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="1.4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <g transform="translate(16 16) rotate(45)" filter="url(#glow)">
-    <rect x="-9" y="-9" width="18" height="18" fill="#bfdbfe" stroke="#22d3ee" stroke-width="1.8"/>
-    <rect x="-5" y="-5" width="10" height="10" fill="#ffffff" opacity="0.95"/>
-  </g>
-</svg>`.trim();
-                        const img = new Image(32, 32);
-                        img.onload = () => {
-                          try {
-                            safeAddImage("dc-diamond", img as any, { pixelRatio: 2 });
-                          } catch { /* ignore */ }
-                        };
-                        img.src = `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`;
+                        const canvas = document.createElement("canvas");
+                        canvas.width = 32;
+                        canvas.height = 32;
+                        const ctx = canvas.getContext("2d");
+                        if (ctx) {
+                          ctx.shadowColor = "#22d3ee";
+                          ctx.shadowBlur = 3;
+                          ctx.translate(16, 16);
+                          ctx.rotate(Math.PI / 4);
+                          ctx.fillStyle = "#bfdbfe";
+                          ctx.strokeStyle = "#22d3ee";
+                          ctx.lineWidth = 1.8;
+                          ctx.fillRect(-9, -9, 18, 18);
+                          ctx.strokeRect(-9, -9, 18, 18);
+                          ctx.shadowBlur = 0;
+                          ctx.fillStyle = "rgba(255,255,255,0.95)";
+                          ctx.fillRect(-5, -5, 10, 10);
+                          ctx.setTransform(1, 0, 0, 1, 0, 0);
+                          const data = ctx.getImageData(0, 0, 32, 32);
+                          pendingIconData.set("dc-diamond", { data, options: { pixelRatio: 2 } });
+                          safeAddImage("dc-diamond", data, { pixelRatio: 2 });
+                        }
                       }
                     } catch { /* ignore */ }
                     const dcNameTextField = [
@@ -17222,7 +18402,7 @@ export default function CREPDashboardPage({
                         map.setLayoutProperty("crep-dcs-global-icon", "text-size", ["interpolate", ["linear"], ["zoom"], DATA_CENTER_LABEL_MIN_ZOOM, 10, 14, 13]);
                       }
                     } catch { /* ignore */ }
-                    // Click → InfraAsset panel via the shared __crep_selectAsset hook.
+                    // Click â†’ InfraAsset panel via the shared __crep_selectAsset hook.
                     map.on("click", "crep-dcs-global-dot", (e: any) => {
                       const f = e.features?.[0]; if (!f) return;
                       const p = f.properties || {};
@@ -17238,15 +18418,18 @@ export default function CREPDashboardPage({
                         });
                       } catch { /* ignore */ }
                     });
-                    map.on("mouseenter", "crep-dcs-global-dot", () => { map.getCanvas().style.cursor = "pointer"; });
-                    map.on("mouseleave", "crep-dcs-global-dot", () => { map.getCanvas().style.cursor = ""; });
-                    console.log(`[CREP/Infra] ${INFRA_LAYERS.dataCentersGlobal.label}: ${result.mode} active → crep-dcs-global-dot`);
+                    bindFeatureHoverPreview("crep-dcs-global-dot", {
+                      type: "data center",
+                      labelKeys: ["n", "name", "id"],
+                      detailKeys: ["op", "operator", "city", "country"],
+                    });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.dataCentersGlobal.label}: ${result.mode} active â†’ crep-dcs-global-dot`);
                   } catch (e) {
                     console.warn("[CREP/Infra] data-centers-global PMTiles path failed (file not generated yet?):", (e as Error)?.message);
                   }
                 })();
 
-                // ── Cell towers (antennas) — render from world view (viewport-first) ──
+                // â”€â”€ Cell towers (antennas) â€” render from world view (viewport-first) â”€â”€
                 // Apr 18, 2026: dropped the previous zoom:6+ gate. Cell towers
                 // now render at every zoom level; density stays manageable
                 // because the bundled set is ~192 points and live MINDEX/FCC
@@ -17256,10 +18439,13 @@ export default function CREPDashboardPage({
                   .map((e: any) => ({
                     type: "Feature" as const,
                     properties: {
-                      name: e.name,
-                      radio: e.properties?.technology || e.entity_type,
-                      operator: e.properties?.operator,
-                      source: e.source || "mindex",
+                      id: e.id,
+                      name: e.name || e.properties?.n || e.properties?.name || "Cell tower",
+                      radio: e.radio || e.properties?.radio || e.properties?.technology || e.entity_type,
+                      operator: e.operator || e.properties?.op || e.properties?.operator,
+                      source: e.source || e.properties?.src || "mindex",
+                      height_m: e.height_m || e.properties?.h || e.properties?.height_m,
+                      mcc: e.mcc || e.properties?.mcc,
                     },
                     geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
                   }));
@@ -17279,7 +18465,7 @@ export default function CREPDashboardPage({
                       // Apr 19, 2026 (see crep-celltowers-global-circle above for
                       // the full bug-history comment). Top-level interpolate on
                       // zoom, with hover-case inside each stop value.
-                      // Apr 23, 2026 — Morgan: "if it makes rendering better make
+                      // Apr 23, 2026 â€” Morgan: "if it makes rendering better make
                       // every single cell phone tower dot 50% smaller". Halved
                       // every radius stop. Hover radius kept reasonably hit-able.
                       "circle-radius": [
@@ -17304,7 +18490,8 @@ export default function CREPDashboardPage({
                       "circle-stroke-color": "#ffffff",
                       "circle-stroke-opacity": 0.6,
                     },
-                    // No minzoom gate — render from world view upward.
+                    minzoom: TELECOM_DETAIL_MIN_ZOOM,
+                    // No minzoom gate â€” render from world view upward.
                   });
                   if (!towersClickBound) {
                     towersClickBound = true;
@@ -17322,12 +18509,16 @@ export default function CREPDashboardPage({
                         legacyHoveredId = f.id ?? null;
                         legacyHover(legacyHoveredId, true);
                       }
-                      map.getCanvas().style.cursor = "pointer";
+                      emitMapFeatureHover(e, {
+                        type: "cell tower",
+                        labelKeys: ["name", "id"],
+                        detailKeys: ["operator", "radio", "source"],
+                      });
                     });
                     map.on("mouseleave", "crep-celltowers-circle", () => {
                       legacyHover(legacyHoveredId, false);
                       legacyHoveredId = null;
-                      map.getCanvas().style.cursor = "";
+                      clearMapFeatureHover();
                     });
                     map.on("click", "crep-celltowers-circle", (e: any) => {
                       const props = e.features?.[0]?.properties;
@@ -17343,12 +18534,12 @@ export default function CREPDashboardPage({
                       });
                     });
                   }
-                  console.log(`[CREP/Infra] ${features.length} cell towers → MapLibre (${label})`);
+                  console.log(`[CREP/Infra] ${features.length} cell towers â†’ MapLibre (${label})`);
                 };
 
-                // Military base render helper — handles BOTH polygon and point features
-                // Facilities WITH polygon data → crep-military-perimeters source (fill + boundary line)
-                // Facilities WITHOUT polygon → crep-live-military source (shield icon)
+                // Military base render helper â€” handles BOTH polygon and point features
+                // Facilities WITH polygon data â†’ crep-military-perimeters source (fill + boundary line)
+                // Facilities WITHOUT polygon â†’ crep-live-military source (shield icon)
                 let milClickBound = false;
                 const renderMilitary = (entities: any[], label: string) => {
                   const valid = entities.filter((e: any) => e.lat != null && e.lng != null);
@@ -17400,13 +18591,13 @@ export default function CREPDashboardPage({
                     id: e.id, name: e.name || "Military Facility", lat: e.lat, lng: e.lng,
                     type: e.properties?.military || e.type || "base", operator: e.properties?.operator || e.operator,
                   })));
-                  console.log(`[CREP/Infra] ${valid.length} military facilities → MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
+                  console.log(`[CREP/Infra] ${valid.length} military facilities â†’ MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
 
-                // ── Cell / communications towers — instant US+TW bundle, then global PMTiles ──
+                // â”€â”€ Cell / communications towers â€” instant US+TW bundle, then global PMTiles â”€â”€
                 // Taiwan + US (+ territories) ship as cell-towers-us-tw-instant.geojson
                 // (built by fetch-celltowers-global.mjs). Loaded ASAP (no idle deferral).
-                // Global layer: PMTiles → GeoJSON bundle → legacy US sample → live MINDEX.
+                // Global layer: PMTiles â†’ GeoJSON bundle â†’ legacy US sample â†’ live MINDEX.
                 const ctState = { globalLoaded: false, instantRendered: false };
 
                 const stripInstantCellOverlay = () => {
@@ -17421,12 +18612,12 @@ export default function CREPDashboardPage({
 
                 void (async () => {
                   try {
-                    // Apr 22, 2026 — Morgan: "no cell towers are there".
+                    // Apr 22, 2026 â€” Morgan: "no cell towers are there".
                     // cell-towers-us-tw-instant.geojson was a 43-byte stub
                     // with zero features. Switching to cell-towers-us.geojson
                     // (24 KB, 192 curated US towers) for the instant render.
                     // The global 93 MB set loads on-demand via cellTowersG.
-                    const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "force-cache" });
+                    const res = await fetch("/data/crep/cell-towers-us-tw-instant.geojson", { cache: "force-cache" });
                     if (!res.ok) return;
                     const gj = await res.json();
                     if (ctState.globalLoaded) return;
@@ -17437,6 +18628,7 @@ export default function CREPDashboardPage({
                       name: f.properties?.n ?? "Cell tower",
                       lat: f.geometry.coordinates[1],
                       lng: f.geometry.coordinates[0],
+                      radio: f.properties?.radio,
                       properties: {
                         operator: f.properties?.op,
                         height_m: f.properties?.h,
@@ -17459,14 +18651,14 @@ export default function CREPDashboardPage({
                 // `enabled: false` but the infra pipeline was loading
                 // 615 k features into heap anyway. Gate the addInfraSource
                 // call on the layer's actual enabled flag so OFF = 0 MB.
-                idleLoad(async () => {
-                  // Apr 22, 2026 — Morgan: "level of detail not working when
+                void (async () => {
+                  // Apr 22, 2026 â€” Morgan: "level of detail not working when
                   // im zoomed into a city close like san diego i should see
                   // massive more data assets loaded fast".
                   // The "cellTowers" toggle (ON by default) renders the 192-
                   // tower US bundle only. The richer bbox-scoped batchFetch
                   // (20k at high zoom) + PMTiles global set live in this
-                  // idleLoad block — previously gated on `cellTowersG` which
+                  // idleLoad block â€” previously gated on `cellTowersG` which
                   // is OFF by default, so nobody ever saw dense tower
                   // coverage at city zoom. Now opens up when EITHER toggle
                   // is on so the default-ON cellTowers gets viewport data.
@@ -17475,7 +18667,7 @@ export default function CREPDashboardPage({
                   const cellTowersGlobal = layersList.find((l: any) => l.id === "cellTowersG")?.enabled ?? true;
                   const cellTowersOn = cellTowersMain || cellTowersGlobal;
                   if (!cellTowersOn) {
-                    console.log("[CREP/Infra] cell towers disabled — skipping load");
+                    console.log("[CREP/Infra] cell towers disabled â€” skipping load");
                     return;
                   }
                   // Only enable the 93 MB PMTiles / global geojson load when
@@ -17483,7 +18675,7 @@ export default function CREPDashboardPage({
                   // lighter bbox-scoped batchFetch path.
                   const useGlobal = cellTowersGlobal;
                   if (!useGlobal) {
-                    console.log("[CREP/Infra] cellTowers ON (viewport mode) — bbox batchFetch at zoom ≥ 10");
+                    console.log("[CREP/Infra] cellTowers ON (viewport mode) â€” bbox batchFetch at zoom â‰¥ 10");
                     // Fall through to the legacy US bundle + batchFetch
                     // path below by NOT returning early but skipping the
                     // PMTiles block. We need to skip via a flag so the
@@ -17493,7 +18685,7 @@ export default function CREPDashboardPage({
                     // Only attempt the 93 MB PMTiles load when global toggle
                     // is explicitly on. Skip otherwise so the bbox path runs.
                     if (!useGlobal) {
-                      throw new Error("cellTowers viewport mode — skip PMTiles, use batchFetch below")
+                      throw new Error("cellTowers viewport mode â€” skip PMTiles, use batchFetch below")
                     }
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.cellTowersGlobal);
                     if (result.mode === "pmtiles" || result.mode === "geojson") {
@@ -17508,15 +18700,15 @@ export default function CREPDashboardPage({
                         minzoom: TELECOM_DETAIL_MIN_ZOOM,
                         paint: {
                           // Apr 19, 2026 (final fix after two bad attempts):
-                          //   1. First version nested TWO interpolates inside a case → rejected
+                          //   1. First version nested TWO interpolates inside a case â†’ rejected
                           //      ("Only one zoom-based interpolate per expression").
-                          //   2. Second used `*` to multiply interpolate by a hover factor → also
+                          //   2. Second used `*` to multiply interpolate by a hover factor â†’ also
                           //      rejected ("zoom expression may only be used as input to a top-level
                           //      step/interpolate"). MapLibre's validator requires `["zoom"]` to be
-                          //      a DIRECT input to interpolate — no wrapping expression allowed.
+                          //      a DIRECT input to interpolate â€” no wrapping expression allowed.
                           //   3. Correct pattern: top-level interpolate on zoom, with each stop
                           //      VALUE being a feature-state case. Legal MapLibre syntax.
-                          // Apr 23, 2026 — Morgan: "make every single cell phone
+                          // Apr 23, 2026 â€” Morgan: "make every single cell phone
                           // tower dot 50% smaller". Halved every stop; hover sizes
                           // kept big enough to stay clickable.
                           "circle-radius": [
@@ -17544,7 +18736,7 @@ export default function CREPDashboardPage({
                       });
 
                       // Hover + click wiring for the global (PMTiles / GeoJSON)
-                      // vector layer — previously it rendered but wasn't
+                      // vector layer â€” previously it rendered but wasn't
                       // selectable, which is why the dots felt "broken".
                       let globalHoveredId: string | number | null = null;
                       const globalSourceHover = (id: string | number | null, hover: boolean) => {
@@ -17556,7 +18748,7 @@ export default function CREPDashboardPage({
                               : { source: result.sourceId, id },
                             { hover },
                           );
-                        } catch { /* feature-state only works when the feature has a stable id — PMTiles carries one */ }
+                        } catch { /* feature-state only works when the feature has a stable id â€” PMTiles carries one */ }
                       };
                       map.on("mousemove", "crep-celltowers-global-circle", (e: any) => {
                         const f = e.features?.[0];
@@ -17567,12 +18759,16 @@ export default function CREPDashboardPage({
                           globalHoveredId = fid ?? null;
                           globalSourceHover(globalHoveredId, true);
                         }
-                        map.getCanvas().style.cursor = "pointer";
+                        emitMapFeatureHover(e, {
+                          type: "cell tower",
+                          labelKeys: ["n", "name", "id"],
+                          detailKeys: ["op", "operator", "radio", "src"],
+                        });
                       });
                       map.on("mouseleave", "crep-celltowers-global-circle", () => {
                         globalSourceHover(globalHoveredId, false);
                         globalHoveredId = null;
-                        map.getCanvas().style.cursor = "";
+                        clearMapFeatureHover();
                       });
                       map.on("click", "crep-celltowers-global-circle", (e: any) => {
                         const f = e.features?.[0];
@@ -17596,7 +18792,7 @@ export default function CREPDashboardPage({
                         });
                       });
 
-                      console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active → crep-celltowers-global-circle (click + hover wired)`);
+                      console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active â†’ crep-celltowers-global-circle (click + hover wired)`);
                       return;
                     }
                   } catch (e) {
@@ -17629,7 +18825,7 @@ export default function CREPDashboardPage({
                     }
                   }
 
-                  if (!ctState.globalLoaded) {
+                  if (!ctState.globalLoaded && !isEarthSimulatorRoute) {
                     batchFetch("cell-towers", 20000, (vpResults) => {
                       if (ctState.globalLoaded) return;
                       const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
@@ -17654,10 +18850,12 @@ export default function CREPDashboardPage({
                         await yieldToUI();
                       })
                       .catch((err) => console.warn("[CREP/Infra] Cell towers batchFetch:", err?.message || err));
+                  } else if (!ctState.globalLoaded) {
+                    console.log("[CREP/Static] Earth Simulator cell towers use bundled PMTiles/US seed only; MINDEX viewport fetch skipped");
                   }
-                });
+                })();
 
-                // ── Military bases — direct static file, idle-loaded ──
+                // â”€â”€ Military bases â€” direct static file, idle-loaded â”€â”€
                 // Bypass the /api/oei/military API layer entirely (saves
                 // ~200-500 ms of server round-trip). The file is bundled
                 // under public/data/ and served statically by Next.js so
@@ -17710,7 +18908,7 @@ export default function CREPDashboardPage({
                   }
                 });
 
-                // ── Highlight layers (OpenGridWorks-style selection glow) ──
+                // â”€â”€ Highlight layers (OpenGridWorks-style selection glow) â”€â”€
                 // Must be last so they render on top of all infra
                 setTimeout(() => {
                   try {
@@ -17724,7 +18922,7 @@ export default function CREPDashboardPage({
               if (!isEmbeddedEarthquakeSearch && !auditAllOffMode) {
                 loadPermanentInfra();
               }
-              
+
               // Initialize zoom and bounds
               if (!focusLocation && !getInitialMapFocusFromUrl()) {
                 map.stop?.();
@@ -17747,18 +18945,31 @@ export default function CREPDashboardPage({
                 lastViewportRef.current = initialViewport;
                 mapZoomRef.current = initialViewport.zoom;
                 mapBoundsRef.current = initialViewport.bounds;
+                committedPanelBoundsRef.current = initialViewport.bounds;
+                committedMarkerBoundsRef.current = initialViewport.bounds;
                 setMapBounds(initialViewport.bounds);
                 setMarkerMapBounds(initialViewport.bounds);
               }
-              
+
               // LOD System: update viewport state after navigation completes.
               // Globe: live bounds during move; commit panel + marker bounds on moveend (not idle-only).
               let viewportRaf: number | null = null;
               const isGlobeRoute = isGlobeCrepRoute();
               const commitBoundsState = (
                 setter: Dispatch<SetStateAction<{ north: number; south: number; east: number; west: number } | null>>,
+                committedRef: MutableRefObject<{ north: number; south: number; east: number; west: number } | null>,
                 nextBounds: { north: number; south: number; east: number; west: number },
               ) => {
+                const prevCommitted = committedRef.current;
+                const committedUnchanged = Boolean(
+                  prevCommitted &&
+                    Math.abs(prevCommitted.north - nextBounds.north) < 0.0002 &&
+                    Math.abs(prevCommitted.south - nextBounds.south) < 0.0002 &&
+                    Math.abs(prevCommitted.east - nextBounds.east) < 0.0002 &&
+                    Math.abs(prevCommitted.west - nextBounds.west) < 0.0002,
+                );
+                if (committedUnchanged) return;
+                committedRef.current = nextBounds;
                 setter((prev) => {
                   if (!prev) return nextBounds;
                   const unchanged =
@@ -17806,14 +19017,14 @@ export default function CREPDashboardPage({
                   if (!commitPanelBounds && !commitMarkerBounds) return;
                   {
                     if (commitPanelBounds) {
-                      commitBoundsState(setMapBounds, nextBounds);
-                    // Globe: marker LOD uses mapZoom — defer zoom commit until idle with marker bounds.
+                      commitBoundsState(setMapBounds, committedPanelBoundsRef, nextBounds);
+                    // Globe: marker LOD uses mapZoom â€” defer zoom commit until idle with marker bounds.
                       if (!isGlobeRoute || commitMarkerBounds) {
                         setMapZoom((prev) => (Math.abs(prev - newZoom) > 0.02 ? newZoom : prev));
                     }
                     }
                     if (commitMarkerBounds) {
-                      commitBoundsState(setMarkerMapBounds, nextBounds);
+                      commitBoundsState(setMarkerMapBounds, committedMarkerBoundsRef, nextBounds);
                     }
                   }
                 });
@@ -17832,13 +19043,220 @@ export default function CREPDashboardPage({
                 setLiveMarkerBounds(null);
                 updateViewport(true, isGlobeRoute);
               });
-              
+
+              const clickPickLayerPriority = [
+                "crep-live-aircraft-dot",
+                "crep-live-vessels-dot",
+                "crep-live-satellites-dot",
+                "crep-live-buoys-dot",
+                "crep-celltowers-circle",
+                "crep-celltowers-global-circle",
+                "crep-plants-circle",
+                "crep-subs-circle",
+                "crep-dcs-global-dot",
+                "crep-mycosoft-devices-core",
+                "crep-live-military-dot",
+                "crep-military-perimeters-line",
+                "crep-military-perimeters-fill",
+                "crep-txlines-sub-line",
+                "crep-txlines-line",
+                "crep-txlines-full-line",
+                "crep-cables-line",
+              ];
+              const clickPickPriorityScore = new Map(clickPickLayerPriority.map((id, index) => [id, index]));
+              const clickPickLayers = () => clickPickLayerPriority.filter((id) => {
+                try {
+                  return Boolean(map.getLayer(id)) && map.getLayoutProperty(id, "visibility") !== "none";
+                } catch {
+                  return false;
+                }
+              });
+              const pickInteractiveFeatureAtClick = (event: any) => {
+                const point = event?.point ?? (event?.lngLat ? map.project(event.lngLat) : null);
+                if (!point) return null;
+                const layers = clickPickLayers();
+                if (!layers.length) return null;
+                try {
+                  const hitbox = 14;
+                  const features = map.queryRenderedFeatures(
+                    [
+                      [point.x - hitbox, point.y - hitbox],
+                      [point.x + hitbox, point.y + hitbox],
+                    ],
+                    { layers },
+                  ) as any[];
+                  return features
+                    .filter((feature) => feature?.layer?.id)
+                    .sort((a, b) => (
+                      (clickPickPriorityScore.get(a.layer.id) ?? 999) -
+                      (clickPickPriorityScore.get(b.layer.id) ?? 999)
+                    ))[0] ?? null;
+                } catch {
+                  return null;
+                }
+              };
+              const findPickedEntity = (list: any[] | undefined, props: Record<string, any>, keys: string[]) => {
+                if (!Array.isArray(list) || !props) return null;
+                const ids = keys.map((key) => props[key]).filter((value) => value != null).map(String);
+                if (!ids.length) return null;
+                return list.find((item) => ids.some((id) => (
+                  String(item.id ?? "") === id ||
+                  String(item.mmsi ?? "") === id ||
+                  String(item.imo ?? "") === id ||
+                  String(item.station_id ?? "") === id
+                ))) ?? null;
+              };
+              const selectInfraFeatureFromClick = (
+                event: any,
+                feature: any,
+                type: InfraAssetType | string,
+                labelKeys: string[],
+              ) => {
+                const props = feature?.properties || {};
+                const coords = event?.lngLat;
+                lastEntityPickTimeRef.current = Date.now();
+                setSelectedAircraft(null);
+                setSelectedVessel(null);
+                setSelectedSatellite(null);
+                setSelectedOther(null);
+                setSelectedFungal(null);
+                setSelectedInfraAsset({
+                  type: type as InfraAssetType,
+                  id: props.id ?? props.plant_id ?? props.station_id ?? props.mmsi ?? props.imo ?? feature?.id,
+                  name: firstHoverValue(props, labelKeys, String(type)),
+                  lat: coords?.lat ?? 0,
+                  lng: coords?.lng ?? 0,
+                  properties: typeof props === "object" ? { ...props } : {},
+                });
+                setSelectedPlant(null);
+                return true;
+              };
+              const openInteractiveFeatureFromClick = (event: any) => {
+                const feature = pickInteractiveFeatureAtClick(event);
+                if (!feature) return false;
+                const layerId = String(feature.layer?.id || "");
+                const props = feature.properties || {};
+                try {
+                  (window as any).__crep_last_click_pick = {
+                    layerId,
+                    name: props.name ?? props.n ?? props.id ?? null,
+                    at: Date.now(),
+                  };
+                } catch { /* debug only */ }
+
+                if (layerId === "crep-live-aircraft-dot") {
+                  const ac = findPickedEntity((window as any).__crep_aircraft, props, ["id", "icao24", "callsign"]);
+                  if (!ac) return false;
+                  lastEntityPickTimeRef.current = Date.now();
+                  setSelectedInfraAsset(null);
+                  setSelectedOther(null);
+                  setSelectedVessel(null);
+                  setSelectedSatellite(null);
+                  setSelectedAircraft(ac);
+                  return true;
+                }
+                if (layerId === "crep-live-vessels-dot") {
+                  const vessel = findPickedEntity((window as any).__crep_vessels, props, ["id", "mmsi", "imo"]);
+                  if (!vessel) return false;
+                  lastEntityPickTimeRef.current = Date.now();
+                  setSelectedInfraAsset(null);
+                  setSelectedOther(null);
+                  setSelectedAircraft(null);
+                  setSelectedSatellite(null);
+                  setSelectedVessel(vessel);
+                  return true;
+                }
+                if (layerId === "crep-live-satellites-dot") {
+                  const sat = findPickedEntity((window as any).__crep_satellites, props, ["id", "satellite_id", "name"]);
+                  if (!sat) return false;
+                  lastEntityPickTimeRef.current = Date.now();
+                  setSelectedInfraAsset(null);
+                  setSelectedOther(null);
+                  setSelectedAircraft(null);
+                  setSelectedVessel(null);
+                  setSelectedSatellite(sat);
+                  return true;
+                }
+                if (layerId === "crep-live-buoys-dot") {
+                  const buoy = findPickedEntity((window as any).__crep_buoys, props, ["station_id", "id"]);
+                  if (!buoy) return false;
+                  lastEntityPickTimeRef.current = Date.now();
+                  setSelectedInfraAsset(null);
+                  setSelectedOther(null);
+                  setSelectedAircraft(null);
+                  setSelectedVessel(null);
+                  setSelectedSatellite(null);
+                  setSelectedBuoy(buoy);
+                  return true;
+                }
+                if (layerId === "crep-live-military-dot" || layerId === "crep-military-perimeters-fill" || layerId === "crep-military-perimeters-line") {
+                  const milId = props.id;
+                  const matched = Array.isArray((window as any).__crep_military)
+                    ? (window as any).__crep_military.find((m: any) => String(m.id ?? "") === String(milId ?? ""))
+                    : null;
+                  if (matched) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    setSelectedAircraft(null);
+                    setSelectedVessel(null);
+                    setSelectedSatellite(null);
+                    setSelectedOther(null);
+                    setSelectedFungal(null);
+                    setSelectedInfraAsset({
+                      type: "military" as InfraAssetType,
+                      id: matched.id,
+                      name: matched.name || props.name || "Military Facility",
+                      lat: matched.lat ?? event?.lngLat?.lat ?? 0,
+                      lng: matched.lng ?? event?.lngLat?.lng ?? 0,
+                      properties: {
+                        ...matched.tags,
+                        facility_type: matched.type ?? props.type,
+                        operator: matched.operator ?? props.operator,
+                        country: matched.country,
+                        military: matched.type ?? props.type,
+                      },
+                    });
+                    return true;
+                  }
+                  return selectInfraFeatureFromClick(event, feature, "military", ["name", "id"]);
+                }
+                if (layerId === "crep-celltowers-circle" || layerId === "crep-celltowers-global-circle") {
+                  return selectInfraFeatureFromClick(event, feature, "cell_tower", ["name", "n", "id"]);
+                }
+                if (layerId === "crep-plants-circle") {
+                  return selectInfraFeatureFromClick(event, feature, "plant", ["name", "plant_id", "id"]);
+                }
+                if (layerId === "crep-subs-circle") {
+                  return selectInfraFeatureFromClick(event, feature, "substation", ["name", "id"]);
+                }
+                if (layerId === "crep-dcs-global-dot") {
+                  return selectInfraFeatureFromClick(event, feature, "datacenter", ["name", "n", "id"]);
+                }
+                if (layerId === "crep-mycosoft-devices-core") {
+                  return selectInfraFeatureFromClick(event, feature, "device", ["name", "device_id", "id"]);
+                }
+                if (layerId === "crep-txlines-sub-line") {
+                  return selectInfraFeatureFromClick(event, feature, "subtransmission", ["name", "id"]);
+                }
+                if (layerId === "crep-txlines-line" || layerId === "crep-txlines-full-line") {
+                  return selectInfraFeatureFromClick(event, feature, "transmission", ["name", "id"]);
+                }
+                if (layerId === "crep-cables-line") {
+                  return selectInfraFeatureFromClick(event, feature, "cable", ["name", "cable_id", "id"]);
+                }
+                return false;
+              };
+
               // MAP CLICK-AWAY HANDLER: Direct MapLibre click event for reliable popup dismissal
               // This fires when clicking directly on the map canvas, not on markers/popups
               // NOTE: deck.gl draws on the canvas - clicking a fungal/entity icon still fires
               // map "click" with target=canvas. We use lastEntityPickTimeRef to avoid
               // dismissing immediately after an entity pick (deck.gl onClick fires first).
               map.on("click", (e: any) => {
+                if (openInteractiveFeatureFromClick(e)) {
+                  e.preventDefault?.();
+                  e.originalEvent?.stopPropagation?.();
+                  return;
+                }
                 // 300ms delay: deck.gl onClick runs async; wait so it can set lastEntityPickTimeRef first
                 setTimeout(() => {
                   // If we just picked a deck.gl entity (<400ms ago), do NOT dismiss
@@ -17879,15 +19297,15 @@ export default function CREPDashboardPage({
               showFullscreen={false}
               onLocate={(coords) => setUserLocation({ lat: coords.latitude, lng: coords.longitude })}
               className={cn(
-                "mb-4 transition-all duration-300",
+                "mb-16 ml-3 transition-all duration-300 md:mb-4",
                 // Move controls to the right of left panel when it's open
-                leftPanelOpen ? "ml-[310px]" : "ml-4"
+                leftPanelOpen ? "md:ml-[310px]" : "md:ml-4"
               )}
             />
             {!embedded && (
               <div className={cn(
-                "absolute bottom-5 z-20 transition-all duration-300",
-                rightPanelOpen ? "right-[340px]" : "right-4"
+                "absolute bottom-20 right-4 z-20 transition-all duration-300 md:bottom-5",
+                rightPanelOpen ? "md:right-[340px]" : "md:right-4"
               )}>
                 <OpenGridOrbitMini
                   mapBounds={mapBounds}
@@ -17911,7 +19329,7 @@ export default function CREPDashboardPage({
 
             {/* Apr 19, 2026 (Morgan: "popup that says new events on map
                 needs to never show up again its useless"). Toast deleted.
-                newEventIds state is KEPT — the event dots themselves use
+                newEventIds state is KEPT â€” the event dots themselves use
                 `isNew={newEventIds.has(event.id)}` to blink a few times
                 when they first render. The notification itself was
                 redundant with the visual blink. */}
@@ -17919,10 +19337,12 @@ export default function CREPDashboardPage({
             <VoiceMapControls
               {...mapCommandHandlers}
               websocketUrl={VOICE_ENDPOINTS.CREP_BRIDGE_WS}
-              className={cn("absolute top-4 z-20", rightPanelOpen ? "right-[340px]" : "right-4")}
+              className={cn("hidden md:block absolute top-4 z-20", rightPanelOpen ? "right-[340px]" : "right-4")}
             />
 
-            {/* EntityDeckLayer REMOVED — all entities now rendered as MapLibre native layers:
+            <MapAssetHoverPreview hover={hoverAssetContext} />
+
+            {/* EntityDeckLayer REMOVED â€” all entities now rendered as MapLibre native layers:
                 Aircraft: crep-live-aircraft (symbol + glow)
                 Satellites: crep-live-satellites (circle + SGP4 animation)
                 Vessels: crep-live-vessels (symbol + glow)
@@ -17932,7 +19352,7 @@ export default function CREPDashboardPage({
                 Click handlers on each native layer handle selection.
                 This eliminates duplicate dots from deck.gl ScatterplotLayers. */}
 
-            {/* Trajectory Lines — Apr 19, 2026: only for selected entity
+            {/* Trajectory Lines â€” Apr 19, 2026: only for selected entity
                 (Morgan: "plane and vessel and satellite trajectories should
                 only show when one is selected like how seacable or
                 powerlines show when selected"). Passing selectedAircraftId
@@ -17948,19 +19368,19 @@ export default function CREPDashboardPage({
                 SatelliteOrbitLines removed to avoid duplicate/conflicting orbit lines and filter bugs */}
 
             {/* Power plant infrastructure layers are merged into EntityDeckLayer
-                via extraLayers prop — no separate overlay needed (Apr 2026) */}
+                via extraLayers prop â€” no separate overlay needed (Apr 2026) */}
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
                 NVIDIA EARTH-2 AI WEATHER LAYERS
                 Integrated directly into the MapComponent for real-time visualization
-                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+                Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+
+            {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
                 NVIDIA Earth-2 AI Weather Layers
                 Rendered with mapRef when Earth-2 layers are enabled
-                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            
-            {/* NASA GIBS (below Earth-2 rasters in stack order: basemap → GIBS → HD tiles → heatmap → wind) */}
+                Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+
+            {/* NASA GIBS (below Earth-2 rasters in stack order: basemap â†’ GIBS â†’ HD tiles â†’ heatmap â†’ wind) */}
             <GibsBaseLayers
               map={mapRef}
               enabledLayers={{
@@ -17972,118 +19392,24 @@ export default function CREPDashboardPage({
               opacity={0.4}
             />
 
-            {EARTH2_BACKEND_ENABLED && mapRef &&
-              earth2Filter.useHdWeatherTiles &&
-              (earth2Filter.showTemperature ||
-                earth2Filter.showPrecipitation ||
-                earth2Filter.showHumidity) && (
-                <Earth2TileRasterLayers
-                  map={mapRef}
-                  forecastHours={earth2Filter.forecastHours}
-                  opacity={earth2Filter.opacity}
-                  enabled={{
-                    t2m: earth2Filter.showTemperature,
-                    tp: earth2Filter.showPrecipitation,
-                    tcwv: earth2Filter.showHumidity,
-                  }}
-                  model={earth2Filter.selectedModel}
-                />
-              )}
+            {/* Earth2 GPU weather overlays intentionally disabled until the GPU service is ready. */}
 
-            {/* Earth-2 Temperature/Precipitation Heatmap — hidden for layers using HD tile mode */}
-            {EARTH2_BACKEND_ENABLED && mapRef &&
-              (earth2Filter.showTemperature ||
-                earth2Filter.showPrecipitation ||
-                earth2Filter.showForecast) &&
-              !(
-                earth2Filter.useHdWeatherTiles &&
-                (earth2Filter.showTemperature || earth2Filter.showPrecipitation)
-              ) && (
-                <WeatherHeatmapLayer
-                  map={mapRef}
-                  visible={true}
-                  variable={earth2Filter.showTemperature ? "temperature" : "precipitation"}
-                  forecastHours={earth2Filter.forecastHours}
-                  opacity={earth2Filter.opacity}
-                  resolutionDeg={earth2ApiResolutionDeg}
-                />
-              )}
-            
-            {/* Earth-2 Spore Dispersal Layer */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showSporeDispersal && (
-              <SporeDispersalLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-              />
-            )}
-            
-            {/* Earth-2 Wind Vector Layer */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showWind && (
-              <WindVectorLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-              />
-            )}
-            
-            {/* Earth-2 Cloud Cover Layer */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showClouds && (
-              <CloudLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-              />
-            )}
-            
-            {/* Earth-2 Precipitation/Rain Layer — optional animation; omit when HD precip tiles on */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showPrecipitation && !earth2Filter.useHdWeatherTiles && (
-              <PrecipitationLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-                showAnimation={earth2Filter.animated}
-              />
-            )}
-            
+            {/* Earth-2 Temperature/Precipitation Heatmap â€” hidden for layers using HD tile mode */}
+
+
+
+
+            {/* Earth-2 Precipitation/Rain Layer â€” optional animation; omit when HD precip tiles on */}
+
+
             {/* Earth-2 Atmospheric Pressure Layer */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showPressure && (
-              <PressureLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-              />
-            )}
-            
+
+
             {/* Earth-2 Storm Cells Layer (StormScope Nowcast) */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showStormCells && (
-              <StormCellsLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-              />
-            )}
-            
-            {/* Earth-2 Humidity Layer — omit when HD humidity tiles on */}
-            {EARTH2_BACKEND_ENABLED && mapRef && earth2Filter.showHumidity && !earth2Filter.useHdWeatherTiles && (
-              <HumidityLayer
-                map={mapRef}
-                visible={true}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-              />
-            )}
+
+
+            {/* Earth-2 Humidity Layer â€” omit when HD humidity tiles on */}
+
 
             {/* Aurora Forecast Overlay */}
             <AuroraOverlay
@@ -18117,7 +19443,7 @@ export default function CREPDashboardPage({
               * ones; events past the cap stay in the data store and side
               * panel counts but don't render as DOM. A proper fix is to
               * move events to a MapLibre GeoJSON source + circle layer, but
-              * that's a bigger refactor — this cap stops the tab restarts
+              * that's a bigger refactor â€” this cap stops the tab restarts
               * today.
               */}
             {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderDomMarkers && renderedEventsForMap.map(event => {
@@ -18128,7 +19454,7 @@ export default function CREPDashboardPage({
                 earthquake: "earthquakes",
                 // Volcanic events
                 volcano: "volcanoes",
-                // Fire events  
+                // Fire events
                 wildfire: "wildfires",
                 fire: "wildfires",
                 // Storm events
@@ -18141,9 +19467,9 @@ export default function CREPDashboardPage({
                 coldwave: "storms",
                 air_quality: "storms",
                 drought: "storms",
-                flood: "storms",
-                tsunami: "storms",
-                landslide: "storms",
+                flood: "floods",
+                tsunami: "floods",
+                landslide: "floods",
                 // Lightning events
                 lightning: "lightning",
                 // Tornado events
@@ -18160,9 +19486,9 @@ export default function CREPDashboardPage({
               };
               const layerId = layerMap[event.type] || layerMap.default;
               const isLayerEnabled = layers.find(l => l.id === layerId)?.enabled ?? false;
-              
+
               if (!isLayerEnabled) return null;
-              
+
               return (
                 <EventMarker
                   key={event.id}
@@ -18172,6 +19498,7 @@ export default function CREPDashboardPage({
                   onClick={() => handleSelectEvent(selectedEvent?.id === event.id ? null : event)}
                   onDoubleClick={() => handleSelectEvent(event, true)}
                   onClose={() => handleSelectEvent(null)}
+                  onHover={handleEventHover}
                   onFlyTo={(lat, lng, zoom) => {
                     mapRef?.flyTo({
                       center: [lng, lat],
@@ -18199,6 +19526,7 @@ export default function CREPDashboardPage({
                   onClick={() => handleSelectEvent(null)}
                   onDoubleClick={() => handleSelectEvent(selectedEvent, true)}
                   onClose={() => handleSelectEvent(null)}
+                  onHover={handleEventHover}
                   onFlyTo={(lat, lng, zoom) => {
                     mapRef?.flyTo({
                       center: [lng, lat],
@@ -18241,10 +19569,11 @@ export default function CREPDashboardPage({
                 isSelected={selectedFungal?.id === obs.id}
                 onClick={() => handleSelectFungal(selectedFungal?.id === obs.id ? null : obs)}
                 onClose={() => handleSelectFungal(null)}
+                onHover={handleFungalHover}
               />
             ))}
 
-            {/* Apr 23, 2026 — Morgan: "none of these green dots in dc are
+            {/* Apr 23, 2026 â€” Morgan: "none of these green dots in dc are
                 selectable". Baked iNat observations (crep-{region}-inat)
                 live on MapLibre circle layers, NOT in visibleFungalObservations
                 (that array only holds the SSE live-stream). When
@@ -18252,7 +19581,7 @@ export default function CREPDashboardPage({
                 setSelectedFungal, the id never matches anything in the
                 array above, so no FungalMarker renders the popup. Render
                 a standalone FungalMarker whenever selectedFungal is set
-                but isn't already in the array — gives every green dot a
+                but isn't already in the array â€” gives every green dot a
                 working species popup regardless of source. */}
             {!auditAllOffMode && !assetIsolationMode && selectedFungal &&
               !renderedFungalObservationsForMap.some(o => o.id === selectedFungal.id) && (
@@ -18262,6 +19591,7 @@ export default function CREPDashboardPage({
                   isSelected={true}
                   onClick={() => handleSelectFungal(null)}
                   onClose={() => handleSelectFungal(null)}
+                  onHover={handleFungalHover}
                 />
               )}
 
@@ -18355,7 +19685,7 @@ export default function CREPDashboardPage({
                       <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
                         <div className="text-[8px] text-gray-500 uppercase mb-0.5">Coordinates</div>
                         <div className="text-[10px] text-cyan-400 font-mono">
-                          {selectedOther.geometry.coordinates[1].toFixed(4)}°, {selectedOther.geometry.coordinates[0].toFixed(4)}°
+                          {selectedOther.geometry.coordinates[1].toFixed(4)}Â°, {selectedOther.geometry.coordinates[0].toFixed(4)}Â°
                         </div>
                       </div>
                     </div>
@@ -18420,7 +19750,7 @@ export default function CREPDashboardPage({
                           ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300"
                           : "bg-gray-500/20 border-gray-500/40 text-gray-400"
                       )}
-                      title={`${sat?.name || `NORAD ${pos.norad_id}`} — Alt: ${pos.alt?.toFixed(0)}km, Az: ${pos.az?.toFixed(1)}°, El: ${pos.el?.toFixed(1)}°`}
+                      title={`${sat?.name || `NORAD ${pos.norad_id}`} â€” Alt: ${pos.alt?.toFixed(0)}km, Az: ${pos.az?.toFixed(1)}Â°, El: ${pos.el?.toFixed(1)}Â°`}
                     >
                       <Satellite className="w-2.5 h-2.5" />
                     </div>
@@ -18442,7 +19772,7 @@ export default function CREPDashboardPage({
                     }}
                     title={`${feat.name || feat.type} (${feat.type.replace(/_/g, " ")})`}
                   >
-                    {INFRA_TYPE_ICONS[feat.type] || "📍"}
+                    {INFRA_TYPE_ICONS[feat.type] || "ðŸ“"}
                   </button>
                 </MarkerContent>
               </MapMarker>
@@ -18467,7 +19797,7 @@ export default function CREPDashboardPage({
               // when the renderer was deemed fake; that meant the layer
               // component never even requested tiles, so EM/ECM toggles did
               // nothing. The tile API itself decides whether to return real
-              // or transparent PNGs — the client just asks honestly for what
+              // or transparent PNGs â€” the client just asks honestly for what
               // the user toggled.
               mycelium: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.mycelium,
               am: !isEmbeddedEarthquakeSearch && fungalAtlasLayerState.am,
@@ -18487,15 +19817,15 @@ export default function CREPDashboardPage({
             sampleGroups={fungalAtlasSampleGroups}
           />}
 
-          {/* ═══════════════════════════════════════════════════════════════
-              PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverables
-              • Global seaports (WPI + MarineCadastre + OSM + MINDEX)
-              • Radar sites (NEXRAD + Mycosoft SDR + FAA ASR)
-              • Radio stations (Radio-Browser + KiwiSDR + FCC LMS)
-              • Global power plants (WRI 34,936 / 167 countries, bundled)
-              • Factories (Climate TRACE + OSM + GEM + MINDEX)
-              • Orbital debris catalogued + 1.2M statistical cloud
-              ═══════════════════════════════════════════════════════════════ */}
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              PROPOSAL OVERLAYS (Apr 2026) â€” Army contract deliverables
+              â€¢ Global seaports (WPI + MarineCadastre + OSM + MINDEX)
+              â€¢ Radar sites (NEXRAD + Mycosoft SDR + FAA ASR)
+              â€¢ Radio stations (Radio-Browser + KiwiSDR + FCC LMS)
+              â€¢ Global power plants (WRI 34,936 / 167 countries, bundled)
+              â€¢ Factories (Climate TRACE + OSM + GEM + MINDEX)
+              â€¢ Orbital debris catalogued + 1.2M statistical cloud
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {assetIsolationMode !== "funga" && <ProposalOverlays
             map={mapRef || mapNativeRef.current}
             enabled={{
@@ -18523,14 +19853,14 @@ export default function CREPDashboardPage({
             mapZoom={mapZoom ?? 0}
           />}
 
-          {/* Eagle Eye VideoWallWidget — universal player (hls.js / WebRTC
+          {/* Eagle Eye VideoWallWidget â€” universal player (hls.js / WebRTC
               WHEP / iframe / MJPEG) for permanent cameras + ephemeral clips.
               Listens for crep:eagle:{camera,event}-click CustomEvents
               dispatched by EagleEyeOverlay, resolves the source via
               /api/eagle/stream/[sourceId], mounts the right player. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && <VideoWallWidget />}
 
-          {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
+          {/* Eagle Eye â€” dual-plane video intelligence (Apr 20, 2026).
               Cursor applied eagle.* MINDEX schema on VM 189 + deployed
               MediaMTX on MAS 188:8554. Phase 1 ships /api/eagle/sources,
               /api/eagle/events, /api/eagle/stream, + YouTube Live geo
@@ -18555,7 +19885,7 @@ export default function CREPDashboardPage({
             mapZoom={mapZoom ?? 0}
           />}
 
-          {/* Realistic Cloud Layer — Three.js-bound 2D scaffold (Apr 20, 2026).
+          {/* Realistic Cloud Layer â€” Three.js-bound 2D scaffold (Apr 20, 2026).
               Three stacked sources: NASA GIBS MODIS True Color cloud texture,
               RainViewer global radar (2-hr history), and a sun-angle shadow
               projection driven by /api/eagle/weather/multi (Open-Meteo + NWS
@@ -18572,9 +19902,9 @@ export default function CREPDashboardPage({
             mode3d={false}
             // Wire into the Earth-2 filter so RealisticCloudLayer shares the
             // same forecast horizon, resolution and GPU-mode routing the
-            // Earth-2 tab uses. gpuMode "off" → cheap free APIs; any other
-            // mode ("earth2"/"voice"/"physics") → routes through MAS_API_URL
-            // → PersonaPlex + 4080a/4080b workstations running NVIDIA
+            // Earth-2 tab uses. gpuMode "off" â†’ cheap free APIs; any other
+            // mode ("earth2"/"voice"/"physics") â†’ routes through MAS_API_URL
+            // â†’ PersonaPlex + 4080a/4080b workstations running NVIDIA
             // Earth-2 for physics.
             forecastHours={earth2Filter.forecastHours}
             resolutionDeg={earth2ApiResolutionDeg}
@@ -18582,26 +19912,26 @@ export default function CREPDashboardPage({
           />}
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
-              Right-click the map → context menu → save / drop pin / copy
+              Right-click the map â†’ context menu â†’ save / drop pin / copy
               lat-lng / "what's here" lookup. Persists to localStorage +
               best-effort to MINDEX so waypoints survive across devices. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderHeavyOverlays && <WaypointSystem map={mapRef} />}
-          {/* Apr 22, 2026 — Morgan: "the right click whats here search
+          {/* Apr 22, 2026 â€” Morgan: "the right click whats here search
               does not work needs to be fixed". WaypointSystem dispatches
               crep:lookup-here when the menu item is clicked; this widget
               listens, calls /api/crep/reverse-geocode, and renders the
               address + nearby MINDEX infrastructure in a floating panel. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderHeavyOverlays && <LookupHereWidget />}
-          {/* Apr 22, 2026 — MYCA waypoint→verify→auto-add live feed.
+          {/* Apr 22, 2026 â€” MYCA waypointâ†’verifyâ†’auto-add live feed.
               Subscribes to SSE /api/myca/entity-feed and paints
               verified entities (Navy depots etc.) on the map within
               100ms of confirmation. Also shows a toast when an entity
               lands. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderHeavyOverlays && <MycaVerifiedEntityFeed map={mapRef} />}
 
-          {/* Project Oyster (MYCODAO + MYCOSOFT) — Tijuana Estuary
+          {/* Project Oyster (MYCODAO + MYCOSOFT) â€” Tijuana Estuary
               pollution showcase (Apr 20, 2026). Federated overlay of
-              IBWC river discharge + SDAPCD H₂S hotspot + beach closures
+              IBWC river discharge + SDAPCD Hâ‚‚S hotspot + beach closures
               + Navy training waters + oyster restoration sites. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderHeavyOverlays && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
@@ -18632,16 +19962,16 @@ export default function CREPDashboardPage({
               oysterHeatmap:          layers.find(l => l.id === "oysterHeatmap")?.enabled   ?? false,
             }}
           />}
-          {/* Tijuana station detail widget — legacy crep:tijuana:station-click handler. */}
+          {/* Tijuana station detail widget â€” legacy crep:tijuana:station-click handler. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaStationWidget />}
-          {/* Apr 21, 2026 v2 — OysterSiteWidget mirrors MojaveSiteWidget.
+          {/* Apr 21, 2026 v2 â€” OysterSiteWidget mirrors MojaveSiteWidget.
               Listens for crep:oyster:site-click from the v2 anchor + 11
               new sub-layer click handlers. Shows project thesis metadata
               (owner: Morgan MYCODAO), UCSD PFM / Scripps / NASA EMIT
               deep-links, and category-color-coded glass panels. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <OysterSiteWidget />}
 
-          {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) —
+          {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) â€”
               Apr 21, 2026. NPS MOJA boundary + Goffs anchor marker +
               wilderness POIs + ASOS/RAWS climate + iNat observations.
               Source: /api/crep/mojave (NPS Land Resources ArcGIS +
@@ -18673,7 +20003,7 @@ export default function CREPDashboardPage({
             </>
           )}
 
-          {/* Apr 22, 2026 — SD + TJ coverage expansion layers. Morgan:
+          {/* Apr 22, 2026 â€” SD + TJ coverage expansion layers. Morgan:
               "massive amount of missing data from TIJUANA including
               infra cell towers enviornmental sensors, military, police,
               hospitals, sewage line data centers, am fm antennas same
@@ -18686,15 +20016,15 @@ export default function CREPDashboardPage({
               enabled={sdtjCoverageEnabled}
             />
           )}
-          {/* Apr 23, 2026 — Project NYC + Project DC layers (anchor +
+          {/* Apr 23, 2026 â€” Project NYC + Project DC layers (anchor +
               perimeter + 11 regional OSM layers per region). Morgan:
               "massive amount of missing data from ... whitehouse and dc
               ... fly to and layers of details perimeters and special
               icon locations for dc and new york". */}
-          {/* Live Transit — Apr 23 2026 (Morgan: "still no trains rendering").
+          {/* Live Transit â€” Apr 23 2026 (Morgan: "still no trains rendering").
               Aggregates MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/Amtrak/
               SEPTA/Metrolink/DART into a single MapLibre circle layer. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 5.5 && (layers.find(l => l.id === "liveTransit")?.enabled ?? false) && (
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= RAILWAY_MIN_ZOOM && (layers.find(l => l.id === "liveTransit")?.enabled ?? false) && (
             <LiveTransitLayer
               map={mapRef}
               visible={layers.find(l => l.id === "liveTransit")?.enabled ?? false}
@@ -18702,7 +20032,7 @@ export default function CREPDashboardPage({
             />
           )}
 
-          {/* Live AQI — Apr 23 2026 (Morgan: "all aqi live feeds not working
+          {/* Live AQI â€” Apr 23 2026 (Morgan: "all aqi live feeds not working
               fix them"). AIRNOW_API_KEY synced to sandbox; this paints every
               monitor in viewport color-coded by EPA AQI category. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 5.5 && (layers.find(l => l.id === "liveAqi")?.enabled ?? false) && (
@@ -18721,7 +20051,7 @@ export default function CREPDashboardPage({
           )}
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
-              (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
+              (Operating / Planned / Retired / Canceled). Apr 19, 2026 â€”
               canonical US infra datasets, ~40k features total. See
               components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md. */}
           {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, EIA_IM3_LAYER_IDS) && <EiaIm3Overlays
@@ -18736,7 +20066,7 @@ export default function CREPDashboardPage({
             }}
           />}
 
-          {/* V3 orphan layers — events / facilities / pollution / military
+          {/* V3 orphan layers â€” events / facilities / pollution / military
               sub-types / transport sub-types / biodiversity / heatmaps.
               See components/crep/layers/v3-overlays.tsx (Apr 19, 2026). */}
           {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, V3_OVERLAY_LAYER_IDS) && <V3Overlays
@@ -18746,11 +20076,15 @@ export default function CREPDashboardPage({
               volcanoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "volcanoes")?.enabled ?? false),
               wildfires:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "wildfires")?.enabled ?? false),
               storms:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "storms")?.enabled ?? false),
+              floods:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "floods")?.enabled ?? false),
               lightning:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "lightning")?.enabled ?? false),
               tornadoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tornadoes")?.enabled ?? false),
               hospitals:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "hospitals")?.enabled ?? false),
               fireStations:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fireStations")?.enabled ?? false),
               universities:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "universities")?.enabled ?? false),
+              policeStations:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "policeStations")?.enabled ?? false),
+              libraries:        !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "libraries")?.enabled ?? false),
+              civicFacilities:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "civicFacilities")?.enabled ?? false),
               oilGas:          (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "oilGas")?.enabled ?? false),
               methaneSources:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "methaneSources")?.enabled ?? false),
               metalOutput:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "metalOutput")?.enabled ?? false),
@@ -18774,20 +20108,20 @@ export default function CREPDashboardPage({
             bbox={regionalOverlayBbox}
           />}
 
-          {/* ═══════════════════════════════════════════════════════════════
-              SUN ↔ EARTH IMPACT LAYER (Apr 2026)
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+              SUN â†” EARTH IMPACT LAYER (Apr 2026)
               Live solar flares, CMEs, aurora ovals, subsolar earthspot,
               and hypothesis correlation lines to active tropical cyclones.
-              ═══════════════════════════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false) && <SunEarthImpactLayer
             map={mapRef}
             enabled={layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false}
             showCorrelationLines={true}
           />}
 
-          {/* ═══════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               POWER PLANT DETAIL POPUP (Apr 2026)
-              ═══════════════════════════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {selectedPlant && (
             // Click-away scrim (see infra widget above for rationale).
             <div
@@ -18812,11 +20146,11 @@ export default function CREPDashboardPage({
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               INFRASTRUCTURE DETAIL WIDGET (Apr 2026)
               Shows detailed live data for cables, substations, TX lines,
               plants, cell towers, datacenters, military, airports
-              ═══════════════════════════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {selectedInfraAsset && (
             // Apr 20, 2026 (Morgan: "all widgets need click away just like
             // buoy does, infra widgets power, cable, cell tower, ect dont
@@ -18846,16 +20180,16 @@ export default function CREPDashboardPage({
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               FLY-TO COUNTRY BUTTONS + MYCOSOFT PROJECTS (Apr 2026)
               Apr 21 update (Morgan: "make a fly to projects also project
               oyster, project goffs, ect"). Project chips fly to the site
               AND auto-enable the project's layer set so the user lands on
               a fully-painted view.
-              ═══════════════════════════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {!embedded && <div data-panel="fly-to" className={cn(
-            "absolute top-14 z-20 transition-all duration-300 flex flex-col gap-2",
-            rightPanelOpen ? "right-[340px]" : "right-4"
+            "absolute top-14 z-40 transition-all duration-300 flex flex-col gap-2",
+            rightPanelOpen ? "right-[356px]" : "right-4"
           )}>
             <FlyToButtons
               onFlyTo={(center, zoom) => {
@@ -18883,9 +20217,9 @@ export default function CREPDashboardPage({
             />
           </div>}
 
-          {/* ═══════════════════════════════════════════════════════════════
+          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
               UNIFIED SEARCH (Cmd+K) (Apr 2026)
-              ═══════════════════════════════════════════════════════════════ */}
+              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {!embedded && <UnifiedSearch
             plants={powerPlants}
             aircraft={aircraft}
@@ -18898,7 +20232,7 @@ export default function CREPDashboardPage({
                 setSearchOpen(true);
                 return;
               }
-              // Fly to result — zoom in closer for entity types than for plants
+              // Fly to result â€” zoom in closer for entity types than for plants
               if (result.lat && result.lng) {
                 const zoom = result.type === "plant" ? 10
                   : result.type === "aircraft" || result.type === "vessel" ? 8
@@ -19048,8 +20382,9 @@ export default function CREPDashboardPage({
 
         {/* Right Side Panel - Overlays Map with slide animation */}
         {!embedded && (
-        <div 
+        <div
           data-panel="right"
+          data-mobile-open={rightPanelOpen ? "true" : "false"}
           className={cn(
           "absolute right-3 top-3 bottom-3 w-80 z-30 transition-all duration-300 ease-in-out border border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden",
           rightPanelOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
@@ -19065,8 +20400,16 @@ export default function CREPDashboardPage({
              * toolbar. The right panel was "walking all over" the left
              * controls and producing duplicate filter authorities. Now
              * 3 tabs: myca (viewport intelligence) / intel / environment.
-             */}
+            */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
+              <button
+                type="button"
+                aria-label="Close MYCA panel"
+                onClick={() => setRightPanelOpen(false)}
+                className="hidden absolute right-2 top-1 z-10 h-7 w-7 items-center justify-center rounded border border-purple-500/25 bg-black/50 text-purple-100 active:bg-purple-500/20 max-md:inline-flex"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
               <TabsList className="w-full grid grid-cols-3 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
                 <TabsTrigger
                   value="myca"
@@ -19103,7 +20446,7 @@ export default function CREPDashboardPage({
                     aircraftCount={filteredAircraft.length}
                     vesselCount={filteredVessels.length}
                     satelliteCount={filteredSatellites.length}
-                    selectedContext={mycaSelectedContext}
+                    selectedContext={mycaAnalysisContext}
                     prefetchedIntel={viewportIntelPrefetch.intel as any}
                     prefetchedIntelLoading={viewportIntelPrefetch.loading || viewportIntelPrefetch.refreshing}
                     prefetchedEnvironment={viewportEnvironmentPrefetch.environment}
@@ -19122,7 +20465,7 @@ export default function CREPDashboardPage({
                 </TabsContent>
 
                 <TabsContent value="intel" forceMount className="h-full m-0 p-3 overflow-auto data-[state=inactive]:hidden">
-                  <ScrollArea className="h-full">
+                  <div className="h-full overflow-auto pr-1">
                     <ViewportCivilizationPanel
                       mapBounds={mapBounds}
                       mapZoom={mapZoom}
@@ -19144,11 +20487,11 @@ export default function CREPDashboardPage({
                       })}
                       onSelectFacility={handleViewportFacilitySelect}
                     />
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="environment" forceMount className="h-full m-0 p-2 overflow-auto data-[state=inactive]:hidden">
-                  <ScrollArea className="h-full">
+                  <div className="h-full overflow-auto pr-1">
                     <EnvironmentIntelPanel
                       mapBounds={mapBounds}
                       mapZoom={mapZoom}
@@ -19157,85 +20500,76 @@ export default function CREPDashboardPage({
                       prefetchedEnvironment={viewportEnvironmentPrefetch.environment as ViewportEnvironmentResponse | null}
                       prefetchedEnvironmentLoading={viewportEnvironmentPrefetch.loading}
                       prefetchedEnvironmentRefreshing={viewportEnvironmentPrefetch.refreshing}
-                      earth2Filter={earth2Filter}
-                      earth2Loading={earth2Loading}
-                      earth2Available={earth2Available}
-                      earth2Alerts={earth2Alerts}
-                      earth2ForecastHours={earth2ForecastHours}
-                      onEarth2FilterChange={(filter) => {
-                        if (!EARTH2_BACKEND_ENABLED) {
-                          setEarth2Available(false);
-                          setEarth2Filter(prev => ({
-                            ...prev,
-                            showForecast: false,
-                            showNowcast: false,
-                            showTemperature: false,
-                            showWind: false,
-                            showPressure: false,
-                            showHumidity: false,
-                            showClouds: false,
-                            showPrecipitation: false,
-                            showSporeDispersal: false,
-                            showStormCells: false,
-                          }));
-                          return;
-                        }
-                        leaveAssetIsolationMode();
-                        setAuditAllOffMode(false);
-                        setEarth2Filter(prev => ({ ...prev, ...filter }));
-                        const layerMap: Array<[keyof Earth2Filter, string]> = [
-                          ["showForecast", "earth2Forecast"],
-                          ["showNowcast", "earth2Nowcast"],
-                          ["showSporeDispersal", "earth2Spore"],
-                          ["showWind", "earth2Wind"],
-                          ["showTemperature", "earth2Temp"],
-                          ["showPrecipitation", "earth2Precip"],
-                        ];
-                        layerMap.forEach(([filterKey, layerId]) => {
-                          if (filter[filterKey] !== undefined) setLayerEnabled(layerId, Boolean(filter[filterKey]));
-                        });
-                      }}
-                      onEarth2Refresh={() => {
-                        // May 21 2026 (Morgan): Earth2 backend is offline.
-                        // Pin available=false rather than hitting /api/earth2
-                        // each refresh — the request was returning 404s and
-                        // adding to the reload churn the user sees.
-                        if (!EARTH2_BACKEND_ENABLED) {
-                          setEarth2Available(false);
-                          return;
-                        }
-                        setEarth2Loading(true);
-                        fetch("/api/earth2")
-                          .then(r => r.json())
-                          .then(data => setEarth2Available(data.available !== false))
-                          .catch(() => setEarth2Available(false))
-                          .finally(() => setEarth2Loading(false));
-                      }}
-                      onEarth2ForecastHoursChange={(hours) => setEarth2ForecastHours(hours)}
-                      onEarth2AlertClick={(alert) => {
-                        if (alert.location && mapRef) {
-                          mapRef.flyTo({
-                            center: [alert.location.lon, alert.location.lat],
-                            zoom: 8,
-                            duration: 1500,
-                          });
-                        }
-                      }}
-                      onEarth2AlertDismiss={(alertId) => setEarth2Alerts(prev => prev.filter(a => a.id !== alertId))}
                     />
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
             </div>
             </Tabs>
           </div>
         </div>
         )}
+        {!embedded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center md:hidden">
+            <div className="pointer-events-auto grid grid-cols-3 gap-1 rounded-xl border border-cyan-500/25 bg-[#06111f]/92 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => {
+                  setLeftPanelOpen((prev) => !prev);
+                  setRightPanelOpen(false);
+                }}
+                className={cn(
+                  "flex min-w-[84px] items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                  leftPanelOpen
+                    ? "bg-cyan-400/20 text-cyan-100"
+                    : "bg-white/5 text-cyan-200/75 active:bg-cyan-500/20"
+                )}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Intel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRightPanelOpen((prev) => !prev);
+                  setLeftPanelOpen(false);
+                  setRightPanelTab("myca");
+                }}
+                className={cn(
+                  "flex min-w-[84px] items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                  rightPanelOpen && rightPanelTab === "myca"
+                    ? "bg-purple-400/20 text-purple-100"
+                    : "bg-white/5 text-purple-200/75 active:bg-purple-500/20"
+                )}
+              >
+                <Bot className="h-3.5 w-3.5" />
+                MYCA
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRightPanelOpen(true);
+                  setLeftPanelOpen(false);
+                  setRightPanelTab("intel");
+                }}
+                className={cn(
+                  "flex min-w-[84px] items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                  rightPanelOpen && rightPanelTab === "intel"
+                    ? "bg-blue-400/20 text-blue-100"
+                    : "bg-white/5 text-blue-200/75 active:bg-blue-500/20"
+                )}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Civic
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Status Bar */}
-      {!embedded && <div className="flex-shrink-0 flex items-center justify-between px-4 py-1.5 bg-black/80 border-t border-cyan-500/20 z-50">
+      {!embedded && <div className="hidden md:flex flex-shrink-0 items-center justify-between px-4 py-1.5 bg-black/80 border-t border-cyan-500/20 z-50">
         <div className="flex items-center gap-4 text-[10px] font-mono">
-          <span className="text-green-400">● SYSTEM OPERATIONAL</span>
+          <span className="text-green-400">SYSTEM OPERATIONAL</span>
           <span className="text-gray-600">|</span>
           <span className="text-cyan-400">UPTIME: 99.9%</span>
           <span className="text-gray-600">|</span>
@@ -19245,7 +20579,14 @@ export default function CREPDashboardPage({
           <span className="text-gray-600">|</span>
           <span className="text-purple-400">MYCA: ACTIVE</span>
           <span className="text-gray-600">|</span>
-          <span ref={fpsOverlayRef} className="tabular-nums text-cyan-300" title="Live Earth Simulator FPS sample">— FPS</span>
+          <span ref={fpsOverlayRef} className="tabular-nums text-cyan-300" title="Live Earth Simulator FPS sample">â€” FPS</span>
+          <span className="text-gray-600">|</span>
+          <span
+            className="tabular-nums text-cyan-300"
+            title="Viewport zoom and center coordinates for MYCA and QA"
+          >
+            Z {mapZoom.toFixed(2)} / LAT {footerViewportCenter ? footerViewportCenter.lat.toFixed(4) : "--"} / LNG {footerViewportCenter ? footerViewportCenter.lng.toFixed(4) : "--"}
+          </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-gray-500">
           <span>{clientDate || "Loading..."}</span>

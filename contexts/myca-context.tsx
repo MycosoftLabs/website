@@ -439,7 +439,7 @@ export function MYCAProvider({
       try {
         // Apr 23, 2026 audit: was `fetch()` without timeout. If MAS is
         // slow, the voice-confirm modal would hang with no recovery.
-        // 10 s deadline → user can retry.
+        // 10 s deadline lets the user retry.
         const response = await fetchWithTimeout("/api/mas/voice/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -494,7 +494,7 @@ export function MYCAProvider({
       try {
         // Apr 23, 2026 audit: conversation loader had no timeout. The
         // "Load conversation" menu would hang silently when MAS is busy.
-        // 15 s deadline — slightly above typical cold MAS latency to reduce
+        // 15 s deadline, slightly above typical cold MAS latency to reduce
         // console abort noise; still bounded so the UI never hangs forever.
         const response = await fetchWithTimeout("/api/myca/conversations", {
           method: "POST",
@@ -539,7 +539,7 @@ export function MYCAProvider({
     if (!sessionId || !userId || messages.length === 0) return
     try {
       // Apr 23, 2026 audit: MAS sync had no timeout. Best-effort write
-      // so a 10 s cap is fine — if MAS is down the messages persist in
+      // so a 10 s cap is fine. If MAS is down the messages persist in
       // localStorage anyway.
       await fetchWithTimeout("/api/myca/sync", {
         method: "POST",
@@ -692,7 +692,7 @@ export function useMYCA() {
   return context
 }
 
-/** Optional MYCA context — returns null if not within MYCAProvider. Use for conditional widgets. */
+/** Optional MYCA context returns null if not within MYCAProvider. Use for conditional widgets. */
 export function useOptionalMYCA(): MYCAContextValue | null {
   return useContext(MYCAContext)
 }

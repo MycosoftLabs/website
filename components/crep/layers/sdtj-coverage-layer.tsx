@@ -8,7 +8,7 @@
  * sewage line data centers, am fm antennas same with san diego
  * missing data".
  *
- * Loads 7 category-specific GeoJSON files baked by
+ * Loads 8 category-specific GeoJSON files baked by
  * scripts/etl/crep/bake-sdtj-coverage.mjs and renders each as its own
  * toggleable MapLibre layer. Each layer has:
  *   - Its own icon (emoji symbol until SVG icons are added)
@@ -36,6 +36,7 @@ type Enabled = {
   sdtjAmFmAntennas?: boolean
   sdtjMilitary?: boolean
   sdtjDataCenters?: boolean
+  sdtjCivicFacilities?: boolean
 }
 
 interface CategoryDef {
@@ -62,6 +63,7 @@ const CATEGORIES: CategoryDef[] = [
   { id: "sdtjAmFmAntennas", layerId: "crep-sdtj-am-fm",         sourceId: "crep-sdtj-am-fm-src",         file: "/data/crep/sdtj-am-fm-antennas.geojson",   label: "AM/FM antenna",     color: "#a855f7", glyph: "📡", selectType: "broadcast_antenna" },
   { id: "sdtjMilitary",     layerId: "crep-sdtj-military",      sourceId: "crep-sdtj-military-src",      file: "/data/crep/sdtj-military.geojson",         label: "Military (OSM)",    color: "#10b981", glyph: "🛡️", polygon: true, selectType: "military_installation" },
   { id: "sdtjDataCenters",  layerId: "crep-sdtj-data-centers",  sourceId: "crep-sdtj-data-centers-src",  file: "/data/crep/sdtj-data-centers.geojson",     label: "Data center (SD/TJ)", color: "#06b6d4", glyph: "🖥️", selectType: "data_center" },
+  { id: "sdtjCivicFacilities", layerId: "crep-sdtj-civic", sourceId: "crep-sdtj-civic-src", file: "/data/crep/sdtj-civic.geojson", label: "Civic facility", color: "#14b8a6", glyph: "C", selectType: "civic" },
 ]
 
 export interface SdtjCoverageLayerProps {
@@ -100,8 +102,13 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
         properties: {
           category: cat.label,
           operator: f.properties?.operator,
+          agency: f.properties?.agency,
+          address: f.properties?.address,
+          phone: f.properties?.phone,
+          website: f.properties?.website,
+          facility_type: f.properties?.facility_type,
           ref: f.properties?.ref,
-          source: "OSM (community-mapped)",
+          source: f.properties?.source || "OSM (community-mapped)",
           ...(typeof f.properties?.tags === "string" ? JSON.parse(f.properties.tags) : f.properties?.tags || {}),
         },
       })
@@ -110,6 +117,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
     const minZoomForCategory = (cat: CategoryDef): number => {
       if (cat.id === "sdtjDataCenters") return DATA_CENTER_MIN_ZOOM
       if (cat.id === "sdtjCellTowers" || cat.id === "sdtjAmFmAntennas") return TELECOM_CITY_MIN_ZOOM
+      if (cat.id === "sdtjCivicFacilities") return 9
       return TELECOM_DETAIL_MIN_ZOOM
     }
 
@@ -215,7 +223,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
     return () => {
       cancelled = true
     }
-  }, [map, enabled.sdtjHospitals, enabled.sdtjPolice, enabled.sdtjSewage, enabled.sdtjCellTowers, enabled.sdtjAmFmAntennas, enabled.sdtjMilitary, enabled.sdtjDataCenters])
+  }, [map, enabled.sdtjHospitals, enabled.sdtjPolice, enabled.sdtjSewage, enabled.sdtjCellTowers, enabled.sdtjAmFmAntennas, enabled.sdtjMilitary, enabled.sdtjDataCenters, enabled.sdtjCivicFacilities])
 
   return null
 }

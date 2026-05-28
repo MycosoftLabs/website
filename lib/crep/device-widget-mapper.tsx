@@ -20,9 +20,9 @@ import {
   Wifi,
   Router,
   Cpu,
-  Leaf,
   Bug,
   Beaker,
+  Box,
   Globe,
   Satellite,
   Gauge,
@@ -32,6 +32,7 @@ import {
 // Device role types from MycoBrain firmware variants
 export type MycoBrainDeviceRole = 
   | "mushroom1"    // Primary fungal monitoring device
+  | "hyphae1"      // Field MycoBrain unit
   | "sporebase"    // Spore collection/analysis
   | "gateway"      // LoRa/WiFi gateway hub
   | "science_comms" // Scientific communication relay
@@ -73,14 +74,30 @@ export interface DeviceWidgetConfig {
 // Device role to widget configuration mapping
 export const DEVICE_WIDGET_CONFIG: Record<MycoBrainDeviceRole, DeviceWidgetConfig> = {
   mushroom1: {
-    icon: <Leaf className="w-3 h-3" />,
-    emoji: "🍄",
+    icon: <Box className="w-3 h-3" />,
+    emoji: "▣",
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/20",
     borderColor: "border-emerald-500",
     glowColor: "#22c55e",
     label: "Mushroom Monitor",
     description: "Primary fungal cultivation monitor",
+    primaryMetric: "iaq",
+    secondaryMetrics: ["temperature", "humidity", "co2Equivalent"],
+    capabilities: {
+      hasBME688: true,
+      hasWiFi: true,
+    },
+  },
+  hyphae1: {
+    icon: <Box className="w-3 h-3" />,
+    emoji: "▣",
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-500/20",
+    borderColor: "border-cyan-500",
+    glowColor: "#06b6d4",
+    label: "Hyphae 1 Field Unit",
+    description: "Hardwired field MycoBrain telemetry device",
     primaryMetric: "iaq",
     secondaryMetrics: ["temperature", "humidity", "co2Equivalent"],
     capabilities: {
@@ -232,6 +249,7 @@ export function parseDeviceRole(deviceType?: string): MycoBrainDeviceRole {
   
   // Match known roles
   if (normalized.includes("mushroom") || normalized === "mushroom1") return "mushroom1";
+  if (normalized.includes("hyphae") || normalized === "hyphae1") return "hyphae1";
   if (normalized.includes("spore") || normalized === "sporebase") return "sporebase";
   if (normalized.includes("gateway") || normalized === "gateway") return "gateway";
   if (normalized.includes("science") || normalized.includes("comms") || normalized === "sciencecomms") return "science_comms";

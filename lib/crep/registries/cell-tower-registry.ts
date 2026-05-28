@@ -135,36 +135,53 @@ async function fromFCCASR(bbox?: [number, number, number, number]): Promise<Cell
 //   • man_made=tower + tower:type=communication
 //   • tower:type=communication (stand-alone)
 // The union covers ~95%+ of tagged comm/cell infrastructure globally.
-async function fromOSM(bbox?: [number, number, number, number]): Promise<CellTowerRecord[]> {
+async function fromOSM(bbox?: [number, number, number, number], limit = 1000): Promise<CellTowerRecord[]> {
   if (!bbox) return []
-  try {
-    const [w, s, e, n] = bbox
-    const q = `[out:json][timeout:25];(` +
-      `node["man_made"="communications_tower"](${s},${w},${n},${e});` +
-      `way["man_made"="communications_tower"](${s},${w},${n},${e});` +
-      `node["man_made"="mast"]["tower:type"="communication"](${s},${w},${n},${e});` +
-      `node["man_made"="mast"]["communication:mobile_phone"="yes"](${s},${w},${n},${e});` +
-      `node["man_made"="mast"]["communication:radio"="yes"](${s},${w},${n},${e});` +
-      `node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});` +
-      `way["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});` +
-      `node["tower:type"="communication"](${s},${w},${n},${e});` +
-      `node["communication:mobile_phone"="yes"](${s},${w},${n},${e});` +
-      `);out center 3000;`
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
-      signal: AbortSignal.timeout(25_000),
-    })
-    if (!res.ok) return []
-    const j = await res.json()
-    return (j.elements || []).map((el: any) => ({
-      id: `osm-${el.type}-${el.id}`,
-      lat: el.lat ?? el.center?.lat,
-      lng: el.lon ?? el.center?.lon,
-      operator: el.tags?.operator,
-      height_m: el.tags?.height ? parseFloat(el.tags.height) : undefined,
-      structure_type: el.tags?.["tower:construction"] || el.tags?.["man_made"] || "tower",
-      sources: ["OSM"],
-    })).filter((t: any) => typeof t.lat === "number" && typeof t.lng === "number")
-  } catch { return [] }
+  const [w, s, e, n] = bbox
+  const safeLimit = Math.max(100, Math.min(Math.floor(limit), 5000))
+  const q = `[out:json][timeout:18];(` +
+    `node["man_made"="communications_tower"](${s},${w},${n},${e});` +
+    `way["man_made"="communications_tower"](${s},${w},${n},${e});` +
+    `node["tower:type"="communication"](${s},${w},${n},${e});` +
+    `way["tower:type"="communication"](${s},${w},${n},${e});` +
+    `node["man_made"="mast"]["tower:type"="communication"](${s},${w},${n},${e});` +
+    `way["man_made"="mast"]["tower:type"="communication"](${s},${w},${n},${e});` +
+    `node["man_made"="mast"]["communication:mobile_phone"](${s},${w},${n},${e});` +
+    `way["man_made"="mast"]["communication:mobile_phone"](${s},${w},${n},${e});` +
+    `);out center ${safeLimit};`
+  const body = new URLSearchParams({ data: q }).toString()
+  const endpoints = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+  ]
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": "Mycosoft Earth Simulator cell tower bbox fill (contact: mycosoft.com)",
+        },
+        body,
+        signal: AbortSignal.timeout(18_000),
+      })
+      if (!res.ok) continue
+      const j = await res.json()
+      return (j.elements || []).map((el: any) => ({
+        id: `osm-${el.type}-${el.id}`,
+        lat: el.lat ?? el.center?.lat,
+        lng: el.lon ?? el.center?.lon,
+        operator: el.tags?.operator || el.tags?.operator_name || el.tags?.owner,
+        height_m: el.tags?.height ? parseFloat(String(el.tags.height).replace(/[^\d.]/g, "")) : undefined,
+        structure_type: el.tags?.["tower:construction"] || el.tags?.["tower:type"] || el.tags?.["man_made"] || "tower",
+        sources: ["OSM"],
+      })).filter((t: any) => typeof t.lat === "number" && typeof t.lng === "number")
+    } catch {
+      /* try the next Overpass mirror */
+    }
+  }
+  return []
 }
 
 // ─── Source 4: MINDEX ───────────────────────────────────────────────────────
@@ -193,6 +210,7 @@ export async function getCellTowers(opts: {
   baseUrl?: string
   bbox: [number, number, number, number]
   maxPerSource?: number
+  mindexFirst?: boolean
 }): Promise<CellTowerRegistryResult> {
   const baseUrl = opts.baseUrl || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   const maxPerSource = opts.maxPerSource || 2000
@@ -210,35 +228,46 @@ export async function getCellTowers(opts: {
     }
   }
 
-  const [ocid, fcc, osm, mindex] = await Promise.all([
-    time("OpenCelliD", () => fromOpenCelliD(opts.bbox, maxPerSource)),
-    time("FCC ASR", () => fromFCCASR(opts.bbox)),
-    time("OSM", () => fromOSM(opts.bbox)),
-    time("MINDEX", () => fromMindex(baseUrl, opts.bbox)),
-  ])
+  const buildResult = (lists: CellTowerRecord[][], noteSuffix?: string): CellTowerRegistryResult => {
+    const merged = new Map<string, CellTowerRecord>()
+    for (const list of lists) {
+      for (const t of list) {
+        const key = normKey(t)
+        const existing = merged.get(key)
+        merged.set(key, existing ? merge(existing, t) : t)
+      }
+    }
 
-  const merged = new Map<string, CellTowerRecord>()
-  for (const list of [ocid, fcc, osm, mindex]) {
-    for (const t of list) {
-      const key = normKey(t)
-      const existing = merged.get(key)
-      merged.set(key, existing ? merge(existing, t) : t)
+    const towers = Array.from(merged.values())
+    const byRadio: Record<string, number> = {}
+    const byCountry: Record<number, number> = {}
+    for (const t of towers) {
+      byRadio[t.radio || "unknown"] = (byRadio[t.radio || "unknown"] || 0) + 1
+      if (t.mcc) byCountry[t.mcc] = (byCountry[t.mcc] || 0) + 1
+    }
+
+    return {
+      total: towers.length,
+      byRadio, byCountry, sources,
+      towers,
+      generatedAt: new Date().toISOString(),
+      note: `Global catalog > 47M cell IDs; registry is bbox-scoped. For bulk export see /api/mindex/export/cell-towers.${noteSuffix ? ` ${noteSuffix}` : ""}`,
     }
   }
 
-  const towers = Array.from(merged.values())
-  const byRadio: Record<string, number> = {}
-  const byCountry: Record<number, number> = {}
-  for (const t of towers) {
-    byRadio[t.radio || "unknown"] = (byRadio[t.radio || "unknown"] || 0) + 1
-    if (t.mcc) byCountry[t.mcc] = (byCountry[t.mcc] || 0) + 1
+  if (opts.mindexFirst !== false) {
+    const mindex = await time("MINDEX", () => fromMindex(baseUrl, opts.bbox))
+    if (mindex.length > 0) {
+      return buildResult([mindex], "Returned MINDEX first so map controls do not wait for slow live tower crawls.")
+    }
   }
 
-  return {
-    total: towers.length,
-    byRadio, byCountry, sources,
-    towers,
-    generatedAt: new Date().toISOString(),
-    note: "Global catalog > 47M cell IDs; registry is bbox-scoped. For bulk export see /api/mindex/export/cell-towers.",
-  }
+  const [ocid, fcc, osm, mindex] = await Promise.all([
+    time("OpenCelliD", () => fromOpenCelliD(opts.bbox, maxPerSource)),
+    time("FCC ASR", () => fromFCCASR(opts.bbox)),
+    time("OSM", () => fromOSM(opts.bbox, maxPerSource)),
+    opts.mindexFirst === false ? time("MINDEX", () => fromMindex(baseUrl, opts.bbox)) : Promise.resolve([]),
+  ])
+
+  return buildResult([ocid, fcc, osm, mindex])
 }

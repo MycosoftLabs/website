@@ -25,6 +25,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2 } from "lucide-react"
 
 export interface DeviceLike {
@@ -186,7 +187,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
-  const isOnline = device.status === "online"
+  const isOnline = device.status === "online" || device.status === "connected"
   const iaq = iaqQuality(device.sensorData?.iaq)
   const gpsBadge = gpsStateBadge(device.gpsLockState)
   const SignalIcon = signalIcon(device.signalConnectionType)
@@ -208,7 +209,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
     try { await onControl(peripheral, params) } finally { setControlBusy(null) }
   }
 
-  return (
+  const widget = (
     <div
       className="fixed inset-0 z-[1500] flex items-center justify-center pointer-events-auto"
       onClick={onClose}
@@ -397,4 +398,6 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
       </div>
     </div>
   )
+
+  return typeof document === "undefined" ? null : createPortal(widget, document.body)
 }

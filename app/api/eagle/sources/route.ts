@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { filterEagleVideoSources } from "@/lib/crep/eagle-camera-normalize"
@@ -81,10 +81,6 @@ const MINDEX_INTERNAL_TOKEN =
   ""
 
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
-
-const ENABLE_EAGLE_MINDEX_WRITEBACK =
-  process.env.EAGLE_ENABLE_MINDEX_WRITEBACK === "1" ||
-  (process.env.NODE_ENV === "production" && process.env.EAGLE_DISABLE_MINDEX_WRITEBACK !== "1")
 
 /**
  * Base URL for server-side fetches to this app's own API routes.
@@ -175,50 +171,6 @@ async function fromBakedSeeds(bbox: string | undefined, limit: number): Promise<
   const parsed = parseBbox(bbox)
   const baked = await loadBakedSources()
   return baked.filter((source) => inBbox(source, parsed)).slice(0, limit)
-}
-
-const BULK_UPSERT_CHUNK = 200
-
-/** Persist merged sources to MINDEX warm cache (idempotent upsert). */
-async function persistMergedSourcesToMindex(sources: VideoSource[]): Promise<void> {
-  if (!sources.length) return
-  if (!ENABLE_EAGLE_MINDEX_WRITEBACK) return
-  if (!MINDEX_INTERNAL_TOKEN && !MINDEX_API_KEY) return
-
-  const payload = sources.map((s) => ({
-    id: s.id,
-    kind: s.kind,
-    provider: s.provider,
-    stable_location: s.stable_location,
-    lat: s.lat,
-    lng: s.lng,
-    location_confidence: s.location_confidence,
-    stream_url: s.stream_url,
-    embed_url: s.embed_url,
-    media_url: s.media_url,
-    source_status: s.source_status || "active",
-    permissions: s.permissions ?? {},
-    retention_policy: {},
-    provenance_method: "website_live_fanout",
-    privacy_class: "public",
-  }))
-
-  for (let i = 0; i < payload.length; i += BULK_UPSERT_CHUNK) {
-    const chunk = payload.slice(i, i + BULK_UPSERT_CHUNK)
-    try {
-      const res = await fetch(`${MINDEX_BASE}/api/mindex/eagle/video-sources/bulk-upsert`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", ...authHeaders() },
-        body: JSON.stringify({ sources: chunk }),
-        signal: AbortSignal.timeout(90_000),
-      })
-      if (!res.ok) {
-        console.warn("[eagle/sources] bulk-upsert HTTP", res.status, await res.text().catch(() => ""))
-      }
-    } catch (e) {
-      console.warn("[eagle/sources] bulk-upsert failed", e)
-    }
-  }
 }
 
 async function fromMindex(
@@ -416,7 +368,10 @@ export async function GET(req: NextRequest) {
   const kind = url.searchParams.get("kind") || undefined
   const provider = url.searchParams.get("provider") || undefined
   const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
-  const skipLive = url.searchParams.get("live") === "0"
+  const liveFanoutAllowed =
+    process.env.EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT === "1" &&
+    url.searchParams.get("live") === "1"
+  const skipLive = !liveFanoutAllowed
   // Apr 22, 2026 — Morgan: "needs first load fast". ?fast=1 returns the
   // fast-tier connectors (public-webcams + 511 + border + webcamtaxi
   // ≈ 1.5 s) and kicks off state-dot-cctv + shinobi in the background.
@@ -426,6 +381,41 @@ export async function GET(req: NextRequest) {
   let liveUsed = false
   let bakedUsed = false
   const origin = connectorFetchBase(req)
+  if (fast && skipLive) {
+    let fastSources = await fromBakedSeeds(bbox, limit)
+    if (kind) fastSources = fastSources.filter((s) => s.kind === kind)
+    if (provider) fastSources = fastSources.filter((s) => s.provider === provider)
+    fastSources = filterEagleVideoSources(fastSources)
+
+    const byProvider: Record<string, number> = {}
+    const byKind: Record<string, number> = {}
+    for (const s of fastSources) {
+      byProvider[s.provider] = (byProvider[s.provider] || 0) + 1
+      byKind[s.kind] = (byKind[s.kind] || 0) + 1
+    }
+
+    return NextResponse.json(
+      {
+        source: "eagle-video-sources",
+        total: fastSources.length,
+        by_provider: byProvider,
+        by_kind: byKind,
+        sources: fastSources,
+        generatedAt: new Date().toISOString(),
+        baked_seed_used: fastSources.length > 0,
+        live_fanout_used: false,
+        note: fastSources.length > 0
+          ? "fast first paint from baked public camera seed"
+          : "fast first paint found no baked public camera seed rows",
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+          "X-Source": "baked-eagle-fast",
+        },
+      },
+    )
+  }
   const stateDotPromise = !skipLive && !fast
     ? fromStateDotCctv(origin, bbox)
     : Promise.resolve<VideoSource[]>([])
@@ -445,21 +435,6 @@ export async function GET(req: NextRequest) {
       sources = mergeSourcesLiveWins(sources, stateDotLive)
       liveUsed = true
     }
-  } else if (!skipLive && fast) {
-    after(() => {
-      void (async () => {
-        try {
-          const stateDotLive = await fromStateDotCctv(origin, bbox)
-          if (stateDotLive.length) {
-            if (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY) {
-              await persistMergedSourcesToMindex(stateDotLive)
-            }
-          }
-        } catch {
-          /* ignore background warm */
-        }
-      })()
-    })
   }
 
   const forceLive = url.searchParams.get("live") === "1"
@@ -470,40 +445,12 @@ export async function GET(req: NextRequest) {
       sources = mergeSourcesLiveWins(sources, live)
       liveUsed = true
     }
-    // If fast mode: kick off the slow tier in background so MINDEX warms
-    // and the next poll cycle picks up Caltrans + Shinobi without
-    // blocking this response.
-    if (fast) {
-      after(() => {
-        void (async () => {
-          try {
-            const slow = await fromLiveConnectors(origin, bbox, false)
-            if (slow.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
-              await persistMergedSourcesToMindex(slow)
-            }
-          } catch { /* ignore */ }
-        })()
-      })
-    }
   } else if (!skipLive && sources.length < MIN_SOURCES) {
-    after(() => {
-      void (async () => {
-        try {
-          const live = await fromLiveConnectors(origin, bbox, false)
-          if (live.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
-            await persistMergedSourcesToMindex(live)
-          }
-        } catch { /* ignore */ }
-      })()
-    })
+    // No background warmups from the website runtime. MINDEX owns camera
+    // acquisition and cache hydration; this route only serves available rows.
   }
 
-  if (liveUsed && sources.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
-    const snapshot = sources.map((s) => ({ ...s }))
-    after(() => {
-      void persistMergedSourcesToMindex(snapshot)
-    })
-  }
+  // No writeback from the website runtime. MINDEX owns persistence.
 
   // Filter by kind/provider if requested (MINDEX already filtered; live
   // doesn't — apply post-filter here).

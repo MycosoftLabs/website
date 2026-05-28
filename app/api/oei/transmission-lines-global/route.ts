@@ -17,6 +17,10 @@ import { NextRequest, NextResponse } from "next/server"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const TX_CACHE_TTL_MS = 10 * 60 * 1000
+const TX_CACHE_MAX = 60
+const txBboxCache = new Map<string, { expiresAt: number; body: any }>()
+
 interface TxLine {
   id: string
   source: string
@@ -61,7 +65,15 @@ async function fromOSMBBox(bbox: [number, number, number, number]): Promise<TxLi
   try {
     const [w, s, e, n] = bbox
     const q = `[out:json][timeout:25];way["power"="line"](${s},${w},${n},${e});out geom 50000;`
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
+    const body = new URLSearchParams({ data: q }).toString()
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "User-Agent": "Mycosoft Earth Simulator transmission-line bbox fill (contact: mycosoft.com)",
+      },
+      body,
       signal: AbortSignal.timeout(28_000),
     })
     if (!res.ok) return []
@@ -108,6 +120,20 @@ export async function GET(req: NextRequest) {
 
   const baseUrl = `${url.protocol}//${url.host}`
   const sources: { name: string; count: number; durationMs: number }[] = []
+  const cacheKey = [
+    bbox && bbox.length === 4 ? bbox.map((value) => value.toFixed(3)).join(",") : "global",
+    minVoltage,
+    country || "",
+    includeOSM ? "osm" : "no-osm",
+    limit,
+  ].join("|")
+  const cached = txBboxCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json({
+      ...cached.body,
+      cache: "memory",
+    }, { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1200" } })
+  }
 
   const time = async <T>(name: string, fn: () => Promise<T[]>): Promise<T[]> => {
     const t0 = Date.now(); const r = await fn()
@@ -116,8 +142,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const bboxTouchesUs =
+      !bbox ||
+      bbox.length !== 4 ||
+      (bbox[2] >= -170 && bbox[0] <= -52 && bbox[3] >= 13 && bbox[1] <= 72)
     const tasks: Promise<TxLine[]>[] = [
-      time("Static US (HIFLD)", () => fromStaticUS(baseUrl)),
+      ...(bboxTouchesUs ? [time("Static US (HIFLD)", () => fromStaticUS(baseUrl))] : []),
       time("MINDEX", () => fromMindex(baseUrl, bbox)),
     ]
     if (includeOSM && bbox && bbox.length === 4) tasks.push(time("OSM", () => fromOSMBBox(bbox)))
@@ -135,11 +165,18 @@ export async function GET(req: NextRequest) {
     const byCountry: Record<string, number> = {}
     for (const l of lines) byCountry[l.country || "??"] = (byCountry[l.country || "??"] || 0) + 1
 
-    return NextResponse.json({
+    const body = {
       source: "transmission-lines-multi",
       total: lines.length, sources, byCountry, lines,
       generatedAt: new Date().toISOString(),
-    }, { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1200" } })
+    }
+    txBboxCache.set(cacheKey, { expiresAt: Date.now() + TX_CACHE_TTL_MS, body })
+    if (txBboxCache.size > TX_CACHE_MAX) {
+      const firstKey = txBboxCache.keys().next().value
+      if (firstKey) txBboxCache.delete(firstKey)
+    }
+
+    return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1200" } })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "tx-lines registry failed" }, { status: 500 })
   }

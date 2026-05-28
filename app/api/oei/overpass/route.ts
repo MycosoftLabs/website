@@ -34,7 +34,7 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 // separate endpoints. 24h TTL prevents hammering Overpass and keeps map paint
 // instant for repeat viewports.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const QUERY_TIMEOUT = 25; // seconds
+const QUERY_TIMEOUT = 8; // seconds
 const MAX_CONCURRENT = 2;
 
 // Overpass QL fragments keyed by infrastructure type
@@ -54,11 +54,20 @@ const QUERY_MAP: Record<string, string> = {
   military_base:
     'nwr["military"~"barracks|base|airfield|naval_base|range|training_area"]',
   hospital: 'nwr["amenity"="hospital"]',
+  clinic: 'nwr["amenity"="clinic"]',
   pharmacy: 'nwr["amenity"="pharmacy"]',
   fire_station: 'nwr["amenity"="fire_station"]',
   police: 'nwr["amenity"="police"]',
+  police_station: 'nwr["amenity"="police"]',
   school: 'nwr["amenity"="school"]',
   university: 'nwr["amenity"="university"]',
+  college: 'nwr["amenity"="college"]',
+  library: 'nwr["amenity"="library"]',
+  civic: 'nwr["amenity"~"townhall|courthouse"];nwr["office"="government"]',
+  townhall: 'nwr["amenity"="townhall"]',
+  city_hall: 'nwr["amenity"="townhall"]',
+  government: 'nwr["office"="government"]',
+  courthouse: 'nwr["amenity"="courthouse"]',
   substation: 'nwr["power"="substation"]',
 };
 

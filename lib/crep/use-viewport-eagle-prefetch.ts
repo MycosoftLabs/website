@@ -28,6 +28,25 @@ function resolveEffectiveBounds(mapBounds: MapBoundsLike | null): ViewportBounds
   return DEFAULT_US_BOUNDS
 }
 
+function eagleSourcesEqual(a: EagleViewportSource[], b: EagleViewportSource[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    const left = a[i]
+    const right = b[i]
+    if (
+      left.id !== right.id ||
+      Math.abs(left.lat - right.lat) > 0.000001 ||
+      Math.abs(left.lng - right.lng) > 0.000001 ||
+      left.stream_url !== right.stream_url ||
+      left.embed_url !== right.embed_url ||
+      left.media_url !== right.media_url
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
 export function useViewportEaglePrefetch(
   mapBounds: MapBoundsLike | null,
   mapZoom: number,
@@ -48,6 +67,8 @@ export function useViewportEaglePrefetch(
   const [fetching, setFetching] = useState(
     () => assetsReady && !getViewportEagleCache(effectiveBounds, mapZoom)?.length,
   )
+  const sourcesRef = useRef(sources)
+  const fetchingRef = useRef(fetching)
 
   const snapshotRef = useRef<{ bounds: ViewportBoundsLike; zoom: number } | null>(null)
   const revisionKeyRef = useRef<string | null>(null)
@@ -70,20 +91,32 @@ export function useViewportEaglePrefetch(
     if (!assetsReady || !revisionKey) return
 
     const cached = getViewportEagleCache(effectiveBounds, mapZoom)
-    if (cached?.length) setSources(cached)
+    const commitSources = (next: EagleViewportSource[]) => {
+      if (eagleSourcesEqual(sourcesRef.current, next)) return false
+      sourcesRef.current = next
+      setSources(next)
+      return true
+    }
+    const commitFetching = (next: boolean) => {
+      if (fetchingRef.current === next) return
+      fetchingRef.current = next
+      setFetching(next)
+    }
+
+    if (cached?.length) commitSources(cached)
 
     inFlightRef.current?.abort()
     const controller = new AbortController()
     inFlightRef.current = controller
 
-    if (!cached?.length) setFetching(true)
+    if (!cached?.length) commitFetching(true)
 
     void loadViewportEagleSources(
       effectiveBounds,
       limit,
       (next) => {
         if (controller.signal.aborted) return
-        setSources(next)
+        commitSources(next)
         if (next.length) setViewportEagleCache(effectiveBounds, mapZoom, next)
       },
       controller.signal,
@@ -94,7 +127,7 @@ export function useViewportEaglePrefetch(
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setFetching(false)
+        if (!controller.signal.aborted) commitFetching(false)
       })
 
     return () => controller.abort()

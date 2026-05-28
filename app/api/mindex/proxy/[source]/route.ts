@@ -209,7 +209,95 @@ function normalizeMoverEntity(entity: any, source: string) {
   }
 }
 
-function formatMoverPayload(source: string, layer: string, data: any, sourceLabel: "live" | "fallback" | "unavailable") {
+function moverLatLng(entity: any): { lat: number; lng: number } | null {
+  const props = typeof entity?.properties === "object" && entity?.properties ? entity.properties : {}
+  const loc = entity?.location as
+    | { latitude?: number; longitude?: number; coordinates?: [number, number] }
+    | undefined
+  let lat = Number(entity?.lat ?? entity?.latitude ?? loc?.latitude ?? loc?.coordinates?.[1] ?? props?.lat ?? props?.latitude)
+  let lng = Number(entity?.lng ?? entity?.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? props?.lng ?? props?.longitude)
+  if ((!Number.isFinite(lat) || !Number.isFinite(lng)) && Array.isArray(entity?.geometry?.coordinates)) {
+    lng = Number(entity.geometry.coordinates[0])
+    lat = Number(entity.geometry.coordinates[1])
+  }
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null
+}
+
+function filterMoverRowsToBounds(
+  source: string,
+  entities: any[],
+  bounds?: { lat_min: number; lat_max: number; lng_min: number; lng_max: number },
+) {
+  if (!bounds || source === "satellites") return entities
+  return entities.filter((entity) => {
+    const coord = moverLatLng(entity)
+    if (!coord) return false
+    return coord.lat >= bounds.lat_min &&
+      coord.lat <= bounds.lat_max &&
+      coord.lng >= bounds.lng_min &&
+      coord.lng <= bounds.lng_max
+  })
+}
+
+function normalizeSatelliteEntity(entity: any, source: string) {
+  const base = normalizeMoverEntity(entity, source)
+  const props = typeof entity?.properties === "object" && entity?.properties ? entity.properties : {}
+  const noradId = Number(entity?.noradId ?? entity?.norad_id ?? props?.noradId ?? props?.norad_id ?? props?.NORAD_CAT_ID ?? base.properties?.noradId)
+  const line1 = entity?.line1 ?? entity?.tle1 ?? props?.line1 ?? props?.tle1 ?? props?.TLE_LINE1
+  const line2 = entity?.line2 ?? entity?.tle2 ?? props?.line2 ?? props?.tle2 ?? props?.TLE_LINE2
+  const tleEpoch = entity?.tleEpoch ?? entity?.tle_epoch ?? props?.tleEpoch ?? props?.epoch ?? props?.EPOCH
+  const orbitType = entity?.orbitType ?? entity?.orbit_type ?? props?.orbitType ?? props?.orbit_type
+  const objectType = entity?.objectType ?? entity?.object_type ?? props?.objectType ?? props?.object_type ?? props?.OBJECT_TYPE
+  const country = entity?.country ?? props?.country ?? props?.owner ?? props?.COUNTRY_CODE
+  const properties = {
+    ...base.properties,
+    ...props,
+    noradId: Number.isFinite(noradId) && noradId > 0 ? noradId : base.properties?.noradId,
+    line1,
+    line2,
+    tle1: line1,
+    tle2: line2,
+    epoch: tleEpoch,
+    orbitType,
+    objectType,
+    country,
+    meanMotion: entity?.meanMotion ?? props?.meanMotion ?? props?.MEAN_MOTION,
+    eccentricity: entity?.eccentricity ?? props?.eccentricity ?? props?.ECCENTRICITY,
+    inclination: entity?.inclination ?? props?.inclination ?? props?.INCLINATION,
+    raAscNode: entity?.raAscNode ?? props?.raAscNode ?? props?.RA_OF_ASC_NODE,
+    argPericenter: entity?.argPericenter ?? props?.argPericenter ?? props?.ARG_OF_PERICENTER,
+    meanAnomaly: entity?.meanAnomaly ?? props?.meanAnomaly ?? props?.MEAN_ANOMALY,
+    bstar: entity?.bstar ?? props?.bstar ?? props?.BSTAR,
+  }
+  return {
+    ...entity,
+    ...base,
+    type: "satellite",
+    noradId: Number.isFinite(noradId) && noradId > 0 ? noradId : undefined,
+    orbitType,
+    objectType,
+    country,
+    tleEpoch,
+    line1,
+    line2,
+    meanMotion: properties.meanMotion,
+    eccentricity: properties.eccentricity,
+    inclination: properties.inclination,
+    raAscNode: properties.raAscNode,
+    argPericenter: properties.argPericenter,
+    meanAnomaly: properties.meanAnomaly,
+    bstar: properties.bstar,
+    properties,
+  }
+}
+
+function formatMoverPayload(
+  source: string,
+  layer: string,
+  data: any,
+  sourceLabel: "live" | "fallback" | "unavailable",
+  bounds?: { lat_min: number; lat_max: number; lng_min: number; lng_max: number },
+) {
   const entitiesFromLayer = Array.isArray(data?.entities) ? data.entities : []
   const entitiesFromLegacy =
     source === "aircraft"
@@ -219,7 +307,11 @@ function formatMoverPayload(source: string, layer: string, data: any, sourceLabe
         : source === "satellites"
           ? Array.isArray(data?.satellites) ? data.satellites : []
           : []
-  const entities = entitiesFromLayer.length > 0 ? entitiesFromLayer : entitiesFromLegacy
+  const entities = filterMoverRowsToBounds(
+    source,
+    entitiesFromLayer.length > 0 ? entitiesFromLayer : entitiesFromLegacy,
+    bounds,
+  )
   const timestamp = latestEntityTimestamp(entities)
   const freshness = {
     timestamp,
@@ -248,7 +340,7 @@ function formatMoverPayload(source: string, layer: string, data: any, sourceLabe
     return { ...base, vessels: entities.map((entity: any) => normalizeMoverEntity(entity, source)), isLive: sourceLabel !== "unavailable" }
   }
   if (source === "satellites") {
-    return { ...base, category: "all", satellites: entities.map((entity: any) => normalizeMoverEntity(entity, source)) }
+    return { ...base, category: "all", satellites: entities.map((entity: any) => normalizeSatelliteEntity(entity, source)) }
   }
   return base
 }
@@ -487,7 +579,7 @@ export async function GET(
         )
       } else {
         const payload = ["aircraft", "vessels", "satellites"].includes(source)
-          ? formatMoverPayload(source, mindexLayer, data, "live")
+          ? formatMoverPayload(source, mindexLayer, data, "live", bounds)
           : data
         proxyResponseCache.set(proxyKey, {
           body: payload,
@@ -554,6 +646,10 @@ export async function GET(
       fallbackUrl.searchParams.set("limit", limit)
       if (mindexLayer === "species") fallbackUrl.searchParams.set("nocache", "true")
       if (source === "vessels") {
+        fallbackUrl.searchParams.set("lamin", lat_min)
+        fallbackUrl.searchParams.set("lamax", lat_max)
+        fallbackUrl.searchParams.set("lomin", lng_min)
+        fallbackUrl.searchParams.set("lomax", lng_max)
         fallbackUrl.searchParams.set("publish", "true")
         fallbackUrl.searchParams.set("refresh", "true")
       }
@@ -572,7 +668,7 @@ export async function GET(
         const body = mindexLayer === "species"
           ? normalizeSpeciesFallback(data, { lat_min, lat_max, lng_min, lng_max })
           : ["aircraft", "vessels", "satellites"].includes(source)
-            ? formatMoverPayload(source, mindexLayer, data, "fallback")
+            ? formatMoverPayload(source, mindexLayer, data, "fallback", bounds)
             : data
         proxyResponseCache.set(proxyKey, {
           body,

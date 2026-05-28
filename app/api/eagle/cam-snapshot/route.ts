@@ -32,6 +32,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { chromium, type Browser, type Page } from "playwright-core"
 import { existsSync } from "node:fs"
+import http from "node:http"
+import https from "node:https"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -84,13 +86,14 @@ const ALLOW_HOSTS = new Set<string>([
   "www.flysfo.com", "www.jfkairport.com",
   // Pikes Peak / weather
   "pikespeakwebcam.com",
-  // CBP border POV viewer pages (headless snapshot — May 24, 2026)
-  "bwt.cbp.gov",
 ])
 
 type CacheEntry = { jpeg: Buffer; t: number }
 const cache = new Map<string, CacheEntry>()
+const failureCache = new Map<string, number>()
 const CACHE_TTL_MS = 8_000
+const FAILURE_TTL_MS = 60_000
+const STILL_IMAGE_RE = /\.(jpe?g|png|webp|gif)(\?|$)/i
 
 let browserPromise: Promise<Browser> | null = null
 function getBrowser(): Promise<Browser> {
@@ -164,6 +167,72 @@ async function snapshotUrl(viewerUrl: string, selector: string | null, waitMs: n
   }
 }
 
+async function fetchDirectImage(target: URL): Promise<Buffer | null> {
+  try {
+    const response = await fetch(target.toString(), {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      },
+      signal: AbortSignal.timeout(5_000),
+      cache: "no-store",
+    })
+    if (!response.ok) return null
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.toLowerCase().startsWith("image/") && !STILL_IMAGE_RE.test(target.toString())) return null
+    return Buffer.from(await response.arrayBuffer())
+  } catch {
+    return fetchDirectImageViaNode(target)
+  }
+}
+
+function fetchDirectImageViaNode(target: URL, redirects = 2): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    const client = target.protocol === "http:" ? http : https
+    const req = client.request(target, {
+      timeout: 5_000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      },
+      agent: target.protocol === "https:" ? new https.Agent({ rejectUnauthorized: false }) : undefined,
+    }, (res) => {
+      const status = res.statusCode || 0
+      const location = res.headers.location
+      if (status >= 300 && status < 400 && location && redirects > 0) {
+        res.resume()
+        try {
+          resolve(fetchDirectImageViaNode(new URL(location, target), redirects - 1))
+        } catch {
+          resolve(null)
+        }
+        return
+      }
+      if (status < 200 || status >= 300) {
+        res.resume()
+        resolve(null)
+        return
+      }
+      const contentType = String(res.headers["content-type"] || "")
+      const chunks: Buffer[] = []
+      res.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+      res.on("end", () => {
+        if (!contentType.toLowerCase().startsWith("image/") && !STILL_IMAGE_RE.test(target.toString())) {
+          resolve(null)
+          return
+        }
+        resolve(Buffer.concat(chunks))
+      })
+    })
+    req.on("timeout", () => {
+      req.destroy()
+      resolve(null)
+    })
+    req.on("error", () => resolve(null))
+    req.end()
+  })
+}
+
 export async function GET(req: NextRequest) {
   const qUrl = req.nextUrl.searchParams.get("url") || ""
   const selector = req.nextUrl.searchParams.get("selector") || null
@@ -183,6 +252,20 @@ export async function GET(req: NextRequest) {
 
   const cacheKey = `${target.toString()}|${selector || ""}|${waitMs}|${mode}`
   const now = Date.now()
+  const failedAt = failureCache.get(cacheKey)
+  if (failedAt && now - failedAt < FAILURE_TTL_MS) {
+    return NextResponse.json(
+      { error: "snapshot temporarily unavailable" },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+          "Retry-After": "60",
+          "X-Snapshot-Source": "failure-cache",
+        },
+      },
+    )
+  }
   const hit = cache.get(cacheKey)
   if (hit && now - hit.t < CACHE_TTL_MS) {
     return new NextResponse(new Uint8Array(hit.jpeg), {
@@ -195,10 +278,15 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const buf = await snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
+  const isDirectStill = STILL_IMAGE_RE.test(target.toString())
+  const buf = isDirectStill
+    ? await fetchDirectImage(target)
+    : await snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
   if (!buf) {
+    failureCache.set(cacheKey, now)
     return NextResponse.json({ error: "snapshot render failed" }, { status: 502 })
   }
+  failureCache.delete(cacheKey)
   cache.set(cacheKey, { jpeg: buf, t: now })
   // Trim cache when too large
   if (cache.size > 200) {

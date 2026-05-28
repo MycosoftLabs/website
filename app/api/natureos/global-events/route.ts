@@ -83,6 +83,23 @@ const CACHE_TTL = 60000; // 1 minute cache
 const RESPONSE_HEADERS = {
   "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };
+const DAY_MS = 86400_000;
+const DEFAULT_GLOBAL_EVENT_DAYS = 3;
+const MAX_GLOBAL_EVENT_DAYS = 7;
+
+function getEventTimestampMs(event: Pick<GlobalEvent, "timestamp"> | null | undefined): number {
+  if (!event?.timestamp) return 0;
+  const timestamp = new Date(event.timestamp).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function pruneEventsByAge(events: GlobalEvent[], maxAgeMs: number, now = Date.now()): GlobalEvent[] {
+  const cutoff = now - maxAgeMs;
+  return events.filter((event) => {
+    const timestamp = getEventTimestampMs(event);
+    return timestamp > 0 && timestamp >= cutoff;
+  });
+}
 
 async function fetchUSGSEarthquakes(days = 7): Promise<GlobalEvent[]> {
   try {
@@ -90,7 +107,7 @@ async function fetchUSGSEarthquakes(days = 7): Promise<GlobalEvent[]> {
     // Earlier versions used 2.5_day.geojson (~150 quakes); the 1.0_week feed
     // returns every tracked global event (~8,000–15,000). Army-contract
     // deliverable requires all active seismic activity.
-    const feed = days >= 30 ? "all_month" : days >= 7 ? "1.0_week" : "1.0_day";
+    const feed = days >= 30 ? "all_month" : days > 1 ? "1.0_week" : "1.0_day";
     const res = await fetch(
       `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${feed}.geojson`,
       { signal: AbortSignal.timeout(20000), cache: "no-store" }
@@ -438,7 +455,17 @@ export async function GET(request: NextRequest) {
   const limit = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("limit") || 10000), 25000));
   const requestedType = (request.nextUrl.searchParams.get("type") || "").toLowerCase();
   const earthquakeOnly = requestedType === "earthquake" || requestedType === "earthquakes";
-  const days = Math.max(1, Math.min(Number(request.nextUrl.searchParams.get("days") || (earthquakeOnly ? 30 : 7)), 30));
+  const requestedDays = Number(request.nextUrl.searchParams.get("days") || "");
+  const defaultDays = earthquakeOnly ? 30 : DEFAULT_GLOBAL_EVENT_DAYS;
+  const maxDays = earthquakeOnly ? 30 : MAX_GLOBAL_EVENT_DAYS;
+  const days = Math.max(
+    1,
+    Math.min(
+      Number.isFinite(requestedDays) && requestedDays > 0 ? requestedDays : defaultDays,
+      maxDays,
+    ),
+  );
+  const maxAgeMs = days * DAY_MS;
   const cacheKey = earthquakeOnly ? `earthquake:${days}` : `all:${days}`;
   
   // Return cached data if still valid
@@ -470,13 +497,14 @@ export async function GET(request: NextRequest) {
         fetchNWSActiveWeatherAlerts(),
       ]);
   
-  // Combine and sort
-  const allEvents = [
+  // Combine, prune for map display, and sort. MINDEX can retain history, but
+  // the Earth Simulator boot feed should only render fresh operational data.
+  const allEvents = pruneEventsByAge([
     ...earthquakes,
     ...spaceWeather,
     ...eonetEvents,
     ...nwsWeather,
-  ];
+  ], maxAgeMs, now);
   
   allEvents.sort((a, b) => 
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -488,7 +516,7 @@ export async function GET(request: NextRequest) {
   lastFetchTime = now;
   
   // Ingest events to MINDEX for persistent storage (non-blocking)
-  const realEvents = [...earthquakes, ...spaceWeather, ...eonetEvents, ...nwsWeather].map(e => ({
+  const realEvents = allEvents.map(e => ({
     ...e,
     latitude: e.location?.latitude,
     longitude: e.location?.longitude,

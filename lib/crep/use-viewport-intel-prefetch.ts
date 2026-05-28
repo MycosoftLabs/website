@@ -22,6 +22,7 @@ import {
   makeViewportRevisionKey,
   type MapBoundsLike,
 } from "@/lib/crep/viewport-revision"
+import { resolveCivicFacilityHintsForViewport } from "@/lib/crep/civic-facility-hints"
 
 export interface ViewportIntelPrefetchPayload {
   ok?: boolean
@@ -29,7 +30,7 @@ export interface ViewportIntelPrefetchPayload {
   jurisdiction_stack?: unknown[]
   officials?: unknown[]
   civic?: { officials?: unknown[] }
-  facilities?: { facilities?: unknown[] }
+  facilities?: { facilities?: unknown[]; status?: string }
   elections?: unknown[]
   legislation?: unknown[]
   media_gallery?: unknown[]
@@ -46,6 +47,35 @@ const DEFAULT_US_BOUNDS: ViewportBoundsLike = {
 function resolveEffectiveBounds(mapBounds: MapBoundsLike | null): ViewportBoundsLike {
   if (mapBounds) return mapBounds
   return DEFAULT_US_BOUNDS
+}
+
+function mergeCivicFacilityHints(
+  intel: ViewportIntelPrefetchPayload | null | undefined,
+  place: ViewportPlaceLike | null | undefined,
+  bounds: ViewportBoundsLike,
+): ViewportIntelPrefetchPayload | null {
+  if (!intel) return null
+  const existingFacilities = Array.isArray(intel.facilities?.facilities)
+    ? intel.facilities.facilities
+    : []
+  if (existingFacilities.length > 0) return intel
+
+  const sourcePlace = intel.place ?? place ?? null
+  const hints = resolveCivicFacilityHintsForViewport({
+    place: sourcePlace,
+    bounds,
+    limit: 12,
+  })
+  if (!hints.length) return intel
+
+  return {
+    ...intel,
+    facilities: {
+      ...(intel.facilities ?? {}),
+      facilities: hints,
+      status: "civic-fallback",
+    },
+  }
 }
 
 export function useViewportIntelPrefetch(
@@ -84,6 +114,12 @@ export function useViewportIntelPrefetch(
   const inFlightRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    return () => {
+      inFlightRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
     const next = { bounds: effectiveBounds, zoom: mapZoom }
     const shouldRefresh =
       !snapshotRef.current ||
@@ -102,8 +138,13 @@ export function useViewportIntelPrefetch(
     const cached = boundsHit
 
     if (cached) {
-      setIntel(cached)
-      if (cached.place) setOptimisticPlace(cached.place)
+      const hydratedCached = mergeCivicFacilityHints(
+        cached,
+        cached.place ?? optimisticPlace,
+        effectiveBounds,
+      )
+      setIntel(hydratedCached)
+      if (hydratedCached?.place) setOptimisticPlace(hydratedCached.place)
     } else {
       setIntel(null)
     }
@@ -117,13 +158,13 @@ export function useViewportIntelPrefetch(
     const center = boundsCenter(effectiveBounds)
     const geoLod = resolveViewportGeographyLod(mapZoom, effectiveBounds)
     const localPlaceHint = resolveLocalViewportPlaceHint(center.lat, center.lng)
-    setOptimisticPlace(
+    const nextOptimisticPlace =
       localPlaceHint ?? {
         displayName: `${geographyLodToLabel(geoLod)} viewport resolving`,
         lat: center.lat,
         lng: center.lng,
-      },
-    )
+      }
+    setOptimisticPlace(nextOptimisticPlace)
 
     void (async () => {
       try {
@@ -168,14 +209,19 @@ export function useViewportIntelPrefetch(
 
         if (intelRes.status === "fulfilled" && intelRes.value.ok) {
           const nextIntel = (await intelRes.value.json()) as ViewportIntelPrefetchPayload
-          setIntel(nextIntel)
-          setViewportIntelCacheForBounds(effectiveBounds, mapZoom, nextIntel)
+          const hydratedIntel = mergeCivicFacilityHints(
+            nextIntel,
+            nextIntel.place ?? nextOptimisticPlace,
+            effectiveBounds,
+          ) ?? nextIntel
+          setIntel(hydratedIntel)
+          setViewportIntelCacheForBounds(effectiveBounds, mapZoom, hydratedIntel)
           const jurisdictionKey = buildViewportJurisdictionKey(
-            nextIntel.place ?? optimisticPlace,
+            hydratedIntel.place ?? nextOptimisticPlace,
             lodLabel,
           )
-          if (jurisdictionKey) setViewportIntelCache(jurisdictionKey, nextIntel)
-          if (nextIntel.place) setOptimisticPlace(nextIntel.place)
+          if (jurisdictionKey) setViewportIntelCache(jurisdictionKey, hydratedIntel)
+          if (hydratedIntel.place) setOptimisticPlace(hydratedIntel.place)
         }
       } catch (error) {
         if ((error as Error)?.name !== "AbortError") {
@@ -186,9 +232,9 @@ export function useViewportIntelPrefetch(
       }
     })()
 
-    return () => {
-      controller.abort()
-    }
+    // Do not return the controller abort here. Small map state churn can re-run
+    // this effect without a significant viewport change; aborting in that path
+    // leaves MYCA stuck on empty stale intel until the next large move.
   }, [effectiveBounds, mapZoom, lodLabel])
 
   const hasDisplayContent = Boolean(intel || optimisticPlace)

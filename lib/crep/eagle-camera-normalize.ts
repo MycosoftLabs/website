@@ -54,8 +54,6 @@ const KNOWN_CAMERA_PROVIDERS = new Set([
   "hpwren",
   "surfline",
   "scripps",
-  "cbp",
-  "parks-ca",
   "port-of-sd",
   "skylinewebcams",
   "511",
@@ -70,6 +68,11 @@ const KNOWN_CAMERA_PROVIDERS = new Set([
   "unifi-protect",
   "static-seed",
   "public-webcam",
+])
+
+const INFO_ONLY_PROVIDERS = new Set([
+  "cbp",
+  "parks-ca",
 ])
 
 /** id → [lng, lat] verified US-side / on-land positions. */
@@ -89,6 +92,10 @@ const COORDINATE_OVERRIDES: Record<string, [number, number]> = {
 
 function hasPlayableUrl(source: EagleCameraLike): boolean {
   return !!(source.stream_url || source.embed_url || source.media_url)
+}
+
+function hasDirectPlayableMedia(source: EagleCameraLike): boolean {
+  return !!(source.stream_url || source.media_url)
 }
 
 /** Environmental / hydrology rows — not Eagle Eye video cameras. */
@@ -113,6 +120,7 @@ export function isDisplayableEagleCamera(source: EagleCameraLike): boolean {
   if (isSensorOnly(source)) return false
 
   const provider = String(source.provider || "").toLowerCase()
+  if (INFO_ONLY_PROVIDERS.has(provider)) return hasDirectPlayableMedia(source)
   if (KNOWN_CAMERA_PROVIDERS.has(provider)) return true
 
   // Unknown ingest — require a playable URL so we don't pin mystery rows.

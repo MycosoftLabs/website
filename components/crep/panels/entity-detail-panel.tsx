@@ -13,7 +13,6 @@
  * - Does not move/affect the map
  */
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -437,10 +436,10 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
     const idForLookup = aircraft.callsign || aircraft.flightNumber || aircraft.id;
     // Apr 23, 2026 audit: fetch had no timeout so the Flight History
     // section would stay at "Loading…" indefinitely when flightradar24
-    // or ADS-B backend is slow. 10 s deadline guarantees the spinner
+    // or ADS-B backend is slow. A short deadline guarantees the spinner
     // always resolves (either data or empty state).
     fetch(`/api/oei/flight-history/${encodeURIComponent(String(idForLookup))}`, {
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(6_000),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((h) => { if (!cancelled) { setHistory(h); setHistoryLoading(false); } })
@@ -601,7 +600,11 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
           </div>
         ) : historyLoading ? (
           <div className="text-[10px] text-gray-500 italic text-center py-1">Loading flight history…</div>
-        ) : null}
+        ) : (
+          <div className="rounded border border-blue-500/15 bg-blue-950/20 p-1.5 text-[9px] text-blue-100/75">
+            Live telemetry shown. Route history is not available from the backend for this aircraft yet.
+          </div>
+        )}
 
         {/* Flight stats summary (distance / duration / min-max) */}
         {history?.stats?.distance_nm != null && history.stats.distance_nm > 0 ? (
@@ -1062,22 +1065,18 @@ export function EntityDetailPanel({ onClose, fungal, event, aircraft, vessel, sa
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      {/* Compact dialog - max-w-xs (320px) ensures it fits on screen without scrolling */}
-      <DialogContent
-        showCloseButton={false}
-        className="max-w-xs p-0 border-0 bg-transparent shadow-2xl"
-      >
+    <div className="pointer-events-none fixed left-1/2 top-24 z-[95] w-[min(340px,calc(100vw-24px))] -translate-x-1/2">
+      <div className="pointer-events-auto max-h-[min(78vh,720px)] overflow-y-auto rounded-lg shadow-2xl">
         <VisuallyHidden>
-          <DialogTitle>{getTitle()}</DialogTitle>
+          <h2>{getTitle()}</h2>
         </VisuallyHidden>
         {fungal && <FungalDetail observation={fungal} onClose={onClose} />}
         {event && <EventDetail event={event} onClose={onClose} />}
         {aircraft && <AircraftDetail aircraft={aircraft} onClose={onClose} />}
         {vessel && <VesselDetail vessel={vessel} onClose={onClose} />}
         {satellite && <SatelliteDetail satellite={satellite} onClose={onClose} />}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 

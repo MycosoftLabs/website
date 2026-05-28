@@ -257,6 +257,37 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
     const attachCameraHandlers = () => {
       const handlerKey = "__crepEagleCameraHandlersAttached"
       if ((map as any)[handlerKey]) return
+      const hoverCamera = (e: any) => {
+        const f = e.features?.[0]
+        if (!f) return
+        const p = f.properties || {}
+        const c = e.lngLat
+        const displayName = p.name || `${p.provider || "camera"} feed`
+        try {
+          const hook = (window as any).__crep_hoverAsset
+          if (typeof hook === "function") {
+            hook({
+              type: "camera",
+              id: p.id,
+              name: displayName,
+              lat: c?.lat ?? 0,
+              lng: c?.lng ?? 0,
+              x: e.originalEvent?.clientX,
+              y: e.originalEvent?.clientY,
+              source: p.provider || "camera",
+              properties: p,
+            })
+          }
+        } catch { /* ignore */ }
+        map.getCanvas().style.cursor = "pointer"
+      }
+      const clearHover = () => {
+        try {
+          const hook = (window as any).__crep_hoverAsset
+          if (typeof hook === "function") hook(null)
+        } catch { /* ignore */ }
+        map.getCanvas().style.cursor = ""
+      }
       const onEagleCamClick = (e: any) => {
         const f = e.features?.[0]
         if (!f) return
@@ -285,8 +316,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
       }
       for (const layerId of EAGLE_CAMERA_CLICK_LAYER_IDS) {
         map.on("click", layerId, onEagleCamClick)
-        map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
-        map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+        map.on("mousemove", layerId, hoverCamera)
+        map.on("mouseleave", layerId, clearHover)
       }
       ;(map as any)[handlerKey] = true
     }
@@ -528,11 +559,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
               }))
             } catch { /* ignore */ }
           }
-          for (const layerId of EAGLE_CAMERA_CLICK_LAYER_IDS) {
-            map.on("click", layerId, onEagleCamClick)
-            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
-            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
-          }
+          attachCameraHandlers()
           console.log(`[EagleEye] ${initialFc.features.length} permanent cameras loaded (api=${fc.features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(mergedFc.features.length ? mergedFc : fc)
@@ -794,8 +821,36 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
               window.dispatchEvent(new CustomEvent("crep:eagle:event-click", { detail: { ...p, lat: c?.lat, lng: c?.lng } }))
             } catch { /* ignore */ }
           })
-          map.on("mouseenter", "crep-eagle-events-core", () => { map.getCanvas().style.cursor = "pointer" })
-          map.on("mouseleave", "crep-eagle-events-core", () => { map.getCanvas().style.cursor = "" })
+          map.on("mousemove", "crep-eagle-events-core", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_hoverAsset
+              if (typeof hook === "function") {
+                hook({
+                  type: "video event",
+                  id: p.id,
+                  name: p.title || `${p.provider || "camera"} clip`,
+                  lat: c?.lat ?? 0,
+                  lng: c?.lng ?? 0,
+                  x: e.originalEvent?.clientX,
+                  y: e.originalEvent?.clientY,
+                  source: p.provider || "eagle eye",
+                  properties: p,
+                })
+              }
+            } catch { /* ignore */ }
+            map.getCanvas().style.cursor = "pointer"
+          })
+          map.on("mouseleave", "crep-eagle-events-core", () => {
+            try {
+              const hook = (window as any).__crep_hoverAsset
+              if (typeof hook === "function") hook(null)
+            } catch { /* ignore */ }
+            map.getCanvas().style.cursor = ""
+          })
           console.log(`[EagleEye] ${features.length} ephemeral events loaded (MINDEX + YouTube + Bluesky + Mastodon)`)
         } else {
           (map.getSource("crep-eagle-events") as any).setData(fc)

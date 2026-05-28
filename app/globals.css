@@ -6,6 +6,16 @@
 
 @import "tw-animate-css";
 
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+summary {
+  touch-action: manipulation;
+}
+
 /*
  * Apr 18, 2026: Exclude bulk static-data directories from Tailwind v4
  * auto-source scanning. The CREP PMTiles archives + streamed single-line
@@ -829,8 +839,6 @@ body.dashboard-fullscreen main {
 
 html.crep-mobile [data-crep-desktop-only="true"],
 html.crep-mobile .crep-desktop-overlay,
-html.crep-mobile [data-panel="left"],
-html.crep-mobile [data-panel="right"],
 html.crep-mobile [data-panel="fly-to"],
 html.crep-mobile [data-panel="timeline"],
 html.crep-mobile [data-panel="stats"] {
@@ -838,15 +846,49 @@ html.crep-mobile [data-panel="stats"] {
   pointer-events: none !important;
 }
 
-/* Push the map below the mobile top bar so tiles don't slide under the */
-/* Earth Simulator header. Top bar is ~68px tall (2 rows of chips).     */
+html.crep-mobile [data-panel="left"],
+html.crep-mobile [data-panel="right"] {
+  display: block !important;
+  position: fixed !important;
+  left: max(8px, env(safe-area-inset-left)) !important;
+  right: max(8px, env(safe-area-inset-right)) !important;
+  top: auto !important;
+  bottom: calc(58px + env(safe-area-inset-bottom)) !important;
+  width: auto !important;
+  height: min(50dvh, 430px) !important;
+  max-height: min(50dvh, 430px) !important;
+  min-height: 270px !important;
+  transform: translateY(112%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: transform 180ms cubic-bezier(.2,.9,.2,1), opacity 140ms ease !important;
+}
+
+html.crep-mobile [data-panel="left"][data-mobile-open="true"],
+html.crep-mobile [data-panel="right"][data-mobile-open="true"] {
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+html.crep-mobile [data-panel="left"] > div,
+html.crep-mobile [data-panel="right"] {
+  border-radius: 16px 16px 12px 12px !important;
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.42), 0 0 26px rgba(34, 211, 238, 0.12) !important;
+}
+
+/* The mobile top controls are part of the dashboard flex layout now. */
 html.crep-mobile .crep-map-container {
-  top: 68px !important;
+  top: 0 !important;
 }
 
 /* Phone: disable pointer events on residual desktop tooltips that     */
 /* sneak into the map layer.                                           */
 @media (max-width: 767px) {
+  html.crep-mobile .natureos-sidebar-shell {
+    display: none !important;
+  }
+
   .crep-desktop-tooltip {
     display: none !important;
   }

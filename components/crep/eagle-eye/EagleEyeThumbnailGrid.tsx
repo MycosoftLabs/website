@@ -39,6 +39,7 @@ export function openEagleCamera(
         lng: source.lng,
         stream_url: source.stream_url,
         embed_url: source.embed_url,
+        media_url: source.media_url,
       },
     }),
   )

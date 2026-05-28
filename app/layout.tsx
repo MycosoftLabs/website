@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Viewport } from "next"
+import Script from "next/script"
 import { GeistSans } from "geist/font/sans"
 
 // NOTE: do NOT set `export const revalidate = X` on the root layout.
@@ -51,6 +52,51 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 }
 
+const crepMapLibreDevGuard = `
+(function () {
+  if (window.__crepMapLibreDevGuard) return;
+  window.__crepMapLibreDevGuard = true;
+  function isCrepRoute() {
+    return /\\/(natureos\\/earth-simulator|natureos\\/crep|dashboard\\/crep)(\\/|$)/.test(window.location.pathname);
+  }
+  function isNonFatalMapLibreError(message, stack) {
+    if (!isCrepRoute()) return false;
+    var text = String(message || "") + "\\n" + String(stack || "");
+    return (
+      (/Cannot read properties of undefined \\(reading 'get'\\)/.test(text) && /maplibre|continuePlacement|_updatePlacement|Map\\._render|new It/i.test(text)) ||
+      (/Cannot read properties of undefined \\(reading '_classRegistryKey'\\)/.test(text) && /maplibre|web_worker_transfer|processTask|Worker/i.test(text)) ||
+      /feature index out of bounds/i.test(text) ||
+      (/AJAXError/i.test(text) && (/(blob:|pmtiles:\\/\\/|https?:\\/\\/|\\/api\\/|\\/data\\/)/i.test(text) || /Failed to fetch/i.test(text)))
+    );
+  }
+  function remember(kind, message, stack) {
+    var bucket = window.__crepSilencedErrors || (window.__crepSilencedErrors = []);
+    bucket.push({ kind: kind, msg: String(message || ""), stack: String(stack || ""), ts: Date.now(), early: true });
+    if (bucket.length > 40) bucket.shift();
+  }
+  window.addEventListener("error", function (event) {
+    var err = event.error || {};
+    var message = err.message || event.message || "";
+    var stack = err.stack || "";
+    if (isNonFatalMapLibreError(message, stack)) {
+      remember("early-error", message, stack);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+  window.addEventListener("unhandledrejection", function (event) {
+    var reason = event.reason || {};
+    var message = reason.message || String(reason || "");
+    var stack = reason.stack || "";
+    if (isNonFatalMapLibreError(message, stack)) {
+      remember("early-unhandledrejection", message, stack);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+})();
+`
+
 export default function RootLayout({
   children,
 }: {
@@ -59,6 +105,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={GeistSans.variable} suppressHydrationWarning>
+        <Script
+          id="crep-maplibre-dev-guard"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: crepMapLibreDevGuard }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

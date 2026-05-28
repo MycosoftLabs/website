@@ -91,6 +91,12 @@ export function useViewportEnvironmentPrefetch(
 
     if (!cached) setFetching(true)
 
+    const timer = window.setTimeout(() => {
+      controller.abort()
+      setFetching(false)
+    }, 6_500)
+    const debounce = cached ? 1_200 : 350
+    const debounceTimer = window.setTimeout(() => {
     void (async () => {
       try {
         const q = new URLSearchParams({
@@ -117,8 +123,13 @@ export function useViewportEnvironmentPrefetch(
         if (!controller.signal.aborted) setFetching(false)
       }
     })()
+    }, debounce)
 
-    return () => controller.abort()
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(debounceTimer)
+      controller.abort()
+    }
   }, [effectiveBounds, mapZoom])
 
   const hasDisplayContent = Boolean(

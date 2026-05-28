@@ -10,6 +10,9 @@ export type CivicFacilityHint = {
   phone?: string
   email?: string
   website?: string
+  address?: string
+  description?: string
+  priority?: number
   source: "civic-facility-hint"
   countryCode: string
   city: string
@@ -25,6 +28,54 @@ type BoundsLike = {
 const CIVIC_FACILITY_HINTS: CivicFacilityHint[] = [
   { id: "civic:us:new-york:city-hall", name: "New York City Hall", type: "city hall", lat: 40.7128, lng: -74.0060, agency: "City of New York", website: "https://www.nyc.gov/", source: "civic-facility-hint", countryCode: "US", city: "New York" },
   { id: "civic:us:san-diego:city-admin", name: "San Diego City Administration Building", type: "city hall", lat: 32.7169, lng: -117.1628, agency: "City of San Diego", website: "https://www.sandiego.gov/", source: "civic-facility-hint", countryCode: "US", city: "San Diego" },
+  {
+    id: "civic:us:chula-vista:city-hall",
+    name: "Chula Vista City Hall",
+    type: "city hall",
+    lat: 32.6413011,
+    lng: -117.0850214,
+    agency: "City of Chula Vista",
+    phone: "+1 619-691-5044",
+    website: "https://www.chulavistaca.gov/departments/mayor-council",
+    address: "276 Fourth Avenue, Chula Vista, CA 91910",
+    description: "Mayor, City Council, and municipal administration civic anchor.",
+    priority: 1,
+    source: "civic-facility-hint",
+    countryCode: "US",
+    city: "Chula Vista",
+  },
+  {
+    id: "civic:us:chula-vista:police-headquarters",
+    name: "Chula Vista Police Department Headquarters",
+    type: "police",
+    lat: 32.639926,
+    lng: -117.0831827,
+    agency: "Chula Vista Police Department",
+    phone: "+1 619-691-5151",
+    website: "https://www.chulavistaca.gov/police/",
+    address: "315 Fourth Avenue, Chula Vista, CA 91910",
+    description: "Primary municipal public-safety headquarters.",
+    priority: 2,
+    source: "civic-facility-hint",
+    countryCode: "US",
+    city: "Chula Vista",
+  },
+  {
+    id: "civic:us:chula-vista:civic-center-library",
+    name: "Civic Center Branch Library",
+    type: "library",
+    lat: 32.6409998,
+    lng: -117.0832098,
+    agency: "Chula Vista Public Library",
+    phone: "+1 619-691-5069",
+    website: "https://www.chulavistaca.gov/departments/library/locations-hours",
+    address: "365 F Street, Chula Vista, CA 91910",
+    description: "Public library branch inside the Chula Vista Civic Center campus.",
+    priority: 3,
+    source: "civic-facility-hint",
+    countryCode: "US",
+    city: "Chula Vista",
+  },
   { id: "civic:ca:toronto:city-hall", name: "Toronto City Hall", type: "city hall", lat: 43.6534, lng: -79.3841, agency: "City of Toronto", website: "https://www.toronto.ca/", source: "civic-facility-hint", countryCode: "CA", city: "Toronto" },
   { id: "civic:ca:vancouver:city-hall", name: "Vancouver City Hall", type: "city hall", lat: 49.2609, lng: -123.1139, agency: "City of Vancouver", website: "https://vancouver.ca/", source: "civic-facility-hint", countryCode: "CA", city: "Vancouver" },
   { id: "civic:mx:mexico-city:national-palace", name: "National Palace", type: "federal government complex", lat: 19.4326, lng: -99.1312, agency: "Government of Mexico", website: "https://www.gob.mx/", source: "civic-facility-hint", countryCode: "MX", city: "Mexico City" },
@@ -82,5 +133,6 @@ export function resolveCivicFacilityHintsForViewport(input: {
       const city = normalize(facility.city)
       return !hasLocality || !placeText || placeText.includes(city) || city.includes(placeText)
     })
+    .sort((a, b) => (a.priority ?? 50) - (b.priority ?? 50))
     .slice(0, input.limit ?? 8)
 }

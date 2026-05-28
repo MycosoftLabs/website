@@ -33,7 +33,8 @@ import {
   layerSpecForMode,
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
-import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM, TELECOM_DETAIL_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import { getNexradStations } from "@/lib/crep/registries/radar-registry"
 import {
   eagleCameraClickLayerIds,
   eagleCameraGlowLayer,
@@ -48,6 +49,8 @@ const CCTV_LAYER_PREFIX = "crep-cctv"
 const CCTV_VISIBILITY_LAYER_IDS = Object.values(eagleCameraLayerIds(CCTV_LAYER_PREFIX))
 const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
 const CCTV_MIN_ZOOM = 7
+const CCTV_FAST_LIMIT = "160"
+const CCTV_FULL_LIMIT = "1200"
 
 interface Props {
   map: MapLibreMap | null
@@ -105,9 +108,8 @@ function safeHasImage(map: MapLibreMap | null, name: string) {
   try {
     return Boolean(
       map &&
-      map.isStyleLoaded?.() &&
-      (map as any).style?.imageManager &&
-      (map as any).hasImage?.(name),
+      typeof (map as any).hasImage === "function" &&
+      (map as any).hasImage(name),
     )
   } catch {
     return false
@@ -125,9 +127,73 @@ function setLayerVisibility(map: MapLibreMap | null, layerIds: string[], visible
   }
 }
 
+function bboxFromMap(map: MapLibreMap | null, zoom = 0): [number, number, number, number] | null {
+  try {
+    const targetLngSpan = Math.max(0.25, Math.min(12, 22 / Math.pow(2, Math.max(0, zoom - 3))))
+    const targetLatSpan = Math.max(0.18, Math.min(8, targetLngSpan * 0.65))
+    const bounds = map?.getBounds?.()
+    if (bounds) {
+      const west = bounds.getWest()
+      const south = bounds.getSouth()
+      const east = bounds.getEast()
+      const north = bounds.getNorth()
+      const lngSpan = Math.abs(east - west)
+      const latSpan = Math.abs(north - south)
+      if (Number.isFinite(lngSpan) && Number.isFinite(latSpan) && lngSpan > 0 && latSpan > 0 && zoom < 5) {
+        return [west, south, east, north]
+      }
+      if (Number.isFinite(lngSpan) && Number.isFinite(latSpan) && lngSpan > 0 && latSpan > 0 && lngSpan <= targetLngSpan * 1.25 && latSpan <= targetLatSpan * 1.25) {
+        return [west, south, east, north]
+      }
+      const centerLng = (west + east) / 2
+      const centerLat = (south + north) / 2
+      if (Number.isFinite(centerLng) && Number.isFinite(centerLat)) {
+        return [
+          centerLng - targetLngSpan / 2,
+          centerLat - targetLatSpan / 2,
+          centerLng + targetLngSpan / 2,
+          centerLat + targetLatSpan / 2,
+        ]
+      }
+    }
+    const center = map?.getCenter?.()
+    if (!center) return null
+    return [
+      center.lng - targetLngSpan / 2,
+      center.lat - targetLatSpan / 2,
+      center.lng + targetLngSpan / 2,
+      center.lat + targetLatSpan / 2,
+    ]
+  } catch {
+    return null
+  }
+}
+
+function bboxFromUrl(zoom = 0): [number, number, number, number] | null {
+  try {
+    if (typeof window === "undefined") return null
+    const params = new URLSearchParams(window.location.search)
+    const lat = Number(params.get("lat"))
+    const lng = Number(params.get("lng"))
+    const z = Number(params.get("zoom") || zoom)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    const lngSpan = Math.max(0.25, Math.min(12, 22 / Math.pow(2, Math.max(0, z - 3))))
+    const latSpan = Math.max(0.18, Math.min(8, lngSpan * 0.65))
+    return [lng - lngSpan / 2, lat - latSpan / 2, lng + lngSpan / 2, lat + latSpan / 2]
+  } catch {
+    return null
+  }
+}
+
 export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false, mapZoom = 0 }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
   const landMaskResolutionRef = useRef<"10m" | "50m" | null>(null)
+  const txBboxKeyRef = useRef("")
+  const txFetchTimerRef = useRef<number | null>(null)
+  const txAbortRef = useRef<AbortController | null>(null)
+  const cellTowerBboxKeyRef = useRef("")
+  const cellTowerFetchTimerRef = useRef<number | null>(null)
+  const cellTowerAbortRef = useRef<AbortController | null>(null)
   const [styleReadyTick, setStyleReadyTick] = useState(0)
 
   useEffect(() => {
@@ -178,16 +244,28 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     if (!mapReady()) return
     loadedRef.current.ports = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/oei/ports?limit=5000")
+        const res = await fetch("/data/crep/ports-global.geojson", { cache: "force-cache" })
         if (!res.ok) return
         const j = await res.json()
-        const features = (j.ports || []).map((p: any) => ({
-          type: "Feature" as const,
-          properties: { id: p.id, name: p.name, country: p.country, unlocode: p.unlocode, type: p.type },
-          geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-        }))
+        const features = (j.features || [])
+          .filter((f: any) => f?.geometry?.type === "Point" && Array.isArray(f.geometry.coordinates))
+          .map((f: any, i: number) => {
+            const p = f.properties || {}
+            return {
+              type: "Feature" as const,
+              properties: {
+                id: p.id || p.unlocode || `wpi-${i}`,
+                name: p.name || p.PORT_NAME || "Seaport",
+                country: p.country || p.COUNTRY,
+                unlocode: p.unlocode || p.UNLOCODE,
+                type: p.type || "general",
+                source: p.source || "WPI/NGA Pub 150",
+              },
+              geometry: f.geometry,
+            }
+          })
         if (!mapReady()) return
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-ports-global")) {
@@ -222,9 +300,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         } else {
           (map.getSource("crep-ports-global") as any).setData(fc)
         }
-        console.log(`[ProposalOverlays] ports: ${features.length} loaded`)
+        console.log(`[ProposalOverlays] ports: ${features.length} bundled ports loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/ports]", e.message) }
-    })
+    })()
   }, [map, styleReadyTick, enabled.ports])
 
   // ─── 2. Radar sites ────────────────────────────────────────────────────
@@ -242,14 +320,19 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     if (!isMapStyleReady(map)) return
     loadedRef.current.radar = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/oei/radar")
-        if (!res.ok) return
-        const j = await res.json()
-        const features = (j.sites || []).map((s: any) => ({
+        const features = getNexradStations().map((s: any) => ({
           type: "Feature" as const,
-          properties: { id: s.id, name: s.name, network: s.network, kind: s.kind, range_km: s.range_km },
+          properties: {
+            id: s.id,
+            name: s.name,
+            network: s.network,
+            kind: s.kind,
+            range_km: s.range_km,
+            operator: s.operator,
+            lastObservationUrl: s.lastObservationUrl,
+          },
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
         }))
         const fc = { type: "FeatureCollection" as const, features }
@@ -294,9 +377,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         } else {
           (map.getSource("crep-radar") as any).setData(fc)
         }
-        console.log(`[ProposalOverlays] radar sites: ${features.length} loaded`)
+        console.log(`[ProposalOverlays] radar sites: ${features.length} bundled NEXRAD sites loaded`)
       } catch (e: any) { console.warn("[ProposalOverlays/radar]", e.message) }
-    })
+    })()
   }, [map, styleReadyTick, enabled.radar])
 
   // ─── 3. Radio Stations ─────────────────────────────────────────────────
@@ -314,7 +397,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     if (!isMapStyleReady(map)) return
     loadedRef.current.radio = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
         if (!isMapStyleReady(map)) return
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
@@ -430,7 +513,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     if (!isMapStyleReady(map)) return
     loadedRef.current.plants = true
 
-    idleLoad(async () => {
+    void (async () => {
       try {
         if (!isMapStyleReady(map)) return
         const cfg = INFRA_LAYERS.powerPlantsGlobal
@@ -513,7 +596,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         map.on("mouseleave", "crep-plants-global-dot", () => { map.getCanvas().style.cursor = "" })
         console.log(`[ProposalOverlays] power plants: ${mode} source added (click + label wired)`)
       } catch (e: any) { console.warn("[ProposalOverlays/plants]", e.message) }
-    })
+    })()
   }, [map, styleReadyTick, enabled.powerPlantsG])
 
   // ─── 5. Factories ──────────────────────────────────────────────────────
@@ -629,102 +712,312 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // bbox prop (mapZoom>5). Fetches bbox-scoped results to keep payloads
   // bounded on large viewports.
   useEffect(() => {
-    if (!map || !enabled.txLinesGlobal || !bbox) return
+    if (!map) return
+    const layerIds = ["crep-txlines-global-line"]
+    if (!enabled.txLinesGlobal) {
+      setLayerVisibility(map, layerIds, false)
+      return
+    }
     const mapReady = () => isMapStyleReady(map)
     if (!mapReady()) return
+    if (map.getLayer("crep-txlines-global-line")) {
+      setLayerVisibility(map, layerIds, true)
+      return
+    }
 
-    idleLoad(async () => {
+    void (async () => {
       try {
-        const zoom = typeof map.getZoom === "function" ? map.getZoom() : 5
-        const detailLimit = searchContextMode
-          ? zoom >= 9 ? 100000 : zoom >= 6 ? 50000 : 20000
-          : 10000
-        const res = await fetch(`/api/oei/transmission-lines-global?bbox=${bbox.join(",")}&limit=${detailLimit}&includeOSM=true`)
-        if (!res.ok) return
-        const j = await res.json()
-        const features = (j.lines || [])
-          .filter((l: any) => Array.isArray(l.coordinates) && l.coordinates.length >= 2)
-          .map((l: any) => ({
-            type: "Feature" as const,
-            properties: {
-              id: l.id, operator: l.operator, voltage_kv: l.voltage_kv || 0,
-              status: l.status, country: l.country, source: l.source,
-            },
-            geometry: { type: "LineString" as const, coordinates: l.coordinates },
-          }))
-        const fc = { type: "FeatureCollection" as const, features }
-        if (!mapReady()) return
-        if (!map.getSource("crep-txlines-global")) {
-          map.addSource("crep-txlines-global", { type: "geojson", data: fc })
-          map.addLayer({
-            id: "crep-txlines-global-line", type: "line", source: "crep-txlines-global",
-            // May 21 2026 (Morgan): infrastructure visible at all zooms.
-            minzoom: 0,
-            paint: {
-              "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
-                0, "#facc15", 25, "#fde047", 69, "#fbbf24", 100, "#fb923c", 230, "#ec4899",
-                345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
-              "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
-                0, 0.9, 69, 1.05, 230, 1.5, 500, 2.2, 735, 3],
-              "line-opacity": searchContextMode ? 0.9 : 0.75,
-            },
-          })
-        } else {
-          (map.getSource("crep-txlines-global") as any).setData(fc)
-        }
-        console.log(`[ProposalOverlays] tx lines (global): ${features.length} loaded`)
+        const cfg = INFRA_LAYERS.transmissionLines
+        const result = await addInfraSourceWithFallback(map, cfg)
+        if (result.mode !== "pmtiles" && result.mode !== "geojson") return
+        const { sourceLayer } = layerSpecForMode(result.mode, cfg)
+        if (!mapReady() || map.getLayer("crep-txlines-global-line")) return
+        map.addLayer({
+          id: "crep-txlines-global-line",
+          type: "line",
+          source: result.sourceId,
+          ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
+          minzoom: 0,
+          paint: {
+            "line-color": ["interpolate", ["linear"],
+              ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0],
+              0, "#9ca3af", 31000, "#fb923c", 100000, "#ec4899", 230000, "#a855f7",
+              345000, "#60a5fa", 500000, "#22d3ee", 735000, "#ffffff"],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.4, 4, 0.7, 6, 1.2, 8, 1.8, 12, 2.6, 16, 3.5],
+            "line-opacity": ["interpolate", ["linear"], ["zoom"], 2, 0.45, 4, 0.6, 8, 0.75, 12, 0.8],
+          },
+        })
+        console.log(`[ProposalOverlays] tx lines: bundled ${result.mode} source attached`)
       } catch (e: any) { console.warn("[ProposalOverlays/txLinesGlobal]", e.message) }
-    })
-  }, [map, styleReadyTick, enabled.txLinesGlobal, bbox, searchContextMode])
+    })()
+  }, [map, styleReadyTick, enabled.txLinesGlobal])
 
   // ─── 7c. Global Cell Towers (bbox-scoped, supplements PMTiles bundle) ─
+  useEffect(() => {
+    if (!map) return
+    const sourceId = "crep-txlines-bbox"
+    const layerId = "crep-txlines-bbox-line"
+    const emptyFc = { type: "FeatureCollection" as const, features: [] as any[] }
+    const clearBboxLayer = () => {
+      setLayerVisibility(map, [layerId], false)
+      try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
+    }
+    const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
+    if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5) {
+      clearBboxLayer()
+      return
+    }
+    if (!isMapStyleReady(map)) return
+
+    const precision = mapZoom >= 9 ? 3 : mapZoom >= 7 ? 2 : 1
+    const bboxKey = `${mapZoom >= 9 ? 9 : mapZoom >= 7 ? 7 : 5}:${effectiveBbox.map((v) => v.toFixed(precision)).join(",")}`
+    if (bboxKey === txBboxKeyRef.current && map.getLayer(layerId)) {
+      setLayerVisibility(map, [layerId], true)
+      return
+    }
+    txBboxKeyRef.current = bboxKey
+
+    if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
+    txAbortRef.current?.abort()
+    const abortController = new AbortController()
+    txAbortRef.current = abortController
+
+    txFetchTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const limit = mapZoom >= 9 ? 6000 : mapZoom >= 7 ? 3500 : 1500
+          const res = await fetch(`/api/oei/transmission-lines-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
+            cache: "default",
+            signal: abortController.signal,
+          })
+          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map)) return
+          const data = await res.json()
+          const features = (data.lines || []).slice(0, limit).map((line: any, index: number) => ({
+            type: "Feature" as const,
+            id: line.id || `tx-bbox-${index}`,
+            properties: {
+              id: line.id || `tx-bbox-${index}`,
+              name: line.name || line.operator || "Transmission line",
+              operator: line.operator,
+              voltage_kv: line.voltage_kv,
+              status: line.status,
+              country: line.country,
+              source: line.source || "transmission-lines-multi",
+            },
+            geometry: { type: "LineString" as const, coordinates: line.coordinates || [] },
+          })).filter((feature: any) => Array.isArray(feature.geometry.coordinates) && feature.geometry.coordinates.length >= 2)
+          if (features.length === 0) txBboxKeyRef.current = ""
+          const fc = { type: "FeatureCollection" as const, features }
+
+          if (!map.getSource(sourceId)) {
+            map.addSource(sourceId, { type: "geojson", data: emptyFc, generateId: false })
+          }
+          if (!map.getLayer(layerId)) {
+            map.addLayer({
+              id: layerId,
+              type: "line",
+              source: sourceId,
+              minzoom: 5,
+              paint: {
+                "line-color": [
+                  "interpolate", ["linear"],
+                  ["coalesce", ["to-number", ["get", "voltage_kv"]], 0],
+                  0, "#38bdf8",
+                  69, "#fb923c",
+                  138, "#ec4899",
+                  230, "#a855f7",
+                  345, "#60a5fa",
+                  500, "#22d3ee",
+                  735, "#ffffff",
+                ],
+                "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 8, 1.1, 11, 1.8, 15, 2.6],
+                "line-opacity": 0.78,
+              },
+            })
+          }
+          ;(map.getSource(sourceId) as any)?.setData?.(fc)
+          setLayerVisibility(map, [layerId], true)
+
+          if (!loadedRef.current.txBboxHandlers) {
+            loadedRef.current.txBboxHandlers = true
+            map.on("mousemove", layerId, () => {
+              try { map.getCanvas().style.cursor = "pointer" } catch { /* ignore */ }
+            })
+            map.on("mouseleave", layerId, () => {
+              try { map.getCanvas().style.cursor = "" } catch { /* ignore */ }
+            })
+            map.on("click", layerId, (event: any) => {
+              const feature = event.features?.[0]
+              const properties = feature?.properties
+              if (!properties) return
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") {
+                hook({
+                  type: "transmission_line",
+                  id: properties.id,
+                  name: properties.name || "Transmission line",
+                  lat: event.lngLat?.lat,
+                  lng: event.lngLat?.lng,
+                  properties: { ...properties },
+                })
+              }
+            })
+          }
+          console.log(`[ProposalOverlays] bbox transmission lines: ${features.length} loaded`)
+        } catch (error: any) {
+          if (error?.name !== "AbortError") console.warn("[ProposalOverlays/txLinesBbox]", error?.message || error)
+        }
+      })()
+    }, 400)
+
+    return () => {
+      if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
+      abortController.abort()
+    }
+  }, [map, styleReadyTick, enabled.txLinesGlobal, bbox, mapZoom])
+
   // PMTiles archive paints the world-scale catalog; this fills in fresh
   // OpenCelliD + FCC ASR + OSM results for the current viewport when the
   // operator is zoomed in (bbox prop defined above zoom 5).
   useEffect(() => {
-    if (!map || !enabled.cellTowersG || !bbox) return
-    const mapReady = () => isMapStyleReady(map)
-    if (!mapReady()) return
+    if (!map) return
+    const sourceId = "crep-celltowers-bbox"
+    const layerId = "crep-celltowers-bbox-dot"
+    const emptyFc = { type: "FeatureCollection" as const, features: [] as any[] }
+    const clearBboxLayer = () => {
+      setLayerVisibility(map, [layerId], false)
+      try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
+    }
+    const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
+    if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM) {
+      clearBboxLayer()
+      return
+    }
+    if (!isMapStyleReady(map)) return
 
-    idleLoad(async () => {
-      try {
-        // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot
-        // missing"). 5k was hitting the limit in dense viewports (NYC / LA /
-        // Tokyo / San Diego urban cores). Bumped bbox fetch to 25k which
-        // covers those cities fully while staying under the route-side 50k
-        // hard cap. PMTiles world catalog still paints the global view.
-        const res = await fetch(`/api/oei/cell-towers-global?bbox=${bbox.join(",")}&limit=25000`)
-        if (!res.ok) return
-        const j = await res.json()
-        const features = (j.towers || [])
-          .filter((t: any) => Number.isFinite(t.lat) && Number.isFinite(t.lng))
-          .map((t: any) => ({
+    const zoomBand = mapZoom >= 10 ? 10 : mapZoom >= 8 ? 8 : mapZoom >= 6 ? 6 : 5
+    const precision = mapZoom >= 10 ? 3 : mapZoom >= 8 ? 2 : 1
+    const bboxKey = `${zoomBand}:${effectiveBbox.map((v) => v.toFixed(precision)).join(",")}`
+    if (bboxKey === cellTowerBboxKeyRef.current && map.getLayer(layerId)) {
+      setLayerVisibility(map, [layerId], true)
+      return
+    }
+    cellTowerBboxKeyRef.current = bboxKey
+
+    if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
+    cellTowerAbortRef.current?.abort()
+    const abortController = new AbortController()
+    cellTowerAbortRef.current = abortController
+
+    cellTowerFetchTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const limit = mapZoom >= 10 ? 3500 : mapZoom >= 8 ? 1800 : mapZoom >= 6 ? 900 : 450
+          const res = await fetch(`/api/oei/cell-towers-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
+            cache: "default",
+            signal: abortController.signal,
+          })
+          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map)) return
+          const data = await res.json()
+          const features = (data.towers || []).slice(0, limit).map((tower: any, index: number) => ({
             type: "Feature" as const,
+            id: tower.id || `celltower-bbox-${index}`,
             properties: {
-              id: t.id, operator: t.operator, radio: t.radio,
-              mcc: t.mcc, source: t.source,
+              id: tower.id || `celltower-bbox-${index}`,
+              name: tower.name || tower.operator || "Cell tower",
+              operator: tower.operator,
+              radio: tower.radio,
+              height_m: tower.height_m,
+              structure_type: tower.structure_type,
+              source: Array.isArray(tower.sources) ? tower.sources.join(", ") : tower.source || "cell-towers-multi",
             },
-            geometry: { type: "Point" as const, coordinates: [t.lng, t.lat] },
-          }))
-        const fc = { type: "FeatureCollection" as const, features }
-        if (!mapReady()) return
-        if (!map.getSource("crep-celltowers-bbox")) {
-          map.addSource("crep-celltowers-bbox", { type: "geojson", data: fc })
-          map.addLayer(applyInfraPointIconMinZoom({
-            id: "crep-celltowers-bbox-dot", type: "circle", source: "crep-celltowers-bbox",
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 10, 3.5, 14, 6],
-              "circle-color": "#c084fc", "circle-opacity": 0.85,
-              "circle-stroke-width": 0.6, "circle-stroke-color": "#ffffff", "circle-stroke-opacity": 0.6,
-            },
-          }))
-        } else {
-          (map.getSource("crep-celltowers-bbox") as any).setData(fc)
+            geometry: { type: "Point" as const, coordinates: [tower.lng, tower.lat] },
+          })).filter((feature: any) => (
+            Number.isFinite(feature.geometry.coordinates[0]) &&
+            Number.isFinite(feature.geometry.coordinates[1])
+          ))
+          if (features.length === 0) cellTowerBboxKeyRef.current = ""
+          const fc = { type: "FeatureCollection" as const, features }
+
+          if (!map.getSource(sourceId)) {
+            map.addSource(sourceId, { type: "geojson", data: emptyFc, generateId: false })
+          }
+          if (!map.getLayer(layerId)) {
+            map.addLayer({
+              id: layerId,
+              type: "circle",
+              source: sourceId,
+              minzoom: TELECOM_DETAIL_MIN_ZOOM,
+              paint: {
+                "circle-radius": [
+                  "interpolate", ["linear"], ["zoom"],
+                  5, ["case", ["boolean", ["feature-state", "hover"], false], 2, 1.1],
+                  8, ["case", ["boolean", ["feature-state", "hover"], false], 3, 1.6],
+                  12, ["case", ["boolean", ["feature-state", "hover"], false], 4.5, 2.3],
+                  16, ["case", ["boolean", ["feature-state", "hover"], false], 6, 3],
+                ],
+                "circle-color": "#39ff14",
+                "circle-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 1, 0.82],
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.2, 0.35],
+                "circle-stroke-opacity": 0.65,
+              },
+            })
+          }
+          ;(map.getSource(sourceId) as any)?.setData?.(fc)
+          setLayerVisibility(map, [layerId], true)
+
+          if (!loadedRef.current.cellTowerBboxHandlers) {
+            loadedRef.current.cellTowerBboxHandlers = true
+            let hoveredId: string | number | null = null
+            const setHover = (id: string | number | null, hover: boolean) => {
+              if (id == null) return
+              try { map.setFeatureState({ source: sourceId, id }, { hover }) } catch { /* ignore transient source reset */ }
+            }
+            map.on("mousemove", layerId, (event: any) => {
+              const feature = event.features?.[0]
+              if (!feature) return
+              if (hoveredId !== feature.id) {
+                setHover(hoveredId, false)
+                hoveredId = feature.id ?? null
+                setHover(hoveredId, true)
+              }
+              try { map.getCanvas().style.cursor = "pointer" } catch { /* ignore */ }
+            })
+            map.on("mouseleave", layerId, () => {
+              setHover(hoveredId, false)
+              hoveredId = null
+              try { map.getCanvas().style.cursor = "" } catch { /* ignore */ }
+            })
+            map.on("click", layerId, (event: any) => {
+              const feature = event.features?.[0]
+              const properties = feature?.properties
+              if (!properties) return
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") {
+                hook({
+                  type: "cell_tower",
+                  id: properties.id,
+                  name: properties.name || `Cell Tower ${properties.id || ""}`.trim(),
+                  lat: event.lngLat?.lat ?? feature.geometry?.coordinates?.[1],
+                  lng: event.lngLat?.lng ?? feature.geometry?.coordinates?.[0],
+                  properties: { ...properties },
+                })
+              }
+            })
+          }
+          console.log(`[ProposalOverlays] bbox cell towers: ${features.length} loaded`)
+        } catch (error: any) {
+          if (error?.name !== "AbortError") console.warn("[ProposalOverlays/cellTowersG]", error?.message || error)
         }
-        console.log(`[ProposalOverlays] cell towers (bbox): ${features.length} loaded`)
-      } catch (e: any) { console.warn("[ProposalOverlays/cellTowersG]", e.message) }
-    })
-  }, [map, styleReadyTick, enabled.cellTowersG, bbox])
+      })()
+    }, 350)
+
+    return () => {
+      if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
+      abortController.abort()
+    }
+  }, [map, styleReadyTick, enabled.cellTowersG, bbox, mapZoom])
 
   // ─── 8. Statistical Debris Cloud ───────────────────────────────────────
   useEffect(() => {
@@ -1424,7 +1717,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // rose. Symbol layer replaces the old circle.
     const loadTrainIcon = () => {
       const hasTrainIcon = () => safeHasImage(map, "train-icon")
-      if (!mapReady() || hasTrainIcon()) return
+      if (!mapReady() || hasTrainIcon() || loadedRef.current.railwayTrainIconLoading) return
+      loadedRef.current.railwayTrainIconLoading = true
       // Inline SVG: side-view train silhouette with a headlamp, 64×32 px.
       const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="32" viewBox="0 0 64 32">
@@ -1448,10 +1742,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 </svg>`.trim()
       const img = new Image(64, 32)
       img.onload = () => {
+        loadedRef.current.railwayTrainIconLoading = false
         if (mapReady() && !hasTrainIcon()) {
-          try { map.addImage("train-icon", img as any, { pixelRatio: 2 }) } catch { /* ignore */ }
+          try {
+            if (!safeHasImage(map, "train-icon")) map.addImage("train-icon", img as any, { pixelRatio: 2 })
+          } catch { /* ignore */ }
         }
       }
+      img.onerror = () => { loadedRef.current.railwayTrainIconLoading = false }
       img.src = `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
     }
     loadTrainIcon()
@@ -1813,59 +2111,15 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           setLayerVisibility(map, layerIds, false)
           return
         }
-        const cameraQuery = new URLSearchParams({ limit: "1200" })
-        if (bbox) cameraQuery.set("bbox", bbox.join(","))
-        const [legacyRes, eagleRes] = await Promise.all([
-          fetch(`/api/oei/cctv?${cameraQuery.toString()}`).catch(() => null),
-          fetch(`/api/eagle/sources?${cameraQuery.toString()}`).catch(() => null),
-        ])
-        const legacyJson = legacyRes?.ok ? await legacyRes.json() : {}
-        const eagleJson = eagleRes?.ok ? await eagleRes.json() : {}
-        const byId = new Map<string, any>()
-        for (const c of legacyJson.cameras || []) {
-          const id = String(c.id || `${c.source || c.operator || "cctv"}-${c.lat}-${c.lng}`)
-          byId.set(id, {
-            id,
-            name: c.name || "Camera",
-            lat: c.lat,
-            lng: c.lng,
-            stream_url: c.stream_url,
-            embed_url: c.embed_url,
-            media_url: c.media_url,
-            stream_type: c.stream_type,
-            operator: c.operator,
-            country: c.country,
-            resolution: c.resolution,
-            auth_required: c.auth_required,
-            source: c.source,
-          })
-        }
-        for (const c of eagleJson.sources || []) {
-          const id = String(c.id || `${c.provider || "eagle"}-${c.lat}-${c.lng}`)
-          byId.set(id, {
-            id,
-            name: c.name || `${c.provider || "Eagle Eye"} camera`,
-            lat: c.lat,
-            lng: c.lng,
-            stream_url: c.stream_url,
-            embed_url: c.embed_url,
-            media_url: c.media_url,
-            stream_type: c.stream_url ? "hls" : c.media_url ? "image" : c.embed_url ? "iframe" : undefined,
-            operator: c.provider || "eagle-eye",
-            country: c.country,
-            resolution: c.resolution,
-            auth_required: false,
-            source: c.provider || "eagle-eye",
-          })
-        }
-        const cameras = Array.from(byId.values())
-        const features = cameras
-          .filter((c: any) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
-          .map((c: any) => ({
-            type: "Feature" as const,
-            properties: {
-              id: c.id,
+        const paintCameraPayload = async (legacyJson: any, eagleJson: any, logLabel: string) => {
+          const byId = new Map<string, any>()
+          for (const c of legacyJson.cameras || []) {
+            const id = String(c.id || `${c.source || c.operator || "cctv"}-${c.lat}-${c.lng}`)
+            byId.set(id, {
+              id,
               name: c.name || "Camera",
+              lat: c.lat,
+              lng: c.lng,
               stream_url: c.stream_url,
               embed_url: c.embed_url,
               media_url: c.media_url,
@@ -1875,65 +2129,126 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               resolution: c.resolution,
               auth_required: c.auth_required,
               source: c.source,
-            },
-            geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
-          }))
-        const fc = { type: "FeatureCollection" as const, features }
-        if (!map.getSource("crep-cctv")) {
-          await ensureEagleCameraMapIcon(map)
-          map.addSource("crep-cctv", { type: "geojson", data: fc, generateId: true })
-          map.addLayer(eagleCameraHitLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
-          map.addLayer(eagleCameraGlowLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
-          map.addLayer(eagleCameraIconLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
-          map.addLayer(eagleCameraLabelLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
-          const onCctvClick = (e: any) => {
-            const f = e.features?.[0]
-            if (!f) return
-            const p = f.properties || {}
-            const c = e.lngLat
-            try {
-              const hook = (window as any).__crep_selectAsset
-              if (typeof hook === "function") hook({
-                type: "camera",
-                id: p.id,
-                name: p.name || "Camera",
-                lat: c?.lat ?? 0,
-                lng: c?.lng ?? 0,
-                properties: p,
-              })
-            } catch { /* ignore */ }
-            try {
-              window.dispatchEvent(new CustomEvent("crep:camera:click", {
-                detail: {
-                  ...p,
-                  provider: p.operator || p.source || "cctv",
-                  lat: c?.lat,
-                  lng: c?.lng,
-                  stream_url: p.stream_url,
-                  embed_url: p.embed_url,
-                },
-              }))
-              window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", {
-                detail: {
-                  ...p,
-                  provider: p.operator || p.source || "cctv",
-                  lat: c?.lat,
-                  lng: c?.lng,
-                  stream_url: p.stream_url,
-                  embed_url: p.embed_url,
-                },
-              }))
-            } catch { /* ignore */ }
+            })
           }
-          for (const layerId of CCTV_CLICK_LAYER_IDS) {
-            map.on("click", layerId, onCctvClick)
-            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
-            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+          for (const c of eagleJson.sources || []) {
+            const id = String(c.id || `${c.provider || "eagle"}-${c.lat}-${c.lng}`)
+            byId.set(id, {
+              id,
+              name: c.name || `${c.provider || "Eagle Eye"} camera`,
+              lat: c.lat,
+              lng: c.lng,
+              stream_url: c.stream_url,
+              embed_url: c.embed_url,
+              media_url: c.media_url,
+              stream_type: c.stream_url ? "hls" : c.media_url ? "image" : c.embed_url ? "iframe" : undefined,
+              operator: c.provider || "eagle-eye",
+              country: c.country,
+              resolution: c.resolution,
+              auth_required: false,
+              source: c.provider || "eagle-eye",
+            })
           }
-          console.log(`[ProposalOverlays] CCTV: ${features.length} cameras loaded (mindex=${legacyJson.sources?.mindex || 0}, shinobi=${legacyJson.sources?.shinobi || 0}, eagle=${eagleJson.total || 0})`)
-        } else {
-          (map.getSource("crep-cctv") as any).setData(fc)
+          const cameras = Array.from(byId.values())
+          const features = cameras
+            .filter((c: any) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
+            .map((c: any) => ({
+              type: "Feature" as const,
+              properties: {
+                id: c.id,
+                name: c.name || "Camera",
+                stream_url: c.stream_url,
+                embed_url: c.embed_url,
+                media_url: c.media_url,
+                stream_type: c.stream_type,
+                operator: c.operator,
+                country: c.country,
+                resolution: c.resolution,
+                auth_required: c.auth_required,
+                source: c.source,
+              },
+              geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
+            }))
+          const fc = { type: "FeatureCollection" as const, features }
+          if (!map.getSource("crep-cctv")) {
+            await ensureEagleCameraMapIcon(map)
+            map.addSource("crep-cctv", { type: "geojson", data: fc, generateId: true })
+            map.addLayer(eagleCameraHitLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+            map.addLayer(eagleCameraGlowLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+            map.addLayer(eagleCameraIconLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+            map.addLayer(eagleCameraLabelLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
+            const onCctvClick = (e: any) => {
+              const f = e.features?.[0]
+              if (!f) return
+              const p = f.properties || {}
+              const c = e.lngLat
+              try {
+                const hook = (window as any).__crep_selectAsset
+                if (typeof hook === "function") hook({
+                  type: "camera",
+                  id: p.id,
+                  name: p.name || "Camera",
+                  lat: c?.lat ?? 0,
+                  lng: c?.lng ?? 0,
+                  properties: p,
+                })
+              } catch { /* ignore */ }
+              try {
+                window.dispatchEvent(new CustomEvent("crep:camera:click", {
+                  detail: {
+                    ...p,
+                    provider: p.operator || p.source || "cctv",
+                    lat: c?.lat,
+                    lng: c?.lng,
+                    stream_url: p.stream_url,
+                    embed_url: p.embed_url,
+                    media_url: p.media_url,
+                  },
+                }))
+                window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", {
+                  detail: {
+                    ...p,
+                    provider: p.operator || p.source || "cctv",
+                    lat: c?.lat,
+                    lng: c?.lng,
+                    stream_url: p.stream_url,
+                    embed_url: p.embed_url,
+                    media_url: p.media_url,
+                  },
+                }))
+              } catch { /* ignore */ }
+            }
+            for (const layerId of CCTV_CLICK_LAYER_IDS) {
+              map.on("click", layerId, onCctvClick)
+              map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer" })
+              map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = "" })
+            }
+          } else {
+            (map.getSource("crep-cctv") as any).setData(fc)
+          }
+          console.log(`[ProposalOverlays] CCTV ${logLabel}: ${features.length} cameras loaded (mindex=${legacyJson.sources?.mindex || 0}, shinobi=${legacyJson.sources?.shinobi || 0}, eagle=${eagleJson.total || 0})`)
         }
+
+        const fastQuery = new URLSearchParams({ limit: CCTV_FAST_LIMIT, fast: "1", live: "0" })
+        fastQuery.set("bbox", bbox.join(","))
+        const fastRes = await fetch(`/api/eagle/sources?${fastQuery.toString()}`, {
+          signal: AbortSignal.timeout(2_500),
+          cache: "no-store",
+        }).catch(() => null)
+        const fastJson = fastRes?.ok ? await fastRes.json() : {}
+        if (Array.isArray(fastJson.sources) && fastJson.sources.length > 0) {
+          await paintCameraPayload({}, fastJson, "fast")
+        }
+
+        const cameraQuery = new URLSearchParams({ limit: CCTV_FULL_LIMIT, live: "0" })
+        cameraQuery.set("bbox", bbox.join(","))
+        const [legacyRes, eagleRes] = await Promise.all([
+          fetch(`/api/oei/cctv?${cameraQuery.toString()}`, { signal: AbortSignal.timeout(5_000), cache: "no-store" }).catch(() => null),
+          fetch(`/api/eagle/sources?${cameraQuery.toString()}`, { signal: AbortSignal.timeout(5_000), cache: "no-store" }).catch(() => null),
+        ])
+        const legacyJson = legacyRes?.ok ? await legacyRes.json() : {}
+        const eagleJson = eagleRes?.ok ? await eagleRes.json() : fastJson
+        await paintCameraPayload(legacyJson, eagleJson, "full")
       } catch (e: any) { console.warn("[ProposalOverlays/cctv]", e?.message) }
     }
 

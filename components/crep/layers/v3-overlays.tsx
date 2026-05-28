@@ -22,7 +22,8 @@
  * Layers handled:
  *   • events: earthquakes, volcanoes, wildfires, storms, lightning,
  *     tornadoes — NWS + USGS + EONET + FIRMS proxies.
- *   • facilities: hospitals, fireStations, universities — OSM Overpass
+ *   • facilities: hospitals, fireStations, universities, policeStations,
+ *     libraries, civicFacilities — OSM Overpass
  *     bbox queries (render only when zoom ≥ 5 to avoid mass queries).
  *   • pollution: oilGas, methaneSources, metalOutput, waterPollution —
  *     OSM industrial tags + Overture facilities where present.
@@ -51,12 +52,16 @@ export interface V3Enabled {
   volcanoes?: boolean
   wildfires?: boolean
   storms?: boolean
+  floods?: boolean
   lightning?: boolean
   tornadoes?: boolean
 
   hospitals?: boolean
   fireStations?: boolean
   universities?: boolean
+  policeStations?: boolean
+  libraries?: boolean
+  civicFacilities?: boolean
 
   oilGas?: boolean
   methaneSources?: boolean
@@ -211,6 +216,19 @@ function wireClick(map: MapLibreMap, layerId: string, type: string, fallbackName
 // types the API doesn't cover (lightning / tornado) the layer stays empty
 // but the filter toggle still controls visibility.
 let _globalEventsCache: { ts: number; events: any[] } = { ts: 0, events: [] }
+const EVENT_DISPLAY_WINDOW_MS = 72 * 60 * 60 * 1000
+const BIODIVERSITY_HOTSPOT_MIN_ZOOM = 5
+
+function eventTimestampMs(event: any): number {
+  const value = event?.timestamp ?? event?.time ?? event?.updatedAt ?? event?.properties?.time
+  if (typeof value === "number") return value
+  if (typeof value === "string") {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
 async function fetchAllGlobalEvents(): Promise<any[]> {
   const CACHE_MS = 60_000
   const now = Date.now()
@@ -218,12 +236,16 @@ async function fetchAllGlobalEvents(): Promise<any[]> {
     return _globalEventsCache.events
   }
   try {
-    const r = await fetch("/api/natureos/global-events?limit=10000", {
+    const r = await fetch("/api/natureos/global-events?days=3&limit=25000", {
       signal: AbortSignal.timeout(15_000),
     })
     if (!r.ok) return _globalEventsCache.events
     const j = await r.json()
-    const events = j?.events || []
+    const cutoff = Date.now() - EVENT_DISPLAY_WINDOW_MS
+    const events = (j?.events || []).filter((event: any) => {
+      const t = eventTimestampMs(event)
+      return t > 0 && t >= cutoff
+    })
     _globalEventsCache = { ts: now, events }
     return events
   } catch {
@@ -231,14 +253,15 @@ async function fetchAllGlobalEvents(): Promise<any[]> {
   }
 }
 
-async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires" | "storms" | "lightning" | "tornadoes") {
+async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires" | "storms" | "floods" | "lightning" | "tornadoes") {
   // API types are SINGULAR (earthquake/volcano/wildfire/storm). Map plural
   // filter keys to the set of API type strings they should claim.
   const typeMap: Record<string, string[]> = {
     earthquakes: ["earthquake"],
     volcanoes: ["volcano"],
     wildfires: ["wildfire", "fire"],
-    storms: ["storm", "hurricane", "typhoon", "cyclone", "blizzard", "heatwave", "coldwave", "air_quality", "flood", "tsunami", "landslide", "drought"],
+    storms: ["storm", "hurricane", "typhoon", "cyclone", "blizzard", "heatwave", "coldwave", "air_quality", "drought"],
+    floods: ["flood", "tsunami", "landslide"],
     lightning: ["lightning"],
     tornadoes: ["tornado"],
   }
@@ -261,9 +284,53 @@ async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires"
     }))
 }
 
-async function fetchOSMByTag(bbox: [number, number, number, number], amenity: string) {
+function osmAddress(tags: Record<string, any> | undefined): string | undefined {
+  if (!tags) return undefined
+  const street = [tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" ").trim()
+  const city = tags["addr:city"]
+  const state = tags["addr:state"]
+  const postcode = tags["addr:postcode"]
+  return [street, city, state, postcode].filter(Boolean).join(", ") || undefined
+}
+
+function facilityQueryFragment(kind: "hospital" | "fire_station" | "university" | "police" | "library" | "civic") {
+  const byAmenity = (amenity: string) => `
+        node["amenity"="${amenity}"]({BBOX});
+        way["amenity"="${amenity}"]({BBOX});
+        relation["amenity"="${amenity}"]({BBOX});`
+  switch (kind) {
+    case "hospital":
+      return `${byAmenity("hospital")}
+        node["amenity"="clinic"]({BBOX});
+        way["amenity"="clinic"]({BBOX});
+        node["healthcare"="hospital"]({BBOX});
+        way["healthcare"="hospital"]({BBOX});`
+    case "fire_station":
+      return byAmenity("fire_station")
+    case "university":
+      return `${byAmenity("university")}
+        node["amenity"="college"]({BBOX});
+        way["amenity"="college"]({BBOX});`
+    case "police":
+      return byAmenity("police")
+    case "library":
+      return byAmenity("library")
+    case "civic":
+      return `${byAmenity("townhall")}
+        node["office"="government"]({BBOX});
+        way["office"="government"]({BBOX});
+        relation["office"="government"]({BBOX});
+        node["amenity"="courthouse"]({BBOX});
+        way["amenity"="courthouse"]({BBOX});
+        relation["amenity"="courthouse"]({BBOX});`
+  }
+}
+
+async function fetchOSMFacility(bbox: [number, number, number, number], kind: "hospital" | "fire_station" | "university" | "police" | "library" | "civic") {
   const [w, s, e, n] = bbox
-  const q = `[out:json][timeout:30];(node["amenity"="${amenity}"](${s},${w},${n},${e});way["amenity"="${amenity}"](${s},${w},${n},${e}););out center 3000;`
+  const bboxText = `${s},${w},${n},${e}`
+  const fragment = facilityQueryFragment(kind).replace(/\{BBOX\}/g, bboxText)
+  const q = `[out:json][timeout:30];(${fragment});out center 3000;`
   try {
     const r = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
       signal: AbortSignal.timeout(30_000),
@@ -275,7 +342,12 @@ async function fetchOSMByTag(bbox: [number, number, number, number], amenity: st
       lat: el.lat ?? el.center?.lat,
       lng: el.lon ?? el.center?.lon,
       name: el.tags?.name || el.tags?.operator || null,
-      tags: el.tags,
+      tags: {
+        ...(el.tags || {}),
+        address: osmAddress(el.tags),
+        facility_type: kind,
+        source: "osm-overpass",
+      },
     })).filter((x: any) => typeof x.lat === "number" && typeof x.lng === "number")
   } catch { return [] }
 }
@@ -320,7 +392,9 @@ function pointsToFC(points: any[], extraProps?: (p: any) => Record<string, any>)
 
 export default function V3Overlays({ map, enabled, bbox }: Props) {
   const setupRef = useRef(false)
+  const lastBiodiversityDataRef = useRef<any>(null)
   const [styleReadyTick, setStyleReadyTick] = useState(0)
+  const [mapZoom, setMapZoom] = useState(0)
 
   useEffect(() => {
     if (!map) return
@@ -332,19 +406,48 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
         if (mapReady(map)) setStyleReadyTick((value) => value + 1)
       })
     }
+    const resetAndBump = () => {
+      setupRef.current = false
+      bump()
+    }
 
     bump()
-    map.on("load", bump)
-    map.on("style.load", bump)
+    map.on("load", resetAndBump)
+    map.on("style.load", resetAndBump)
     map.on("styledata", bump)
     map.on("idle", bump)
 
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame)
-      try { map.off("load", bump) } catch { /* map can be gone during HMR */ }
-      try { map.off("style.load", bump) } catch { /* map can be gone during HMR */ }
+      try { map.off("load", resetAndBump) } catch { /* map can be gone during HMR */ }
+      try { map.off("style.load", resetAndBump) } catch { /* map can be gone during HMR */ }
       try { map.off("styledata", bump) } catch { /* map can be gone during HMR */ }
       try { map.off("idle", bump) } catch { /* map can be gone during HMR */ }
+    }
+  }, [map])
+
+  useEffect(() => {
+    if (!map) return
+
+    let frame: number | null = null
+    const syncZoom = () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        try {
+          const next = typeof map.getZoom === "function" ? map.getZoom() : 0
+          setMapZoom((previous) => Math.abs(previous - next) > 0.05 ? next : previous)
+        } catch { /* map can be gone during HMR */ }
+      })
+    }
+
+    syncZoom()
+    map.on("zoomend", syncZoom)
+    map.on("moveend", syncZoom)
+
+    return () => {
+      if (frame != null) window.cancelAnimationFrame(frame)
+      try { map.off("zoomend", syncZoom) } catch { /* map can be gone during HMR */ }
+      try { map.off("moveend", syncZoom) } catch { /* map can be gone during HMR */ }
     }
   }, [map])
 
@@ -354,13 +457,14 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     setupRef.current = true
 
     // EVENTS — timed circle layers, severity-colored
-    for (const k of ["earthquakes", "volcanoes", "wildfires", "storms", "lightning", "tornadoes"] as const) {
+    for (const k of ["earthquakes", "volcanoes", "wildfires", "storms", "floods", "lightning", "tornadoes"] as const) {
       ensureSource(map, `crep-${k}`)
       const colorMap: Record<string, string> = {
         earthquakes: "#b45309",
         volcanoes: "#f97316",
         wildfires: "#dc2626",
         storms: "#6366f1",
+        floods: "#0284c7",
         lightning: "#facc15",
         tornadoes: "#7c3aed",
       }
@@ -405,6 +509,36 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-stroke-color": "#ede9fe",
     })
     wireClick(map, "crep-universities-dot", "university", "University")
+
+    ensureSource(map, "crep-policestations")
+    ensureCircleLayer(map, "crep-policestations-dot", "crep-policestations", {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2.5, 10, 4.5, 14, 7],
+      "circle-color": "#38bdf8",
+      "circle-opacity": 0.78,
+      "circle-stroke-width": 0.8,
+      "circle-stroke-color": "#e0f2fe",
+    })
+    wireClick(map, "crep-policestations-dot", "police", "Police Station")
+
+    ensureSource(map, "crep-libraries")
+    ensureCircleLayer(map, "crep-libraries-dot", "crep-libraries", {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2.5, 10, 4.5, 14, 7],
+      "circle-color": "#facc15",
+      "circle-opacity": 0.78,
+      "circle-stroke-width": 0.8,
+      "circle-stroke-color": "#fef9c3",
+    })
+    wireClick(map, "crep-libraries-dot", "library", "Library")
+
+    ensureSource(map, "crep-civicfacilities")
+    ensureCircleLayer(map, "crep-civicfacilities-dot", "crep-civicfacilities", {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 3, 10, 5, 14, 8],
+      "circle-color": "#14b8a6",
+      "circle-opacity": 0.82,
+      "circle-stroke-width": 1,
+      "circle-stroke-color": "#ccfbf1",
+    })
+    wireClick(map, "crep-civicfacilities-dot", "civic", "Civic Facility")
 
     // POLLUTION — OSM industrial tagged
     for (const k of ["oilGas", "methaneSources", "metalOutput", "waterPollution"] as const) {
@@ -538,6 +672,7 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
         1.0, "rgba(239,68,68,0.95)",
       ],
     })
+    if (lastBiodiversityDataRef.current) setData(map, "crep-biodiversity", lastBiodiversityDataRef.current)
 
     console.log("[V3Overlays] sources + layers attached (empty until fetchers complete)")
   }, [map, styleReadyTick])
@@ -550,11 +685,15 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-volcanoes-dot", !!enabled.volcanoes)
     flip("crep-wildfires-dot", !!enabled.wildfires)
     flip("crep-storms-dot", !!enabled.storms)
+    flip("crep-floods-dot", !!enabled.floods)
     flip("crep-lightning-dot", !!enabled.lightning)
     flip("crep-tornadoes-dot", !!enabled.tornadoes)
     flip("crep-hospitals-dot", !!enabled.hospitals)
     flip("crep-firestations-dot", !!enabled.fireStations)
     flip("crep-universities-dot", !!enabled.universities)
+    flip("crep-policestations-dot", !!enabled.policeStations)
+    flip("crep-libraries-dot", !!enabled.libraries)
+    flip("crep-civicfacilities-dot", !!enabled.civicFacilities)
     flip("crep-oilgas-dot", !!enabled.oilGas)
     flip("crep-oilgas-label", !!enabled.oilGas)
     flip("crep-methanesources-dot", !!enabled.methaneSources)
@@ -577,18 +716,20 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-containers-dot", !!enabled.containers)
     flip("crep-vehicles-dot", !!enabled.vehicles)
     flip("crep-drones-dot", !!enabled.drones)
-    flip("crep-biodiversity-heat", !!enabled.biodiversity)
-  }, [map, enabled, styleReadyTick])
+    const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
+    flip("crep-biodiversity-heat", !!enabled.biodiversity && zoom >= BIODIVERSITY_HOTSPOT_MIN_ZOOM)
+  }, [map, enabled, styleReadyTick, mapZoom])
 
   // EVENT fetchers — poll every 60 s when enabled.
   useEffect(() => {
     if (!map) return
     const timers: any[] = []
-    const kinds: Array<["earthquakes" | "volcanoes" | "wildfires" | "storms" | "lightning" | "tornadoes", boolean]> = [
+    const kinds: Array<["earthquakes" | "volcanoes" | "wildfires" | "storms" | "floods" | "lightning" | "tornadoes", boolean]> = [
       ["earthquakes", !!enabled.earthquakes],
       ["volcanoes", !!enabled.volcanoes],
       ["wildfires", !!enabled.wildfires],
       ["storms", !!enabled.storms],
+      ["floods", !!enabled.floods],
       ["lightning", !!enabled.lightning],
       ["tornadoes", !!enabled.tornadoes],
     ]
@@ -613,28 +754,34 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       timers.push(setInterval(fetchPaint, 60_000))
     }
     return () => timers.forEach((t) => clearInterval(t))
-  }, [map, enabled.earthquakes, enabled.volcanoes, enabled.wildfires, enabled.storms, enabled.lightning, enabled.tornadoes])
+  }, [map, enabled.earthquakes, enabled.volcanoes, enabled.wildfires, enabled.storms, enabled.floods, enabled.lightning, enabled.tornadoes])
 
   // FACILITIES (OSM) — fetch when bbox is set + zoom is high enough.
   // Apr 19, 2026 (Morgan QA: hospitals/fireStations/universities toggles
   // not responding). Lowered zoom floor from 5 → 3 so a viewport roughly
   // the size of the continental US triggers fetches. Overpass can still
-  // time out for huge bboxes (hence the 30 s timeout in fetchOSMByTag),
+  // time out for huge bboxes (hence the 30 s timeout in fetchOSMFacility),
   // but the UX feedback now exists even at continental zoom.
   useEffect(() => {
     if (!map || !bbox) return
     const hospitals = enabled.hospitals
     const fires = enabled.fireStations
     const unis = enabled.universities
-    if (!hospitals && !fires && !unis) return
+    const police = enabled.policeStations
+    const libraries = enabled.libraries
+    const civic = enabled.civicFacilities
+    if (!hospitals && !fires && !unis && !police && !libraries && !civic) return
     const zoom = map.getZoom()
     if (zoom < 3) return // avoid flooding Overpass at pure world view
     ;(async () => {
-      if (hospitals) setData(map, "crep-hospitals", pointsToFC(await fetchOSMByTag(bbox, "hospital")))
-      if (fires) setData(map, "crep-firestations", pointsToFC(await fetchOSMByTag(bbox, "fire_station")))
-      if (unis) setData(map, "crep-universities", pointsToFC(await fetchOSMByTag(bbox, "university")))
+      if (hospitals) setData(map, "crep-hospitals", pointsToFC(await fetchOSMFacility(bbox, "hospital")))
+      if (fires) setData(map, "crep-firestations", pointsToFC(await fetchOSMFacility(bbox, "fire_station")))
+      if (unis) setData(map, "crep-universities", pointsToFC(await fetchOSMFacility(bbox, "university")))
+      if (police) setData(map, "crep-policestations", pointsToFC(await fetchOSMFacility(bbox, "police")))
+      if (libraries) setData(map, "crep-libraries", pointsToFC(await fetchOSMFacility(bbox, "library")))
+      if (civic) setData(map, "crep-civicfacilities", pointsToFC(await fetchOSMFacility(bbox, "civic")))
     })()
-  }, [map, bbox, enabled.hospitals, enabled.fireStations, enabled.universities])
+  }, [map, bbox, enabled.hospitals, enabled.fireStations, enabled.universities, enabled.policeStations, enabled.libraries, enabled.civicFacilities])
 
   // POLLUTION (OSM) — zoom floor 3 (not 6) so continental view triggers
   // queries. Morgan QA: "Pollution & Industry filters do nothing show
@@ -694,23 +841,27 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
   // BIODIVERSITY — GBIF-density heatmap (best-effort)
   useEffect(() => {
     if (!map || !enabled.biodiversity || !bbox) return
-    if (map.getZoom() < 3) return
+    const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
+    if (zoom < BIODIVERSITY_HOTSPOT_MIN_ZOOM) {
+      const empty = { type: "FeatureCollection" as const, features: [] }
+      lastBiodiversityDataRef.current = empty
+      setData(map, "crep-biodiversity", empty)
+      return
+    }
+    const controller = new AbortController()
     ;(async () => {
       try {
-        const [w, s, e, n] = bbox
-        const url = `https://api.gbif.org/v1/occurrence/search?limit=300&hasCoordinate=true&decimalLatitude=${s},${n}&decimalLongitude=${w},${e}`
-        const r = await fetch(url, { signal: AbortSignal.timeout(12_000) })
+        const url = `/api/crep/biodiversity-hotspots?bbox=${encodeURIComponent(bbox.join(","))}&limit=650`
+        const r = await fetch(url, { signal: controller.signal })
         if (!r.ok) return
         const j = await r.json()
-        const features = (j.results || []).filter((x: any) => x.decimalLatitude != null && x.decimalLongitude != null).map((x: any) => ({
-          type: "Feature" as const,
-          properties: { id: x.key, name: x.species || x.scientificName, taxa: x.taxonKey },
-          geometry: { type: "Point" as const, coordinates: [x.decimalLongitude, x.decimalLatitude] },
-        }))
-        setData(map, "crep-biodiversity", { type: "FeatureCollection" as const, features })
+        const data = { type: "FeatureCollection" as const, features: Array.isArray(j?.features) ? j.features : [] }
+        lastBiodiversityDataRef.current = data
+        setData(map, "crep-biodiversity", data)
       } catch { /* ignore */ }
     })()
-  }, [map, bbox, enabled.biodiversity])
+    return () => controller.abort()
+  }, [map, bbox, enabled.biodiversity, mapZoom])
 
   return null
 }

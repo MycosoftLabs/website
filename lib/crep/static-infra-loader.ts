@@ -24,7 +24,13 @@ export interface InfraLayerConfig {
   geojsonUrl: string
   /** Human-readable debug label */
   label: string
+  /** Skip raw GeoJSON fallback when it would load too much data into the UI thread. */
+  maxGeojsonFallbackBytes?: number
+  /** Never load the raw GeoJSON fallback in the browser for this source. */
+  skipGeojsonFallback?: boolean
 }
+
+const MB = 1024 * 1024
 
 export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
   substations: {
@@ -63,6 +69,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesUrl: "/api/crep/tiles/transmission-lines-us-full.pmtiles",
     geojsonUrl: "/data/crep/transmission-lines-us-full.geojson",
     label: "US transmission — ALL voltages (HIFLD + OSM + MINDEX)",
+    maxGeojsonFallbackBytes: 24 * MB,
   },
   /**
    * Global data centers (Apr 19, 2026, Morgan: "square glowing data
@@ -100,6 +107,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     // also missing, CREP falls back to the bundled 192-feature US set.
     geojsonUrl: "/data/crep/cell-towers-global.geojson",
     label: "Global cell towers (MINDEX + OpenCelliD + OSM)",
+    maxGeojsonFallbackBytes: 24 * MB,
+    skipGeojsonFallback: true,
   },
   /** Taiwan + US + territories — small bundled GeoJSON for instant paint (see fetch-celltowers-global.mjs). */
   cellTowersUsTwInstant: {
@@ -171,6 +180,15 @@ const PROBE_TTL_MS = 15_000
 export async function isPMTilesAvailable(url: string): Promise<boolean> {
   const cached = pmtilesProbeCache.get(url)
   if (cached && Date.now() - cached.ts < PROBE_TTL_MS) return cached.available
+  let controller: AbortController | null = null
+  try {
+    controller = typeof AbortController === "function" ? new AbortController() : null
+  } catch {
+    controller = null
+  }
+  const timeout = controller
+    ? globalThis.setTimeout(() => controller.abort(), 10_000)
+    : null
   try {
     // Apr 21, 2026 (Morgan OOM audit): HEAD on the Next.js dev static
     // handler returns 200 but omits `content-type` for .pmtiles files,
@@ -179,14 +197,68 @@ export async function isPMTilesAvailable(url: string): Promise<boolean> {
     // accept any 200/206 (partial) response. Also use a small Range
     // GET to verify the file has bytes (protects against the rare case
     // where the handler 200s an empty stream).
-    const res = await fetch(url, { method: "GET", headers: { Range: "bytes=0-1023" }, signal: AbortSignal.timeout(3000) })
-    const ok = (res.ok || res.status === 206) && (res.headers.get("content-length") !== "0")
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Range: "bytes=0-1023" },
+      ...(controller ? { signal: controller.signal } : {}),
+    })
+    const totalBytes = parseContentTotalBytes(res.headers)
+    const ok =
+      (res.ok || res.status === 206) &&
+      (res.headers.get("content-length") !== "0") &&
+      // A real infra PMTiles archive is never a tiny JSON/error stub. Live
+      // once served transmission-lines-us-full.pmtiles as 134 bytes with a
+      // 206 status; MapLibre accepted the source and then rendered nothing.
+      (totalBytes == null || totalBytes >= 4096)
     pmtilesProbeCache.set(url, { ts: Date.now(), available: ok })
     return ok
   } catch {
     pmtilesProbeCache.set(url, { ts: Date.now(), available: false })
     return false
+  } finally {
+    if (timeout != null) globalThis.clearTimeout(timeout)
   }
+}
+
+function parseContentTotalBytes(headers: Headers): number | null {
+  const contentRange = headers.get("content-range")
+  const totalFromRange = contentRange?.match(/\/(\d+)$/)?.[1]
+  if (totalFromRange) {
+    const parsed = Number(totalFromRange)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  const length = Number(headers.get("content-length") || "")
+  return Number.isFinite(length) && length > 0 ? length : null
+}
+
+async function isGeojsonFallbackAllowed(cfg: InfraLayerConfig): Promise<boolean> {
+  if (cfg.skipGeojsonFallback) {
+    console.warn(`[CREP/Infra] ${cfg.label}: GeoJSON fallback disabled to protect map controls`)
+    return false
+  }
+  if (!cfg.maxGeojsonFallbackBytes) return true
+  try {
+    const res = await fetch(cfg.geojsonUrl, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      cache: "force-cache",
+    })
+    const totalBytes = parseContentTotalBytes(res.headers)
+    if (totalBytes == null || totalBytes <= 1) {
+      console.warn(`[CREP/Infra] ${cfg.label}: GeoJSON fallback size unknown; skipping capped fallback`)
+      return false
+    }
+    if (totalBytes != null && totalBytes > cfg.maxGeojsonFallbackBytes) {
+      console.warn(
+        `[CREP/Infra] ${cfg.label}: GeoJSON fallback skipped (${Math.round(totalBytes / MB)}MB exceeds ${Math.round(cfg.maxGeojsonFallbackBytes / MB)}MB UI-thread budget)`,
+      )
+      return false
+    }
+  } catch {
+    console.warn(`[CREP/Infra] ${cfg.label}: GeoJSON fallback size probe failed; skipping capped fallback`)
+    return false
+  }
+  return true
 }
 
 /**
@@ -212,24 +284,48 @@ export async function addInfraSourceWithFallback(
   // through /api/crep/tiles/*. The client pmtiles library handles HTTP
   // range requests natively.
   const pmtilesUrl = resolvePmtilesUrl(cfg.pmtilesUrl)
-  if (!opts?.forceGeoJSON && (await isPMTilesAvailable(pmtilesUrl))) {
+  if (!opts?.forceGeoJSON) {
     const absoluteUrl = /^https?:\/\//.test(pmtilesUrl)
       ? pmtilesUrl
       : new URL(pmtilesUrl, window.location.origin).toString()
-    map.addSource(cfg.sourceId, {
-      type: "vector",
-      url: `pmtiles://${absoluteUrl}`,
-    })
-    console.log(`[CREP/Infra] ${cfg.label}: PMTiles source added (${/^https?:\/\//.test(pmtilesUrl) ? "CDN" : "origin"})`)
-    return { mode: "pmtiles", sourceId: cfg.sourceId }
+    try {
+      if (await isPMTilesAvailable(absoluteUrl)) {
+        try {
+          map.addSource(cfg.sourceId, {
+            type: "vector",
+            url: `pmtiles://${absoluteUrl}`,
+          })
+        } catch (e: any) {
+          if (String(e?.message || e).includes("already exists")) {
+            return { mode: "skipped", sourceId: cfg.sourceId }
+          }
+          throw e
+        }
+        console.log(`[CREP/Infra] ${cfg.label}: PMTiles source added (${/^https?:\/\//.test(pmtilesUrl) ? "CDN" : "origin"})`)
+        return { mode: "pmtiles", sourceId: cfg.sourceId }
+      }
+      console.warn(`[CREP/Infra] ${cfg.label}: PMTiles probe failed, trying GeoJSON fallback`)
+    } catch (e: any) {
+      console.warn(`[CREP/Infra] ${cfg.label}: PMTiles source add failed, trying GeoJSON fallback:`, e?.message)
+    }
   }
 
   // Fallback: fetch the GeoJSON and register as a geojson source
   try {
+    if (!(await isGeojsonFallbackAllowed(cfg))) {
+      return { mode: "skipped", sourceId: cfg.sourceId }
+    }
     const res = await fetch(cfg.geojsonUrl, { cache: "force-cache" })
     if (!res.ok) throw new Error(`${cfg.geojsonUrl} → HTTP ${res.status}`)
     const fc = await res.json()
-    map.addSource(cfg.sourceId, { type: "geojson", data: fc })
+    try {
+      map.addSource(cfg.sourceId, { type: "geojson", data: fc })
+    } catch (e: any) {
+      if (String(e?.message || e).includes("already exists")) {
+        return { mode: "skipped", sourceId: cfg.sourceId }
+      }
+      throw e
+    }
     console.log(`[CREP/Infra] ${cfg.label}: GeoJSON fallback added (${fc?.features?.length ?? 0} features)`)
     return { mode: "geojson", sourceId: cfg.sourceId }
   } catch (e: any) {

@@ -22,6 +22,12 @@ interface SearchLayoutProps {
 
 export function SearchLayout({ children }: SearchLayoutProps) {
   const { leftPanelOpen, setLeftPanelOpen, rightPanelOpen, setRightPanelOpen } = useSearchContext()
+  const closeLeftPanel = () => {
+    setLeftPanelOpen(false)
+  }
+  const closeRightPanel = () => {
+    setRightPanelOpen(false)
+  }
 
   return (
     <div className="h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)] overflow-hidden flex relative">
@@ -44,6 +50,19 @@ export function SearchLayout({ children }: SearchLayoutProps) {
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               className="search-glass-panel fixed lg:relative left-0 top-0 bottom-0 w-[280px] sm:w-[300px] lg:w-[260px] z-50 lg:z-auto shrink-0 overflow-hidden"
             >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="search-glass-orb absolute right-2 top-2 z-[90] h-7 w-7 rounded-full"
+                onPointerDown={closeLeftPanel}
+                onMouseDown={closeLeftPanel}
+                onClick={closeLeftPanel}
+                title="Collapse activity"
+                aria-label="Collapse activity panel"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
               <ActivityStreamPanel />
             </motion.div>
           </>
@@ -58,6 +77,7 @@ export function SearchLayout({ children }: SearchLayoutProps) {
           className="search-glass-button search-side-tab absolute left-0 top-1/2 -translate-y-1/2 z-30 rounded-r-lg px-1.5 sm:px-1 py-4 sm:py-3 transition-colors"
           onClick={() => setLeftPanelOpen(true)}
           title="Show activity"
+          aria-label="Show activity panel"
         >
           <Activity className="h-5 w-5 sm:h-4 sm:w-4 mb-1" />
           <ChevronRight className="h-4 w-4 sm:h-3 sm:w-3" />
@@ -66,22 +86,6 @@ export function SearchLayout({ children }: SearchLayoutProps) {
 
       {/* Center Panel - Search + Widgets (NO scroll) */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Close buttons as small pills at top edges - hidden on mobile when panel open (use overlay tap instead) */}
-        <div className="absolute top-2 left-2 z-20 hidden lg:flex gap-1">
-          {leftPanelOpen && (
-            <Button variant="ghost" size="icon" className="search-glass-orb h-6 w-6 rounded-full" onClick={() => setLeftPanelOpen(false)}>
-              <ChevronLeft className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-        <div className="absolute top-2 right-2 z-20 hidden lg:flex gap-1">
-          {rightPanelOpen && (
-            <Button variant="ghost" size="icon" className="search-glass-orb h-6 w-6 rounded-full" onClick={() => setRightPanelOpen(false)}>
-              <ChevronRight className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-
         {/* Content stays in one viewport; widgets/chat manage their own internal scrolling. */}
         <div className="flex-1 overflow-hidden">
           {children}
@@ -96,6 +100,7 @@ export function SearchLayout({ children }: SearchLayoutProps) {
           className="search-glass-button search-side-tab absolute right-0 top-1/2 -translate-y-1/2 z-30 rounded-l-lg px-1.5 sm:px-1 py-4 sm:py-3 transition-colors"
           onClick={() => setRightPanelOpen(true)}
           title="Show notepad"
+          aria-label="Show live results panel"
         >
           <StickyNote className="h-5 w-5 sm:h-4 sm:w-4 mb-1" />
           <ChevronLeft className="h-4 w-4 sm:h-3 sm:w-3" />
@@ -121,6 +126,19 @@ export function SearchLayout({ children }: SearchLayoutProps) {
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               className="search-glass-panel fixed lg:relative right-0 top-0 bottom-0 w-[280px] sm:w-[300px] lg:w-[280px] z-50 lg:z-auto shrink-0 overflow-hidden flex flex-col"
             >
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="search-glass-orb absolute left-2 top-2 z-[90] h-7 w-7 rounded-full"
+                onPointerDown={closeRightPanel}
+                onMouseDown={closeRightPanel}
+                onClick={closeRightPanel}
+                title="Collapse live results"
+                aria-label="Collapse live results panel"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
               {/* Live Results - fixed height */}
               <div className="border-b border-white/5 shrink-0">
                 <LiveResultsWidget />

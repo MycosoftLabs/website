@@ -246,8 +246,8 @@ export class EntityStreamClient {
       if (this.userErrorNotified) return
       this.userErrorNotified = true
       this.onError?.(new Error(`WebSocket connection error (${url.toString()})`))
-      if (isPublicBrowserOrigin()) {
-        this.disabledReason = "disabled after the public WebSocket failed"
+      if (isPublicBrowserOrigin() || resolvesToLocalMachine(this.endpointBase)) {
+        this.disabledReason = "disabled after the optional entity WebSocket failed"
       }
     }
 

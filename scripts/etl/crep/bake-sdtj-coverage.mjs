@@ -29,6 +29,8 @@
  *   - sdtj-military.geojson         military=* (any military-tagged object)
  *   - sdtj-data-centers.geojson     telecom=data_center | office=it |
  *                                   data_center=* | building=data_center
+ *   - sdtj-civic.geojson            town halls, courthouses, libraries,
+ *                                   and government offices
  *
  * bbox (default) — covers SD County + Tijuana metro + Rosarito:
  *   west  -117.9
@@ -275,6 +277,27 @@ const CATEGORIES = [
         way["building"="data_center"](${S},${W},${N},${E});
         node["office"="it"](${S},${W},${N},${E});
         way["office"="it"](${S},${W},${N},${E});
+      );
+      out geom center;`,
+    render: "point",
+  },
+  {
+    id: "civic",
+    out: "sdtj-civic.geojson",
+    query: `
+      [out:json][timeout:90];
+      (
+        node["amenity"="townhall"](${S},${W},${N},${E});
+        way["amenity"="townhall"](${S},${W},${N},${E});
+        relation["amenity"="townhall"](${S},${W},${N},${E});
+        node["office"="government"](${S},${W},${N},${E});
+        way["office"="government"](${S},${W},${N},${E});
+        relation["office"="government"](${S},${W},${N},${E});
+        node["amenity"="courthouse"](${S},${W},${N},${E});
+        way["amenity"="courthouse"](${S},${W},${N},${E});
+        relation["amenity"="courthouse"](${S},${W},${N},${E});
+        node["amenity"="library"](${S},${W},${N},${E});
+        way["amenity"="library"](${S},${W},${N},${E});
       );
       out geom center;`,
     render: "point",

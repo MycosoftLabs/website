@@ -252,6 +252,11 @@ async function postToMindex(observations: any[]): Promise<{ posted: number; erro
         uri: o.uri ?? `https://www.inaturalist.org/observations/${o.id}`,
         place_guess: o.place_guess ?? null,
         quality_grade: o.quality_grade ?? null,
+        taxon_name: o.taxon?.name ?? null,
+        taxon_common_name: o.taxon?.preferred_common_name ?? null,
+        taxon_inat_id: o.taxon?.id ?? null,
+        iconic_taxon_name: o.taxon?.iconic_taxon_name ?? null,
+        kingdom: o.taxon?.iconic_taxon_name ?? null,
         etl_pipeline: "inat-etl",
       },
     }))

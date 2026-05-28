@@ -32,6 +32,7 @@ import {
   type InfrastructureResult,
   type DeviceResult,
   type SpaceWeatherResult,
+  type CameraResult,
 } from "@/hooks/use-streaming-search"
 import { MagneticGrid, magneticGridItemStyle } from "@/components/search/fluid/MagneticGrid"
 import { FastActionRadial } from "@/components/search/fluid/FastActionRadial"
@@ -82,6 +83,7 @@ import { useAuth } from "@/contexts/auth-context"
 import type { WidgetType } from "@/lib/search/widget-registry"
 import { DEFAULT_WIDGET_SIZES, WIDGET_REGISTRY } from "@/lib/search/widget-registry"
 import type { ResultBucketKey } from "@/lib/search/unified-search-sdk"
+import { FIELD_MYCOBRAIN_DEPLOYMENTS } from "@/lib/devices/field-deployments"
 import { AnswersWidget } from "./widgets/AnswersWidget"
 import { CameraWidget } from "./widgets/CameraWidget"
 import { ChemistryWidget } from "./widgets/ChemistryWidget"
@@ -117,6 +119,21 @@ const EARTHQUAKE_STREAMING_SEARCH_TYPES = [
   "research",
   "events",
 ] satisfies ResultBucketKey[]
+
+const EARTH_DISPLAY_BUCKETS = [
+  "events",
+  "aircraft",
+  "vessels",
+  "satellites",
+  "weather",
+  "emissions",
+  "infrastructure",
+  "devices",
+  "space_weather",
+  "cameras",
+] satisfies ResultBucketKey[]
+
+const EARTH_DISPLAY_BUCKET_SET = new Set<ResultBucketKey>(EARTH_DISPLAY_BUCKETS)
 
 const EARTH_SIMULATOR_RESULT_WIDGETS = new Set<WidgetType>([
   "crep",
@@ -166,6 +183,57 @@ const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPD
 
 function isEarthquakeSearch(query: string) {
   return /\b(active\s+)?earthquakes?\b|\bseismic\b|\bquake\b|\btremor\b/i.test(query)
+}
+
+const SEARCH_EARTH_DEFAULT_SIZE = { width: 2 as const, height: 1 as const }
+
+function normalizeEarthWidgetSize(widget: WidgetType | null | undefined, size: { width: 1 | 2; height: 1 | 2 | 3 }) {
+  return widget === "earth" ? SEARCH_EARTH_DEFAULT_SIZE : size
+}
+
+function earthCompanionWidgetForRoute(route: SearchRoute | null | undefined): WidgetType | null {
+  return plannedWidgetsForRoute(route).find((widget) =>
+    widget !== "earth" &&
+    widget !== "answers" &&
+    widget !== "news" &&
+    widget !== "research" &&
+    widget !== "source_health" &&
+    widget !== "qa_trace"
+  ) ?? null
+}
+
+function earthCompanionWidgetSize(widget: WidgetType): { width: 1 | 2; height: 1 | 2 | 3 } {
+  if (widget === "devices") return { width: 2, height: 2 }
+  const base = DEFAULT_WIDGET_SIZES[widget] ?? { width: 1 as const, height: 1 as const }
+  return { width: 2, height: base.height === 3 ? 2 : base.height }
+}
+
+function earthBucketForWidget(widget: WidgetType): ResultBucketKey | null {
+  if (widget === "events" || widget === "weather" || widget === "emissions" || widget === "infrastructure" || widget === "devices" || widget === "cameras") return widget
+  if (widget === "aircraft" || widget === "vessels" || widget === "satellites" || widget === "space_weather") return widget
+  if (widget === "marine") return "vessels"
+  if (widget === "transport") return "aircraft"
+  if (widget === "space_assets") return "satellites"
+  if (widget === "power_grid" || widget === "risk" || widget === "supply_chain") return "infrastructure"
+  if (widget === "wildfire" || widget === "geology" || widget === "hydrology" || widget === "biosecurity") return "events"
+  if (widget === "air_quality") return "weather"
+  return null
+}
+
+function widgetForSearchEarthFeatureKind(kind: string | undefined): WidgetType | null {
+  const normalized = String(kind ?? "").toLowerCase().replace(/[_-]+/g, " ")
+  if (!normalized) return null
+  if (/\b(earthquake|quake|wildfire|fire|storm|hurricane|tornado|lightning|volcano|flood|drought|landslide|event|oil spill|outbreak)\b/.test(normalized)) return "events"
+  if (/\b(aircraft|airplane|plane|flight|aviation)\b/.test(normalized)) return "aircraft"
+  if (/\b(vessel|ship|boat|ais|marine)\b/.test(normalized)) return "vessels"
+  if (/\b(satellite|orbit|space asset|iss|starlink)\b/.test(normalized)) return "satellites"
+  if (/\b(species|fungi|fungus|plant|animal|bird|mammal|reptile|insect|observation)\b/.test(normalized)) return "species"
+  if (/\b(device|mycobrain|sensor|camera|webcam)\b/.test(normalized)) return normalized.includes("camera") ? "cameras" : "devices"
+  if (/\b(infrastructure|facility|power|substation|datacenter|data center|tower|port|rail|line)\b/.test(normalized)) return "infrastructure"
+  if (/\b(weather|aqi|air quality|forecast|radar)\b/.test(normalized)) return "weather"
+  if (/\b(emission|pollution|carbon|methane)\b/.test(normalized)) return "emissions"
+  if (/\b(space weather|solar|geomagnetic|flare|aurora)\b/.test(normalized)) return "space_weather"
+  return null
 }
 
 /** CREP search + unified Earth intelligence can return the same EONET item with different id strings. */
@@ -340,6 +408,7 @@ export function FluidSearchCanvas({
   const [manuallyHiddenWidgets, setManuallyHiddenWidgets] = useState<Set<WidgetType>>(() => new Set())
   const manuallyHiddenWidgetsRef = useRef<Set<WidgetType>>(new Set())
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+  const [selectedSearchEventId, setSelectedSearchEventId] = useState<string | null>(null)
   const [earthFocusLocation, setEarthFocusLocation] = useState<{ lat: number; lng: number; name?: string; zoom?: number } | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
@@ -397,6 +466,10 @@ export function FluidSearchCanvas({
   const cycleWidgetSize = useCallback((type: WidgetType) => {
     setWidgetSizes((prev) => {
       const cur = prev[type] || { width: 1, height: 1 }
+      if (type === "earth") {
+        const next = cur.height <= 1 ? { width: 2 as const, height: 2 as const } : { width: 2 as const, height: 1 as const }
+        return { ...prev, earth: next }
+      }
       if (type === "answers") {
         const next = cur.width === 2 ? { width: 1 as const, height: 2 as const } : { width: 2 as const, height: 1 as const }
         return { ...prev, answers: next }
@@ -441,6 +514,7 @@ export function FluidSearchCanvas({
 
   // Unified voice context (global, driven by UnifiedVoiceProvider in layout)
   const unifiedVoice = useVoice()
+  const [searchVoiceArmed, setSearchVoiceArmed] = useState(false)
 
   // Voice search integration — PersonaPlex speech → search commands
   const voiceSearch = useVoiceSearch({
@@ -484,15 +558,20 @@ export function FluidSearchCanvas({
 
   // The search page mic button drives the UNIFIED voice context so it stays in sync
   // with everything else (nav bar, MYCA widgets, etc.).
-  const isMicActive = unifiedVoice.isListening || voiceSearch.isListening
+  const isVoiceRuntimeActive = unifiedVoice.isListening || voiceSearch.isListening
+  const isMicActive = isVoiceRuntimeActive || searchVoiceArmed
   const handleMicClickRef = useRef<(() => void) | undefined>(undefined)
+  const lastMicToggleAtRef = useRef(0)
   const lastUnifiedTranscriptRef = useRef("")
   handleMicClickRef.current = () => {
-    if (unifiedVoice.isListening || voiceSearch.isListening) {
+    if (isMicActive || unifiedVoice.isListening || voiceSearch.isListening) {
+      setSearchVoiceArmed(false)
       unifiedVoice.stopListening()
       voiceSearch.stopListening()
       ctx.setVoiceListening(false)
     } else {
+      setSearchVoiceArmed(true)
+      unifiedVoice.clearTranscript?.()
       try {
         unifiedVoice.startListening()
       } catch {}
@@ -500,11 +579,15 @@ export function FluidSearchCanvas({
         voiceSearch.startListening()
       } catch {}
       ctx.setVoiceListening(true)
+      searchInputRef.current?.blur()
     }
   }
   const handleMicClick = (event?: React.PointerEvent | React.MouseEvent) => {
     event?.preventDefault()
     event?.stopPropagation()
+    const now = Date.now()
+    if (now - lastMicToggleAtRef.current < 350) return
+    lastMicToggleAtRef.current = now
     handleMicClickRef.current?.()
   }
 
@@ -512,6 +595,10 @@ export function FluidSearchCanvas({
   useEffect(() => {
     ctx.setVoiceListening(isMicActive)
   }, [isMicActive, ctx])
+
+  useEffect(() => {
+    if (isVoiceRuntimeActive) setSearchVoiceArmed(true)
+  }, [isVoiceRuntimeActive])
 
   useEffect(() => {
     if (!voiceEnabled) return
@@ -627,8 +714,16 @@ export function FluidSearchCanvas({
   const {
     species, compounds, genetics, research: streamingResearch, aiAnswer,
     liveResults,
-    events, aircraft, vessels, satellites, weather,
-    emissions, infrastructure, devices, spaceWeather, cameras,
+    events: streamingEvents,
+    aircraft: streamingAircraft,
+    vessels: streamingVessels,
+    satellites: streamingSatellites,
+    weather: streamingWeather,
+    emissions: streamingEmissions,
+    infrastructure: streamingInfrastructure,
+    devices: streamingDevices,
+    spaceWeather: streamingSpaceWeather,
+    cameras: streamingCameras,
     isLoading: rawIsLoading,
     isValidating,
     totalCount,
@@ -876,6 +971,128 @@ export function FluidSearchCanvas({
   const newsResults = Array.isArray(newsData?.results) ? newsData.results : []
   const newsError = newsData?.error
   const newsQueryUsed = newsData?.queryUsed as string | undefined
+  const earthDirectSearchTypes = useMemo(() => {
+    if (!committedQuery || committedQuery.trim().length < 2) return []
+    const route = effectiveSearchRoute ?? classifyAndRoute(committedQuery)
+    const buckets = new Set<ResultBucketKey>()
+    for (const type of route.liveResultTypes) {
+      if (EARTH_DISPLAY_BUCKET_SET.has(type as ResultBucketKey)) buckets.add(type as ResultBucketKey)
+    }
+    for (const widget of plannedWidgetsForRoute(route)) {
+      const bucket = earthBucketForWidget(widget)
+      if (bucket) buckets.add(bucket)
+    }
+    for (const widget of earthSearchWidgets) {
+      const bucket = earthBucketForWidget(widget)
+      if (bucket) buckets.add(bucket)
+    }
+    if (isEarthquakeQuery) buckets.add("events")
+    return [...buckets]
+  }, [committedQuery, earthSearchWidgets, effectiveSearchRoute, isEarthquakeQuery])
+  const { data: earthDirectData } = useSWR(
+    earthDirectSearchTypes.length > 0
+      ? ["search-earth-direct", committedQuery, earthDirectSearchTypes.join(","), activeUserLocation?.lat ?? "", activeUserLocation?.lng ?? ""]
+      : null,
+    async ([, query, typesCsv, latKey, lngKey]) => {
+      const buckets: Partial<Record<ResultBucketKey, Record<string, unknown>[]>> = {}
+      await Promise.all(String(typesCsv).split(",").map(async (type) => {
+        if (!EARTH_DISPLAY_BUCKET_SET.has(type as ResultBucketKey)) return
+        const params = new URLSearchParams({
+          q: String(query),
+          types: type,
+          limit: type === "events" ? "200" : "80",
+        })
+        if (latKey !== "") params.set("lat", String(latKey))
+        if (lngKey !== "") params.set("lng", String(lngKey))
+        const res = await fetch(`/api/search/unified?${params.toString()}`, { cache: "no-store" })
+        if (!res.ok) return
+        const payload = await res.json()
+        const rows = payload?.results?.[type]
+        if (Array.isArray(rows) && rows.length > 0) {
+          buckets[type as ResultBucketKey] = rows as Record<string, unknown>[]
+        }
+      }))
+      return buckets
+    },
+    { revalidateOnFocus: false, dedupingInterval: 15000 },
+  )
+  const directBucket = useCallback(<T,>(bucket: ResultBucketKey): T[] => {
+    const rows = earthDirectData?.[bucket]
+    return Array.isArray(rows) ? (rows as T[]) : []
+  }, [earthDirectData])
+  const { data: fieldDeviceData } = useSWR(
+    earthDirectSearchTypes.includes("devices") ? "/api/earth-simulator/devices" : null,
+    async (url) => {
+      const res = await fetch(url, { cache: "no-store" })
+      if (!res.ok) throw new Error(`Field devices failed (${res.status})`)
+      return res.json()
+    },
+    { revalidateOnFocus: false, dedupingInterval: 15000, refreshInterval: 30000 },
+  )
+  const seededFieldDeviceResults = useMemo<DeviceResult[]>(() => {
+    if (!earthDirectSearchTypes.includes("devices")) return []
+    return FIELD_MYCOBRAIN_DEPLOYMENTS.map((device) => ({
+      id: device.catalog_id,
+      deviceType: device.role,
+      name: device.name,
+      lat: device.location.lat,
+      lng: device.location.lon,
+      registryId: device.registry_id,
+      role: device.role,
+      host: device.host_ip,
+      agentUrl: device.agent_url,
+      locationLabel: device.location_label,
+      lastSeen: new Date().toISOString(),
+      status: "connected",
+      source: "MycoBrain field deployment",
+    }))
+  }, [earthDirectSearchTypes])
+  const fieldDeviceResults = useMemo<DeviceResult[]>(() => {
+    const rows = Array.isArray(fieldDeviceData?.devices) ? fieldDeviceData.devices : []
+    return rows
+      .map((row: Record<string, unknown>) => {
+        const location = (row.location as Record<string, unknown> | undefined) || {}
+        const telemetry = (row.telemetry as Record<string, unknown> | undefined) || {}
+        const lat = Number(row.lat ?? row.latitude ?? location.lat ?? location.latitude)
+        const lng = Number(row.lng ?? row.lon ?? row.longitude ?? location.lng ?? location.lon ?? location.longitude)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        const temperature = Number(telemetry.temperature_c)
+        const humidity = Number(telemetry.humidity_pct)
+        const airQuality = Number(telemetry.iaq)
+        const pressure = Number(telemetry.pressure_hpa)
+        const eco2 = Number(telemetry.eco2_ppm)
+        const gasResistance = Number(telemetry.gas_resistance_ohm)
+        return {
+          id: String(row.id ?? row.registry_id ?? `device-${lat}-${lng}`),
+          deviceType: String(row.type ?? row.role ?? "mycobrain"),
+          name: String(row.name ?? row.id ?? "MycoBrain"),
+          lat,
+          lng,
+          registryId: row.registry_id ? String(row.registry_id) : undefined,
+          role: row.role ? String(row.role) : undefined,
+          host: row.host ? String(row.host) : undefined,
+          agentUrl: row.agent_url ? String(row.agent_url) : undefined,
+          locationLabel: row.location_label ? String(row.location_label) : undefined,
+          sensorSlot: telemetry.sensor_slot ? String(telemetry.sensor_slot) : undefined,
+          temperature: Number.isFinite(temperature) ? temperature : undefined,
+          humidity: Number.isFinite(humidity) ? humidity : undefined,
+          airQuality: Number.isFinite(airQuality) ? airQuality : undefined,
+          pressure: Number.isFinite(pressure) ? pressure : undefined,
+          eco2: Number.isFinite(eco2) ? eco2 : undefined,
+          gasResistance: Number.isFinite(gasResistance) ? gasResistance : undefined,
+          lastSeen: String(row.lastSeen ?? row.last_seen ?? telemetry.captured_at ?? new Date().toISOString()),
+          status: String(row.status ?? "connected"),
+          source: String(row.source ?? "MycoBrain"),
+        } satisfies DeviceResult
+      })
+      .filter((row): row is DeviceResult => Boolean(row))
+  }, [fieldDeviceData])
+  const mergeDeviceResults = useCallback((primary: DeviceResult[], live: DeviceResult[]) => {
+    const byId = new Map<string, DeviceResult>()
+    for (const row of primary) byId.set(String(row.id), row)
+    for (const row of live) byId.set(String(row.id), { ...(byId.get(String(row.id)) ?? {}), ...row })
+    return [...byId.values()]
+  }, [])
   const liveEarthquakeEvents = useMemo(
     () => (Array.isArray(liveEarthquakeData?.events) ? liveEarthquakeData.events : [])
       .filter((event: Record<string, unknown>) => String(event.type || "").toLowerCase() === "earthquake")
@@ -897,6 +1114,17 @@ export function FluidSearchCanvas({
       })),
     [liveEarthquakeData]
   )
+  const events = streamingEvents.length > 0 ? streamingEvents : directBucket<EventResult>("events")
+  const aircraft = streamingAircraft.length > 0 ? streamingAircraft : directBucket<AircraftResult>("aircraft")
+  const vessels = streamingVessels.length > 0 ? streamingVessels : directBucket<VesselResult>("vessels")
+  const satellites = streamingSatellites.length > 0 ? streamingSatellites : directBucket<SatelliteResult>("satellites")
+  const weather = streamingWeather.length > 0 ? streamingWeather : directBucket<WeatherResult>("weather")
+  const emissions = streamingEmissions.length > 0 ? streamingEmissions : directBucket<EmissionsResult>("emissions")
+  const infrastructure = streamingInfrastructure.length > 0 ? streamingInfrastructure : directBucket<InfrastructureResult>("infrastructure")
+  const baseDevices = streamingDevices.length > 0 ? streamingDevices : directBucket<DeviceResult>("devices")
+  const devices = mergeDeviceResults(mergeDeviceResults(baseDevices, seededFieldDeviceResults), fieldDeviceResults)
+  const spaceWeather = streamingSpaceWeather.length > 0 ? streamingSpaceWeather : directBucket<SpaceWeatherResult>("space_weather")
+  const cameras = streamingCameras.length > 0 ? streamingCameras : directBucket<CameraResult>("cameras")
   const eventsForWidgets = liveEarthquakeEvents.length > 0 ? liveEarthquakeEvents : events
   const earthquakeAnswer = useMemo(() => {
     if (!isEarthquakeQuery) return undefined
@@ -1100,10 +1328,19 @@ export function FluidSearchCanvas({
   const handleViewOnMap = useCallback((observation: MapObservation | Record<string, unknown> | { lat?: number; lng?: number; title?: string; name?: string; location?: string; zoom?: number }) => {
     // Expand the map widget and set focus
     setExpandedWidgets((prev) => new Set(prev).add("earth"))
+    const row = observation as Record<string, unknown>
+    const eventId = String(row?.id ?? "")
+    if (eventId) {
+      setFocusedItemId(eventId)
+      const targetWidget = widgetForSearchEarthFeatureKind(String(row.type ?? row.category ?? "")) ?? null
+      setSelectedSearchEventId(targetWidget === "events" ? eventId : null)
+      if (targetWidget && targetWidget !== "earth") {
+        setExpandedWidgets((prev) => new Set(prev).add(targetWidget))
+      }
+    }
     const lat = Number(observation?.lat)
     const lng = Number(observation?.lng)
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      const row = observation as Record<string, unknown>
       setEarthFocusLocation({
         lat,
         lng,
@@ -1120,6 +1357,69 @@ export function FluidSearchCanvas({
     window.addEventListener("search:focus-earth-location", handler)
     return () => window.removeEventListener("search:focus-earth-location", handler)
   }, [handleViewOnMap])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const target = event.target as HTMLElement | null
+      const row = target?.closest?.("[data-search-map-focus='true']") as HTMLElement | null
+      if (!row) return
+      const lat = Number(row.dataset.searchMapLat)
+      const lng = Number(row.dataset.searchMapLng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      handleViewOnMap({
+        id: row.dataset.searchItemId,
+        type: row.dataset.searchMapKind,
+        lat,
+        lng,
+        title: row.dataset.searchMapTitle,
+        zoom: 10.5,
+      })
+    }
+    document.addEventListener("pointerdown", handler, true)
+    document.addEventListener("click", handler, true)
+    return () => {
+      document.removeEventListener("pointerdown", handler, true)
+      document.removeEventListener("click", handler, true)
+    }
+  }, [handleViewOnMap])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { id?: string; kind?: string } | null
+      if (!detail?.id) {
+        setSelectedSearchEventId(null)
+        setFocusedItemId(null)
+        return
+      }
+      const id = String(detail.id)
+      const targetWidget = widgetForSearchEarthFeatureKind(detail.kind) ?? "earth"
+      setSelectedSearchEventId(id)
+      setFocusedItemId(id)
+      if (targetWidget !== "events") setSelectedSearchEventId(null)
+      setExpandedWidgets((prev) => {
+        const next = new Set(prev)
+        next.add("earth")
+        if (targetWidget !== "earth") next.add(targetWidget)
+        return next
+      })
+      if (targetWidget !== "earth") {
+        setWidgetSizes((prev) => ({
+          ...prev,
+          earth: SEARCH_EARTH_DEFAULT_SIZE,
+          [targetWidget]: DEFAULT_WIDGET_SIZES[targetWidget] ?? { width: 1, height: 1 },
+        }))
+      }
+      window.setTimeout(() => {
+        const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | undefined
+        const targetEl = widgetElRefs.current[targetWidget]
+        if (container && targetEl) {
+          targetEl.scrollIntoView({ block: "nearest", behavior: "smooth" })
+        }
+      }, 120)
+    }
+    window.addEventListener("search:earth-feature-selected", handler)
+    return () => window.removeEventListener("search:earth-feature-selected", handler)
+  }, [])
 
   // Track search to MYCA intention when results arrive
   useEffect(() => {
@@ -1340,14 +1640,6 @@ export function FluidSearchCanvas({
     }
   }, [ctx.widgetFocusTarget])
 
-  // Clear focusedItemId after widget has had time to pick it up
-  useEffect(() => {
-    if (focusedItemId) {
-      const timer = setTimeout(() => setFocusedItemId(null), 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [focusedItemId])
-
   // Track cursor for magnetic effect
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
@@ -1401,7 +1693,7 @@ export function FluidSearchCanvas({
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(locationResults) > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: len(newsResults) > 0, depth: getParallaxDepth("news") },
     { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: mergedCrepData.length > 0, depth: getParallaxDepth("crep") },
-    { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || eventObservations.length > 0 || !!earth2Data, depth: getParallaxDepth("earth") },
+    { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || eventObservations.length > 0 || !!earth2Data || len(aircraft) > 0 || len(vessels) > 0 || len(satellites) > 0 || len(devices) > 0 || len(cameras) > 0 || len(infrastructure) > 0 || len(weather) > 0 || len(emissions) > 0, depth: getParallaxDepth("earth") },
     // Earth Intelligence widgets
     { type: "events", label: "Events", icon: "⚡", gradient: "from-red-500/30 to-orange-500/20", hasData: len(eventsForWidgets) > 0, depth: getParallaxDepth("events") },
     { type: "aircraft", label: "Aircraft", icon: "✈️", gradient: "from-sky-500/30 to-indigo-500/20", hasData: len(aircraft) > 0, depth: getParallaxDepth("aircraft") },
@@ -1474,11 +1766,18 @@ export function FluidSearchCanvas({
     const priorityOrder: Partial<Record<WidgetType, number>> = {
       earth: 0,
       events: 1,
-      infrastructure: 2,
-      risk: 3,
-      power_grid: 4,
-      species: 5,
-      weather: 6,
+      aircraft: 2,
+      vessels: 3,
+      satellites: 4,
+      devices: 5,
+      cameras: 6,
+      infrastructure: 7,
+      weather: 8,
+      space_weather: 9,
+      emissions: 10,
+      risk: 11,
+      power_grid: 12,
+      species: 13,
       answers: 20,
       news: 21,
       research: 22,
@@ -1562,16 +1861,18 @@ export function FluidSearchCanvas({
 
     if (route.primaryWidget || route.searchPlan?.widgetOrder?.length) {
       const planned = plannedWidgetsForRoute(route)
+      const earthCompanion = earthCompanionWidgetForRoute(route)
       setWidgetSizes(prev => ({
         ...prev,
-        ...(route.primaryWidget ? { [route.primaryWidget]: route.primaryWidgetSize } : {}),
+        ...(route.primaryWidget ? { [route.primaryWidget]: normalizeEarthWidgetSize(route.primaryWidget, route.primaryWidgetSize) } : {}),
         ...Object.fromEntries(
           planned
             .filter((widget) => widget !== route.primaryWidget && DEFAULT_WIDGET_SIZES[widget])
             .map((widget) => [widget, DEFAULT_WIDGET_SIZES[widget]])
         ),
+        ...(earthCompanion ? { [earthCompanion]: earthCompanionWidgetSize(earthCompanion) } : {}),
         answers: { width: 2, height: 1 },
-        earth: route.searchPlan?.earth ? { width: 2, height: 3 } : (prev.earth ?? { width: 2, height: 3 }),
+        earth: route.searchPlan?.earth ? SEARCH_EARTH_DEFAULT_SIZE : (prev.earth ?? SEARCH_EARTH_DEFAULT_SIZE),
       }))
     }
 
@@ -1626,7 +1927,7 @@ export function FluidSearchCanvas({
 
     const route = effectiveSearchRoute ?? classifyAndRoute(committedQuery)
     if (earthSearchRule.domain === "all") {
-      setWidgetSizes((prev) => ({ ...prev, earth: { width: 2, height: 3 } }))
+      setWidgetSizes((prev) => ({ ...prev, earth: { width: 2, height: 1 } }))
       setExpandedWidgets(new Set<WidgetType>(["earth", "answers"]))
       return
     }
@@ -1683,9 +1984,11 @@ export function FluidSearchCanvas({
 
     // ── Primary widget gets maximum viewport size ──
     if (route.primaryWidget) {
+      const earthCompanion = earthCompanionWidgetForRoute(route)
       setWidgetSizes(prev => ({
         ...prev,
-        [route.primaryWidget!]: route.primaryWidgetSize,
+        [route.primaryWidget!]: normalizeEarthWidgetSize(route.primaryWidget, route.primaryWidgetSize),
+        ...(earthCompanion ? { [earthCompanion]: earthCompanionWidgetSize(earthCompanion) } : {}),
         answers: { width: 2, height: 1 },
       }))
     }
@@ -1796,6 +2099,12 @@ export function FluidSearchCanvas({
       source_health: 0,
       qa_trace: 0,
     }
+    const earthDirectCounts = Object.fromEntries(
+      EARTH_DISPLAY_BUCKETS.map((bucket) => [
+        bucket,
+        Array.isArray(earthDirectData?.[bucket]) ? earthDirectData[bucket]?.length ?? 0 : 0,
+      ]),
+    )
     ;(window as unknown as {
       __MYCOSOFT_SEARCH_QA__?: Record<string, unknown>
     }).__MYCOSOFT_SEARCH_QA__ = {
@@ -1811,6 +2120,8 @@ export function FluidSearchCanvas({
       expandedWidgets: [...expandedWidgets],
       hiddenWidgets: [...manuallyHiddenWidgets],
       dataMap: qaDataMap,
+      earthDirectSearchTypes,
+      earthDirectCounts,
       earthLayers: route?.searchPlan?.earth?.enabledLayers ?? earthSearchRule.enabledLayerIds,
       forbiddenEarthLayers: route?.searchPlan?.earth?.disabledLayers ?? [],
       entityFamilies: route?.searchPlan?.entityFamilies ?? [],
@@ -1820,7 +2131,7 @@ export function FluidSearchCanvas({
       error,
       capturedAt: new Date().toISOString(),
     }
-  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
+  }, [committedQuery, localQuery, hasPendingInput, isLoading, totalCount, effectiveSearchRoute, expandedWidgets, manuallyHiddenWidgets, species.length, compounds.length, genetics.length, research.length, newsResults.length, answerForWidget, mergedCrepData.length, earth2Data, mapObservations.length, earthSearchRule.enabledLayerIds, earthDirectData, earthDirectSearchTypes, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), error])
 
   // Map from widgetType -> DOM element for auto-scroll-into-view.
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -2024,8 +2335,11 @@ export function FluidSearchCanvas({
                 "search-glass-icon-button h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-all duration-200",
                 isMicActive && "is-active is-listening"
               )}
+              onPointerDown={handleMicClick}
+              onMouseDown={handleMicClick}
               onClick={handleMicClick}
               title={isMicActive ? "Stop listening" : "Voice search (speak to search)"}
+              aria-pressed={isMicActive}
               aria-label={isMicActive ? "Stop voice search" : "Start voice search"}
             >
               {isMicActive
@@ -2070,16 +2384,24 @@ export function FluidSearchCanvas({
               {sortedGridWidgets.map((config) => {
                 const sizeClasses = getWidgetSizeClasses(config.type)
                 const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type as WidgetType] || { width: 1, height: 1 }
+                const isEarthWidget = config.type === "earth"
+                const displaySize = isEarthWidget
+                  ? { width: 2 as const, height: (currentSize.height <= 1 ? 1 : 2) as 1 | 2 }
+                  : currentSize
+                const gridHeightSpan = isEarthWidget ? 1 : displaySize.height
                 const isOnlyEarthWidget = sortedGridWidgets.length === 1 && config.type === "earth"
-                const widthSpan = (columns <= 1 ? 1 : Math.min(currentSize.width, 2)) as 1 | 2
+                const widthSpan = (columns <= 1 ? 1 : Math.min(displaySize.width, 2)) as 1 | 2
                 const phoneAvailableHeight = "calc(100dvh - 8.25rem)"
-                const phoneEarthHeight = phoneVisibleStackCount === 1
-                  ? phoneAvailableHeight
-                  : "min(31rem, max(20rem, calc((100dvh - 8.25rem) * 0.62)))"
+                const phoneEarthHeight = "min(22rem, max(15rem, calc((100vw - 1rem) * 0.62)))"
                 const phoneRegularHeight = phoneVisibleStackCount === 1
                   ? phoneAvailableHeight
                   : "min(20rem, max(14rem, calc((100dvh - 8.25rem) * 0.36)))"
                 const phoneHeight = config.type === "earth" ? phoneEarthHeight : phoneRegularHeight
+                const desktopWidgetHeight = currentSize.height === 1
+                  ? "14rem"
+                  : currentSize.height === 2
+                    ? "22rem"
+                    : "31.5rem"
 
                 return (
                 <div
@@ -2095,14 +2417,27 @@ export function FluidSearchCanvas({
                     ...magneticGridItemStyle({
                       columns,
                       widthSpan,
-                      heightSpan: isPhoneStack ? 1 : currentSize.height,
+                      heightSpan: isPhoneStack ? 1 : gridHeightSpan,
                     }),
                     ...(isOnlyEarthWidget && !isPhoneStack
                       ? {
                           gridColumn: "1 / -1",
-                          height: "calc(100dvh - 8.25rem)",
-                          maxHeight: "calc(100dvh - 8.25rem)",
-                          minHeight: "34rem",
+                          width: "100%",
+                        }
+                      : {}),
+                    ...(isEarthWidget && !isPhoneStack
+                      ? {
+                          aspectRatio: "16 / 9",
+                          height: "auto",
+                          maxHeight: "min(34rem, 56vh)",
+                          minHeight: "20rem",
+                          width: "100%",
+                        }
+                      : {}),
+                    ...(!isPhoneStack && !isEarthWidget
+                      ? {
+                          height: desktopWidgetHeight,
+                          maxHeight: desktopWidgetHeight,
                           width: "100%",
                         }
                       : {}),
@@ -2110,7 +2445,7 @@ export function FluidSearchCanvas({
                       ? {
                           height: phoneHeight,
                           maxHeight: phoneHeight,
-                          minHeight: config.type === "earth" ? "20rem" : "12rem",
+                          minHeight: config.type === "earth" ? "15rem" : "12rem",
                           width: "100%",
                         }
                       : {}),
@@ -2119,6 +2454,17 @@ export function FluidSearchCanvas({
                       : expandedWidgets.has(config.type)) ? -1 : 0,
                   }}
                   draggable={config.type !== "earth"}
+                  role="region"
+                  aria-label={`${config.label} widget`}
+                  tabIndex={0}
+                  onPointerDownCapture={(event) => {
+                    const target = event.target as HTMLElement | null
+                    if (target?.closest("button,a,input,textarea,select,[role='button']")) return
+                    event.currentTarget.focus()
+                    if (!expandedWidgets.has(config.type)) {
+                      handleFocusWidget({ type: config.type })
+                    }
+                  }}
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                     if (config.type === "earth") {
                       e.preventDefault()
@@ -2167,9 +2513,10 @@ export function FluidSearchCanvas({
                     className={cn(
                       "bg-card/90 backdrop-blur-md border border-border rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full flex flex-col",
                       // Height classes based on widget size
-                      !isPhoneStack && currentSize.height === 1 && "min-h-[200px]",
-                      !isPhoneStack && currentSize.height === 2 && "min-h-[350px]",
-                      !isPhoneStack && currentSize.height === 3 && "min-h-[500px]",
+                      isEarthWidget && "min-h-[15rem]",
+                      !isEarthWidget && !isPhoneStack && currentSize.height === 1 && "min-h-[200px]",
+                      !isEarthWidget && !isPhoneStack && currentSize.height === 2 && "min-h-[350px]",
+                      !isEarthWidget && !isPhoneStack && currentSize.height === 3 && "min-h-[500px]",
                     )}
                   >
                     <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border shrink-0", `bg-gradient-to-r ${config.gradient}`)}>
@@ -2180,7 +2527,7 @@ export function FluidSearchCanvas({
                         <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">{config.label}</span>
                         {/* Size indicator */}
                         <span className="text-[9px] text-muted-foreground/60 hidden sm:inline">
-                          {currentSize.width}x{currentSize.height}
+                          {displaySize.width}x{displaySize.height}
                         </span>
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1">
@@ -2191,7 +2538,7 @@ export function FluidSearchCanvas({
                             size="icon"
                             className="search-glass-icon-button h-6 w-6 rounded-full"
                             onClick={() => cycleWidgetSize(config.type)}
-                            title={`Resize (current: ${currentSize.width}x${currentSize.height})`}
+                            title={`Resize (current: ${displaySize.width}x${displaySize.height})`}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
                               <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
@@ -2203,7 +2550,10 @@ export function FluidSearchCanvas({
                         </Button>
                       </div>
                     </div>
-                    <div className="p-2 sm:p-3 overflow-auto flex-1 flex flex-col min-h-0">
+                    <div className={cn(
+                      "flex-1 flex flex-col min-h-0",
+                      isEarthWidget ? "overflow-hidden p-0" : "p-2 sm:p-3 overflow-auto",
+                    )}>
                       <WidgetContent
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
@@ -2240,6 +2590,7 @@ export function FluidSearchCanvas({
                         searchPipelineBusy={searchPipelineBusy}
                         isFocused={true}
                         focusedItemId={focusedItemId}
+                        selectedEventId={selectedSearchEventId}
                         onFocusWidget={handleFocusWidget}
                         onAddToNotepad={handleAddToNotepad}
                         onViewOnMap={handleViewOnMap}
@@ -2483,7 +2834,7 @@ function WidgetContent({
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
-  isLoading, searchPipelineBusy, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
+  isLoading, searchPipelineBusy, isFocused, focusedItemId, selectedEventId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
   openArticle, openPaper, pinnedSpeciesName, query: searchQuery,
 }: {
   type: WidgetType
@@ -2520,6 +2871,7 @@ function WidgetContent({
   isFocused: boolean
   query?: string
   focusedItemId?: string | null
+  selectedEventId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
   onViewOnMap?: (observation: MapObservation | Record<string, unknown>) => void
@@ -2588,6 +2940,7 @@ function WidgetContent({
         !vessels?.length &&
         !satellites?.length &&
         !devices?.length &&
+        !cameras?.length &&
         !searchQuery
       ) return <EmptyWidgetState type="earth" label="Earth Simulator" />
       return (
@@ -2603,8 +2956,10 @@ function WidgetContent({
             ...(vessels ?? []).map((item) => ({ ...item, type: "vessel" })),
             ...(satellites ?? []).map((item) => ({ ...item, type: "satellite" })),
             ...(devices ?? []).map((item) => ({ ...item, type: "device" })),
+            ...(cameras ?? []).map((item) => ({ ...item, type: "camera" })),
           ]}
           isFocused={isFocused}
+          focusedId={focusedItemId}
           onAddToNotepad={onAddToNotepad}
         />
       )
@@ -2612,31 +2967,31 @@ function WidgetContent({
       return <EmbeddingAtlasWidget query={searchQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "events":
       if (!events?.length) return <EmptyWidgetState type="events" label="Global Events" />
-      return <FallbackWidget bucketKey="events" title="Global Events" items={events} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="events" title="Global Events" items={events} onViewOnMap={onViewOnMap} focusedId={selectedEventId ?? focusedItemId} />
     case "aircraft":
       if (!aircraft?.length) return <EmptyWidgetState type="aircraft" label="Aircraft Tracker" />
-      return <FallbackWidget bucketKey="aircraft" title="Aircraft Tracker" items={aircraft} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="aircraft" title="Aircraft Tracker" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "vessels":
       if (!vessels?.length) return <EmptyWidgetState type="vessels" label="Vessel Tracker" />
-      return <FallbackWidget bucketKey="vessels" title="Vessel Tracker" items={vessels} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="vessels" title="Vessel Tracker" items={vessels} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "satellites":
       if (!satellites?.length) return <EmptyWidgetState type="satellites" label="Satellites" />
-      return <FallbackWidget bucketKey="satellites" title="Satellites" items={satellites} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="satellites" title="Satellites" items={satellites} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "weather":
       if (!weather?.length) return <EmptyWidgetState type="weather" label="Weather" />
-      return <FallbackWidget bucketKey="weather" title="Weather" items={weather} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="weather" title="Weather" items={weather} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "emissions":
       if (!emissions?.length) return <EmptyWidgetState type="emissions" label="Emissions" />
-      return <FallbackWidget bucketKey="emissions" title="Emissions" items={emissions} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="emissions" title="Emissions" items={emissions} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "infrastructure":
       if (!infrastructure?.length) return <EmptyWidgetState type="infrastructure" label="Infrastructure" />
-      return <FallbackWidget bucketKey="infrastructure" title="Infrastructure" items={infrastructure} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="infrastructure" title="Infrastructure" items={infrastructure} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "devices":
       if (!devices?.length) return <EmptyWidgetState type="devices" label="MycoBrain Devices" />
-      return <FallbackWidget bucketKey="devices" title="MycoBrain Devices" items={devices} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="devices" title="MycoBrain Devices" items={devices} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "space_weather":
       if (!spaceWeather?.length) return <EmptyWidgetState type="space_weather" label="Space Weather" />
-      return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} onViewOnMap={onViewOnMap} />
+      return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "cameras":
       if (searchPipelineBusy && !cameras?.length) {
         return (

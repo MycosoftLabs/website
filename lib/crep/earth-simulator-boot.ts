@@ -78,13 +78,30 @@ export const EARTH_SIM_EVENT_LAYER_IDS = [
   "storms",
   "lightning",
   "tornadoes",
+  "floods",
   "events",
 ] as const
 
-export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "eagleEyeCameras", "militaryBases"] as const
+export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "eagleEyeCameras", "militaryBases", "radar"] as const
 
 /** Fungi only at first paint — MYCA/nature context stays live immediately. */
-export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = ["fungi"] as const
+export const EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS = [
+  "mycobrain",
+  "devMushroom1",
+  "devHyphae1",
+  "sporebase",
+  "devMycoNode",
+  "devAlarm",
+  "devPsathyrella",
+  "partners",
+  "smartfence",
+] as const
+
+export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = [
+  "fungi",
+  "biodiversity",
+  ...EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS,
+] as const
 
 /** Device/mover master layers ON at boot so child filter chips never lie. */
 export const EARTH_SIM_DEVICE_BOOT_LAYER_IDS = [
@@ -128,16 +145,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "fungalAtlasProtected",
   "fungalAtlasUncertainty",
   "fungalAtlasFci",
-  "mycobrain",
-  "devMushroom1",
-  "devHyphae1",
-  "sporebase",
-  "devMycoNode",
-  "devAlarm",
-  "devPsathyrella",
-  "partners",
-  "smartfence",
-  "biodiversity",
   "weather",
   "population",
   "humanMovement",
@@ -158,7 +165,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "waterPollution",
   "eagleEyeEvents",
   "im3DataCenterFootprints",
-  "radar",
   "hospitals",
   "fireStations",
   "universities",
@@ -218,10 +224,10 @@ export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
   showAmFungi: false,
   showEcmFungi: true,
   showMyceliumHeat: false,
-  showMycoBrain: false,
-  showSporeBase: false,
-  showSmartFence: false,
-  showPartnerNetworks: false,
+  showMycoBrain: true,
+  showSporeBase: true,
+  showSmartFence: true,
+  showPartnerNetworks: true,
   showEarthquakes: true,
   showVolcanoes: true,
   showWildfires: true,
@@ -290,9 +296,7 @@ export function isEarthSimStagedBootActive(): boolean {
 
 export function isEarthSimProjectLayer(id: string): boolean {
   const lower = id.toLowerCase()
-  // SD/TJ regional infra (hospitals, cell towers, sewage, etc.) stays ON for
   // San Diego / Tijuana demos — only disable generic project-scoped layers.
-  if (lower.startsWith("sdtj")) return false
   return PROJECT_LAYER_PREFIXES.some((prefix) => lower.startsWith(prefix))
 }
 
@@ -309,10 +313,10 @@ export function applyEarthSimulatorBootToLayers<T extends LayerConfigLike>(layer
     if (layer.id === "fungalAtlasAM") {
       return { ...layer, enabled: false, opacity: EARTH_SIM_FUNGAL_OPACITY }
     }
-    if (offSet.has(layer.id) || isEarthSimProjectLayer(layer.id)) {
+    if (offSet.has(layer.id)) {
       return { ...layer, enabled: false }
     }
-    if (EARTH_SIM_PROFILE_ON_LAYER_IDS.has(layer.id)) {
+    if (EARTH_SIM_PROFILE_ON_LAYER_IDS.has(layer.id) || isEarthSimProjectLayer(layer.id)) {
       const opacity =
         layer.id === "fungalAtlasECM" ? EARTH_SIM_FUNGAL_OPACITY : layer.opacity
       return { ...layer, enabled: true, opacity }
@@ -343,6 +347,7 @@ export const EARTH_SIMULATOR_BOOT_PROFILE = {
   telecomBoot: EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
   events: EARTH_SIM_EVENT_LAYER_IDS,
   alwaysOnInfra: EARTH_SIM_ALWAYS_ON_INFRA_IDS,
+  mycoBrainBootLayers: EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS,
   instantLiveLayers: EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
   offAtBoot: EARTH_SIM_OFF_AT_BOOT_LAYER_IDS,
   fungalOpacity: EARTH_SIM_FUNGAL_OPACITY,

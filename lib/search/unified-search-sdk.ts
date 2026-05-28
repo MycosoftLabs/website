@@ -185,9 +185,18 @@ export interface DeviceResult {
   name: string
   lat?: number
   lng?: number
+  registryId?: string
+  role?: string
+  host?: string
+  agentUrl?: string
+  locationLabel?: string
+  sensorSlot?: string
   temperature?: number
   humidity?: number
   airQuality?: number
+  pressure?: number
+  eco2?: number
+  gasResistance?: number
   sporeCount?: number
   lastSeen: string
   status: string

@@ -68,8 +68,8 @@ export interface LODPolicy {
 
 export type TimeWindow = "6h" | "24h" | "7d" | "14d" | "30d" | "6m" | "1y" | "5y" | "all"
 
-/** Map display only — never show events older than 7 days (MINDEX unchanged). May 26, 2026 */
-export const MAP_DISPLAY_MAX_EVENT_AGE_MS = 7 * 86400_000
+/** Map display only: keep Earth events to the last 72 hours (MINDEX unchanged). May 27, 2026 */
+export const MAP_DISPLAY_MAX_EVENT_AGE_MS = 3 * 86400_000
 
 /** Map display only — never show nature observations older than 1 year. May 26, 2026 */
 export const MAP_DISPLAY_MAX_NATURE_AGE_MS = 365 * 86400_000
@@ -93,7 +93,7 @@ export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
  *   TELECOM_DETAIL_MIN_ZOOM — state+ (cell towers, radio, signal heatmap)
  *   TELECOM_CITY_MIN_ZOOM — city (bbox-scoped / regional tower detail)
  */
-export const INFRA_POINT_ICON_MIN_ZOOM = 7
+export const INFRA_POINT_ICON_MIN_ZOOM = 5
 
 /** Infrastructure begins painting once the user is at country/state scale. */
 export const INFRA_COUNTRY_REVEAL_MIN_ZOOM = 3
@@ -102,7 +102,7 @@ export const INFRA_COUNTRY_REVEAL_MIN_ZOOM = 3
 export const INFRA_HEAVY_POINT_MIN_ZOOM = INFRA_POINT_ICON_MIN_ZOOM
 
 /** Data centers (global + IM3 + regional DC points) — hidden at US fly-to/reload zoom. */
-export const DATA_CENTER_MIN_ZOOM = INFRA_HEAVY_POINT_MIN_ZOOM
+export const DATA_CENTER_MIN_ZOOM = 5.5
 
 /** Power plants (local + global + EIA) — hidden at US fly-to/reload zoom. */
 export const POWER_PLANT_MIN_ZOOM = INFRA_HEAVY_POINT_MIN_ZOOM
@@ -120,7 +120,7 @@ export const TELECOM_CITY_MIN_ZOOM = 8
 export const INFRA_LINE_GLOBAL_MIN_ZOOM = 0
 
 /** Railway raster tiles — visible from state/region zoom (May 26, 2026). */
-export const RAILWAY_MIN_ZOOM = 6
+export const RAILWAY_MIN_ZOOM = 5
 
 export function isCityLevelZoom(
   zoom: number,

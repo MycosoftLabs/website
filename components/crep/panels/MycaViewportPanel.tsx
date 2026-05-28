@@ -68,6 +68,11 @@ interface AnalysisMention {
   camera?: EagleViewportSource
 }
 
+interface AnalysisFact {
+  label: string
+  value: string
+}
+
 interface SelectedViewportContext {
   key: string
   kind: string
@@ -76,6 +81,8 @@ interface SelectedViewportContext {
   lat?: number
   lng?: number
   zoom?: number
+  facts?: AnalysisFact[]
+  metadata?: Record<string, string | number | boolean | null | undefined>
 }
 
 interface ViewportIntelLike {
@@ -100,6 +107,7 @@ interface AnalysisSection {
   tone: "event" | "nature" | "motion" | "civic" | "sensor" | "selection"
   Icon: LucideIcon
   action?: AnalysisMention
+  facts?: AnalysisFact[]
 }
 
 interface MycaViewportPanelProps {
@@ -201,6 +209,14 @@ function placeLabel(intel?: ViewportIntelLike | null) {
   )
 }
 
+function intelContentScore(intel?: ViewportIntelLike | null): number {
+  return (
+    arrayCount(intel?.officials) +
+    arrayCount(intel?.civic?.officials) +
+    arrayCount(intel?.facilities?.facilities)
+  )
+}
+
 function formatElapsed(ms: number) {
   if (!Number.isFinite(ms) || ms < 0) return "now"
   const seconds = Math.round(ms / 1000)
@@ -291,6 +307,86 @@ function selectedKindToMentionKind(kind?: string): AnalysisMentionKind {
   }
 }
 
+function factsFromMetadata(metadata?: SelectedViewportContext["metadata"]): AnalysisFact[] {
+  if (!metadata) return []
+  return Object.entries(metadata)
+    .map(([label, value]) => {
+      if (value == null || value === "") return null
+      return { label, value: String(value) }
+    })
+    .filter((fact): fact is AnalysisFact => Boolean(fact))
+}
+
+function selectedFacts(selectedContext?: SelectedViewportContext | null): AnalysisFact[] {
+  return (selectedContext?.facts?.length ? selectedContext.facts : factsFromMetadata(selectedContext?.metadata)).slice(0, 6)
+}
+
+function formatFactsInline(facts: AnalysisFact[], limit = 3): string {
+  return facts
+    .slice(0, limit)
+    .map((fact) => `${fact.label}: ${fact.value}`)
+    .join("; ")
+}
+
+function sectionRelevance(section: AnalysisSection, selectedContext?: SelectedViewportContext | null): number {
+  const kind = (selectedContext?.kind || "").toLowerCase()
+  if (section.id === "selected") return 0
+  if (kind) {
+    if (kind.includes("species") || kind.includes("fung") || kind.includes("nature")) {
+      if (section.id === "nature") return 1
+      if (section.id === "sensors") return 2
+    }
+    if (
+      kind.includes("event") ||
+      kind.includes("earthquake") ||
+      kind.includes("fire") ||
+      kind.includes("storm") ||
+      kind.includes("flood") ||
+      kind.includes("weather") ||
+      kind.includes("volcano") ||
+      kind.includes("tornado")
+    ) {
+      if (section.id === "events") return 1
+      if (section.id === "sensors") return 2
+    }
+    if (kind.includes("aircraft") || kind.includes("vessel") || kind.includes("ship") || kind.includes("satellite")) {
+      if (section.id === "motion") return 1
+      if (section.id === "sensors") return 2
+    }
+    if (
+      kind.includes("camera") ||
+      kind.includes("sensor") ||
+      kind.includes("buoy") ||
+      kind.includes("radar") ||
+      kind.includes("tower") ||
+      kind.includes("device")
+    ) {
+      if (section.id === "sensors") return 1
+      if (section.id === "civic") return 2
+    }
+    if (
+      kind.includes("civic") ||
+      kind.includes("government") ||
+      kind.includes("facility") ||
+      kind.includes("infrastructure") ||
+      kind.includes("power") ||
+      kind.includes("substation") ||
+      kind.includes("transmission")
+    ) {
+      if (section.id === "civic") return 1
+      if (section.id === "sensors") return 2
+    }
+  }
+
+  const metric = section.metric.toLowerCase()
+  if (section.id === "events" && metric !== "0") return 3
+  if (section.id === "nature" && metric !== "0") return 4
+  if (section.id === "sensors" && metric !== "0") return 5
+  if (section.id === "civic" && metric !== "0" && metric !== "...") return 6
+  if (section.id === "motion" && metric !== "0/0/0") return 7
+  return 20
+}
+
 function MycaViewportPanel({
   mapBounds,
   mapZoom,
@@ -329,12 +425,26 @@ function MycaViewportPanel({
   const [analysisReason, setAnalysisReason] = useState<AnalysisTriggerReason>("initial")
   const [interactionNonce, setInteractionNonce] = useState(0)
   const [localEagleSources, setLocalEagleSources] = useState<EagleViewportSource[]>([])
+  const [localViewportIntel, setLocalViewportIntel] = useState<ViewportIntelLike | null>(null)
+  const [localViewportIntelLoading, setLocalViewportIntelLoading] = useState(false)
   const lastEagleKey = useRef<string | null>(null)
 
   const snapshotRef = useRef<{ bounds: MapBoundsLike; zoom: number } | null>(null)
+  const intelSnapshotRef = useRef<{ bounds: MapBoundsLike; zoom: number } | null>(null)
+  const intelRevisionKeyRef = useRef<string | null>(null)
+  const intelControllerRef = useRef<AbortController | null>(null)
   const [localRevisionKey, setLocalRevisionKey] = useState<string | null>(null)
   const revisionKey = useParentRevision ? prefetchedRevisionKey ?? null : localRevisionKey
   const eagleSources = useParentEaglePrefetch ? (prefetchedEagleSources ?? EMPTY_EAGLE_SOURCES) : localEagleSources
+  const viewportIntel = useMemo(() => {
+    const parentScore = intelContentScore(prefetchedIntel)
+    const localScore = intelContentScore(localViewportIntel)
+    if (parentScore > 0 || localScore === 0) return prefetchedIntel ?? localViewportIntel
+    return localViewportIntel
+  }, [prefetchedIntel, localViewportIntel])
+  const viewportIntelLoading =
+    (prefetchedIntelLoading || localViewportIntelLoading) &&
+    intelContentScore(viewportIntel) === 0
   const environment = useParentEnvPrefetch
     ? (prefetchedEnvironment as { weather?: EnvWeather } | null)
     : localEnvironment
@@ -373,8 +483,60 @@ function MycaViewportPanel({
     return () => {
       if (aiTimerRef.current) window.clearTimeout(aiTimerRef.current)
       aiControllerRef.current?.abort()
+      intelControllerRef.current?.abort()
     }
   }, [])
+
+  useEffect(() => {
+    if (!mapBounds || !assetsReady) return
+    const next = { bounds: mapBounds, zoom: mapZoom }
+    const shouldRefresh =
+      !intelSnapshotRef.current ||
+      isSignificantViewportChange(intelSnapshotRef.current, next)
+    if (!shouldRefresh) return
+
+    const revision = makeViewportRevisionKey(mapBounds, mapZoom)
+    if (intelRevisionKeyRef.current === revision) return
+    intelRevisionKeyRef.current = revision
+    intelSnapshotRef.current = next
+
+    intelControllerRef.current?.abort()
+    const controller = new AbortController()
+    intelControllerRef.current = controller
+    setLocalViewportIntelLoading(true)
+
+    void (async () => {
+      try {
+        const q = new URLSearchParams({
+          north: String(mapBounds.north),
+          south: String(mapBounds.south),
+          east: String(mapBounds.east),
+          west: String(mapBounds.west),
+          zoom: String(mapZoom),
+        })
+        const res = await fetch(`/api/crep/viewport-intel?${q}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as ViewportIntelLike
+        if (!controller.signal.aborted) setLocalViewportIntel(data)
+      } catch (error) {
+        if ((error as Error)?.name !== "AbortError") {
+          console.warn("[MycaViewportPanel] viewport intel:", (error as Error)?.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) setLocalViewportIntelLoading(false)
+      }
+    })()
+  }, [
+    mapBounds?.north,
+    mapBounds?.south,
+    mapBounds?.east,
+    mapBounds?.west,
+    mapZoom,
+    assetsReady,
+  ])
 
   useEffect(() => {
     if (useParentRevision) return
@@ -514,19 +676,23 @@ function MycaViewportPanel({
   )
 
   const civicSignal = useMemo(() => {
-    const officials = arrayCount(prefetchedIntel?.officials) + arrayCount(prefetchedIntel?.civic?.officials)
-    const facilities = arrayCount(prefetchedIntel?.facilities?.facilities)
-    return `${placeLabel(prefetchedIntel)}:${officials}:${facilities}:${prefetchedIntelLoading ? "loading" : "ready"}`
-  }, [prefetchedIntel, prefetchedIntelLoading])
+    const officials = arrayCount(viewportIntel?.officials) + arrayCount(viewportIntel?.civic?.officials)
+    const facilities = arrayCount(viewportIntel?.facilities?.facilities)
+    return `${placeLabel(viewportIntel)}:${officials}:${facilities}:${viewportIntelLoading ? "loading" : "ready"}`
+  }, [viewportIntel, viewportIntelLoading])
 
   const localSummary = useMemo(() => {
-    const place = placeLabel(prefetchedIntel)
+    const place = placeLabel(viewportIntel)
     const placePrefix = place === "Viewport" ? "Current viewport" : `${place} viewport`
+    const facts = selectedFacts(selectedContext)
     const pieces = [
       `${placePrefix}: ${latestViewportEvents.length} events, ${visibleFungalObservations.length} biodiversity records, ${aircraftCount} aircraft, ${vesselCount} vessels, ${satelliteCount} satellites, ${eagleSources.length} cameras, and ${prefetchedSensors?.length ?? 0} sensors.`,
     ]
     if (selectedContext?.label) {
-      pieces.push(`Selected: ${selectedContext.label}${selectedContext.detail ? ` (${selectedContext.detail})` : ""}.`)
+      const factText = facts.length ? ` ${formatFactsInline(facts)}.` : ""
+      pieces.unshift(
+        `Selected ${selectedContext.kind}: ${selectedContext.label}${selectedContext.detail ? ` (${selectedContext.detail})` : ""}.${factText}`,
+      )
     }
     if (latestViewportEvents.length) {
       pieces.push(`Event focus: ${latestViewportEvents.slice(0, 3).map((event) => event.title).join("; ")}.`)
@@ -536,7 +702,7 @@ function MycaViewportPanel({
     }
     return pieces.join(" ")
   }, [
-    prefetchedIntel,
+    viewportIntel,
     latestViewportEvents,
     visibleFungalObservations.length,
     aircraftCount,
@@ -613,12 +779,13 @@ function MycaViewportPanel({
             zoom: mapZoom,
             center: c,
             bounds: mapBounds,
-            place: placeLabel(prefetchedIntel),
+            place: placeLabel(viewportIntel),
             selected: selectedContext
               ? {
                 kind: selectedContext.kind,
                 label: selectedContext.label,
                 detail: selectedContext.detail,
+                facts: selectedFacts(selectedContext),
               }
               : null,
             counts: {
@@ -685,7 +852,7 @@ function MycaViewportPanel({
     airQuality,
     tempUnit,
     windUnitSuffix,
-    prefetchedIntel,
+    viewportIntel,
     selectedContext,
     eventSignal,
   ])
@@ -947,7 +1114,7 @@ function MycaViewportPanel({
         id: "section-viewport",
         kind: "viewport" as const,
         label: "Viewport",
-        detail: placeLabel(prefetchedIntel),
+        detail: placeLabel(viewportIntel),
         lng: viewportCenter.lng,
         lat: viewportCenter.lat,
         zoom: Math.max(8, mapZoom),
@@ -955,11 +1122,12 @@ function MycaViewportPanel({
       : undefined
 
     if (selectedContext) {
+      const facts = selectedFacts(selectedContext)
       sections.push({
         id: "selected",
-        title: "Selected",
+        title: compactText(selectedContext.label, 22),
         metric: selectedContext.kind,
-        detail: selectedContext.detail || selectedContext.label,
+        detail: selectedContext.detail || (facts.length ? formatFactsInline(facts, 2) : selectedContext.label),
         tone: "selection",
         Icon: Crosshair,
         action: selectedContext.lat != null && selectedContext.lng != null
@@ -973,6 +1141,7 @@ function MycaViewportPanel({
             zoom: selectedContext.zoom ?? Math.max(12, mapZoom),
           }
           : undefined,
+        facts,
       })
     }
 
@@ -986,6 +1155,11 @@ function MycaViewportPanel({
       tone: "event",
       Icon: AlertTriangle,
       action: analysisMentions.find((mention) => mention.kind === "event") ?? centerAction,
+      facts: [
+        { label: "Active", value: String(latestViewportEvents.length) },
+        latestViewportEvents[0]?.severity ? { label: "Top", value: latestViewportEvents[0].severity } : null,
+        latestViewportEvents[0]?.type ? { label: "Type", value: latestViewportEvents[0].type } : null,
+      ].filter((fact): fact is AnalysisFact => Boolean(fact)),
     })
 
     sections.push({
@@ -996,6 +1170,10 @@ function MycaViewportPanel({
       tone: "nature",
       Icon: Leaf,
       action: analysisMentions.find((mention) => mention.kind === "species") ?? centerAction,
+      facts: [
+        { label: "Visible", value: String(visibleFungalObservations.length) },
+        topSpecies[0] ? { label: "Focus", value: topSpecies[0] } : null,
+      ].filter((fact): fact is AnalysisFact => Boolean(fact)),
     })
 
     sections.push({
@@ -1009,18 +1187,28 @@ function MycaViewportPanel({
         analysisMentions.find((mention) =>
           mention.kind === "aircraft" || mention.kind === "vessel" || mention.kind === "satellite",
         ) ?? centerAction,
+      facts: [
+        { label: "Aircraft", value: String(aircraftCount) },
+        { label: "Vessels", value: String(vesselCount) },
+        { label: "Sats", value: String(satelliteCount) },
+      ],
     })
 
-    const officials = arrayCount(prefetchedIntel?.officials) + arrayCount(prefetchedIntel?.civic?.officials)
-    const facilities = arrayCount(prefetchedIntel?.facilities?.facilities)
+    const officials = arrayCount(viewportIntel?.officials) + arrayCount(viewportIntel?.civic?.officials)
+    const facilities = arrayCount(viewportIntel?.facilities?.facilities)
     sections.push({
       id: "civic",
       title: "Civic",
-      metric: prefetchedIntelLoading ? "..." : String(officials + facilities),
-      detail: `${placeLabel(prefetchedIntel)}: ${officials} officials, ${facilities} facilities.`,
+      metric: viewportIntelLoading ? "..." : String(officials + facilities),
+      detail: `${placeLabel(viewportIntel)}: ${officials} officials, ${facilities} facilities.`,
       tone: "civic",
       Icon: Users,
       action: centerAction,
+      facts: [
+        { label: "Officials", value: String(officials) },
+        { label: "Facilities", value: String(facilities) },
+        { label: "Place", value: compactText(placeLabel(viewportIntel), 30) },
+      ],
     })
 
     sections.push({
@@ -1031,14 +1219,19 @@ function MycaViewportPanel({
       tone: "sensor",
       Icon: Camera,
       action: analysisMentions.find((mention) => mention.kind === "camera") ?? centerAction,
+      facts: [
+        { label: "Cameras", value: String(eagleSources.length) },
+        { label: "Sensors", value: String(prefetchedSensors?.length ?? 0) },
+        airQuality?.us_aqi != null ? { label: "AQI", value: String(airQuality.us_aqi) } : null,
+      ].filter((fact): fact is AnalysisFact => Boolean(fact)),
     })
 
     return sections
   }, [
     selectedContext,
     viewportCenter,
-    prefetchedIntel,
-    prefetchedIntelLoading,
+    viewportIntel,
+    viewportIntelLoading,
     mapZoom,
     latestViewportEvents,
     visibleFungalObservations.length,
@@ -1051,6 +1244,12 @@ function MycaViewportPanel({
     eagleSources.length,
     airQuality?.us_aqi,
   ])
+
+  const visibleAnalysisSections = useMemo(() => {
+    return [...analysisSections]
+      .sort((a, b) => sectionRelevance(a, selectedContext) - sectionRelevance(b, selectedContext))
+      .slice(0, 2)
+  }, [analysisSections, selectedContext])
 
   const analysisCadenceLabel = useMemo(() => {
     if (aiLoading) return `Reading ${analysisReason}`
@@ -1107,31 +1306,44 @@ function MycaViewportPanel({
           </div>
 
           <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-            {analysisSections.map((section) => {
+            {visibleAnalysisSections.map((section) => {
               const Icon = section.Icon
               return (
                 <div
                   key={section.id}
-                  className={cn("min-h-[66px] rounded-md border p-1.5", sectionTone(section.tone))}
+                  className={cn("min-h-[54px] rounded-md border p-1.5", sectionTone(section.tone))}
                 >
                   <div className="mb-1 flex items-center justify-between gap-1">
                     <div className="flex min-w-0 items-center gap-1">
-                      <Icon className="h-3 w-3 shrink-0 opacity-90" />
-                      <span className="truncate text-[8px] font-bold uppercase tracking-wide">{section.title}</span>
+                      <Icon className="h-2.5 w-2.5 shrink-0 opacity-85" />
+                      <span className="truncate text-[7px] font-bold uppercase tracking-wide">{section.title}</span>
                     </div>
-                    <span className="shrink-0 text-[8px] font-bold tabular-nums">{section.metric}</span>
+                    <span className="shrink-0 text-[7px] font-bold tabular-nums">{section.metric}</span>
                   </div>
-                  <p className="line-clamp-2 min-h-[22px] text-[7px] leading-relaxed text-gray-300">
+                  <p className="line-clamp-2 min-h-[18px] text-[7px] leading-snug text-gray-300">
                     {section.detail}
                   </p>
+                  {section.facts?.length ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {section.facts.slice(0, 3).map((fact) => (
+                        <span
+                          key={`${section.id}-${fact.label}-${fact.value}`}
+                          className="max-w-full truncate rounded border border-white/10 bg-black/25 px-1 py-0.5 text-[6px] leading-none text-white/80"
+                          title={`${fact.label}: ${fact.value}`}
+                        >
+                          <span className="text-white/45">{fact.label}</span> {fact.value}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {section.action?.lat != null && section.action.lng != null && (
                     <button
                       type="button"
                       onClick={() => handleMentionClick(section.action!)}
-                      className="mt-1 inline-flex h-5 items-center gap-1 rounded border border-white/10 bg-white/10 px-1.5 text-[7px] font-semibold text-white transition-colors hover:border-white/25 hover:bg-white/20"
+                      className="mt-1 inline-flex h-[17px] items-center gap-1 rounded border border-white/10 bg-white/10 px-1.5 text-[6px] font-semibold text-white transition-colors hover:border-white/25 hover:bg-white/20"
                       title={`Fly to ${section.action.label}`}
                     >
-                      <MapPin className="h-2.5 w-2.5" />
+                      <MapPin className="h-2 w-2" />
                       Fly
                     </button>
                   )}

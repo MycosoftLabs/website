@@ -1,0 +1,185 @@
+{
+  "generated_at": "2026-05-28T10:13:28.306Z",
+  "base": "http://localhost:3010",
+  "results": [
+    {
+      "name": "home",
+      "ok": true,
+      "status": 200,
+      "ms": 122,
+      "bytes": 85815,
+      "summary": {}
+    },
+    {
+      "name": "earth_page",
+      "ok": true,
+      "status": 200,
+      "ms": 98,
+      "bytes": 86256,
+      "summary": {}
+    },
+    {
+      "name": "search_devices_page",
+      "ok": true,
+      "status": 200,
+      "ms": 91,
+      "bytes": 68563,
+      "summary": {}
+    },
+    {
+      "name": "search_devices_api",
+      "ok": true,
+      "status": 200,
+      "ms": 59,
+      "bytes": 1311,
+      "summary": {
+        "totalCount": 2,
+        "source": "live",
+        "live_results_count": 0,
+        "result_keys": [
+          "species",
+          "compounds",
+          "genetics",
+          "research",
+          "events",
+          "aircraft",
+          "vessels",
+          "satellites"
+        ],
+        "ai_answer_excerpt": "I found live results for \"Show devices on map\". Use the visible widgets and Earth layers for source details, timestamps, and map focus."
+      }
+    },
+    {
+      "name": "search_earthquakes_api",
+      "ok": true,
+      "status": 200,
+      "ms": 189,
+      "bytes": 424833,
+      "summary": {
+        "totalCount": 1480,
+        "source": "live",
+        "live_results_count": 0,
+        "result_keys": [
+          "species",
+          "compounds",
+          "genetics",
+          "research",
+          "events",
+          "aircraft",
+          "vessels",
+          "satellites"
+        ],
+        "ai_answer_excerpt": "Live USGS seismic feed is active for \"Active earthquakes\".\n1,480 earthquakes are in the current global feed, including 82 at magnitude 4.5 or higher.\nStrongest "
+      }
+    },
+    {
+      "name": "earth_devices_api",
+      "ok": true,
+      "status": 200,
+      "ms": 7106,
+      "bytes": 1474,
+      "summary": {
+        "count": 2,
+        "devices_count": 2,
+        "device_names": [
+          "Mushroom 1",
+          "Hyphae 1"
+        ]
+      }
+    },
+    {
+      "name": "sd_fungi_api",
+      "ok": true,
+      "status": 200,
+      "ms": 3473,
+      "bytes": 173981,
+      "summary": {
+        "observations_count": 233,
+        "observation_names": [
+          "Ganoderma polychromum",
+          "field bird's nest fungus",
+          "Pucciniaceae",
+          "Mushrooms, Bracket Fungi, Puffballs, and Allies",
+          "Trabutia quercina"
+        ]
+      }
+    },
+    {
+      "name": "global_events_api",
+      "ok": true,
+      "status": 200,
+      "ms": 2875,
+      "bytes": 112436,
+      "summary": {
+        "events_count": 200,
+        "event_names": [
+          "Flood Advisory",
+          "M1.9 Earthquake - 17 km WNW of Ivanof Bay, Alaska",
+          "M3.3 Earthquake - 9 km WNW of Primo Tapia, B.C., MX",
+          "M1.5 Earthquake - 27 km WSW of Jal, New Mexico",
+          "M1.7 Earthquake - 38 km ENE of McKinney Acres, Texas"
+        ]
+      }
+    },
+    {
+      "name": "satellites_api",
+      "ok": true,
+      "status": 200,
+      "ms": 54,
+      "bytes": 45363,
+      "summary": {
+        "total": 100,
+        "source": "satnogs"
+      }
+    },
+    {
+      "name": "buoys_api",
+      "ok": true,
+      "status": 200,
+      "ms": 58,
+      "bytes": 263922,
+      "summary": {
+        "total": 856,
+        "source": "cache"
+      }
+    },
+    {
+      "name": "eagle_sources_api",
+      "ok": true,
+      "status": 200,
+      "ms": 67,
+      "bytes": 9130,
+      "summary": {
+        "total": 20,
+        "source": "eagle-video-sources",
+        "sources_count": 20,
+        "source_names": [
+          "ALERTCalifornia — Mt. Cowles (San Diego)",
+          "San Diego Zoo — Panda Cam",
+          "I-5 SB at Via de San Ysidro (POE approach)",
+          "I-5 at Dairy Mart Rd (San Ysidro)",
+          "SR-75 at Silver Strand (State Beach)"
+        ]
+      }
+    },
+    {
+      "name": "viewport_intel_sd",
+      "ok": true,
+      "status": 200,
+      "ms": 64,
+      "bytes": 22105,
+      "summary": {
+        "place": {
+          "displayName": "San Diego, San Diego County, California, United States",
+          "city": "San Diego",
+          "county": "San Diego County",
+          "state": "California",
+          "country": "United States",
+          "countryCode": "US",
+          "lat": 32.8,
+          "lng": -117.1
+        }
+      }
+    }
+  ]
+}

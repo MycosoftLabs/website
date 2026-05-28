@@ -41,7 +41,6 @@ const SERVICES = [
   { name: "Redis", url: process.env.REDIS_URL || "redis://localhost:6379", healthPath: "", tcp: true },
   { name: "Postgres", url: process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgres://localhost:5432", healthPath: "", tcp: true },
   { name: "Qdrant Vector DB", url: process.env.QDRANT_URL || "http://localhost:6333", healthPath: "/healthz" },
-  { name: "Earth-2 Weather", url: process.env.EARTH2_URL || "http://localhost:8080", healthPath: "/health" },
   { name: "FlightRadar24", url: "https://data-cloud.flightradar24.com", healthPath: "/zones/fcgi/feed.js?faa=1&bounds=33,-117,34,-116", external: true },
   { name: "NOAA SWPC", url: "https://services.swpc.noaa.gov", healthPath: "/products/noaa-scales.json", external: true },
   { name: "iNaturalist", url: "https://api.inaturalist.org", healthPath: "/v1/observations?per_page=1&quality_grade=research", external: true },

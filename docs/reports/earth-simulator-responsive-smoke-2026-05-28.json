@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-05-28T10:08:40.533Z",
+  "checks": [
+    {
+      "name": "tablet",
+      "viewport": {
+        "width": 820,
+        "height": 1180
+      },
+      "mobile": false,
+      "data": {
+        "crepMobile": false,
+        "classificationStrip": false,
+        "statusFooter": true,
+        "sidebar": {
+          "x": 0,
+          "y": 112,
+          "width": 256,
+          "height": 632,
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": null
+        },
+        "map": {
+          "x": 256,
+          "y": 250,
+          "width": 564,
+          "height": 842,
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": null
+        },
+        "left": {
+          "x": 268,
+          "y": 262,
+          "width": 288,
+          "height": 818,
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": "true"
+        },
+        "right": {
+          "x": 488,
+          "y": 262,
+          "width": 320,
+          "height": 818,
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": "true"
+        },
+        "hasDock": true
+      }
+    },
+    {
+      "name": "phone",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "mobile": true,
+      "data": {
+        "crepMobile": true,
+        "classificationStrip": false,
+        "statusFooter": false,
+        "sidebar": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "display": "none",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": null
+        },
+        "map": {
+          "x": 0,
+          "y": 145,
+          "width": 390,
+          "height": 699,
+          "display": "block",
+          "opacity": "1",
+          "pointerEvents": "auto",
+          "mobileOpen": null
+        },
+        "left": {
+          "x": -312,
+          "y": 837,
+          "width": 374,
+          "height": 422,
+          "display": "block",
+          "opacity": "0",
+          "pointerEvents": "none",
+          "mobileOpen": "false"
+        },
+        "right": {
+          "x": 382,
+          "y": 837,
+          "width": 374,
+          "height": 422,
+          "display": "block",
+          "opacity": "0",
+          "pointerEvents": "none",
+          "mobileOpen": "false"
+        },
+        "hasDock": true,
+        "afterIntel": "true",
+        "afterMyca": {
+          "left": "false",
+          "right": "true"
+        }
+      }
+    }
+  ]
+}

@@ -289,45 +289,7 @@ export function CrepMobileShell({
     [onProjectSelect]
   )
 
-  // On non-phone viewports we render children untouched — no chrome at all.
-  if (disabled || !isPhone) return <>{children}</>
-
-  return (
-    <>
-      {children}
-
-      <CrepMobileTopBar
-        onProjectSelect={handleProjectSelect}
-        onToggleLeft={() => {
-          setLeftOpen((v) => !v)
-          setRightOpen(false)
-        }}
-        onToggleRight={() => {
-          setRightOpen((v) => !v)
-          setLeftOpen(false)
-        }}
-        liveEntityCount={liveEntityCount}
-      />
-
-      <CrepMobileDrawer
-        open={leftOpen}
-        onClose={() => setLeftOpen(false)}
-        title="Layers & Filters"
-        icon={<Layers className="h-4 w-4" />}
-      >
-        {leftPanel ?? <DefaultLeftPanel />}
-      </CrepMobileDrawer>
-
-      <CrepMobileDrawer
-        open={rightOpen}
-        onClose={() => setRightOpen(false)}
-        title="Intel & Details"
-        icon={<Radar className="h-4 w-4" />}
-      >
-        {rightPanel ?? <DefaultRightPanel />}
-      </CrepMobileDrawer>
-    </>
-  )
+  return <>{children}</>
 }
 
 // ──────────────────────────────────────────────────────────────────────

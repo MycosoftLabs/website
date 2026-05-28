@@ -4,18 +4,11 @@
  * Cesium Globe Component
  * February 5, 2026
  * 
- * Full NVIDIA Earth-2 integration with 3D weather visualization
- * Uses Earth2Client for real data fetching
+ * Earth2/GPU visualization is disabled until the production GPU service is ready.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 
-// NVIDIA Earth-2 3D Visualization Components
-import { WeatherVolumeLayer } from "./earth2/weather-volume-layer";
-import { StormCellVisualization } from "./earth2/storm-cell-visualization";
-import { WindFieldArrows } from "./earth2/wind-field-arrows";
-import { SporeParticleSystem } from "./earth2/spore-particle-system";
-import { ForecastHUD } from "./earth2/forecast-hud";
 import type { EarthContextFilters } from "@/lib/search/earth-context-filters";
 
 interface GridTile {
@@ -114,9 +107,6 @@ export function CesiumGlobe({
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   const [contextObservations, setContextObservations] = useState<ContextObservation[]>([]);
   
-  // Earth-2 AI Weather State
-  const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
-  const [earth2Opacity, setEarth2Opacity] = useState(0.7);
   const [viewerReady, setViewerReady] = useState(false);
 
   useEffect(() => {
@@ -922,11 +912,6 @@ export function CesiumGlobe({
     );
   }
 
-  // Check if any Earth-2 layers are active
-  const hasActiveEarth2Layers = layers?.earth2Forecast || layers?.earth2Nowcast || 
-    layers?.earth2SporeDisperal || layers?.earth2WindField || 
-    layers?.earth2StormCells || layers?.earth2Clouds;
-
   return (
     <div className="w-full h-full relative">
       <div ref={cesiumContainerRef} className="w-full h-full" />
@@ -936,92 +921,9 @@ export function CesiumGlobe({
           Full integration using Earth2Client for real data from MAS API
           ═══════════════════════════════════════════════════════════════════════════ */}
       
-      {/* Earth-2 Forecast HUD - Status Display */}
-      {viewerReady && hasActiveEarth2Layers && (
-        <div className="absolute top-4 right-72 z-20">
-          <ForecastHUD 
-            forecastHours={earth2ForecastHours}
-            selectedModel="atlas-era5"
-            activeLayers={[
-              layers?.earth2Forecast && "Forecast",
-              layers?.earth2Nowcast && "Nowcast",
-              layers?.earth2SporeDisperal && "Spore",
-              layers?.earth2WindField && "Wind",
-              layers?.earth2StormCells && "Storms",
-              layers?.earth2Clouds && "Clouds",
-            ].filter(Boolean) as string[]}
-          />
-        </div>
-      )}
+      {/* Earth2 HUD intentionally disabled until the GPU service is ready. */}
 
-      {/* Earth-2 Weather Volume Layer (Clouds & Precipitation) */}
-      {viewerReady && viewerRef.current && (layers?.earth2Forecast || layers?.earth2Clouds) && (
-        <WeatherVolumeLayer
-          viewer={viewerRef.current}
-          visible={true}
-          forecastHours={earth2ForecastHours}
-          opacity={earth2Opacity}
-          variable={layers?.earth2Clouds ? "clouds" : "precipitation"}
-          model="atlas-era5"
-          onDataLoaded={(stats) => {
-            console.log("[Earth-2] Weather volume stats:", stats);
-          }}
-        />
-      )}
-
-      {/* Earth-2 Storm Cell Visualization (StormScope Nowcast) */}
-      {viewerReady && viewerRef.current && (layers?.earth2Nowcast || layers?.earth2StormCells) && (
-        <StormCellVisualization
-          viewer={viewerRef.current}
-          visible={true}
-          forecastMinutes={60}
-          opacity={earth2Opacity}
-          showLightning={true}
-          showTornadoWarnings={true}
-          onStormClick={(storm) => {
-            console.log("[Earth-2] Storm clicked:", storm);
-          }}
-          onDataLoaded={(storms) => {
-            console.log("[Earth-2] Loaded", storms.length, "storm cells");
-          }}
-        />
-      )}
-
-      {/* Earth-2 Wind Field 3D Arrows */}
-      {viewerReady && viewerRef.current && layers?.earth2WindField && (
-        <WindFieldArrows
-          viewer={viewerRef.current}
-          visible={true}
-          forecastHours={earth2ForecastHours}
-          opacity={earth2Opacity}
-          altitude={10000}
-          density="medium"
-          animated={true}
-          colorBySpeed={true}
-          onDataLoaded={(stats) => {
-            console.log("[Earth-2] Wind field stats:", stats);
-          }}
-        />
-      )}
-
-      {/* Earth-2 Spore Particle System (FUSARIUM Integration) */}
-      {viewerReady && viewerRef.current && layers?.earth2SporeDisperal && (
-        <SporeParticleSystem
-          viewer={viewerRef.current}
-          visible={true}
-          forecastHours={earth2ForecastHours}
-          opacity={earth2Opacity}
-          showConcentrationZones={true}
-          showParticleTrails={true}
-          particleCount={500}
-          onZoneClick={(zone) => {
-            console.log("[Earth-2] Spore zone clicked:", zone);
-          }}
-          onDataLoaded={(zones) => {
-            console.log("[Earth-2] Loaded", zones.length, "spore zones");
-          }}
-        />
-      )}
+      {/* Earth2/GPU weather visualization intentionally disabled until the GPU service is ready. */}
       
       {/* Grid Stats Overlay */}
       {showLandGrid && gridStats && (

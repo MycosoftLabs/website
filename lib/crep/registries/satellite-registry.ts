@@ -19,6 +19,7 @@
  */
 
 import { getSatelliteTrackingClient } from "@/lib/oei/connectors/satellite-tracking"
+import { readSatellitesFromDiskCache, saveSatellitesToDiskCache } from "@/lib/crep/satellite-disk-cache"
 
 // =============================================================================
 // TYPES
@@ -80,6 +81,7 @@ const SOURCE_TIMEOUT_MS =
     : process.env.NODE_ENV === "development"
       ? 1500
       : 8000 // Fast fail; moving assets should never block map navigation.
+const SATELLITE_EXTERNAL_FAST_TIMEOUT_MS = Number(process.env.CREP_SATELLITE_EXTERNAL_TIMEOUT_MS || 5000)
 
 const CELESTRAK_API = "https://celestrak.org/NORAD/elements/gp.php"
 // Note: TLE mirror now requires trailing slash (returns 301 without it)
@@ -108,8 +110,9 @@ async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
       try {
         const res = await fetch(url, {
           cache: "no-store",
-          // CelesTrak can be slow under load; give each group 15s
-          signal: AbortSignal.timeout(15_000),
+          // Moving assets must not wait on a dead upstream when another TLE
+          // source can return quickly.
+          signal: AbortSignal.timeout(SATELLITE_EXTERNAL_FAST_TIMEOUT_MS),
           headers: {
             Accept: "application/json",
             // CelesTrak's Cloudflare layer 403s default Node UA. Identify ourselves.
@@ -211,7 +214,7 @@ async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
   // Paginate to get maximum TLE data — each page returns up to 100.
   // 30 pages × 100 = 3000 satellites. Mirror rate-limits past ~30 pages.
   const PAGE_SIZE = 100
-  const MAX_PAGES = 30
+  const MAX_PAGES = 3
   const UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
   const now = new Date().toISOString()
 
@@ -221,7 +224,7 @@ async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
       try {
         const res = await fetch(url, {
           cache: "no-store",
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(SATELLITE_EXTERNAL_FAST_TIMEOUT_MS),
           headers: { Accept: "application/json", "User-Agent": UA },
         })
         if (!res.ok) {
@@ -280,12 +283,12 @@ async function fetchFromSatNogs(): Promise<SatelliteRecord[]> {
   const now = new Date().toISOString()
 
   const pageResults = await Promise.allSettled(
-    Array.from({ length: MAX_PAGES }, (_, i) => i + 1).map(async (page) => {
+    Array.from({ length: 1 }, (_, i) => i + 1).map(async (page) => {
       const url = `https://db.satnogs.org/api/tle/?format=json&page=${page}&page_size=${PAGE_SIZE}`
       try {
         const res = await fetch(url, {
           cache: "no-store",
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(Math.max(SATELLITE_EXTERNAL_FAST_TIMEOUT_MS, 15000)),
           headers: { Accept: "application/json", "User-Agent": UA },
         })
         if (!res.ok) {
@@ -699,49 +702,77 @@ export async function fetchAllSatellites(): Promise<SatelliteRecord[]> {
  * Same as fetchAllSatellites but includes per-source counts and metadata.
  */
 export async function fetchAllSatellitesWithMeta(): Promise<SatelliteRegistryResult> {
-  const sourceFetchers: Array<{ name: string; fn: () => Promise<SatelliteRecord[]> }> = [
-    { name: "celestrak", fn: fetchFromCelesTrak },
-    { name: "satnogs", fn: fetchFromSatNogs },       // open DB; works when CelesTrak is down
-    { name: "mindex", fn: fetchFromMINDEX },
-    { name: "tle-mirror", fn: fetchFromTLEMirror },
-    { name: "spacetrack", fn: fetchFromSpaceTrack },
-    { name: "n2yo", fn: fetchFromN2YO },
-  ]
-
-  // Fetch all position sources + UCS enrichment in parallel
-  const [sourceResults, enrichMap] = await Promise.all([
-    Promise.allSettled(
-      sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
-        const start = Date.now()
-        try {
-          const satellites = await fn()
-          const dur = Date.now() - start
-          if (satellites.length > 0) {
-            console.log(`[SatelliteRegistry] ${name}: ${satellites.length} satellites (${dur}ms)`)
-          }
-          return { source: name, satellites, durationMs: dur }
-        } catch (err) {
-          const dur = Date.now() - start
-          console.warn(`[SatelliteRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
-          return { source: name, satellites: [], error: (err as Error).message, durationMs: dur }
-        }
-      })
-    ),
-    fetchUCSEnrichment(),
-  ])
-
   const allSatellites: SatelliteRecord[] = []
   const sourceCounts: Record<string, number> = {}
+  let enrichMap = new Map<string, Partial<SatelliteRecord>>()
+  const fastOnly = process.env.CREP_SATELLITE_DEEP_AGGREGATE !== "1"
 
-  for (const r of sourceResults) {
-    if (r.status === "fulfilled") {
-      allSatellites.push(...r.value.satellites)
-      sourceCounts[r.value.source] = r.value.satellites.length
+  const satnogsStart = Date.now()
+  try {
+    const satnogs = await fetchFromSatNogs()
+    const dur = Date.now() - satnogsStart
+    sourceCounts.satnogs = satnogs.length
+    if (satnogs.length > 0) {
+      console.log(`[SatelliteRegistry] satnogs: ${satnogs.length} satellites (${dur}ms)`)
+      allSatellites.push(...satnogs)
+    }
+  } catch (err) {
+    sourceCounts.satnogs = 0
+    console.warn(`[SatelliteRegistry] satnogs failed (${Date.now() - satnogsStart}ms):`, (err as Error).message)
+  }
+
+  if (!fastOnly || allSatellites.length === 0) {
+    const sourceFetchers: Array<{ name: string; fn: () => Promise<SatelliteRecord[]> }> = [
+      { name: "mindex", fn: fetchFromMINDEX },
+      { name: "tle-mirror", fn: fetchFromTLEMirror },
+      { name: "celestrak", fn: fetchFromCelesTrak },
+      { name: "spacetrack", fn: fetchFromSpaceTrack },
+      { name: "n2yo", fn: fetchFromN2YO },
+    ]
+
+    const [sourceResults, fetchedEnrichMap] = await Promise.all([
+      Promise.allSettled(
+        sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
+          const start = Date.now()
+          try {
+            const satellites = await fn()
+            const dur = Date.now() - start
+            if (satellites.length > 0) {
+              console.log(`[SatelliteRegistry] ${name}: ${satellites.length} satellites (${dur}ms)`)
+            }
+            return { source: name, satellites, durationMs: dur }
+          } catch (err) {
+            const dur = Date.now() - start
+            console.warn(`[SatelliteRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
+            return { source: name, satellites: [], error: (err as Error).message, durationMs: dur }
+          }
+        })
+      ),
+      fetchUCSEnrichment(),
+    ])
+
+    enrichMap = fetchedEnrichMap
+
+    for (const r of sourceResults) {
+      if (r.status === "fulfilled") {
+        allSatellites.push(...r.value.satellites)
+        sourceCounts[r.value.source] = r.value.satellites.length
+      }
     }
   }
 
   const deduplicated = deduplicateByNORAD(allSatellites)
-  const enriched = applyEnrichment(deduplicated, enrichMap)
+  let enriched = applyEnrichment(deduplicated, enrichMap)
+
+  if (enriched.length > 0) {
+    saveSatellitesToDiskCache(enriched)
+  } else {
+    const disk = readSatellitesFromDiskCache()
+    if (disk.length > 0) {
+      sourceCounts.disk = disk.length
+      enriched = disk
+    }
+  }
 
   console.log(
     `[SatelliteRegistry] Combined: ${allSatellites.length} raw -> ${enriched.length} unique NORAD from ${Object.entries(sourceCounts)

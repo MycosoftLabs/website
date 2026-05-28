@@ -2,11 +2,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
-// useRouter removed — no longer needed; all navigation uses <Link> directly
-import { AnimatePresence, motion } from "framer-motion"
+// useRouter removed; all navigation uses <Link> directly
 import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Users, Key } from "lucide-react"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
 import { Button } from "@/components/ui/button"
@@ -27,10 +25,12 @@ const defenseItems = [
 ]
 
 const natureOSItems = [
-  { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map },
+  { title: "Earth Simulator", href: "/natureos/earth-simulator", icon: Globe },
+  { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Cpu },
+  { title: "Virtual Petri Dish", href: "/natureos/virtual-petri-dish", icon: FlaskConical },
+  { title: "Ancestry Database", href: "/natureos/ancestry", icon: TreeDeciduous },
   { title: "Device Network", href: "/natureos/devices", icon: Network },
   { title: "MINDEX", href: "/mindex", icon: Database, companyOnly: true },
-  { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
 ]
 
 const devicesItems = [
@@ -89,15 +89,8 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
           <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
         </button>
       </div>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
+      {isOpen && (
+          <div className="overflow-hidden">
             <div className="pl-7 pt-2 flex flex-col gap-2">
               {items.map((item) => {
                 const ItemIcon = item.icon
@@ -115,9 +108,8 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
                 )
               })}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   )
 }
@@ -142,6 +134,16 @@ export function MobileNav() {
     setIsOpen(false)
     setExpandedSections({})
   }
+  const closeMenuAfterNavigation = (event?: React.MouseEvent<HTMLAnchorElement>) => {
+    const href = event?.currentTarget?.getAttribute("href")
+    const isPlainClick = event && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+    if (href && isPlainClick && href.startsWith("/") && !href.startsWith("//")) {
+      event.preventDefault()
+      window.location.assign(href)
+      return
+    }
+    closeMenu()
+  }
   
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
@@ -150,65 +152,22 @@ export function MobileNav() {
     }))
   }
 
-  const menuVariants = {
-    closed: {
-      opacity: 0,
-      x: "100%",
-      transition: {
-        duration: 0.3,
-        ease: "easeInOut",
-      },
-    },
-    open: {
-      opacity: 1,
-      x: "0%",
-      transition: {
-        duration: 0.3,
-        ease: "easeInOut",
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  }
-
-  const itemVariants = {
-    closed: { opacity: 0, x: 20 },
-    open: { opacity: 1, x: 0 },
-  }
-
-  // State to track if we're mounted (for portal)
-  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
-  
-  useEffect(() => {
-    setPortalContainer(document.body)
-  }, [])
-
-  const mobileMenuContent = isOpen && portalContainer ? createPortal(
-    <AnimatePresence mode="wait">
+  const mobileMenuContent = (
+    <>
       {isOpen && (
         <>
           {/* Backdrop overlay - covers entire screen */}
-          <motion.div
-            key="mobile-nav-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className="mobile-nav-glass-backdrop fixed inset-0 z-[99998]"
             onClick={closeMenu}
             aria-hidden="true"
           />
           {/* Mobile nav drawer */}
-          <motion.div
-            key="mobile-nav-drawer"
-            initial="closed"
-            animate="open"
-            exit="closed"
-            variants={menuVariants}
+          <div
             className="mobile-nav-glass-drawer fixed inset-y-0 right-0 z-[99999] w-80 overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
-              <Link href="/" prefetch={false} className="flex items-center gap-2 font-semibold" onClick={closeMenu}>
+              <Link href="/" prefetch={false} className="flex items-center gap-2 font-semibold" onClick={closeMenuAfterNavigation}>
                 <div className="relative h-8 w-8">
                   <Image
                     src={
@@ -229,26 +188,26 @@ export function MobileNav() {
             </div>
 
             <div className="container flex flex-col gap-4 pt-6 pl-4 pb-8">
-              <motion.div variants={itemVariants} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3">
                 {/* Search - Next.js Link handles hash navigation + prefetch */}
                 <Link
                   href="/search"
                   prefetch={false}
                   className="flex items-center gap-2 text-lg font-medium py-1 cursor-pointer"
-                  onClick={closeMenu}
+                  onClick={closeMenuAfterNavigation}
                 >
                   <Search className="h-5 w-5" />
                   Search
                 </Link>
                 
                 {/* About Us - Direct Link */}
-                <Link href="/about" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                <Link href="/about" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenuAfterNavigation}>
                   <Users className="h-5 w-5" />
                   About Us
                 </Link>
 
-                {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
-                <Link href="/agent" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1 min-h-[44px] items-center" onClick={closeMenu}>
+                {/* Agent Access - MYCA/AVANI live worldstate $1/min */}
+                <Link href="/agent" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1 min-h-[44px] items-center" onClick={closeMenuAfterNavigation}>
                   <Key className="h-5 w-5" />
                   Agent Access
                 </Link>
@@ -259,7 +218,7 @@ export function MobileNav() {
                   href="/ai"
                   icon={Bot}
                   items={AI_NAV_ITEMS.map(({ title, href, icon }) => ({ title, href, icon }))}
-                  closeMenu={closeMenu}
+                  closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.ai || false}
                   onToggle={() => toggleSection("ai")}
                 />
@@ -270,7 +229,7 @@ export function MobileNav() {
                   href="/defense"
                   icon={Shield}
                   items={defenseItems}
-                  closeMenu={closeMenu}
+                  closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.defense || false}
                   onToggle={() => toggleSection("defense")}
                 />
@@ -281,7 +240,7 @@ export function MobileNav() {
                   href="/natureos"
                   icon={Cloud}
                   items={natureOSItems.filter(item => !item.companyOnly || isCompanyUser)}
-                  closeMenu={closeMenu}
+                  closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.natureos || false}
                   onToggle={() => toggleSection("natureos")}
                 />
@@ -292,7 +251,7 @@ export function MobileNav() {
                   href="/devices"
                   icon={Cpu}
                   items={devicesItems}
-                  closeMenu={closeMenu}
+                  closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.devices || false}
                   onToggle={() => toggleSection("devices")}
                 />
@@ -303,21 +262,21 @@ export function MobileNav() {
                   href="/apps"
                   icon={Apps}
                   items={appsItems.filter(item => !item.companyOnly || isCompanyUser)}
-                  closeMenu={closeMenu}
+                  closeMenu={closeMenuAfterNavigation}
                   isOpen={expandedSections.apps || false}
                   onToggle={() => toggleSection("apps")}
                 />
                 
                 {/* Security - Direct Link (only for logged in users) */}
                 {user && (
-                  <Link href="/security" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                  <Link href="/security" prefetch={false} className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenuAfterNavigation}>
                     <Lock className="h-5 w-5" />
                     Security
                   </Link>
                 )}
-              </motion.div>
+              </div>
 
-              <motion.div variants={itemVariants} className="flex flex-col gap-4 mt-4 border-t pt-4">
+              <div className="flex flex-col gap-4 mt-4 border-t pt-4">
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="w-full justify-start" onClick={closeMenu}>
@@ -338,21 +297,20 @@ export function MobileNav() {
                     </Button>
                   ) : (
                     <Button variant="default" asChild>
-                      <Link href="/login" prefetch={false} onClick={closeMenu}>
+                      <Link href="/login" prefetch={false} onClick={closeMenuAfterNavigation}>
                         <User2 className="h-4 w-4 mr-2" />
                         Sign In
                       </Link>
                     </Button>
                   )}
                 </div>
-              </motion.div>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </>
       )}
-    </AnimatePresence>,
-    portalContainer
-  ) : null
+    </>
+  )
 
   return (
     <>

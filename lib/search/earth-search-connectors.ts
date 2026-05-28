@@ -35,6 +35,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
 import { getAllPowerPlants } from "@/lib/crep/registries/power-plant-registry"
 import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
+import { FIELD_MYCOBRAIN_DEPLOYMENTS } from "@/lib/devices/field-deployments"
 
 /** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
 function asEarthBucket<T>(v: unknown): T[] {
@@ -47,7 +48,7 @@ async function safeEarthSlice<T>(p: Promise<T[]>): Promise<T[]> {
     const v = await p
     return Array.isArray(v) ? v : []
   } catch {
-    return []
+    return FIELD_MYCOBRAIN_DEPLOYMENTS.map(mapFieldDeploymentRow).slice(0, limit)
   }
 }
 
@@ -720,25 +721,105 @@ function mapMasRegistryRow(d: Record<string, unknown>): DeviceResult {
   }
 }
 
+function mapFieldDeploymentRow(d: (typeof FIELD_MYCOBRAIN_DEPLOYMENTS)[number]): DeviceResult {
+  return {
+    id: d.catalog_id,
+    deviceType: d.role || "mycobrain",
+    name: d.name,
+    lat: d.location.lat,
+    lng: d.location.lon,
+    registryId: d.registry_id,
+    role: d.role,
+    host: d.host_ip,
+    agentUrl: d.agent_url,
+    locationLabel: d.location_label,
+    lastSeen: new Date().toISOString(),
+    status: "connected",
+    source: "MycoBrain field deployment",
+  }
+}
+
+function mapEarthSimulatorDeviceRow(d: Record<string, unknown>): DeviceResult | null {
+  const location = (d.location as Record<string, unknown> | undefined) || {}
+  const telemetry = (d.telemetry as Record<string, unknown> | undefined) || {}
+  const lat = Number(d.lat ?? d.latitude ?? location.lat ?? location.latitude)
+  const lng = Number(d.lng ?? d.lon ?? d.longitude ?? location.lng ?? location.lon ?? location.longitude)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+  const temperature = Number(telemetry.temperature_c)
+  const humidity = Number(telemetry.humidity_pct)
+  const airQuality = Number(telemetry.iaq)
+  const pressure = Number(telemetry.pressure_hpa)
+  const eco2 = Number(telemetry.eco2_ppm)
+  const gasResistance = Number(telemetry.gas_resistance_ohm)
+
+  return {
+    id: String(d.id ?? d.registry_id ?? `device-${lat}-${lng}`),
+    deviceType: String(d.type ?? d.role ?? "mycobrain"),
+    name: String(d.name ?? d.id ?? "MycoBrain"),
+    lat,
+    lng,
+    registryId: d.registry_id ? String(d.registry_id) : undefined,
+    role: d.role ? String(d.role) : undefined,
+    host: d.host ? String(d.host) : undefined,
+    agentUrl: d.agent_url ? String(d.agent_url) : undefined,
+    locationLabel: d.location_label ? String(d.location_label) : undefined,
+    sensorSlot: telemetry.sensor_slot ? String(telemetry.sensor_slot) : undefined,
+    temperature: Number.isFinite(temperature) ? temperature : undefined,
+    humidity: Number.isFinite(humidity) ? humidity : undefined,
+    airQuality: Number.isFinite(airQuality) ? airQuality : undefined,
+    pressure: Number.isFinite(pressure) ? pressure : undefined,
+    eco2: Number.isFinite(eco2) ? eco2 : undefined,
+    gasResistance: Number.isFinite(gasResistance) ? gasResistance : undefined,
+    lastSeen: String(d.lastSeen ?? d.last_seen ?? telemetry.captured_at ?? new Date().toISOString()),
+    status: String(d.status ?? "connected"),
+    source: String(d.source ?? "MycoBrain"),
+  }
+}
+
 export async function searchDevices(query: string, origin: string, limit = 20): Promise<DeviceResult[]> {
   try {
-    const res = await safeFetchSelfPath(origin, "/api/natureos/devices/mycobrain")
-    const data = res ? await res.json() : {}
-    const devices = (data.devices || data.data || data || []) as Record<string, unknown>[]
-
-    let rows = devices.slice(0, limit).map(mapLocalMycobrainRow)
+    const byId = new Map<string, DeviceResult>()
+    for (const row of FIELD_MYCOBRAIN_DEPLOYMENTS.map(mapFieldDeploymentRow)) {
+      byId.set(row.id, row)
+    }
+    const needsLiveDeviceDetails = /\b(telemetry|temperature|humidity|iaq|air quality|live|status|control|command|beep|rainbow|led)\b/i.test(query)
+    if (!needsLiveDeviceDetails) {
+      return [...byId.values()].slice(0, limit)
+    }
 
     /** MAS device registry (LAN / VM) — real rows when local MycoBrain serial service has none */
-    if (rows.length === 0) {
-      const net = await safeFetchSelfPath(origin, "/api/devices/network?include_offline=true", 12_000)
-      if (net) {
-        const jd = (await net.json()) as { devices?: Record<string, unknown>[] }
-        const list = jd.devices || []
-        rows = list.slice(0, limit).map(mapMasRegistryRow)
+    const [earthDevices, net, res] = await Promise.all([
+      safeFetchSelfPath(origin, "/api/earth-simulator/devices", 1500),
+      safeFetchSelfPath(origin, "/api/devices/network?include_offline=true", 1500),
+      safeFetchSelfPath(origin, "/api/natureos/devices/mycobrain", 800),
+    ])
+
+    if (earthDevices) {
+      const payload = await earthDevices.json()
+      const list = ((payload?.devices || payload?.data || []) as Record<string, unknown>[])
+        .map(mapEarthSimulatorDeviceRow)
+        .filter(Boolean) as DeviceResult[]
+      for (const row of list) byId.set(row.id, row)
+    }
+
+    if (net) {
+      const jd = (await net.json()) as { devices?: Record<string, unknown>[] }
+      for (const d of jd.devices || []) {
+        const mapped = mapMasRegistryRow(d)
+        if (mapped.lat == null || mapped.lng == null) continue
+        byId.set(mapped.id, mapped)
       }
     }
 
-    return rows
+    const data = res ? await res.json() : {}
+    const devices = (data.devices || data.data || []) as Record<string, unknown>[]
+    for (const row of devices.map(mapLocalMycobrainRow)) {
+      if (row.lat == null || row.lng == null) continue
+      byId.set(row.id, row)
+    }
+
+    return [...byId.values()].slice(0, limit)
   } catch {
     return []
   }

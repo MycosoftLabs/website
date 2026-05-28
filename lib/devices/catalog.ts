@@ -24,7 +24,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     page_href: "/devices/mushroom-1",
     firmware_repo: "mycobrain/firmware",
     status: "Development",
-    default_location: null,
+    default_location: { lat: 32.640278, lon: -117.085833 },
   },
   {
     id: "sporebase",
@@ -44,7 +44,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     page_href: "/devices/hyphae-1",
     firmware_repo: "mycobrain/firmware",
     status: "In production",
-    default_location: null,
+    default_location: { lat: 32.715736, lon: -117.161087 },
   },
   {
     id: "myconode",

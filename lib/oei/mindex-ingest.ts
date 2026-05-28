@@ -39,8 +39,7 @@ const TYPE_TO_PROXY_SOURCE: Partial<Record<IngestType, string>> = {
 }
 
 const ENABLE_OEI_MINDEX_WRITEBACK =
-  process.env.OEI_ENABLE_LIVE_MINDEX_WRITEBACK === "1" ||
-  (process.env.NODE_ENV === "production" && process.env.OEI_DISABLE_LIVE_MINDEX_WRITEBACK !== "1")
+  process.env.OEI_ENABLE_LIVE_MINDEX_WRITEBACK === "1"
 
 /**
  * Non-blocking ingestion of data to MINDEX

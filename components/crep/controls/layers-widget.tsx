@@ -6,14 +6,14 @@
  * Three categories:
  *   POINTS: Data Ctrs, Substations, Gas Infra, MycoBrain Devices, Species, Events
  *   LINES:  TX Lines, Gas Lines, Fiber, Submarine Cables, Flight Paths, Ship Routes
- *   AREAS:  Earth-2 Weather, Spore Risk, Aurora, GIBS Imagery
+ *   AREAS:  Aurora, GIBS Imagery
  */
 
 import { useState } from "react"
 import {
   Server, Radio, Fuel, Radar, TreePine, AlertTriangle,
   Zap, Wind as WindIcon, Cable, Waves, Plane, Ship,
-  Cloud, Bug, Sparkles, Satellite, X
+  Sparkles, Satellite, X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -51,8 +51,6 @@ export const DEFAULT_INFRA_LAYERS: LayerToggle[] = [
   { id: "shipRoutes", label: "Ships", icon: <Ship className="w-4 h-4" />, category: "lines", enabled: false },
 
   // AREAS
-  { id: "earth2Weather", label: "Weather", icon: <Cloud className="w-4 h-4" />, category: "areas", enabled: false },
-  { id: "sporeRisk", label: "Spore Risk", icon: <Bug className="w-4 h-4" />, category: "areas", enabled: false },
   { id: "aurora", label: "Aurora", icon: <Sparkles className="w-4 h-4" />, category: "areas", enabled: false },
   { id: "gibsImagery", label: "GIBS", icon: <Satellite className="w-4 h-4" />, category: "areas", enabled: false },
 ]

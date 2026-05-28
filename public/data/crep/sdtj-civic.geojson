@@ -1,0 +1,91 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2026-05-27T00:00:00.000Z",
+  "bbox": [-117.9, 32.3, -116.8, 33.6],
+  "category": "civic",
+  "feature_count": 3,
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "civic-us-chula-vista-city-hall",
+        "category": "civic",
+        "name": "Chula Vista City Hall",
+        "operator": "City of Chula Vista",
+        "agency": "City of Chula Vista",
+        "facility_type": "city hall",
+        "address": "276 Fourth Avenue, Chula Vista, CA 91910",
+        "phone": "+1 619-691-5044",
+        "website": "https://www.chulavistaca.gov/departments/mayor-council",
+        "source": "civic-facility-hint + OSM snapshot",
+        "tags": {
+          "amenity": "townhall",
+          "name": "Chula Vista City Hall",
+          "operator": "City of Chula Vista",
+          "addr:housenumber": "276",
+          "addr:street": "Fourth Avenue",
+          "addr:city": "Chula Vista",
+          "addr:state": "CA",
+          "addr:postcode": "91910",
+          "address": "276 Fourth Avenue, Chula Vista, CA 91910",
+          "website": "https://www.chulavistaca.gov/departments/mayor-council"
+        }
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.0850214, 32.6413011] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "civic-us-chula-vista-police-headquarters",
+        "category": "civic",
+        "name": "Chula Vista Police Department Headquarters",
+        "operator": "Chula Vista Police Department",
+        "agency": "Chula Vista Police Department",
+        "facility_type": "police",
+        "address": "315 Fourth Avenue, Chula Vista, CA 91910",
+        "phone": "+1 619-691-5151",
+        "website": "https://www.chulavistaca.gov/police/",
+        "source": "civic-facility-hint + OSM snapshot",
+        "tags": {
+          "amenity": "police",
+          "name": "Chula Vista Police Department Headquarters",
+          "addr:housenumber": "315",
+          "addr:street": "Fourth Avenue",
+          "addr:city": "Chula Vista",
+          "addr:state": "CA",
+          "addr:postcode": "91910",
+          "address": "315 Fourth Avenue, Chula Vista, CA 91910",
+          "website": "https://www.chulavistaca.gov/police/"
+        }
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.0831827, 32.639926] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "civic-us-chula-vista-civic-center-library",
+        "category": "civic",
+        "name": "Civic Center Branch Library",
+        "operator": "Chula Vista Public Library",
+        "agency": "Chula Vista Public Library",
+        "facility_type": "library",
+        "address": "365 F Street, Chula Vista, CA 91910",
+        "phone": "+1 619-691-5069",
+        "website": "https://www.chulavistaca.gov/departments/library/locations-hours",
+        "source": "civic-facility-hint + OSM snapshot",
+        "tags": {
+          "amenity": "library",
+          "name": "Civic Center Branch Library",
+          "addr:housenumber": "365",
+          "addr:street": "F Street",
+          "addr:city": "Chula Vista",
+          "addr:state": "CA",
+          "addr:postcode": "91910",
+          "address": "365 F Street, Chula Vista, CA 91910",
+          "website": "https://www.chulavistaca.gov/departments/library/locations-hours"
+        }
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.0832098, 32.6409998] }
+    }
+  ]
+}

@@ -66,6 +66,13 @@ const CATEGORY_TIMEOUTS: Record<string, number> = {
   default:  15000,
 }
 
+function payloadTotal(data: unknown): number {
+  const body = data as any
+  if (typeof body?.total === "number") return body.total
+  if (Array.isArray(body?.satellites)) return body.satellites.length
+  return 0
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
 
@@ -88,17 +95,21 @@ export async function GET(request: Request) {
   if (!forceRefresh && cached) {
     const isStale = now > cached.expiresAt
     const isTooOld = now > cached.timestamp + CACHE_STALE_MS
+    const cachedTotal = payloadTotal(cached.data)
 
     // Return fresh cache
-    if (!isStale) {
+    if (!isStale && cachedTotal > 0) {
       console.log(`[Satellites] Cache HIT for "${validCategory}" (${Math.round((cached.expiresAt - now) / 1000)}s remaining)`)
       return NextResponse.json(cached.data)
     }
 
     // Return stale cache if not too old (stale-while-revalidate pattern)
-    if (!isTooOld) {
+    if (!isTooOld && cachedTotal > 0) {
       console.log(`[Satellites] Cache STALE for "${validCategory}", returning cached data`)
       return NextResponse.json(cached.data)
+    }
+    if (cachedTotal === 0) {
+      console.warn(`[Satellites] Ignoring empty cache entry for "${validCategory}"`)
     }
   }
 
@@ -140,6 +151,11 @@ export async function GET(request: Request) {
       logDataCollection("satellite-registry", "multi-source", satellites.length, latency, false)
       ingestSatellites("satellite-registry", satellites as any)
 
+      if (satellites.length === 0 && cached && payloadTotal(cached.data) > 0) {
+        console.warn(`[Satellites] Registry returned empty; preserving previous non-empty cache for "${validCategory}"`)
+        return NextResponse.json(cached.data)
+      }
+
       const responseData = {
         source: activeSource,
         sources: registryResult.sources,
@@ -153,12 +169,16 @@ export async function GET(request: Request) {
         cached: false,
       }
 
-      satelliteCache.set(cacheKey, {
-        data: { ...responseData, cached: true },
-        timestamp: now,
-        expiresAt: now + cacheTtl,
-      })
-      console.log(`[Satellites] Cache SET for registry "${validCategory}" (TTL: ${cacheTtl / 1000}s)`)
+      if (satellites.length > 0) {
+        satelliteCache.set(cacheKey, {
+          data: { ...responseData, cached: true },
+          timestamp: now,
+          expiresAt: now + cacheTtl,
+        })
+        console.log(`[Satellites] Cache SET for registry "${validCategory}" (TTL: ${cacheTtl / 1000}s)`)
+      } else {
+        console.warn(`[Satellites] Registry returned empty; not caching "${validCategory}"`)
+      }
 
       return NextResponse.json(responseData)
     } catch (error) {

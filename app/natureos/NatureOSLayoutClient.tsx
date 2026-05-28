@@ -26,7 +26,7 @@ export default function NatureOSLayoutClient({
         {/* Use dvh so the panel height is correct when mobile browser chrome shows/hides */}
         <div className="flex flex-1 h-[calc(100dvh-3rem)] md:h-[calc(100dvh-3.5rem)] transition-all duration-300">
           {/* Sidebar — overlays on mobile (Sheet), pushes on desktop */}
-          <Sidebar className="border-r border-white/30 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45">
+          <Sidebar className="natureos-sidebar-shell border-r border-white/30 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45">
             <div className="flex items-center justify-between p-2">
               <NavigationTitle />
               <SidebarTrigger className="min-h-11 min-w-11" aria-label="Open NatureOS menu" />

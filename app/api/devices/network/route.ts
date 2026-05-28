@@ -9,6 +9,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import {
+  FIELD_MYCOBRAIN_DEPLOYMENTS,
+  deploymentByHost,
+  parseLocation,
+} from "@/lib/devices/field-deployments"
+import { probeAllOperatorAgents } from "@/lib/devices/operator-probe"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -24,6 +30,7 @@ interface NetworkDevice {
   sensors: string[]
   capabilities: string[]
   location: string | null
+  location_coords?: { lat: number; lon: number } | null
   connection_type: string
   ingestion_source?: string
   status: string
@@ -53,6 +60,50 @@ function formatDeviceRole(role: string): string {
     standalone: "MycoBrain",
   }
   return roleMap[role.toLowerCase()] || role
+}
+
+async function buildFieldAndOperatorDevices(
+  existingProbes?: Awaited<ReturnType<typeof probeAllOperatorAgents>>
+) {
+  const operatorProbes = existingProbes ?? (await probeAllOperatorAgents())
+  const probeByHost = new Map(operatorProbes.map((p) => [p.host, p]))
+  return FIELD_MYCOBRAIN_DEPLOYMENTS.map((field) => {
+    const probe = probeByHost.get(field.host_ip)
+    return {
+      id: field.registry_id,
+      device_id: field.registry_id,
+      name: field.name,
+      device_name: field.name,
+      device_role: field.role,
+      device_display_name: field.name,
+      display_name: field.name,
+      type: "mycobrain",
+      host: field.host_ip,
+      port: field.agent_port,
+      agent_url: field.agent_url,
+      firmware_version: probe?.firmware_version ?? "unknown",
+      board_type: field.board_type,
+      sensors: [],
+      capabilities: ["mqtt", "mdp_command", "telemetry_stream"],
+      location: `${field.location.lat},${field.location.lon}`,
+      location_coords: field.location,
+      location_label: field.location_label,
+      connection_type: "lan",
+      ingestion_source: probe ? "operator-http" : "field-config",
+      status: probe?.online ? "online" : "offline",
+      last_seen: probe?.last_seen ?? null,
+      registered_at: new Date().toISOString(),
+      source: probe ? "operator-http" : "field-config",
+      extra: {
+        agent_url: field.agent_url,
+        mdp_device_id: field.mdp_device_id,
+        field_deployment: field.registry_id,
+        latest_telemetry: probe?.telemetry ?? null,
+      },
+      telemetry: probe?.telemetry ?? null,
+      openclaw_url: `http://${field.host_ip}:18789`,
+    }
+  })
 }
 
 /**
@@ -87,12 +138,13 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       if (response.status === 404) {
+        const fallback = await buildFieldAndOperatorDevices()
         return NextResponse.json({
-          devices: [],
-          count: 0,
-          source: "MAS Device Registry",
+          devices: fallback,
+          count: fallback.length,
+          source: "field-config+operator-http",
           mas_url: MAS_API_URL,
-          note: "MAS device registry not deployed; only local/serial devices will appear.",
+          note: "MAS device registry empty; showing field deployments from LAN probes.",
           timestamp: new Date().toISOString(),
         })
       }
@@ -109,41 +161,80 @@ export async function GET(request: NextRequest) {
 
     const data: DeviceRegistryResponse = await response.json()
 
+    const operatorProbes = await probeAllOperatorAgents()
+    const probeByHost = new Map(operatorProbes.map((p) => [p.host, p]))
+
     // Transform to match frontend expectations (serial + LoRa/BT/WiFi gateways)
     const devices = data.devices.map((device: NetworkDevice) => {
+      const field = deploymentByHost(device.host)
+      const extra = (device.extra || {}) as Record<string, unknown>
+      const agentUrl =
+        (typeof extra.agent_url === "string" ? extra.agent_url : null) ||
+        (field ? field.agent_url : device.host ? `http://${device.host}:${device.port || 8787}` : null)
+      const probe = probeByHost.get(device.host)
+      const coords =
+        field?.location ||
+        parseLocation(device.location) ||
+        parseLocation(extra.location) ||
+        null
+
       // Build display name with fallback chain: device_display_name -> device_name -> device_role -> device_id
       const displayName = device.device_display_name 
         || device.device_name 
         || (device.device_role ? formatDeviceRole(device.device_role) : null)
         || device.device_id
 
+      const liveStatus =
+        probe?.online && (device.status === "offline" || device.status === "stale")
+          ? "online"
+          : device.status
+
       return {
         id: device.device_id,
         device_id: device.device_id,
         name: device.device_name,
         device_name: device.device_name,
-        device_role: device.device_role ?? "standalone",
-        device_display_name: device.device_display_name ?? null,
-        display_name: displayName, // Computed display name with fallbacks
+        device_role: device.device_role ?? field?.role ?? "standalone",
+        device_display_name: device.device_display_name ?? field?.name ?? null,
+        display_name: field?.name || displayName,
         type: "mycobrain",
         host: device.host,
         port: device.port,
-        firmware_version: device.firmware_version,
+        agent_url: agentUrl,
+        firmware_version: device.firmware_version || probe?.firmware_version,
         board_type: device.board_type,
         sensors: device.sensors,
         capabilities: device.capabilities,
-        location: device.location,
+        location: field?.location
+          ? `${field.location.lat},${field.location.lon}`
+          : device.location || (coords ? `${coords.lat},${coords.lon}` : null),
+        location_coords: coords,
+        location_label: field?.location_label ?? null,
         connection_type: device.connection_type,
         ingestion_source: device.ingestion_source ?? "serial",
-        status: device.status,
-        last_seen: device.last_seen,
+        status: liveStatus,
+        last_seen: probe?.last_seen || device.last_seen,
         registered_at: device.registered_at,
         source: "MAS-Registry",
-        extra: device.extra || {},
+        extra: {
+          ...extra,
+          agent_url: agentUrl,
+          mdp_device_id: extra.mdp_device_id || field?.mdp_device_id || probe?.mdp_device_id,
+          latest_telemetry: probe?.telemetry ?? extra.latest_telemetry,
+          field_deployment: field?.registry_id ?? null,
+        },
+        telemetry: probe?.telemetry ?? null,
         // NemoClaw Control UI (port 18789) runs on same host as device for on-site AI
         openclaw_url: device.host ? `http://${device.host}:18789` : null,
       }
     })
+
+    const knownIds = new Set(devices.map((d) => d.device_id))
+    const fieldFallback = await buildFieldAndOperatorDevices(operatorProbes)
+
+    for (const fb of fieldFallback) {
+      if (!knownIds.has(fb.device_id)) devices.push(fb)
+    }
 
     return NextResponse.json({
       devices,
@@ -154,13 +245,14 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.warn("MAS device registry unreachable, returning empty list:", error instanceof Error ? error.message : error)
+    console.warn("MAS device registry unreachable, returning field fallback:", error instanceof Error ? error.message : error)
+    const fallback = await buildFieldAndOperatorDevices()
     return NextResponse.json({
-      devices: [],
-      count: 0,
-      source: "MAS Device Registry",
+      devices: fallback,
+      count: fallback.length,
+      source: "field-config+operator-http",
       mas_url: MAS_API_URL,
-      note: "MAS unreachable; only local/serial devices will appear.",
+      note: "MAS unreachable; showing field deployments from LAN operator probes.",
       timestamp: new Date().toISOString(),
     })
   }

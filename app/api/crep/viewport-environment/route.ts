@@ -14,6 +14,18 @@ function finite(value: string | null, fallback: number) {
 
 function boundsFromRequest(req: NextRequest): Bounds {
   const q = req.nextUrl.searchParams
+  const bbox = q.get("bbox")
+  if (bbox) {
+    const [west, south, east, north] = bbox.split(",").map(Number)
+    if ([west, south, east, north].every(Number.isFinite)) {
+      return {
+        north: Math.max(north, south),
+        south: Math.min(north, south),
+        east,
+        west,
+      }
+    }
+  }
   const north = finite(q.get("north"), 0)
   const south = finite(q.get("south"), 0)
   return {
@@ -101,10 +113,10 @@ async function openMeteoEnvironment(bounds: Bounds, imperial: boolean) {
   }
 
   const [forecast, history] = await Promise.allSettled([
-    fetch(forecastUrl, { signal: AbortSignal.timeout(8_000), next: { revalidate: 900 } }).then((r) =>
+    fetch(forecastUrl, { signal: AbortSignal.timeout(2_500), next: { revalidate: 900 } }).then((r) =>
       r.ok ? r.json() : null,
     ),
-    fetch(archiveUrl, { signal: AbortSignal.timeout(8_000), next: { revalidate: 3600 } }).then((r) =>
+    fetch(archiveUrl, { signal: AbortSignal.timeout(2_500), next: { revalidate: 3600 } }).then((r) =>
       r.ok ? r.json() : null,
     ),
   ])
@@ -131,7 +143,7 @@ async function openMeteoAirQuality(lat: number, lng: number) {
 
   try {
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(2_000),
       next: { revalidate: 900 },
     })
     if (!res.ok) return { status: "unavailable", current: null, units: null }
@@ -151,7 +163,7 @@ async function fetchNwsAlerts(lat: number, lng: number) {
     const url = `https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lng.toFixed(4)}`
     const res = await fetch(url, {
       headers: { Accept: "application/geo+json", "User-Agent": NWS_USER_AGENT },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(2_000),
       next: { revalidate: 300 },
     })
     if (!res.ok) return { status: "unavailable", items: [] as unknown[] }
@@ -180,7 +192,7 @@ async function fetchNwsObservation(lat: number, lng: number) {
       `https://api.weather.gov/points/${lat.toFixed(4)},${lng.toFixed(4)}`,
       {
         headers: { Accept: "application/json", "User-Agent": NWS_USER_AGENT },
-        signal: AbortSignal.timeout(6_000),
+        signal: AbortSignal.timeout(1_500),
         next: { revalidate: 3600 },
       },
     )
@@ -191,7 +203,7 @@ async function fetchNwsObservation(lat: number, lng: number) {
 
     const stationsRes = await fetch(stationsUrl, {
       headers: { Accept: "application/json", "User-Agent": NWS_USER_AGENT },
-      signal: AbortSignal.timeout(6_000),
+      signal: AbortSignal.timeout(1_500),
     })
     if (!stationsRes.ok) return null
     const stationsJson = await stationsRes.json()
@@ -202,7 +214,7 @@ async function fetchNwsObservation(lat: number, lng: number) {
       `https://api.weather.gov/stations/${stationId}/observations/latest`,
       {
         headers: { Accept: "application/json", "User-Agent": NWS_USER_AGENT },
-        signal: AbortSignal.timeout(6_000),
+        signal: AbortSignal.timeout(1_500),
         next: { revalidate: 300 },
       },
     )
@@ -237,7 +249,7 @@ async function fetchUsgsEarthquakes(lat: number, lng: number, zoom: number) {
   url.searchParams.set("limit", "20")
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), next: { revalidate: 600 } })
+    const res = await fetch(url, { signal: AbortSignal.timeout(2_000), next: { revalidate: 600 } })
     if (!res.ok) return []
     const json = await res.json()
     return (Array.isArray(json?.features) ? json.features : []).map((f: any) => ({
@@ -314,7 +326,7 @@ async function runOverpass(query: string) {
           "User-Agent": "Mycosoft-Earth-Simulator/1.0 (ops@mycosoft.com)",
         },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(22_000),
+        signal: AbortSignal.timeout(2_000),
         next: { revalidate: 1800 },
       })
       if (!res.ok) continue
@@ -393,14 +405,41 @@ export async function GET(req: NextRequest) {
   const imperial = isUSLocation(c.lat, c.lng)
 
   try {
+    const softTimeout = <T,>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+      ])
+
     const [weather, airQuality, features, usgsEarthquakes, nwsAlerts, nwsObservation] =
       await Promise.all([
-        openMeteoEnvironment(bounds, imperial),
-        openMeteoAirQuality(c.lat, c.lng),
-        overpassEnvironment(bounds, zoom),
-        fetchUsgsEarthquakes(c.lat, c.lng, zoom),
-        imperial ? fetchNwsAlerts(c.lat, c.lng) : Promise.resolve({ status: "non_us", items: [] }),
-        imperial ? fetchNwsObservation(c.lat, c.lng) : Promise.resolve(null),
+        softTimeout(
+          openMeteoEnvironment(bounds, imperial),
+          {
+            status: "deferred",
+            unitSystem: imperial ? ("imperial" as const) : ("metric" as const),
+            current: null,
+            units: null,
+            forecastDaily: null,
+            historyDaily: null,
+          },
+          1_800,
+        ),
+        softTimeout(
+          openMeteoAirQuality(c.lat, c.lng),
+          { status: "deferred", current: null, units: null },
+          1_200,
+        ),
+        softTimeout(
+          overpassEnvironment(bounds, zoom),
+          { status: "deferred", mode: "timeout", radius_m: null, water: [], ecosystems: [], geology: [] },
+          1_200,
+        ),
+        softTimeout(fetchUsgsEarthquakes(c.lat, c.lng, zoom), [], 1_200),
+        imperial
+          ? softTimeout(fetchNwsAlerts(c.lat, c.lng), { status: "deferred", items: [] }, 1_200)
+          : Promise.resolve({ status: "non_us", items: [] }),
+        imperial ? softTimeout(fetchNwsObservation(c.lat, c.lng), null, 1_200) : Promise.resolve(null),
       ])
 
     return NextResponse.json(

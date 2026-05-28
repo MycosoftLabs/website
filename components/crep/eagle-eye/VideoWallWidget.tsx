@@ -280,7 +280,7 @@ function HlsWithSnapshotFallback({
   const [useSnapshot, setUseSnapshot] = useState(false)
   const isCaltrans = (provider || "").toLowerCase() === "caltrans"
   useEffect(() => { setUseSnapshot(false) }, [url, fallbackSnapshot])
-  if (useSnapshot && fallbackSnapshot && !isCaltrans) {
+  if (useSnapshot && fallbackSnapshot) {
     return (
       <SnapshotStream
         url={fallbackSnapshot}
@@ -295,7 +295,7 @@ function HlsWithSnapshotFallback({
       url={url}
       disableNoFrameWatchdog={isCaltrans}
       onFallback={() => {
-        if (fallbackSnapshot && !isCaltrans) setUseSnapshot(true)
+        if (fallbackSnapshot) setUseSnapshot(true)
       }}
     />
   )
@@ -569,8 +569,8 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
 
 // Headless-snapshot-backed pseudo-video player. Loads the upstream
 // viewer page in server-side Chromium, screenshots the <video> element
-// every 8 s, serves the resulting JPEG via /api/eagle/cam-snapshot.
-// Auto-refreshes every 8 s so the widget shows near-live frames. If
+// every 20 s, serves the resulting JPEG via /api/eagle/cam-snapshot.
+// Auto-refreshes every 20 s so the widget shows near-live frames. If
 // the snapshot service can't render (host not allowlisted, no video
 // element on page, render error), gracefully falls back to the
 // ProviderInfoCard with external link.
@@ -615,7 +615,7 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
       setT(Date.now())
-    }, 8_000)
+    }, 20_000)
     return () => clearInterval(id)
   }, [])
   useEffect(() => { setSelectorIdx(0); setAllFailed(false) }, [url])
@@ -648,7 +648,7 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
         onError={onImgError}
       />
       <div className="absolute top-2 left-2 bg-black/70 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded font-mono border border-cyan-500/30">
-        ◉ LIVE · headless render · sel={currentSelector} · refresh 8s
+        ◉ LIVE · headless render · sel={currentSelector} · refresh 20s
       </div>
       {name ? (
         <div className="absolute bottom-2 left-2 bg-black/60 text-cyan-200 text-[9px] px-2 py-1 rounded font-mono border border-cyan-500/30">
@@ -661,11 +661,30 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
 
 function MjpegStream({ url }: { url: string }) {
   const [retryNonce, setRetryNonce] = useState(0)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    setRetryNonce(0)
+    setFailed(false)
+  }, [url])
   const src = withRetryParam(url, retryNonce)
+  const retry = () => {
+    if (retryNonce >= 3) {
+      setFailed(true)
+      return
+    }
+    window.setTimeout(() => setRetryNonce((value) => value + 1), 1_500 * (retryNonce + 1))
+  }
+  if (failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black text-center text-[10px] uppercase tracking-wide text-cyan-300/70">
+        Camera feed unavailable
+      </div>
+    )
+  }
   // Continuous MJPEG multipart/x-mixed-replace — the browser decodes
   // frames natively off a single long-lived <img>.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="Live feed" className="w-full h-full object-contain bg-black" onError={() => setRetryNonce((value) => value + 1)} />
+  return <img src={src} alt="Live feed" className="w-full h-full object-contain bg-black" onError={retry} />
 }
 
 function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedUrl?: string; provider?: string; name?: string }) {
@@ -689,7 +708,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
       setT(Date.now())
-    }, 4_000)
+    }, 20_000)
     return () => clearInterval(id)
   }, [])
   // Reset failure state when url changes (different cam selected)
@@ -697,14 +716,14 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
 
   const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
   const retryImage = () => {
-    if (retryCount >= 8) {
+    if (retryCount >= 3) {
       setFailed(true)
       return
     }
     window.setTimeout(() => {
       setRetryCount((value) => value + 1)
       setT(Date.now())
-    }, 900)
+    }, 2_000)
   }
 
   if (failed) {
@@ -792,6 +811,7 @@ export default function VideoWallWidget() {
   const [maximized, setMaximized] = useState(false)
   const [loading, setLoading] = useState(false)
   const lastOpenAtRef = useRef(0)
+  const lastCameraEventRef = useRef<{ id: string; at: number } | null>(null)
 
   // Listen for camera + event clicks from EagleEyeOverlay
   useEffect(() => {
@@ -814,6 +834,10 @@ export default function VideoWallWidget() {
 
     const onCamera = (e: any) => {
       const d = e?.detail || {}
+      const eventId = String(d.id || d.name || d.stream_url || d.embed_url || "")
+      const now = Date.now()
+      if (eventId && lastCameraEventRef.current?.id === eventId && now - lastCameraEventRef.current.at < 150) return
+      if (eventId) lastCameraEventRef.current = { id: eventId, at: now }
       lastOpenAtRef.current = Date.now()
       const streamUrl = d.stream_url || undefined
       const embedUrl = d.embed_url || undefined
@@ -1043,6 +1067,7 @@ export default function VideoWallWidget() {
         id: feed.id,
         stream_url: r.stream_url || feed.mediaUrl,
         embed_url: r.embed_url || feed.embedUrl,
+        media_url: feed.mediaUrl,
         provider: feed.provider,
       })
       if (cancelled) return

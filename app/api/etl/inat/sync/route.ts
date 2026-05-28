@@ -4,8 +4,9 @@
  * POST — runs a delta sync (last hour of iNat observations by default)
  * GET  — status / last run
  *
- * Triggered every ~10 minutes by .github/workflows/inat-delta-sync.yml
- * or any external cron (vercel cron, Railway cron, Kubernetes CronJob).
+ * Disabled by default on the website VM. iNaturalist delta acquisition now
+ * belongs on MINDEX/MAS workers so map users never pay for crawler work.
+ * Set CREP_WEBSITE_ALLOW_INAT_ETL=1 only for an operator diagnostic.
  *
  * Idempotent: MINDEX dedups on (source, source_id) so re-running is safe.
  *
@@ -24,8 +25,20 @@ export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 // This handler can take up to ~30s; ensure Next doesn't give up early.
 export const maxDuration = 60
+const WEBSITE_INAT_ETL_ENABLED = process.env.CREP_WEBSITE_ALLOW_INAT_ETL === "1"
 
 export async function POST(req: NextRequest) {
+  if (!WEBSITE_INAT_ETL_ENABLED) {
+    return NextResponse.json(
+      {
+        ok: false,
+        disabled: true,
+        message: "Website iNaturalist ETL is disabled; run the MINDEX ETL scheduler instead.",
+      },
+      { status: 409 },
+    )
+  }
+
   const token = req.headers.get("x-cron-token") ?? ""
   const expected = process.env.ETL_CRON_TOKEN ?? ""
   if (expected && token !== expected) {
@@ -48,5 +61,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, status: getSyncStatus() })
+  return NextResponse.json({ ok: true, disabled: !WEBSITE_INAT_ETL_ENABLED, status: getSyncStatus() })
 }

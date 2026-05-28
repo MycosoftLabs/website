@@ -20,6 +20,10 @@ import { getCellTowers } from "@/lib/crep/registries/cell-tower-registry"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const CELL_TOWER_CACHE_TTL_MS = 10 * 60 * 1000
+const CELL_TOWER_CACHE_MAX = 80
+const cellTowerBboxCache = new Map<string, { expiresAt: number; body: any }>()
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const bboxStr = url.searchParams.get("bbox")
@@ -40,16 +44,29 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(url.searchParams.get("limit") || 15000), 50000)
   const radio = url.searchParams.get("radio")
   const mcc = Number(url.searchParams.get("mcc"))
+  const cacheKey = [
+    bbox.map((value) => value.toFixed(3)).join(","),
+    limit,
+    radio || "",
+    Number.isFinite(mcc) ? mcc : "",
+  ].join("|")
+  const cached = cellTowerBboxCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json({
+      ...cached.body,
+      cache: "memory",
+    }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" } })
+  }
 
   try {
     const baseUrl = `${url.protocol}//${url.host}`
-    const r = await getCellTowers({ baseUrl, bbox, maxPerSource: Math.floor(limit / 4) })
+    const r = await getCellTowers({ baseUrl, bbox, maxPerSource: Math.floor(limit / 4), mindexFirst: true })
     let towers = r.towers
     if (radio) towers = towers.filter((t) => t.radio === radio)
     if (mcc) towers = towers.filter((t) => t.mcc === mcc)
     towers = towers.slice(0, limit)
 
-    return NextResponse.json({
+    const body = {
       source: "cell-towers-multi",
       total: r.total,
       returned: towers.length,
@@ -59,7 +76,14 @@ export async function GET(req: NextRequest) {
       towers,
       generatedAt: r.generatedAt,
       note: r.note,
-    }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" } })
+    }
+    cellTowerBboxCache.set(cacheKey, { expiresAt: Date.now() + CELL_TOWER_CACHE_TTL_MS, body })
+    if (cellTowerBboxCache.size > CELL_TOWER_CACHE_MAX) {
+      const firstKey = cellTowerBboxCache.keys().next().value
+      if (firstKey) cellTowerBboxCache.delete(firstKey)
+    }
+
+    return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" } })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "cell tower registry failed" }, { status: 500 })
   }

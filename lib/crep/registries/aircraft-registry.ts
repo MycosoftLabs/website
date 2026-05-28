@@ -66,6 +66,9 @@ const SOURCE_TIMEOUT_MS =
       ? 1500
       : 5000 // Fast fail; moving assets should never block map navigation.
 
+const ENABLE_WEBSITE_MINDEX_WRITEBACK =
+  process.env.CREP_ENABLE_WEBSITE_MINDEX_WRITEBACK === "1"
+
 // =============================================================================
 // SOURCE FETCHERS
 // =============================================================================
@@ -74,7 +77,7 @@ const SOURCE_TIMEOUT_MS =
  * Source 1 — FlightRadar24 (via existing connector)
  */
 async function fetchFromFlightRadar24(): Promise<AircraftRecord[]> {
-  try {
+  if (ENABLE_WEBSITE_MINDEX_WRITEBACK) try {
     const client = getFlightRadar24Client()
     const raw = await client.fetchFlights({})
     return (raw as any[]).map((a) => normaliseGeneric(a, "flightradar24"))
@@ -397,6 +400,7 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
   // — no-op in local dev when MINDEX_INTERNAL_TOKEN / MINDEX_API_KEY are
   // unset. Awaited for typing clarity but wrapped in catch so a slow
   // MINDEX never delays the primary return.
+  if (ENABLE_WEBSITE_MINDEX_WRITEBACK) {
   try {
     const { ingestToMindex } = await import("@/lib/crep/mindex-ingest")
     // Exclude MINDEX-sourced records so we don't round-trip our own cache
@@ -426,6 +430,7 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
     void ingestToMindex({ layer: "aircraft_live", entities: ingestables, logPrefix: "[AircraftRegistry]" })
       .catch(() => { /* swallow */ })
   } catch { /* dynamic import failed; non-fatal */ }
+  }
 
   return {
     aircraft: deduplicated,

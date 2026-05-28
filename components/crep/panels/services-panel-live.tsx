@@ -10,7 +10,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Activity, CheckCircle2, AlertTriangle, XCircle,
-  Database, Cpu, Cloud, Radio, Satellite, Globe, RefreshCw
+  Database, Cpu, Radio, Satellite, Globe, RefreshCw
 } from "lucide-react";
 
 interface ServiceStatus {
@@ -34,7 +34,6 @@ const SERVICE_ICONS: Record<string, React.ReactNode> = {
   "n8n Workflows": <Activity className="w-3.5 h-3.5" />,
   Redis: <Database className="w-3.5 h-3.5" />,
   "Qdrant Vector DB": <Database className="w-3.5 h-3.5" />,
-  "Earth-2 Weather": <Cloud className="w-3.5 h-3.5" />,
   FlightRadar24: <Globe className="w-3.5 h-3.5" />,
   "NOAA SWPC": <Satellite className="w-3.5 h-3.5" />,
   iNaturalist: <Globe className="w-3.5 h-3.5" />,

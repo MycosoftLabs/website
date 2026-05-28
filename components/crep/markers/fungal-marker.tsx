@@ -62,6 +62,7 @@ interface FungalMarkerProps {
   isSelected?: boolean;
   onClick?: () => void;
   onClose?: () => void;
+  onHover?: (observation: FungalObservation | null, point?: { x: number; y: number }) => void;
 }
 
 // Get source info for display — MINDEX data is enriched by MYCA and Nature Learning Model
@@ -150,7 +151,7 @@ function getKingdomStyle(kingdom?: string, iconicTaxon?: string) {
 }
 
 // Memoized component to prevent unnecessary re-renders when parent updates
-export const FungalMarker = memo(function FungalMarkerInner({ observation, isSelected = false, onClick, onClose }: FungalMarkerProps) {
+export const FungalMarker = memo(function FungalMarkerInner({ observation, isSelected = false, onClick, onClose, onHover }: FungalMarkerProps) {
   // Guard: Ensure coordinates are valid
   if (
     typeof observation.latitude !== 'number' ||
@@ -189,6 +190,9 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
       <MarkerContent data-marker="fungal" data-observation-id={String(observation.id)}>
         <button
           type="button"
+          onMouseEnter={(e) => onHover?.(observation, { x: e.clientX, y: e.clientY })}
+          onMouseMove={(e) => onHover?.(observation, { x: e.clientX, y: e.clientY })}
+          onMouseLeave={() => onHover?.(null)}
           className={cn(
             "crep-species-marker-dot",
             // May 21 2026 (Morgan: "nature markers blinking on every zoom").
