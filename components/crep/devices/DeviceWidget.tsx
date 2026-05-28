@@ -26,7 +26,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react"
+import Link from "next/link"
 
 export interface DeviceLike {
   id: string
@@ -34,6 +35,8 @@ export interface DeviceLike {
   type?: string
   status?: "online" | "offline" | "unknown" | string
   port?: string | number
+  registryId?: string
+  managerHref?: string
   firmware?: string
   signalStrengthDbm?: number | null
   signalConnectionType?: "wifi" | "ethernet" | "lte" | "5g" | "lora" | "ble" | string | null
@@ -209,6 +212,10 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
     try { await onControl(peripheral, params) } finally { setControlBusy(null) }
   }
 
+  const managerHref =
+    device.managerHref ||
+    (device.registryId ? `/natureos/devices/${encodeURIComponent(device.registryId)}` : null)
+
   const widget = (
     <div
       className="fixed inset-0 z-[1500] flex items-center justify-center pointer-events-auto"
@@ -354,7 +361,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
         ) : null}
 
         {/* Quick controls */}
-        {isOnline && device.port && onControl ? (
+        {isOnline && (device.port || device.registryId) && onControl ? (
           <div className="px-3 pt-3">
             <div className="text-[9px] uppercase tracking-wider text-cyan-300/80 flex items-center gap-1 mb-1.5">
               <Zap className="w-3 h-3" /> Quick Controls
@@ -382,6 +389,15 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
                 LED Off
               </button>
             </div>
+            {managerHref ? (
+              <Link
+                href={managerHref}
+                className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open Device Manager
+              </Link>
+            ) : null}
           </div>
         ) : null}
 

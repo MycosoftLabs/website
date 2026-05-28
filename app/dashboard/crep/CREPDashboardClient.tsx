@@ -3413,7 +3413,7 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
     try {
       const command =
         peripheral === "neopixel" && params?.effect === "rainbow" ? "led pattern rainbow" :
-        peripheral === "neopixel" && params?.effect === "off" ? "led rgb 0 0 0" :
+        peripheral === "neopixel" && params?.effect === "off" ? "led off" :
         peripheral === "buzzer" ? `beep ${Number(params?.frequency ?? 1000)} ${Number(params?.duration ?? params?.duration_ms ?? 100)}` :
         typeof params?.cmd === "string" ? params.cmd :
         peripheral;
@@ -3427,7 +3427,12 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
         body: JSON.stringify({ peripheral, ...params }),
       });
       const result = await response.json();
-      if (!response.ok || !result.success) {
+      if (!response.ok || !(
+        result.success === true ||
+        result.status === "ok" ||
+        result.ok === true ||
+        (result.result && typeof result.result === "object" && result.result.ok !== false)
+      )) {
         // Short message only - avoid description; Next.js dev overlay intercepts console.error
         toast(response.status === 401 || response.status === 403
           ? "Admin sign-in required to control this MycoBrain device."

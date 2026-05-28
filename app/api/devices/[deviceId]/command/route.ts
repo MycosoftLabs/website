@@ -1,11 +1,7 @@
 /**
  * POST /api/devices/:deviceId/command
  *
- * COM7-bench-style live command surface. Proxies a single MDP COMMAND to the
- * device\'s :8787 agent. Useful for: output_control (LED, buzzer, MOSFET),
- * stream_sensors, read_sensors, estop / clear_estop, Side B transport directives.
- *
- * Auth: company-gated. Operator email is attached for audit.
+ * MDP live command surface and operator-string commands for field Jetsons.
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -13,10 +9,16 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { isCompanyEmail } from "@/lib/access/types"
 import { resolveAgentUrl } from "@/lib/devices/agent-resolver"
+import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
+import {
+  mdpToOperatorCommand,
+  networkCommandToOperator,
+  isCommandResponseOk,
+} from "@/lib/devices/operator-commands"
 
 export const dynamic = "force-dynamic"
 
-interface CommandBody {
+interface MdpCommandBody {
   target: "side_a" | "side_b"
   cmd: string
   params?: Record<string, unknown>
@@ -24,10 +26,38 @@ interface CommandBody {
   timeout_ms?: number
 }
 
+interface LegacyCommandBody {
+  command: string
+  params?: Record<string, unknown>
+  timeout?: number
+}
+
+async function postOperatorCmd(agentUrl: string, operatorCmd: string, timeoutMs: number) {
+  const res = await fetch(`${agentUrl}/api/cmd`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ cmd: operatorCmd }),
+    signal: AbortSignal.timeout(timeoutMs + 3000),
+    cache: "no-store",
+  })
+  const text = await res.text()
+  let parsed: unknown = text
+  try {
+    parsed = text ? JSON.parse(text) : {}
+  } catch {
+    parsed = { raw: text }
+  }
+  return { res, parsed }
+}
+
 export async function POST(
   req: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
+  const { deviceId } = await params
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -37,31 +67,91 @@ export async function POST(
   const cookieStore = await cookies()
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll() { return cookieStore.getAll() },
+      getAll() {
+        return cookieStore.getAll()
+      },
       setAll() {},
     },
   })
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user || !isCompanyEmail(user.email)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 })
   }
-  const { data: { session } } = await supabase.auth.getSession()
-  const bearer = session?.access_token
 
-  let body: CommandBody
-  try { body = await req.json() }
-  catch { return NextResponse.json({ error: "bad_json" }, { status: 400 }) }
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "bad_json" }, { status: 400 })
+  }
 
-  if (!body.target || !body.cmd) {
+  const field = deploymentByRegistryId(deviceId)
+  const agentUrl =
+    (await resolveAgentUrl(deviceId)) ||
+    field?.agent_url ||
+    null
+
+  // Legacy string command from device detail quick buttons
+  if (typeof body.command === "string" && !body.target) {
+    const legacy = body as LegacyCommandBody
+    const operatorCmd = networkCommandToOperator(
+      legacy.command,
+      legacy.params || {}
+    )
+    if (field) {
+      const { res, parsed } = await postOperatorCmd(
+        field.agent_url,
+        operatorCmd,
+        (legacy.timeout || 5) * 1000
+      )
+      return NextResponse.json(parsed, {
+        status: res.ok && isCommandResponseOk(parsed) ? 200 : res.status || 502,
+      })
+    }
+    if (!agentUrl) {
+      return NextResponse.json({ error: "no_agent_for_device" }, { status: 404 })
+    }
+    const { res, parsed } = await postOperatorCmd(
+      agentUrl,
+      operatorCmd,
+      (legacy.timeout || 5) * 1000
+    )
+    return NextResponse.json(parsed, {
+      status: res.ok && isCommandResponseOk(parsed) ? 200 : res.status || 502,
+    })
+  }
+
+  const mdp = body as MdpCommandBody
+  if (!mdp.target || !mdp.cmd) {
     return NextResponse.json({ error: "missing_target_or_cmd" }, { status: 400 })
   }
-  if (body.target !== "side_a" && body.target !== "side_b") {
+  if (mdp.target !== "side_a" && mdp.target !== "side_b") {
     return NextResponse.json({ error: "bad_target" }, { status: 400 })
   }
 
-  const agentUrl = await resolveAgentUrl(params.deviceId)
   if (!agentUrl) {
     return NextResponse.json({ error: "no_agent_for_device" }, { status: 404 })
+  }
+
+  const timeoutMs = mdp.timeout_ms || 2000
+  const operatorCmd = mdpToOperatorCommand(mdp.target, mdp.cmd, mdp.params || {})
+
+  if (operatorCmd) {
+    try {
+      const { res, parsed } = await postOperatorCmd(agentUrl, operatorCmd, timeoutMs)
+      if (res.ok && isCommandResponseOk(parsed)) {
+        return NextResponse.json(
+          typeof parsed === "object" && parsed !== null
+            ? { ok: true, ...(parsed as object), operator_command: operatorCmd }
+            : { ok: true, result: parsed, operator_command: operatorCmd },
+          { status: 200 }
+        )
+      }
+    } catch {
+      // fall through to MDP /command attempt
+    }
   }
 
   try {
@@ -70,24 +160,55 @@ export async function POST(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       },
       body: JSON.stringify({
-        target: body.target,
-        cmd: body.cmd,
-        params: body.params || {},
-        ack_requested: body.ack_requested !== false,
-        timeout_ms: body.timeout_ms || 2000,
+        target: mdp.target,
+        cmd: mdp.cmd,
+        params: mdp.params || {},
+        ack_requested: mdp.ack_requested !== false,
+        timeout_ms: timeoutMs,
         user_subject: user.email,
       }),
-      signal: AbortSignal.timeout((body.timeout_ms || 2000) + 3000),
+      signal: AbortSignal.timeout(timeoutMs + 3000),
       cache: "no-store",
     })
     const text = await res.text()
     let parsed: unknown
-    try { parsed = JSON.parse(text) } catch { parsed = { raw: text } }
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      parsed = { raw: text }
+    }
+
+    if (res.ok) {
+      return NextResponse.json(parsed, { status: res.status })
+    }
+
+    if (operatorCmd) {
+      const fallback = await postOperatorCmd(agentUrl, operatorCmd, timeoutMs)
+      return NextResponse.json(fallback.parsed, {
+        status:
+          fallback.res.ok && isCommandResponseOk(fallback.parsed)
+            ? 200
+            : fallback.res.status || 502,
+      })
+    }
+
     return NextResponse.json(parsed, { status: res.status })
   } catch (err) {
+    if (operatorCmd) {
+      try {
+        const fallback = await postOperatorCmd(agentUrl, operatorCmd, timeoutMs)
+        return NextResponse.json(fallback.parsed, {
+          status:
+            fallback.res.ok && isCommandResponseOk(fallback.parsed)
+              ? 200
+              : 502,
+        })
+      } catch {
+        // continue to error below
+      }
+    }
     return NextResponse.json(
       { ok: false, error: (err as Error).message },
       { status: 502 }

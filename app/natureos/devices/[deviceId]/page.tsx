@@ -28,6 +28,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getRoleConfigForDevice } from "@/lib/device-configs"
+import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
 import { OpenClawPanel } from "@/components/devices/openclaw-panel"
 import { LiveCommandConsole } from "@/components/devices/live-command-console"
 
@@ -195,7 +196,12 @@ export default function DeviceDetailPage() {
     setCommandError(null)
     setCommandPending(command)
     try {
-      const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/command`, {
+      const isFieldDevice =
+        deviceId.startsWith("mycobrain-") || Boolean(deploymentByRegistryId(deviceId))
+      const endpoint = isFieldDevice
+        ? `/api/devices/network/${encodeURIComponent(deviceId)}/command`
+        : `/api/devices/${encodeURIComponent(deviceId)}/command`
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 10 }),
@@ -395,6 +401,24 @@ export default function DeviceDetailPage() {
                     }`}
                   />
                   <span>Beep</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-[44px] flex flex-col items-center gap-1 sm:flex-row sm:justify-center"
+                  onClick={() => handleCommand("led pattern rainbow")}
+                  disabled={commandPending !== null}
+                >
+                  <Lightbulb className="h-4 w-4 text-violet-400" />
+                  <span>Rainbow</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-[44px] flex flex-col items-center gap-1 sm:flex-row sm:justify-center"
+                  onClick={() => handleCommand("led off")}
+                  disabled={commandPending !== null}
+                >
+                  <Lightbulb className="h-4 w-4 text-muted-foreground" />
+                  <span>LED Off</span>
                 </Button>
                 <Button
                   variant="outline"

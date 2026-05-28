@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react"
 import useSWR from "swr"
+import Link from "next/link"
+import { ExternalLink } from "lucide-react"
 
 import { DeviceBulkActions } from "@/components/iot/device-bulk-actions"
 import { DeviceStatusBadge } from "@/components/iot/device-status-badge"
@@ -20,26 +22,33 @@ import { cn } from "@/lib/utils"
 
 interface DeviceRecord {
   device_id: string
+  id?: string
   device_name?: string
+  name?: string
   device_role?: string
   device_display_name?: string
+  display_name?: string
   host?: string
   port?: number
+  agent_url?: string
   firmware_version?: string
   board_type?: string
   sensors?: string[]
   capabilities?: string[]
   location?: string
+  location_label?: string
   connection_type?: string
   ingestion_source?: string
   status?: string
   last_seen?: string
   registered_at?: string
+  source?: string
 }
 
 interface DeviceRegistryResponse {
   devices: DeviceRecord[]
   count: number
+  source?: string
 }
 
 const fetcher = async (url: string) => {
@@ -54,7 +63,7 @@ function normalizeSearch(value: string) {
 
 export function DeviceRegistryTable() {
   const { data, error, isLoading, mutate } = useSWR<DeviceRegistryResponse>(
-    "/api/devices?include_offline=true",
+    "/api/devices/network?include_offline=true",
     fetcher
   )
 
@@ -65,7 +74,21 @@ export function DeviceRegistryTable() {
   const [isBusy, setIsBusy] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
-  const devices = useMemo(() => data?.devices ?? [], [data?.devices])
+  const devices = useMemo(() => {
+    const rows = data?.devices ?? []
+    return rows
+      .map((device) => ({
+        ...device,
+        device_id: device.device_id || device.id || "",
+        device_name: device.device_name || device.name || device.display_name,
+      }))
+      .filter((device) => device.device_id)
+      .filter(
+        (device) =>
+          !device.device_id.startsWith("mycobrain-service-") &&
+          device.ingestion_source !== "local-serial-gateway"
+      )
+  }, [data?.devices])
   const deviceTypes = useMemo(() => {
     const types = new Set<string>()
     devices.forEach((device) => {
@@ -121,17 +144,22 @@ export function DeviceRegistryTable() {
     setIsBusy(true)
     setActionMessage(null)
     try {
-      await Promise.all(
-        Array.from(selectedIds).map((deviceId) =>
-          fetch(`/api/devices/${deviceId}/command`, {
+      const results = await Promise.all(
+        Array.from(selectedIds).map(async (deviceId) => {
+          const res = await fetch(`/api/devices/network/${encodeURIComponent(deviceId)}/command`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ command }),
+            body: JSON.stringify({ command, params: {}, timeout: 10 }),
           })
-        )
+          return res.ok
+        })
       )
-      setActionMessage("Command dispatched to selected devices.")
-    } catch (err) {
+      setActionMessage(
+        results.every(Boolean)
+          ? "Command dispatched to selected devices."
+          : "Some devices did not accept the command."
+      )
+    } catch {
       setActionMessage("Command dispatch failed. Check device availability.")
     } finally {
       setIsBusy(false)
@@ -292,6 +320,7 @@ export function DeviceRegistryTable() {
               <th className="px-4 py-3 text-left">Location</th>
               <th className="px-4 py-3 text-left">Firmware</th>
               <th className="px-4 py-3 text-left">Connection</th>
+              <th className="px-4 py-3 text-left">Manage</th>
             </tr>
           </thead>
           <tbody>
@@ -330,6 +359,15 @@ export function DeviceRegistryTable() {
                 </td>
                 <td className="px-4 py-3">
                   {device.connection_type || "lan"}
+                </td>
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/natureos/devices/${encodeURIComponent(device.device_id)}`}
+                    className="inline-flex min-h-[44px] items-center gap-1 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open
+                  </Link>
                 </td>
               </tr>
             ))}

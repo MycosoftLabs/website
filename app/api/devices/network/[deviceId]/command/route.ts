@@ -1,14 +1,16 @@
 /**
  * Network Device Command Route
- * 
+ *
  * Forward commands to a specific network-registered MycoBrain device.
- * 
- * Created: February 10, 2026
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth/api-auth"
 import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
+import {
+  isCommandResponseOk,
+  networkCommandToOperator,
+} from "@/lib/devices/operator-commands"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -16,14 +18,6 @@ interface CommandRequest {
   command: string
   params?: Record<string, unknown>
   timeout?: number
-}
-
-function toOperatorCommand(command: string, params: Record<string, unknown>): string {
-  if (typeof params.cmd === "string" && params.cmd.trim()) return params.cmd.trim()
-  if (command === "led pattern rainbow") return "led heartbeat"
-  if (command === "led rgb 0 0 0") return "led off"
-  if (command.startsWith("beep ")) return "bump"
-  return command
 }
 
 function isLocalDevHost(hostHeader: string | null): boolean {
@@ -47,7 +41,7 @@ async function forwardFieldOperatorCommand(
   const field = deploymentByRegistryId(deviceId)
   if (!field) return null
 
-  const operatorCommand = toOperatorCommand(command, params)
+  const operatorCommand = networkCommandToOperator(command, params)
   try {
     const response = await fetch(`${field.agent_url}/api/cmd`, {
       method: "POST",
@@ -68,7 +62,7 @@ async function forwardFieldOperatorCommand(
       result = text
     }
 
-    if (!response.ok) {
+    if (!response.ok || !isCommandResponseOk(result)) {
       return NextResponse.json(
         {
           success: false,
@@ -76,10 +70,11 @@ async function forwardFieldOperatorCommand(
           source: "field-operator-api",
           error: "Field operator command failed",
           operator_status: response.status,
+          operator_command: operatorCommand,
           result,
           upstream_mas: upstreamError,
         },
-        { status: response.status }
+        { status: response.ok ? 502 : response.status }
       )
     }
 
@@ -109,8 +104,6 @@ async function forwardFieldOperatorCommand(
 
 /**
  * POST /api/devices/network/[deviceId]/command
- * 
- * Send a command to a network device via MAS Device Registry.
  */
 export async function POST(
   request: NextRequest,
@@ -129,10 +122,24 @@ export async function POST(
     const { command, params: cmdParams = {}, timeout = 5 } = body
 
     if (!command) {
-      return NextResponse.json(
-        { error: "command is required" },
-        { status: 400 }
+      return NextResponse.json({ error: "command is required" }, { status: 400 })
+    }
+
+    // Known field Jetsons: hit :8787 /api/cmd first (works from Sandbox on LAN).
+    if (deploymentByRegistryId(deviceId)) {
+      const fieldResult = await forwardFieldOperatorCommand(
+        deviceId,
+        command,
+        cmdParams,
+        timeout,
+        null
       )
+      if (fieldResult) {
+        const fieldJson = await fieldResult.clone().json().catch(() => ({}))
+        if (fieldResult.status < 400 && fieldJson.success !== false) {
+          return fieldResult
+        }
+      }
     }
 
     if (authBypassed) {
@@ -148,14 +155,8 @@ export async function POST(
 
     const response = await fetch(`${MAS_API_URL}/api/devices/${deviceId}/command`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        command,
-        params: cmdParams,
-        timeout,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command, params: cmdParams, timeout }),
       signal: AbortSignal.timeout((timeout + 5) * 1000),
     })
 
@@ -169,7 +170,10 @@ export async function POST(
         timeout,
         { status: response.status, text: errorText }
       )
-      if (fieldResult) return fieldResult
+      if (fieldResult) {
+        const fieldJson = await fieldResult.clone().json().catch(() => ({}))
+        if (fieldResult.status < 400 && fieldJson.success !== false) return fieldResult
+      }
 
       return NextResponse.json(
         { error: `Device command failed: ${errorText}` },
@@ -178,13 +182,23 @@ export async function POST(
     }
 
     const result = await response.json()
+    if (!isCommandResponseOk(result)) {
+      const fieldResult = await forwardFieldOperatorCommand(
+        deviceId,
+        command,
+        cmdParams,
+        timeout,
+        { status: 502, text: JSON.stringify(result) }
+      )
+      if (fieldResult) return fieldResult
+    }
+
     return NextResponse.json({
       success: true,
       device_id: deviceId,
       auth: authBypassed ? "local-field-dev-bypass" : "admin",
       ...result,
     })
-
   } catch (error) {
     console.error(`Failed to send command to device ${deviceId}:`, error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -198,7 +212,7 @@ export async function POST(
       )
       if (fieldResult) return fieldResult
     }
-    
+
     return NextResponse.json(
       { error: `Command failed: ${errorMessage}` },
       { status: 500 }

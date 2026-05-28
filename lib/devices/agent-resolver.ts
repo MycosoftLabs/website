@@ -21,6 +21,8 @@
  * Returns the agent's base URL (no trailing slash) or null.
  */
 
+import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
+
 const OPERATOR_HOSTS = (
   process.env.MYCOBRAIN_OPERATOR_URLS ||
   "http://192.168.0.228:8787,http://192.168.0.123:8787"
@@ -37,6 +39,11 @@ interface RegistryDevice {
   port?: number
   openclaw_url?: string | null
   agent_url?: string
+  extra?: {
+    agent_url?: string
+    api_kind?: string
+    mdp_device_id?: string
+  }
 }
 
 interface OperatorDevice {
@@ -108,16 +115,26 @@ function hostFromDeviceIdSuffix(deviceId: string): string | null {
  * isn't reachable via the unified agent path.
  */
 export async function resolveAgentUrl(deviceId: string): Promise<string | null> {
+  const field = deploymentByRegistryId(deviceId)
+  if (field?.agent_url) return field.agent_url.replace(/\/+$/, "")
+
   // 1. MAS registry
   const registry = await fetchRegistry()
   const masMatch = registry.find((d) => d.device_id === deviceId)
   if (masMatch) {
+    const extraUrl = masMatch.extra?.agent_url
+    if (typeof extraUrl === "string" && extraUrl.includes(":8787")) {
+      return extraUrl.replace(/\/+$/, "")
+    }
     if (typeof masMatch.agent_url === "string" && /:8787\/?$/.test(masMatch.agent_url)) {
       return masMatch.agent_url.replace(/\/+$/, "")
     }
     if (masMatch.host) {
       const m = OPERATOR_HOSTS.find((u) => new URL(u).hostname === masMatch.host)
       if (m) return m
+      if (Number(masMatch.port) === 8787) {
+        return `http://${masMatch.host}:8787`
+      }
     }
   }
 

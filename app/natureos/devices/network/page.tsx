@@ -250,13 +250,37 @@ export default function DeviceNetworkPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Filter to only show verified MycoBrain devices
-  const verifiedDevices = devices.filter(d => 
-    d.verified === true || 
-    d.is_mycobrain === true || 
-    d.deviceType === "mycobrain" ||
-    d.device_info?.side !== undefined
-  )
+  // Filter to only show verified MycoBrain devices; prefer MAS field registry over local serial gateway
+  const FIELD_REGISTRY_IDS = new Set([
+    "mycobrain-mushroom1-jetson-123",
+    "mycobrain-hyphae1-jetson-228",
+  ])
+  const hasFieldMasDevices = devices.some((d) => FIELD_REGISTRY_IDS.has(d.deviceId))
+  const verifiedDevices = devices
+    .filter((d) => {
+      const port = typeof d.port === "string" ? d.port : String(d.port ?? "")
+      if (
+        hasFieldMasDevices &&
+        d.source !== "MAS-Registry" &&
+        (port.startsWith("COM") || port.startsWith("/dev/tty"))
+      ) {
+        return false
+      }
+      return (
+        d.verified === true ||
+        d.is_mycobrain === true ||
+        d.deviceType === "mycobrain" ||
+        d.device_info?.side !== undefined ||
+        FIELD_REGISTRY_IDS.has(d.deviceId)
+      )
+    })
+    .sort((a, b) => {
+      if (a.source === "MAS-Registry" && b.source !== "MAS-Registry") return -1
+      if (b.source === "MAS-Registry" && a.source !== "MAS-Registry") return 1
+      if (a.status === "online" && b.status !== "online") return -1
+      if (b.status === "online" && a.status !== "online") return 1
+      return a.deviceId.localeCompare(b.deviceId)
+    })
   const onlineDevices = verifiedDevices.filter(d => d.status === "online")
   const offlineDevices = verifiedDevices.filter(d => d.status === "offline")
   
@@ -277,16 +301,51 @@ export default function DeviceNetworkPage() {
     setDialogOpen(true)
   }
 
-  // Quick action handlers
+  // Quick action handlers — network registry devices use /api/devices/network/.../command
+  const sendNetworkCommand = async (command: string, params: Record<string, unknown> = {}) => {
+    if (!selectedDevice?.deviceId) return false
+    const res = await fetch(
+      `/api/devices/network/${encodeURIComponent(selectedDevice.deviceId)}/command`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command, params, timeout: 10 }),
+        signal: AbortSignal.timeout(15000),
+      }
+    )
+    return res.ok
+  }
+
   const handleQuickAction = async (action: string) => {
-    if (!selectedDevice?.port) return
+    if (!selectedDevice) return
     setQuickAction(action)
-    
+
     try {
+      const deviceId = selectedDevice.deviceId
+      const isRegistryDevice =
+        selectedDevice.source === "MAS-Registry" ||
+        deviceId.startsWith("mycobrain-")
+
+      if (isRegistryDevice) {
+        const commandMap: Record<string, { command: string; params?: Record<string, unknown> }> = {
+          beep: { command: "bump" },
+          led_green: { command: "led rgb 0 255 0" },
+          led_red: { command: "led rgb 255 0 0" },
+          led_rainbow: { command: "led pattern rainbow" },
+          led_off: { command: "led off" },
+        }
+        const mapped = commandMap[action]
+        if (mapped) {
+          await sendNetworkCommand(mapped.command, mapped.params || {})
+        }
+        return
+      }
+
+      if (!selectedDevice.port) return
       const port = selectedDevice.port
       let endpoint = ""
-      let body = {}
-      
+      let body: Record<string, unknown> = {}
+
       switch (action) {
         case "beep":
           endpoint = `/api/mycobrain/${port}/buzzer`
@@ -300,12 +359,16 @@ export default function DeviceNetworkPage() {
           endpoint = `/api/mycobrain/${port}/led`
           body = { action: "rgb", r: 255, g: 0, b: 0 }
           break
+        case "led_rainbow":
+          endpoint = `/api/mycobrain/${port}/led`
+          body = { action: "pattern", pattern: "rainbow" }
+          break
         case "led_off":
           endpoint = `/api/mycobrain/${port}/led`
           body = { action: "off" }
           break
       }
-      
+
       if (endpoint) {
         await fetch(endpoint, {
           method: "POST",
@@ -323,8 +386,8 @@ export default function DeviceNetworkPage() {
 
   // Navigate to device manager
   const openDeviceManager = () => {
-    if (selectedDevice?.port) {
-      router.push(`/natureos/devices?device=${selectedDevice.port}`)
+    if (selectedDevice?.deviceId) {
+      router.push(`/natureos/devices/${encodeURIComponent(selectedDevice.deviceId)}`)
     }
   }
 
@@ -784,11 +847,11 @@ export default function DeviceNetworkPage() {
               {selectedDevice.status === "online" && (
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-muted-foreground">Quick Actions</div>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex flex-col items-center gap-1 h-auto py-2"
+                      className="flex flex-col items-center gap-1 h-auto py-2 min-h-[44px]"
                       onClick={() => handleQuickAction("beep")}
                       disabled={quickAction !== null}
                     >
@@ -798,7 +861,17 @@ export default function DeviceNetworkPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex flex-col items-center gap-1 h-auto py-2"
+                      className="flex flex-col items-center gap-1 h-auto py-2 min-h-[44px]"
+                      onClick={() => handleQuickAction("led_rainbow")}
+                      disabled={quickAction !== null}
+                    >
+                      <Lightbulb className={`h-4 w-4 ${quickAction === "led_rainbow" ? "animate-pulse" : ""} text-violet-400`} />
+                      <span className="text-xs">Rainbow</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex flex-col items-center gap-1 h-auto py-2 min-h-[44px]"
                       onClick={() => handleQuickAction("led_green")}
                       disabled={quickAction !== null}
                     >
@@ -808,7 +881,7 @@ export default function DeviceNetworkPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex flex-col items-center gap-1 h-auto py-2"
+                      className="flex flex-col items-center gap-1 h-auto py-2 min-h-[44px]"
                       onClick={() => handleQuickAction("led_red")}
                       disabled={quickAction !== null}
                     >
@@ -818,7 +891,7 @@ export default function DeviceNetworkPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex flex-col items-center gap-1 h-auto py-2"
+                      className="flex flex-col items-center gap-1 h-auto py-2 min-h-[44px]"
                       onClick={() => handleQuickAction("led_off")}
                       disabled={quickAction !== null}
                     >
