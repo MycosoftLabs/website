@@ -163,7 +163,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "globe",
     zoomRange: [0, 3],
     events: { timeWindow: "7d", minSeverity: "high", maxRendered: 400 },
-    movers: { aircraft: 2500, vessels: 4500, satellites: 2500, bboxFilter: false },
+    movers: { aircraft: 800, vessels: 1200, satellites: 800, bboxFilter: false },
     infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 500 },
     // Apr 23, 2026 — Morgan: "green dots not selectable, masking cells".
     // Nature is DOM-marker rendered (FungalMarker → maplibregl.Marker per
@@ -180,7 +180,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "continent",
     zoomRange: [3, 5],
     events: { timeWindow: "14d", minSeverity: "medium", maxRendered: 800 },
-    movers: { aircraft: 3500, vessels: 5500, satellites: 3500, bboxFilter: true },
+    movers: { aircraft: 1000, vessels: 1600, satellites: 900, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 1000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 6000 },
   },
@@ -189,7 +189,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "region",
     zoomRange: [5, 7],
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
-    movers: { aircraft: 5000, vessels: 7000, satellites: 5000, bboxFilter: true },
+    movers: { aircraft: 1200, vessels: 2200, satellites: 1000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 9000 },
   },
@@ -198,7 +198,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "state",
     zoomRange: [7, 10],
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 3200 },
-    movers: { aircraft: 8000, vessels: 5000, satellites: 15000, bboxFilter: true },
+    movers: { aircraft: 1500, vessels: 2500, satellites: 1200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 12000 },
   },
@@ -206,8 +206,8 @@ export const LOD_TIERS: LODPolicy[] = [
   {
     tier: "city",
     zoomRange: [10, 13],
-    events: { timeWindow: "7d", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
-    movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
+    events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
+    movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
@@ -215,8 +215,8 @@ export const LOD_TIERS: LODPolicy[] = [
   {
     tier: "street",
     zoomRange: [13, 25],
-    events: { timeWindow: "7d", minSeverity: "info", maxRendered: UNCAPPED_RENDER_LIMIT },
-    movers: { aircraft: UNCAPPED_RENDER_LIMIT, vessels: UNCAPPED_RENDER_LIMIT, satellites: UNCAPPED_RENDER_LIMIT, bboxFilter: true },
+    events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
+    movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
@@ -348,7 +348,6 @@ export function applyLODToMovers<T>(
   zoom: number,
   bounds?: { north: number; south: number; east: number; west: number } | null,
 ): T[] {
-  if (isCityLevelZoom(zoom, bounds)) return items
   const lod = getLODForZoom(zoom)
   const cap = lod.movers[kind]
   if (!Number.isFinite(cap) || cap <= 0 || items.length <= cap) return items

@@ -812,9 +812,9 @@ const RESOURCE_LIMITS: Record<BrowserMemoryPressure, {
   streamed: number;
   lastKnown: number;
 }> = {
-  normal: { nature: 45_000, events: 6_000, aircraft: 3_000, vessels: 8_000, satellites: 2_500, streamed: 3_000, lastKnown: 18_000 },
-  medium: { nature: 30_000, events: 3_000, aircraft: 1_800, vessels: 5_000, satellites: 1_500, streamed: 1_500, lastKnown: 10_000 },
-  high: { nature: 18_000, events: 1_500, aircraft: 900, vessels: 3_000, satellites: 900, streamed: 800, lastKnown: 6_000 },
+  normal: { nature: 30_000, events: 1_200, aircraft: 1_500, vessels: 2_500, satellites: 1_200, streamed: 1_500, lastKnown: 3_500 },
+  medium: { nature: 20_000, events: 900, aircraft: 1_000, vessels: 1_800, satellites: 900, streamed: 800, lastKnown: 2_400 },
+  high: { nature: 12_000, events: 500, aircraft: 600, vessels: 1_200, satellites: 600, streamed: 500, lastKnown: 1_600 },
 };
 
 function observationTimeMs(obs: Pick<FungalObservation, "observed_on">) {
@@ -8080,7 +8080,7 @@ export default function CREPDashboardPage({
               setAircraft((prev) => mergeById(prev, aircraftRows, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.aircraft,
               }));
               console.log(`[CREP/pump] aircraft: ${aircraftRows.length} (merged into persistent union)`);
               try { syncToMINDEX("aircraft", aircraftRows); } catch {}
@@ -8106,12 +8106,17 @@ export default function CREPDashboardPage({
           try {
             const currentBounds = mapBoundsRef.current;
             const currentZoom = mapZoomRef.current ?? 0;
-            const vesselUrls = [
-              currentBounds && currentZoom >= 3
-                ? `/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${currentBounds.west}&lomax=${currentBounds.east}&limit=${RESOURCE_LIMITS.normal.vessels}`
-                : null,
-              `/api/oei/aisstream?limit=${RESOURCE_LIMITS.normal.vessels}`,
-            ].filter(Boolean) as string[];
+            const boundedWest = currentBounds ? Math.max(-180, Math.min(180, currentBounds.west)) : null;
+            const boundedEast = currentBounds ? Math.max(-180, Math.min(180, currentBounds.east)) : null;
+            const hasUsableMoverBbox =
+              currentBounds &&
+              currentZoom >= 3 &&
+              Number.isFinite(boundedWest) &&
+              Number.isFinite(boundedEast) &&
+              boundedEast! > boundedWest!;
+            const vesselUrls = hasUsableMoverBbox
+              ? [`/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${boundedWest}&lomax=${boundedEast}&limit=${RESOURCE_LIMITS.normal.vessels}`]
+              : [`/api/oei/aisstream?limit=${RESOURCE_LIMITS.normal.vessels}`];
             const vesselPayloads = await Promise.allSettled(
               vesselUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
             );
@@ -8140,7 +8145,7 @@ export default function CREPDashboardPage({
               setVessels((prev) => mergeById(prev, vesselRows, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.vessels,
               }));
               console.log(`[CREP/pump] vessels: ${vesselRows.length} (viewport + live union merged)`);
               try { syncToMINDEX("vessels", vesselRows); } catch {}
@@ -8174,7 +8179,7 @@ export default function CREPDashboardPage({
               setSatellites((prev) => mergeById(prev, sats as any[], {
                 idKey: (s: any) => s.noradId || s.norad_id || s.id,
                 ttlMs: ENTITY_TTL_MS.satellite,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.satellites,
               }))
               try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
               breakerMark("__crep_pump_satellites_breaker", true, "satellites")
@@ -9446,7 +9451,7 @@ export default function CREPDashboardPage({
               setAircraft((prev) => mergeById(prev, data.aircraft, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.aircraft,
               }));
               console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} â†’ merged`);
               syncToMINDEX("aircraft", data.aircraft);
@@ -9461,7 +9466,7 @@ export default function CREPDashboardPage({
               setVessels((prev) => mergeById(prev, data.vessels, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.vessels,
               }));
               console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} â†’ merged`);
               syncToMINDEX("vessels", data.vessels);
@@ -9477,7 +9482,7 @@ export default function CREPDashboardPage({
               setSatellites((prev) => mergeById(prev, data.satellites, {
                 idKey: (s: any) => s.noradId || s.norad_id || s.id,
                 ttlMs: ENTITY_TTL_MS.satellite,
-                maxEntries: Number.POSITIVE_INFINITY,
+                maxEntries: RESOURCE_LIMITS.normal.satellites,
               }));
               console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} â†’ merged`);
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);
@@ -13386,7 +13391,7 @@ export default function CREPDashboardPage({
       if (typeof a?.isHelicopter === "boolean") return a.isHelicopter
       return false
     }
-    for (const a of moverAircraftPool) {
+    for (const a of filteredAircraft) {
       acIds.add(a.id);
       if (isHelicopter(a)) heloIds.add(a.id);
       // Apr 19, 2026 (critical rendering bug â€” see deckEntities map below):
@@ -13424,7 +13429,7 @@ export default function CREPDashboardPage({
         };
       }
     }
-    for (const v of moverVesselPool) {
+    for (const v of filteredVessels) {
       vIds.add(v.id);
       // Apr 19, 2026 â€” same flat-lat/lng fix as aircraft above.
       const vv = v as any;
@@ -13506,7 +13511,7 @@ export default function CREPDashboardPage({
       ;(window as any).__crep_vesselIds = vIds
       ;(window as any).__crep_helicopterIds = heloIds
     } catch { /* SSR or headless */ }
-  }, [moverAircraftPool, moverVesselPool]);
+  }, [filteredAircraft, filteredVessels]);
 
   // â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ
   // AIRCRAFT + VESSEL DEAD-RECKONING â€” dual-pump (rAF + setInterval fallback)
@@ -13810,7 +13815,7 @@ export default function CREPDashboardPage({
     } catch {
       // source missing / map torn down â€” rAF backstop retries next frame
     }
-  }, [assetIsolationMode, isEmbeddedEarthquakeSearch, moverAircraftPool, moverVesselPool, selectStableLiveMoverFeatures])
+  }, [assetIsolationMode, filteredAircraft, filteredVessels, isEmbeddedEarthquakeSearch, selectStableLiveMoverFeatures])
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LIVE-MOVER DIAGNOSTIC (Apr 20, 2026 â€” Morgan: "i dont see any planes or
