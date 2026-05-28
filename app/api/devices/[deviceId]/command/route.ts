@@ -95,7 +95,7 @@ export async function POST(
 
   // Legacy string command from device detail quick buttons
   if (typeof body.command === "string" && !body.target) {
-    const legacy = body as LegacyCommandBody
+    const legacy = body as unknown as LegacyCommandBody
     const operatorCmd = networkCommandToOperator(
       legacy.command,
       legacy.params || {}
@@ -123,7 +123,7 @@ export async function POST(
     })
   }
 
-  const mdp = body as MdpCommandBody
+  const mdp = body as unknown as MdpCommandBody
   if (!mdp.target || !mdp.cmd) {
     return NextResponse.json({ error: "missing_target_or_cmd" }, { status: 400 })
   }

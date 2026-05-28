@@ -1280,7 +1280,7 @@ function MapControls({
     [map]
   );
 
-  const useRememberedLocation = useCallback(() => {
+  const applyRememberedLocation = useCallback(() => {
     const remembered = readRememberedUserLocation();
     if (!remembered) return false;
     lastUserCoordsRef.current = remembered;
@@ -1361,7 +1361,7 @@ function MapControls({
       setIsTracking(false);
       setIsFollowing(false);
       setLocationStatus("Location is not available in this browser.");
-      useRememberedLocation();
+      applyRememberedLocation();
       return;
     }
 
@@ -1427,7 +1427,7 @@ function MapControls({
         code: error.code,
         message,
       });
-      useRememberedLocation();
+      applyRememberedLocation();
     };
 
     navigator.geolocation.getCurrentPosition(onPosition, onError, {
@@ -1445,7 +1445,7 @@ function MapControls({
         maximumAge: 5000,
       }
     );
-  }, [clearLocationWatch, flyToUserLocation, map, onLocate, useRememberedLocation]);
+  }, [applyRememberedLocation, clearLocationWatch, flyToUserLocation, map, onLocate]);
 
   useEffect(() => {
     if (!showLocate || !map || hasCheckedResumeRef.current) return;
