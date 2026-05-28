@@ -340,6 +340,7 @@ All notable changes to this project will be documented in this file.
 - *(mycobrain-service-url)* Per-device resolution alongside legacy :8003
 - *(migrations)* Idempotency guards + worldview_v1 RPC table-ref bug
 - *(crep)* Add missing Earth Simulator lib modules for production build
+- *(crep)* Earth Simulator boot, Eagle cameras, MYCA viewport polish for production
 
 ### CREP
 
@@ -560,6 +561,7 @@ All notable changes to this project will be documented in this file.
 - Publish NLM technical article [fast]
 - Update changelog [skip ci]
 - *(quickstart)* USAF engagement now references Agaric (MycoDrone retired) (#166)
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
