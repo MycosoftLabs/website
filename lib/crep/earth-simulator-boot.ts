@@ -257,9 +257,10 @@ export function getEarthSimulatorEventDomCap(zoom: number): number {
   return 1500
 }
 
-export const EARTH_SIM_NATURE_STORE_CAP = Number.POSITIVE_INFINITY
+/** Browser-memory cap only. MINDEX remains the source of truth for full iNat history. */
+export const EARTH_SIM_NATURE_STORE_CAP = 45_000
 
-/** Fast live nature paint budget. Full local/baked stores remain uncapped. */
+/** Fast live nature paint budget. MINDEX/local files can refill the capped browser store. */
 export const EARTH_SIM_NATURE_INSTANT_LIMIT = 2_400
 
 /** Live aircraft/vessel/satellite pump should start fast without blocking first paint. */

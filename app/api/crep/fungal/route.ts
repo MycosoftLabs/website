@@ -24,8 +24,6 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
-import bboxPolygon from "@turf/bbox-polygon"
-import area from "@turf/area"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import { isPlausibleNatureMarkerPlacement } from "@/lib/crep/nature-land-filter"
 
@@ -99,6 +97,37 @@ async function fetchQuickExternal(url: string, options: RequestInit = {}): Promi
 // CACHING SYSTEM - Reduces MINDEX latency to near-instant for repeat loads
 // Cache expires after 5 minutes to balance freshness with performance
 // ═══════════════════════════════════════════════════════════════════════════
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function normalizeViewportBounds(bounds: { north: number; south: number; east: number; west: number }) {
+  if (
+    !Number.isFinite(bounds.north) ||
+    !Number.isFinite(bounds.south) ||
+    !Number.isFinite(bounds.east) ||
+    !Number.isFinite(bounds.west)
+  ) {
+    return undefined
+  }
+
+  const north = clampNumber(bounds.north, -90, 90)
+  const south = clampNumber(bounds.south, -90, 90)
+  if (south >= north) return undefined
+
+  const west = clampNumber(bounds.west, -180, 180)
+  const east = clampNumber(bounds.east, -180, 180)
+
+  // MapLibre globe projection can briefly report wrapped longitudes like
+  // -186..-10 while the camera settles. Keep the API permissive and bounded so
+  // Earth Simulator does not throw 400s during normal pan/zoom movement.
+  if (west >= east) {
+    return { north, south, west: -180, east: 180 }
+  }
+
+  return { north, south, east, west }
+}
+
 interface CachedData {
   observations: FungalObservation[]
   timestamp: number
@@ -1647,33 +1676,14 @@ export async function GET(request: NextRequest) {
 
   const hadBoundsParams = north != null || south != null || east != null || west != null
   if (bounds) {
-    try {
-      const bbox = [bounds.west, bounds.south, bounds.east, bounds.north] as [number, number, number, number]
-      const poly = bboxPolygon(bbox)
-      const a = area(poly)
-      if (
-        !Number.isFinite(a) ||
-        a <= 0 ||
-        bounds.south >= bounds.north ||
-        bounds.west >= bounds.east ||
-        bounds.south < -90 ||
-        bounds.north > 90 ||
-        bounds.west < -180 ||
-        bounds.east > 180
-      ) {
-        if (hadBoundsParams) {
-          return NextResponse.json(
-            { error: "Invalid bounds", detail: "Bounds must be valid: -90<=lat<=90, -180<=lng<=180, south<north, west<east" },
-            { status: 400 }
-          )
-        }
-        bounds = undefined
-      }
-    } catch {
+    const normalizedBounds = normalizeViewportBounds(bounds)
+    if (!normalizedBounds) {
       if (hadBoundsParams) {
         return NextResponse.json({ error: "Invalid bounds", detail: "Bounds could not be parsed" }, { status: 400 })
       }
       bounds = undefined
+    } else {
+      bounds = normalizedBounds
     }
   }
   const mindexWritebackEnabled = wantsMindexDisplayWriteback && Boolean(bounds)

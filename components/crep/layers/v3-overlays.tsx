@@ -216,6 +216,7 @@ function wireClick(map: MapLibreMap, layerId: string, type: string, fallbackName
 // types the API doesn't cover (lightning / tornado) the layer stays empty
 // but the filter toggle still controls visibility.
 let _globalEventsCache: { ts: number; events: any[] } = { ts: 0, events: [] }
+let _globalEventsInFlight: Promise<any[]> | null = null
 const EVENT_DISPLAY_WINDOW_MS = 72 * 60 * 60 * 1000
 const BIODIVERSITY_HOTSPOT_MIN_ZOOM = 5
 
@@ -235,22 +236,28 @@ async function fetchAllGlobalEvents(): Promise<any[]> {
   if (now - _globalEventsCache.ts < CACHE_MS && _globalEventsCache.events.length > 0) {
     return _globalEventsCache.events
   }
-  try {
-    const r = await fetch("/api/natureos/global-events?days=3&limit=25000", {
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!r.ok) return _globalEventsCache.events
-    const j = await r.json()
-    const cutoff = Date.now() - EVENT_DISPLAY_WINDOW_MS
-    const events = (j?.events || []).filter((event: any) => {
-      const t = eventTimestampMs(event)
-      return t > 0 && t >= cutoff
-    })
-    _globalEventsCache = { ts: now, events }
-    return events
-  } catch {
-    return _globalEventsCache.events
-  }
+  if (_globalEventsInFlight) return _globalEventsInFlight
+  _globalEventsInFlight = (async () => {
+    try {
+      const r = await fetch("/api/natureos/global-events?days=3&limit=1200", {
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!r.ok) return _globalEventsCache.events
+      const j = await r.json()
+      const cutoff = Date.now() - EVENT_DISPLAY_WINDOW_MS
+      const events = (j?.events || []).filter((event: any) => {
+        const t = eventTimestampMs(event)
+        return t > 0 && t >= cutoff
+      })
+      _globalEventsCache = { ts: now, events }
+      return events
+    } catch {
+      return _globalEventsCache.events
+    } finally {
+      _globalEventsInFlight = null
+    }
+  })()
+  return _globalEventsInFlight
 }
 
 async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires" | "storms" | "floods" | "lightning" | "tornadoes") {

@@ -7760,7 +7760,7 @@ export default function CREPDashboardPage({
     const limits = RESOURCE_LIMITS[hidden || pressure === "high" ? "high" : pressure === "medium" ? "medium" : "normal"];
     const natureChanged = pruneStoreByRank(
       fungalStoreRef.current,
-      isEarthSimulatorRoute ? UNCAPPED_RENDER_LIMIT : limits.nature,
+      limits.nature,
       observationResourceRank,
       selectedFungal?.id,
       storeIdsInViewport(
@@ -9339,8 +9339,8 @@ export default function CREPDashboardPage({
         // Fetch global events - wrapped in try/catch for graceful failure
         if (canFetchEvents) try {
           const eventsUrl = isEmbeddedEarthquakeSearch
-            ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-            : "/api/natureos/global-events?days=3&limit=25000";
+            ? "/api/natureos/global-events?type=earthquake&days=30&limit=5000"
+            : "/api/natureos/global-events?days=3&limit=1200";
           const eventsRes = await fetch(eventsUrl, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
           if (eventsRes.ok) {
             const data = await eventsRes.json();
@@ -9746,8 +9746,8 @@ export default function CREPDashboardPage({
     void (async () => {
       try {
         const eventsUrl = isEmbeddedEarthquakeSearch
-          ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-          : "/api/natureos/global-events?days=3&limit=25000";
+          ? "/api/natureos/global-events?type=earthquake&days=30&limit=5000"
+          : "/api/natureos/global-events?days=3&limit=1200";
         const eventsRes = await fetch(eventsUrl, { signal: AbortSignal.timeout(20_000), cache: "no-store" });
         if (!eventsRes.ok || cancelled) return;
         const data = await eventsRes.json();
@@ -9821,8 +9821,30 @@ export default function CREPDashboardPage({
     const BAKED_REGIONS = ["sdtj", "la", "sf", "peninsula", "nyc", "dc", "vegas"] as const;
     const BAKED_INAT_VERSION = "20260527-bayarea";
     let cancelled = false;
+    const waitForBakedPreloadSlot = () =>
+      new Promise<void>((resolve) => {
+        const settle = () => {
+          if (cancelled) {
+            resolve();
+            return;
+          }
+          if (mapInteractionActiveRef.current) {
+            window.setTimeout(settle, 700);
+            return;
+          }
+          const requestIdle = (window as any).requestIdleCallback;
+          if (typeof requestIdle === "function") {
+            requestIdle(() => resolve(), { timeout: 1200 });
+          } else {
+            window.setTimeout(resolve, 150);
+          }
+        };
+        window.setTimeout(settle, 100);
+      });
     (async () => {
-      for (const region of BAKED_REGIONS) {
+      for (let regionIndex = 0; regionIndex < BAKED_REGIONS.length; regionIndex += 1) {
+        if (regionIndex > 0) await waitForBakedPreloadSlot();
+        const region = BAKED_REGIONS[regionIndex];
         if (cancelled) return;
         try {
           const res = await fetch(`/data/crep/${region}-inat.geojson?v=${BAKED_INAT_VERSION}`, { cache: "force-cache" });
@@ -9878,7 +9900,11 @@ export default function CREPDashboardPage({
             store.set(id, candidate);
             added++;
           }
-          if (!cancelled) setFungalObservations(Array.from(store.values()));
+          pruneStoreByRank(store, EARTH_SIM_NATURE_STORE_CAP, observationResourceRank, null, new Set());
+          if (!cancelled && (regionIndex === 0 || region === "sf" || region === "peninsula" || regionIndex === BAKED_REGIONS.length - 1)) {
+            const snapshot = Array.from(store.values());
+            startTransition(() => setFungalObservations(snapshot));
+          }
           console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations â†’ merged into fungalObservations (total now ${store.size})`);
         } catch (e) {
           if (!cancelled) console.warn(`[CREP/iNat-baked] ${region} failed:`, (e as Error)?.message);
@@ -10351,8 +10377,8 @@ export default function CREPDashboardPage({
       if (shouldPauseLiveWork()) return;
       try {
         const eventsUrl = isEmbeddedEarthquakeSearch
-          ? "/api/natureos/global-events?type=earthquake&days=30&limit=20000"
-          : "/api/natureos/global-events?days=3&limit=25000";
+          ? "/api/natureos/global-events?type=earthquake&days=30&limit=5000"
+          : "/api/natureos/global-events?days=3&limit=1200";
         const eventsRes = await fetch(eventsUrl);
         if (!eventsRes.ok) return;
         const data = await eventsRes.json();
@@ -14570,7 +14596,13 @@ export default function CREPDashboardPage({
 
   const liveOverlayBbox = useMemo<[number, number, number, number] | null>(() => {
     if (!mapBounds) return null;
-    return [mapBounds.west, mapBounds.south, mapBounds.east, mapBounds.north];
+    const south = Math.max(-90, Math.min(90, mapBounds.south));
+    const north = Math.max(-90, Math.min(90, mapBounds.north));
+    if (!Number.isFinite(south) || !Number.isFinite(north) || south >= north) return null;
+    const west = Math.max(-180, Math.min(180, mapBounds.west));
+    const east = Math.max(-180, Math.min(180, mapBounds.east));
+    if (!Number.isFinite(west) || !Number.isFinite(east) || west >= east) return null;
+    return [west, south, east, north];
   }, [mapBounds?.west, mapBounds?.south, mapBounds?.east, mapBounds?.north]);
   const regionalOverlayBbox = mapZoom > 3 ? liveOverlayBbox ?? undefined : undefined;
   const detailedOverlayBbox = mapZoom > 5 ? liveOverlayBbox ?? undefined : undefined;

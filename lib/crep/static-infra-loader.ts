@@ -70,6 +70,9 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     geojsonUrl: "/data/crep/transmission-lines-us-full.geojson",
     label: "US transmission — ALL voltages (HIFLD + OSM + MINDEX)",
     maxGeojsonFallbackBytes: 24 * MB,
+    // If the full PMTiles archive is missing or stubbed, loading the raw
+    // all-voltage GeoJSON can freeze Earth Simulator controls during zoom.
+    skipGeojsonFallback: true,
   },
   /**
    * Global data centers (Apr 19, 2026, Morgan: "square glowing data
