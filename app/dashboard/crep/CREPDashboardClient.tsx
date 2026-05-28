@@ -13574,7 +13574,12 @@ export default function CREPDashboardPage({
       liveMoverRenderIdCacheRef.current[kind] = [];
       return [];
     }
-    const desired = lodSelectForZoom(features, bbox, zoom, 2);
+    const desiredAll = lodSelectForZoom(features, bbox, zoom, 2);
+    const renderCap =
+      kind === "vessel"
+        ? zoom < 3 ? 350 : zoom < 5 ? 450 : zoom < 7 ? 650 : zoom < 10 ? 900 : 1200
+        : zoom < 3 ? 450 : zoom < 5 ? 600 : zoom < 7 ? 800 : zoom < 10 ? 1000 : 1200;
+    const desired = desiredAll.length > renderCap ? desiredAll.slice(0, renderCap) : desiredAll;
     if (desired.length <= 1) {
       liveMoverRenderIdCacheRef.current[kind] = desired
         .map((feature: any) => String(feature?.properties?.id ?? feature?.id ?? ""))
@@ -13613,7 +13618,13 @@ export default function CREPDashboardPage({
     let rafId: number | null = null;
     let intervalId: any = null;
     let lastTickAt = 0;
-    const TICK_MS = 120; // smooth live mover dead-reckoning without waiting for poll ticks
+    const getTickMs = () => {
+      const zoom = mapZoomRef.current;
+      if (!Number.isFinite(zoom) || zoom < 3) return 1000;
+      if (zoom < 5) return 900;
+      if (zoom < 7) return 700;
+      return 500;
+    };
 
     // Apr 22, 2026 perf: one-rAF setData coalescer per source. Aircraft +
     // vessel sigs still deduplicate NO-OP ticks at the data level; the
@@ -13641,6 +13652,7 @@ export default function CREPDashboardPage({
       if (shouldPauseMoverAnimation()) return;
       const map = mapNativeRef.current;
       if (!map || typeof map.getSource !== "function") return;
+      if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) return;
       const lk = lastKnownRef.current;
       const nowMs = Date.now();
       try {
@@ -13709,7 +13721,7 @@ export default function CREPDashboardPage({
     // rAF tick: runs at ~60 Hz when tab is visible; browser pauses when hidden.
     const rafTick = (ts: number) => {
       const nowPerf = performance.now();
-      if (nowPerf - lastTickAt >= TICK_MS) {
+      if (nowPerf - lastTickAt >= getTickMs()) {
         lastTickAt = nowPerf;
         pumpOnce();
       }
@@ -13724,10 +13736,10 @@ export default function CREPDashboardPage({
     intervalId = setInterval(() => {
       // Guard against double-ticks when rAF is also firing: if rAF ran in
       // the last 150 ms, skip this interval tick.
-      if (performance.now() - lastTickAt < 150) return;
+      if (performance.now() - lastTickAt < Math.max(450, getTickMs() * 0.8)) return;
       lastTickAt = performance.now();
       pumpOnce();
-    }, 250);
+    }, 500);
 
     return () => {
       if (rafId != null) cancelAnimationFrame(rafId);
