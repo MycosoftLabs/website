@@ -156,6 +156,13 @@ function mapReady(map: maplibregl.Map | null): map is maplibregl.Map {
   }
 }
 
+function shouldWarmInactiveSpunRasters() {
+  if (typeof window === "undefined") return true
+  const width = window.innerWidth || 1440
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false
+  return !(width <= 1180 || coarsePointer)
+}
+
 function setVisibility(map: maplibregl.Map, id: string, visible: boolean) {
   try {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none")
@@ -611,6 +618,8 @@ export function bootstrapFungalAmEcmRasters(
   const pendingMap = map as (maplibregl.Map & {
     __crepFungalRasterRetry?: boolean
     __crepFungalRasterPendingOptions?: { showAm?: boolean; showEcm?: boolean; opacity?: number }
+    __crepFungalRasterAppliedSignature?: string
+    __crepFungalRasterOrderedAt?: number
   }) | null
   if (pendingMap) pendingMap.__crepFungalRasterPendingOptions = options
   if (!mapReady(map)) {
@@ -635,12 +644,28 @@ export function bootstrapFungalAmEcmRasters(
   const showEcm = Boolean(options.showEcm)
   const amHeat = HEAT_LAYERS.find((heat) => heat.id === "am")
   const ecmHeat = HEAT_LAYERS.find((heat) => heat.id === "ecm")
-  if (amHeat) ensureSpunTileHeatLayer(map, amHeat, showAm, opacity)
-  if (ecmHeat) ensureSpunTileHeatLayer(map, ecmHeat, showEcm, opacity)
-  setVisibility(map, layerId("am"), true)
-  setVisibility(map, layerId("ecm"), true)
+  const warmInactiveRasters = shouldWarmInactiveSpunRasters()
+  const signature = `${showAm ? 1 : 0}|${showEcm ? 1 : 0}|${opacity.toFixed(3)}`
+  const hasAmShell = Boolean(map.getSource(sourceId("am")) && map.getLayer(layerId("am")))
+  const hasEcmShell = Boolean(map.getSource(sourceId("ecm")) && map.getLayer(layerId("ecm")))
+  const hasRasterShells =
+    (warmInactiveRasters || !showAm || hasAmShell) &&
+    (warmInactiveRasters || !showEcm || hasEcmShell) &&
+    (!warmInactiveRasters || (hasAmShell && hasEcmShell))
+  if (pendingMap?.__crepFungalRasterAppliedSignature === signature && hasRasterShells) {
+    return
+  }
+  if (amHeat && (showAm || warmInactiveRasters || hasAmShell)) ensureSpunTileHeatLayer(map, amHeat, showAm, opacity)
+  if (ecmHeat && (showEcm || warmInactiveRasters || hasEcmShell)) ensureSpunTileHeatLayer(map, ecmHeat, showEcm, opacity)
+  setVisibility(map, layerId("am"), showAm || warmInactiveRasters)
+  setVisibility(map, layerId("ecm"), showEcm || warmInactiveRasters)
   try {
-    moveFungalLayersToTop(map)
+    const now = Date.now()
+    if (!pendingMap?.__crepFungalRasterOrderedAt || now - pendingMap.__crepFungalRasterOrderedAt > 1_500 || !hasRasterShells) {
+      moveFungalLayersToTop(map)
+      if (pendingMap) pendingMap.__crepFungalRasterOrderedAt = now
+    }
+    if (pendingMap) pendingMap.__crepFungalRasterAppliedSignature = signature
   } catch {
     /* ignore style churn */
   }
@@ -653,8 +678,14 @@ function syncHeatLayerShells(
   for (const heat of HEAT_LAYERS) {
     const visible = isHeatVisible(heat.id, latest.enabled[heat.id], latest.zoom)
     if (isSpunTileHeatLayer(heat.id)) {
+      const warmInactiveRasters = shouldWarmInactiveSpunRasters()
+      const lid = layerId(heat.id)
+      const hasLayer = Boolean(map.getLayer(lid))
+      if (!visible && !warmInactiveRasters && !hasLayer) {
+        continue
+      }
       ensureSpunTileHeatLayer(map, heat, visible, latest.opacity)
-      setVisibility(map, layerId(heat.id), true)
+      setVisibility(map, lid, visible || warmInactiveRasters)
       setVisibility(map, cellFillLayerId(heat.id), false)
       setVisibility(map, cellLineLayerId(heat.id), false)
     } else {

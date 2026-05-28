@@ -130,7 +130,11 @@ export function MobileNav() {
     setMounted(true)
   }, [])
 
-  const toggleMenu = () => setIsOpen(!isOpen)
+  const openMenu = (event?: any) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    setIsOpen(true)
+  }
   const closeMenu = () => {
     setIsOpen(false)
     setExpandedSections({})
@@ -165,6 +169,7 @@ export function MobileNav() {
           />
           {/* Mobile nav drawer */}
           <div
+            id="mobile-nav-menu"
             className="mobile-nav-glass-drawer fixed inset-y-0 right-0 z-[99999] h-[100dvh] max-h-[100dvh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
@@ -315,7 +320,16 @@ export function MobileNav() {
 
   return (
     <>
-      <Button variant="ghost" size="icon" className="mobile-hamburger-glass md:hidden" onClick={toggleMenu} aria-label="Menu">
+      <Button
+        variant="ghost"
+        size="icon"
+        type="button"
+        className="mobile-hamburger-glass md:hidden"
+        onClick={openMenu}
+        aria-expanded={isOpen}
+        aria-controls="mobile-nav-menu"
+        aria-label="Menu"
+      >
         <Menu className="h-5 w-5" />
       </Button>
       {mounted ? createPortal(mobileMenuContent, document.body) : null}

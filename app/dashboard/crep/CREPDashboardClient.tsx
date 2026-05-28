@@ -1710,9 +1710,45 @@ function selectDistributedEvents(
 const RECENT_PRIORITY_WINDOW_MS = 72 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
+function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
+  if (typeof window === "undefined") return "desktop";
+  const width = window.innerWidth || 1440;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  if (width <= 767 || (coarsePointer && width <= 900)) return "phone";
+  if (width <= 1180 || coarsePointer) return "tablet";
+  return "desktop";
+}
+
+function getInitialProjectionMode(): ProjectionMode {
+  if (typeof window === "undefined") return "globe";
+  const width = window.innerWidth || 1440;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  return width <= 1180 || coarsePointer ? "mercator" : "globe";
+}
+
 function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
   if (earthSimulator) {
-    return getEarthSimulatorEventDomCap(zoom);
+    const baseCap = getEarthSimulatorEventDomCap(zoom);
+    const perfClass = getEarthSimViewportPerfClass();
+    if (perfClass === "phone") {
+      const phoneCap =
+        zoom >= 9 ? 90 :
+        zoom >= 7 ? 80 :
+        zoom >= 5 ? 70 :
+        zoom >= 3 ? 60 :
+        50;
+      return Math.min(baseCap, phoneCap);
+    }
+    if (perfClass === "tablet") {
+      const tabletCap =
+        zoom >= 9 ? 180 :
+        zoom >= 7 ? 160 :
+        zoom >= 5 ? 140 :
+        zoom >= 3 ? 120 :
+        100;
+      return Math.min(baseCap, tabletCap);
+    }
+    return baseCap;
   }
   // City/metro: no DOM cap â€” every enabled event in viewport renders.
   if (zoom >= 9) return UNCAPPED_RENDER_LIMIT;
@@ -1734,6 +1770,27 @@ function getNatureDomMarkerCapForZoom(
   void bounds;
   void enabledKingdoms;
   if (earthSimulator) {
+    const perfClass = getEarthSimViewportPerfClass();
+    if (perfClass === "phone") {
+      const phoneCap =
+        zoom >= 11 ? 110 :
+        zoom >= 9 ? 95 :
+        zoom >= 7 ? 80 :
+        zoom >= 5 ? 70 :
+        zoom >= 3 ? 60 :
+        50;
+      return phoneCap;
+    }
+    if (perfClass === "tablet") {
+      const tabletCap =
+        zoom >= 11 ? 240 :
+        zoom >= 9 ? 200 :
+        zoom >= 7 ? 170 :
+        zoom >= 5 ? 145 :
+        zoom >= 3 ? 120 :
+        100;
+      return Math.min(EARTH_SIM_DOM_MARKER_CAP, tabletCap);
+    }
     const tierCap =
       zoom >= 11 ? 520 :
       zoom >= 9 ? 460 :
@@ -6864,10 +6921,11 @@ export default function CREPDashboardPage({
   const initialUrlFocusRef = useRef(getInitialMapFocusFromUrl());
   const lastAppliedExplicitFocusRef = useRef<string | null>(null);
 
-  // Globe/Map projection mode (Apr 2026 â€” OpenGridWorks-style).
-  // The canonical Earth Simulator opens as the native globe over North America.
-  // so AM/EcM/protected surfaces paint consistently instead of clipping on globe projection.
-  const [projectionMode, setProjectionMode] = useState<ProjectionMode>("globe");
+  // Globe/Map projection mode (Apr 2026 - OpenGridWorks-style).
+  // Desktop opens as the native globe. Touch/tablet/phone starts in map mode:
+  // MapLibre globe + rasters can starve input on mobile GPUs; the globe toggle
+  // remains available when the user wants the 3D projection.
+  const [projectionMode, setProjectionMode] = useState<ProjectionMode>(() => getInitialProjectionMode());
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
