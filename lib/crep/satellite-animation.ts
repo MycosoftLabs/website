@@ -30,7 +30,7 @@ interface SatelliteInput {
 /** Minimum milliseconds between propagation ticks (~1 FPS for smooth visible movement).
  *  At 10fps satellites appeared to blink/jump because the position deltas were too small
  *  for MapLibre to interpolate visually. At 1fps the movement is clearly directional. */
-const TICK_INTERVAL_MS = 1000
+const TICK_INTERVAL_MS = 2500
 
 /** How often to recalculate orbit paths (every 60s) */
 const ORBIT_PATH_INTERVAL_MS = 60000
@@ -152,6 +152,10 @@ function tick(timestamp: number) {
 
   const map = mapRef
   if (!map) {
+    animationFrameId = requestAnimationFrame(tick)
+    return
+  }
+  if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }

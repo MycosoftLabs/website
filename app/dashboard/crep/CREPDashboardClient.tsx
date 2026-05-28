@@ -13293,7 +13293,6 @@ export default function CREPDashboardPage({
 
     // Recency-first LOD (Fix D): satellites are orbit-wide, so bbox culling
     // isn't meaningful â€” always use the tier's budget unless city zoom.
-    if (isCityLevelZoom(mapZoom, mapBounds)) return filtered;
     return applyLODToMovers(filtered, "satellites", mapZoom, mapBounds);
   }, [moverSatellitePool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode]);
 
@@ -14497,7 +14496,7 @@ export default function CREPDashboardPage({
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const map = mapNativeRef.current;
-    if (!map || moverSatellitePool.length === 0) {
+    if (!map || filteredSatellites.length === 0) {
       if (earthStrictPerfMode) stopSatelliteAnimation();
       return;
     }
@@ -14514,7 +14513,7 @@ export default function CREPDashboardPage({
     // so we merge top-level orbital fields INTO properties here. Without
     // this merge, no satellites get TLE data â†’ no SGP4 propagation â†’ the
     // satellite layer never visibly moves.
-    const satInputs = moverSatellitePool.map((s: any) => ({
+    const satInputs = filteredSatellites.map((s: any) => ({
       id: s.id,
       properties: {
         ...(s.properties || {}),
@@ -14542,7 +14541,7 @@ export default function CREPDashboardPage({
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
-  }, [moverSatellitePool, earthStrictPerfMode]);
+  }, [filteredSatellites, earthStrictPerfMode]);
 
   // Cleanup: stop satellite animation on unmount
   useEffect(() => {
