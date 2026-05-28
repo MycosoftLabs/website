@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 // useRouter removed; all navigation uses <Link> directly
@@ -158,13 +159,13 @@ export function MobileNav() {
         <>
           {/* Backdrop overlay - covers entire screen */}
           <div
-            className="mobile-nav-glass-backdrop fixed inset-0 z-[99998]"
+            className="mobile-nav-glass-backdrop fixed inset-0 z-[99998] h-[100dvh]"
             onClick={closeMenu}
             aria-hidden="true"
           />
           {/* Mobile nav drawer */}
           <div
-            className="mobile-nav-glass-drawer fixed inset-y-0 right-0 z-[99999] w-80 overflow-y-auto"
+            className="mobile-nav-glass-drawer fixed inset-y-0 right-0 z-[99999] h-[100dvh] max-h-[100dvh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
               <Link href="/" prefetch={false} className="flex items-center gap-2 font-semibold" onClick={closeMenuAfterNavigation}>
@@ -317,7 +318,7 @@ export function MobileNav() {
       <Button variant="ghost" size="icon" className="mobile-hamburger-glass md:hidden" onClick={toggleMenu} aria-label="Menu">
         <Menu className="h-5 w-5" />
       </Button>
-      {mobileMenuContent}
+      {mounted ? createPortal(mobileMenuContent, document.body) : null}
     </>
   )
 }

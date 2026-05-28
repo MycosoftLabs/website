@@ -103,15 +103,8 @@ export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = [
   ...EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS,
 ] as const
 
-/** Device/mover master layers ON at boot so child filter chips never lie. */
+/** Ground/network devices that stay ON at boot. Live movers start OFF until the user enables them. */
 export const EARTH_SIM_DEVICE_BOOT_LAYER_IDS = [
-  "aviation",
-  "aviationRoutes",
-  "ships",
-  "shipRoutes",
-  "fishing",
-  "containers",
-  "satellites",
   "buoys",
   "liveTransit",
   "railwayTrains",
@@ -125,6 +118,13 @@ export const EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS = [
 
 /** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
 export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
+  "aviation",
+  "aviationRoutes",
+  "ships",
+  "shipRoutes",
+  "fishing",
+  "containers",
+  "satellites",
   "orbitalDebris",
   "debrisCloud",
   "solar",
@@ -250,21 +250,21 @@ export const EARTH_SIM_FUNGAL_DOM_MIN_ZOOM = 3
 
 /** Event DOM caps on Earth Simulator (always capped, even at city zoom). */
 export function getEarthSimulatorEventDomCap(zoom: number): number {
-  if (zoom < 3) return 300
-  if (zoom < 5) return 400
-  if (zoom < 7) return 600
-  if (zoom < 9) return 800
-  return 1500
+  if (zoom < 3) return 160
+  if (zoom < 5) return 220
+  if (zoom < 7) return 280
+  if (zoom < 9) return 340
+  return 420
 }
 
 /** Browser-memory cap only. MINDEX remains the source of truth for full iNat history. */
-export const EARTH_SIM_NATURE_STORE_CAP = 45_000
+export const EARTH_SIM_NATURE_STORE_CAP = 12_000
 
 /** Fast live nature paint budget. MINDEX/local files can refill the capped browser store. */
-export const EARTH_SIM_NATURE_INSTANT_LIMIT = 2_400
+export const EARTH_SIM_NATURE_INSTANT_LIMIT = 1_600
 
 /** Live aircraft/vessel/satellite pump should start fast without blocking first paint. */
-export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 900
+export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 2_500
 
 export interface EarthSimBootDebugSnapshot {
   stagedBoot: boolean

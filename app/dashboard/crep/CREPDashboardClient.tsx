@@ -816,6 +816,38 @@ const RESOURCE_LIMITS: Record<BrowserMemoryPressure, {
   medium: { nature: 20_000, events: 900, aircraft: 1_000, vessels: 1_800, satellites: 900, streamed: 800, lastKnown: 2_400 },
   high: { nature: 12_000, events: 500, aircraft: 600, vessels: 1_200, satellites: 600, streamed: 500, lastKnown: 1_600 },
 };
+const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
+  nature: 10_000,
+  events: 420,
+  aircraft: 700,
+  vessels: 900,
+  satellites: 240,
+  streamed: 250,
+  lastKnown: 1_200,
+};
+
+function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zoom: number): number {
+  const z = Number.isFinite(zoom) ? zoom : 0;
+  if (kind === "satellite") {
+    if (z < 3) return 60;
+    if (z < 5) return 80;
+    if (z < 7) return 110;
+    if (z < 10) return 140;
+    return 180;
+  }
+  if (kind === "vessel") {
+    if (z < 3) return 120;
+    if (z < 5) return 160;
+    if (z < 7) return 220;
+    if (z < 10) return 280;
+    return 340;
+  }
+  if (z < 3) return 140;
+  if (z < 5) return 180;
+  if (z < 7) return 240;
+  if (z < 10) return 300;
+  return 360;
+}
 
 function observationTimeMs(obs: Pick<FungalObservation, "observed_on">) {
   if (!obs.observed_on) return 0;
@@ -1700,8 +1732,17 @@ function getNatureDomMarkerCapForZoom(
   bounds?: { north: number; south: number; east: number; west: number } | null,
 ): number {
   void bounds;
-  void earthSimulator;
   void enabledKingdoms;
+  if (earthSimulator) {
+    const tierCap =
+      zoom >= 11 ? 520 :
+      zoom >= 9 ? 460 :
+      zoom >= 7 ? 360 :
+      zoom >= 5 ? 280 :
+      zoom >= 3 ? 220 :
+      160;
+    return Math.min(EARTH_SIM_DOM_MARKER_CAP, tierCap);
+  }
   const tierCap =
     zoom >= 11 ? 1400 :
     zoom >= 9 ? 1200 :
@@ -6763,6 +6804,7 @@ export default function CREPDashboardPage({
   const isEarthSimulatorRoute = isEarthSimulatorPath();
   const isGlobeCrepMapRoute = isGlobeCrepRoute();
   const earthStrictPerfMode = isEarthSimulatorRoute;
+  const earthMoverLimits = earthStrictPerfMode ? EARTH_SIM_SAFE_RESOURCE_LIMITS : RESOURCE_LIMITS.normal;
   const [isMapAnimationActive, setIsMapAnimationActive] = useState(false);
   const fpsOverlayRef = useRef<HTMLElement>(null);
   const isSearchEmbedded = embedded || enabledLayerIds.length > 0;
@@ -7757,7 +7799,8 @@ export default function CREPDashboardPage({
     if (typeof window === "undefined") return;
     const pressure = getBrowserMemoryPressure();
     const hidden = typeof document !== "undefined" && document.hidden;
-    const limits = RESOURCE_LIMITS[hidden || pressure === "high" ? "high" : pressure === "medium" ? "medium" : "normal"];
+    const pressureLimits = RESOURCE_LIMITS[hidden || pressure === "high" ? "high" : pressure === "medium" ? "medium" : "normal"];
+    const limits = earthStrictPerfMode ? EARTH_SIM_SAFE_RESOURCE_LIMITS : pressureLimits;
     const natureChanged = pruneStoreByRank(
       fungalStoreRef.current,
       limits.nature,
@@ -7864,7 +7907,7 @@ export default function CREPDashboardPage({
     }, RESOURCE_GOVERNOR_MS);
     document.addEventListener("visibilitychange", runSoon);
     window.addEventListener("crep:resource-governor", onCustom);
-    window.setTimeout(() => runResourceGovernor("initial"), 5_000);
+    window.setTimeout(() => runResourceGovernor("initial"), earthStrictPerfMode ? 1_000 : 5_000);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", runSoon);
@@ -7998,13 +8041,19 @@ export default function CREPDashboardPage({
         if (typeof document !== "undefined" && document.hidden) return true;
         return false;
       };
+      const earthLayerEnabled = (ids: string[]) => {
+        if (!earthStrictPerfMode) return true;
+        const layerSnapshot = (window as any).__crep_layers?.();
+        if (!Array.isArray(layerSnapshot)) return false;
+        return ids.some((id) => layerSnapshot.find((layer: any) => layer.id === id)?.enabled === true);
+      };
       if (shouldPauseMoverPump()) return;
       const allowAircraft =
-        embeddedAllowsAircraft;
+        embeddedAllowsAircraft && earthLayerEnabled(["aviation", "aviationRoutes"]);
       const allowVessels =
-        embeddedAllowsVessels;
+        embeddedAllowsVessels && earthLayerEnabled(["ships", "shipRoutes", "fishing", "containers"]);
       const allowSatellites =
-        embeddedAllowsSatellites;
+        embeddedAllowsSatellites && earthLayerEnabled(["satellites"]);
       if (!allowAircraft && !allowVessels && !allowSatellites) return;
       liveEntityPumpInFlightRef.current = true;
       console.log("[CREP/pump] live-entity tick at", new Date().toISOString());
@@ -8072,7 +8121,7 @@ export default function CREPDashboardPage({
         (async () => {
           if (!allowAircraft || breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
-            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${RESOURCE_LIMITS.normal.aircraft}`, { signal: AbortSignal.timeout(90_000) });
+            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${earthMoverLimits.aircraft}`, { signal: AbortSignal.timeout(90_000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             const aircraftRows = readMoverRows(data, "aircraft");
@@ -8080,7 +8129,7 @@ export default function CREPDashboardPage({
               setAircraft((prev) => mergeById(prev, aircraftRows, {
                 idKey: (a: any) => a.icao24 || a.icao || a.id,
                 ttlMs: ENTITY_TTL_MS.aircraft,
-                maxEntries: RESOURCE_LIMITS.normal.aircraft,
+                maxEntries: earthMoverLimits.aircraft,
               }));
               console.log(`[CREP/pump] aircraft: ${aircraftRows.length} (merged into persistent union)`);
               try { syncToMINDEX("aircraft", aircraftRows); } catch {}
@@ -8115,8 +8164,8 @@ export default function CREPDashboardPage({
               Number.isFinite(boundedEast) &&
               boundedEast! > boundedWest!;
             const vesselUrls = hasUsableMoverBbox
-              ? [`/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${boundedWest}&lomax=${boundedEast}&limit=${RESOURCE_LIMITS.normal.vessels}`]
-              : [`/api/oei/aisstream?limit=${RESOURCE_LIMITS.normal.vessels}`];
+              ? [`/api/oei/aisstream?lamin=${currentBounds.south}&lamax=${currentBounds.north}&lomin=${boundedWest}&lomax=${boundedEast}&limit=${earthMoverLimits.vessels}`]
+              : [`/api/oei/aisstream?limit=${earthMoverLimits.vessels}`];
             const vesselPayloads = await Promise.allSettled(
               vesselUrls.map((url) => fetchJsonWithTimeout(url, 90_000)),
             );
@@ -8145,7 +8194,7 @@ export default function CREPDashboardPage({
               setVessels((prev) => mergeById(prev, vesselRows, {
                 idKey: (v: any) => v.mmsi || v.id,
                 ttlMs: ENTITY_TTL_MS.vessel,
-                maxEntries: RESOURCE_LIMITS.normal.vessels,
+                maxEntries: earthMoverLimits.vessels,
               }));
               console.log(`[CREP/pump] vessels: ${vesselRows.length} (viewport + live union merged)`);
               try { syncToMINDEX("vessels", vesselRows); } catch {}
@@ -8161,7 +8210,7 @@ export default function CREPDashboardPage({
             if (!allowSatellites || breakerSkip("__crep_pump_satellites_breaker")) return
             try {
               const satellitePayloads = await Promise.allSettled([
-                fetchJsonWithTimeout(`/api/oei/satellites?category=active&mode=registry&limit=${RESOURCE_LIMITS.normal.satellites}`, 90_000),
+                fetchJsonWithTimeout(`/api/oei/satellites?category=active&mode=registry&limit=${earthMoverLimits.satellites}`, 90_000),
               ]);
             if (cancelled) {
               breakerMark("__crep_pump_satellites_breaker", false, "satellites")
@@ -8179,7 +8228,7 @@ export default function CREPDashboardPage({
               setSatellites((prev) => mergeById(prev, sats as any[], {
                 idKey: (s: any) => s.noradId || s.norad_id || s.id,
                 ttlMs: ENTITY_TTL_MS.satellite,
-                maxEntries: RESOURCE_LIMITS.normal.satellites,
+                maxEntries: earthMoverLimits.satellites,
               }))
               try { syncToMINDEX("satellites", sats as unknown as Record<string, unknown>[]); } catch {}
               breakerMark("__crep_pump_satellites_breaker", true, "satellites")
@@ -8229,52 +8278,55 @@ export default function CREPDashboardPage({
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("crep:mover-pump-request", onMoverPumpRequest as EventListener)
     }
-  }, [auditAllOffMode, embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites, shouldPauseLiveWork, assetIsolationMode, isStreaming]);
+  }, [auditAllOffMode, embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites, shouldPauseLiveWork, assetIsolationMode, isStreaming, earthStrictPerfMode, earthMoverLimits]);
 
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>(() => {
     const filtersOff = getInitialFiltersOffMode();
+    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
     return {
-      showAirborne: !filtersOff,
-      showGround: !filtersOff,
+      showAirborne: !moversOffAtBoot,
+      showGround: !moversOffAtBoot,
       minAltitude: 0,
       maxAltitude: 50000,
       airlines: [],
       aircraftTypes: [],
-      showMilitary: !filtersOff,
-      showCargo: !filtersOff,
-      showPrivate: !filtersOff,
-      showCommercial: !filtersOff,
+      showMilitary: !moversOffAtBoot,
+      showCargo: !moversOffAtBoot,
+      showPrivate: !moversOffAtBoot,
+      showCommercial: !moversOffAtBoot,
     };
   });
 
   const [vesselFilter, setVesselFilter] = useState<VesselFilter>(() => {
     const filtersOff = getInitialFiltersOffMode();
+    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
     return {
-      showCargo: !filtersOff,
-      showTanker: !filtersOff,
-      showPassenger: !filtersOff,
-      showFishing: !filtersOff,
-      showTug: !filtersOff,
-      showMilitary: !filtersOff,
-      showPleasure: !filtersOff,
+      showCargo: !moversOffAtBoot,
+      showTanker: !moversOffAtBoot,
+      showPassenger: !moversOffAtBoot,
+      showFishing: !moversOffAtBoot,
+      showTug: !moversOffAtBoot,
+      showMilitary: !moversOffAtBoot,
+      showPleasure: !moversOffAtBoot,
       minSpeed: 0,
-      showPortAreas: !filtersOff,
-      showShippingLanes: !filtersOff,
-      showAnchorages: !filtersOff,
+      showPortAreas: !moversOffAtBoot,
+      showShippingLanes: !moversOffAtBoot,
+      showAnchorages: !moversOffAtBoot,
     };
   });
 
   const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>(() => {
     const filtersOff = getInitialFiltersOffMode();
+    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
     return {
-      showStations: !filtersOff,
-      showWeather: !filtersOff,
-      showComms: !filtersOff,
-      showGPS: !filtersOff,
-      showStarlink: !filtersOff,
-      showDebris: !filtersOff,
-      showActive: !filtersOff,
+      showStations: !moversOffAtBoot,
+      showWeather: !moversOffAtBoot,
+      showComms: !moversOffAtBoot,
+      showGPS: !moversOffAtBoot,
+      showStarlink: !moversOffAtBoot,
+      showDebris: !moversOffAtBoot,
+      showActive: !moversOffAtBoot,
       orbitTypes: [],
     };
   });
@@ -10644,6 +10696,45 @@ export default function CREPDashboardPage({
       return changed ? applyForceOffToLayers(next) : prev;
     });
     if (forceOff) return;
+    if (layerId === "aviation" || layerId === "aviationRoutes") {
+      setAircraftFilter(prev => ({
+        ...prev,
+        showAirborne: enabled,
+        showGround: enabled,
+        showMilitary: enabled,
+        showCargo: enabled,
+        showPrivate: enabled,
+        showCommercial: enabled,
+      }));
+      if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
+    } else if (layerId === "ships" || layerId === "shipRoutes" || layerId === "fishing" || layerId === "containers") {
+      setVesselFilter(prev => ({
+        ...prev,
+        showCargo: enabled,
+        showTanker: enabled,
+        showPassenger: enabled,
+        showFishing: enabled,
+        showTug: enabled,
+        showMilitary: enabled,
+        showPleasure: enabled,
+        showPortAreas: enabled,
+        showShippingLanes: enabled,
+        showAnchorages: enabled,
+      }));
+      if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
+    } else if (layerId === "satellites") {
+      setSatelliteFilter(prev => ({
+        ...prev,
+        showStations: enabled,
+        showWeather: enabled,
+        showComms: enabled,
+        showGPS: enabled,
+        showStarlink: enabled,
+        showDebris: enabled,
+        showActive: enabled,
+      }));
+      if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
+    }
     if (assetIsolationMode === "funga" && FUNGAL_ATLAS_LAYER_IDS.includes(layerId as any)) {
       setIsolatedFungalLayerIds(prev => {
         const next = nextExclusiveFungalLayerSet(prev, layerId, enabled);
@@ -13184,9 +13275,11 @@ export default function CREPDashboardPage({
     if (lod.movers.bboxFilter && mapBounds) {
       filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
     }
-    if (isCityLevelZoom(mapZoom, mapBounds)) return filtered;
-    return applyLODToMovers(filtered, "aircraft", mapZoom, mapBounds);
-  }, [moverAircraftPool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode]);
+    const selected = isCityLevelZoom(mapZoom, mapBounds)
+      ? filtered
+      : applyLODToMovers(filtered, "aircraft", mapZoom, mapBounds);
+    return earthStrictPerfMode ? selected.slice(0, getEarthSimMoverRenderCap("aircraft", mapZoom)) : selected;
+  }, [moverAircraftPool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode, earthStrictPerfMode]);
 
   // ===========================================================================
   // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
@@ -13241,9 +13334,11 @@ export default function CREPDashboardPage({
     if (lod.movers.bboxFilter && mapBounds) {
       filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
     }
-    if (isCityLevelZoom(mapZoom, mapBounds)) return filtered;
-    return applyLODToMovers(filtered, "vessels", mapZoom, mapBounds);
-  }, [moverVesselPool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode]);
+    const selected = isCityLevelZoom(mapZoom, mapBounds)
+      ? filtered
+      : applyLODToMovers(filtered, "vessels", mapZoom, mapBounds);
+    return earthStrictPerfMode ? selected.slice(0, getEarthSimMoverRenderCap("vessel", mapZoom)) : selected;
+  }, [moverVesselPool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode, earthStrictPerfMode]);
 
   // ===========================================================================
   // FILTER SATELLITES: show only if sat matches at least one enabled category
@@ -13293,8 +13388,9 @@ export default function CREPDashboardPage({
 
     // Recency-first LOD (Fix D): satellites are orbit-wide, so bbox culling
     // isn't meaningful â€” always use the tier's budget unless city zoom.
-    return applyLODToMovers(filtered, "satellites", mapZoom, mapBounds);
-  }, [moverSatellitePool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode]);
+    const selected = applyLODToMovers(filtered, "satellites", mapZoom, mapBounds);
+    return earthStrictPerfMode ? selected.slice(0, getEarthSimMoverRenderCap("satellite", mapZoom)) : selected;
+  }, [moverSatellitePool, mapZoom, mapBounds, isEmbeddedEarthquakeSearch, assetIsolationMode, earthStrictPerfMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -13575,7 +13671,9 @@ export default function CREPDashboardPage({
     }
     const desiredAll = lodSelectForZoom(features, bbox, zoom, 2);
     const renderCap =
-      kind === "vessel"
+      earthStrictPerfMode
+        ? getEarthSimMoverRenderCap(kind, zoom)
+        : kind === "vessel"
         ? zoom < 3 ? 350 : zoom < 5 ? 450 : zoom < 7 ? 650 : zoom < 10 ? 900 : 1200
         : zoom < 3 ? 450 : zoom < 5 ? 600 : zoom < 7 ? 800 : zoom < 10 ? 1000 : 1200;
     const desired = desiredAll.length > renderCap ? desiredAll.slice(0, renderCap) : desiredAll;
@@ -13611,13 +13709,14 @@ export default function CREPDashboardPage({
       .map((feature: any) => String(feature?.properties?.id ?? feature?.id ?? ""))
       .filter(Boolean);
     return selected;
-  }, []);
+  }, [earthStrictPerfMode]);
 
   useEffect(() => {
     let rafId: number | null = null;
     let intervalId: any = null;
     let lastTickAt = 0;
     const getTickMs = () => {
+      if (earthStrictPerfMode) return 2500;
       const zoom = mapZoomRef.current;
       if (!Number.isFinite(zoom) || zoom < 3) return 1000;
       if (zoom < 5) return 900;
@@ -13744,7 +13843,7 @@ export default function CREPDashboardPage({
       if (rafId != null) cancelAnimationFrame(rafId);
       if (intervalId != null) clearInterval(intervalId);
     };
-  }, [selectStableLiveMoverFeatures, shouldPauseMoverAnimation]); // refs are read fresh each tick
+  }, [selectStableLiveMoverFeatures, shouldPauseMoverAnimation, earthStrictPerfMode]); // refs are read fresh each tick
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // DIRECT SOURCE-SYNC â€” Apr 23, 2026
