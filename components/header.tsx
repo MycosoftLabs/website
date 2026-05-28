@@ -568,13 +568,8 @@ function HeaderContent() {
 }
 
 export function Header() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return <HeaderShell />
-
+  // Render the live header immediately. A static shell here made the page look
+  // ready before the actual links/buttons existed, which felt like a required
+  // double tap on slower mobile/tablet hydrations.
   return <HeaderContent />
 }
