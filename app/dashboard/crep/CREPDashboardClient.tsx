@@ -9459,15 +9459,15 @@ export default function CREPDashboardPage({
 
     const amLayer = layers.find((layer) => layer.id === "fungalAtlasAM");
     const ecmLayer = layers.find((layer) => layer.id === "fungalAtlasECM");
-    const showAm = Boolean(amLayer?.enabled);
-    const showEcm = Boolean(ecmLayer?.enabled);
+    const showAm = Boolean(amLayer?.enabled) && mycorrhizalMode === "am";
+    const showEcm = Boolean(ecmLayer?.enabled) && mycorrhizalMode === "ecm";
     const fungalOpacity = showEcm
       ? (ecmLayer?.opacity ?? EARTH_SIM_FUNGAL_OPACITY)
       : showAm
         ? (amLayer?.opacity ?? EARTH_SIM_FUNGAL_OPACITY)
         : EARTH_SIM_FUNGAL_OPACITY;
     bootstrapFungalAmEcmRasters(mapRef, { showAm, showEcm, opacity: fungalOpacity });
-  }, [mapRef, layers]);
+  }, [mapRef, layers, mycorrhizalMode]);
 
   // Fetch data
   useEffect(() => {
