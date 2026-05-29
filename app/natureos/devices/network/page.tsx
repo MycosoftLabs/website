@@ -81,94 +81,74 @@ export default function DeviceNetworkPage() {
 
   const fetchDevices = async () => {
     setDiscoverHint(null)
+    setLoading(true)
     try {
-      // Fetch from both local discover and MAS network registry in parallel
-      const [discoverRes, networkRes] = await Promise.allSettled([
-        fetch("/api/devices/discover", { signal: AbortSignal.timeout(15000) }),
-        fetch("/api/devices/network", { signal: AbortSignal.timeout(20000) }),
-      ])
-
       const allDevices: DeviceInfo[] = []
       const seenDeviceIds = new Set<string>()
 
-      // Process local discover results
-      if (discoverRes.status === "fulfilled" && discoverRes.value.ok) {
-        const discoverData = await discoverRes.value.json()
-        console.log("[fetchDevices] Discover API returned", discoverData.devices?.length || 0, "devices")
-        setDiscoverHint(discoverData.hint ?? null)
-        for (const device of discoverData.devices || []) {
-          if (!seenDeviceIds.has(device.deviceId)) {
-            seenDeviceIds.add(device.deviceId)
-            allDevices.push({
-              ...device,
-              source: device.source || "local",
-            })
-          }
-        }
-      } else {
-        const err = discoverRes.status === "rejected" ? discoverRes.reason : discoverRes.value
-        const msg = err instanceof Error ? err.message : (err && typeof err === "object" && "statusText" in err) ? (err as Response).statusText : "Discover unavailable"
-        console.warn("[fetchDevices] Discover unavailable:", msg)
-      }
+      // MAS registry first (fast path on production)
+      const networkRes = await fetch("/api/devices/network", {
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null)
 
-      // Process MAS network registry results (these take priority for matching IDs)
-      if (networkRes.status === "fulfilled" && networkRes.value.ok) {
-        const networkData = await networkRes.value.json()
-        console.log("[fetchDevices] Network API returned", networkData.devices?.length || 0, "devices from", networkData.source)
+      if (networkRes?.ok) {
+        const networkData = await networkRes.json()
         for (const device of networkData.devices || []) {
           const deviceId = device.device_id || device.id
-          if (seenDeviceIds.has(deviceId)) {
-            // Update existing device with network data
-            const idx = allDevices.findIndex(d => d.deviceId === deviceId)
-            if (idx >= 0) {
-              allDevices[idx] = {
-                ...allDevices[idx],
-                ...device,
-                deviceId: deviceId,
-                status: device.status || allDevices[idx].status,
-                source: "MAS-Registry",
-                registered: true,
-              }
-            }
-          } else {
-            // Add new network device
-            seenDeviceIds.add(deviceId)
-            allDevices.push({
-              deviceId: deviceId,
-              deviceType: device.board_type || "mycobrain",
-              port: device.extra?.port_name,
-              status: device.status === "online" ? "online" : "offline",
-              connected: device.status === "online",
-              discovered: true,
-              registered: true,
-              is_mycobrain: true,
-              source: "MAS-Registry",
-              connectionType: device.connection_type === "lan" ? "wifi" : device.connection_type || "unknown",
-              lastSeen: device.last_seen,
-              device_name: device.device_name || device.name,
-              device_role: device.device_role,
-              device_display_name: device.device_display_name,
-              display_name: device.display_name,
-              hwid: device.host ? `${device.host}:${device.port}` : undefined,
-              device_info: {
-                side: device.extra?.side,
-                mdp_version: device.extra?.mdp_version,
-              },
-            })
-          }
+          if (!deviceId || seenDeviceIds.has(deviceId)) continue
+          seenDeviceIds.add(deviceId)
+          allDevices.push({
+            deviceId,
+            deviceType: device.board_type || "mycobrain",
+            port: device.extra?.port_name,
+            status: device.status === "online" ? "online" : "offline",
+            connected: device.status === "online",
+            discovered: true,
+            registered: true,
+            is_mycobrain: true,
+            source: "MAS-Registry",
+            connectionType:
+              device.connection_type === "lan" ? "wifi" : device.connection_type || "unknown",
+            lastSeen: device.last_seen,
+            device_name: device.device_name || device.name,
+            device_role: device.device_role,
+            device_display_name: device.device_display_name,
+            display_name: device.display_name,
+            hwid: device.host ? `${device.host}:${device.port}` : undefined,
+            device_info: {
+              side: device.extra?.side,
+              mdp_version: device.extra?.mdp_version,
+              firmware_version: device.firmware_version,
+            },
+          })
         }
-      } else {
-        const err = networkRes.status === "rejected" ? networkRes.reason : networkRes.value
-        const msg = err instanceof Error ? err.message : (err && typeof err === "object" && "statusText" in err) ? (err as Response).statusText : "Network registry unavailable"
-        console.warn("[fetchDevices] Network registry unavailable:", msg)
       }
 
-      console.log("[fetchDevices] Total devices after merge:", allDevices.length)
       setDevices(allDevices)
+      setLoading(false)
+
+      // Local USB discover in background — fail fast on production (no :8003)
+      void fetch("/api/devices/discover", { signal: AbortSignal.timeout(3000) })
+        .then(async (discoverRes) => {
+          if (!discoverRes.ok) return
+          const discoverData = await discoverRes.json()
+          setDiscoverHint(discoverData.hint ?? null)
+          setDevices((prev) => {
+            const merged = [...prev]
+            const ids = new Set(merged.map((d) => d.deviceId))
+            for (const device of discoverData.devices || []) {
+              if (ids.has(device.deviceId)) continue
+              merged.push({ ...device, source: device.source || "local" })
+            }
+            return merged
+          })
+        })
+        .catch(() => {
+          /* expected on sandbox — no local MycoBrain service */
+        })
     } catch (error) {
       console.error("Failed to fetch devices:", error)
       setDevices([])
-    } finally {
       setLoading(false)
     }
   }
@@ -387,7 +367,7 @@ export default function DeviceNetworkPage() {
   // Navigate to device manager
   const openDeviceManager = () => {
     if (selectedDevice?.deviceId) {
-      router.push(`/natureos/devices/${encodeURIComponent(selectedDevice.deviceId)}`)
+      router.push(`/natureos/mycobrain?device=${encodeURIComponent(selectedDevice.deviceId)}`)
     }
   }
 

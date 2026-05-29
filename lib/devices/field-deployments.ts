@@ -11,6 +11,7 @@ export interface FieldDeployment {
   host_ip: string
   agent_port: number
   agent_url: string
+  openclaw_url: string
   location: { lat: number; lon: number }
   location_label: string
   mdp_device_id: string
@@ -29,6 +30,7 @@ export const FIELD_MYCOBRAIN_DEPLOYMENTS: FieldDeployment[] = [
     host_ip: "192.168.0.123",
     agent_port: 8787,
     agent_url: "http://192.168.0.123:8787",
+    openclaw_url: "http://192.168.0.123:18789",
     location: { lat: 32.715736, lon: -117.161087 },
     location_label: "San Diego, CA (Jetson WiFi)",
     mdp_device_id: "mycobrain-sidea-10b41d",
@@ -43,6 +45,7 @@ export const FIELD_MYCOBRAIN_DEPLOYMENTS: FieldDeployment[] = [
     host_ip: "192.168.0.228",
     agent_port: 8787,
     agent_url: "http://192.168.0.228:8787",
+    openclaw_url: "http://192.168.0.228:18789",
     location: { lat: 32.640278, lon: -117.085833 },
     location_label: "Southwestern College, 900 Otay Lakes Rd, Chula Vista, CA",
     mdp_device_id: "mycobrain-sidea-10b41d",

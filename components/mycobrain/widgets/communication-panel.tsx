@@ -54,11 +54,7 @@ export function CommunicationPanel({ deviceId, onCommand }: CommunicationPanelPr
     rssi?: number
     snr?: number
   }>({
-    connected: true,
-    frequency: 915.0,
-    spreadingFactor: 7,
-    rssi: -85,
-    snr: 9.5,
+    connected: false,
   })
   
   // WiFi state

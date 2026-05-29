@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { FirmwareAuditBadge } from "@/components/mycobrain/firmware-audit-badge"
+import type { CompatibilityTier, FirmwareAuditResponse } from "@/lib/devices/firmware-compatibility"
 
 interface DeviceRecord {
   device_id: string
@@ -66,6 +68,18 @@ export function DeviceRegistryTable() {
     "/api/devices/network?include_offline=true",
     fetcher
   )
+  const { data: auditData } = useSWR<FirmwareAuditResponse>(
+    "/api/devices/firmware-audit",
+    fetcher
+  )
+
+  const auditById = useMemo(() => {
+    const map: Record<string, FirmwareAuditResponse["devices"][number]> = {}
+    for (const row of auditData?.devices || []) {
+      map[row.device_id] = row
+    }
+    return map
+  }, [auditData])
 
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -296,8 +310,13 @@ export function DeviceRegistryTable() {
               ) : null}
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
-              Firmware {device.firmware_version || "unknown"} •{" "}
-              {device.connection_type || "lan"}
+              <FirmwareAuditBadge
+                tier={auditById[device.device_id]?.compatibility_tier as CompatibilityTier}
+                firmwareVersion={
+                  auditById[device.device_id]?.firmware_version || device.firmware_version
+                }
+              />
+              <span className="ml-2">{device.connection_type || "lan"}</span>
             </div>
           </div>
         ))}
@@ -355,18 +374,23 @@ export function DeviceRegistryTable() {
                 </td>
                 <td className="px-4 py-3">{device.location || "—"}</td>
                 <td className="px-4 py-3">
-                  {device.firmware_version || "unknown"}
+                  <FirmwareAuditBadge
+                    tier={auditById[device.device_id]?.compatibility_tier as CompatibilityTier}
+                    firmwareVersion={
+                      auditById[device.device_id]?.firmware_version || device.firmware_version
+                    }
+                  />
                 </td>
                 <td className="px-4 py-3">
                   {device.connection_type || "lan"}
                 </td>
                 <td className="px-4 py-3">
                   <Link
-                    href={`/natureos/devices/${encodeURIComponent(device.device_id)}`}
+                    href={`/natureos/mycobrain?device=${encodeURIComponent(device.device_id)}`}
                     className="inline-flex min-h-[44px] items-center gap-1 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open
+                    Console
                   </Link>
                 </td>
               </tr>

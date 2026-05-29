@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isNetworkRegistryTarget, sendMasNetworkCommand } from "@/lib/devices/network-command-bridge"
 
 export const dynamic = "force-dynamic"
 
@@ -47,7 +48,61 @@ export async function POST(
   try {
     const body: BuzzerCommand = await request.json()
     
-    // Resolve device ID
+    let cmd: string
+    
+    switch (body.action) {
+      case "preset":
+        const validPresets = ["coin", "bump", "power", "1up", "morgio"]
+        const preset = body.preset || "coin"
+        if (!validPresets.includes(preset)) {
+          return NextResponse.json(
+            { error: "Invalid preset", valid_presets: validPresets },
+            { status: 400 }
+          )
+        }
+        cmd = preset
+        break
+        
+      case "tone":
+        const hz = Math.max(100, Math.min(10000, body.hz || 1000))
+        const ms = Math.max(10, Math.min(5000, body.ms || 200))
+        cmd = `beep ${hz} ${ms}`
+        break
+        
+      case "acoustic_tx":
+        const payload = body.payload || ""
+        cmd = `aotx start ${payload}`
+        break
+        
+      case "stop":
+        cmd = "aotx stop"
+        break
+        
+      case "acoustic_status":
+        cmd = "aotx status"
+        break
+        
+      default:
+        return NextResponse.json(
+          { error: "Invalid action", valid_actions: ["preset", "tone", "acoustic_tx", "stop", "acoustic_status"] },
+          { status: 400 }
+        )
+    }
+
+    if (isNetworkRegistryTarget(port)) {
+      const { ok, result, status } = await sendMasNetworkCommand(port, cmd)
+      return NextResponse.json({
+        success: ok,
+        port,
+        device_id: port,
+        action: body.action,
+        command: cmd,
+        response: result,
+        source: "mas-network-relay",
+        timestamp: new Date().toISOString(),
+      }, { status: ok ? 200 : status })
+    }
+
     let deviceId = port
     try {
       const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
@@ -61,55 +116,8 @@ export async function POST(
         if (device?.device_id) deviceId = device.device_id
       }
     } catch { /* use port */ }
-    
-    let cmd: string
-    let response: string | null = null
-    
-    switch (body.action) {
-      case "preset":
-        const validPresets = ["coin", "bump", "power", "1up", "morgio"]
-        const preset = body.preset || "coin"
-        if (!validPresets.includes(preset)) {
-          return NextResponse.json(
-            { error: "Invalid preset", valid_presets: validPresets },
-            { status: 400 }
-          )
-        }
-        cmd = preset
-        response = await sendCommand(deviceId, cmd)
-        break
-        
-      case "tone":
-        const hz = Math.max(100, Math.min(10000, body.hz || 1000))
-        const ms = Math.max(10, Math.min(5000, body.ms || 200))
-        // Firmware uses "beep" command, not "tone"
-        cmd = `beep ${hz} ${ms}`
-        response = await sendCommand(deviceId, cmd)
-        break
-        
-      case "acoustic_tx":
-        // Acoustic modem transmission - send CLI command
-        const payload = body.payload || ""
-        cmd = `aotx start ${payload}`
-        response = await sendCommand(deviceId, cmd)
-        break
-        
-      case "stop":
-        cmd = "aotx stop"
-        response = await sendCommand(deviceId, cmd)
-        break
-        
-      case "acoustic_status":
-        cmd = "aotx status"
-        response = await sendCommand(deviceId, cmd)
-        break
-        
-      default:
-        return NextResponse.json(
-          { error: "Invalid action", valid_actions: ["preset", "tone", "acoustic_tx", "stop", "acoustic_status"] },
-          { status: 400 }
-        )
-    }
+
+    const response = await sendCommand(deviceId, cmd)
     
     return NextResponse.json({
       success: true,

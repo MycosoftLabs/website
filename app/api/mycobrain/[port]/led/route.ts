@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isNetworkRegistryTarget, sendMasNetworkCommand } from "@/lib/devices/network-command-bridge"
 
 export const dynamic = "force-dynamic"
 
@@ -48,23 +49,7 @@ export async function POST(
   try {
     const body: LedCommand = await request.json()
     
-    // Resolve device ID
-    let deviceId = port
-    try {
-      const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-        signal: AbortSignal.timeout(3000),
-      })
-      if (devicesRes.ok) {
-        const devicesData = await devicesRes.json()
-        const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
-          d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
-        )
-        if (device?.device_id) deviceId = device.device_id
-      }
-    } catch { /* use port */ }
-    
     let cmd: string
-    let response: string | null = null
     
     switch (body.action) {
       case "rgb":
@@ -72,18 +57,15 @@ export async function POST(
         const g = Math.max(0, Math.min(255, body.g || 0))
         const b = Math.max(0, Math.min(255, body.b || 0))
         cmd = `led rgb ${r} ${g} ${b}`
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "off":
         cmd = "led mode off"
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "mode":
         const mode = body.mode || "manual"
         cmd = `led mode ${mode}`
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "pattern":
@@ -98,33 +80,28 @@ export async function POST(
         }
         const pattern = patternMap[body.pattern || "solid"] || "solid"
         cmd = `led pattern ${pattern}`
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "brightness":
         // Set LED brightness 0-100
         const brightness = Math.max(0, Math.min(100, body.value || 100))
         cmd = `led brightness ${brightness}`
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "optical_tx":
         // Optical modem transmission - send CLI command
         const payload = body.payload || ""
         cmd = `optx start ${payload}`
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "optical_stop":
         // Stop optical modem
         cmd = "optx stop"
-        response = await sendCommand(deviceId, cmd)
         break
         
       case "optical_status":
         // Get optical modem status
         cmd = "optx status"
-        response = await sendCommand(deviceId, cmd)
         break
         
       default:
@@ -133,6 +110,37 @@ export async function POST(
           { status: 400 }
         )
     }
+
+    if (isNetworkRegistryTarget(port)) {
+      const { ok, result, status } = await sendMasNetworkCommand(port, cmd)
+      return NextResponse.json({
+        success: ok,
+        port,
+        device_id: port,
+        action: body.action,
+        command: cmd,
+        response: result,
+        source: "mas-network-relay",
+        timestamp: new Date().toISOString(),
+      }, { status: ok ? 200 : status })
+    }
+
+    // Resolve device ID (local serial only)
+    let deviceId = port
+    try {
+      const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      if (devicesRes.ok) {
+        const devicesData = await devicesRes.json()
+        const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
+          d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
+        )
+        if (device?.device_id) deviceId = device.device_id
+      }
+    } catch { /* use port */ }
+
+    const response = await sendCommand(deviceId, cmd)
     
     return NextResponse.json({
       success: true,

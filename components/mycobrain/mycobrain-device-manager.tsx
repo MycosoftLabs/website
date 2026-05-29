@@ -69,6 +69,10 @@ import {
   Network,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { FirmwareAuditBadge } from "./firmware-audit-badge"
+import { DeviceAgentChat } from "./device-agent-chat"
+import { isFieldRegistryId } from "@/lib/devices/firmware-compatibility"
+import type { CompatibilityTier, FirmwareAuditDevice } from "@/lib/devices/firmware-compatibility"
 
 /** Raw serial port info returned by the MycoBrain ports API */
 interface SerialPortInfo {
@@ -96,12 +100,26 @@ interface DiagnosticsResult {
 
 /** Network device returned by the MAS Device Registry */
 interface NetworkDevice {
-  id: string;
-  name?: string;
-  type?: string;
-  status?: string;
-  ip?: string;
-  [key: string]: unknown;
+  id?: string
+  device_id?: string
+  name?: string
+  device_name?: string
+  device_display_name?: string
+  display_name?: string
+  type?: string
+  device_role?: string
+  status?: string
+  firmware_version?: string
+  host?: string
+  port?: number
+  ip?: string
+  extra?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+interface MycoBrainDeviceManagerProps {
+  initialPort?: string
+  initialDeviceId?: string
 }
 
 interface SensorHistoryPoint {
@@ -114,11 +132,10 @@ interface SensorHistoryPoint {
   bme2_iaq: number
 }
 
-interface MycoBrainDeviceManagerProps {
-  initialPort?: string
-}
-
-export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerProps = {}) {
+export function MycoBrainDeviceManager({
+  initialPort,
+  initialDeviceId,
+}: MycoBrainDeviceManagerProps = {}) {
   const router = useRouter()
   const {
     devices,
@@ -143,6 +160,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   }, [refresh])
 
   const [selectedPort, setSelectedPort] = useState<string | null>(initialPort || null)
+  const [selectedRemoteId, setSelectedRemoteId] = useState<string | null>(
+    initialDeviceId && isFieldRegistryId(initialDeviceId) ? initialDeviceId : null
+  )
+  const isRemoteMode = Boolean(selectedRemoteId && isFieldRegistryId(selectedRemoteId))
   const [neopixelColor, setNeopixelColor] = useState({ r: 0, g: 255, b: 0 })
   const [neopixelBrightness, setNeopixelBrightness] = useState(128)
   const [buzzerFrequency, setBuzzerFrequency] = useState(1000)
@@ -154,11 +175,8 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const lastSensorCountRef = useRef<string | null>(null)
 
   const device = devices.find((d) => d.port === selectedPort) || devices[0]
-  // Use selectedPort for controls so we target the user's chosen port (e.g. COM7)
-  // even when device list hasn't refreshed yet. Prevents sending to wrong device.
-  const portForControl = selectedPort ?? device?.port ?? ""
 
-  // Calculate and cache sensor count - never go back to "None" once we've detected sensors
+  // Calculate and cache sensor count
   const sensorCount = (() => {
     let count: string | null = null
     
@@ -196,22 +214,6 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       }
     }
   }, [devices, selectedPort, initialPort])
-
-  // Poll sensors for selected device
-  useEffect(() => {
-    if (!device?.port || !device?.connected) return
-    
-    // Fetch sensors immediately and then every 15 seconds (offset from peripheral scan)
-    const initialDelay = setTimeout(() => fetchSensors(portForControl), 500)
-    const interval = setInterval(() => {
-      fetchSensors(portForControl)
-    }, 15000)
-    
-    return () => {
-      clearTimeout(initialDelay)
-      clearInterval(interval)
-    }
-  }, [device?.port, device?.connected, fetchSensors, portForControl])
 
   // Track sensor history
   const bme1 = device?.sensor_data?.bme688_1
@@ -252,6 +254,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([])
   const [networkLoading, setNetworkLoading] = useState(false)
   const [networkError, setNetworkError] = useState<string | null>(null)
+  const [firmwareAuditById, setFirmwareAuditById] = useState<
+    Record<string, FirmwareAuditDevice>
+  >({})
+  const [remoteTelemetry, setRemoteTelemetry] = useState<Record<string, unknown> | null>(null)
 
   // Fetch network devices from MAS Device Registry
   const fetchNetworkDevices = useCallback(async () => {
@@ -275,6 +281,79 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       setNetworkLoading(false)
     }
   }, [])
+
+  const loadFirmwareAudit = useCallback(async () => {
+    try {
+      const res = await fetch("/api/devices/firmware-audit", {
+        signal: AbortSignal.timeout(20000),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const map: Record<string, FirmwareAuditDevice> = {}
+      for (const row of data.devices || []) {
+        map[row.device_id] = row
+      }
+      setFirmwareAuditById(map)
+    } catch {
+      /* non-fatal */
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchNetworkDevices()
+    void loadFirmwareAudit()
+  }, [fetchNetworkDevices, loadFirmwareAudit])
+
+  useEffect(() => {
+    if (initialDeviceId && isFieldRegistryId(initialDeviceId)) {
+      setSelectedRemoteId(initialDeviceId)
+    }
+  }, [initialDeviceId])
+
+  const networkDeviceId = (d: NetworkDevice) =>
+    String(d.device_id || d.id || "")
+
+  const selectedNetworkDevice = networkDevices.find(
+    (d) => networkDeviceId(d) === selectedRemoteId
+  )
+
+  const remoteSyntheticDevice = isRemoteMode
+    ? {
+        port: selectedRemoteId!,
+        device_id: selectedRemoteId!,
+        connected: selectedNetworkDevice?.status === "online",
+        device_info: {
+          mdp_version: (selectedNetworkDevice?.extra as { mdp_version?: number })?.mdp_version || 1,
+          firmware_version: selectedNetworkDevice?.firmware_version,
+          status: selectedNetworkDevice?.status || "unknown",
+        },
+        capabilities: {},
+        sensor_data: remoteTelemetry || undefined,
+      }
+    : null
+
+  const activeDevice = device || remoteSyntheticDevice
+
+  const portForControl = isRemoteMode
+    ? selectedRemoteId!
+    : selectedPort ?? device?.port ?? ""
+
+  useEffect(() => {
+    if (isRemoteMode || !device?.port || !device?.connected) return
+    const initialDelay = setTimeout(() => fetchSensors(portForControl), 500)
+    const interval = setInterval(() => fetchSensors(portForControl), 15000)
+    return () => {
+      clearTimeout(initialDelay)
+      clearInterval(interval)
+    }
+  }, [isRemoteMode, device?.port, device?.connected, fetchSensors, portForControl])
+
+  useEffect(() => {
+    if (!isRemoteMode || !selectedRemoteId) return
+    void fetchNetworkDevices()
+    const interval = setInterval(() => void fetchNetworkDevices(), 15000)
+    return () => clearInterval(interval)
+  }, [isRemoteMode, selectedRemoteId, fetchNetworkDevices])
 
   // Send command to network device
   const sendNetworkDeviceCommand = async (deviceId: string, command: string) => {
@@ -304,7 +383,13 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const lastServiceErrorRef = useRef<string | null>(null)
   const serviceErrorCountRef = useRef(0)
 
-  // Auto-initialize machine mode when device connects
+  useEffect(() => {
+    if (isRemoteMode) {
+      setMachineModeActive(true)
+    }
+  }, [isRemoteMode])
+
+  // Auto-initialize machine mode when serial device connects
   useEffect(() => {
     if (!device?.port || !device?.connected) {
       setMachineModeActive(false)
@@ -793,15 +878,55 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     }
   }
 
-  if (!device) {
+  if (!activeDevice) {
     return (
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Cpu className="h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">No MycoBrain Connected</h3>
           <p className="text-muted-foreground text-center mb-6 max-w-md">
-            Connect a MycoBrain device via USB to monitor sensors, control peripherals, and view real-time data.
+            Connect a MycoBrain via USB, or select a field device from the MAS registry (Mushroom 1, Hyphae 1, …).
           </p>
+
+          {networkDevices.length > 0 ? (
+            <Card className="mb-6 w-full max-w-xl">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  Network Devices (MAS Registry)
+                </CardTitle>
+                <CardDescription>
+                  Open the full console for MQTT field agents — no USB required on this machine.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {networkDevices.map((nd) => {
+                  const id = networkDeviceId(nd)
+                  const audit = firmwareAuditById[id]
+                  return (
+                    <Button
+                      key={id}
+                      variant="outline"
+                      className="w-full min-h-[44px] justify-between"
+                      onClick={() => setSelectedRemoteId(id)}
+                    >
+                      <span>
+                        {nd.device_display_name || nd.display_name || nd.device_name || nd.name || id}
+                      </span>
+                      <FirmwareAuditBadge
+                        tier={audit?.compatibility_tier as CompatibilityTier}
+                        firmwareVersion={audit?.firmware_version || nd.firmware_version}
+                      />
+                    </Button>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          ) : networkLoading ? (
+            <p className="text-sm text-muted-foreground mb-4">Loading network registry…</p>
+          ) : networkError ? (
+            <p className="text-sm text-red-500 mb-4">{networkError}</p>
+          ) : null}
           
           {/* Service Status */}
           <div className={`mb-4 px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${
@@ -1152,13 +1277,42 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                 <Cpu className="h-8 w-8" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">MycoBrain Gateway</h2>
+                <h2 className="text-2xl font-bold">
+                  {isRemoteMode
+                    ? selectedNetworkDevice?.device_display_name ||
+                      selectedNetworkDevice?.display_name ||
+                      selectedNetworkDevice?.device_name ||
+                      "Field MycoBrain"
+                    : "MycoBrain Gateway"}
+                </h2>
                 <p className="text-green-100 flex items-center gap-2">
-                  <Usb className="h-4 w-4" />
-                  {device.port}
+                  {isRemoteMode ? (
+                    <>
+                      <Network className="h-4 w-4" />
+                      {selectedRemoteId}
+                    </>
+                  ) : (
+                    <>
+                      <Usb className="h-4 w-4" />
+                      {activeDevice.port}
+                    </>
+                  )}
                   <span className="mx-1">•</span>
-                  <span>MDP v{device.device_info?.mdp_version || 1}</span>
+                  <span>MDP v{activeDevice.device_info?.mdp_version || 1}</span>
                 </p>
+                {isRemoteMode && selectedRemoteId ? (
+                  <div className="mt-2">
+                    <FirmwareAuditBadge
+                      tier={
+                        firmwareAuditById[selectedRemoteId]?.compatibility_tier as CompatibilityTier
+                      }
+                      firmwareVersion={
+                        firmwareAuditById[selectedRemoteId]?.firmware_version ||
+                        selectedNetworkDevice?.firmware_version
+                      }
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -1218,6 +1372,17 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           </div>
         </div>
       </Card>
+
+      {isRemoteMode && selectedRemoteId ? (
+        <DeviceAgentChat
+          deviceId={selectedRemoteId}
+          deviceName={
+            selectedNetworkDevice?.device_display_name ||
+            selectedNetworkDevice?.display_name ||
+            selectedNetworkDevice?.device_name
+          }
+        />
+      ) : null}
 
       {/* Main Tabs */}
       <Tabs defaultValue="sensors" className="space-y-6">
@@ -1634,7 +1799,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         {/* Communication Tab */}
         <TabsContent value="communication" className="space-y-6">
           {/* New NDJSON Protocol Communication Panel */}
-          {device && (
+          {activeDevice && (
             <CommunicationPanel 
               deviceId={portForControl} 
               onCommand={logToConsole}
