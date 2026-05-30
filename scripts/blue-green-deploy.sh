@@ -63,6 +63,31 @@ load_deploy_env() {
   CF_ZONE_ID="${CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID_PRODUCTION:-${CLOUDFLARE_ZONE_ID:-}}}"
   CF_API_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
 }
+
+# Production website secrets live in DEPLOY_DIR/.env — MUST be sourced before
+# `docker compose up` or auth vars can be blanked (config_missing on protected pages).
+load_production_env() {
+  local env_file="${DEPLOY_DIR:-/opt/mycosoft/website}/.env"
+  [[ -f "$env_file" ]] || { err "Missing production env: $env_file"; exit 8; }
+  set -a
+  # shellcheck disable=SC1090
+  source "$env_file"
+  set +a
+  # Never allow dev PC values on production VM
+  if [[ "${NEXT_PUBLIC_BASE_URL:-}" == *localhost* ]]; then
+    err "NEXT_PUBLIC_BASE_URL must not be localhost on production (got $NEXT_PUBLIC_BASE_URL)"
+    exit 8
+  fi
+  local k v
+  for k in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY NEXTAUTH_SECRET; do
+    v="${!k:-}"
+    if [[ -z "$v" ]]; then
+      err "Production .env missing or empty: $k (protected pages will redirect to login?error=config_missing)"
+      exit 8
+    fi
+  done
+  ok "Production auth env loaded from $env_file"
+}
 load_deploy_env
 
 # ───── Logging ──────────────────────────────────────────────────────────────
@@ -114,6 +139,7 @@ case "${1:-}" in
 esac
 
 cd "$DEPLOY_DIR"
+load_production_env
 
 # ───── Helpers ──────────────────────────────────────────────────────────────
 compose() { docker compose "${COMPOSE_FILES[@]}" "$@"; }
@@ -194,6 +220,34 @@ purge_cloudflare() {
   else
     err "Cloudflare purge failed: $resp"; return 1
   fi
+}
+
+verify_slot_auth_gate() {
+  local slot="$1"
+  local cid="mycosoft-website-${slot}"
+  local loc
+  loc=$(docker exec "$cid" curl -sSI "http://localhost:3000/natureos/mycobrain" --max-time 10 \
+    | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | head -1)
+  if [[ "$loc" == *"error=config_missing"* ]]; then
+    err "$cid auth gate broken: $loc"
+    err "Image missing build-time NEXT_PUBLIC_SUPABASE_* — rebuild with Dockerfile.production build-args"
+    return 1
+  fi
+  ok "$cid auth gate OK: ${loc:-no redirect}"
+}
+
+verify_auth_gate() {
+  # Middleware inlines NEXT_PUBLIC_SUPABASE_* at build time. Runtime env alone is not enough.
+  # After cutover, protected routes must redirect to /login?redirectTo=... NOT config_missing.
+  local loc
+  loc=$(curl -sSI "https://${PUBLIC_HOST}/natureos/mycobrain" --max-time 12 \
+    | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | head -1)
+  if [[ "$loc" == *"error=config_missing"* ]]; then
+    err "Auth gate broken: $loc"
+    err "Rebuild image with --build-arg NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    return 1
+  fi
+  ok "Auth gate OK (no config_missing): ${loc:-no redirect}"
 }
 
 verify_public() {
@@ -311,6 +365,11 @@ if ! wait_healthy "$IDLE"; then
   err "New slot unhealthy — aborting cutover. Active slot UNCHANGED ($ACTIVE)."
   warn "Idle slot ($IDLE) left running for diagnostics: docker logs mycosoft-website-$IDLE"
   exit 10
+fi
+
+if ! verify_slot_auth_gate "$IDLE"; then
+  err "Aborting cutover — auth would break protected pages (config_missing)."
+  exit 12
 fi
 
 # 4. Render nginx conf.d pointing at idle slot + graceful reload

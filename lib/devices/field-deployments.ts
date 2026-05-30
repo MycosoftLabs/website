@@ -52,6 +52,21 @@ export const FIELD_MYCOBRAIN_DEPLOYMENTS: FieldDeployment[] = [
     board_type: "jetson_orin",
     page_href: "/devices/hyphae-1",
   },
+  {
+    registry_id: "mycobrain-COM4",
+    catalog_id: "bench-com4",
+    name: "Bench MycoBrain (COM4)",
+    role: "standalone",
+    host_ip: "192.168.0.241",
+    agent_port: 8003,
+    agent_url: "http://192.168.0.241:8003",
+    openclaw_url: "",
+    location: { lat: 32.715736, lon: -117.161087 },
+    location_label: "Mycosoft Lab (dev PC USB bench)",
+    mdp_device_id: "mycobrain-COM4",
+    board_type: "MycoBrain ESP32-S3",
+    page_href: "/natureos/mycobrain?device=mycobrain-COM4",
+  },
 ]
 
 export function deploymentByHost(hostIp: string): FieldDeployment | undefined {

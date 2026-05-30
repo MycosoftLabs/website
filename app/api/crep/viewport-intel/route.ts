@@ -59,6 +59,26 @@ function countryNamesConflict(a?: ViewportPlaceLike | null, b?: ViewportPlaceLik
   return Boolean(nameA && nameB && nameA !== nameB)
 }
 
+function placeSpecificityRank(place?: ViewportPlaceLike | null): number {
+  if (!place) return 0
+  if (place.city || place.suburb) return 4
+  if (place.county) return 3
+  if (place.state) return 2
+  if (place.country) return 1
+  if (place.displayName) return 1
+  return 0
+}
+
+function placeNeedsLodEnrichment(
+  place: ViewportPlaceLike | null | undefined,
+  geographyLod: ReturnType<typeof resolveViewportGeographyLod>,
+): boolean {
+  if (placeNeedsEnrichment(place)) return true
+  if (geographyLod === "city") return !(place?.city || place?.suburb)
+  if (geographyLod === "county") return !(place?.county || place?.city || place?.suburb)
+  return false
+}
+
 function mergeAuthoritativePlace(
   current: ViewportPlaceLike | null,
   candidate: ViewportPlaceLike | null,
@@ -71,10 +91,13 @@ function mergeAuthoritativePlace(
       displayName: candidate.displayName || current?.displayName,
     }
   }
+  const candidateIsMoreSpecific = placeSpecificityRank(candidate) > placeSpecificityRank(current)
   return {
     ...candidate,
     ...current,
-    displayName: current.displayName || candidate.displayName,
+    displayName: candidateIsMoreSpecific
+      ? candidate.displayName || current.displayName
+      : current.displayName || candidate.displayName,
     city: current.city || candidate.city,
     county: current.county || candidate.county,
     state: current.state || candidate.state,
@@ -216,7 +239,7 @@ async function enrichPlaceFromBounds(
   if (localHint) {
     resolved = mergeAuthoritativePlace(resolved, localHint)
   }
-  if (placeNeedsEnrichment(resolved)) {
+  if (placeNeedsLodEnrichment(resolved, geographyLod)) {
     const geocoded = await reverseGeocodePlace(center.lat, center.lng, geographyLod)
     if (geocoded) {
       resolved = mergeAuthoritativePlace(resolved, geocoded)

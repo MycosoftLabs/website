@@ -47,11 +47,19 @@ export function DeviceAgentChat({ deviceId, deviceName }: DeviceAgentChatProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, task_type: taskType }),
       })
-      const data = await res.json()
+      const text = await res.text()
+      let data: Record<string, unknown> = {}
+      try {
+        data = text ? (JSON.parse(text) as Record<string, unknown>) : {}
+      } catch {
+        data = { raw: text || "(empty response)" }
+      }
+      const relay = data.relay ? `[${data.relay}] ` : ""
+      const resultPayload = data.result ?? data.error ?? data.detail
       const reply =
-        typeof data.result === "object"
-          ? JSON.stringify(data.result, null, 2)
-          : String(data.error || data.result || data.status || "No response")
+        typeof resultPayload === "object" && resultPayload !== null
+          ? `${relay}${JSON.stringify(resultPayload, null, 2)}`
+          : `${relay}${String(resultPayload || data.status || "No response")}`
       setLines((prev) => [
         ...prev,
         { role: res.ok ? "agent" : "system", text: reply.slice(0, 4000) },

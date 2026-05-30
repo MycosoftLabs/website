@@ -4,38 +4,13 @@
  * cookieStore.set() does not apply to custom NextResponse.redirect() - we must write
  * cookies to the redirect response directly.
  */
+import { getAuthOrigin } from '@/lib/auth/get-auth-origin'
 import { createClientForRedirect } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-function getOrigin(request: Request): string {
-  const requestUrl = new URL(request.url)
-  const requestHost = request.headers.get('host') || requestUrl.host
-  const isLocalDev =
-    requestHost.includes('localhost') ||
-    requestHost.startsWith('127.0.0.1') ||
-    requestUrl.hostname === 'localhost' ||
-    requestUrl.hostname === '127.0.0.1'
-
-  if (isLocalDev) return requestUrl.origin
-
-  const configuredSite = process.env.NEXT_PUBLIC_SITE_URL
-  if (configuredSite) {
-    try {
-      return new URL(configuredSite).origin
-    } catch {
-      // Fall back to forwarded headers below if the env var is malformed.
-    }
-  }
-
-  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
-  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https'
-  const host = forwardedHost || requestHost || requestUrl.host
-  return `${forwardedProto}://${host}`
-}
-
 export async function POST(request: Request) {
   const url = new URL(request.url)
-  const origin = getOrigin(request)
+  const origin = getAuthOrigin(request)
 
   // Support both 'redirect' and 'redirectTo' (agent page uses ?redirect=/agent)
   const redirectFromUrl =

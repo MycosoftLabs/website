@@ -15,6 +15,7 @@ import {
   parseLocation,
 } from "@/lib/devices/field-deployments"
 import { probeAllOperatorAgents } from "@/lib/devices/operator-probe"
+import { resolveDevBenchLocation, DEV_BENCH_LOCATION_LABEL } from "@/lib/devices/dev-bench-location"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -176,6 +177,7 @@ export async function GET(request: NextRequest) {
         field?.location ||
         parseLocation(device.location) ||
         parseLocation(extra.location) ||
+        resolveDevBenchLocation(device.device_id, device.host) ||
         null
 
       // Build display name with fallback chain: device_display_name -> device_name -> device_role -> device_id
@@ -209,7 +211,11 @@ export async function GET(request: NextRequest) {
           ? `${field.location.lat},${field.location.lon}`
           : device.location || (coords ? `${coords.lat},${coords.lon}` : null),
         location_coords: coords,
-        location_label: field?.location_label ?? null,
+        location_label:
+          field?.location_label ??
+          (resolveDevBenchLocation(device.device_id, device.host)
+            ? DEV_BENCH_LOCATION_LABEL
+            : null),
         connection_type: device.connection_type,
         ingestion_source: device.ingestion_source ?? "serial",
         status: liveStatus,

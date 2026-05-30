@@ -2,6 +2,8 @@
  * Firmware compatibility matrix — mirrors MAS mycosoft_mas/devices/firmware_audit.py
  */
 
+import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
+
 export type CompatibilityTier = "compatible" | "partial" | "incompatible" | "unknown"
 
 export const CANONICAL_SIDE_A_VERSION = "side-a-mdp-2.1.0"
@@ -113,7 +115,10 @@ export function tierLabel(tier: CompatibilityTier): string {
 
 export function isFieldRegistryId(value: string | null | undefined): boolean {
   if (!value) return false
-  return value.startsWith("mycobrain-") && !value.startsWith("COM") && !value.startsWith("/dev")
+  if (deploymentByRegistryId(value)) return true
+  // Local serial ids: mycobrain-COM4, mycobrain-side-a-COM7 — not field Jetsons
+  if (/^mycobrain-(COM\d+|side-a-|side_b|tty)/i.test(value)) return false
+  return /^mycobrain-(mushroom|hyphae|service|sidea)-/i.test(value)
 }
 
 export function isLocalSerialPort(value: string | null | undefined): boolean {

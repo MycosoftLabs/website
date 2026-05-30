@@ -6,7 +6,8 @@ import {
   parseLocation,
   toEarthSimConnectionStatus,
 } from "@/lib/devices/field-deployments";
-import { probeAllOperatorAgents } from "@/lib/devices/operator-probe";
+import { probeAllOperatorAgents } from "@/lib/devices/operator-probe"
+import { resolveDevBenchLocation, DEV_BENCH_LOCATION_LABEL } from "@/lib/devices/dev-bench-location";
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url";
 
 /**
@@ -74,6 +75,7 @@ function mergeMasDevice(
     field?.location ||
     parseLocation(d.location) ||
     parseLocation(extra.location) ||
+    resolveDevBenchLocation(id, host) ||
     null;
 
   const existing = byId.get(field?.catalog_id || id);
@@ -88,7 +90,11 @@ function mergeMasDevice(
     port: d.port as string | number | undefined,
     status: toEarthSimConnectionStatus(String(d.status ?? "")),
     location: loc,
-    location_label: field?.location_label ?? existing?.location_label ?? null,
+    location_label:
+      field?.location_label ??
+      (resolveDevBenchLocation(id, host) ? DEV_BENCH_LOCATION_LABEL : null) ??
+      existing?.location_label ??
+      null,
     lastSeen: typeof d.last_seen === "string" ? d.last_seen : null,
     telemetry: extra.latest_telemetry ?? existing?.telemetry ?? null,
     source: "mas",
@@ -187,14 +193,23 @@ export async function GET() {
           const d = device as Record<string, unknown>;
           const id = String(d.device_id ?? d.id ?? "");
           if (!id) continue;
-          const normalized = parseLocation(d.location);
+          const normalized =
+            parseLocation(d.location) || resolveDevBenchLocation(id, null);
           if (!normalized) continue;
+          const portVal = (d.port as string | number | undefined) ?? null;
           byId.set(id, {
             id,
+            registry_id: id,
             name: String(d.name ?? d.device_id ?? id),
-            port: (d.port as string | number | undefined) ?? null,
+            type: "mycobrain",
+            role: "standalone",
+            port: portVal,
             status: toEarthSimConnectionStatus(String(d.status ?? "")),
             location: normalized,
+            location_label: resolveDevBenchLocation(id, null)
+              ? DEV_BENCH_LOCATION_LABEL
+              : null,
+            page_href: `/natureos/mycobrain?device=${encodeURIComponent(id)}`,
             lastSeen:
               (d.last_seen as string | undefined) ??
               (d.lastSeen as string | undefined) ??

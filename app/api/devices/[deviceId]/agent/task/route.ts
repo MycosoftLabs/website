@@ -16,8 +16,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
-  const auth = await requireAdmin(request)
-  if (!auth.ok) return auth.response
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   const { deviceId } = await params
   let body: AgentTaskBody

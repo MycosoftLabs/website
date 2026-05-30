@@ -365,13 +365,19 @@ export function MycoBrainDeviceManager({
         body: JSON.stringify({ command }),
         signal: AbortSignal.timeout(10000),
       })
-      const data = await res.json()
+      const text = await res.text()
+      let data: Record<string, unknown> = {}
+      try {
+        data = text ? (JSON.parse(text) as Record<string, unknown>) : {}
+      } catch {
+        data = { raw: text || "(empty response)" }
+      }
       if (res.ok) {
         logToConsole(`✓ Command response: ${JSON.stringify(data.response || data).slice(0, 100)}`)
         return data
       } else {
-        logToConsole(`✗ Command failed: ${data.error || "Unknown error"}`)
-        throw new Error(data.error || "Command failed")
+        logToConsole(`✗ Command failed: ${String(data.error || "Unknown error")}`)
+        throw new Error(String(data.error || "Command failed"))
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error"
@@ -1316,8 +1322,8 @@ export function MycoBrainDeviceManager({
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Badge className={device.connected ? "bg-green-500" : "bg-red-500"}>
-                {device.connected ? (
+              <Badge className={activeDevice?.connected ? "bg-green-500" : "bg-red-500"}>
+                {activeDevice?.connected ? (
                   <>
                     <Wifi className="h-3 w-3 mr-1" />
                     Connected

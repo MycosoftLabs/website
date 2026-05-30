@@ -23,7 +23,7 @@ import {
   isYouTubeUrl,
   normalizeYouTubeEmbedUrlSync,
 } from "@/lib/crep/youtube-embed"
-import { resolveEagleLiveStream } from "@/components/crep/eagle-eye/eagle-live-stream"
+import { HlsLivePlayer, resolveEagleLiveStream } from "@/components/crep/eagle-eye/eagle-live-stream"
 import { hlsLivePlayerConfig, seekVideoToLiveEdge } from "@/lib/crep/hls-live-config"
 
 type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
@@ -93,6 +93,7 @@ function HlsPlayer({
   disableNoFrameWatchdog?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const onFallbackRef = useRef(onFallback)
   // Apr 22, 2026 v2 — Morgan: "caltrans cameras were working fine before
   // now they are just saying loading hls what happend fix that".
   //
@@ -102,30 +103,33 @@ function HlsPlayer({
   // broken. Reverted to: video shows immediately, NO loading overlay on
   // the happy path; error overlay ONLY on hls.js fatal errors.
   const [errMsg, setErrMsg] = useState<string>("")
-  const [retryNonce, setRetryNonce] = useState(0)
   const [recovering, setRecovering] = useState("")
-  useEffect(() => { setRetryNonce(0); setRecovering(""); setErrMsg("") }, [url])
+  useEffect(() => {
+    onFallbackRef.current = onFallback
+  }, [onFallback])
+  useEffect(() => { setRecovering(""); setErrMsg("") }, [url])
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     setErrMsg("")
     setRecovering("")
-    const playbackUrl = withRetryParam(url, retryNonce)
+    const playbackUrl = url
     let cleanup = () => {}
     let hasFrame = false
     let watchdog: ReturnType<typeof setTimeout> | null = null
     const markFrame = () => { hasFrame = true; setRecovering("") }
-    const retryInsideWidget = (reason: string) => {
-      if (retryNonce >= 5) {
-        if (onFallback) {
-          onFallback()
-          return
-        }
-        setErrMsg(reason)
+    const failOrFallback = (reason: string) => {
+      if (onFallbackRef.current) {
+        setRecovering("")
+        onFallbackRef.current()
         return
       }
-      setRecovering("Refreshing video feed")
-      setRetryNonce((value) => value + 1)
+      setRecovering("")
+      setErrMsg(reason)
+    }
+    const retryInsideWidget = (reason: string) => {
+      if (hasFrame) return
+      failOrFallback(reason)
     }
     const onVideoError = () => retryInsideWidget("video element reported a playback error")
     video.addEventListener("loadeddata", markFrame)
@@ -178,18 +182,8 @@ function HlsPlayer({
             try { hls.recoverMediaError() } catch { /* ignore */ }
             return
           }
-          if (retryNonce < 5) {
-            retryInsideWidget(String(data?.details || data?.reason || data?.type || "playback stalled"))
-            try { hls.destroy() } catch { /* ignore */ }
-            return
-          }
           const detail = data?.details || data?.reason || data?.type || "playback failed"
-          if (onFallback) {
-            onFallback()
-            try { hls.destroy() } catch { /* ignore */ }
-            return
-          }
-          setErrMsg(String(detail))
+          failOrFallback(String(detail))
           try { hls.destroy() } catch { /* ignore */ }
         })
         const driftTimer = window.setInterval(() => {
@@ -219,7 +213,7 @@ function HlsPlayer({
       video.removeEventListener("error", onVideoError)
       cleanup()
     }
-  }, [url, retryNonce, onFallback])
+  }, [url, disableNoFrameWatchdog])
 
   return (
     <div className="relative w-full h-full bg-black">
@@ -291,12 +285,12 @@ function HlsWithSnapshotFallback({
     )
   }
   return (
-    <HlsPlayer
+    <HlsLivePlayer
       url={url}
-      disableNoFrameWatchdog={isCaltrans}
-      onFallback={() => {
-        if (fallbackSnapshot) setUseSnapshot(true)
-      }}
+      fallbackUrl={fallbackSnapshot || undefined}
+      fallbackAfterMs={isCaltrans ? 8_000 : 5_500}
+      className="w-full h-full bg-black object-contain"
+      muted
     />
   )
 }

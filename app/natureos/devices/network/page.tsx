@@ -36,6 +36,7 @@ interface DeviceInfo {
     side?: string
     mdp_version?: number
     bme688_count?: number
+    firmware_version?: string
   }
 }
 
@@ -922,7 +923,6 @@ export default function DeviceNetworkPage() {
     </DevicePageShell>
   )
 }
-
 
 
 

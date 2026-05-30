@@ -1,9 +1,62 @@
 import { NextRequest, NextResponse } from "next/server"
+import { isFieldRegistryId } from "@/lib/devices/firmware-compatibility"
+import { controlPayloadToOperatorCommand } from "@/lib/mycobrain/control-command"
 
 // MycoBrain service runs on port 8003
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
+
+async function relayFieldControl(
+  registryId: string,
+  peripheral: string,
+  action: string,
+  data: Record<string, unknown>
+) {
+  const command = controlPayloadToOperatorCommand(peripheral, action, data)
+  if (!command) {
+    return NextResponse.json(
+      { success: true, peripheral, action, message: "No operator mapping for this action" },
+      { status: 200 }
+    )
+  }
+
+  const res = await fetch(`${MAS_API_URL}/api/devices/${encodeURIComponent(registryId)}/command`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ command, params: {}, timeout: 12 }),
+    signal: AbortSignal.timeout(15000),
+  })
+  const text = await res.text()
+  let parsed: unknown = text
+  try {
+    parsed = text ? JSON.parse(text) : {}
+  } catch {
+    parsed = { raw: text }
+  }
+  if (!res.ok) {
+    return NextResponse.json(
+      {
+        success: false,
+        peripheral,
+        action,
+        operator_command: command,
+        error: parsed,
+        source: "mas-field-relay",
+      },
+      { status: res.status }
+    )
+  }
+  return NextResponse.json({
+    success: true,
+    peripheral,
+    action,
+    operator_command: command,
+    result: parsed,
+    source: "mas-field-relay",
+  })
+}
 
 export async function POST(
   request: NextRequest,
@@ -12,6 +65,23 @@ export async function POST(
   const { port } = await params
   const body = await request.json()
   const { peripheral, action, ...data } = body
+
+  if (isFieldRegistryId(port)) {
+    try {
+      return await relayFieldControl(port, peripheral, action, data)
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          peripheral,
+          action,
+          source: "mas-field-relay",
+        },
+        { status: 503 }
+      )
+    }
+  }
 
   try {
     // First, try to find the device_id from the port
