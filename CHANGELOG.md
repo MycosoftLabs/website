@@ -343,6 +343,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Earth Simulator boot, Eagle cameras, MYCA viewport polish for production
 - *(ci)* Stop POSTing disabled website iNat ETL in delta sync workflow
 - *(earth)* Stabilize Bay Area intel and camera playback
+- *(earth)* Stabilize camera playback and secure device controls
 
 ### CREP
 
@@ -569,6 +570,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Codex deploy handoff for field MycoBrain device controls
+- Update changelog [skip ci]
 
 ### Features
 
