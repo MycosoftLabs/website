@@ -73,7 +73,7 @@ jobs:
         run: |
           ls -lh public/data/crep/nyc-inat.geojson public/data/crep/dc-inat.geojson
           for f in public/data/crep/nyc-inat.geojson public/data/crep/dc-inat.geojson; do
-            node -e "const g=require('./$f'); console.log('  $f:', g.feature_count, 'features');"
+            node -e "const fs=require('fs'); const file=process.argv[1]; const g=JSON.parse(fs.readFileSync(file,'utf8')); console.log('  '+file+':', g.feature_count, 'features');" "$f"
           done
 
       - name: Open PR if iNat geojson changed
