@@ -78,6 +78,7 @@ type Enabled = {
 }
 
 interface RegionCategory {
+  region: "nyc" | "dc" | "vegas"
   id: keyof Enabled
   file: string
   layerId: string
@@ -92,19 +93,19 @@ interface RegionCategory {
 }
 
 const makeCategories = (region: "nyc" | "dc" | "vegas"): RegionCategory[] => [
-  { id: `${region}Hospitals` as keyof Enabled,     file: `/data/crep/${region}-hospitals.geojson`,       layerId: `crep-${region}-hospitals`,     sourceId: `crep-${region}-hospitals-src`,     label: "Hospital", color: "#f43f5e", selectType: "hospital", minzoom: 7 },
-  { id: `${region}Police` as keyof Enabled,        file: `/data/crep/${region}-police.geojson`,          layerId: `crep-${region}-police`,        sourceId: `crep-${region}-police-src`,        label: "Police / Fire", color: "#3b82f6", selectType: "police", minzoom: 8 },
-  { id: `${region}Sewage` as keyof Enabled,        file: `/data/crep/${region}-sewage.geojson`,          layerId: `crep-${region}-sewage`,        sourceId: `crep-${region}-sewage-src`,        label: "Sewage works", color: "#a16207", selectType: "sewage_works", polygon: true, minzoom: 7 },
+  { region, id: `${region}Hospitals` as keyof Enabled,     file: `/data/crep/${region}-hospitals.geojson`,       layerId: `crep-${region}-hospitals`,     sourceId: `crep-${region}-hospitals-src`,     label: "Hospital", color: "#f43f5e", selectType: "hospital", minzoom: 7 },
+  { region, id: `${region}Police` as keyof Enabled,        file: `/data/crep/${region}-police.geojson`,          layerId: `crep-${region}-police`,        sourceId: `crep-${region}-police-src`,        label: "Police / Fire", color: "#3b82f6", selectType: "police", minzoom: 8 },
+  { region, id: `${region}Sewage` as keyof Enabled,        file: `/data/crep/${region}-sewage.geojson`,          layerId: `crep-${region}-sewage`,        sourceId: `crep-${region}-sewage-src`,        label: "Sewage works", color: "#a16207", selectType: "sewage_works", polygon: true, minzoom: 7 },
   // Apr 23, 2026 — cell-tower dots at 50% of default per Morgan. See
   // `cellSmall` override in the layer paint below.
-  { id: `${region}CellTowers` as keyof Enabled,    file: `/data/crep/${region}-cell-towers.geojson`,     layerId: `crep-${region}-cell`,          sourceId: `crep-${region}-cell-src`,          label: "Cell tower", color: "#ec4899", selectType: "cell_tower", minzoom: 9, cellSmall: true as any },
-  { id: `${region}AmFmAntennas` as keyof Enabled,  file: `/data/crep/${region}-am-fm-antennas.geojson`,  layerId: `crep-${region}-amfm`,          sourceId: `crep-${region}-amfm-src`,          label: "AM/FM antenna", color: "#a855f7", selectType: "broadcast_antenna", minzoom: 7 },
-  { id: `${region}Military` as keyof Enabled,      file: `/data/crep/${region}-military.geojson`,        layerId: `crep-${region}-mil`,           sourceId: `crep-${region}-mil-src`,           label: "Military installation", color: "#10b981", selectType: "military_installation", polygon: true, minzoom: 6 },
-  { id: `${region}DataCenters` as keyof Enabled,   file: `/data/crep/${region}-data-centers.geojson`,    layerId: `crep-${region}-dc`,            sourceId: `crep-${region}-dc-src`,            label: "Data center", color: "#06b6d4", selectType: "data_center", minzoom: 7 },
-  { id: `${region}TransitSubway` as keyof Enabled, file: `/data/crep/${region}-transit-subway.geojson`,  layerId: `crep-${region}-subway`,        sourceId: `crep-${region}-subway-src`,        label: "Subway station", color: "#f59e0b", selectType: "subway_station", minzoom: 10 },
-  { id: `${region}TransitRail` as keyof Enabled,   file: `/data/crep/${region}-transit-rail.geojson`,    layerId: `crep-${region}-rail`,          sourceId: `crep-${region}-rail-src`,          label: "Rail station", color: "#eab308", selectType: "rail_station", minzoom: 8 },
-  { id: `${region}Airports` as keyof Enabled,      file: `/data/crep/${region}-airports.geojson`,        layerId: `crep-${region}-air`,           sourceId: `crep-${region}-air-src`,           label: "Airport", color: "#8b5cf6", selectType: "airport", minzoom: 5 },
-  { id: `${region}GovtEmbassy` as keyof Enabled,   file: `/data/crep/${region}-govt-embassy.geojson`,    layerId: `crep-${region}-gov`,           sourceId: `crep-${region}-gov-src`,           label: "Government / Embassy", color: "#14b8a6", selectType: "government", minzoom: 9 },
+  { region, id: `${region}CellTowers` as keyof Enabled,    file: `/data/crep/${region}-cell-towers.geojson`,     layerId: `crep-${region}-cell`,          sourceId: `crep-${region}-cell-src`,          label: "Cell tower", color: "#ec4899", selectType: "cell_tower", minzoom: 9, cellSmall: true as any },
+  { region, id: `${region}AmFmAntennas` as keyof Enabled,  file: `/data/crep/${region}-am-fm-antennas.geojson`,  layerId: `crep-${region}-amfm`,          sourceId: `crep-${region}-amfm-src`,          label: "AM/FM antenna", color: "#a855f7", selectType: "broadcast_antenna", minzoom: 7 },
+  { region, id: `${region}Military` as keyof Enabled,      file: `/data/crep/${region}-military.geojson`,        layerId: `crep-${region}-mil`,           sourceId: `crep-${region}-mil-src`,           label: "Military installation", color: "#10b981", selectType: "military_installation", polygon: true, minzoom: 6 },
+  { region, id: `${region}DataCenters` as keyof Enabled,   file: `/data/crep/${region}-data-centers.geojson`,    layerId: `crep-${region}-dc`,            sourceId: `crep-${region}-dc-src`,            label: "Data center", color: "#06b6d4", selectType: "data_center", minzoom: 7 },
+  { region, id: `${region}TransitSubway` as keyof Enabled, file: `/data/crep/${region}-transit-subway.geojson`,  layerId: `crep-${region}-subway`,        sourceId: `crep-${region}-subway-src`,        label: "Subway station", color: "#f59e0b", selectType: "subway_station", minzoom: 10 },
+  { region, id: `${region}TransitRail` as keyof Enabled,   file: `/data/crep/${region}-transit-rail.geojson`,    layerId: `crep-${region}-rail`,          sourceId: `crep-${region}-rail-src`,          label: "Rail station", color: "#eab308", selectType: "rail_station", minzoom: 8 },
+  { region, id: `${region}Airports` as keyof Enabled,      file: `/data/crep/${region}-airports.geojson`,        layerId: `crep-${region}-air`,           sourceId: `crep-${region}-air-src`,           label: "Airport", color: "#8b5cf6", selectType: "airport", minzoom: 5 },
+  { region, id: `${region}GovtEmbassy` as keyof Enabled,   file: `/data/crep/${region}-govt-embassy.geojson`,    layerId: `crep-${region}-gov`,           sourceId: `crep-${region}-gov-src`,           label: "Government / Embassy", color: "#14b8a6", selectType: "government", minzoom: 9 },
   // Apr 23, 2026 — iNat nature observations (Morgan: "i see not one
   // nature data icon in nyc or washington dc that is a huge violation
   // of our product fix that now"). 10k research-grade observations
@@ -139,6 +140,34 @@ function resolveMap(m: MapOrRef): MapLibreMap | null {
   if (typeof (m as any).getZoom === "function") return m as MapLibreMap
   const current = (m as React.RefObject<MapLibreMap | null>).current
   return current ?? null
+}
+
+const REGION_BBOX: Record<"nyc" | "dc" | "vegas", [number, number, number, number]> = {
+  nyc: [-74.35, 40.35, -73.45, 41.05],
+  dc: [-77.75, 38.55, -76.55, 39.25],
+  vegas: [-115.55, 35.8, -114.75, 36.55],
+}
+
+function viewportIntersectsRegion(m: MapLibreMap, region: "nyc" | "dc" | "vegas") {
+  const zoom = typeof m.getZoom === "function" ? m.getZoom() : 0
+  if (zoom < 5) return false
+  const bounds = m.getBounds()
+  if (!bounds) return false
+  const viewport: [number, number, number, number] = [
+    bounds.getWest(),
+    bounds.getSouth(),
+    bounds.getEast(),
+    bounds.getNorth(),
+  ]
+  if (!viewport.every(Number.isFinite)) return false
+  const pad = zoom < 7 ? 1.25 : zoom < 9 ? 0.65 : 0.25
+  const [west, south, east, north] = REGION_BBOX[region]
+  return !(
+    viewport[2] < west - pad ||
+    viewport[0] > east + pad ||
+    viewport[3] < south - pad ||
+    viewport[1] > north + pad
+  )
 }
 
 export interface ProjectNycDcLayerProps {
@@ -361,12 +390,22 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
         try { if (m.getLayer(cat.layerId + suffix)) m.setLayoutProperty(cat.layerId + suffix, "visibility", vis) } catch {}
       }
     }
-    for (const cat of all) {
-      const on = !!(enabled as any)[cat.id]
-      if (on) ensureCategory(cat).then(() => applyVisibility(cat, true))
-      else applyVisibility(cat, false)
+    const syncVisibleRegions = () => {
+      for (const cat of all) {
+        const on = !!(enabled as any)[cat.id]
+        const inView = viewportIntersectsRegion(m, cat.region)
+        if (on && inView) ensureCategory(cat).then(() => applyVisibility(cat, true))
+        else applyVisibility(cat, false)
+      }
     }
-    return () => { cancelled = true }
+    syncVisibleRegions()
+    m.on("moveend", syncVisibleRegions)
+    m.on("zoomend", syncVisibleRegions)
+    return () => {
+      cancelled = true
+      m.off("moveend", syncVisibleRegions)
+      m.off("zoomend", syncVisibleRegions)
+    }
   }, [map, ...Object.values(enabled)])
 
   return null

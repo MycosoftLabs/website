@@ -377,7 +377,30 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
       )}
     </MapMarker>
   );
-});
+}, areFungalMarkerPropsEqual);
+
+function areFungalMarkerPropsEqual(prev: FungalMarkerProps, next: FungalMarkerProps) {
+  if ((prev.isSelected ?? false) !== (next.isSelected ?? false)) return false;
+  const a = prev.observation;
+  const b = next.observation;
+  return (
+    String(a.id) === String(b.id) &&
+    a.latitude === b.latitude &&
+    a.longitude === b.longitude &&
+    a.observed_on === b.observed_on &&
+    a.species === b.species &&
+    a.kingdom === b.kingdom &&
+    a.iconicTaxon === b.iconicTaxon &&
+    a.quality_grade === b.quality_grade &&
+    a.source === b.source &&
+    a.sourceUrl === b.sourceUrl &&
+    a.externalId === b.externalId &&
+    a.photos?.[0]?.url === b.photos?.[0]?.url &&
+    a.taxon?.id === b.taxon?.id &&
+    a.taxon?.name === b.taxon?.name &&
+    a.taxon?.preferred_common_name === b.taxon?.preferred_common_name
+  );
+}
 
 // Display name for debugging
 FungalMarker.displayName = "FungalMarker";

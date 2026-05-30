@@ -875,6 +875,41 @@ const ALL_ICONIC_TAXA = [
   "Amphibia", "Actinopterygii", "Mollusca", "Arachnida", "Insecta",
 ]
 
+const QUICK_PRIORITY_ICONIC_TAXA = [
+  "Fungi",
+  "Plantae",
+  "Aves",
+  "Mammalia",
+  "Reptilia",
+  "Amphibia",
+  "Actinopterygii",
+  "Mollusca",
+  "Arachnida",
+  "Insecta",
+]
+
+function preserveRequestedIconicTaxon(
+  obs: FungalObservation,
+  requestedTaxon: string,
+): FungalObservation {
+  const requestedToken = normalizeTaxonToken(requestedTaxon)
+  const existingIconic = String(obs.iconicTaxon || "").trim()
+  const existingIconicToken = normalizeTaxonToken(existingIconic)
+  const existingKingdom = String(obs.kingdom || "").trim()
+  const existingKingdomToken = normalizeTaxonToken(existingKingdom)
+  const iconicTaxon =
+    existingIconic && existingIconicToken !== "unknown" && existingIconicToken !== "animalia"
+      ? existingIconic
+      : requestedTaxon
+  const kingdom =
+    requestedToken === "fungi" || requestedToken === "plantae"
+      ? requestedTaxon
+      : existingKingdom && existingKingdomToken !== "unknown"
+        ? existingKingdom
+        : "Animalia"
+  return { ...obs, kingdom, iconicTaxon }
+}
+
 function resolveIconicTaxon(obs: Record<string, unknown>, fallbackTaxon?: string): string {
   const taxon = obs.taxon as { iconic_taxon_name?: string; kingdom?: string } | undefined
   const candidates = [
@@ -1088,45 +1123,43 @@ async function fetchINaturalistQuickAllTaxa(
   }
 
   if (bounds && !isBroadViewport) {
-    const cityTaxa = ["Fungi", "Plantae", "Aves", "Mammalia", "Reptilia", "Insecta"]
+    const cityTaxa = QUICK_PRIORITY_ICONIC_TAXA
     const mixedPromise = fetchINaturalistQuick(180, bounds).catch(() => [] as FungalObservation[])
-    const taxonPromises = cityTaxa.map((taxon) =>
-      fetchINaturalistQuick(taxon === "Fungi" ? 260 : 60, bounds, taxon)
-        .then((rows) =>
-          rows.map((obs) => {
-            const label =
-              obs.kingdom && obs.kingdom !== "Unknown"
-                ? obs.kingdom
-                : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
-                  ? obs.iconicTaxon
-                  : taxon
-            return { ...obs, kingdom: label, iconicTaxon: label }
-          }),
-        )
-        .catch(() => [] as FungalObservation[]),
-    )
-    const [mixedRows, taxonBatches] = await Promise.all([
-      withSoftTimeout(mixedPromise, 4500, [] as FungalObservation[], "quick iNat city mixed sample"),
-      collectWithSoftTimeout(
-        taxonPromises,
-        6500,
+    const fetchTaxonBatch = (taxon: string) =>
+      fetchINaturalistQuick(taxon === "Fungi" ? 260 : 55, bounds, taxon)
+        .then((rows) => rows.map((obs) => preserveRequestedIconicTaxon(obs, taxon)))
+        .catch(() => [] as FungalObservation[])
+    const taxonBatches: FungalObservation[][] = []
+    for (let i = 0; i < cityTaxa.length; i += 3) {
+      const batchTaxa = cityTaxa.slice(i, i + 3)
+      const rows = await collectWithSoftTimeout(
+        batchTaxa.map(fetchTaxonBatch),
+        4200,
         [] as FungalObservation[],
-        "quick iNat city priority taxa sample",
-      ),
-    ])
+        `quick iNat city priority taxa sample ${i / 3 + 1}`,
+      )
+      taxonBatches.push(...rows)
+      if (i + 3 < cityTaxa.length) await new Promise((resolve) => setTimeout(resolve, 180))
+    }
+    const mixedRows = await withSoftTimeout(
+      mixedPromise,
+      4500,
+      [] as FungalObservation[],
+      "quick iNat city mixed sample",
+    )
     push(mixedRows)
     for (const rows of taxonBatches) push(rows)
 
     const presentTokens = new Set(
       merged
-        .map((obs) => normalizeTaxonToken(obs.kingdom || obs.iconicTaxon))
+        .map((obs) => normalizeTaxonToken(obs.iconicTaxon || obs.kingdom))
         .filter((token) => token && token !== "unknown"),
     )
     const missingPriority = cityTaxa.filter((taxon) => !presentTokens.has(normalizeTaxonToken(taxon)))
     if (missingPriority.length > 0) {
       const rescueRows = await collectWithSoftTimeout(
         missingPriority.map((taxon) =>
-          fetchGBIFQuickObservations(taxon === "Fungi" ? 420 : 140, taxon, bounds).catch(() => [] as FungalObservation[]),
+          fetchGBIFQuickObservations(taxon === "Fungi" ? 420 : 120, taxon, bounds).catch(() => [] as FungalObservation[]),
         ),
         3000,
         [] as FungalObservation[],
@@ -1149,20 +1182,12 @@ async function fetchINaturalistQuickAllTaxa(
     ? fetchINaturalistQuickDistributed(mixedBudget, bounds).catch(() => [] as FungalObservation[])
     : fetchINaturalistQuick(mixedBudget, bounds).catch(() => [] as FungalObservation[])
   const taxaToSample = isBroadViewport
-    ? ["Fungi", "Plantae", "Aves", "Mammalia", "Reptilia", "Insecta"]
+    ? QUICK_PRIORITY_ICONIC_TAXA
     : ALL_ICONIC_TAXA
   const taxaFetch = Promise.all(
     taxaToSample.map(async (taxon) => {
       const rows = await fetchINaturalistQuick(isBroadViewport ? 90 : perTaxon, bounds, taxon).catch(() => [] as FungalObservation[])
-      return rows.map((obs) => {
-        const label =
-          obs.kingdom && obs.kingdom !== "Unknown"
-            ? obs.kingdom
-            : obs.iconicTaxon && obs.iconicTaxon !== "Unknown"
-              ? obs.iconicTaxon
-              : taxon
-        return { ...obs, kingdom: label, iconicTaxon: label }
-      })
+      return rows.map((obs) => preserveRequestedIconicTaxon(obs, taxon))
     }),
   ).catch(() => [] as FungalObservation[][])
   const taxaPromise = isBroadViewport
@@ -1295,8 +1320,8 @@ async function fetchINaturalistQuick(
     const perPage = 50
     const pages = bounds
       ? span && span.latSpan <= 1.5 && span.lngSpan <= 1.5
-        ? Math.min(boundedFungi ? 6 : 3, Math.ceil(requested / perPage))
-        : Math.min(boundedFungi ? 4 : 2, Math.ceil(requested / perPage))
+        ? Math.min(boundedFungi ? 6 : 1, Math.ceil(requested / perPage))
+        : Math.min(boundedFungi ? 4 : 1, Math.ceil(requested / perPage))
       : 1
     const allResults: any[] = []
 
@@ -1397,9 +1422,46 @@ async function fetchINaturalistQuick(
   }
 }
 
-// GBIF kingdom keys for all-life coverage
-const GBIF_KINGDOMS: Record<string, string> = {
-  Fungi: "5", Plantae: "6", Animalia: "1", Chromista: "4", Protozoa: "7", Bacteria: "3",
+type GbifTaxonQuery = {
+  label: string
+  params: Record<string, string>
+  kingdom: string
+  iconicTaxon: string
+}
+
+// GBIF backbone keys used only as bounded top-up. Unknown requested classes
+// must not fall back to broad all-kingdom queries.
+const GBIF_TAXON_QUERIES: Record<string, GbifTaxonQuery[]> = {
+  Fungi: [{ label: "Fungi", params: { kingdomKey: "5" }, kingdom: "Fungi", iconicTaxon: "Fungi" }],
+  Plantae: [{ label: "Plantae", params: { kingdomKey: "6" }, kingdom: "Plantae", iconicTaxon: "Plantae" }],
+  Animalia: [{ label: "Animalia", params: { kingdomKey: "1" }, kingdom: "Animalia", iconicTaxon: "Animalia" }],
+  Chromista: [{ label: "Chromista", params: { kingdomKey: "4" }, kingdom: "Chromista", iconicTaxon: "Chromista" }],
+  Protozoa: [{ label: "Protozoa", params: { kingdomKey: "7" }, kingdom: "Protozoa", iconicTaxon: "Protozoa" }],
+  Bacteria: [{ label: "Bacteria", params: { kingdomKey: "3" }, kingdom: "Bacteria", iconicTaxon: "Bacteria" }],
+  Aves: [{ label: "Aves", params: { classKey: "212" }, kingdom: "Animalia", iconicTaxon: "Aves" }],
+  Mammalia: [{ label: "Mammalia", params: { classKey: "359" }, kingdom: "Animalia", iconicTaxon: "Mammalia" }],
+  Amphibia: [{ label: "Amphibia", params: { classKey: "131" }, kingdom: "Animalia", iconicTaxon: "Amphibia" }],
+  Insecta: [{ label: "Insecta", params: { classKey: "216" }, kingdom: "Animalia", iconicTaxon: "Insecta" }],
+  Arachnida: [{ label: "Arachnida", params: { classKey: "367" }, kingdom: "Animalia", iconicTaxon: "Arachnida" }],
+  // GBIF's current reptile backbone is split across unstable taxon keys here;
+  // iNaturalist is the reliable live source for this bucket.
+  Reptilia: [],
+}
+
+const GBIF_ALL_LIFE_QUERIES = [
+  ...GBIF_TAXON_QUERIES.Fungi,
+  ...GBIF_TAXON_QUERIES.Plantae,
+  ...GBIF_TAXON_QUERIES.Aves,
+  ...GBIF_TAXON_QUERIES.Mammalia,
+  ...GBIF_TAXON_QUERIES.Reptilia,
+  ...GBIF_TAXON_QUERIES.Amphibia,
+  ...GBIF_TAXON_QUERIES.Insecta,
+  ...GBIF_TAXON_QUERIES.Arachnida,
+]
+
+function gbifQueriesForTaxon(kingdom?: string): GbifTaxonQuery[] {
+  if (!kingdom || kingdom === "all") return GBIF_ALL_LIFE_QUERIES
+  return GBIF_TAXON_QUERIES[kingdom] || []
 }
 
 /**
@@ -1411,17 +1473,16 @@ async function fetchGBIFObservations(
   bounds?: { north: number; south: number; east: number; west: number },
 ): Promise<FungalObservation[]> {
   const allObs: FungalObservation[] = []
-  const kingdomsToFetch = kingdom && kingdom !== "all" && GBIF_KINGDOMS[kingdom]
-    ? [[kingdom, GBIF_KINGDOMS[kingdom]]]
-    : Object.entries(GBIF_KINGDOMS)
-  const perKingdom = Math.ceil(limit / kingdomsToFetch.length)
+  const taxonQueries = gbifQueriesForTaxon(kingdom)
+  if (taxonQueries.length === 0) return []
+  const perTaxon = Math.ceil(limit / taxonQueries.length)
 
   await Promise.all(
-    kingdomsToFetch.map(async ([kName, kKey]) => {
+    taxonQueries.map(async (query) => {
       try {
         const params = new URLSearchParams({
-          kingdomKey: kKey,
-          limit: String(Math.min(perKingdom, 300)),
+          ...query.params,
+          limit: String(Math.min(perTaxon, 300)),
           hasCoordinate: "true",
           hasGeospatialIssue: "false",
           eventDate: `${recentObservationStartDate()},${new Date().toISOString().slice(0, 10)}`,
@@ -1457,12 +1518,12 @@ async function fetchGBIFObservations(
             habitat: o.habitat,
             hasGps: true,
             geocodeStatus: "complete" as const,
-            kingdom: o.kingdom || kName,
-            iconicTaxon: o.kingdom || kName,
+            kingdom: o.kingdom || query.kingdom,
+            iconicTaxon: query.iconicTaxon,
           }))
         allObs.push(...obs)
       } catch (error) {
-        console.error(`[CREP/Life] Failed to fetch GBIF ${kName} data:`, error)
+        console.error(`[CREP/Life] Failed to fetch GBIF ${query.label} data:`, error)
       }
     })
   )
@@ -1475,17 +1536,16 @@ async function fetchGBIFQuickObservations(
   bounds?: { north: number; south: number; east: number; west: number },
 ): Promise<FungalObservation[]> {
   const allObs: FungalObservation[] = []
-  const kingdomsToFetch = kingdom && kingdom !== "all" && GBIF_KINGDOMS[kingdom]
-    ? [[kingdom, GBIF_KINGDOMS[kingdom]]]
-    : Object.entries(GBIF_KINGDOMS)
-  const perKingdom = Math.max(25, Math.ceil(limit / kingdomsToFetch.length))
+  const taxonQueries = gbifQueriesForTaxon(kingdom)
+  if (taxonQueries.length === 0) return []
+  const perTaxon = Math.max(25, Math.ceil(limit / taxonQueries.length))
 
   await Promise.all(
-    kingdomsToFetch.map(async ([kName, kKey]) => {
+    taxonQueries.map(async (query) => {
       try {
         const params = new URLSearchParams({
-          kingdomKey: kKey,
-          limit: String(Math.min(perKingdom, 200)),
+          ...query.params,
+          limit: String(Math.min(perTaxon, 200)),
           hasCoordinate: "true",
           hasGeospatialIssue: "false",
           eventDate: `${recentObservationStartDate()},${new Date().toISOString().slice(0, 10)}`,
@@ -1519,12 +1579,12 @@ async function fetchGBIFQuickObservations(
             habitat: o.habitat,
             hasGps: true,
             geocodeStatus: "complete" as const,
-            kingdom: o.kingdom || kName,
-            iconicTaxon: o.kingdom || kName,
+            kingdom: o.kingdom || query.kingdom,
+            iconicTaxon: query.iconicTaxon,
           }))
         allObs.push(...obs)
       } catch (error) {
-        console.warn(`[CREP/Life] Quick GBIF ${kName} failed:`, (error as Error)?.message)
+        console.warn(`[CREP/Life] Quick GBIF ${query.label} failed:`, (error as Error)?.message)
       }
     }),
   )
@@ -1644,6 +1704,7 @@ export async function GET(request: NextRequest) {
   // viewport fallback; `?source=mindex-only` stays MINDEX-only.
   // Earth Simulator must never launch crawler-style live fetches from UI load.
   const quickMode = searchParams.get("quick") === "true" || searchParams.get("source") === "mindex-only"
+  const mindexOnlyRequest = quickMode && (source === "mindex-only" || source === "mindex")
   // The website and Earth Simulator are render/read clients. Acquisition and
   // crawling belong in MINDEX jobs; bounded writeback below only hands MINDEX
   // the live rows already displayed for the current viewport.
@@ -1737,7 +1798,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const quickViewportCacheKey = quickMode && bounds && !noCache && !fallbackOnly
+  const quickViewportCacheKey = quickMode && bounds && !noCache && !fallbackOnly && !mindexOnlyRequest
     ? viewportCacheKey(kingdom, bounds)
     : null
   if (quickViewportCacheKey) {
@@ -1774,8 +1835,6 @@ export async function GET(request: NextRequest) {
 
     const fetchPromises: Promise<FungalObservation[]>[] = []
 
-    const mindexOnlyRequest = quickMode && (source === "mindex-only" || source === "mindex")
-
     // Always fetch MINDEX (local DB — fast, no rate limits)
     if (!fallbackOnly && (!source || source === "all" || source === "mindex" || source === "mindex-only" || quickMode)) {
       const mindexTimeoutForRequest = quickMode
@@ -1809,16 +1868,24 @@ export async function GET(request: NextRequest) {
       const quickLimit = bounds
         ? Math.max(limit || 500, isFungiOnlyRequest(kingdom) ? 2000 : 2400)
         : (limit || 500)
-      fetchPromises.push(
-        (kingdom === "all"
+      const quickLivePromise = (kingdom === "all"
           ? fetchINaturalistQuickAllTaxa(quickLimit, bounds)
           : bounds
-            ? fetchINaturalistQuickDistributed(quickLimit, bounds, kingdom)
+            ? (isFungiOnlyRequest(kingdom)
+                ? fetchINaturalistQuickDistributed(quickLimit, bounds, kingdom)
+                : fetchINaturalistQuick(Math.min(quickLimit, 900), bounds, kingdom))
             : fetchINaturalistQuick(quickLimit, bounds, kingdom)
         ).catch((err) => {
           console.warn("[CREP/Fungal] Quick iNat fallback failed:", err?.message)
           return [] as FungalObservation[]
-        }),
+        })
+      fetchPromises.push(
+        withSoftTimeout(
+          quickLivePromise,
+          kingdom === "all" || isFungiOnlyRequest(kingdom) ? 6500 : 4200,
+          [] as FungalObservation[],
+          `quick live ${kingdom} viewport fetch`,
+        ),
       )
     }
 
@@ -1866,7 +1933,7 @@ export async function GET(request: NextRequest) {
     if (quickMode && bounds && !mindexOnlyRequest && kingdom === "all") {
       const presentKingdoms = new Set(
         allObservations
-          .map((obs) => normalizeTaxonToken(obs.kingdom || obs.iconicTaxon))
+          .map((obs) => normalizeTaxonToken(obs.iconicTaxon || obs.kingdom))
           .filter((token) => token && token !== "unknown"),
       )
       const { latSpan, lngSpan } = boundsAreaDegrees(bounds)
@@ -1886,10 +1953,10 @@ export async function GET(request: NextRequest) {
           allObservations.push(o)
         }
       }
-      const requiredViewportTaxa = ["Fungi", "Plantae", "Aves", "Mammalia", "Reptilia", "Insecta"]
+      const requiredViewportTaxa = QUICK_PRIORITY_ICONIC_TAXA
       const presentAfterDiversity = new Set(
         allObservations
-          .map((obs) => normalizeTaxonToken(obs.kingdom || obs.iconicTaxon))
+          .map((obs) => normalizeTaxonToken(obs.iconicTaxon || obs.kingdom))
           .filter((token) => token && token !== "unknown"),
       )
       const missingTaxa = requiredViewportTaxa.filter((taxon) => !presentAfterDiversity.has(normalizeTaxonToken(taxon)))
@@ -1932,6 +1999,35 @@ export async function GET(request: NextRequest) {
         }
         return Boolean(obs.taxonId)
       })
+      if (bounds && !mindexOnlyRequest && liveFallbackEnabled) {
+        const labeledTokens = new Set(
+          allObservations
+            .map((obs) => normalizeTaxonToken(obs.iconicTaxon || obs.kingdom))
+            .filter((token) => token && token !== "unknown"),
+        )
+        const needsPostCleanupRescue =
+          allObservations.length < 80 ||
+          (kingdom === "all" && labeledTokens.size < 3)
+        if (needsPostCleanupRescue) {
+          console.warn(
+            `[CREP/Life] Quick viewport sparse after MINDEX cleanup (${allObservations.length} obs, ${labeledTokens.size} taxa) - GBIF rescue`,
+          )
+          const gbifFallback = await Promise.race([
+            fetchGBIFQuickObservations(
+              kingdom === "all" ? 900 : 480,
+              kingdom,
+              bounds,
+            ).catch(() => [] as FungalObservation[]),
+            new Promise<FungalObservation[]>((resolve) => setTimeout(() => resolve([]), 3200)),
+          ])
+          const seenIds = new Set(allObservations.map((o) => o.id))
+          for (const o of gbifFallback) {
+            if (!o.id || seenIds.has(o.id)) continue
+            seenIds.add(o.id)
+            allObservations.push(o)
+          }
+        }
+      }
     } else {
       allObservations = allObservations.filter((obs) => {
         if (obs.source !== "MINDEX") return true
@@ -2062,11 +2158,11 @@ export async function GET(request: NextRequest) {
     if (quickMode && bounds && !mindexOnlyRequest && liveFallbackEnabled && kingdom === "all") {
       const countsAfterPlacement = new Map<string, number>()
       for (const obs of filteredObservations) {
-        const token = normalizeTaxonToken(obs.kingdom || obs.iconicTaxon)
+        const token = normalizeTaxonToken(obs.iconicTaxon || obs.kingdom)
         if (!token || token === "unknown") continue
         countsAfterPlacement.set(token, (countsAfterPlacement.get(token) || 0) + 1)
       }
-      const requiredAfterPlacement = ["Fungi", "Plantae", "Aves", "Mammalia", "Reptilia", "Insecta"]
+      const requiredAfterPlacement = QUICK_PRIORITY_ICONIC_TAXA
       const requestedCap = limit && limit > 0 ? limit : 600
       const minimumByTaxon: Record<string, number> = {
         Fungi: Math.min(220, Math.max(70, Math.floor(requestedCap * 0.12))),
@@ -2074,6 +2170,10 @@ export async function GET(request: NextRequest) {
         Aves: Math.min(80, Math.max(20, Math.floor(requestedCap * 0.04))),
         Mammalia: Math.min(50, Math.max(12, Math.floor(requestedCap * 0.02))),
         Reptilia: Math.min(50, Math.max(12, Math.floor(requestedCap * 0.02))),
+        Amphibia: Math.min(45, Math.max(10, Math.floor(requestedCap * 0.018))),
+        Actinopterygii: Math.min(60, Math.max(14, Math.floor(requestedCap * 0.025))),
+        Mollusca: Math.min(35, Math.max(8, Math.floor(requestedCap * 0.015))),
+        Arachnida: Math.min(45, Math.max(10, Math.floor(requestedCap * 0.018))),
         Insecta: Math.min(100, Math.max(25, Math.floor(requestedCap * 0.05))),
       }
       const missingAfterPlacement = requiredAfterPlacement.filter(
@@ -2144,7 +2244,7 @@ export async function GET(request: NextRequest) {
     // Build kingdom breakdown
     const kingdoms: Record<string, number> = {}
     for (const obs of finalObservations) {
-      const k = obs.kingdom || obs.iconicTaxon || "Unknown"
+      const k = obs.iconicTaxon || obs.kingdom || "Unknown"
       kingdoms[k] = (kingdoms[k] || 0) + 1
     }
 

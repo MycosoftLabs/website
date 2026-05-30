@@ -96,6 +96,73 @@ const PROVIDER_COLOR: Record<string, string> = {
   "unifi-protect": VIDEO_CAMERA_COLOR,
 }
 
+let bakedCameraSeedPromise: Promise<{ sources: any[]; counts: Record<string, number> }> | null = null
+let bakedCameraSeedCache: { sources: any[]; counts: Record<string, number> } | null = null
+
+function projectBakedCameraFeature(f: any) {
+  return {
+    id: f?.properties?.id,
+    provider: f?.properties?.provider,
+    kind: f?.properties?.kind,
+    name: f?.properties?.name,
+    stream_url: f?.properties?.stream_url,
+    embed_url: f?.properties?.embed_url,
+    media_url: f?.properties?.media_url,
+    source_status: f?.properties?.status,
+    lat: f?.geometry?.coordinates?.[1],
+    lng: f?.geometry?.coordinates?.[0],
+  }
+}
+
+async function loadBakedCameraSeedSources() {
+  if (bakedCameraSeedCache) return bakedCameraSeedCache
+  if (bakedCameraSeedPromise) return bakedCameraSeedPromise
+  bakedCameraSeedPromise = (async () => {
+    const [rReg, rSeed, rCaltransSd, rNycDc, rVegas, rDeploy] = await Promise.all([
+      fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-nyc-dc-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-deployment-sites-seed.geojson", { cache: "force-cache" }).catch(() => null),
+    ])
+    const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
+    const seedFeats = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
+    const caltransSdFeats = rCaltransSd?.ok ? ((await rCaltransSd.json())?.features || []) : []
+    const nycDcFeats = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
+    const vegasFeats = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
+    const deployFeats = rDeploy?.ok ? ((await rDeploy.json())?.features || []) : []
+    const merged = new Map<string, any>()
+    const mergeBatch = (arr: any[]) => {
+      for (const f of arr) {
+        const p = projectBakedCameraFeature(f)
+        if (p.id && Number.isFinite(p.lat) && Number.isFinite(p.lng)) merged.set(String(p.id), p)
+      }
+    }
+    mergeBatch(bakedFeats)
+    mergeBatch(seedFeats)
+    mergeBatch(caltransSdFeats)
+    mergeBatch(nycDcFeats)
+    mergeBatch(vegasFeats)
+    mergeBatch(deployFeats)
+    bakedCameraSeedCache = {
+      sources: Array.from(merged.values()),
+      counts: {
+        baked: bakedFeats.length,
+        sd: seedFeats.length,
+        caltransSd: caltransSdFeats.length,
+        nycDc: nycDcFeats.length,
+        vegas: vegasFeats.length,
+        deploy: deployFeats.length,
+      },
+    }
+    return bakedCameraSeedCache
+  })().finally(() => {
+    bakedCameraSeedPromise = null
+  })
+  return bakedCameraSeedPromise
+}
+
 function sourceInBbox(source: { lat?: number; lng?: number }, bbox?: [number, number, number, number]): boolean {
   if (!bbox) return true
   const [west, south, east, north] = bbox
@@ -380,6 +447,17 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         // (Surfline / HPWREN / Scripps / NOAA / EarthCam / Skyline /
         // CBP refs / NPS / Border Field / Port of SD). Manual seed wins
         // on id conflict so curated metadata overrides stale bakes.
+        const cachedSeed = await loadBakedCameraSeedSources()
+        const cachedFc = paintFromSources(cachedSeed.sources, activeBbox)
+        if (cachedFc.features.length === 0) return false
+        bakedCameraFcRef.current = cachedFc
+        if (!map.getSource("crep-eagle-cams")) {
+          ;(map as any).__crepEaglePendingFc = cachedFc
+        } else {
+          ;(map.getSource("crep-eagle-cams") as any).setData(cachedFc)
+        }
+        console.log(`[EagleEye] ${cachedFc.features.length} cameras painted from registry+seeds (baked=${cachedSeed.counts.baked} sd=${cachedSeed.counts.sd} caltrans-sd=${cachedSeed.counts.caltransSd} nyc-dc=${cachedSeed.counts.nycDc} vegas=${cachedSeed.counts.vegas} deploy-sites=${cachedSeed.counts.deploy})`)
+        return true
         const [rReg, rSeed, rCaltransSd, rNycDc, rVegas, rDeploy] = await Promise.all([
           fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),

@@ -158,6 +158,7 @@ function mapReady(map: maplibregl.Map | null): map is maplibregl.Map {
 
 function shouldWarmInactiveSpunRasters() {
   if (typeof window === "undefined") return true
+  if (window.location.pathname.includes("/natureos/earth-simulator")) return false
   const width = window.innerWidth || 1440
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false
   return !(width <= 1180 || coarsePointer)

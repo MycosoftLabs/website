@@ -51,6 +51,25 @@ const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
 const CCTV_MIN_ZOOM = 7
 const CCTV_FAST_LIMIT = "160"
 const CCTV_FULL_LIMIT = "1200"
+let railwayLiveCache: { ts: number; data: any } | null = null
+let railwayLiveInFlight: Promise<any> | null = null
+
+async function fetchRailwayLiveCached() {
+  const now = Date.now()
+  if (railwayLiveCache && now - railwayLiveCache.ts < 8_000) return railwayLiveCache.data
+  if (railwayLiveInFlight) return railwayLiveInFlight
+  railwayLiveInFlight = fetch("/api/oei/railway-live?limit=1500")
+    .then(async (res) => {
+      if (!res.ok) return railwayLiveCache?.data ?? { trains: [] }
+      const data = await res.json()
+      railwayLiveCache = { ts: Date.now(), data }
+      return data
+    })
+    .finally(() => {
+      railwayLiveInFlight = null
+    })
+  return railwayLiveInFlight
+}
 
 interface Props {
   map: MapLibreMap | null
@@ -1763,9 +1782,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
             try { if (map.getLayer(id)) map.moveLayer(id) } catch { /* style may be changing */ }
           }
         }
-        const res = await fetch("/api/oei/railway-live?limit=1500")
-        if (!res.ok) return
-        const j = await res.json()
+        const j = await fetchRailwayLiveCached()
         const features = (j.trains || []).map((t: any) => {
           const heading = Number(t.heading ?? 0) || 0
           // Estimate a "cars" trail: 40 m per car at 4 cars default for rail,
