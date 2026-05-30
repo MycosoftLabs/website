@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { isFieldRegistryId } from "@/lib/devices/firmware-compatibility"
 import { controlPayloadToOperatorCommand } from "@/lib/mycobrain/control-command"
 
@@ -62,6 +63,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ port: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const { port } = await params
   const body = await request.json()
   const { peripheral, action, ...data } = body

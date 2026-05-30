@@ -123,6 +123,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
   const eventsTimerRef = useRef<any>(null)
   const bakedCameraFcRef = useRef<any>(null)
   const cameraFetchAbortRef = useRef<AbortController | null>(null)
+  const cameraInFlightKeyRef = useRef("")
+  const cameraLastFetchRef = useRef<{ key: string; ts: number } | null>(null)
   const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
   const cameraLodVisible = mapZoom >= 7
 
@@ -295,6 +297,11 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         const p = f.properties || {}
         const c = e.lngLat
         const displayName = p.name || `${p.provider || "camera"} feed`
+        const clickId = String(p.id || displayName)
+        const clickAt = Number(e.originalEvent?.timeStamp || Date.now())
+        const lastClick = (window as any).__crepLastCameraClick as { id?: string; ts?: number } | undefined
+        if (lastClick?.id === clickId && Math.abs(clickAt - (lastClick.ts || 0)) < 450) return
+        ;(window as any).__crepLastCameraClick = { id: clickId, ts: clickAt }
         try {
           const hook = (window as any).__crep_selectAsset
           if (typeof hook === "function") {
@@ -460,6 +467,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
       setCameraLayerVisibility(true)
       const activeBbox = getMapBbox(map) || bbox
       const activeBboxKey = activeBbox ? activeBbox.map((n) => n.toFixed(6)).join(",") : ""
+      const requestKey = `${activeBboxKey || "global"}|z${Math.round(liveZoom * 10) / 10}`
+      const now = Date.now()
+      const lastFetch = cameraLastFetchRef.current
+      if (cameraInFlightKeyRef.current === requestKey) return
+      if (lastFetch?.key === requestKey && now - lastFetch.ts < 12_000 && loadedRef.current.cams) return
+      cameraInFlightKeyRef.current = requestKey
+      cameraLastFetchRef.current = { key: requestKey, ts: now }
       const seq = ++requestSeq
       try {
         if (loadedRef.current.cams && !map.getSource("crep-eagle-cams")) {
@@ -477,7 +491,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         // After baked paint: use full mode so API deltas include Caltrans
         // + Shinobi. Without baked: use fast-then-full for first mount.
         const fastMode = !loadedRef.current.cams && !bakedPainted
-        const cameraQuery = new URLSearchParams({ limit: activeBboxKey ? "1200" : "300" })
+        const cameraQuery = new URLSearchParams({ limit: activeBboxKey ? "1200" : "300", live: "0" })
         if (activeBboxKey) cameraQuery.set("bbox", activeBboxKey)
         if (fastMode) cameraQuery.set("fast", "1")
         const bboxParam = `?${cameraQuery.toString()}`
@@ -575,6 +589,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         } catch { /* ignore */ }
       } catch (e: any) {
         if (e?.name !== "AbortError") console.warn("[EagleEye/cams]", e?.message)
+      } finally {
+        if (cameraInFlightKeyRef.current === requestKey) cameraInFlightKeyRef.current = ""
       }
     }
 

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
 
@@ -377,6 +378,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const body = await request.json()
   const { action, port = "COM7" } = body
   

@@ -188,7 +188,7 @@ export async function loadViewportEagleSources(
   }
 
   const loadFullApi = async () => {
-    const fullApi = await fetchEagleApi(bounds, { fast: false, live: true, limit: Math.max(limit, 128) }, signal)
+    const fullApi = await fetchEagleApi(bounds, { fast: false, live: false, limit: Math.max(limit, 128) }, signal)
     if (fullApi.length) {
       current = filterSourcesInViewport(mergeEagleSources(current, fullApi), bounds, limit)
       onUpdate(current, "full")

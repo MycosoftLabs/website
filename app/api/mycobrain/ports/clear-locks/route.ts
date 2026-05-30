@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 export const dynamic = "force-dynamic"
 
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export async function POST() {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     // Try to disconnect all devices to clear locks
     const response = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
@@ -47,7 +51,6 @@ export async function POST() {
     )
   }
 }
-
 
 
 

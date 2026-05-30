@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import {
   FIELD_MYCOBRAIN_DEPLOYMENTS,
   deploymentByHost,
@@ -270,6 +271,9 @@ export async function GET(request: NextRequest) {
  * Forward a command to a network device via MAS.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { device_id, command, params = {}, timeout = 5 } = body

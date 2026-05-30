@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
@@ -354,10 +355,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ port: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   // Same as GET but explicitly triggers a new scan
   return GET(request, { params })
 }
-
 
 
 

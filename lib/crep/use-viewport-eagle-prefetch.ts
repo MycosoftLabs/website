@@ -89,8 +89,12 @@ export function useViewportEaglePrefetch(
 
   useEffect(() => {
     if (!assetsReady || !revisionKey) return
+    const revision = snapshotRef.current
+    if (!revision) return
+    const requestBounds = revision.bounds
+    const requestZoom = revision.zoom
 
-    const cached = getViewportEagleCache(effectiveBounds, mapZoom)
+    const cached = getViewportEagleCache(requestBounds, requestZoom)
     const commitSources = (next: EagleViewportSource[]) => {
       if (eagleSourcesEqual(sourcesRef.current, next)) return false
       sourcesRef.current = next
@@ -112,12 +116,12 @@ export function useViewportEaglePrefetch(
     if (!cached?.length) commitFetching(true)
 
     void loadViewportEagleSources(
-      effectiveBounds,
+      requestBounds,
       limit,
       (next) => {
         if (controller.signal.aborted) return
         commitSources(next)
-        if (next.length) setViewportEagleCache(effectiveBounds, mapZoom, next)
+        if (next.length) setViewportEagleCache(requestBounds, requestZoom, next)
       },
       controller.signal,
     )
@@ -131,7 +135,7 @@ export function useViewportEaglePrefetch(
       })
 
     return () => controller.abort()
-  }, [revisionKey, effectiveBounds, mapZoom, assetsReady, limit])
+  }, [revisionKey, assetsReady, limit])
 
   return {
     sources,

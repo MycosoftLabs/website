@@ -5,9 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
-import { isCompanyEmail } from "@/lib/access/types"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveAgentUrl } from "@/lib/devices/agent-resolver"
 import { deploymentByRegistryId } from "@/lib/devices/field-deployments"
 import {
@@ -58,27 +56,8 @@ export async function POST(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   const { deviceId } = await params
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({ error: "config_missing" }, { status: 500 })
-  }
-
-  const cookieStore = await cookies()
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
-      },
-      setAll() {},
-    },
-  })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user || !isCompanyEmail(user.email)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 })
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
 
   let body: Record<string, unknown>
   try {
@@ -167,7 +146,7 @@ export async function POST(
         params: mdp.params || {},
         ack_requested: mdp.ack_requested !== false,
         timeout_ms: timeoutMs,
-        user_subject: user.email,
+        user_subject: auth.user.email,
       }),
       signal: AbortSignal.timeout(timeoutMs + 3000),
       cache: "no-store",

@@ -20,17 +20,6 @@ interface CommandRequest {
   timeout?: number
 }
 
-function isLocalDevHost(hostHeader: string | null): boolean {
-  const host = (hostHeader || "").split(":")[0]?.toLowerCase()
-  return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]"
-}
-
-function allowLocalFieldControlBypass(request: NextRequest, deviceId: string): boolean {
-  if (process.env.NODE_ENV === "production") return false
-  if (!deploymentByRegistryId(deviceId)) return false
-  return isLocalDevHost(request.headers.get("host"))
-}
-
 async function forwardFieldOperatorCommand(
   deviceId: string,
   command: string,
@@ -110,11 +99,9 @@ export async function POST(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   const { deviceId } = await params
-  const authBypassed = allowLocalFieldControlBypass(request, deviceId)
-  if (!authBypassed) {
-    const auth = await requireAdmin()
-    if (auth.error) return auth.error
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   let body: CommandRequest | null = null
 
   try {
@@ -140,17 +127,6 @@ export async function POST(
           return fieldResult
         }
       }
-    }
-
-    if (authBypassed) {
-      const fieldResult = await forwardFieldOperatorCommand(
-        deviceId,
-        command,
-        cmdParams,
-        timeout,
-        null
-      )
-      if (fieldResult) return fieldResult
     }
 
     const response = await fetch(`${MAS_API_URL}/api/devices/${deviceId}/command`, {
@@ -196,7 +172,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       device_id: deviceId,
-      auth: authBypassed ? "local-field-dev-bypass" : "admin",
+      auth: "admin",
       ...result,
     })
   } catch (error) {

@@ -194,6 +194,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   const cellTowerBboxKeyRef = useRef("")
   const cellTowerFetchTimerRef = useRef<number | null>(null)
   const cellTowerAbortRef = useRef<AbortController | null>(null)
+  const cctvInFlightKeyRef = useRef("")
+  const cctvLastFetchRef = useRef<{ key: string; ts: number } | null>(null)
   const [styleReadyTick, setStyleReadyTick] = useState(0)
 
   useEffect(() => {
@@ -2105,6 +2107,15 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     loadedRef.current.cctv = true
 
     const fetchAndPaint = async () => {
+      const requestKey = bbox
+        ? `${bbox.map((value) => Number(value).toFixed(4)).join(",")}|z${Math.round(mapZoom * 10) / 10}`
+        : "none"
+      const now = Date.now()
+      const lastFetch = cctvLastFetchRef.current
+      if (cctvInFlightKeyRef.current === requestKey) return
+      if (lastFetch?.key === requestKey && now - lastFetch.ts < 12_000) return
+      cctvInFlightKeyRef.current = requestKey
+      cctvLastFetchRef.current = { key: requestKey, ts: now }
       try {
         if (!isMapStyleReady(map)) return
         if (!bbox || mapZoom < CCTV_MIN_ZOOM) {
@@ -2182,6 +2193,11 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               if (!f) return
               const p = f.properties || {}
               const c = e.lngLat
+              const clickId = String(p.id || p.name || "camera")
+              const clickAt = Number(e.originalEvent?.timeStamp || Date.now())
+              const lastClick = (window as any).__crepLastCameraClick as { id?: string; ts?: number } | undefined
+              if (lastClick?.id === clickId && Math.abs(clickAt - (lastClick.ts || 0)) < 450) return
+              ;(window as any).__crepLastCameraClick = { id: clickId, ts: clickAt }
               try {
                 const hook = (window as any).__crep_selectAsset
                 if (typeof hook === "function") hook({
@@ -2249,7 +2265,11 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const legacyJson = legacyRes?.ok ? await legacyRes.json() : {}
         const eagleJson = eagleRes?.ok ? await eagleRes.json() : fastJson
         await paintCameraPayload(legacyJson, eagleJson, "full")
-      } catch (e: any) { console.warn("[ProposalOverlays/cctv]", e?.message) }
+      } catch (e: any) {
+        console.warn("[ProposalOverlays/cctv]", e?.message)
+      } finally {
+        if (cctvInFlightKeyRef.current === requestKey) cctvInFlightKeyRef.current = ""
+      }
     }
 
     idleLoad(fetchAndPaint)

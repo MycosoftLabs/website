@@ -23,7 +23,10 @@ import {
   isYouTubeUrl,
   normalizeYouTubeEmbedUrlSync,
 } from "@/lib/crep/youtube-embed"
-import { HlsLivePlayer, resolveEagleLiveStream } from "@/components/crep/eagle-eye/eagle-live-stream"
+import {
+  normalizeEagleStillImageUrl,
+  resolveEagleLiveStream,
+} from "@/components/crep/eagle-eye/eagle-live-stream"
 import { hlsLivePlayerConfig, seekVideoToLiveEdge } from "@/lib/crep/hls-live-config"
 
 type StreamType = "hls" | "webrtc" | "iframe" | "mjpeg" | "snapshot"
@@ -219,7 +222,7 @@ function HlsPlayer({
     <div className="relative w-full h-full bg-black">
       <video
         ref={videoRef}
-        className="w-full h-full bg-black"
+        className="w-full h-full bg-black object-contain"
         controls
         muted
         autoPlay
@@ -245,10 +248,11 @@ function HlsPlayer({
 }
 
 function proxiedCaltransSnapshot(embed: string | undefined, mediaUrl?: string): string | null {
-  if (mediaUrl && /\.(jpe?g|png|webp)(\?|$)/i.test(mediaUrl)) {
-    return mediaUrl.startsWith("/api/")
-      ? mediaUrl
-      : `/api/eagle/cam-image?url=${encodeURIComponent(mediaUrl)}`
+  const normalizedMedia = normalizeEagleStillImageUrl(mediaUrl)
+  if (normalizedMedia && /(\.(jpe?g|png|webp)(\?|$)|\/api\/eagle\/cam-image)/i.test(normalizedMedia)) {
+    return normalizedMedia.startsWith("/api/")
+      ? normalizedMedia
+      : `/api/eagle/cam-image?url=${encodeURIComponent(normalizedMedia)}`
   }
   if (!embed) return null
   const m = /cwwp2\.dot\.ca\.gov\/vm\/loc\/(d\d+)\/([^/.?#]+)\.htm/i.exec(embed)
@@ -272,12 +276,12 @@ function HlsWithSnapshotFallback({
   name?: string
 }) {
   const [useSnapshot, setUseSnapshot] = useState(false)
-  const isCaltrans = (provider || "").toLowerCase() === "caltrans"
-  useEffect(() => { setUseSnapshot(false) }, [url, fallbackSnapshot])
-  if (useSnapshot && fallbackSnapshot) {
+  const normalizedFallbackSnapshot = normalizeEagleStillImageUrl(fallbackSnapshot)
+  useEffect(() => { setUseSnapshot(false) }, [url, normalizedFallbackSnapshot])
+  if (useSnapshot && normalizedFallbackSnapshot) {
     return (
       <SnapshotStream
-        url={fallbackSnapshot}
+        url={normalizedFallbackSnapshot}
         embedUrl={embedUrl || undefined}
         provider={provider}
         name={name}
@@ -285,12 +289,9 @@ function HlsWithSnapshotFallback({
     )
   }
   return (
-    <HlsLivePlayer
+    <HlsPlayer
       url={url}
-      fallbackUrl={fallbackSnapshot || undefined}
-      fallbackAfterMs={isCaltrans ? 8_000 : 5_500}
-      className="w-full h-full bg-black object-contain"
-      muted
+      onFallback={normalizedFallbackSnapshot ? () => setUseSnapshot(true) : undefined}
     />
   )
 }
@@ -698,6 +699,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
   const [t, setT] = useState(Date.now())
   const [failed, setFailed] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
+  const normalizedUrl = normalizeEagleStillImageUrl(url) || url
   useEffect(() => {
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
@@ -706,9 +708,9 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
     return () => clearInterval(id)
   }, [])
   // Reset failure state when url changes (different cam selected)
-  useEffect(() => { setFailed(false); setRetryCount(0); setT(Date.now()) }, [url])
+  useEffect(() => { setFailed(false); setRetryCount(0); setT(Date.now()) }, [normalizedUrl])
 
-  const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
+  const src = normalizedUrl.includes("?") ? `${normalizedUrl}&_t=${t}` : `${normalizedUrl}?_t=${t}`
   const retryImage = () => {
     if (retryCount >= 3) {
       setFailed(true)
@@ -729,7 +731,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
     // status so it's obvious Mycosoft isn't at fault.
     const providerLc = (provider || "").toLowerCase()
     const isStateDot = /nysdot|vdot|mdot|dotd|wsdot|fdot|txdot|caltrans|chart|511/.test(providerLc)
-    const isNysdot = providerLc.includes("nysdot") || providerLc.includes("511ny") || /511ny\.org/.test(url)
+    const isNysdot = providerLc.includes("nysdot") || providerLc.includes("511ny") || /511ny\.org/.test(normalizedUrl)
     return (
       <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-2 p-4 text-center">
         <div className="text-3xl opacity-40">📷</div>
@@ -906,7 +908,7 @@ export default function VideoWallWidget() {
     const isHls    = (u: string) => /\.m3u8(\?|$)/i.test(u)
     const isWhep   = (u: string) => /\/whep(\?|\/|$)/i.test(u)
     const isMjpeg  = (u: string) => /\/mjpeg(\?|\/|$)/i.test(u) || /multipart\/x-mixed-replace/i.test(u)
-    const isStill  = (u: string) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/api\/eagle\/cam-(snapshot|image)/i.test(u)
+    const isStill  = (u: string) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/api\/eagle\/cam-image/i.test(u)
 
     const pickStreamType = (url: string, apiType?: string): StreamType => {
       if (apiType === "snapshot") return "snapshot"
@@ -932,6 +934,7 @@ export default function VideoWallWidget() {
     }
 
     const providerLc = (feed.provider || "").toLowerCase()
+    const normalizedMediaUrl = normalizeEagleStillImageUrl(feed.mediaUrl)
     const caltransNeedsResolve =
       providerLc === "caltrans" &&
       !(feed.directEmbed && isHls(feed.directEmbed))
@@ -1011,6 +1014,19 @@ export default function VideoWallWidget() {
       return
     }
 
+    if (providerLc !== "caltrans" && normalizedMediaUrl && isStill(normalizedMediaUrl)) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: normalizedMediaUrl,
+        embed_url: feed.embedUrl,
+        snapshot_url: normalizedMediaUrl,
+      })
+      return
+    }
+
     // 4: any other live directEmbed
     if (de) {
       setResolved({
@@ -1028,7 +1044,7 @@ export default function VideoWallWidget() {
     setLoading(true)
     resolveStream(feed.id, {
       embed_url: feed.embedUrl,
-      media_url: feed.mediaUrl,
+      media_url: normalizedMediaUrl || feed.mediaUrl,
     }).then(async (r) => {
       if (cancelled) return
       if (r.stream_type === "snapshot" && r.stream_url) {
@@ -1045,7 +1061,7 @@ export default function VideoWallWidget() {
         const snap =
           r.snapshot_url ||
           (providerLc === "caltrans"
-            ? proxiedCaltransSnapshot(feed.embedUrl || r.embed_url, feed.mediaUrl)
+            ? proxiedCaltransSnapshot(feed.embedUrl || r.embed_url, normalizedMediaUrl || feed.mediaUrl)
             : null)
         setResolved({
           ...r,
@@ -1061,7 +1077,7 @@ export default function VideoWallWidget() {
         id: feed.id,
         stream_url: r.stream_url || feed.mediaUrl,
         embed_url: r.embed_url || feed.embedUrl,
-        media_url: feed.mediaUrl,
+        media_url: normalizedMediaUrl || feed.mediaUrl,
         provider: feed.provider,
       })
       if (cancelled) return
@@ -1076,19 +1092,19 @@ export default function VideoWallWidget() {
           snapshot_url:
             resolvedLive.stream_type === "snapshot"
               ? resolvedLive.url
-              : feed.mediaUrl && isStill(feed.mediaUrl)
-                ? feed.mediaUrl
+              : normalizedMediaUrl && isStill(normalizedMediaUrl)
+                ? normalizedMediaUrl
                 : undefined,
         })
-      } else if (feed.mediaUrl && isStill(feed.mediaUrl)) {
+      } else if (normalizedMediaUrl && isStill(normalizedMediaUrl)) {
         setResolved({
           id: feed.id,
           provider: feed.provider,
           kind: feed.kind === "camera" ? "permanent" : "ephemeral",
           stream_type: "snapshot",
-          stream_url: feed.mediaUrl,
+          stream_url: normalizedMediaUrl,
           embed_url: feed.embedUrl,
-          snapshot_url: feed.mediaUrl,
+          snapshot_url: normalizedMediaUrl,
         })
       } else {
         setResolved({ ...r, error: r.error || "No live video stream available" })
@@ -1189,7 +1205,7 @@ export default function VideoWallWidget() {
                       resolved.snapshot_url ||
                       (feed.provider === "caltrans"
                         ? proxiedCaltransSnapshot(feed.embedUrl, feed.mediaUrl)
-                        : feed.mediaUrl)
+                        : normalizeEagleStillImageUrl(feed.mediaUrl))
                     }
                     embedUrl={resolved.embed_url || feed.embedUrl}
                     provider={feed.provider}

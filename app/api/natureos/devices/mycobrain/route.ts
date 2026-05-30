@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
 import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
@@ -116,6 +117,9 @@ export async function GET(request: NextRequest) {
  * Register or update a MycoBrain device
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { device_id, port, serial_number, firmware_version, location, metadata } = body
@@ -167,7 +171,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
 
 
 

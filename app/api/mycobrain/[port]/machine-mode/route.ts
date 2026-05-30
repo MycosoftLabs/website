@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -38,6 +39,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ port: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const { port } = await params
   
   try {
@@ -145,7 +149,6 @@ export async function GET(
     )
   }
 }
-
 
 
 

@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { isCompanyEmail } from "@/lib/access/types"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveAgentUrl } from "@/lib/devices/agent-resolver"
 
 export const dynamic = "force-dynamic"
@@ -23,8 +23,12 @@ interface ActionBody {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
+  const { deviceId } = await params
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -38,10 +42,6 @@ export async function POST(
       setAll() {},
     },
   })
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !isCompanyEmail(user.email)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 })
-  }
   const { data: { session } } = await supabase.auth.getSession()
   const bearer = session?.access_token
 
@@ -56,7 +56,7 @@ export async function POST(
     return NextResponse.json({ error: "missing_action" }, { status: 400 })
   }
 
-  const agentUrl = await resolveAgentUrl(params.deviceId)
+  const agentUrl = await resolveAgentUrl(deviceId)
   if (!agentUrl) {
     return NextResponse.json({ error: "no_agent_for_device" }, { status: 404 })
   }
@@ -77,7 +77,7 @@ export async function POST(
         action: body.action,
         params: body.params || {},
         request_id: requestId,
-        user_subject: user.email,
+        user_subject: auth.user.email,
       }),
       signal: AbortSignal.timeout(8000),
       cache: "no-store",

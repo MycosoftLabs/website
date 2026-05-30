@@ -30,7 +30,24 @@ function isMjpeg(url: string) {
 }
 
 function isStillImage(url: string) {
-  return /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) || /\/api\/eagle\/cam-(snapshot|image)/i.test(url)
+  return /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) || /\/api\/eagle\/cam-image/i.test(url)
+}
+
+export function normalizeEagleStillImageUrl(url?: string | null): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost")
+    if (parsed.pathname === "/api/eagle/cam-snapshot") {
+      const upstream = parsed.searchParams.get("url")
+      if (upstream && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(upstream)) {
+        return `/api/eagle/cam-image?url=${encodeURIComponent(upstream)}`
+      }
+      return null
+    }
+  } catch {
+    /* keep original URL */
+  }
+  return url
 }
 
 const VIDEO_EMBED_PATTERNS: RegExp[] = [
@@ -111,8 +128,9 @@ export async function resolveEagleLiveStream(
 ): Promise<EagleLiveStreamResolved | null> {
   const direct = pickLiveFromUrls(source.stream_url, source.embed_url)
   if (direct) return direct
-  if (source.media_url && isStillImage(source.media_url)) {
-    return { stream_type: "mjpeg", url: source.media_url }
+  const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
+  if (mediaUrl && isStillImage(mediaUrl)) {
+    return { stream_type: "mjpeg", url: mediaUrl }
   }
 
   const viewerUrl = source.embed_url || source.stream_url
@@ -455,12 +473,28 @@ export function EagleLivePreviewTile({
     )
   }
 
+  if (resolved.stream_type === "snapshot") {
+    const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
+    if (mediaUrl && isStillImage(mediaUrl)) {
+      return <MjpegLivePlayer url={mediaUrl} className={className} />
+    }
+    return (
+      <div className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-950 to-black px-1 text-center ${className || ""}`}>
+        <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Camera feed</span>
+        <span className="text-[6px] text-gray-500">Tap to open live view</span>
+      </div>
+    )
+  }
+
   return (
     <div className={`relative overflow-hidden bg-black ${className || ""}`}>
       <EagleLiveStreamPlayer
         resolved={resolved}
         provider={source.provider}
-        fallbackUrl={source.media_url && isStillImage(source.media_url) ? source.media_url : undefined}
+        fallbackUrl={(() => {
+          const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
+          return mediaUrl && isStillImage(mediaUrl) ? mediaUrl : undefined
+        })()}
         muted
         className="h-full w-full object-cover"
       />

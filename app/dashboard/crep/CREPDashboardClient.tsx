@@ -7592,6 +7592,8 @@ export default function CREPDashboardPage({
   const pendingViewportNatureFetchTimerRef = useRef<number | null>(null);
   const mapInteractionClearTimerRef = useRef<number | null>(null);
   const earthNatureBootPreloadStartedRef = useRef(false);
+  const earthInstantNaturePaintCompleteRef = useRef<string | null>(null);
+  const earthInstantNaturePaintInFlightRef = useRef<string | null>(null);
   const requestViewportNatureFetch = useCallback(() => {
     if (!isEarthSimulatorRoute) {
       setViewportNatureFetchNonce((n) => n + 1);
@@ -9813,13 +9815,24 @@ export default function CREPDashboardPage({
       setFungalLoading(false);
       return;
     }
+    const earthInstantKey = `${natureObservationFilter}:${natureSpeciesFilterKey}`;
+    if (isEarthSimulatorRoute) {
+      if (!mapBounds) {
+        setFungalLoading(false);
+        return;
+      }
+      if (
+        earthInstantNaturePaintCompleteRef.current === earthInstantKey ||
+        earthInstantNaturePaintInFlightRef.current === earthInstantKey
+      ) {
+        setFungalLoading(false);
+        return;
+      }
+      earthInstantNaturePaintInFlightRef.current = earthInstantKey;
+    }
     const ctrl = new AbortController();
     (async () => {
       try {
-        if (isEarthSimulatorRoute && !mapBounds) {
-          setFungalLoading(false);
-          return;
-        }
         const kingdomExpanded = !isFungiOnlyNatureFilter(natureObservationFilter);
         const instantLimit = isEarthSimulatorRoute
           ? EARTH_SIM_NATURE_INSTANT_LIMIT
@@ -9890,9 +9903,14 @@ export default function CREPDashboardPage({
           store.set(id, candidate);
         }
         setFungalObservations(Array.from(store.values()));
+        if (isEarthSimulatorRoute) earthInstantNaturePaintCompleteRef.current = earthInstantKey;
         console.log(`[CREP] âš¡ Instant MINDEX paint: ${raw.length} observations in ${data.meta?.total ?? raw.length}ms`);
       } catch (e) {
         if ((e as Error).name !== "AbortError") console.warn("[CREP] Instant MINDEX paint failed:", e);
+      } finally {
+        if (isEarthSimulatorRoute && earthInstantNaturePaintInFlightRef.current === earthInstantKey) {
+          earthInstantNaturePaintInFlightRef.current = null;
+        }
       }
     })();
     return () => ctrl.abort();
