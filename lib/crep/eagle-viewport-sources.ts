@@ -21,6 +21,7 @@ const BAKED_GEOJSON_URLS = [
   "/data/crep/eagle-cameras-registry.geojson",
   "/data/crep/eagle-cameras-manual-seed.geojson",
   "/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson",
+  "/data/crep/eagle-cameras-border-supplement.geojson",
   "/data/crep/eagle-cameras-nyc-dc-seed.geojson",
   "/data/crep/eagle-cameras-vegas-seed.geojson",
   "/data/crep/eagle-cameras-deployment-sites-seed.geojson",
@@ -87,8 +88,23 @@ export function filterSourcesInViewport(
   bounds: MapBoundsLike,
   limit: number,
 ): EagleViewportSource[] {
+  const lngSpan = bounds.west <= bounds.east
+    ? bounds.east - bounds.west
+    : 360 - bounds.west + bounds.east
+  const centerLng = ((bounds.west + (lngSpan / 2) + 540) % 360) - 180
+  const centerLat = (bounds.north + bounds.south) / 2
+  const longitudeDelta = (lng: number) => {
+    const diff = Math.abs(lng - centerLng)
+    return Math.min(diff, 360 - diff)
+  }
+
   return sources
     .filter((s) => pointInViewportBbox(s.lng, s.lat, bounds))
+    .sort((a, b) => {
+      const aDist = Math.hypot(longitudeDelta(a.lng), a.lat - centerLat)
+      const bDist = Math.hypot(longitudeDelta(b.lng), b.lat - centerLat)
+      return aDist - bDist
+    })
     .slice(0, limit)
 }
 

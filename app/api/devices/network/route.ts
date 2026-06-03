@@ -16,7 +16,11 @@ import {
   parseLocation,
 } from "@/lib/devices/field-deployments"
 import { probeAllOperatorAgents } from "@/lib/devices/operator-probe"
-import { resolveDevBenchLocation, DEV_BENCH_LOCATION_LABEL } from "@/lib/devices/dev-bench-location"
+import {
+  resolveDevBenchLocation,
+  DEV_BENCH_LOCATION_LABEL,
+  PSATHYRELLA_COM4_LOCATION_LABEL,
+} from "@/lib/devices/dev-bench-location"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -59,6 +63,7 @@ function formatDeviceRole(role: string): string {
     alarm: "Mycosoft Alarm",
     gateway: "Gateway",
     mycodrone: "MycoDrone",
+    psathyrella: "Psathyrella",
     standalone: "MycoBrain",
   }
   return roleMap[role.toLowerCase()] || role
@@ -85,8 +90,12 @@ async function buildFieldAndOperatorDevices(
       agent_url: field.agent_url,
       firmware_version: probe?.firmware_version ?? "unknown",
       board_type: field.board_type,
-      sensors: [],
-      capabilities: ["mqtt", "mdp_command", "telemetry_stream"],
+      sensors: field.role === "psathyrella"
+        ? ["bme688_ambient", "bme688_environment", "hydrophone_low", "hydrophone_high", "transducer"]
+        : [],
+      capabilities: field.role === "psathyrella"
+        ? ["serial", "dual_bme688", "hydrophones", "transducer", "buoy_telemetry"]
+        : ["mqtt", "mdp_command", "telemetry_stream"],
       location: `${field.location.lat},${field.location.lon}`,
       location_coords: field.location,
       location_label: field.location_label,
@@ -195,19 +204,23 @@ export async function GET(request: NextRequest) {
       return {
         id: device.device_id,
         device_id: device.device_id,
-        name: device.device_name,
-        device_name: device.device_name,
-        device_role: device.device_role ?? field?.role ?? "standalone",
-        device_display_name: device.device_display_name ?? field?.name ?? null,
+        name: field?.name ?? device.device_name,
+        device_name: field?.name ?? device.device_name,
+        device_role: field?.role ?? device.device_role ?? "standalone",
+        device_display_name: field?.name ?? device.device_display_name ?? null,
         display_name: field?.name || displayName,
         type: "mycobrain",
         host: device.host,
         port: device.port,
         agent_url: agentUrl,
         firmware_version: device.firmware_version || probe?.firmware_version,
-        board_type: device.board_type,
-        sensors: device.sensors,
-        capabilities: device.capabilities,
+        board_type: field?.board_type ?? device.board_type,
+        sensors: field?.role === "psathyrella"
+          ? ["bme688_ambient", "bme688_environment", "hydrophone_low", "hydrophone_high", "transducer"]
+          : device.sensors,
+        capabilities: field?.role === "psathyrella"
+          ? ["serial", "dual_bme688", "hydrophones", "transducer", "buoy_telemetry"]
+          : device.capabilities,
         location: field?.location
           ? `${field.location.lat},${field.location.lon}`
           : device.location || (coords ? `${coords.lat},${coords.lon}` : null),
@@ -215,7 +228,9 @@ export async function GET(request: NextRequest) {
         location_label:
           field?.location_label ??
           (resolveDevBenchLocation(device.device_id, device.host)
-            ? DEV_BENCH_LOCATION_LABEL
+            ? (/^mycobrain-COM4$/i.test(device.device_id)
+              ? PSATHYRELLA_COM4_LOCATION_LABEL
+              : DEV_BENCH_LOCATION_LABEL)
             : null),
         connection_type: device.connection_type,
         ingestion_source: device.ingestion_source ?? "serial",
@@ -230,7 +245,7 @@ export async function GET(request: NextRequest) {
           latest_telemetry: probe?.telemetry ?? extra.latest_telemetry,
           field_deployment: field?.registry_id ?? null,
         },
-        telemetry: probe?.telemetry ?? null,
+        telemetry: probe?.telemetry ?? extra.latest_telemetry ?? null,
         // NemoClaw Control UI (port 18789) runs on same host as device for on-site AI
         openclaw_url: device.host ? `http://${device.host}:18789` : null,
       }

@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2026-06-01T00:00:00-07:00",
+  "source_note": "Codex-curated border/coastal supplement from Windy, VI Ads, and AllTrafficCams audit. Official CBP wait times are served separately by /api/crep/border-wait-times.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "windy-san-ysidro-border-crossing-1748557784",
+        "provider": "windy",
+        "kind": "permanent",
+        "name": "Tijuana - San Ysidro Border Crossing",
+        "stream_url": null,
+        "embed_url": "https://webcams.windy.com/webcams/stream/1748557784",
+        "media_url": null,
+        "source_status": "online",
+        "permissions": { "access": "public", "embed": "third-party-player" },
+        "source_url": "https://www.windy.com/webcams/1748557784",
+        "source_pages": [
+          "https://www.windy.com/-Webcams-Tijuana-San-Ysidro-Border-Crossing/webcams/1748557784?32.603,-117.046,12,m:ezhacT6",
+          "https://vi-ads.com/bordertrafficcams/",
+          "https://alltrafficcams.com/live/border-crossings/mexico/united-states/tijuana-san-ysidro/"
+        ],
+        "audit_note": "Windy stream page embeds IPCamLive alias 66da1260b3dca."
+      },
+      "geometry": { "type": "Point", "coordinates": [-117.0298, 32.5435] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "windy-avalon-bay-casino-point-dive-park-1365090866",
+        "provider": "windy",
+        "kind": "permanent",
+        "name": "Avalon Bay - Casino Point Dive Park",
+        "stream_url": null,
+        "embed_url": "https://webcams.windy.com/webcams/stream/1365090866",
+        "media_url": null,
+        "source_status": "temporarily_unavailable",
+        "permissions": { "access": "public", "embed": "third-party-player" },
+        "source_url": "https://www.windy.com/webcams/1365090866",
+        "source_pages": [
+          "https://www.windy.com/-Webcams-Avalon-Avalon-Bay-Casino-Point-Dive-Park/webcams/1365090866?33.172,-117.558,9,m:ezVacTG"
+        ],
+        "audit_note": "Windy stream endpoint was reachable but reported no live stream during the June 1 audit."
+      },
+      "geometry": { "type": "Point", "coordinates": [-118.3262, 33.3481] }
+    }
+  ]
+}

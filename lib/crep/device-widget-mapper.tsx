@@ -27,6 +27,7 @@ import {
   Satellite,
   Gauge,
   Zap,
+  Waves,
 } from "lucide-react";
 
 // Device role types from MycoBrain firmware variants
@@ -34,6 +35,7 @@ export type MycoBrainDeviceRole =
   | "mushroom1"    // Primary fungal monitoring device
   | "hyphae1"      // Field MycoBrain unit
   | "sporebase"    // Spore collection/analysis
+  | "psathyrella"  // Marine buoy + hydrophone + dual BME688
   | "gateway"      // LoRa/WiFi gateway hub
   | "science_comms" // Scientific communication relay
   | "side_a"       // Multi-chamber side A
@@ -120,6 +122,24 @@ export const DEVICE_WIDGET_CONFIG: Record<MycoBrainDeviceRole, DeviceWidgetConfi
       hasBME688: true,
       hasSpectroscopy: true,
       hasWiFi: true,
+    },
+  },
+  psathyrella: {
+    icon: <Waves className="w-3 h-3" />,
+    emoji: "◈",
+    color: "text-teal-300",
+    bgColor: "bg-teal-500/20",
+    borderColor: "border-teal-400",
+    glowColor: "#2dd4bf",
+    label: "Psathyrella Buoy",
+    description: "Aquatic MycoBrain buoy with dual BME688 gas sensing and hydrophones",
+    primaryMetric: "iaq",
+    secondaryMetrics: ["hydrophoneLow", "hydrophoneHigh", "waveHeight"],
+    capabilities: {
+      hasBME688: true,
+      hasLoRa: true,
+      hasGPS: true,
+      hasMotion: true,
     },
   },
   gateway: {
@@ -251,6 +271,7 @@ export function parseDeviceRole(deviceType?: string): MycoBrainDeviceRole {
   if (normalized.includes("mushroom") || normalized === "mushroom1") return "mushroom1";
   if (normalized.includes("hyphae") || normalized === "hyphae1") return "hyphae1";
   if (normalized.includes("spore") || normalized === "sporebase") return "sporebase";
+  if (normalized.includes("psathyrella") || normalized.includes("buoy") || normalized.includes("aquatic") || normalized.includes("marine")) return "psathyrella";
   if (normalized.includes("gateway") || normalized === "gateway") return "gateway";
   if (normalized.includes("science") || normalized.includes("comms") || normalized === "sciencecomms") return "science_comms";
   if (normalized.includes("sidea") || normalized === "sidea") return "side_a";
@@ -362,6 +383,7 @@ export function getIAQQuality(iaq?: number): { label: string; color: string } {
 export type DeviceWidgetType = 
   | "environmental"   // Temperature, humidity, pressure, gas
   | "spore-analysis"  // Spore counting and analysis
+  | "marine-buoy"     // Buoy telemetry, hydrophones, transducer, dual BME688
   | "network"         // Gateway/connectivity stats
   | "scientific"      // Scientific instruments
   | "chamber"         // Cultivation chamber controls
@@ -377,6 +399,8 @@ export function getDeviceWidgetType(deviceType?: string): DeviceWidgetType {
       return "environmental";
     case "sporebase":
       return "spore-analysis";
+    case "psathyrella":
+      return "marine-buoy";
     case "gateway":
       return "network";
     case "science_comms":

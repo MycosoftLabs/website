@@ -32,8 +32,11 @@ export function networkCommandToOperator(command: string, params: Record<string,
   if (command === "led rgb 0 0 0" || command === "led off") {
     return "led off"
   }
-  if (command.startsWith("beep ") || command === "beep" || command === "buzzer") {
-    return "bump"
+  if (command.startsWith("beep ")) {
+    return command
+  }
+  if (command === "beep" || command === "buzzer") {
+    return "beep 1000 200"
   }
   if (command === "led_rgb" && params) {
     const r = Number(params.r ?? 0)
@@ -63,7 +66,11 @@ export function mdpToOperatorCommand(
       const b = Number(params.b ?? 0)
       return `led rgb ${r} ${g} ${b}`
     }
-    if (id === "buzzer") return "bump"
+    if (id === "buzzer") {
+      const frequency = Number(params.frequency ?? params.hz ?? 1000)
+      const duration = Number(params.duration_ms ?? params.duration ?? params.ms ?? 200)
+      return `beep ${frequency} ${duration}`
+    }
   }
   if (cmd === "read_sensors") return "sensor read"
   if (cmd === "estop") return "estop"

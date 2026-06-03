@@ -17,6 +17,7 @@ import {
   type ReactNode,
   type CSSProperties,
   type HTMLAttributes,
+  type SyntheticEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
@@ -41,6 +42,21 @@ function useMap() {
 const defaultStyles = {
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
   light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+};
+
+const scheduleMapLibreDomRemoval = (remove: () => void, delayMs = 250) => {
+  if (typeof window === "undefined") {
+    remove();
+    return;
+  }
+  window.setTimeout(remove, delayMs);
+};
+
+const stopPopupEvent = (event: SyntheticEvent | Event) => {
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  (event as SyntheticEvent).nativeEvent?.stopImmediatePropagation?.();
+  (event as Event).stopImmediatePropagation?.();
 };
 
 type MapStyleOption = string | MapLibreGL.StyleSpecification;
@@ -486,6 +502,7 @@ type MarkerContextValue = {
   marker: MapLibreGL.Marker;
   map: MapLibreGL.Map | null;
   portalElement: HTMLElement;
+  markerElement: HTMLElement;
   triggerClick?: (e: MouseEvent) => void;
 };
 
@@ -561,14 +578,22 @@ function MapMarker({
   onDragRef.current = onDrag;
   onDragEndRef.current = onDragEnd;
 
+  const markerDom = useMemo(() => {
+    const markerElement = document.createElement("div");
+    const portalElement = document.createElement("div");
+    portalElement.setAttribute("data-map-marker-portal", "1");
+    markerElement.appendChild(portalElement);
+    return { markerElement, portalElement };
+  }, []);
+
   const marker = useMemo(() => {
     const markerInstance = new MapLibreGL.Marker({
       ...markerOptions,
-      element: document.createElement("div"),
+      element: markerDom.markerElement,
       draggable,
     } as any).setLngLat([longitude, latitude]);
     try {
-      markerInstance.getElement()?.setAttribute("data-map-marker-root", "1");
+      markerDom.markerElement.setAttribute("data-map-marker-root", "1");
     } catch {
       /* ignore marker element tagging failures */
     }
@@ -582,12 +607,8 @@ function MapMarker({
     const handleMouseEnter = (e: MouseEvent) => onMouseEnterRef.current?.(e);
     const handleMouseLeave = (e: MouseEvent) => onMouseLeaveRef.current?.(e);
 
-    markerInstance
-      .getElement()
-      ?.addEventListener("mouseenter", handleMouseEnter);
-    markerInstance
-      .getElement()
-      ?.addEventListener("mouseleave", handleMouseLeave);
+    markerDom.markerElement.addEventListener("mouseenter", handleMouseEnter);
+    markerDom.markerElement.addEventListener("mouseleave", handleMouseLeave);
 
     const handleDragStart = () => {
       const lngLat = markerInstance.getLngLat();
@@ -613,6 +634,7 @@ function MapMarker({
 
   const lngLatRef = useRef({ longitude, latitude });
   lngLatRef.current = { longitude, latitude };
+  const markerMountTokenRef = useRef(0);
 
   const markerOffsetRef = useRef<[number, number]>([0, 0]);
   const rawOffset = (markerOptions as MarkerOptions).offset;
@@ -658,12 +680,23 @@ function MapMarker({
       if (!connectedAtAdd) debug.addToDisconnectedMap += 1;
     }
     let added = false;
+    const mountToken = markerMountTokenRef.current + 1;
+    markerMountTokenRef.current = mountToken;
     try {
       // Native MapLibre markers anchor to lat/lng on globe projection — required
       // for Earth Simulator / CREP. Manual canvas-container positioning drifted
       // off the map during pan/zoom because project() coords ≠ canvas transforms.
       marker.addTo(map);
       added = true;
+      try {
+        const element = marker.getElement?.();
+        if (element) {
+          element.style.opacity = "";
+          element.style.pointerEvents = "auto";
+        }
+      } catch {
+        /* marker may already be disposed during map teardown */
+      }
       if (typeof window !== "undefined") {
         const debug = ((window as any).__map_marker_debug ||= {
           addToCalls: 0,
@@ -724,12 +757,29 @@ function MapMarker({
         debug.netActive = Math.max(0, debug.netActive - 1);
         debug.lastMapId = (map as any).__debugMapId || "unknown";
       }
+      const removeMarker = () => {
+        if (markerMountTokenRef.current !== mountToken) return;
+        try {
+          const element = marker.getElement?.();
+          if (element?.parentNode) marker.remove();
+        } catch {
+          /* map teardown can remove the marker container before React cleanup */
+        }
+      };
+      // MarkerContent is rendered through a React portal into MapLibre's
+      // native marker element. Let React unmount the portal children first;
+      // removing the marker synchronously can make React delete from a parent
+      // MapLibre already detached, which throws removeChild during heavy zoom.
       try {
         const element = marker.getElement?.();
-        if (element?.parentNode) marker.remove();
+        if (element) {
+          element.style.opacity = "0";
+          element.style.pointerEvents = "none";
+        }
       } catch {
-        /* map teardown can remove the marker container before React cleanup */
+        /* marker may already be disposed */
       }
+      scheduleMapLibreDomRemoval(removeMarker);
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -769,7 +819,8 @@ function MapMarker({
       value={{
         marker,
         map,
-        portalElement: marker.getElement(),
+        portalElement: markerDom.portalElement,
+        markerElement: markerDom.markerElement,
         triggerClick: triggerMarkerClick,
       }}
     >
@@ -801,27 +852,27 @@ function MarkerContent({
   onDoubleClick,
   ...rest
 }: MarkerContentProps) {
-  const { portalElement, triggerClick } = useMarkerContext();
+  const { markerElement, portalElement, triggerClick } = useMarkerContext();
 
   useEffect(() => {
-    if (!portalElement || !dataMarker) return;
-    const previousMarker = portalElement.getAttribute("data-marker-root");
-    const previousZIndex = portalElement.style.zIndex;
-    const previousPointerEvents = portalElement.style.pointerEvents;
+    if (!markerElement || !dataMarker) return;
+    const previousMarker = markerElement.getAttribute("data-marker-root");
+    const previousZIndex = markerElement.style.zIndex;
+    const previousPointerEvents = markerElement.style.pointerEvents;
 
-    portalElement.setAttribute("data-marker-root", dataMarker);
-    portalElement.style.pointerEvents = "auto";
+    markerElement.setAttribute("data-marker-root", dataMarker);
+    markerElement.style.pointerEvents = "auto";
     if (dataMarker === "device") {
-      portalElement.style.zIndex = "1500";
+      markerElement.style.zIndex = "25";
     }
 
     return () => {
-      if (previousMarker == null) portalElement.removeAttribute("data-marker-root");
-      else portalElement.setAttribute("data-marker-root", previousMarker);
-      portalElement.style.zIndex = previousZIndex;
-      portalElement.style.pointerEvents = previousPointerEvents;
+      if (previousMarker == null) markerElement.removeAttribute("data-marker-root");
+      else markerElement.setAttribute("data-marker-root", previousMarker);
+      markerElement.style.zIndex = previousZIndex;
+      markerElement.style.pointerEvents = previousPointerEvents;
     };
-  }, [dataMarker, portalElement]);
+  }, [dataMarker, markerElement]);
 
   return createPortal(
     <div 
@@ -897,6 +948,7 @@ function MarkerPopup({
   const container = useMemo(() => document.createElement("div"), []);
   const prevPopupOptions = useRef(popupOptions);
   const suppressInitialCloseRef = useRef(true);
+  const popupMountTokenRef = useRef(0);
 
   const popup = useMemo(() => {
     const popupInstance = new MapLibreGL.Popup({
@@ -914,6 +966,8 @@ function MarkerPopup({
   useEffect(() => {
     if (!map) return;
 
+    const mountToken = popupMountTokenRef.current + 1;
+    popupMountTokenRef.current = mountToken;
     suppressInitialCloseRef.current = true;
     const onCloseProp = () => {
       if (suppressInitialCloseRef.current) return;
@@ -925,11 +979,17 @@ function MarkerPopup({
     // Deterministic open: when this component mounts (i.e., selected state), open the popup
     // without relying on a marker click to toggle it.
     popup.setLngLat(marker.getLngLat()).addTo(map);
+    try {
+      const popupElement = popup.getElement?.();
+      if (popupElement) popupElement.style.zIndex = "80";
+    } catch {
+      /* popup may not have materialized yet */
+    }
     const unsuppressId =
       typeof window !== "undefined"
         ? window.setTimeout(() => {
             suppressInitialCloseRef.current = false;
-          }, 0)
+          }, 900)
         : null;
 
     return () => {
@@ -937,7 +997,11 @@ function MarkerPopup({
         window.clearTimeout(unsuppressId);
       }
       try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
-      try { popup.remove(); } catch { /* map teardown can remove popup DOM first */ }
+      const removePopup = () => {
+        if (popupMountTokenRef.current !== mountToken) return;
+        try { popup.remove(); } catch { /* map teardown can remove popup DOM first */ }
+      };
+      scheduleMapLibreDomRemoval(removePopup);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -955,9 +1019,13 @@ function MarkerPopup({
     prevPopupOptions.current = popupOptions;
   }
 
-  const handleClose = () => {
-    try { popup.remove(); } catch { /* popup may already be removed */ }
+  const handleClose = (event?: SyntheticEvent | Event) => {
+    if (event) stopPopupEvent(event);
     onClose?.();
+    const removePopup = () => {
+      try { popup.remove(); } catch { /* popup may already be removed */ }
+    };
+    scheduleMapLibreDomRemoval(removePopup, 120);
   };
 
   return createPortal(
@@ -971,6 +1039,7 @@ function MarkerPopup({
       {closeButton && (
         <button
           type="button"
+          onPointerDown={stopPopupEvent}
           onClick={handleClose}
           className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close popup"
@@ -1021,7 +1090,9 @@ function MarkerTooltip({
     const handleMouseEnter = () => {
       tooltip.setLngLat(marker.getLngLat()).addTo(map);
     };
-    const handleMouseLeave = () => tooltip.remove();
+    const handleMouseLeave = () => {
+      try { tooltip.remove(); } catch { /* tooltip may already be removed */ }
+    };
 
     marker.getElement()?.addEventListener("mouseenter", handleMouseEnter);
     marker.getElement()?.addEventListener("mouseleave", handleMouseLeave);
@@ -1029,7 +1100,10 @@ function MarkerTooltip({
     return () => {
       marker.getElement()?.removeEventListener("mouseenter", handleMouseEnter);
       marker.getElement()?.removeEventListener("mouseleave", handleMouseLeave);
-      tooltip.remove();
+      const removeTooltip = () => {
+        try { tooltip.remove(); } catch { /* tooltip may already be removed */ }
+      };
+      scheduleMapLibreDomRemoval(removeTooltip);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1667,6 +1741,7 @@ function MapPopup({
   const { map } = useMap();
   const popupOptionsRef = useRef(popupOptions);
   const container = useMemo(() => document.createElement("div"), []);
+  const popupMountTokenRef = useRef(0);
 
   const popup = useMemo(() => {
     const popupInstance = new MapLibreGL.Popup({
@@ -1684,23 +1759,31 @@ function MapPopup({
   useEffect(() => {
     if (!map) return;
 
+    const mountToken = popupMountTokenRef.current + 1;
+    popupMountTokenRef.current = mountToken;
     const onCloseProp = () => onClose?.();
     popup.on("close", onCloseProp);
 
     popup.setDOMContent(container);
     popup.addTo(map);
+    try {
+      const popupElement = popup.getElement?.();
+      if (popupElement) popupElement.style.zIndex = "80";
+    } catch {
+      /* popup may not have materialized yet */
+    }
 
     return () => {
       try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
       const removePopup = () => {
+        if (popupMountTokenRef.current !== mountToken) return;
         try {
           if (popup.isOpen()) popup.remove();
         } catch {
           /* map teardown can remove popup DOM first */
         }
       };
-      if (typeof window !== "undefined") window.setTimeout(removePopup, 0);
-      else removePopup();
+      scheduleMapLibreDomRemoval(removePopup);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1724,9 +1807,13 @@ function MapPopup({
     popupOptionsRef.current = popupOptions;
   }
 
-  const handleClose = () => {
-    try { popup.remove(); } catch { /* popup may already be removed */ }
+  const handleClose = (event?: SyntheticEvent | Event) => {
+    if (event) stopPopupEvent(event);
     onClose?.();
+    const removePopup = () => {
+      try { popup.remove(); } catch { /* popup may already be removed */ }
+    };
+    scheduleMapLibreDomRemoval(removePopup, 120);
   };
 
   return createPortal(
@@ -1739,6 +1826,7 @@ function MapPopup({
       {closeButton && (
         <button
           type="button"
+          onPointerDown={stopPopupEvent}
           onClick={handleClose}
           className="absolute top-1 right-1 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close popup"

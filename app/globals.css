@@ -5685,6 +5685,445 @@ html .natureos-glass-page.search-glass-floating .search-fab-petri-icon[data-acti
     drop-shadow(0 0 0.45rem color-mix(in srgb, var(--search-widget-icon-glow, #22c55e) 52%, transparent)) !important;
 }
 
+/* MycoBrain page glass cards and Petri-style CTA links. */
+.mycobrain-glass-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.38) 48%, rgba(255, 255, 255, 0.22)) !important;
+  border-color: rgba(255, 255, 255, 0.48) !important;
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    inset 0 -18px 30px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+}
+
+.dark .mycobrain-glass-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(2, 6, 23, 0.48) 50%, rgba(255, 255, 255, 0.06)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    0 22px 55px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -18px 30px rgba(255, 255, 255, 0.04) !important;
+}
+
+.mycobrain-glass-pill {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.24) 50%, rgba(255, 255, 255, 0.14)) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+.dark .mycobrain-glass-pill {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(2, 6, 23, 0.42) 52%, rgba(255, 255, 255, 0.08)) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+.mycobrain-final-heading {
+  align-items: baseline;
+  column-gap: 0.26em;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  line-height: 1.16;
+  row-gap: 0.08em;
+}
+
+.mycobrain-word-scroll {
+  display: inline-grid;
+  height: 1.08em;
+  min-width: 4.35em;
+  overflow: hidden;
+  perspective: 1000px;
+  vertical-align: baseline;
+}
+
+.mycobrain-word-scroll-track {
+  display: flex;
+  flex-direction: column;
+  animation: mycobrainVerticalWordScroll 10s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.mycobrain-word-scroll-track span {
+  display: block;
+  height: 1.08em;
+  line-height: 1.08em;
+  text-align: center;
+  background: linear-gradient(
+    270deg,
+    #ff9a9e,
+    #fad0c4,
+    #a1c4fd,
+    #c2e9fb,
+    #d4fc79,
+    #96e6a1,
+    #fbc2eb,
+    #a6c1ee
+  );
+  background-size: 400% 400%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  animation: mycobrainGlowGradient 8s ease infinite;
+}
+
+@keyframes mycobrainVerticalWordScroll {
+  0%,
+  14% {
+    transform: translateY(0);
+  }
+  20%,
+  34% {
+    transform: translateY(-1.08em);
+  }
+  40%,
+  54% {
+    transform: translateY(-2.16em);
+  }
+  60%,
+  74% {
+    transform: translateY(-3.24em);
+  }
+  80%,
+  99.98% {
+    transform: translateY(-4.32em);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes mycobrainGlowGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mycobrain-word-scroll-track,
+  .mycobrain-word-scroll-track span {
+    animation: none !important;
+  }
+}
+
+.mycobrain-petri-scope {
+  display: inline-block !important;
+  width: fit-content !important;
+  isolation: isolate;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link {
+  min-height: auto !important;
+  width: fit-content !important;
+  overflow: visible !important;
+  border-radius: 0.65rem !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  font-size: clamp(0.86rem, 1.4vw, 0.98rem) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap,
+.mycobrain-petri-scope .mycobrain-petri-link a {
+  width: fit-content !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap {
+  display: inline-grid !important;
+  place-items: center !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap,
+.mycobrain-petri-scope .mycobrain-petri-link a,
+.mycobrain-petri-scope .mycobrain-petri-link a::after,
+.mycobrain-petri-scope .mycobrain-petri-link a span::after,
+.mycobrain-petri-scope .mycobrain-petri-link .button-shadow::after {
+  border-radius: 0.65rem !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a {
+  --border-width: clamp(1px, 0.0625em, 4px);
+  all: unset !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 3 !important;
+  display: inline-grid !important;
+  min-height: 2.9rem !important;
+  place-items: center !important;
+  border-radius: 0.65rem !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  pointer-events: auto !important;
+  text-decoration: none !important;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  background:
+    linear-gradient(-75deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.1)) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.52),
+    0 0.25em 0.125em -0.125em rgba(0, 0, 0, 0.22),
+    0 0 0.1em 0.22em inset rgba(255, 255, 255, 0.22),
+    0 0 0 0 rgba(255, 255, 255, 1) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+  transition: all var(--anim--hover-time) var(--anim--hover-ease) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:hover {
+  transform: scale(0.975) !important;
+  backdrop-filter: blur(0.01em) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(0.01em) saturate(1.08) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.52),
+    0 0.15em 0.05em -0.1em rgba(0, 0, 0, 0.25),
+    0 0 0.05em 0.1em inset rgba(255, 255, 255, 0.54),
+    0 0 0 0 rgba(255, 255, 255, 1) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a span {
+  position: relative !important;
+  z-index: 4 !important;
+  display: inline-flex !important;
+  min-height: 2.8rem !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  border-radius: inherit !important;
+  overflow: hidden !important;
+  padding: 0.72rem 1.08rem !important;
+  color: rgba(15, 23, 42, 0.96) !important;
+  -webkit-text-fill-color: rgba(15, 23, 42, 0.96) !important;
+  font-family: "Inter", sans-serif !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.1 !important;
+  text-align: center !important;
+  text-shadow: 0 0.18em 0.06em rgba(0, 0, 0, 0.1) !important;
+  transition: all var(--anim--hover-time) var(--anim--hover-ease) !important;
+  user-select: none !important;
+  white-space: nowrap !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+html:not(.dark) .mycobrain-petri-over-video .mycobrain-petri-link a span,
+html:not(.dark) .mycobrain-petri-over-video .mycobrain-petri-link a svg {
+  color: rgba(255, 255, 255, 0.96) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.96) !important;
+  stroke: rgba(255, 255, 255, 0.96) !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.34),
+    0 0 1em rgba(0, 0, 0, 0.22) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:hover span {
+  text-shadow: 0.025em 0.025em 0.025em rgba(0, 0, 0, 0.12) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a span::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: 3 !important;
+  display: block !important;
+  width: calc(100% - var(--border-width)) !important;
+  height: calc(100% - var(--border-width)) !important;
+  top: calc(0% + var(--border-width) / 2) !important;
+  left: calc(0% + var(--border-width) / 2) !important;
+  box-sizing: border-box !important;
+  overflow: clip !important;
+  background: linear-gradient(
+    var(--angle-2),
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 40% 50%,
+    rgba(255, 255, 255, 0) 55%
+  ) !important;
+  background-position: 0% 50% !important;
+  background-repeat: no-repeat !important;
+  background-size: 200% 200% !important;
+  mix-blend-mode: screen !important;
+  pointer-events: none !important;
+  transition:
+    background-position calc(var(--anim--hover-time) * 1.25) var(--anim--hover-ease),
+    --angle-2 calc(var(--anim--hover-time) * 1.25) var(--anim--hover-ease) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:hover span::after {
+  background-position: 25% 50% !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:active span::after {
+  --angle-2: -15deg;
+  background-position: 50% 15% !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: 1 !important;
+  width: calc(100% + var(--border-width)) !important;
+  height: calc(100% + var(--border-width)) !important;
+  inset: calc(0% - var(--border-width) / 2) auto auto calc(0% - var(--border-width) / 2) !important;
+  padding: var(--border-width) !important;
+  box-sizing: border-box !important;
+  background:
+    conic-gradient(
+      from var(--angle-1) at 50% 50%,
+      rgba(0, 0, 0, 0.48),
+      rgba(0, 0, 0, 0) 5% 40%,
+      rgba(0, 0, 0, 0.48) 50%,
+      rgba(0, 0, 0, 0) 60% 95%,
+      rgba(0, 0, 0, 0.48)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.54)) !important;
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.5) !important;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0) !important;
+  mask-composite: exclude !important;
+  -webkit-mask-composite: xor !important;
+  transition:
+    all var(--anim--hover-time) var(--anim--hover-ease),
+    --angle-1 500ms ease !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:hover::after {
+  --angle-1: -125deg;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link a:active::after {
+  --angle-1: -75deg;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-shadow {
+  border-radius: 0.78rem !important;
+  overflow: hidden !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:hover) .button-shadow {
+  filter: blur(clamp(2px, 0.0625em, 6px)) !important;
+  -webkit-filter: blur(clamp(2px, 0.0625em, 6px)) !important;
+  transition: filter var(--anim--hover-time) var(--anim--hover-ease) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:hover) .button-shadow::after {
+  top: calc(var(--shadow-cuttoff-fix) - 0.875em) !important;
+  opacity: 1 !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:active) {
+  transform: rotate3d(1, 0, 0, 25deg) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:active) a {
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.52),
+    0 0.125em 0.125em -0.125em rgba(0, 0, 0, 0.22),
+    0 0 0.1em 0.25em inset rgba(255, 255, 255, 0.22),
+    0 0.225em 0.05em 0 rgba(0, 0, 0, 0.05),
+    0 0.25em 0 0 rgba(255, 255, 255, 0.72),
+    inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.15) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:active) .button-shadow {
+  filter: blur(clamp(2px, 0.125em, 12px)) !important;
+  -webkit-filter: blur(clamp(2px, 0.125em, 12px)) !important;
+}
+
+.mycobrain-petri-scope .mycobrain-petri-link .button-wrap:has(a:active) .button-shadow::after {
+  top: calc(var(--shadow-cuttoff-fix) - 0.5em) !important;
+  opacity: 0.75 !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link a {
+  background:
+    linear-gradient(-75deg, rgba(0, 0, 0, 0.86), rgba(15, 23, 42, 0.58), rgba(0, 0, 0, 0.84)) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.045),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.08),
+    0 0.25em 0.125em -0.125em rgba(0, 0, 0, 0.62),
+    0 0 0.1em 0.2em inset rgba(255, 255, 255, 0.055),
+    0 0 0 0 rgba(255, 255, 255, 0) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link a span {
+  color: rgba(255, 255, 255, 0.94) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.94) !important;
+  text-shadow:
+    0 0.12em 0.08em rgba(0, 0, 0, 0.32),
+    0 0 1em rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link a::after {
+  background:
+    conic-gradient(
+      from var(--angle-1) at 50% 50%,
+      rgba(148, 163, 184, 0.28),
+      rgba(0, 0, 0, 0.14) 5% 40%,
+      rgba(203, 213, 225, 0.24) 50%,
+      rgba(0, 0, 0, 0.18) 60% 95%,
+      rgba(148, 163, 184, 0.28)
+    ),
+    linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(0, 0, 0, 0.14)) !important;
+  box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link .button-shadow::after {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.36)),
+    radial-gradient(ellipse at 50% 70%, rgba(15, 23, 42, 0.74), transparent 60%) !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link a:hover,
+.dark .mycobrain-petri-scope .mycobrain-petri-link a:active {
+  background:
+    linear-gradient(-75deg, rgba(0, 0, 0, 0.76), rgba(15, 23, 42, 0.42), rgba(0, 0, 0, 0.78)) !important;
+  box-shadow:
+    inset 0 0.125em 0.125em rgba(255, 255, 255, 0.035),
+    inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.08),
+    0 0.15em 0.05em -0.1em rgba(0, 0, 0, 0.58),
+    0 0 0.05em 0.1em inset rgba(148, 163, 184, 0.16),
+    0 0 0 0 rgba(255, 255, 255, 0) !important;
+}
+
+.dark .mycobrain-petri-scope .mycobrain-petri-link a span::after {
+  background: linear-gradient(
+    var(--angle-2),
+    rgba(0, 0, 0, 0) 0%,
+    rgba(15, 23, 42, 0.12) 40%,
+    rgba(148, 163, 184, 0.1) 48%,
+    rgba(15, 23, 42, 0.08) 56%,
+    rgba(0, 0, 0, 0) 64%
+  ) !important;
+  mix-blend-mode: soft-light !important;
+  opacity: 0.72 !important;
+}
+
 /*
  * Site-wide single-tap hardening. Keep this at the end so it wins over
  * component glass/button utilities and prevents iOS/tablet first-tap focus

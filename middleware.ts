@@ -11,9 +11,20 @@ import { pathRequiresAuth, pathRequiresCompanyEmail } from '@/lib/access/routes'
 import { isCompanyEmail } from '@/lib/access/types'
 
 /** Cloudflare / reverse proxies send x-forwarded-proto; force HTTPS on the public site. */
+function isLocalDevHost(host: string): boolean {
+  const normalized = host.toLowerCase()
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "0.0.0.0" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  )
+}
+
 function httpsUpgradeResponse(request: NextRequest): NextResponse | null {
   const host = request.nextUrl.hostname
-  if (host === "localhost" || host === "127.0.0.1") return null
+  if (process.env.NODE_ENV === "development" || isLocalDevHost(host)) return null
   const forwarded = request.headers.get("x-forwarded-proto")
   if (forwarded !== "http") return null
   const url = request.nextUrl.clone()
@@ -26,6 +37,17 @@ export async function middleware(request: NextRequest) {
   if (httpsRedirect) return httpsRedirect
 
   const pathname = request.nextUrl.pathname
+  // Supabase/Google can occasionally return local OAuth callbacks as
+  // /code=<auth-code> when the provider falls back to the site root. Recover
+  // that shape before route gating so localhost sign-in can still finish in
+  // the client callback and use the stored redirect target.
+  if (process.env.NODE_ENV === "development" && pathname.startsWith("/code=")) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/client-callback"
+    url.searchParams.set("code", decodeURIComponent(pathname.slice("/code=".length)))
+    return NextResponse.redirect(url, 302)
+  }
+
   if (pathname === "/search/qa") {
     const url = request.nextUrl.clone()
     url.pathname = "/search"
@@ -60,8 +82,19 @@ export async function middleware(request: NextRequest) {
   const localDevAuthBypass =
     process.env.UNSAFE_BYPASS_AUTH === "true" &&
     process.env.NODE_ENV === "development" &&
-    (host === "localhost" || host === "127.0.0.1")
+    isLocalDevHost(host)
   if (localDevAuthBypass) {
+    return response
+  }
+
+  // Localhost-only test sessions let device-console QA stay on port 3010
+  // even when Supabase OAuth redirects are configured for production.
+  // API routes still verify the signed cookie before allowing commands.
+  const localDevSession =
+    process.env.NODE_ENV === "development" &&
+    isLocalDevHost(host) &&
+    request.cookies.get("mycosoft_local_dev_admin")?.value
+  if (localDevSession && localDevSession.includes(".")) {
     return response
   }
 
@@ -95,7 +128,7 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      url.searchParams.set('redirectTo', pathname)
+      url.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search}`)
       return NextResponse.redirect(url)
     }
     // Company gate: routes that require @mycosoft.org / @mycosoft.com

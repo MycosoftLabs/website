@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Volume2, Radio, Play, Square, Loader2, Music } from "lucide-react"
@@ -31,8 +30,9 @@ const ACOUSTIC_PROFILES = [
 ]
 
 export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidgetProps) {
-  const [loading, setLoading] = useState(false)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("presets")
   
   // Custom tone state
   const [toneHz, setToneHz] = useState(1000)
@@ -47,14 +47,19 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
   const [acousticRepeat, setAcousticRepeat] = useState(1)
   const [acousticRunning, setAcousticRunning] = useState(false)
 
-  const sendBuzzerCommand = useCallback(async (action: string, params: Record<string, unknown> = {}) => {
-    setLoading(true)
+  const sendBuzzerCommand = useCallback(async (
+    action: string,
+    params: Record<string, unknown> = {},
+    actionKey = action
+  ) => {
+    setPendingAction(actionKey)
     setLastResult(null)
     try {
       const res = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/buzzer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...params }),
+        signal: AbortSignal.timeout(14000),
       })
       const data = await res.json()
       setLastResult(data.success ? "OK" : data.error || "Failed")
@@ -62,28 +67,22 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
     } catch (error) {
       setLastResult(String(error))
     } finally {
-      setLoading(false)
+      setPendingAction((current) => current === actionKey ? null : current)
     }
   }, [deviceId, onCommand])
 
   const playPreset = (preset: string) => {
-    sendBuzzerCommand("preset", { preset })
+    sendBuzzerCommand("preset", { preset }, `preset-${preset}`)
   }
 
   const playTone = () => {
-    sendBuzzerCommand("tone", { hz: toneHz, ms: toneMs })
+    sendBuzzerCommand("tone", { hz: toneHz, ms: toneMs }, "tone")
   }
 
   const startAcousticTx = async () => {
-    setAcousticRunning(true)
-    await sendBuzzerCommand("acoustic_tx", {
-      profile: acousticProfile,
-      payload: acousticPayload,
-      symbol_ms: symbolMs,
-      f0,
-      f1,
-      repeat: acousticRepeat,
-    })
+    setAcousticRunning(false)
+    setLastResult("Standby")
+    onCommand?.("acoustic tx standby: Side-B science comms pending")
   }
 
   const stopAcousticTx = async () => {
@@ -97,23 +96,35 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
         <CardTitle className="flex items-center gap-2 text-base">
           <Volume2 className="h-5 w-5 text-purple-500" />
           Buzzer Control
-          {loading && <Loader2 className="h-4 w-4 animate-spin ml-auto" />}
-          {lastResult && (
-            <Badge variant={lastResult === "OK" ? "default" : "destructive"} className="ml-auto">
-              {lastResult}
-            </Badge>
-          )}
+          <Loader2 className={`h-4 w-4 ml-auto ${pendingAction ? "animate-spin opacity-100" : "opacity-0"}`} />
+          <Badge variant={lastResult === "OK" ? "default" : lastResult ? "destructive" : "secondary"}>
+            {pendingAction ? "Sending" : lastResult || "Ready"}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="presets" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="presets">Presets</TabsTrigger>
-            <TabsTrigger value="tone">Custom Tone</TabsTrigger>
-            <TabsTrigger value="acoustic">Acoustic TX</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <div role="tablist" aria-label="Buzzer controls" className="grid w-full grid-cols-3 rounded-lg bg-muted p-[3px] text-muted-foreground">
+            {[
+              { value: "presets", label: "Presets" },
+              { value: "tone", label: "Custom Tone" },
+              { value: "acoustic", label: "Acoustic TX" },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                className={`inline-flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium transition-colors ${activeTab === tab.value ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`}
+                onClick={() => setActiveTab(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <TabsContent value="presets" className="space-y-4">
+          {activeTab === "presets" && (
+          <section role="tabpanel" className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               {SOUND_PRESETS.map((preset) => (
                 <Button
@@ -121,7 +132,6 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
                   variant="outline"
                   className="h-auto py-3 flex flex-col items-center gap-1"
                   onClick={() => playPreset(preset.id)}
-                  disabled={loading}
                 >
                   <span className="text-2xl">{preset.icon}</span>
                   <span className="font-medium">{preset.name}</span>
@@ -129,9 +139,11 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
                 </Button>
               ))}
             </div>
-          </TabsContent>
+          </section>
+          )}
 
-          <TabsContent value="tone" className="space-y-4">
+          {activeTab === "tone" && (
+          <section role="tabpanel" className="space-y-4">
             <div className="space-y-4">
               <div>
                 <Label>Frequency: {toneHz} Hz</Label>
@@ -166,15 +178,16 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
               <Button
                 className="w-full"
                 onClick={playTone}
-                disabled={loading}
               >
                 <Music className="h-4 w-4 mr-2" />
                 Play Tone
               </Button>
             </div>
-          </TabsContent>
+          </section>
+          )}
 
-          <TabsContent value="acoustic" className="space-y-4">
+          {activeTab === "acoustic" && (
+          <section role="tabpanel" className="space-y-4">
             <div className="p-3 rounded-lg bg-muted/50 border">
               <div className="flex items-center gap-2 mb-2">
                 <Radio className="h-4 w-4" />
@@ -258,10 +271,11 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
                 <Button
                   className="flex-1"
                   onClick={startAcousticTx}
-                  disabled={loading || acousticRunning || !acousticPayload}
+                  disabled={acousticRunning || !acousticPayload}
+                  title="Side-B acoustic modem firmware is pending"
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Start TX
+                  Standby
                 </Button>
                 <Button
                   variant="destructive"
@@ -273,8 +287,9 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
                 </Button>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </section>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

@@ -14,6 +14,14 @@ function sanitizeNext(value: string | null): string {
   return trimmed
 }
 
+function getStoredRedirect(): string | null {
+  try {
+    return window.sessionStorage.getItem("authRedirectTo")
+  } catch {
+    return null
+  }
+}
+
 function redirectToLogin(error: string, next: string) {
   const params = new URLSearchParams({
     error,
@@ -33,7 +41,11 @@ export function ClientCallbackContent() {
 
     const finishSignIn = async () => {
       const code = searchParams.get("code")
-      const next = sanitizeNext(searchParams.get("next") || searchParams.get("redirectTo"))
+      const next = sanitizeNext(
+        searchParams.get("next") ||
+        searchParams.get("redirectTo") ||
+        getStoredRedirect(),
+      )
 
       if (!code) {
         redirectToLogin("Missing auth code", next)
@@ -53,11 +65,20 @@ export function ClientCallbackContent() {
       }
 
       setMessage("Opening dashboard...")
+      try {
+        window.sessionStorage.removeItem("authRedirectTo")
+      } catch {
+        // Best effort only; sign-in should not fail because storage is blocked.
+      }
       window.location.replace(next)
     }
 
     finishSignIn().catch((err) => {
-      const next = sanitizeNext(searchParams.get("next") || searchParams.get("redirectTo"))
+      const next = sanitizeNext(
+        searchParams.get("next") ||
+        searchParams.get("redirectTo") ||
+        getStoredRedirect(),
+      )
       redirectToLogin(err instanceof Error ? err.message : "Failed to finish sign in", next)
     })
   }, [searchParams])

@@ -17,7 +17,7 @@
  * Placement: floating draggable panel, bottom-right by default.
  */
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { X, Minus, Square, Camera as CameraIcon } from "lucide-react"
 import {
   isYouTubeUrl,
@@ -358,6 +358,8 @@ const VIDEO_EMBED_PATTERNS: RegExp[] = [
   /player\.twitch\.tv/i,
   /player\.vimeo\.com/i,
   /windy\.com\/webcams\/\d+/i,                 // windy player URLs (webcam ID)
+  /webcams\.windy\.com\/webcams\/stream\/\d+/i, // windy stream wrapper
+  /ipcamlive\.com\/player\//i,                 // IPCamLive embeddable players
   /skylinewebcams\.com\/.+\.html$/i,           // skyline /livecam/{slug}.html
   /\.m3u8($|\?)/i,                             // direct HLS
   /\/hls\//i,                                  // shinobi/mediamtx HLS path
@@ -808,6 +810,13 @@ export default function VideoWallWidget() {
   const [loading, setLoading] = useState(false)
   const lastOpenAtRef = useRef(0)
   const lastCameraEventRef = useRef<{ id: string; at: number } | null>(null)
+  const closeWidget = useCallback(() => {
+    setFeed(null)
+    setResolved(null)
+    setLoading(false)
+    setMinimized(false)
+    setMaximized(false)
+  }, [])
 
   // Listen for camera + event clicks from EagleEyeOverlay
   useEffect(() => {
@@ -875,28 +884,27 @@ export default function VideoWallWidget() {
   }, [])
 
   useEffect(() => {
-    const close = () => setFeed(null)
     const closeOnMapClick = (event: MouseEvent) => {
       if (!feed) return
       if (Date.now() - lastOpenAtRef.current < 300) return
       const target = event.target as HTMLElement | null
       if (target?.closest?.("[data-video-wall-widget]")) return
       if (target?.closest?.(".maplibregl-canvas, .mapboxgl-canvas, [data-crep-map]")) {
-        setFeed(null)
+        closeWidget()
       }
     }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFeed(null)
+      if (event.key === "Escape") closeWidget()
     }
-    window.addEventListener("crep:eagle:close", close as EventListener)
+    window.addEventListener("crep:eagle:close", closeWidget as EventListener)
     window.addEventListener("click", closeOnMapClick, true)
     window.addEventListener("keydown", closeOnEscape)
     return () => {
-      window.removeEventListener("crep:eagle:close", close as EventListener)
+      window.removeEventListener("crep:eagle:close", closeWidget as EventListener)
       window.removeEventListener("click", closeOnMapClick, true)
       window.removeEventListener("keydown", closeOnEscape)
     }
-  }, [feed])
+  }, [closeWidget, feed])
 
   // May 26, 2026 — Caltrans HLS via stream API when registry lacks m3u8;
   // proxied JPEG fallback only after HLS fails; Surfline embed-cam iframe.
@@ -1113,7 +1121,7 @@ export default function VideoWallWidget() {
     })
 
     return () => { cancelled = true }
-  }, [feed?.id, feed?.directEmbed, feed?.embedUrl, feed?.mediaUrl, feed?.provider, feed?.kind])
+  }, [feed])
 
   if (!feed) return null
 
@@ -1145,7 +1153,11 @@ export default function VideoWallWidget() {
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setMinimized((m) => !m)}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setMinimized((m) => !m)
+            }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Minimize"
             title="Minimize"
@@ -1153,7 +1165,12 @@ export default function VideoWallWidget() {
             <Minus className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <button
-            onClick={() => { setMaximized((m) => !m); setMinimized(false) }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              setMaximized((m) => !m)
+              setMinimized(false)
+            }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Maximize"
             title={maximized ? "Restore" : "Maximize"}
@@ -1161,7 +1178,11 @@ export default function VideoWallWidget() {
             <Square className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <button
-            onClick={() => setFeed(null)}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              closeWidget()
+            }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Close"
           >

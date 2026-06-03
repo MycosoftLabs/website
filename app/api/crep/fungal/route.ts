@@ -1129,24 +1129,24 @@ async function fetchINaturalistQuickAllTaxa(
       fetchINaturalistQuick(taxon === "Fungi" ? 260 : 55, bounds, taxon)
         .then((rows) => rows.map((obs) => preserveRequestedIconicTaxon(obs, taxon)))
         .catch(() => [] as FungalObservation[])
-    const taxonBatches: FungalObservation[][] = []
-    for (let i = 0; i < cityTaxa.length; i += 3) {
-      const batchTaxa = cityTaxa.slice(i, i + 3)
-      const rows = await collectWithSoftTimeout(
-        batchTaxa.map(fetchTaxonBatch),
-        4200,
+    // The all-species foreground route has a 6.5s soft budget. Running taxa
+    // in serial batches made plants/birds/mammals finish after the response,
+    // causing empty all-species payloads while background requests kept going.
+    // Fire the small per-taxon reads together and keep partial successes.
+    const [taxonBatches, mixedRows] = await Promise.all([
+      collectWithSoftTimeout(
+        cityTaxa.map(fetchTaxonBatch),
+        5200,
         [] as FungalObservation[],
-        `quick iNat city priority taxa sample ${i / 3 + 1}`,
-      )
-      taxonBatches.push(...rows)
-      if (i + 3 < cityTaxa.length) await new Promise((resolve) => setTimeout(resolve, 180))
-    }
-    const mixedRows = await withSoftTimeout(
-      mixedPromise,
-      4500,
-      [] as FungalObservation[],
-      "quick iNat city mixed sample",
-    )
+        "quick iNat city priority taxa sample",
+      ),
+      withSoftTimeout(
+        mixedPromise,
+        4500,
+        [] as FungalObservation[],
+        "quick iNat city mixed sample",
+      ),
+    ])
     push(mixedRows)
     for (const rows of taxonBatches) push(rows)
 
@@ -1156,7 +1156,7 @@ async function fetchINaturalistQuickAllTaxa(
         .filter((token) => token && token !== "unknown"),
     )
     const missingPriority = cityTaxa.filter((taxon) => !presentTokens.has(normalizeTaxonToken(taxon)))
-    if (missingPriority.length > 0) {
+    if (merged.length < 80 && missingPriority.length > 0) {
       const rescueRows = await collectWithSoftTimeout(
         missingPriority.map((taxon) =>
           fetchGBIFQuickObservations(taxon === "Fungi" ? 420 : 120, taxon, bounds).catch(() => [] as FungalObservation[]),
@@ -1726,11 +1726,40 @@ export async function GET(request: NextRequest) {
   // Kingdom filter: iconic taxon name or "all" (default all-life for Earth Simulator / CREP)
   const kingdom = searchParams.get("kingdom") || "all"
 
-  // Bounds for geographic filtering (optional bbox validation via Turf)
-  const north = searchParams.get("north") ? parseFloat(searchParams.get("north")!) : undefined
-  const south = searchParams.get("south") ? parseFloat(searchParams.get("south")!) : undefined
-  const east = searchParams.get("east") ? parseFloat(searchParams.get("east")!) : undefined
-  const west = searchParams.get("west") ? parseFloat(searchParams.get("west")!) : undefined
+  // Bounds for geographic filtering. The Earth Simulator client sends
+  // north/south/east/west, while diagnostics and some connectors use the
+  // iNaturalist-style bbox=west,south,east,north form. Treat both as first
+  // class inputs so bbox requests do not accidentally fan out globally.
+  const bboxParam = searchParams.get("bbox")
+  const bboxParts = bboxParam
+    ? bboxParam
+        .split(",")
+        .map((part) => Number(part.trim()))
+    : null
+  const hasValidBbox =
+    Array.isArray(bboxParts) &&
+    bboxParts.length === 4 &&
+    bboxParts.every((value) => Number.isFinite(value))
+  const north = searchParams.get("north")
+    ? parseFloat(searchParams.get("north")!)
+    : hasValidBbox
+      ? bboxParts![3]
+      : undefined
+  const south = searchParams.get("south")
+    ? parseFloat(searchParams.get("south")!)
+    : hasValidBbox
+      ? bboxParts![1]
+      : undefined
+  const east = searchParams.get("east")
+    ? parseFloat(searchParams.get("east")!)
+    : hasValidBbox
+      ? bboxParts![2]
+      : undefined
+  const west = searchParams.get("west")
+    ? parseFloat(searchParams.get("west")!)
+    : hasValidBbox
+      ? bboxParts![0]
+      : undefined
 
   let bounds: { north: number; south: number; east: number; west: number } | undefined =
     north != null && south != null && east != null && west != null ? { north, south, east, west } : undefined
@@ -1882,7 +1911,7 @@ export async function GET(request: NextRequest) {
       fetchPromises.push(
         withSoftTimeout(
           quickLivePromise,
-          kingdom === "all" || isFungiOnlyRequest(kingdom) ? 6500 : 4200,
+          kingdom === "all" ? 9500 : isFungiOnlyRequest(kingdom) ? 6500 : 4200,
           [] as FungalObservation[],
           `quick live ${kingdom} viewport fetch`,
         ),

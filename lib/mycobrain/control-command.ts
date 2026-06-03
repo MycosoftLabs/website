@@ -18,15 +18,17 @@ export function controlPayloadToOperatorCommand(
       return `led rgb ${r} ${g} ${b}`
     }
     case "buzzer": {
-      const freq = Number(data.frequency ?? 1000)
-      const duration = Number(data.duration_ms ?? data.duration ?? 200)
       if (action === "melody" || action === "morgio") return "morgio"
       if (action === "coin") return "coin"
       if (action === "bump") return "bump"
       if (action === "power") return "power"
       if (action === "1up") return "1up"
-      if (action === "off") return null
-      if (action === "beep" || action === "tone") return `beep ${freq} ${duration}`
+      if (action === "off") return "buzzer off"
+      if (action === "beep" || action === "tone") {
+        const frequency = Math.max(50, Math.min(8000, Number(data.frequency ?? data.hz ?? 1000)))
+        const duration = Math.max(20, Math.min(2000, Number(data.duration_ms ?? data.duration ?? data.ms ?? 200)))
+        return `beep ${frequency} ${duration}`
+      }
       if (action === "preset" && typeof data.preset === "string") {
         const preset = data.preset as string
         if (preset === "bump") return "bump"
@@ -36,7 +38,7 @@ export function controlPayloadToOperatorCommand(
         const payload = String(data.payload ?? "")
         return payload ? `aotx start ${payload}` : "aotx start"
       }
-      return `beep ${freq} ${duration}`
+      return "bump"
     }
     case "led": {
       if (action === "optical_tx" || action === "optx_start") {

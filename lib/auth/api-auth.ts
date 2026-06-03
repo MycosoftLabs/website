@@ -8,6 +8,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { isCompanyEmail } from '@/lib/access/types'
+import { cookies } from 'next/headers'
+import { LOCAL_DEV_ADMIN_COOKIE, verifyLocalDevAdminSession } from '@/lib/auth/local-dev-session'
 
 export interface AuthenticatedUser {
   id: string
@@ -33,6 +35,20 @@ const ADMIN_EMAILS = [
 export async function requireAuth(): Promise<
   { user: AuthenticatedUser; error?: never } | { user?: never; error: NextResponse }
 > {
+  const localDevCookie = (await cookies()).get(LOCAL_DEV_ADMIN_COOKIE)?.value
+  const localDevSession = verifyLocalDevAdminSession(localDevCookie)
+  if (localDevSession) {
+    return {
+      user: {
+        id: 'local-dev-morgan',
+        email: localDevSession.email,
+        role: 'owner',
+        isAdmin: true,
+        isOwner: true,
+      },
+    }
+  }
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 

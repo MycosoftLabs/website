@@ -114,9 +114,10 @@ interface RawMycoBrainApiDevice {
 }
 
 export function useMycoBrain(refreshInterval = 15000) {
+  const autoRefreshEnabled = refreshInterval > 0
   const [state, setState] = useState<MycoBrainState>({
     devices: [],
-    loading: true,
+    loading: autoRefreshEnabled,
     error: null,
     lastUpdate: null,
     isConnected: false,
@@ -126,6 +127,18 @@ export function useMycoBrain(refreshInterval = 15000) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchDevices = useCallback(async () => {
+    if (!autoRefreshEnabled) {
+      if (mountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: null,
+          lastUpdate: prev.lastUpdate ?? new Date(),
+        }))
+      }
+      return
+    }
+
     try {
       const response = await fetch("/api/mycobrain", {
         signal: AbortSignal.timeout(5000),
@@ -219,7 +232,7 @@ export function useMycoBrain(refreshInterval = 15000) {
         }))
       }
     }
-  }, [])
+  }, [refreshInterval])
 
   const fetchSensors = useCallback(async (portOrDeviceId: string) => {
     try {
@@ -248,7 +261,7 @@ export function useMycoBrain(refreshInterval = 15000) {
       // Avoid spamming console on timeouts; UI keeps last known values.
       return null
     }
-  }, [state.devices])
+  }, [])
 
   const sendControl = useCallback(
     async (port: string, peripheral: string, action: string, data: Record<string, unknown> = {}) => {
@@ -260,6 +273,7 @@ export function useMycoBrain(refreshInterval = 15000) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ peripheral, action, ...data }),
+          signal: AbortSignal.timeout(8000),
         })
 
         if (!response.ok) throw new Error("Control command failed")
@@ -269,12 +283,12 @@ export function useMycoBrain(refreshInterval = 15000) {
         throw error
       }
     },
-    [state.devices]
+    []
   )
 
   const setNeoPixel = useCallback(
-    async (port: string, r: number, g: number, b: number, brightness = 128) => {
-      return sendControl(port, "neopixel", "solid", { r, g, b, brightness })
+    async (port: string, r: number, g: number, b: number, _brightness = 128) => {
+      return sendControl(port, "neopixel", "solid", { r, g, b })
     },
     [sendControl]
   )
@@ -323,6 +337,18 @@ export function useMycoBrain(refreshInterval = 15000) {
 
   useEffect(() => {
     mountedRef.current = true
+    if (!autoRefreshEnabled) {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: null,
+        lastUpdate: prev.lastUpdate ?? new Date(),
+      }))
+      return () => {
+        mountedRef.current = false
+      }
+    }
+
     fetchDevices()
 
     intervalRef.current = setInterval(() => {

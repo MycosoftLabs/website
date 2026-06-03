@@ -18,7 +18,14 @@ interface LedCommand {
   payload?: string
 }
 
-async function sendCommand(deviceId: string, cmd: string): Promise<string | null> {
+type ServiceCommandResult = {
+  ok: boolean
+  status: number
+  response: unknown
+  error?: unknown
+}
+
+async function sendCommand(deviceId: string, cmd: string): Promise<ServiceCommandResult> {
   try {
     const res = await fetch(
       `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
@@ -26,15 +33,61 @@ async function sendCommand(deviceId: string, cmd: string): Promise<string | null
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command: { cmd } }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(12000),
       }
     )
-    if (res.ok) {
-      const data = await res.json()
-      return data.response || null
+    const text = await res.text()
+    let data: unknown = text
+    try {
+      data = text ? JSON.parse(text) : {}
+    } catch {
+      data = { raw: text }
     }
-  } catch { /* ignore */ }
-  return null
+    if (!res.ok) {
+      return { ok: false, status: res.status, response: data, error: data }
+    }
+    const record = data as Record<string, unknown>
+    return {
+      ok: record.ok !== false && record.success !== false && record.status !== "error",
+      status: res.status,
+      response: record.response ?? record.result ?? data,
+      error: record.error,
+    }
+  } catch (error) {
+    return { ok: false, status: 503, response: null, error: String(error) }
+  }
+}
+
+function isDirectLocalSerialTarget(port: string) {
+  const value = port.trim()
+  return /^COM\d+$/i.test(value) || /^mycobrain-COM\d+$/i.test(value)
+}
+
+function localSerialServiceDeviceId(port: string) {
+  const value = port.trim()
+  const bareCom = value.match(/^COM\d+$/i)?.[0]
+  if (bareCom) return `mycobrain-${bareCom.toUpperCase()}`
+  const mycobrainCom = value.match(/^mycobrain-(COM\d+)$/i)?.[1]
+  if (mycobrainCom) return `mycobrain-${mycobrainCom.toUpperCase()}`
+  return value
+}
+
+async function resolveLocalDeviceId(port: string) {
+  if (isDirectLocalSerialTarget(port)) return localSerialServiceDeviceId(port)
+  let deviceId = port
+  try {
+    const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
+      signal: AbortSignal.timeout(1000),
+    })
+    if (devicesRes.ok) {
+      const devicesData = await devicesRes.json()
+      const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
+        d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
+      )
+      if (device?.device_id) deviceId = device.device_id
+    }
+  } catch { /* use port */ }
+  return deviceId
 }
 
 /**
@@ -64,7 +117,7 @@ export async function POST(
         break
         
       case "off":
-        cmd = "led mode off"
+        cmd = "led off"
         break
         
       case "mode":
@@ -73,30 +126,32 @@ export async function POST(
         break
         
       case "pattern":
-        // Pattern presets - map UI patterns to firmware patterns
-        const patternMap: Record<string, string> = {
-          solid: "solid",
-          blink: "blink", 
-          breathe: "breathe",
-          rainbow: "rainbow",
-          chase: "chase",
-          sparkle: "sparkle"
-        }
-        const pattern = patternMap[body.pattern || "solid"] || "solid"
+        // Forward all UI patterns to firmware. If a pattern does not animate,
+        // the board/service response should show that instead of the UI
+        // disabling controls or pretending the command does not exist.
+        const pattern = String(body.pattern || "rainbow").trim().toLowerCase()
         cmd = `led pattern ${pattern}`
         break
         
       case "brightness":
-        // Set LED brightness 0-100
-        const brightness = Math.max(0, Math.min(100, body.value || 100))
-        cmd = `led brightness ${brightness}`
-        break
+        return NextResponse.json(
+          {
+            success: false,
+            error: "LED brightness is not implemented on current COM4 firmware",
+            supported_actions: ["rgb", "off", "pattern:rainbow"],
+          },
+          { status: 422 }
+        )
         
       case "optical_tx":
-        // Optical modem transmission - send CLI command
-        const payload = body.payload || ""
-        cmd = `optx start ${payload}`
-        break
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Optical TX is standby on current COM4 firmware",
+            supported_actions: ["rgb", "off", "pattern:rainbow", "optical_status"],
+          },
+          { status: 422 }
+        )
         
       case "optical_stop":
         // Stop optical modem
@@ -129,32 +184,21 @@ export async function POST(
       }, { status: ok ? 200 : status })
     }
 
-    // Resolve device ID (local serial only)
-    let deviceId = port
-    try {
-      const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-        signal: AbortSignal.timeout(3000),
-      })
-      if (devicesRes.ok) {
-        const devicesData = await devicesRes.json()
-        const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
-          d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
-        )
-        if (device?.device_id) deviceId = device.device_id
-      }
-    } catch { /* use port */ }
-
-    const response = await sendCommand(deviceId, cmd)
+    // Resolve device ID (local serial only). Direct COM targets should not wait
+    // on the global /devices scan before actuator commands.
+    const deviceId = await resolveLocalDeviceId(port)
+    const commandResult = await sendCommand(deviceId, cmd)
     
     return NextResponse.json({
-      success: true,
+      success: commandResult.ok,
       port,
       device_id: deviceId,
       action: body.action,
       command: cmd,
-      response,
+      response: commandResult.response,
+      error: commandResult.error,
       timestamp: new Date().toISOString(),
-    })
+    }, { status: commandResult.ok ? 200 : commandResult.status })
   } catch (error) {
     return NextResponse.json(
       {
@@ -179,21 +223,11 @@ export async function GET(
   
   try {
     // Get status to read LED state
-    let deviceId = port
-    try {
-      const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-        signal: AbortSignal.timeout(3000),
-      })
-      if (devicesRes.ok) {
-        const devicesData = await devicesRes.json()
-        const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
-          d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
-        )
-        if (device?.device_id) deviceId = device.device_id
-      }
-    } catch { /* use port */ }
-    
-    const response = await sendCommand(deviceId, "status")
+    const deviceId = await resolveLocalDeviceId(port)
+    const commandResult = await sendCommand(deviceId, "status")
+    const response = typeof commandResult.response === "string"
+      ? commandResult.response
+      : JSON.stringify(commandResult.response || "")
     
     // Parse LED state from status
     let ledMode = "unknown"
@@ -232,16 +266,6 @@ export async function GET(
     )
   }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 

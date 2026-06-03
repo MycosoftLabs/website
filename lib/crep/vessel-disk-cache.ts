@@ -17,8 +17,9 @@
 import fs from "node:fs"
 import path from "node:path"
 import type { VesselRecord } from "@/lib/crep/registries/vessel-registry"
+import { getCrepRuntimeCacheDir } from "@/lib/crep/runtime-cache-dir"
 
-const CACHE_DIR = path.resolve(process.cwd(), "var", "cache")
+const CACHE_DIR = getCrepRuntimeCacheDir()
 const CACHE_FILE = path.join(CACHE_DIR, "vessels.json")
 const VESSEL_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12h — enough to bridge AIS outages
 const WRITE_DEBOUNCE_MS = 5_000

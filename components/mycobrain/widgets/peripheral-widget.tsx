@@ -33,7 +33,13 @@ interface PeripheralWidgetProps {
   peripheral: {
     address: string
     type: string
-    widget: {
+    present?: boolean
+    status?: string
+    product?: string
+    bus?: string
+    role?: string
+    expected?: boolean
+    widget?: {
       widget: string
       icon: string
       controls: string[]
@@ -70,6 +76,31 @@ function EnvironmentalSensorWidget({
   sensorData?: Record<string, unknown> 
 }) {
   const data = sensorData || {}
+  const hasMeasurement = ["temperature", "humidity", "pressure", "gas_resistance", "iaq"].some(
+    (key) => typeof data[key] === "number"
+  )
+  const present = peripheral.present !== false && data.present !== false
+  const status = peripheral.status || (
+    present
+      ? data.subscribed === false
+        ? "subscription_failed"
+        : data.begin_ok === false
+          ? "init_failed"
+          : hasMeasurement
+            ? "online"
+            : "awaiting_reading"
+      : "not_detected"
+  )
+  const statusBadge =
+    status === "online"
+      ? { label: "Live", className: "text-emerald-500 border-emerald-500/50" }
+      : status === "subscription_failed"
+        ? { label: "Sub failed", className: "text-amber-500 border-amber-500/50" }
+        : status === "init_failed"
+          ? { label: "Init failed", className: "text-orange-500 border-orange-500/50" }
+          : status === "not_detected"
+            ? { label: "Not detected", className: "text-red-500 border-red-500/50" }
+            : { label: "Awaiting data", className: "text-cyan-500 border-cyan-500/50" }
   
   // Determine color scheme based on peripheral address for visual distinction
   const addressNum = parseInt(peripheral.address, 16)
@@ -93,6 +124,47 @@ function EnvironmentalSensorWidget({
   
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+        <span className="text-muted-foreground">
+          {peripheral.product || "BME688"} at {peripheral.address}
+          {peripheral.bus ? ` (${peripheral.bus})` : ""}
+        </span>
+        <Badge variant="outline" className={statusBadge.className}>
+          {statusBadge.label}
+        </Badge>
+      </div>
+
+      {(data.sensor_id || data.board_id || data.sensor_slot) && (
+        <div className="grid gap-2 rounded-lg border border-border/70 bg-background/60 px-3 py-2 text-[11px]">
+          {data.board_id && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Board</span>
+              <span className="font-mono text-right">{String(data.board_id)}</span>
+            </div>
+          )}
+          {data.sensor_id && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Sensor ID</span>
+              <span className="font-mono text-right">{String(data.sensor_id)}</span>
+            </div>
+          )}
+          {data.sensor_slot && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Slot</span>
+              <span className="font-mono text-right">{String(data.sensor_slot)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!hasMeasurement && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          {peripheral.expected && peripheral.present === false
+            ? "This BME688 slot is expected on this MycoBrain board, but it is not currently detected on the I2C bus."
+            : "No live environmental reading is currently being published for this BME688 slot."}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className={`p-4 rounded-lg bg-orange-500/10 border border-orange-500/20`}>
           <div className="flex items-center gap-2 mb-2">
@@ -276,10 +348,22 @@ function GenericWidget({ peripheral }: { peripheral: PeripheralWidgetProps["peri
   )
 }
 
+const EMPTY_GAS_ESTIMATES: number[] = []
+
 export function PeripheralWidget({ deviceId, peripheral, sensorData }: PeripheralWidgetProps) {
   const [loading, setLoading] = useState(false)
-  
-  const icon = ICONS[peripheral.widget.icon] || ICONS["help-circle"]
+  const widgetConfig = peripheral.widget ?? {
+    widget: peripheral.type === "bme688" || peripheral.type?.includes("bme")
+      ? "environmental_sensor"
+      : "generic",
+    icon: peripheral.type === "bme688" || peripheral.type?.includes("bme")
+      ? "thermometer"
+      : "help-circle",
+    controls: [],
+    telemetryFields: [],
+    charts: [],
+  }
+  const icon = ICONS[widgetConfig.icon] || ICONS["help-circle"]
   
   // Determine color scheme based on peripheral type/address for visual distinction
   const addressNum = parseInt(peripheral.address, 16)
@@ -302,7 +386,7 @@ export function PeripheralWidget({ deviceId, peripheral, sensorData }: Periphera
   const colors = colorClasses[primaryColor as keyof typeof colorClasses] || colorClasses.blue
   
   const renderWidget = () => {
-    switch (peripheral.widget.widget) {
+    switch (widgetConfig.widget) {
       case "environmental_sensor":
         return <EnvironmentalSensorWidget peripheral={peripheral} sensorData={sensorData} />
       case "lidar":
@@ -312,13 +396,14 @@ export function PeripheralWidget({ deviceId, peripheral, sensorData }: Periphera
       case "fci":
       case "fungal_computer_interface":
       case "bioelectric_sensor":
-        return <FCIPeripheralWidget deviceId={deviceId} peripheral={peripheral} sensorData={sensorData} />
+        return <FCIPeripheralWidget deviceId={deviceId} peripheral={{ ...peripheral, widget: widgetConfig }} sensorData={sensorData} />
       default:
         return <GenericWidget peripheral={peripheral} />
     }
   }
   
-  const hasData = sensorData && Object.keys(sensorData).length > 0
+  const hasData = sensorData && Object.keys(sensorData).some((key) => typeof sensorData[key] === "number")
+  const diagnosticOnly = sensorData && !hasData && Object.keys(sensorData).length > 0
   
   return (
     <Card>
@@ -333,10 +418,15 @@ export function PeripheralWidget({ deviceId, peripheral, sensorData }: Periphera
             <span className="capitalize">{peripheral.type.replace(/_/g, " ")}</span>
           </CardTitle>
           <div className="flex items-center gap-2">
-            {hasData && (
+            {hasData && peripheral.present !== false && (
               <Badge variant="outline" className="text-green-500">
                 <Activity className="h-3 w-3 mr-1 animate-pulse" />
                 Live
+              </Badge>
+            )}
+            {diagnosticOnly && (
+              <Badge variant="outline" className="text-amber-500">
+                Diagnostic
               </Badge>
             )}
             <Badge variant="outline" className="font-mono text-xs">
@@ -363,6 +453,8 @@ export function PeripheralGrid({
   const [peripherals, setPeripherals] = useState<PeripheralWidgetProps["peripheral"][]>([])
   const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [liveSensorData, setLiveSensorData] = useState<Record<string, Record<string, unknown>>>({})
+  const [showGasAnalytics, setShowGasAnalytics] = useState(false)
   const hasScannedRef = useRef(false)
   const lastSensorDataRef = useRef<Record<string, Record<string, unknown>>>({})
   
@@ -374,7 +466,7 @@ export function PeripheralGrid({
   }, [sensorData])
   
   // Use merged sensor data (current + cached) to prevent blinking
-  const effectiveSensorData = { ...lastSensorDataRef.current, ...sensorData }
+  const effectiveSensorData = { ...lastSensorDataRef.current, ...liveSensorData, ...sensorData }
   
   const scanPeripherals = useCallback(async (isInitial = false) => {
     if (isInitial) setInitialLoading(true)
@@ -408,6 +500,32 @@ export function PeripheralGrid({
     const interval = setInterval(() => scanPeripherals(false), 60000)
     return () => clearInterval(interval)
   }, [scanPeripherals])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadSensorSnapshot = async () => {
+      try {
+        const res = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/sensors`, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(6000),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data?.sensors) {
+          setLiveSensorData(data.sensors)
+        }
+      } catch {
+        // Keep the last displayed sensor snapshot; serial reads can be briefly busy.
+      }
+    }
+
+    loadSensorSnapshot()
+    const interval = setInterval(loadSensorSnapshot, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [deviceId])
   
   // Map sensor data to peripheral addresses
   // Handle both new format (by address) and legacy format (bme688_1, bme688_2)
@@ -433,6 +551,9 @@ export function PeripheralGrid({
       // Map 0x76 to bme688_2 (bme2/ENV)  
       if (addressNum === 0x76 && data?.bme688_2) {
         return data.bme688_2
+      }
+      if (addressNum === 0x77 || addressNum === 0x76) {
+        return undefined
       }
       
       // Fallback: use any available BME688 data
@@ -509,15 +630,24 @@ export function PeripheralGrid({
         })}
       </div>
       
-      {/* Advanced BSEC2 Widgets - only show if we have BME688 peripherals */}
-      {peripherals.some(p => p.type === "bme688" || p.type?.includes("bme")) && (
+      {/* Advanced gas widgets call Mindex/AQI services, so keep them opt-in.
+          The peripheral grid and controls must stay responsive even if those
+          local-dev routes are cold or unavailable. */}
+      {peripherals.some(p => p.type === "bme688" || p.type?.includes("bme")) && !showGasAnalytics && (
+        <Button variant="outline" size="sm" onClick={() => setShowGasAnalytics(true)}>
+          <Brain className="h-4 w-4 mr-2" />
+          Show gas analytics
+        </Button>
+      )}
+
+      {peripherals.some(p => p.type === "bme688" || p.type?.includes("bme")) && showGasAnalytics && (
         <div className="grid gap-4 md:grid-cols-2 mt-6">
           {/* Smell Detection Widget */}
           <SmellDetectionWidget
             port={deviceId}
             gasClass={typeof primaryBmeSensor?.gas_class === "number" ? primaryBmeSensor.gas_class : -1}
             gasProbability={typeof primaryBmeSensor?.gas_probability === "number" ? primaryBmeSensor.gas_probability : 0}
-            gasEstimates={Array.isArray(primaryBmeSensor?.gas_estimates) ? primaryBmeSensor.gas_estimates as number[] : []}
+            gasEstimates={Array.isArray(primaryBmeSensor?.gas_estimates) ? primaryBmeSensor.gas_estimates as number[] : EMPTY_GAS_ESTIMATES}
             co2eq={typeof primaryBmeSensor?.co2_equivalent === "number" ? primaryBmeSensor.co2_equivalent : 0}
             bvoc={typeof primaryBmeSensor?.voc_equivalent === "number" ? primaryBmeSensor.voc_equivalent : 0}
             sensorMode={hasBsec2Data ? "bsec2" : "adafruit"}
@@ -532,15 +662,6 @@ export function PeripheralGrid({
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
 
 
 

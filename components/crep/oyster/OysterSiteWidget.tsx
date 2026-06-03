@@ -360,6 +360,7 @@ function CategoryLivePanel({ site }: { site: ClickDetail }) {
   if (cat === "mycosoft-project") return <ProjectPartnerPanel />
   if (cat === "camera") return <CameraLivePanel site={site} />
   if (cat === "inat-observation") return <InatLivePanel site={site} />
+  if (cat === "government" && isSanYsidroPointOfEntry(site)) return <BorderWaitTimesPanel />
   // Apr 22, 2026 — Morgan: "all aqs all enviornmental sensor needs
   // live data in the widget streamed into the widget not links and
   // not just labels but actual aqs and other sensor data live in
@@ -371,6 +372,128 @@ function CategoryLivePanel({ site }: { site: ClickDetail }) {
   // the widget instead of a label.
   if (cat === "sensor") return <LiveSensorPanel site={site} />
   return null
+}
+
+function isSanYsidroPointOfEntry(site: ClickDetail): boolean {
+  const id = String(site.id || "").toLowerCase()
+  const name = String(site.name || "").toLowerCase()
+  const agency = String(site.agency || "").toLowerCase()
+  return id === "gov-cbp-sanysidro" || (agency === "cbp" && /san ysidro/.test(name))
+}
+
+function BorderWaitTimesPanel() {
+  const [payload, setPayload] = useState<any | null>(null)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchWaits = async () => {
+      try {
+        const r = await fetch("/api/crep/border-wait-times?port=san-ysidro", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(8_000),
+        })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const j = await r.json()
+        if (!cancelled) {
+          setPayload(j)
+          setError("")
+        }
+      } catch (err: any) {
+        if (!cancelled) setError(err?.message || "wait-time feed unavailable")
+      }
+    }
+    fetchWaits()
+    const iv = setInterval(fetchWaits, 60_000)
+    return () => {
+      cancelled = true
+      clearInterval(iv)
+    }
+  }, [])
+
+  if (error && !payload) {
+    return (
+      <div className="bg-black/30 rounded-lg p-2.5 border border-amber-500/30 space-y-1.5">
+        <div className="text-[9px] uppercase tracking-[0.15em] text-amber-300 font-mono">CBP border wait times</div>
+        <div className="text-[11px] text-amber-100/80">Live feed unavailable: {error}</div>
+      </div>
+    )
+  }
+
+  const crossings = Array.isArray(payload?.crossings) ? payload.crossings : []
+  if (!crossings.length) {
+    return (
+      <div className="bg-black/30 rounded-lg p-2.5 border border-sky-500/30 space-y-1.5">
+        <div className="text-[9px] uppercase tracking-[0.15em] text-sky-300 font-mono">CBP border wait times</div>
+        <div className="text-[11px] text-white/60">Loading San Ysidro live crossing times...</div>
+      </div>
+    )
+  }
+
+  const generatedAt = payload?.generated_at
+    ? new Date(payload.generated_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    : null
+
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-sky-500/30 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[9px] uppercase tracking-[0.15em] text-sky-300 font-mono">CBP border wait times</div>
+        <div className="text-[9px] text-white/45 font-mono">{generatedAt ? `pulled ${generatedAt}` : "live"}</div>
+      </div>
+      <div className="space-y-2">
+        {crossings.map((crossing: any) => (
+          <div key={crossing.port_number || crossing.display_name} className="rounded-lg border border-white/10 bg-slate-950/60 p-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[11px] font-semibold text-white">{crossing.display_name || crossing.port_name}</div>
+                <div className="text-[9px] text-white/45 font-mono">{crossing.hours || "hours unknown"} · {crossing.date || ""} {crossing.time || ""}</div>
+              </div>
+              <div className={`rounded px-1.5 py-0.5 text-[9px] font-mono ${String(crossing.port_status).toLowerCase() === "open" ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"}`}>
+                {crossing.port_status || "Unknown"}
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-1.5">
+              {(crossing.lane_groups || []).filter(showBorderLane).map((lane: any) => (
+                <div key={`${crossing.port_number}-${lane.mode}-${lane.lane_type}`} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 text-[10px]">
+                  <div className="text-white/65 truncate">{lane.label}</div>
+                  <div className={`font-mono ${waitTone(lane.delay_minutes, lane.operational_status)}`}>{formatWait(lane)}</div>
+                  <div className="text-white/40 font-mono">{lane.lanes_open != null ? `${lane.lanes_open} open` : lane.operational_status || "n/a"}</div>
+                </div>
+              ))}
+            </div>
+            {crossing.construction_notice && (
+              <div className="mt-1.5 text-[9px] text-amber-200/80">{crossing.construction_notice}</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="text-[9px] text-white/40 font-mono text-right">
+        Source: CBP Border Wait Times · auto-refreshes every 60 s
+      </div>
+    </div>
+  )
+}
+
+function showBorderLane(lane: any): boolean {
+  return lane?.delay_minutes != null || lane?.lanes_open != null || !!lane?.operational_status
+}
+
+function formatWait(lane: any): string {
+  const status = String(lane?.operational_status || "").toLowerCase()
+  if (lane?.delay_minutes != null) return `${Number(lane.delay_minutes).toFixed(0)} min`
+  if (/closed/.test(status)) return "closed"
+  if (/pending/.test(status)) return "pending"
+  return "n/a"
+}
+
+function waitTone(delay: unknown, status: unknown): string {
+  const statusText = String(status || "").toLowerCase()
+  if (/closed|pending/.test(statusText)) return "text-amber-300"
+  const minutes = typeof delay === "number" ? delay : Number(delay)
+  if (!Number.isFinite(minutes)) return "text-white/60"
+  if (minutes <= 15) return "text-emerald-300"
+  if (minutes <= 60) return "text-amber-300"
+  return "text-rose-300"
 }
 
 function LiveSensorPanel({ site }: { site: ClickDetail }) {

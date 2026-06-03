@@ -76,9 +76,8 @@ export interface GlobalEvent {
   }[];
 }
 
-// Cache for rate limiting
-let cachedEvents: GlobalEvent[] = [];
-let lastFetchTime = 0;
+// Cache for rate limiting. Keep entries per query shape so an earthquake-only
+// search does not evict the all-events Earth Simulator boot feed.
 const CACHE_TTL = 60000; // 1 minute cache
 const RESPONSE_HEADERS = {
   "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
@@ -86,6 +85,18 @@ const RESPONSE_HEADERS = {
 const DAY_MS = 86400_000;
 const DEFAULT_GLOBAL_EVENT_DAYS = 3;
 const MAX_GLOBAL_EVENT_DAYS = 7;
+type GlobalEventsCacheEntry = {
+  events: GlobalEvent[];
+  fetchedAt: number;
+  sources: {
+    usgs: "online" | "offline";
+    noaa: "online" | "degraded";
+    nasa_eonet: "online" | "offline";
+    nws: "online" | "offline";
+  };
+};
+const globalEventsCache = new Map<string, GlobalEventsCacheEntry>();
+const globalEventsInFlight = new Map<string, Promise<GlobalEventsCacheEntry>>();
 
 function getEventTimestampMs(event: Pick<GlobalEvent, "timestamp"> | null | undefined): number {
   if (!event?.timestamp) return 0;
@@ -469,74 +480,84 @@ export async function GET(request: NextRequest) {
   const cacheKey = earthquakeOnly ? `earthquake:${days}` : `all:${days}`;
   
   // Return cached data if still valid
-  if ((cachedEvents as any).__cacheKey === cacheKey && cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
+  const cached = globalEventsCache.get(cacheKey);
+  if (cached && cached.events.length > 0 && now - cached.fetchedAt < CACHE_TTL) {
     return NextResponse.json(
       {
-        events: cachedEvents.slice(0, limit),
-        lastUpdated: new Date(lastFetchTime).toISOString(),
+        events: cached.events.slice(0, limit),
+        lastUpdated: new Date(cached.fetchedAt).toISOString(),
         cached: true,
-        sources: {
-          usgs: "online",
-          noaa: "online",
-          nasa_eonet: "online",
-          nws: "online",
-        },
+        sources: cached.sources,
       },
       { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "hit" } }
     );
   }
-  
-  // Fetch from all sources in parallel. Earthquake search embeds use a deeper,
-  // earthquake-only feed so the globe never waits on unrelated layers.
-  const [earthquakes, spaceWeather, eonetEvents, nwsWeather] = earthquakeOnly
-    ? [await fetchUSGSEarthquakes(days), [], [], []]
-    : await Promise.all([
-        fetchUSGSEarthquakes(days),
-        fetchNOAASpaceWeather(),
-        fetchNASAEONET(),
-        fetchNWSActiveWeatherAlerts(),
-      ]);
-  
-  // Combine, prune for map display, and sort. MINDEX can retain history, but
-  // the Earth Simulator boot feed should only render fresh operational data.
-  const allEvents = pruneEventsByAge([
-    ...earthquakes,
-    ...spaceWeather,
-    ...eonetEvents,
-    ...nwsWeather,
-  ], maxAgeMs, now);
-  
-  allEvents.sort((a, b) => 
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-  
-  // Update cache
-  cachedEvents = allEvents;
-  (cachedEvents as any).__cacheKey = cacheKey;
-  lastFetchTime = now;
-  
-  // Ingest events to MINDEX for persistent storage (non-blocking)
-  const realEvents = allEvents.map(e => ({
-    ...e,
-    latitude: e.location?.latitude,
-    longitude: e.location?.longitude,
-  }));
-  if (realEvents.length > 0) {
-    ingestEvents("global-events", realEvents);
+
+  let inFlight = globalEventsInFlight.get(cacheKey);
+  if (!inFlight) {
+    inFlight = (async () => {
+      // Fetch from all sources in parallel. Earthquake search embeds use a deeper,
+      // earthquake-only feed so the globe never waits on unrelated layers.
+      const [earthquakes, spaceWeather, eonetEvents, nwsWeather] = earthquakeOnly
+        ? [await fetchUSGSEarthquakes(days), [], [], []]
+        : await Promise.all([
+            fetchUSGSEarthquakes(days),
+            fetchNOAASpaceWeather(),
+            fetchNASAEONET(),
+            fetchNWSActiveWeatherAlerts(),
+          ]);
+
+      // Combine, prune for map display, and sort. MINDEX can retain history, but
+      // the Earth Simulator boot feed should only render fresh operational data.
+      const allEvents = pruneEventsByAge([
+        ...earthquakes,
+        ...spaceWeather,
+        ...eonetEvents,
+        ...nwsWeather,
+      ], maxAgeMs, Date.now());
+
+      allEvents.sort((a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      const entry: GlobalEventsCacheEntry = {
+        events: allEvents,
+        fetchedAt: Date.now(),
+        sources: {
+          usgs: earthquakes.length > 0 ? "online" : "offline",
+          noaa: spaceWeather.length > 0 ? "online" : "degraded",
+          nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
+          nws: nwsWeather.length > 0 ? "online" : "offline",
+        },
+      };
+      globalEventsCache.set(cacheKey, entry);
+
+      // Ingest events to MINDEX for persistent storage (non-blocking)
+      const realEvents = allEvents.map(e => ({
+        ...e,
+        latitude: e.location?.latitude,
+        longitude: e.location?.longitude,
+      }));
+      if (realEvents.length > 0) {
+        ingestEvents("global-events", realEvents);
+      }
+
+      return entry;
+    })().finally(() => {
+      globalEventsInFlight.delete(cacheKey);
+    });
+    globalEventsInFlight.set(cacheKey, inFlight);
   }
+
+  const entry = await inFlight;
   
   return NextResponse.json(
     {
-      events: allEvents.slice(0, limit),
-      lastUpdated: new Date().toISOString(),
+      events: entry.events.slice(0, limit),
+      lastUpdated: new Date(entry.fetchedAt).toISOString(),
       cached: false,
-      sources: {
-        usgs: earthquakes.length > 0 ? "online" : "offline",
-        noaa: spaceWeather.length > 0 ? "online" : "degraded",
-        nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
-        nws: nwsWeather.length > 0 ? "online" : "offline",
-      },
+      sources: entry.sources,
     },
-    { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": "miss" } }
+    { headers: { ...RESPONSE_HEADERS, "X-NatureOS-Events-Cache": cached ? "stale-refresh" : "miss" } }
   );
 }

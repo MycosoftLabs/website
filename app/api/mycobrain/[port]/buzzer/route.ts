@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 interface BuzzerCommand {
-  action: "preset" | "tone" | "acoustic_tx" | "stop" | "acoustic_status"
+  action: "preset" | "tone" | "melody" | "acoustic_tx" | "stop" | "off" | "acoustic_status"
   // Preset sounds
   preset?: "coin" | "bump" | "power" | "1up" | "morgio"
   // Custom tone
@@ -17,7 +17,14 @@ interface BuzzerCommand {
   payload?: string
 }
 
-async function sendCommand(deviceId: string, cmd: string): Promise<string | null> {
+type ServiceCommandResult = {
+  ok: boolean
+  status: number
+  response: unknown
+  error?: unknown
+}
+
+async function sendCommand(deviceId: string, cmd: string): Promise<ServiceCommandResult> {
   try {
     const res = await fetch(
       `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
@@ -25,15 +32,61 @@ async function sendCommand(deviceId: string, cmd: string): Promise<string | null
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command: { cmd } }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(12000),
       }
     )
-    if (res.ok) {
-      const data = await res.json()
-      return data.response || null
+    const text = await res.text()
+    let data: unknown = text
+    try {
+      data = text ? JSON.parse(text) : {}
+    } catch {
+      data = { raw: text }
     }
-  } catch { /* ignore */ }
-  return null
+    if (!res.ok) {
+      return { ok: false, status: res.status, response: data, error: data }
+    }
+    const record = data as Record<string, unknown>
+    return {
+      ok: record.ok !== false && record.success !== false && record.status !== "error",
+      status: res.status,
+      response: record.response ?? record.result ?? data,
+      error: record.error,
+    }
+  } catch (error) {
+    return { ok: false, status: 503, response: null, error: String(error) }
+  }
+}
+
+function isDirectLocalSerialTarget(port: string) {
+  const value = port.trim()
+  return /^COM\d+$/i.test(value) || /^mycobrain-COM\d+$/i.test(value)
+}
+
+function localSerialServiceDeviceId(port: string) {
+  const value = port.trim()
+  const bareCom = value.match(/^COM\d+$/i)?.[0]
+  if (bareCom) return `mycobrain-${bareCom.toUpperCase()}`
+  const mycobrainCom = value.match(/^mycobrain-(COM\d+)$/i)?.[1]
+  if (mycobrainCom) return `mycobrain-${mycobrainCom.toUpperCase()}`
+  return value
+}
+
+async function resolveLocalDeviceId(port: string) {
+  if (isDirectLocalSerialTarget(port)) return localSerialServiceDeviceId(port)
+  let deviceId = port
+  try {
+    const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
+      signal: AbortSignal.timeout(1000),
+    })
+    if (devicesRes.ok) {
+      const devicesData = await devicesRes.json()
+      const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
+        d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
+      )
+      if (device?.device_id) deviceId = device.device_id
+    }
+  } catch { /* use port */ }
+  return deviceId
 }
 
 /**
@@ -68,18 +121,30 @@ export async function POST(
         break
         
       case "tone":
-        const hz = Math.max(100, Math.min(10000, body.hz || 1000))
-        const ms = Math.max(10, Math.min(5000, body.ms || 200))
-        cmd = `beep ${hz} ${ms}`
+        {
+          const hz = Math.max(50, Math.min(8000, Number(body.hz || 1000)))
+          const ms = Math.max(20, Math.min(1000, Number(body.ms || 100)))
+          cmd = `beep ${hz} ${ms}`
+        }
+        break
+
+      case "melody":
+        cmd = "morgio"
         break
         
       case "acoustic_tx":
-        const payload = body.payload || ""
-        cmd = `aotx start ${payload}`
-        break
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Acoustic TX is standby on current COM4 firmware",
+            supported_actions: ["preset", "tone", "melody", "stop", "acoustic_status"],
+          },
+          { status: 422 }
+        )
         
       case "stop":
-        cmd = "aotx stop"
+      case "off":
+        cmd = "buzzer off"
         break
         
       case "acoustic_status":
@@ -88,7 +153,7 @@ export async function POST(
         
       default:
         return NextResponse.json(
-          { error: "Invalid action", valid_actions: ["preset", "tone", "acoustic_tx", "stop", "acoustic_status"] },
+          { error: "Invalid action", valid_actions: ["preset", "tone", "melody", "acoustic_tx", "stop", "acoustic_status"] },
           { status: 400 }
         )
     }
@@ -107,31 +172,19 @@ export async function POST(
       }, { status: ok ? 200 : status })
     }
 
-    let deviceId = port
-    try {
-      const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-        signal: AbortSignal.timeout(3000),
-      })
-      if (devicesRes.ok) {
-        const devicesData = await devicesRes.json()
-        const device = devicesData.devices?.find((d: { port?: string; device_id?: string }) =>
-          d.port === port || d.device_id === port || d.port?.includes(port) || d.device_id?.includes(port)
-        )
-        if (device?.device_id) deviceId = device.device_id
-      }
-    } catch { /* use port */ }
-
-    const response = await sendCommand(deviceId, cmd)
+    const deviceId = await resolveLocalDeviceId(port)
+    const commandResult = await sendCommand(deviceId, cmd)
     
     return NextResponse.json({
-      success: true,
+      success: commandResult.ok,
       port,
       device_id: deviceId,
       action: body.action,
       command: cmd,
-      response,
+      response: commandResult.response,
+      error: commandResult.error,
       timestamp: new Date().toISOString(),
-    })
+    }, { status: commandResult.ok ? 200 : commandResult.status })
   } catch (error) {
     return NextResponse.json(
       {
@@ -143,15 +196,6 @@ export async function POST(
     )
   }
 }
-
-
-
-
-
-
-
-
-
 
 
 

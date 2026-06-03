@@ -13,6 +13,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { getCrepRuntimeCacheDir } from "@/lib/crep/runtime-cache-dir"
 
 interface BuoyLike {
   id: string
@@ -22,7 +23,7 @@ interface BuoyLike {
   [key: string]: any
 }
 
-const CACHE_DIR = path.resolve(process.cwd(), "var", "cache")
+const CACHE_DIR = getCrepRuntimeCacheDir()
 const CACHE_FILE = path.join(CACHE_DIR, "buoys.json")
 const BUOY_MAX_AGE_MS = 6 * 60 * 60 * 1000 // 6h
 const WRITE_DEBOUNCE_MS = 5_000

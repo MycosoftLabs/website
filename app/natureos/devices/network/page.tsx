@@ -69,6 +69,13 @@ function formatDeviceRole(role?: string): string {
   return roleMap[role.toLowerCase()] || role
 }
 
+function isCom4BenchDevice(device?: DeviceInfo | null): boolean {
+  if (!device) return false
+  const id = String(device.deviceId || "").toUpperCase()
+  const port = String(device.port || "").toUpperCase()
+  return port === "COM4" || id === "MYCOBRAIN-COM4" || id.endsWith("-COM4")
+}
+
 export default function DeviceNetworkPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -299,6 +306,10 @@ export default function DeviceNetworkPage() {
 
   const handleQuickAction = async (action: string) => {
     if (!selectedDevice) return
+    if (isCom4BenchDevice(selectedDevice)) {
+      console.warn("Psathyrella firmware profile pending for network quick action", action)
+      return
+    }
     setQuickAction(action)
 
     try {
@@ -828,6 +839,12 @@ export default function DeviceNetworkPage() {
               {selectedDevice.status === "online" && (
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-muted-foreground">Quick Actions</div>
+                  {isCom4BenchDevice(selectedDevice) ? (
+                    <div className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 p-3 text-sm text-cyan-700 dark:text-cyan-300">
+                      Psathyrella buoy controls will activate after this device reports a verified
+                      firmware command profile. Telemetry and device status remain available.
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <Button 
                       variant="outline" 
@@ -880,6 +897,7 @@ export default function DeviceNetworkPage() {
                       <span className="text-xs">Off</span>
                     </Button>
                   </div>
+                  )}
                 </div>
               )}
               
@@ -923,8 +941,6 @@ export default function DeviceNetworkPage() {
     </DevicePageShell>
   )
 }
-
-
 
 
 

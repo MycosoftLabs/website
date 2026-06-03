@@ -211,6 +211,7 @@ import {
   formatSensorValue,
   type MycoBrainDeviceRole
 } from "@/lib/crep/device-widget-mapper";
+import { earthSimControlToOperatorCommand } from "@/lib/devices/operator-commands";
 import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
@@ -805,8 +806,20 @@ type BboxLike = { west: number; south: number; east: number; north: number };
 
 const EARTH_PROJECT_DETAIL_DELAY_MS = 15_000;
 const EARTH_SIM_ASSET_READY_DELAY_MS = 25_000;
+const EARTH_SIM_INFRA_READY_DELAY_MS = 1_000;
 const OYSTER_PROJECT_BBOX: BboxLike = { west: -117.36, south: 32.43, east: -116.92, north: 32.82 };
 const MOJAVE_PROJECT_BBOX: BboxLike = { west: -116.95, south: 34.35, east: -114.05, north: 36.55 };
+const BAKED_INAT_REGIONS = ["sdtj", "la", "sf", "peninsula", "nyc", "dc", "vegas"] as const;
+type BakedInatRegion = typeof BAKED_INAT_REGIONS[number];
+const BAKED_INAT_REGION_BBOX: Record<BakedInatRegion, BboxLike> = {
+  sdtj: OYSTER_PROJECT_BBOX,
+  la: { west: -119.05, south: 33.25, east: -117.45, north: 34.65 },
+  sf: { west: -123.15, south: 37.05, east: -121.65, north: 38.35 },
+  peninsula: { west: -122.65, south: 36.95, east: -121.75, north: 37.8 },
+  nyc: { west: -74.35, south: 40.35, east: -73.45, north: 41.05 },
+  dc: { west: -77.75, south: 38.55, east: -76.55, north: 39.25 },
+  vegas: { west: -115.55, south: 35.8, east: -114.75, north: 36.55 },
+};
 
 function boundsIntersectBbox(bounds: MapBoundsLike | null | undefined, bbox: BboxLike, paddingDegrees = 0) {
   if (!bounds) return false;
@@ -1483,63 +1496,211 @@ interface Device {
     co2Equivalent?: number;
     vocEquivalent?: number;
     uptime?: number;
+    raw?: string;
+    bmeChannels?: Array<{
+      id: string;
+      label: string;
+      address?: string;
+      bus?: string;
+      present?: boolean;
+      beginOk?: boolean;
+      subscribed?: boolean;
+      temperature?: number | null;
+      humidity?: number | null;
+      pressure?: number | null;
+      iaq?: number | null;
+      co2Equivalent?: number | null;
+      vocEquivalent?: number | null;
+    }>;
+    marine?: {
+      positionMode?: string;
+      waveHeightM?: number | null;
+      waterTemperatureC?: number | null;
+      wavePeriodS?: number | null;
+      hydrophoneLow?: string | number | null;
+      hydrophoneHigh?: string | number | null;
+      transducer?: string | null;
+    };
   };
   lastUpdate?: string;
 }
 
-const FIELD_MYCOBRAIN_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1"]);
-const FIELD_MYCOBRAIN_REGISTRY_IDS = new Set(["mycobrain-mushroom1-jetson-123", "mycobrain-hyphae1-jetson-228"]);
+const PSATHYRELLA_COM4_ID = "psathyrella-buoy-com4";
+const PSATHYRELLA_COM4_REGISTRY_ID = "mycobrain-COM4";
+const PSATHYRELLA_COM4_LOCATION = { lat: 32.56289, lng: -117.13570 };
+const PSATHYRELLA_COM4_LOCATION_LABEL = "Project Oyster - North Reef buoy position";
+const FIELD_MYCOBRAIN_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1", PSATHYRELLA_COM4_ID, "bench-com4"]);
+const FIELD_MYCOBRAIN_REGISTRY_IDS = new Set(["mycobrain-mushroom1-jetson-123", "mycobrain-hyphae1-jetson-228", PSATHYRELLA_COM4_REGISTRY_ID]);
+const DEVICE_RAW_TELEMETRY_MAX_CHARS = 6000;
+
+function clampDeviceRawTelemetry(raw: unknown): string | undefined {
+  if (typeof raw !== "string" || raw.length === 0) return undefined;
+  if (raw.length <= DEVICE_RAW_TELEMETRY_MAX_CHARS) return raw;
+  return raw.slice(raw.length - DEVICE_RAW_TELEMETRY_MAX_CHARS);
+}
+
+function parseBmeStatusFromRaw(raw?: string) {
+  const read = (label: string) => {
+    const match = raw?.match(new RegExp(`${label}:\\s+present=(YES|NO)\\s+addr=([^\\s]+)\\s+begin=(OK|FAIL)\\s+sub=(OK|FAIL)`, "i"));
+    if (!match) {
+      return {
+        present: undefined,
+        address: undefined,
+        beginOk: undefined,
+        subscribed: undefined,
+      };
+    }
+    return {
+      present: match[1].toUpperCase() === "YES",
+      address: match[2],
+      beginOk: match[3].toUpperCase() === "OK",
+      subscribed: match[4].toUpperCase() === "OK",
+    };
+  };
+  return { ambient: read("AMB"), environment: read("ENV") };
+}
+
+function numericTelemetryValue(source: any, keys: string[]): number | undefined {
+  if (!source || typeof source !== "object") return undefined;
+  for (const key of keys) {
+    const value = source[key];
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return undefined;
+}
+
+function extractBmeTelemetrySlots(sensorData: any) {
+  const bme688 = sensorData?.bme688 && typeof sensorData.bme688 === "object" ? sensorData.bme688 : {};
+  return {
+    ambient: bme688.a ?? sensorData?.bme1 ?? sensorData?.bme688_1 ?? null,
+    environment: bme688.b ?? sensorData?.bme2 ?? sensorData?.bme688_2 ?? null,
+  };
+}
 
 function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
-  return (Array.isArray(rawDevices) ? rawDevices : [])
+  const normalized = (Array.isArray(rawDevices) ? rawDevices : [])
     .filter((d: any) => (
       FIELD_MYCOBRAIN_DEVICE_IDS.has(String(d.id || "")) ||
       FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(d.registry_id || d.registryId || d.device_id || ""))
     ))
     .map((d: any, index: number) => {
+      const registryId = d.registry_id || d.registryId || d.device_id || d.id;
+      const isPsathyrella = String(registryId) === PSATHYRELLA_COM4_REGISTRY_ID ||
+        String(d.id || "") === PSATHYRELLA_COM4_ID ||
+        String(d.id || "") === "bench-com4";
       const rawLat = Number(d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude);
       const rawLng = Number(d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude);
       const hasValidLocation = Number.isFinite(rawLat) && Number.isFinite(rawLng) &&
         Math.abs(rawLat) > 0.1 && Math.abs(rawLng) > 0.1 &&
         !(Math.abs(rawLat - 49) < 1 && Math.abs(rawLng + 123) < 1);
       const sensorData = d.telemetry || d.sensor_data || d.extra?.latest_telemetry || d.device_info?.sensor_data || {};
+      const rawTelemetry = clampDeviceRawTelemetry(sensorData.raw);
+      const bmeStatus = parseBmeStatusFromRaw(rawTelemetry);
+      const bmeSlots = extractBmeTelemetrySlots(sensorData);
+      const ambientHasReading = [
+        sensorData.temperature_c,
+        sensorData.temperature,
+        numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+        numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+        numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
+      ].some((value) => Number.isFinite(Number(value)));
+      const environmentHasReading = [
+        sensorData.bme_b_temperature_c,
+        numericTelemetryValue(bmeSlots.environment, ["temp_c", "temperature_c", "temperature"]),
+        numericTelemetryValue(bmeSlots.environment, ["humidity_pct", "humidity"]),
+        numericTelemetryValue(bmeSlots.environment, ["iaq"]),
+      ].some((value) => Number.isFinite(Number(value)));
       const info = d.device_info || d.info || {};
       const connected = d.connected ?? (d.status === "connected" || d.status === "online");
-      const registryId = d.registry_id || d.registryId || d.device_id || d.id;
+      const deviceStatus: Device["status"] = connected ? "online" : "offline";
       return {
-        id: d.id || d.device_id || `field-mycobrain-${index}`,
+        id: isPsathyrella ? PSATHYRELLA_COM4_ID : (d.id || d.device_id || `field-mycobrain-${index}`),
         registryId,
-        name: d.name || d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
-        lat: hasValidLocation ? rawLat : 0,
-        lng: hasValidLocation ? rawLng : 0,
-        status: connected ? "online" : "offline",
-        type: d.role || d.device_role || d.type || "mushroom1",
+        name: isPsathyrella
+          ? "Psathyrella Aquatic MycoBrain Buoy"
+          : d.name || d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
+        lat: isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lat : (hasValidLocation ? rawLat : 0),
+        lng: isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lng : (hasValidLocation ? rawLng : 0),
+        status: deviceStatus,
+        type: isPsathyrella ? "psathyrella" : d.role || d.device_role || d.type || "mushroom1",
         port: registryId,
         firmware: d.firmware_version || d.firmware || info.firmware_version || info.firmware,
-        protocol: d.protocol || "MAS field heartbeat",
+        protocol: isPsathyrella ? "MycoBrain buoy link" : d.protocol || "MAS field heartbeat",
         agentUrl: d.agent_url,
         host: d.host,
-        pageHref: d.page_href,
+        pageHref: isPsathyrella ? "/natureos/mycobrain?device=mycobrain-COM4" : d.page_href,
         source: d.source,
-        locationLabel: d.location_label || d.location?.name,
-        gpsLockState: hasValidLocation ? "locked" : "unavailable",
-        manualLocation: d.location_label || d.location?.name || null,
-        signalConnectionType: d.host === "192.168.0.228" ? "ethernet" : d.host === "192.168.0.123" ? "wifi" : null,
+        locationLabel: isPsathyrella ? PSATHYRELLA_COM4_LOCATION_LABEL : d.location_label || d.location?.name,
+        gpsLockState: isPsathyrella ? "site" : (hasValidLocation ? "locked" : "unavailable"),
+        manualLocation: isPsathyrella ? null : d.location_label || d.location?.name || null,
+        signalConnectionType: isPsathyrella ? "usb-serial" : d.host === "192.168.0.228" ? "ethernet" : d.host === "192.168.0.123" ? "wifi" : null,
         sensorData: {
-          temperature: sensorData.temperature_c ?? sensorData.temperature,
-          humidity: sensorData.humidity_pct ?? sensorData.humidity,
-          pressure: sensorData.pressure_hpa ?? sensorData.pressure,
-          gasResistance: sensorData.gas_resistance_ohm ?? sensorData.gas_resistance,
-          iaq: sensorData.iaq,
+          temperature: sensorData.temperature_c ?? sensorData.temperature ?? numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+          humidity: sensorData.humidity_pct ?? sensorData.humidity ?? numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+          pressure: sensorData.pressure_hpa ?? sensorData.pressure ?? numericTelemetryValue(bmeSlots.ambient, ["pressure_hpa", "pressure"]),
+          gasResistance: sensorData.gas_resistance_ohm ?? sensorData.gas_resistance ?? numericTelemetryValue(bmeSlots.ambient, ["gas_ohm", "gas_resistance_ohm", "gas_resistance"]),
+          iaq: sensorData.iaq ?? numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
           iaqAccuracy: sensorData.iaq_accuracy,
-          co2Equivalent: sensorData.eco2_ppm ?? sensorData.co2_equivalent,
-          vocEquivalent: sensorData.bvoc_ppm ?? sensorData.voc_equivalent,
+          co2Equivalent: sensorData.eco2_ppm ?? sensorData.co2_equivalent ?? numericTelemetryValue(bmeSlots.ambient, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+          vocEquivalent: sensorData.bvoc_ppm ?? sensorData.voc_equivalent ?? numericTelemetryValue(bmeSlots.ambient, ["voc_equivalent", "voc", "bvoc_ppm"]),
           uptime: sensorData.uptime_seconds || sensorData.uptime_s,
+          raw: rawTelemetry,
+          bmeChannels: isPsathyrella ? [
+            {
+              id: "ambient",
+              label: "BME688 A - I2C-1 AMB",
+              address: bmeStatus.ambient.address || "0x77",
+              bus: "I2C-1",
+              present: bmeStatus.ambient.present ?? (ambientHasReading ? true : undefined),
+              beginOk: bmeStatus.ambient.beginOk ?? (ambientHasReading ? true : undefined),
+              subscribed: bmeStatus.ambient.subscribed ?? (ambientHasReading ? true : undefined),
+              temperature: sensorData.temperature_c ?? sensorData.temperature ?? numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+              humidity: sensorData.humidity_pct ?? sensorData.humidity ?? numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+              pressure: sensorData.pressure_hpa ?? sensorData.pressure ?? numericTelemetryValue(bmeSlots.ambient, ["pressure_hpa", "pressure"]),
+              iaq: sensorData.iaq ?? numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
+              co2Equivalent: sensorData.eco2_ppm ?? sensorData.co2_equivalent ?? numericTelemetryValue(bmeSlots.ambient, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+              vocEquivalent: sensorData.bvoc_ppm ?? sensorData.voc_equivalent ?? numericTelemetryValue(bmeSlots.ambient, ["voc_equivalent", "voc", "bvoc_ppm"]),
+            },
+            {
+              id: "environment",
+              label: "BME688 B - I2C-2 ENV",
+              address: bmeStatus.environment.address || "0x76",
+              bus: "I2C-2",
+              present: bmeStatus.environment.present ?? (environmentHasReading ? true : false),
+              beginOk: bmeStatus.environment.beginOk ?? (environmentHasReading ? true : false),
+              subscribed: bmeStatus.environment.subscribed ?? (environmentHasReading ? true : false),
+              temperature: sensorData.bme_b_temperature_c ?? numericTelemetryValue(bmeSlots.environment, ["temp_c", "temperature_c", "temperature"]),
+              humidity: sensorData.bme_b_humidity_pct ?? numericTelemetryValue(bmeSlots.environment, ["humidity_pct", "humidity"]),
+              pressure: sensorData.bme_b_pressure_hpa ?? numericTelemetryValue(bmeSlots.environment, ["pressure_hpa", "pressure"]),
+              iaq: sensorData.bme_b_iaq ?? numericTelemetryValue(bmeSlots.environment, ["iaq"]),
+              co2Equivalent: sensorData.bme_b_eco2_ppm ?? numericTelemetryValue(bmeSlots.environment, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+              vocEquivalent: sensorData.bme_b_bvoc_ppm ?? numericTelemetryValue(bmeSlots.environment, ["voc_equivalent", "voc", "bvoc_ppm"]),
+            },
+          ] : undefined,
+          marine: isPsathyrella ? {
+            positionMode: "Project Oyster position",
+            waveHeightM: sensorData.wave_height_m ?? null,
+            waterTemperatureC: sensorData.water_temperature_c ?? null,
+            wavePeriodS: sensorData.wave_period_s ?? null,
+            hydrophoneLow: sensorData.hydrophone_low ?? "standby",
+            hydrophoneHigh: sensorData.hydrophone_high ?? "standby",
+            transducer: typeof sensorData.transducer === "string" ? sensorData.transducer : "standby",
+          } : undefined,
         },
         lastUpdate: sensorData.captured_at || sensorData.last_update || d.lastSeen || d.last_seen || new Date().toISOString(),
         lastSeen: d.lastSeen || d.last_seen,
       };
     });
+  const byRegistry = new Map<string, Device>();
+  for (const device of normalized) {
+    const key = device.registryId || device.id;
+    const existing = byRegistry.get(key);
+    if (!existing || device.id === PSATHYRELLA_COM4_ID || existing.source === "live") {
+      byRegistry.set(key, device);
+    }
+  }
+  return Array.from(byRegistry.values());
 }
 
 type LayerDataStatus = "real" | "planned_real" | "mock";
@@ -2919,9 +3080,10 @@ function applyFungalAtlasMapVisibility(map: any, activeFungalLayerIds: Set<strin
   const showCompositeHeat = visible.mycelium || visible.rarity || visible.endemic || visible.fci;
   setVisible("crep-fungal-atlas-composite-raster", showCompositeHeat);
   setVisible("crep-fungal-atlas-mycelium-raster", false);
-  // AM/ECM use global SPUN raster tiles (same stack as sat/bathy/topo bootstrap).
-  setVisible("crep-fungal-atlas-am-raster", true);
-  setVisible("crep-fungal-atlas-ecm-raster", true);
+  // AM/ECM use global SPUN raster tiles; keep each raster tied to its own
+  // filter state so toggling one layer does not wake both global tile stacks.
+  setVisible("crep-fungal-atlas-am-raster", visible.am);
+  setVisible("crep-fungal-atlas-ecm-raster", visible.ecm);
   setVisible("crep-fungal-atlas-rarity-raster", false);
   setVisible("crep-fungal-atlas-endemic-raster", false);
   setVisible("crep-fungal-atlas-fci-raster", false);
@@ -3527,15 +3689,18 @@ function EarthquakeEventPopupOverlay({
 // with status orb + signal-strength bars, sparkline-bearing telemetry
 // cards, and styled quick-control buttons. Pulls history from a per-device
 // in-memory ring buffer maintained by sensorHistoryRef.
-function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
+function DeviceMarker({ device, isSelected, onClick, onClose, history, onControl, onHover }: {
   device: Device;
   isSelected: boolean;
   onClick: () => void;
+  onClose?: () => void;
   history?: import("@/components/crep/devices/DeviceWidget").SensorHistory;
   onControl?: (peripheral: string, params?: Record<string, any>) => Promise<void>;
+  onHover?: (payload: MapAssetHoverPayload | null) => void;
 }) {
   const isOnline = device.status === "online" || device.status === "connected";
   const [controlLoading, setControlLoading] = useState<string | null>(null);
+  const hoverPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isFieldMycoBrain = FIELD_MYCOBRAIN_DEVICE_IDS.has(device.id) ||
     FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(device.registryId || device.port || ""));
 
@@ -3543,26 +3708,54 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
   const widgetConfig = getDeviceWidgetConfig(device.type);
   const deviceEmoji = getDeviceEmoji(device.type);
 
+  const buildHoverPayload = useCallback((point?: HoverPoint): MapAssetHoverPayload => ({
+    type: "mycobrain",
+    kind: "MycoBrain device",
+    id: device.id,
+    name: device.name,
+    label: device.name,
+    detail: [device.type, device.status].filter(Boolean).join(" / "),
+    lat: device.lat,
+    lng: device.lng,
+    x: point?.x ?? hoverPointRef.current.x,
+    y: point?.y ?? hoverPointRef.current.y,
+    source: device.registryId || device.port || "Mycosoft",
+    properties: {
+      id: device.id,
+      name: device.name,
+      type: device.type,
+      status: device.status,
+      registryId: device.registryId,
+      temperature: device.sensorData?.temperature,
+      humidity: device.sensorData?.humidity,
+      iaq: device.sensorData?.iaq,
+    },
+  }), [device]);
+
   // Control functions for MycoBrain device
   const sendControl = async (peripheral: string, params?: Record<string, any>) => {
     const registryDeviceId = device.registryId || (typeof device.port === "string" && device.port.startsWith("mycobrain-") ? device.port : undefined);
     if (!registryDeviceId && !device.port) return;
     setControlLoading(peripheral);
     try {
-      const command =
-        peripheral === "neopixel" && params?.effect === "rainbow" ? "led pattern rainbow" :
-        peripheral === "neopixel" && params?.effect === "off" ? "led off" :
-        peripheral === "buzzer" ? `beep ${Number(params?.frequency ?? 1000)} ${Number(params?.duration ?? params?.duration_ms ?? 100)}` :
-        typeof params?.cmd === "string" ? params.cmd :
-        peripheral;
-      const response = registryDeviceId ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+      const isLocalCom4 = registryDeviceId === PSATHYRELLA_COM4_REGISTRY_ID ||
+        String(device.port || "").toUpperCase() === "COM4";
+      const command = earthSimControlToOperatorCommand(peripheral, params);
+      const action =
+        peripheral === "neopixel" && params?.effect === "rainbow" ? "rainbow" :
+        peripheral === "neopixel" && params?.effect === "off" ? "off" :
+        peripheral === "buzzer" ? String(params?.action || "beep") :
+        typeof params?.cmd === "string" ? "raw" :
+        String(params?.effect || peripheral);
+      const localControlId = String(device.port || registryDeviceId);
+      const response = registryDeviceId && !isLocalCom4 ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
-      }) : await fetch(`/api/mycobrain/${encodeURIComponent(String(device.port))}/control`, {
+      }) : await fetch(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ peripheral, ...params }),
+        body: JSON.stringify({ peripheral, action, ...(params || {}) }),
       });
       const result = await response.json();
       if (!response.ok || !(
@@ -3586,14 +3779,27 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
 
   // Use device-widget-mapper for IAQ quality (Feb 12, 2026)
   const iaqInfo = getIAQQuality(device.sensorData?.iaq);
-
   return (
-    <MapMarker
-      longitude={device.lng}
-      latitude={device.lat}
-      onClick={onClick}
-    >
-      <MarkerContent className="relative" data-marker="device">
+    <>
+      <MapMarker
+        longitude={device.lng}
+        latitude={device.lat}
+        onClick={onClick}
+      >
+        <MarkerContent
+          data-marker="device"
+          data-device-id={device.id}
+          className="relative"
+          onMouseEnter={(event) => {
+            hoverPointRef.current = { x: event.clientX, y: event.clientY };
+            onHover?.(buildHoverPayload(hoverPointRef.current));
+          }}
+          onMouseMove={(event) => {
+            hoverPointRef.current = { x: event.clientX, y: event.clientY };
+            onHover?.(buildHoverPayload(hoverPointRef.current));
+          }}
+          onMouseLeave={() => onHover?.(null)}
+        >
         <div className={cn(
           // May 21 2026 (Morgan: "events flicker on every zoom"). Dropped
           // `transition-transform` â€” the CSS transition was firing on every
@@ -3625,17 +3831,18 @@ function DeviceMarker({ device, isSelected, onClick, history, onControl }: {
             {isFieldMycoBrain ? <Box className="h-4 w-4 text-white" strokeWidth={2.4} /> : deviceEmoji}
           </div>
         </div>
-      </MarkerContent>
+        </MarkerContent>
+      </MapMarker>
       {isSelected && (
         <DeviceWidget
           device={device as any}
           history={history}
-          onClose={onClick}
+          onClose={onClose || onClick}
           onControl={onControl || sendControl}
         />
       )}
       {/* Old MarkerPopup body removed â€” replaced by DeviceWidget above. */}
-    </MapMarker>
+    </>
   );
 }
 
@@ -6860,6 +7067,11 @@ export default function CREPDashboardPage({
       const msg = reason?.message || String(reason);
       const stack = reason?.stack || "";
       if (isNonFatalMapNoise(msg, stack)) {
+        if (isReactReconcilerNoise(msg)) {
+          e.preventDefault();
+          e.stopImmediatePropagation?.();
+          return;
+        }
         const bucket = ((window as any).__crepSilencedErrors ||= []);
         bucket.push({ kind: "unhandledrejection", msg, stack, ts: Date.now() });
         if (bucket.length > 40) bucket.shift();
@@ -6872,6 +7084,11 @@ export default function CREPDashboardPage({
       const msg = e?.error?.message || e?.message || "";
       const stack = e?.error?.stack || "";
       if (isNonFatalMapNoise(msg, stack)) {
+        if (isReactReconcilerNoise(msg)) {
+          e.preventDefault();
+          e.stopImmediatePropagation?.();
+          return;
+        }
         const bucket = ((window as any).__crepSilencedErrors ||= []);
         bucket.push({ kind: "error", msg, stack, ts: Date.now() });
         if (bucket.length > 40) bucket.shift();
@@ -6885,6 +7102,7 @@ export default function CREPDashboardPage({
       const msg = args.map((arg: any) => arg?.message || String(arg)).join(" ");
       const stack = args.map((arg: any) => arg?.stack || "").join("\n");
       if (isNonFatalMapNoise(msg, stack)) {
+        if (isReactReconcilerNoise(msg)) return;
         console.warn("[CREP] silenced non-fatal console error:", msg.slice(0, 140));
         return;
       }
@@ -7109,7 +7327,7 @@ export default function CREPDashboardPage({
     const fetchFieldDevices = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(8000), cache: "no-store" });
+        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(12_000), cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         const nextDevices = normalizeFieldMycoBrainDevices(data.devices || []);
@@ -7138,6 +7356,7 @@ export default function CREPDashboardPage({
     if (typeof window === "undefined") return;
     (window as any).__crep_devices = devices;
     const openDeviceWidget = (payload: any) => {
+      window.dispatchEvent(new CustomEvent("crep:asset:hover", { detail: null }));
       const payloadId = String(payload?.id ?? "");
       const payloadRegistryId = String(payload?.registryId ?? payload?.registry_id ?? payload?.mycobrainId ?? payload?.mycobrain_id ?? "");
       const matched = devices.find((device) => (
@@ -7150,32 +7369,95 @@ export default function CREPDashboardPage({
         return;
       }
       const telemetry = payload?.telemetry || {};
+      const isPsathyrella = payloadId === PSATHYRELLA_COM4_ID ||
+        payloadRegistryId === PSATHYRELLA_COM4_REGISTRY_ID ||
+        String(payload?.deviceType || telemetry.device_type || "").toLowerCase() === "psathyrella";
+      const rawTelemetry = clampDeviceRawTelemetry(telemetry.raw);
+      const bmeStatus = parseBmeStatusFromRaw(rawTelemetry);
+      const bmeSlots = extractBmeTelemetrySlots(telemetry);
+      const ambientHasReading = [
+        telemetry.temperature_c,
+        numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+        numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+        numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
+      ].some((value) => Number.isFinite(Number(value)));
+      const environmentHasReading = [
+        telemetry.bme_b_temperature_c,
+        numericTelemetryValue(bmeSlots.environment, ["temp_c", "temperature_c", "temperature"]),
+        numericTelemetryValue(bmeSlots.environment, ["humidity_pct", "humidity"]),
+        numericTelemetryValue(bmeSlots.environment, ["iaq"]),
+      ].some((value) => Number.isFinite(Number(value)));
       const lat = Number(payload?.lat);
       const lng = Number(payload?.lng);
       setSelectedDevice({
-        id: payloadId || payloadRegistryId || "field-mycobrain",
+        id: isPsathyrella ? PSATHYRELLA_COM4_ID : (payloadId || payloadRegistryId || "field-mycobrain"),
         registryId: payloadRegistryId || undefined,
-        name: payload?.name || "MycoBrain device",
+        name: isPsathyrella ? "Psathyrella Aquatic MycoBrain Buoy" : (payload?.name || "MycoBrain device"),
         lat: Number.isFinite(lat) ? lat : 0,
         lng: Number.isFinite(lng) ? lng : 0,
         status: payload?.status === "connected" ? "online" : (payload?.status || "online"),
-        type: payload?.deviceType || telemetry.device_type || "mycobrain",
+        type: isPsathyrella ? "psathyrella" : (payload?.deviceType || telemetry.device_type || "mycobrain"),
         port: payloadRegistryId || undefined,
         firmware: telemetry.firmware,
-        protocol: "MAS field heartbeat",
+        protocol: isPsathyrella ? "MycoBrain buoy link" : "MAS field heartbeat",
         agentUrl: telemetry.agent_url,
         host: telemetry.host,
-        pageHref: telemetry.page_href,
+        pageHref: payload?.pageHref || telemetry.page_href,
         source: telemetry.source,
-        gpsLockState: Number.isFinite(lat) && Number.isFinite(lng) ? "locked" : "unavailable",
-        signalConnectionType: telemetry.host === "192.168.0.228" ? "ethernet" : telemetry.host === "192.168.0.123" ? "wifi" : null,
+        locationLabel: isPsathyrella ? PSATHYRELLA_COM4_LOCATION_LABEL : telemetry.location_label,
+        gpsLockState: isPsathyrella ? "site" : (Number.isFinite(lat) && Number.isFinite(lng) ? "locked" : "unavailable"),
+        manualLocation: isPsathyrella ? null : telemetry.location_label,
+        signalConnectionType: isPsathyrella ? "usb-serial" : telemetry.host === "192.168.0.228" ? "ethernet" : telemetry.host === "192.168.0.123" ? "wifi" : null,
         sensorData: {
-          temperature: telemetry.temperature_c,
-          humidity: telemetry.humidity_pct,
-          pressure: telemetry.pressure_hpa,
-          gasResistance: telemetry.gas_resistance_ohm,
-          iaq: telemetry.iaq,
-          co2Equivalent: telemetry.eco2_ppm,
+          temperature: telemetry.temperature_c ?? numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+          humidity: telemetry.humidity_pct ?? numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+          pressure: telemetry.pressure_hpa ?? numericTelemetryValue(bmeSlots.ambient, ["pressure_hpa", "pressure"]),
+          gasResistance: telemetry.gas_resistance_ohm ?? numericTelemetryValue(bmeSlots.ambient, ["gas_ohm", "gas_resistance_ohm", "gas_resistance"]),
+          iaq: telemetry.iaq ?? numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
+          co2Equivalent: telemetry.eco2_ppm ?? numericTelemetryValue(bmeSlots.ambient, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+          vocEquivalent: telemetry.bvoc_ppm ?? numericTelemetryValue(bmeSlots.ambient, ["voc_equivalent", "voc", "bvoc_ppm"]),
+          raw: rawTelemetry,
+          bmeChannels: isPsathyrella ? [
+            {
+              id: "ambient",
+              label: "BME688 A - I2C-1 AMB",
+              address: bmeStatus.ambient.address || "0x77",
+              bus: "I2C-1",
+              present: bmeStatus.ambient.present ?? (ambientHasReading ? true : undefined),
+              beginOk: bmeStatus.ambient.beginOk ?? (ambientHasReading ? true : undefined),
+              subscribed: bmeStatus.ambient.subscribed ?? (ambientHasReading ? true : undefined),
+              temperature: telemetry.temperature_c ?? numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
+              humidity: telemetry.humidity_pct ?? numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
+              pressure: telemetry.pressure_hpa ?? numericTelemetryValue(bmeSlots.ambient, ["pressure_hpa", "pressure"]),
+              iaq: telemetry.iaq ?? numericTelemetryValue(bmeSlots.ambient, ["iaq"]),
+              co2Equivalent: telemetry.eco2_ppm ?? numericTelemetryValue(bmeSlots.ambient, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+              vocEquivalent: telemetry.bvoc_ppm ?? numericTelemetryValue(bmeSlots.ambient, ["voc_equivalent", "voc", "bvoc_ppm"]),
+            },
+            {
+              id: "environment",
+              label: "BME688 B - I2C-2 ENV",
+              address: bmeStatus.environment.address || "0x76",
+              bus: "I2C-2",
+              present: bmeStatus.environment.present ?? (environmentHasReading ? true : false),
+              beginOk: bmeStatus.environment.beginOk ?? (environmentHasReading ? true : false),
+              subscribed: bmeStatus.environment.subscribed ?? (environmentHasReading ? true : false),
+              temperature: telemetry.bme_b_temperature_c ?? numericTelemetryValue(bmeSlots.environment, ["temp_c", "temperature_c", "temperature"]),
+              humidity: telemetry.bme_b_humidity_pct ?? numericTelemetryValue(bmeSlots.environment, ["humidity_pct", "humidity"]),
+              pressure: telemetry.bme_b_pressure_hpa ?? numericTelemetryValue(bmeSlots.environment, ["pressure_hpa", "pressure"]),
+              iaq: telemetry.bme_b_iaq ?? numericTelemetryValue(bmeSlots.environment, ["iaq"]),
+              co2Equivalent: telemetry.bme_b_eco2_ppm ?? numericTelemetryValue(bmeSlots.environment, ["co2_equivalent", "co2eq", "eco2_ppm"]),
+              vocEquivalent: telemetry.bme_b_bvoc_ppm ?? numericTelemetryValue(bmeSlots.environment, ["voc_equivalent", "voc", "bvoc_ppm"]),
+            },
+          ] : undefined,
+          marine: isPsathyrella ? {
+            positionMode: "Project Oyster position",
+            waveHeightM: telemetry.wave_height_m ?? null,
+            waterTemperatureC: telemetry.water_temperature_c ?? null,
+            wavePeriodS: telemetry.wave_period_s ?? null,
+            hydrophoneLow: telemetry.hydrophone_low ?? "standby",
+            hydrophoneHigh: telemetry.hydrophone_high ?? "standby",
+            transducer: typeof telemetry.transducer === "string" ? telemetry.transducer : "standby",
+          } : undefined,
         },
         lastUpdate: telemetry.last_seen || new Date().toISOString(),
         lastSeen: telemetry.last_seen,
@@ -7186,6 +7468,48 @@ export default function CREPDashboardPage({
       if ((window as any).__crep_openDeviceWidget === openDeviceWidget) delete (window as any).__crep_openDeviceWidget;
     };
   }, [devices]);
+
+  const sendSelectedDeviceControl = useCallback(async (peripheral: string, params?: Record<string, any>) => {
+    const device = selectedDevice;
+    if (!device) return;
+    const registryDeviceId = device.registryId || (typeof device.port === "string" && device.port.startsWith("mycobrain-") ? device.port : undefined);
+    if (!registryDeviceId && !device.port) return;
+    try {
+      const isLocalCom4 = registryDeviceId === PSATHYRELLA_COM4_REGISTRY_ID ||
+        String(device.port || "").toUpperCase() === "COM4";
+      const command = earthSimControlToOperatorCommand(peripheral, params);
+      const action =
+        peripheral === "neopixel" && params?.effect === "rainbow" ? "rainbow" :
+        peripheral === "neopixel" && params?.effect === "off" ? "off" :
+        peripheral === "buzzer" ? String(params?.action || "beep") :
+        typeof params?.cmd === "string" ? "raw" :
+        String(params?.effect || peripheral);
+      const localControlId = String(device.port || registryDeviceId);
+      const response = registryDeviceId && !isLocalCom4 ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
+      }) : await fetch(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ peripheral, action, ...(params || {}) }),
+      });
+      const result = await response.json();
+      if (!response.ok || !(
+        result.success === true ||
+        result.status === "ok" ||
+        result.ok === true ||
+        (result.result && typeof result.result === "object" && result.result.ok !== false)
+      )) {
+        toast(response.status === 401 || response.status === 403
+          ? "Admin sign-in required to control this MycoBrain device."
+          : "Device may be offline. Check MycoBrain connection.",
+          { duration: 5000 });
+      }
+    } catch {
+      toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
+    }
+  }, [selectedDevice]);
 
   // Apr 19, 2026 (Morgan: "boats finally visible but no widgets working for
   // them" â€” same bug likely for planes + sats). The click handlers in
@@ -7302,6 +7626,8 @@ export default function CREPDashboardPage({
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   // Persistent observation store â€” merge incoming data, never fully replace (prevents blink)
   const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());
+  const loadedBakedInatRegionsRef = useRef<Set<BakedInatRegion>>(new Set());
+  const loadingBakedInatRegionsRef = useRef<Set<BakedInatRegion>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [manualRefreshNonce, setManualRefreshNonce] = useState(0);
   const initialDataLoadedRef = useRef(false);
@@ -7331,6 +7657,7 @@ export default function CREPDashboardPage({
   const hoverLatestRef = useRef<MapHoverContext | null>(null);
   const hoverKeyRef = useRef<string | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
+  const hoverIdleTimerRef = useRef<number | null>(null);
   const hoverLastCommitRef = useRef<{ key: string; x: number; y: number; ts: number } | null>(null);
 
   const handleMapAssetHover = useCallback((payload: MapAssetHoverPayload | null) => {
@@ -7338,7 +7665,9 @@ export default function CREPDashboardPage({
     if (!payload) {
       if (!hoverLatestRef.current && !hoverKeyRef.current && !hoverLastCommitRef.current) return;
       if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+      if (hoverIdleTimerRef.current) window.clearTimeout(hoverIdleTimerRef.current);
       hoverTimerRef.current = null;
+      hoverIdleTimerRef.current = null;
       hoverKeyRef.current = null;
       hoverLatestRef.current = null;
       hoverLastCommitRef.current = null;
@@ -7356,15 +7685,20 @@ export default function CREPDashboardPage({
     if (
       last &&
       last.key === next.key &&
-      now - last.ts < 70 &&
-      Math.abs(last.x - next.x) < 8 &&
-      Math.abs(last.y - next.y) < 8
+      now - last.ts < 180 &&
+      Math.abs(last.x - next.x) < 14 &&
+      Math.abs(last.y - next.y) < 14
     ) {
       return;
     }
 
     hoverLastCommitRef.current = { key: next.key, x: next.x, y: next.y, ts: now };
     setHoverAssetContext(next);
+    if (hoverIdleTimerRef.current) window.clearTimeout(hoverIdleTimerRef.current);
+    hoverIdleTimerRef.current = window.setTimeout(() => {
+      const latest = hoverLatestRef.current;
+      if (latest?.key === next.key) handleMapAssetHover(null);
+    }, 6500);
 
     if (hoverKeyRef.current !== next.key) {
       hoverKeyRef.current = next.key;
@@ -7397,6 +7731,7 @@ export default function CREPDashboardPage({
       }
       window.removeEventListener("crep:asset:hover", onHover);
       if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+      if (hoverIdleTimerRef.current) window.clearTimeout(hoverIdleTimerRef.current);
     };
   }, [handleMapAssetHover]);
 
@@ -7421,33 +7756,22 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
-    let pointerClearTimer: number | null = null;
     const clearHover = () => handleMapAssetHover(null);
-    const schedulePointerClear = (event: PointerEvent) => {
-      const latest = hoverLatestRef.current;
-      const last = hoverLastCommitRef.current;
-      if (!latest || !last) return;
-      const movedAway = Math.abs(event.clientX - last.x) > 34 || Math.abs(event.clientY - last.y) > 34;
-      if (!movedAway) return;
-      if (pointerClearTimer) window.clearTimeout(pointerClearTimer);
-      pointerClearTimer = window.setTimeout(() => {
-        pointerClearTimer = null;
-        const current = hoverLastCommitRef.current;
-        if (!current) return;
-        if (Math.abs(event.clientX - current.x) > 28 || Math.abs(event.clientY - current.y) > 28) {
-          clearHover();
-        }
-      }, 90);
-    };
     const onVisibility = () => {
       if (document.hidden) clearHover();
     };
-    window.addEventListener("pointermove", schedulePointerClear, true);
+    // Keep this out of the capture phase. The previous pointermove/capture
+    // cleanup fired during every map hover and zoom frame, which could flood
+    // React state updates while MapLibre was also doing feature picking.
+    window.addEventListener("pointerdown", clearHover, { passive: true });
+    window.addEventListener("click", clearHover, { passive: true });
+    window.addEventListener("wheel", clearHover, { passive: true });
     window.addEventListener("blur", clearHover);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      if (pointerClearTimer) window.clearTimeout(pointerClearTimer);
-      window.removeEventListener("pointermove", schedulePointerClear, true);
+      window.removeEventListener("pointerdown", clearHover);
+      window.removeEventListener("click", clearHover);
+      window.removeEventListener("wheel", clearHover);
       window.removeEventListener("blur", clearHover);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -7527,6 +7851,7 @@ export default function CREPDashboardPage({
   const [newNatureIds, setNewNatureIds] = useState<Set<string>>(new Set());
   // Timestamp when deck.gl entity was clicked - used to avoid map click-away dismissing the popup
   const lastEntityPickTimeRef = useRef(0);
+  const lastFungalMarkerPickRef = useRef<{ id: string; at: number }>({ id: "", at: 0 });
 
   // Streaming state â€” Earth Simulator staged boot enables live layers at refresh.
   const [isStreaming, setIsStreaming] = useState(() => {
@@ -7552,6 +7877,7 @@ export default function CREPDashboardPage({
   });
   const earthStartupForceAppliedRef = useRef(false);
   const fungalAtlasUserControlRef = useRef(false);
+  const groundFilterUserControlRef = useRef(false);
   const fungalAtlasDesiredRef = useRef({
     showAm: false,
     showEcm: true,
@@ -7670,12 +7996,14 @@ export default function CREPDashboardPage({
   /** Bumped when the map settles so viewport nature fetch runs after pan/zoom (bounds may not change again). */
   const [viewportNatureFetchNonce, setViewportNatureFetchNonce] = useState(0);
   const lastViewportNatureFetchRequestAtRef = useRef(0);
+  const lastViewportNatureFetchRunAtRef = useRef(0);
   const forceViewportNatureFetchRef = useRef(false);
   const pendingViewportNatureFetchTimerRef = useRef<number | null>(null);
   const pendingNatureFetchKingdomRef = useRef<string | null>(null);
   const pendingNatureFetchKingdomQueueRef = useRef<string[]>([]);
   const lastUrgentNatureFetchAtRef = useRef(0);
   const mapInteractionClearTimerRef = useRef<number | null>(null);
+  const mapInteractionStartedAtRef = useRef(0);
   const earthNatureBootPreloadStartedRef = useRef(false);
   const earthInstantNaturePaintCompleteRef = useRef<string | null>(null);
   const earthInstantNaturePaintInFlightRef = useRef<string | null>(null);
@@ -7788,6 +8116,46 @@ export default function CREPDashboardPage({
   useEffect(() => {
     const map = mapRef;
     if (!map) return;
+    const clearMapInteractionState = (reason: string) => {
+      if (mapInteractionClearTimerRef.current != null) {
+        window.clearTimeout(mapInteractionClearTimerRef.current);
+        mapInteractionClearTimerRef.current = null;
+      }
+      mapInteractionActiveRef.current = false;
+      mapInteractionStartedAtRef.current = 0;
+      startTransition(() => {
+        setIsGlobeMarkerListFrozen(false);
+        setIsMapAnimationActive(false);
+        setLiveMarkerBounds(null);
+      });
+      try {
+        (window as any).__crep_map_interaction_state = {
+          active: false,
+          reason,
+          at: Date.now(),
+        };
+      } catch {
+        /* ignore */
+      }
+    };
+    const scheduleMapInteractionClear = (delayMs = 350) => {
+      if (mapInteractionClearTimerRef.current != null) {
+        window.clearTimeout(mapInteractionClearTimerRef.current);
+      }
+      mapInteractionClearTimerRef.current = window.setTimeout(() => {
+        mapInteractionClearTimerRef.current = null;
+        const moving = typeof map.isMoving === "function" && map.isMoving();
+        const elapsed = mapInteractionStartedAtRef.current > 0
+          ? Date.now() - mapInteractionStartedAtRef.current
+          : 0;
+        if (moving && elapsed < 8_000) {
+          scheduleMapInteractionClear(500);
+          return;
+        }
+        clearMapInteractionState(moving ? "forced-timeout" : "settled-timer");
+        requestViewportNatureFetch();
+      }, delayMs);
+    };
     const onMoveStart = () => {
       if (mapInteractionActiveRef.current) return;
       if (mapInteractionClearTimerRef.current != null) {
@@ -7809,50 +8177,36 @@ export default function CREPDashboardPage({
         visibleEventsStableRef.current = { idKey, events: eventSnapshot };
       }
       mapInteractionActiveRef.current = true;
+      mapInteractionStartedAtRef.current = Date.now();
+      try {
+        (window as any).__crep_map_interaction_state = {
+          active: true,
+          reason: "start",
+          at: mapInteractionStartedAtRef.current,
+        };
+      } catch {
+        /* ignore */
+      }
       // Freeze list membership during camera movement, but keep the update
       // non-urgent so panel clicks/taps are never queued behind map motion.
       startTransition(() => {
         setIsMapAnimationActive(true);
         if (isGlobeCrepMapRoute) setIsGlobeMarkerListFrozen(true);
       });
-      mapInteractionClearTimerRef.current = window.setTimeout(() => {
-        mapInteractionClearTimerRef.current = null;
-        if (typeof map.isMoving === "function" && map.isMoving()) return;
-        mapInteractionActiveRef.current = false;
-        startTransition(() => {
-          setIsGlobeMarkerListFrozen(false);
-          setIsMapAnimationActive(false);
-          setLiveMarkerBounds(null);
-        });
-        requestViewportNatureFetch();
-      }, 1800);
+      scheduleMapInteractionClear(1800);
     };
     const onMoveEnd = () => {
       if (!mapInteractionActiveRef.current) return;
-      if (typeof map.isMoving === "function" && map.isMoving()) return;
-      if (mapInteractionClearTimerRef.current != null) {
-        window.clearTimeout(mapInteractionClearTimerRef.current);
-        mapInteractionClearTimerRef.current = null;
+      if (typeof map.isMoving === "function" && map.isMoving()) {
+        scheduleMapInteractionClear(300);
+        return;
       }
-      mapInteractionActiveRef.current = false;
-      startTransition(() => {
-        setIsGlobeMarkerListFrozen(false);
-        setIsMapAnimationActive(false);
-      });
+      clearMapInteractionState("moveend");
       requestViewportNatureFetch();
       try { window.dispatchEvent(new CustomEvent("crep:mover-pump-request")); } catch {}
     };
     const onIdle = () => {
-      if (mapInteractionClearTimerRef.current != null) {
-        window.clearTimeout(mapInteractionClearTimerRef.current);
-        mapInteractionClearTimerRef.current = null;
-      }
-      mapInteractionActiveRef.current = false;
-      startTransition(() => {
-        setIsGlobeMarkerListFrozen(false);
-        setIsMapAnimationActive(false);
-        setLiveMarkerBounds(null);
-      });
+      clearMapInteractionState("idle");
       // MapLibre can emit idle repeatedly while tiles/symbol placement churn.
       // moveend/zoomend already request the settled viewport refresh; letting
       // idle do it too caused phone/tablet main-thread starvation.
@@ -7879,6 +8233,7 @@ export default function CREPDashboardPage({
         mapInteractionClearTimerRef.current = null;
       }
       mapInteractionActiveRef.current = false;
+      mapInteractionStartedAtRef.current = 0;
       startTransition(() => {
         setIsGlobeMarkerListFrozen(false);
         setIsMapAnimationActive(false);
@@ -9157,6 +9512,10 @@ export default function CREPDashboardPage({
     if (!isEarthSimulatorPath()) return;
     if (earthStartupForceAppliedRef.current) return;
     const forceStartupLayers = () => {
+      if (groundFilterUserControlRef.current) {
+        earthStartupForceAppliedRef.current = true;
+        return;
+      }
       if (fungalAtlasUserControlRef.current) {
         earthStartupForceAppliedRef.current = true;
         return;
@@ -10123,7 +10482,16 @@ export default function CREPDashboardPage({
     if (assetIsolationMode) return;
     if (auditAllOffMode) return;
     if (!canFetchNatureObservations) return;
-    const BAKED_REGIONS = ["sdtj", "la", "sf", "peninsula", "nyc", "dc", "vegas"] as const;
+    const regionsInView = isEarthSimulatorRoute
+      ? BAKED_INAT_REGIONS.filter((region) =>
+        boundsIntersectBbox(mapBounds, BAKED_INAT_REGION_BBOX[region], region === "sdtj" ? 0.12 : 0.08),
+      )
+      : [...BAKED_INAT_REGIONS];
+    const regionsToLoad = regionsInView.filter((region) => (
+      !loadedBakedInatRegionsRef.current.has(region) &&
+      !loadingBakedInatRegionsRef.current.has(region)
+    ));
+    if (regionsToLoad.length === 0) return;
     const BAKED_INAT_VERSION = "20260527-bayarea";
     let cancelled = false;
     const waitForBakedPreloadSlot = () =>
@@ -10147,10 +10515,11 @@ export default function CREPDashboardPage({
         window.setTimeout(settle, 100);
       });
     (async () => {
-      for (let regionIndex = 0; regionIndex < BAKED_REGIONS.length; regionIndex += 1) {
+      for (let regionIndex = 0; regionIndex < regionsToLoad.length; regionIndex += 1) {
         if (regionIndex > 0) await waitForBakedPreloadSlot();
-        const region = BAKED_REGIONS[regionIndex];
+        const region = regionsToLoad[regionIndex];
         if (cancelled) return;
+        loadingBakedInatRegionsRef.current.add(region);
         try {
           const res = await fetch(`/data/crep/${region}-inat.geojson?v=${BAKED_INAT_VERSION}`, { cache: "force-cache" });
           if (!res.ok) { console.log(`[CREP/iNat-baked] ${region} missing`); continue; }
@@ -10206,18 +10575,32 @@ export default function CREPDashboardPage({
             added++;
           }
           pruneStoreByRank(store, EARTH_SIM_NATURE_STORE_CAP, observationResourceRank, null, new Set());
-          if (!cancelled && (regionIndex === 0 || region === "sf" || region === "peninsula" || regionIndex === BAKED_REGIONS.length - 1)) {
+          loadedBakedInatRegionsRef.current.add(region);
+          if (!cancelled) {
             const snapshot = Array.from(store.values());
             startTransition(() => setFungalObservations(snapshot));
           }
           console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations â†’ merged into fungalObservations (total now ${store.size})`);
         } catch (e) {
           if (!cancelled) console.warn(`[CREP/iNat-baked] ${region} failed:`, (e as Error)?.message);
+        } finally {
+          if (!loadedBakedInatRegionsRef.current.has(region)) {
+            loadingBakedInatRegionsRef.current.delete(region);
+          }
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [canFetchNatureObservations, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute]); // mount only when search-controlled nature layers are enabled
+  }, [
+    canFetchNatureObservations,
+    assetIsolationMode,
+    auditAllOffMode,
+    isEarthSimulatorRoute,
+    mapBounds?.north,
+    mapBounds?.south,
+    mapBounds?.east,
+    mapBounds?.west,
+  ]); // load baked regions only when they intersect the active viewport
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LIVE NATURE STREAM (SSE) â€” dots pop onto the map as iNat publishes them
@@ -10506,8 +10889,10 @@ export default function CREPDashboardPage({
     if (clampedEast <= clampedWest) return;
     if (isEarthSimulatorRoute && !forceNatureFetch) {
       const now = Date.now();
-      if (now - lastViewportNatureFetchRequestAtRef.current < 3_500) return;
-      lastViewportNatureFetchRequestAtRef.current = now;
+      if (now - lastViewportNatureFetchRunAtRef.current < 3_500) return;
+      lastViewportNatureFetchRunAtRef.current = now;
+    } else if (isEarthSimulatorRoute) {
+      lastViewportNatureFetchRunAtRef.current = Date.now();
     }
 
     // Apr 19, 2026 (Morgan: "massive 3005+m observations of nature are
@@ -10621,13 +11006,6 @@ export default function CREPDashboardPage({
           ?? null;
         pendingNatureFetchKingdomRef.current = null;
         const requestedKingdom = pendingKingdom ?? natureKingdomApiParam(natureObservationFilter);
-        if (
-          isEarthSimulatorRoute &&
-          pendingKingdom &&
-          pendingNatureFetchKingdomQueueRef.current.length > 0
-        ) {
-          window.setTimeout(() => requestViewportNatureFetch(true), 900);
-        }
         const q = new URLSearchParams({
           quick: opts.quick ? "true" : "false",
           fallbackLive: cityViewport ? "true" : "false",
@@ -10656,6 +11034,13 @@ export default function CREPDashboardPage({
         if ((e as Error).name !== "AbortError") console.warn("[CREP] Bounds fungal fetch failed:", e);
       } finally {
         if (opts.showLoading) setFungalLoading(false);
+        if (
+          isEarthSimulatorRoute &&
+          !ctrl.signal.aborted &&
+          pendingNatureFetchKingdomQueueRef.current.length > 0
+        ) {
+          window.setTimeout(() => requestViewportNatureFetch(true), 250);
+        }
       }
     };
 
@@ -12106,16 +12491,12 @@ export default function CREPDashboardPage({
             return species === fungalSpeciesFilter;
           })
         : kingdomFiltered;
+      if (!markerBounds) {
+        const cached = visibleFungalObservationsStableRef.current;
+        if (cached.list.length > 0) return cached.list;
+        return stabilizeNatureResult([]);
+      }
       const inViewport = (() => {
-        if (!markerBounds) {
-          const { south, north, west, east } = EARTH_SIM_US_BBOX;
-          return speciesFiltered.filter((obs) => {
-            const lat = Number(obs.latitude);
-            const lng = Number(obs.longitude);
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-            return lat >= south && lat <= north && lng >= west && lng <= east;
-          });
-        }
         const latSpan = Math.abs(markerBounds.north - markerBounds.south);
         const lngSpan = markerBounds.west <= markerBounds.east
           ? Math.abs(markerBounds.east - markerBounds.west)
@@ -12474,8 +12855,9 @@ export default function CREPDashboardPage({
   }, [earthStrictPerfMode, layers, mapZoom, markerBounds, natureFiltersEnabled, natureSpeciesFiltersActive]);
 
   // May 23 2026 regression lock (docs/codex-handoffs/2026-05-23-earth-simulator-handoff.md):
-  // NEVER unmount Event/Nature DOM markers during pan â€” update positions only (map.tsx batch sync).
+  // NEVER unmount Event/Nature DOM markers during pan - update positions only (map.tsx batch sync).
   const shouldRenderDomMarkers = true;
+  const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const shouldRenderHeavyOverlays = !(earthStrictPerfMode && isMapAnimationActive);
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
@@ -12494,11 +12876,19 @@ export default function CREPDashboardPage({
       return;
     }
 
-    // Toggle selection
-    if (selectedFungal?.id === obs.id) {
-      setSelectedFungal(null);
+    const now = Date.now();
+    const obsId = String(obs.id);
+    lastEntityPickTimeRef.current = now;
+
+    // Marker clicks can arrive twice on the native MapLibre + React portal path
+    // during zoom/selection. A marker click should never immediately dismiss
+    // the popup; explicit close/canvas click handles dismissal.
+    if (String(selectedFungal?.id ?? "") === obsId) {
+      lastFungalMarkerPickRef.current = { id: obsId, at: now };
       return;
     }
+
+    lastFungalMarkerPickRef.current = { id: obsId, at: now };
 
     // Select the new observation
     setSelectedFungal(obs);
@@ -12796,8 +13186,11 @@ export default function CREPDashboardPage({
             : eventDomCap,
         ),
       );
+      if (!markerBounds) {
+        const cached = visibleEventsStableRef.current;
+        return cached.events.length > 0 ? cached.events : [];
+      }
       const inViewport = (() => {
-        if (!markerBounds) return coordinateReadyEvents;
         const latSpan = Math.abs(markerBounds.north - markerBounds.south);
         const lngSpan = markerBounds.west <= markerBounds.east
           ? Math.abs(markerBounds.east - markerBounds.west)
@@ -13022,10 +13415,11 @@ export default function CREPDashboardPage({
     return () => window.clearTimeout(timer);
   }, [isEarthSimulatorRoute]);
   const canRenderEarthProjectDetails = !isEarthSimulatorRoute || (earthProjectDetailsReady && !isMapAnimationActive);
-  const earthOverlayAssetsReady = !isEarthSimulatorRoute || (mycaAssetsReady && !isMapAnimationActive);
+  const earthOverlayAssetsReady = !isEarthSimulatorRoute || !assetIsolationMode;
+  const eagleEyeAssetsReady = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const oysterProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, OYSTER_PROJECT_BBOX, 0.12);
   const mojaveProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, MOJAVE_PROJECT_BBOX, 0.3);
-  const viewportEaglePrefetch = useViewportEaglePrefetch(mapBounds, mapZoom, mycaAssetsReady, 12);
+  const viewportEaglePrefetch = useViewportEaglePrefetch(mapBounds, mapZoom, eagleEyeAssetsReady, 12);
   const viewportSensorPrefetch = useViewportSensorPrefetch(mapBounds, mapZoom, mycaAssetsReady, 8);
   const mycaSelectedContext = useMemo(() => {
     if (selectedEvent) {
@@ -14759,36 +15153,46 @@ export default function CREPDashboardPage({
 
     if (!mycoEnabled || enabledTypes.size === 0) return;
 
-    const fetchAndPaint = async () => {
-      try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(12_000), cache: "no-store" });
-        if (!res.ok) return;
-        const j = await res.json();
-        const devices: any[] = j.devices || j.data || [];
-        if (typeof window !== "undefined") (window as any).__crep_mycosoft_devices = devices;
-        const features = devices
-          .filter((d) => {
-            const id = String(d.id || "");
-            const registryId = String(d.registry_id || d.registryId || d.device_id || "");
-            return (id === "mushroom-1" || id === "hyphae-1" || registryId === "mycobrain-mushroom1-jetson-123" || registryId === "mycobrain-hyphae1-jetson-228");
-          })
+    try {
+      if (typeof window !== "undefined") (window as any).__crep_mycosoft_devices = devices;
+      const features = (devices as any[])
           .map((d) => {
+            const registryId = String(d.registry_id || d.registryId || d.device_id || d.id || "");
+            const id = String(d.id || "");
+            const isPsathyrella = registryId === PSATHYRELLA_COM4_REGISTRY_ID ||
+              id === PSATHYRELLA_COM4_ID ||
+              id === "bench-com4";
             const telemetry = d.telemetry || d.sensor_data || d.extra?.latest_telemetry || {};
+            const deviceType = (isPsathyrella
+              ? "psathyrella"
+              : d.role || d.device_role || d.device_type || d.type || "mycobrain").toLowerCase();
+            const lat = Number(isPsathyrella
+              ? PSATHYRELLA_COM4_LOCATION.lat
+              : d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude);
+            const lng = Number(isPsathyrella
+              ? PSATHYRELLA_COM4_LOCATION.lng
+              : d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude);
             return {
               ...d,
-              registryId: d.registry_id || d.registryId || d.device_id || d.id,
-              lat: Number(d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude),
-              lng: Number(d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude),
+              id: isPsathyrella ? PSATHYRELLA_COM4_ID : d.id,
+              name: isPsathyrella ? "Psathyrella Aquatic MycoBrain Buoy" : d.name,
+              registryId,
+              deviceType,
+              lat,
+              lng,
+              location_label: isPsathyrella ? PSATHYRELLA_COM4_LOCATION_LABEL : d.location_label,
+              page_href: isPsathyrella ? "/natureos/mycobrain?device=mycobrain-COM4" : d.page_href,
               telemetry,
             };
           })
+          .filter((d) => enabledTypes.has(d.deviceType))
           .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng))
           .map((d) => ({
             type: "Feature" as const,
             properties: {
               id: d.id,
               registry_id: d.registryId,
-              device_type: (d.role || d.device_role || d.device_type || d.type || "mycobrain").toLowerCase(),
+              device_type: d.deviceType,
               name: d.name,
               status: d.status === "connected" ? "online" : d.status,
               mycobrain_id: d.registryId,
@@ -14797,28 +15201,35 @@ export default function CREPDashboardPage({
               host: d.host,
               agent_url: d.agent_url,
               page_href: d.page_href,
+              location_label: d.location_label,
               source: d.source,
+              raw: clampDeviceRawTelemetry(d.telemetry?.raw),
               temperature_c: d.telemetry?.temperature_c,
               humidity_pct: d.telemetry?.humidity_pct,
               pressure_hpa: d.telemetry?.pressure_hpa,
               iaq: d.telemetry?.iaq,
               eco2_ppm: d.telemetry?.eco2_ppm,
+              bvoc_ppm: d.telemetry?.bvoc_ppm,
               gas_resistance_ohm: d.telemetry?.gas_resistance_ohm,
+              bme_b_temperature_c: d.telemetry?.bme_b_temperature_c,
+              bme_b_humidity_pct: d.telemetry?.bme_b_humidity_pct,
+              bme_b_pressure_hpa: d.telemetry?.bme_b_pressure_hpa,
+              bme_b_iaq: d.telemetry?.bme_b_iaq,
+              bme_b_eco2_ppm: d.telemetry?.bme_b_eco2_ppm,
+              bme_b_bvoc_ppm: d.telemetry?.bme_b_bvoc_ppm,
+              wave_height_m: d.telemetry?.wave_height_m,
+              water_temperature_c: d.telemetry?.water_temperature_c,
+              wave_period_s: d.telemetry?.wave_period_s,
+              hydrophone_low: d.telemetry?.hydrophone_low,
+              hydrophone_high: d.telemetry?.hydrophone_high,
+              transducer: d.telemetry?.transducer,
             },
             geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
           }));
-        const src = map.getSource?.("crep-mycosoft-devices") as any;
-        if (src?.setData) src.setData({ type: "FeatureCollection", features });
+      const src = map.getSource?.("crep-mycosoft-devices") as any;
+      if (src?.setData) src.setData({ type: "FeatureCollection", features });
       } catch { /* ignore â€” endpoint may not exist yet */ }
-    };
-    fetchAndPaint();
-    // Apr 20, 2026 perf-3: skip when document.hidden.
-    const poll = setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) return
-      fetchAndPaint()
-    }, 30_000)
-    return () => clearInterval(poll);
-  }, [auditAllOffMode, assetIsolationMode, layers, isEmbeddedEarthquakeSearch]);
+  }, [auditAllOffMode, assetIsolationMode, layers, isEmbeddedEarthquakeSearch, devices]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // PER-LAYER VISIBILITY SYNC (Apr 19, 2026)
@@ -15103,6 +15514,7 @@ export default function CREPDashboardPage({
     return layerById.get("fungalAtlasMycelium")?.opacity ?? 0.72;
   }, [fungalAtlasLayerState, layerById]);
   const toggleGroundFilterKey = useCallback((key: keyof GroundFilter) => {
+    groundFilterUserControlRef.current = true;
     setAuditAllOffMode(false);
     mapInteractionActiveRef.current = false;
     setIsMapAnimationActive(false);
@@ -15127,13 +15539,17 @@ export default function CREPDashboardPage({
       if (willEnableNatureBucket) {
         forceViewportNatureFetchRef.current = true;
         if (typeof window !== "undefined") {
-          if (pendingViewportNatureFetchTimerRef.current == null) {
-            pendingViewportNatureFetchTimerRef.current = window.setTimeout(() => {
-              pendingViewportNatureFetchTimerRef.current = null;
-              requestViewportNatureFetch(true);
-            }, 200);
+          if (pendingViewportNatureFetchTimerRef.current != null) {
+            window.clearTimeout(pendingViewportNatureFetchTimerRef.current);
+            pendingViewportNatureFetchTimerRef.current = null;
           }
+          pendingViewportNatureFetchTimerRef.current = window.setTimeout(() => {
+            pendingViewportNatureFetchTimerRef.current = null;
+            requestViewportNatureFetch(true);
+          }, 200);
         }
+      } else {
+        requestViewportNatureFetch(true);
       }
     } else {
       requestViewportNatureFetch();
@@ -16562,9 +16978,11 @@ export default function CREPDashboardPage({
               visibility: hidden !important;
               opacity: 0 !important;
             }
-            /* Ensure species/fungal markers receive clicks above deck.gl overlay canvas */
+            /* Keep DOM markers above the map canvas, but below CREP panels.
+               A z-index in the thousands lets markers bleed over Eagle Eye,
+               MYCA, and Intel Feed controls and steal their clicks. */
             .crep-map-container .maplibregl-marker-container {
-              z-index: 9999 !important;
+              z-index: 20 !important;
               pointer-events: auto !important;
             }
             .crep-map-container .maplibregl-marker {
@@ -16785,6 +17203,16 @@ export default function CREPDashboardPage({
 
               const emptyFC = { type: "FeatureCollection" as const, features: [] as any[] };
               let nativeHoverHighlightKey: string | null = null;
+              let nativeHoverEmitKey: string | null = null;
+              let nativeHoverEmitAt = 0;
+              const DEFAULT_NATIVE_HOVER_INTERVAL_MS = 350;
+              const isNativeMapInteracting = () => {
+                try {
+                  return Boolean(map.isMoving?.() || map.isZooming?.() || map.isRotating?.());
+                } catch {
+                  return false;
+                }
+              };
               const emitMapFeatureHover = (
                 e: any,
                 options: {
@@ -16793,9 +17221,15 @@ export default function CREPDashboardPage({
                   detailKeys?: string[];
                   idKeys?: string[];
                   sourceKeys?: string[];
+                  minZoom?: number;
+                  hoverIntervalMs?: number;
                   detail?: (props: Record<string, any>) => string;
                 },
               ) => {
+                if (isNativeMapInteracting()) {
+                  try { map.getCanvas().style.cursor = ""; } catch { /* map may be tearing down */ }
+                  return;
+                }
                 const feature = e?.features?.[0];
                 if (!feature) return;
                 const props = feature.properties || {};
@@ -16812,6 +17246,19 @@ export default function CREPDashboardPage({
                     : undefined);
                 const coords = e.lngLat;
                 const hoverKey = `${options.type}:${id || label}`;
+                const zoom = typeof map.getZoom === "function" ? map.getZoom() : 0;
+                if (options.minZoom != null && zoom < options.minZoom) {
+                  try { map.getCanvas().style.cursor = "pointer"; } catch { /* map may be tearing down */ }
+                  return;
+                }
+                const now = Date.now();
+                const minInterval = options.hoverIntervalMs ?? DEFAULT_NATIVE_HOVER_INTERVAL_MS;
+                if (nativeHoverEmitKey === hoverKey && now - nativeHoverEmitAt < minInterval) {
+                  try { map.getCanvas().style.cursor = "pointer"; } catch { /* map may be tearing down */ }
+                  return;
+                }
+                nativeHoverEmitKey = hoverKey;
+                nativeHoverEmitAt = now;
                 if (nativeHoverHighlightKey !== hoverKey) {
                   nativeHoverHighlightKey = hoverKey;
                   try { highlightFromEvent(map, e); } catch { /* hover highlight is best effort */ }
@@ -16832,6 +17279,8 @@ export default function CREPDashboardPage({
               };
               const clearMapFeatureHover = () => {
                 nativeHoverHighlightKey = null;
+                nativeHoverEmitKey = null;
+                nativeHoverEmitAt = 0;
                 handleMapAssetHover(null);
                 try { map.getCanvas().style.cursor = ""; } catch { /* map may be tearing down */ }
               };
@@ -17748,6 +18197,8 @@ export default function CREPDashboardPage({
                     type: "submarine cable",
                     labelKeys: ["name", "cable_id", "id"],
                     detailKeys: ["status", "owners", "length_km"],
+                    minZoom: 5,
+                    hoverIntervalMs: 650,
                   });
                   // Apr 19, 2026 (Morgan: "sea cables only highlight part
                   // seen in viewport not entire cable"). Register the full
@@ -19424,7 +19875,7 @@ export default function CREPDashboardPage({
                     permanentInfraStarted = true;
                     loadPermanentInfra();
                   };
-                  window.setTimeout(startPermanentInfraWhenIdle, EARTH_SIM_ASSET_READY_DELAY_MS);
+                  window.setTimeout(startPermanentInfraWhenIdle, EARTH_SIM_INFRA_READY_DELAY_MS);
                 } else {
                   loadPermanentInfra();
                 }
@@ -19766,15 +20217,17 @@ export default function CREPDashboardPage({
                 }
                 // 300ms delay: deck.gl onClick runs async; wait so it can set lastEntityPickTimeRef first
                 setTimeout(() => {
-                  // If we just picked a deck.gl entity (<400ms ago), do NOT dismiss
-                  if (Date.now() - lastEntityPickTimeRef.current < 400) return;
+                  // If we just picked a deck.gl/DOM entity, do NOT dismiss.
+                  // MapLibre can dispatch the canvas click after marker selection
+                  // when the popup is mounting under heavy Earth Simulator layers.
+                  if (Date.now() - lastEntityPickTimeRef.current < 900) return;
                   // If we just clicked a DOM MapMarker, do NOT dismiss. Marker selection
                   // and popup mount can lag behind MapLibre's canvas click event.
                   const lastMarkerClick =
                     typeof window !== "undefined"
                       ? Number((window as any).__last_map_marker_click || 0)
                       : 0;
-                  if (Date.now() - lastMarkerClick < 450) return;
+                  if (Date.now() - lastMarkerClick < 900) return;
                   const target = e.originalEvent?.target as HTMLElement | null;
                   const isOnMarker = target?.closest('[data-marker]') !== null ||
                                      target?.closest('.maplibregl-marker') !== null;
@@ -20002,7 +20455,7 @@ export default function CREPDashboardPage({
                   event={event}
                   isSelected={selectedEvent?.id === event.id}
                   isNew={newEventIds.has(event.id)}
-                  onClick={() => handleSelectEvent(selectedEvent?.id === event.id ? null : event)}
+                  onClick={() => handleSelectEvent(event)}
                   onDoubleClick={() => handleSelectEvent(event, true)}
                   onClose={() => handleSelectEvent(null)}
                   onHover={handleEventHover}
@@ -20030,7 +20483,7 @@ export default function CREPDashboardPage({
                   event={selectedEvent}
                   isSelected={true}
                   isNew={newEventIds.has(selectedEvent.id)}
-                  onClick={() => handleSelectEvent(null)}
+                  onClick={() => handleSelectEvent(selectedEvent)}
                   onDoubleClick={() => handleSelectEvent(selectedEvent, true)}
                   onClose={() => handleSelectEvent(null)}
                   onHover={handleEventHover}
@@ -20045,7 +20498,7 @@ export default function CREPDashboardPage({
               )}
 
             {/* Device Markers - deduplicated; hide devices with no valid position (0,0 = ocean) */}
-            {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && shouldRenderDomMarkers && layers.find(l => l.id === "mycobrain")?.enabled && (() => {
+            {shouldRenderDeviceDomMarkers && layers.find(l => l.id === "mycobrain")?.enabled && (() => {
               const seen = new Set<string>();
               return devices.filter(device => {
                 if (seen.has(device.id)) return false;
@@ -20060,7 +20513,24 @@ export default function CREPDashboardPage({
                   key={device.id}
                   device={device}
                   isSelected={selectedDevice?.id === device.id}
-                  onClick={() => setSelectedDevice(selectedDevice?.id === device.id ? null : device)}
+                  onClick={() => setSelectedDevice((previousDevice) => {
+                    handleMapAssetHover(null);
+                    const nextDevice = previousDevice?.id === device.id ? previousDevice : device;
+                    if (typeof window !== "undefined") {
+                      (window as any).__crep_device_marker_click = {
+                        at: Date.now(),
+                        id: device.id,
+                        previousId: previousDevice?.id ?? null,
+                        nextId: nextDevice?.id ?? null,
+                      };
+                    }
+                    return nextDevice;
+                  })}
+                  onClose={() => {
+                    handleMapAssetHover(null);
+                    setSelectedDevice(null);
+                  }}
+                  onHover={handleMapAssetHover}
                 />
               ));
             })()}
@@ -20074,7 +20544,7 @@ export default function CREPDashboardPage({
                 key={`fungal-${obs.id}`}
                 observation={obs}
                 isSelected={selectedFungal?.id === obs.id}
-                onClick={() => handleSelectFungal(selectedFungal?.id === obs.id ? null : obs)}
+                onClick={() => handleSelectFungal(obs)}
                 onClose={() => handleSelectFungal(null)}
                 onHover={handleFungalHover}
               />
@@ -20096,7 +20566,7 @@ export default function CREPDashboardPage({
                   key={`fungal-selected-${selectedFungal.id}`}
                   observation={selectedFungal}
                   isSelected={true}
-                  onClick={() => handleSelectFungal(null)}
+                  onClick={() => handleSelectFungal(selectedFungal)}
                   onClose={() => handleSelectFungal(null)}
                   onHover={handleFungalHover}
                 />
@@ -20286,6 +20756,17 @@ export default function CREPDashboardPage({
             ))}
           </MapComponent>
 
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && selectedDevice && !shouldRenderDeviceDomMarkers && (
+            <DeviceWidget
+              device={selectedDevice as any}
+              onClose={() => {
+                handleMapAssetHover(null);
+                setSelectedDevice(null);
+              }}
+              onControl={sendSelectedDeviceControl}
+            />
+          )}
+
           {/* Signal Coverage Heatmap */}
           {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? true) && <SignalHeatmapLayer
             map={mapRef}
@@ -20373,7 +20854,7 @@ export default function CREPDashboardPage({
               /api/eagle/events, /api/eagle/stream, + YouTube Live geo
               search connector. See components/crep/layers/eagle-eye-overlay.tsx.
               Phases 2-9 queued per docs/EAGLE_EYE_PLAN.md. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && earthOverlayAssetsReady && hasEnabledLayer(layers, EAGLE_EYE_LAYER_IDS) && <EagleEyeOverlay
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && hasEnabledLayer(layers, EAGLE_EYE_LAYER_IDS) && <EagleEyeOverlay
             map={mapRef}
             enabled={{
               eagleEyeCameras:      layers.find(l => l.id === "eagleEyeCameras")?.enabled ?? false,
@@ -20476,7 +20957,7 @@ export default function CREPDashboardPage({
               new sub-layer click handlers. Shows project thesis metadata
               (owner: Morgan MYCODAO), UCSD PFM / Scripps / NASA EMIT
               deep-links, and category-color-coded glass panels. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <OysterSiteWidget />}
+          <OysterSiteWidget />
 
           {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) â€”
               Apr 21, 2026. NPS MOJA boundary + Goffs anchor marker +
@@ -20633,14 +21114,25 @@ export default function CREPDashboardPage({
             // Click-away scrim (see infra widget above for rationale).
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto"
-              onClick={() => setSelectedPlant(null)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation?.();
+                setSelectedPlant(null);
+              }}
               onKeyDown={(e) => { if (e.key === "Escape") setSelectedPlant(null) }}
               role="dialog"
               tabIndex={-1}
             >
               <div
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation?.();
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation?.();
+                }}
               >
                 <PlantPopup
                   plant={selectedPlant}
@@ -20667,14 +21159,26 @@ export default function CREPDashboardPage({
             // stopPropagation on the inner container.
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto"
-              onClick={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation?.();
+                setSelectedInfraAsset(null);
+                clearHighlight(mapRef);
+              }}
               onKeyDown={(e) => { if (e.key === "Escape") { setSelectedInfraAsset(null); clearHighlight(mapRef); } }}
               role="dialog"
               tabIndex={-1}
             >
               <div
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation?.();
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation?.();
+                }}
               >
                 <InfraDetailWidget
                   asset={selectedInfraAsset}

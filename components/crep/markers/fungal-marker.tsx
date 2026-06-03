@@ -152,13 +152,14 @@ function getKingdomStyle(kingdom?: string, iconicTaxon?: string) {
 
 // Memoized component to prevent unnecessary re-renders when parent updates
 export const FungalMarker = memo(function FungalMarkerInner({ observation, isSelected = false, onClick, onClose, onHover }: FungalMarkerProps) {
+  const markerLatitude = Number(observation.latitude);
+  const markerLongitude = Number(observation.longitude);
+
   // Guard: Ensure coordinates are valid
   if (
-    typeof observation.latitude !== 'number' ||
-    typeof observation.longitude !== 'number' ||
-    isNaN(observation.latitude) ||
-    isNaN(observation.longitude) ||
-    (observation.latitude === 0 && observation.longitude === 0)
+    !Number.isFinite(markerLatitude) ||
+    !Number.isFinite(markerLongitude) ||
+    (markerLatitude === 0 && markerLongitude === 0)
   ) {
     return null;
   }
@@ -180,9 +181,9 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
   const KingdomIcon = kingdomStyle.Icon;
 
   return (
-    <MapMarker 
-      longitude={observation.longitude} 
-      latitude={observation.latitude} 
+    <MapMarker
+      longitude={markerLongitude}
+      latitude={markerLatitude}
       offset={[0, -7]}
       onClick={() => onClick?.()}
     >

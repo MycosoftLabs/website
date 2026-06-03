@@ -97,6 +97,8 @@ export function SmellDetectionWidget({
   const [smellHistory, setSmellHistory] = useState<DetectedSmell[]>([])
   const [loading, setLoading] = useState(false)
   const lastClassRef = useRef<number>(-1)
+  const lastFetchKeyRef = useRef<string>("")
+  const lastFetchAtRef = useRef<number>(0)
   
   // Cache the last known sensor mode to prevent blinking
   const lastSensorModeRef = useRef<string>("adafruit")
@@ -142,6 +144,21 @@ export function SmellDetectionWidget({
       }
       return
     }
+
+    const estimatesKey = gasEstimates.length > 0
+      ? gasEstimates.map((value) => Number(value).toFixed(2)).join(",")
+      : "none"
+    const fetchKey = [
+      derivedGasClass,
+      Math.round(derivedProbability * 20) / 20,
+      estimatesKey,
+    ].join(":")
+    const now = Date.now()
+    if (fetchKey === lastFetchKeyRef.current && now - lastFetchAtRef.current < 30000) {
+      return
+    }
+    lastFetchKeyRef.current = fetchKey
+    lastFetchAtRef.current = now
     
     try {
       setLoading(true)

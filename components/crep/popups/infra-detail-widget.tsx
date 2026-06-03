@@ -14,7 +14,7 @@
  * Positioned near the click point on the map, floats above the asset.
  */
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react"
 import {
   X, Cable, Zap, MapPin, Building2, Radio, Server,
   Calendar, Hash, ExternalLink, Globe, Signal,
@@ -311,6 +311,20 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
   const sourceBadge = getSourceBadge(asset.properties?.source)
   const vkv = asset.properties?.voltage_kv ? Number(asset.properties.voltage_kv) : 0
 
+  const stopWidgetEvent = useCallback((event: SyntheticEvent | Event) => {
+    event.stopPropagation?.()
+    ;(event as SyntheticEvent).nativeEvent?.stopImmediatePropagation?.()
+    ;(event as Event).stopImmediatePropagation?.()
+  }, [])
+
+  const handleClose = useCallback((event?: SyntheticEvent | Event) => {
+    if (event) {
+      event.preventDefault?.()
+      stopWidgetEvent(event)
+    }
+    onClose()
+  }, [onClose, stopWidgetEvent])
+
   // Apr 23, 2026 — Military enrichment (commander / branches / PAO /
   // tenants) for "military" and "military_installation" asset types.
   // Looks up in public/data/crep/military-bases-enrichment.geojson keyed
@@ -334,10 +348,10 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
 
   // Close on Escape
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(e) }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
+  }, [handleClose])
 
   // Subtitle based on type
   const subtitle = (() => {
@@ -382,6 +396,12 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
         accent,
         className
       )}
+      onPointerDown={stopWidgetEvent}
+      onPointerUp={stopWidgetEvent}
+      onMouseDown={stopWidgetEvent}
+      onMouseUp={stopWidgetEvent}
+      onClick={stopWidgetEvent}
+      onDoubleClick={stopWidgetEvent}
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-700/40 flex items-start justify-between gap-3">
@@ -400,8 +420,11 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
           )}
         </div>
         <button
-          onClick={onClose}
+          type="button"
+          onPointerDown={stopWidgetEvent}
+          onClick={handleClose}
           className="p-1 rounded hover:bg-gray-700/50 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+          aria-label="Close infrastructure details"
         >
           <X className="w-4 h-4" />
         </button>
@@ -582,7 +605,11 @@ export function InfraDetailWidget({ asset, onClose, onFlyTo, className }: InfraD
       {/* Location + Fly-to */}
       <div className="px-4 py-2.5">
         <button
-          onClick={() => onFlyTo?.(asset.lat, asset.lng, asset.type === "cable" ? 6 : 12)}
+          type="button"
+          onClick={(event) => {
+            stopWidgetEvent(event)
+            onFlyTo?.(asset.lat, asset.lng, asset.type === "cable" ? 6 : 12)
+          }}
           className="w-full flex items-center justify-between p-2 rounded bg-white/5 hover:bg-white/10 border border-gray-700/40 transition-colors group"
         >
           <div className="flex items-center gap-2">

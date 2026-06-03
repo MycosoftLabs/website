@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { evaluateGovernance } from "@/lib/services/avani-governance"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
 /**
  * POST /api/avani/evaluate
  *

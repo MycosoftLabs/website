@@ -68,6 +68,7 @@ const KNOWN_CAMERA_PROVIDERS = new Set([
   "unifi-protect",
   "static-seed",
   "public-webcam",
+  "ipcamlive",
 ])
 
 const INFO_ONLY_PROVIDERS = new Set([

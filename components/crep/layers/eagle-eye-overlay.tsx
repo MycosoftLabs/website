@@ -118,10 +118,11 @@ async function loadBakedCameraSeedSources() {
   if (bakedCameraSeedCache) return bakedCameraSeedCache
   if (bakedCameraSeedPromise) return bakedCameraSeedPromise
   bakedCameraSeedPromise = (async () => {
-    const [rReg, rSeed, rCaltransSd, rNycDc, rVegas, rDeploy] = await Promise.all([
+    const [rReg, rSeed, rCaltransSd, rBorder, rNycDc, rVegas, rDeploy] = await Promise.all([
       fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
       fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
       fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch("/data/crep/eagle-cameras-border-supplement.geojson", { cache: "force-cache" }).catch(() => null),
       fetch("/data/crep/eagle-cameras-nyc-dc-seed.geojson", { cache: "force-cache" }).catch(() => null),
       fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
       fetch("/data/crep/eagle-cameras-deployment-sites-seed.geojson", { cache: "force-cache" }).catch(() => null),
@@ -129,6 +130,7 @@ async function loadBakedCameraSeedSources() {
     const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
     const seedFeats = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
     const caltransSdFeats = rCaltransSd?.ok ? ((await rCaltransSd.json())?.features || []) : []
+    const borderFeats = rBorder?.ok ? ((await rBorder.json())?.features || []) : []
     const nycDcFeats = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
     const vegasFeats = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
     const deployFeats = rDeploy?.ok ? ((await rDeploy.json())?.features || []) : []
@@ -142,6 +144,7 @@ async function loadBakedCameraSeedSources() {
     mergeBatch(bakedFeats)
     mergeBatch(seedFeats)
     mergeBatch(caltransSdFeats)
+    mergeBatch(borderFeats)
     mergeBatch(nycDcFeats)
     mergeBatch(vegasFeats)
     mergeBatch(deployFeats)
@@ -151,6 +154,7 @@ async function loadBakedCameraSeedSources() {
         baked: bakedFeats.length,
         sd: seedFeats.length,
         caltransSd: caltransSdFeats.length,
+        border: borderFeats.length,
         nycDc: nycDcFeats.length,
         vegas: vegasFeats.length,
         deploy: deployFeats.length,
@@ -192,6 +196,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
   const cameraFetchAbortRef = useRef<AbortController | null>(null)
   const cameraInFlightKeyRef = useRef("")
   const cameraLastFetchRef = useRef<{ key: string; ts: number } | null>(null)
+  const cameraHoverLastRef = useRef<{ key: string; ts: number } | null>(null)
+  const eventHoverLastRef = useRef<{ key: string; ts: number } | null>(null)
   const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
   const cameraLodVisible = mapZoom >= 7
 
@@ -327,11 +333,25 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
       const handlerKey = "__crepEagleCameraHandlersAttached"
       if ((map as any)[handlerKey]) return
       const hoverCamera = (e: any) => {
+        try {
+          if ((map as any).isMoving?.() || (map as any).isZooming?.() || (map as any).isRotating?.()) {
+            map.getCanvas().style.cursor = ""
+            return
+          }
+        } catch { /* map may be tearing down */ }
         const f = e.features?.[0]
         if (!f) return
         const p = f.properties || {}
         const c = e.lngLat
         const displayName = p.name || `${p.provider || "camera"} feed`
+        const hoverKey = `camera:${p.id || displayName}`
+        const now = Date.now()
+        const last = cameraHoverLastRef.current
+        if (last?.key === hoverKey && now - last.ts < 350) {
+          map.getCanvas().style.cursor = "pointer"
+          return
+        }
+        cameraHoverLastRef.current = { key: hoverKey, ts: now }
         try {
           const hook = (window as any).__crep_hoverAsset
           if (typeof hook === "function") {
@@ -351,6 +371,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         map.getCanvas().style.cursor = "pointer"
       }
       const clearHover = () => {
+        cameraHoverLastRef.current = null
         try {
           const hook = (window as any).__crep_hoverAsset
           if (typeof hook === "function") hook(null)
@@ -456,12 +477,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(cachedFc)
         }
-        console.log(`[EagleEye] ${cachedFc.features.length} cameras painted from registry+seeds (baked=${cachedSeed.counts.baked} sd=${cachedSeed.counts.sd} caltrans-sd=${cachedSeed.counts.caltransSd} nyc-dc=${cachedSeed.counts.nycDc} vegas=${cachedSeed.counts.vegas} deploy-sites=${cachedSeed.counts.deploy})`)
+        console.log(`[EagleEye] ${cachedFc.features.length} cameras painted from registry+seeds (baked=${cachedSeed.counts.baked} sd=${cachedSeed.counts.sd} caltrans-sd=${cachedSeed.counts.caltransSd} border=${cachedSeed.counts.border || 0} nyc-dc=${cachedSeed.counts.nycDc} vegas=${cachedSeed.counts.vegas} deploy-sites=${cachedSeed.counts.deploy})`)
         return true
-        const [rReg, rSeed, rCaltransSd, rNycDc, rVegas, rDeploy] = await Promise.all([
+        const [rReg, rSeed, rCaltransSd, rBorder, rNycDc, rVegas, rDeploy] = await Promise.all([
           fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
           fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch("/data/crep/eagle-cameras-border-supplement.geojson", { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
           // need to work" + DC cams. NYC + DC seed (NYSDOT bridges,
           // EarthCam landmarks, VDOT 511, MDOT CHART, White House/Capitol
@@ -497,6 +519,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         const bakedFeats  = rReg?.ok   ? ((await rReg.json())?.features   || []) : []
         const seedFeats   = rSeed?.ok  ? ((await rSeed.json())?.features  || []) : []
         const caltransSdFeats = rCaltransSd?.ok ? ((await rCaltransSd.json())?.features || []) : []
+        const borderFeats = rBorder?.ok ? ((await rBorder.json())?.features || []) : []
         const nycDcFeats  = rNycDc?.ok ? ((await rNycDc.json())?.features || []) : []
         const vegasFeats  = rVegas?.ok ? ((await rVegas.json())?.features || []) : []
         const deployFeats = rDeploy?.ok ? ((await rDeploy.json())?.features || []) : []
@@ -510,6 +533,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         mergeBatch(bakedFeats)
         mergeBatch(seedFeats)
         mergeBatch(caltransSdFeats)
+        mergeBatch(borderFeats)
         mergeBatch(nycDcFeats)
         mergeBatch(vegasFeats)
         mergeBatch(deployFeats)
@@ -522,7 +546,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         } else {
           ;(map.getSource("crep-eagle-cams") as any).setData(fc)
         }
-        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} caltrans-sd=${caltransSdFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length} deploy-sites=${deployFeats.length})`)
+        console.log(`[EagleEye] ${fc.features.length} cameras painted from registry+seeds (baked=${bakedFeats.length} sd=${seedFeats.length} caltrans-sd=${caltransSdFeats.length} border=${borderFeats.length} nyc-dc=${nycDcFeats.length} vegas=${vegasFeats.length} deploy-sites=${deployFeats.length})`)
         return true
       } catch (e: any) {
         console.warn("[EagleEye] baked registry load failed:", e?.message)
@@ -916,10 +940,24 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
             } catch { /* ignore */ }
           })
           map.on("mousemove", "crep-eagle-events-core", (e: any) => {
+            try {
+              if ((map as any).isMoving?.() || (map as any).isZooming?.() || (map as any).isRotating?.()) {
+                map.getCanvas().style.cursor = ""
+                return
+              }
+            } catch { /* map may be tearing down */ }
             const f = e.features?.[0]
             if (!f) return
             const p = f.properties || {}
             const c = e.lngLat
+            const hoverKey = `video_event:${p.id || p.title || p.provider || "event"}`
+            const now = Date.now()
+            const last = eventHoverLastRef.current
+            if (last?.key === hoverKey && now - last.ts < 350) {
+              map.getCanvas().style.cursor = "pointer"
+              return
+            }
+            eventHoverLastRef.current = { key: hoverKey, ts: now }
             try {
               const hook = (window as any).__crep_hoverAsset
               if (typeof hook === "function") {
@@ -939,6 +977,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
             map.getCanvas().style.cursor = "pointer"
           })
           map.on("mouseleave", "crep-eagle-events-core", () => {
+            eventHoverLastRef.current = null
             try {
               const hook = (window as any).__crep_hoverAsset
               if (typeof hook === "function") hook(null)

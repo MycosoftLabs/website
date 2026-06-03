@@ -59,6 +59,7 @@ export function AQIComparisonWidget({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastFetch, setLastFetch] = useState<Date | null>(null)
+  const deviceIAQBucket = deviceIAQ > 0 ? Math.round(deviceIAQ / 10) * 10 : 0
   
   const fetchAQI = useCallback(async () => {
     setLoading(true)
@@ -66,8 +67,8 @@ export function AQIComparisonWidget({
     
     try {
       let url = `/api/environment/aqi?lat=${deviceLat}&lng=${deviceLng}`
-      if (deviceIAQ > 0) {
-        url += `&device_iaq=${deviceIAQ}`
+      if (deviceIAQBucket > 0) {
+        url += `&device_iaq=${deviceIAQBucket}`
       }
       
       const res = await fetch(url)
@@ -90,7 +91,7 @@ export function AQIComparisonWidget({
     } finally {
       setLoading(false)
     }
-  }, [deviceLat, deviceLng, deviceIAQ])
+  }, [deviceLat, deviceLng, deviceIAQBucket])
   
   // Fetch on mount and when device IAQ changes significantly
   useEffect(() => {

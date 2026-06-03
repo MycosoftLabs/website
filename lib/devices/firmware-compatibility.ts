@@ -115,13 +115,20 @@ export function tierLabel(tier: CompatibilityTier): string {
 
 export function isFieldRegistryId(value: string | null | undefined): boolean {
   if (!value) return false
-  if (deploymentByRegistryId(value)) return true
   // Local serial ids: mycobrain-COM4, mycobrain-side-a-COM7 — not field Jetsons
   if (/^mycobrain-(COM\d+|side-a-|side_b|tty)/i.test(value)) return false
+  if (deploymentByRegistryId(value)) return true
   return /^mycobrain-(mushroom|hyphae|service|sidea)-/i.test(value)
 }
 
 export function isLocalSerialPort(value: string | null | undefined): boolean {
-  if (!value) return false
-  return value.startsWith("COM") || value.startsWith("/dev/")
+  return Boolean(normalizeLocalSerialPort(value))
+}
+
+export function normalizeLocalSerialPort(value: string | null | undefined): string | null {
+  if (!value) return null
+  if (value.startsWith("COM") || value.startsWith("/dev/")) return value
+  const mycoBrainSerial = value.match(/^mycobrain-(COM\d+)$/i)
+  if (mycoBrainSerial?.[1]) return mycoBrainSerial[1].toUpperCase()
+  return null
 }

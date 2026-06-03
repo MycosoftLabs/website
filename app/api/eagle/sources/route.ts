@@ -63,6 +63,7 @@ const BAKED_GEOJSON_FILES = [
   "eagle-cameras-registry.geojson",
   "eagle-cameras-manual-seed.geojson",
   "eagle-cameras-caltrans-san-diego-seed.geojson",
+  "eagle-cameras-border-supplement.geojson",
   "eagle-cameras-nyc-dc-seed.geojson",
   "eagle-cameras-vegas-seed.geojson",
   "eagle-cameras-deployment-sites-seed.geojson",

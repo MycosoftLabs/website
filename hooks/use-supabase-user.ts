@@ -17,6 +17,31 @@ interface UseSupabaseUserReturn {
   refreshSession: () => Promise<void>
 }
 
+function isLocalDevHost() {
+  if (typeof window === "undefined") return false
+  return process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+}
+
+async function getLocalDevUser(): Promise<User | null> {
+  if (!isLocalDevHost()) return null
+  try {
+    const response = await fetch("/api/auth/session", { cache: "no-store" })
+    if (!response.ok) return null
+    const data = await response.json()
+    if (data?.ok !== true || data?.user?.localDev !== true || !data.user.email) return null
+    return {
+      id: data.user.id || "local-dev-morgan",
+      email: data.user.email,
+      app_metadata: { provider: "local-dev", localDev: true },
+      user_metadata: { full_name: "Morgan", localDev: true },
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+    } as User
+  } catch {
+    return null
+  }
+}
+
 export function useSupabaseUser(): UseSupabaseUserReturn {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -36,7 +61,7 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) throw error
       setSession(session)
-      setUser(session?.user ?? null)
+      setUser(session?.user ?? (await getLocalDevUser()))
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to get session"))
     }
@@ -48,6 +73,9 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
       setLoading(true)
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      if (isLocalDevHost()) {
+        await fetch("/api/auth/local-dev-session", { method: "DELETE" }).catch(() => null)
+      }
       setUser(null)
       setSession(null)
     } catch (err) {
@@ -74,7 +102,7 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
           }
         }
         setSession(session)
-        setUser(session?.user ?? null)
+        setUser(session?.user ?? (await getLocalDevUser()))
       } catch {
         // Silently fail - don't block the app
       } finally {
@@ -89,8 +117,14 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+        if (session?.user) {
+          setUser(session.user)
+          setLoading(false)
+          return
+        }
+        getLocalDevUser()
+          .then((localUser) => setUser(localUser))
+          .finally(() => setLoading(false))
       }
     )
 
@@ -142,6 +176,28 @@ export function useProfile(): UseProfileReturn {
     const getProfile = async () => {
       if (!supabase || !user) {
         setProfile(null)
+        setLoading(false)
+        return
+      }
+
+      const localDevUser =
+        isLocalDevHost() &&
+        (user.id === "local-dev-morgan" ||
+          user.app_metadata?.localDev === true ||
+          user.user_metadata?.localDev === true)
+      if (localDevUser) {
+        setProfile({
+          id: user.id,
+          username: "morgan",
+          full_name: "Morgan",
+          avatar_url: null,
+          organization: "Mycosoft",
+          role: "owner",
+          subscription_tier: "enterprise",
+          created_at: user.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        setError(null)
         setLoading(false)
         return
       }

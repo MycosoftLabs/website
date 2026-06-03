@@ -16,7 +16,6 @@ import { MINDEXIntegrationWidget } from "./mindex-integration-widget"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -132,11 +131,20 @@ interface SensorHistoryPoint {
   bme2_iaq: number
 }
 
+function normalizeConsoleLocalPort(value?: string | null) {
+  if (!value) return null
+  const trimmed = String(value).trim()
+  if (/^COM\d+$/i.test(trimmed) || trimmed.startsWith("/dev/")) return trimmed.toUpperCase()
+  const mycoBrainSerial = trimmed.match(/^mycobrain-(COM\d+)$/i)
+  return mycoBrainSerial?.[1]?.toUpperCase() || null
+}
+
 export function MycoBrainDeviceManager({
   initialPort,
   initialDeviceId,
 }: MycoBrainDeviceManagerProps = {}) {
   const router = useRouter()
+  const initialLocalPort = normalizeConsoleLocalPort(initialPort)
   const {
     devices,
     loading,
@@ -152,7 +160,7 @@ export function MycoBrainDeviceManager({
     buzzerMelody,
     buzzerOff,
     sendControl,
-  } = useMycoBrain(15000)
+  } = useMycoBrain(initialLocalPort ? 0 : 15000)
 
   const refreshRef = useRef(refresh)
   useEffect(() => {
@@ -170,11 +178,65 @@ export function MycoBrainDeviceManager({
   const [commandLoading, setCommandLoading] = useState<string | null>(null)
   const [consoleOutput, setConsoleOutput] = useState<string[]>([])
   const [sensorHistory, setSensorHistory] = useState<SensorHistoryPoint[]>([])
+  const [localSerialSensorData, setLocalSerialSensorData] = useState<MycoBrainSensors>({})
+  const [localSerialSensorIdentity, setLocalSerialSensorIdentity] = useState<Record<string, unknown>>({})
+  const [activeTab, setActiveTab] = useState("sensors")
   
   // Cache sensor count to prevent blinking during refreshes
   const lastSensorCountRef = useRef<string | null>(null)
 
-  const device = devices.find((d) => d.port === selectedPort) || devices[0]
+  const explicitLocalPort = !selectedRemoteId
+    ? normalizeConsoleLocalPort(selectedPort || initialPort)
+    : null
+  const detectedDevice =
+    devices.find((d) => d.port === selectedPort || d.device_id === `mycobrain-${selectedPort}`) ||
+    devices.find((d) => explicitLocalPort && (d.port === explicitLocalPort || d.device_id === `mycobrain-${explicitLocalPort}`)) ||
+    devices[0]
+  const localSerialFallbackDevice: MycoBrainDevice | null = explicitLocalPort
+    ? {
+        port: explicitLocalPort,
+        device_id: `mycobrain-${explicitLocalPort}`,
+        connected: true,
+        device_info: {
+          side: "side_a",
+          mdp_version: 2,
+          status: "online",
+          firmware_version: "side-a-mdp-2.1.1",
+          board_type: "MycoBrain ESP32-S3",
+        },
+        board_id: localSerialSensorIdentity.board_id,
+        sensor_instances: localSerialSensorIdentity.sensor_instances,
+        sensor_data: localSerialSensorData,
+        capabilities: {
+          bme688_count: 2,
+          has_lora: false,
+          has_neopixel: true,
+          has_buzzer: true,
+          i2c_bus: true,
+          analog_inputs: 4,
+          digital_io: 3,
+        },
+        location: {
+          lat: 32.56289,
+          lng: -117.1357,
+          source: "manual",
+        },
+      }
+    : null
+
+  const mergedLocalSerialDevice = explicitLocalPort && detectedDevice
+    ? {
+        ...detectedDevice,
+        board_id: localSerialSensorIdentity.board_id || detectedDevice.board_id,
+        sensor_instances: localSerialSensorIdentity.sensor_instances || detectedDevice.sensor_instances,
+        sensor_data: {
+          ...(detectedDevice.sensor_data || {}),
+          ...localSerialSensorData,
+        },
+      }
+    : null
+
+  const device = mergedLocalSerialDevice || detectedDevice || localSerialFallbackDevice
 
   // Calculate and cache sensor count
   const sensorCount = (() => {
@@ -300,9 +362,10 @@ export function MycoBrainDeviceManager({
   }, [])
 
   useEffect(() => {
+    if (explicitLocalPort) return
     void fetchNetworkDevices()
     void loadFirmwareAudit()
-  }, [fetchNetworkDevices, loadFirmwareAudit])
+  }, [explicitLocalPort, fetchNetworkDevices, loadFirmwareAudit])
 
   useEffect(() => {
     if (initialDeviceId && isFieldRegistryId(initialDeviceId)) {
@@ -337,16 +400,56 @@ export function MycoBrainDeviceManager({
   const portForControl = isRemoteMode
     ? selectedRemoteId!
     : selectedPort ?? device?.port ?? ""
+  const normalizedControlTarget = String(
+    portForControl || selectedPort || device?.port || device?.device_id || ""
+  ).toUpperCase()
+  const isLocalCom4Bench =
+    !isRemoteMode &&
+    (normalizedControlTarget === "COM4" ||
+      normalizedControlTarget === "MYCOBRAIN-COM4" ||
+      normalizedControlTarget.endsWith("-COM4"))
 
   useEffect(() => {
-    if (isRemoteMode || !device?.port || !device?.connected) return
+    if (isRemoteMode || explicitLocalPort || !device?.port || !device?.connected) return
     const initialDelay = setTimeout(() => fetchSensors(portForControl), 500)
     const interval = setInterval(() => fetchSensors(portForControl), 15000)
     return () => {
       clearTimeout(initialDelay)
       clearInterval(interval)
     }
-  }, [isRemoteMode, device?.port, device?.connected, fetchSensors, portForControl])
+  }, [isRemoteMode, explicitLocalPort, device?.port, device?.connected, fetchSensors, portForControl])
+
+  useEffect(() => {
+    if (isRemoteMode || !explicitLocalPort) return
+    let cancelled = false
+    const loadLocalSerialSensors = async () => {
+      try {
+        const response = await fetch(`/api/mycobrain/${encodeURIComponent(explicitLocalPort)}/sensors`, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(9000),
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        if (!cancelled && data?.sensors) {
+          setLocalSerialSensorData(data.sensors)
+          setLocalSerialSensorIdentity({
+            board_id: data.board_id,
+            sensor_instances: data.sensor_instances,
+          })
+        }
+      } catch {
+        // Keep the last known readings; serial reads can be briefly busy.
+      }
+    }
+
+    const initialDelay = setTimeout(loadLocalSerialSensors, 250)
+    const interval = setInterval(loadLocalSerialSensors, 5000)
+    return () => {
+      cancelled = true
+      clearTimeout(initialDelay)
+      clearInterval(interval)
+    }
+  }, [isRemoteMode, explicitLocalPort])
 
   useEffect(() => {
     if (!isRemoteMode || !selectedRemoteId) return
@@ -390,13 +493,18 @@ export function MycoBrainDeviceManager({
   const serviceErrorCountRef = useRef(0)
 
   useEffect(() => {
-    if (isRemoteMode) {
+    if (isRemoteMode || isLocalCom4Bench) {
       setMachineModeActive(true)
     }
-  }, [isRemoteMode])
+  }, [isRemoteMode, isLocalCom4Bench])
 
   // Auto-initialize machine mode when serial device connects
   useEffect(() => {
+    if (isLocalCom4Bench) {
+      setMachineModeActive(true)
+      machineModePendingRef.current = false
+      return
+    }
     if (!device?.port || !device?.connected) {
       setMachineModeActive(false)
       return
@@ -430,7 +538,7 @@ export function MycoBrainDeviceManager({
     // Small delay to let device settle after connection
     const timer = setTimeout(initMachineMode, 1000)
     return () => clearTimeout(timer)
-  }, [device?.port, device?.connected, logToConsole, machineModeActive, portForControl])
+  }, [device?.port, device?.connected, isLocalCom4Bench, logToConsole, machineModeActive, portForControl])
 
   const handleCommand = async (name: string, action: () => Promise<unknown>) => {
     setCommandLoading(name)
@@ -445,6 +553,34 @@ export function MycoBrainDeviceManager({
     }
   }
 
+  const sendLegacyLed = async (action: string, payload: Record<string, unknown> = {}) => {
+    const response = await fetch(`/api/mycobrain/${encodeURIComponent(portForControl)}/led`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+      signal: AbortSignal.timeout(8000),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || result?.message || `LED command failed (${response.status})`)
+    }
+    return result
+  }
+
+  const sendLegacyBuzzer = async (action: string, payload: Record<string, unknown> = {}) => {
+    const response = await fetch(`/api/mycobrain/${encodeURIComponent(portForControl)}/buzzer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...payload }),
+      signal: AbortSignal.timeout(8000),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || result?.message || `Buzzer command failed (${response.status})`)
+    }
+    return result
+  }
+
   // Track connected ports to avoid duplicate connections
   const connectedPortsRef = useRef<Set<string>>(new Set())
   // Mutex to prevent concurrent auto-scan runs
@@ -452,6 +588,11 @@ export function MycoBrainDeviceManager({
 
   // Check service status and fetch available ports
   useEffect(() => {
+    if (explicitLocalPort) {
+      setServiceStatus("online")
+      return
+    }
+
     const checkService = async () => {
       try {
         // First check the service status API
@@ -523,11 +664,12 @@ export function MycoBrainDeviceManager({
     checkService()
     const interval = setInterval(checkService, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
-  }, [])
+  }, [explicitLocalPort])
 
   // Continuous auto-scanning for MycoBoard devices (every 5 seconds)
   useEffect(() => {
     if (serviceStatus !== "online") return // Only scan when service is online
+    if (isRemoteMode || explicitLocalPort) return
     
     const autoScanAndConnect = async () => {
       // Prevent concurrent runs
@@ -660,7 +802,7 @@ export function MycoBrainDeviceManager({
     return () => {
       clearInterval(interval)
     }
-  }, [logToConsole, serviceStatus, scanning]) // Removed refresh from deps to prevent interval spam
+  }, [logToConsole, serviceStatus, scanning, isRemoteMode, explicitLocalPort]) // Removed refresh from deps to prevent interval spam
 
   // Stream serial data when device is connected and monitoring is enabled
   useEffect(() => {
@@ -686,7 +828,7 @@ export function MycoBrainDeviceManager({
     return () => clearInterval(interval)
   }, [device, portForControl, serialMonitoring])
 
-  if (loading && devices.length === 0) {
+  if (loading && devices.length === 0 && !explicitLocalPort && !isRemoteMode) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
@@ -1390,45 +1532,47 @@ export function MycoBrainDeviceManager({
         />
       ) : null}
 
-      {/* Main Tabs */}
-      <Tabs defaultValue="sensors" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="sensors" className="gap-2">
+      {/* Main console tabs use plain buttons so live polling/control panels are not
+          remounted by a presence layer while COM4 commands are running. */}
+      <div className="space-y-6">
+        <div role="tablist" aria-label="MycoBrain console sections" className="grid w-full grid-cols-8 rounded-lg bg-muted p-[3px] text-muted-foreground">
+          <button type="button" role="tab" aria-selected={activeTab === "sensors"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "sensors" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("sensors")}>
             <Thermometer className="h-4 w-4" />
             <span className="hidden sm:inline">Sensors</span>
-          </TabsTrigger>
-          <TabsTrigger value="controls" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "controls"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "controls" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("controls")}>
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Controls</span>
-          </TabsTrigger>
-          <TabsTrigger value="communication" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "communication"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "communication" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("communication")}>
             <Radio className="h-4 w-4" />
             <span className="hidden sm:inline">Comms</span>
-          </TabsTrigger>
-          <TabsTrigger value="network" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "network"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "network" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("network")}>
             <Network className="h-4 w-4" />
             <span className="hidden sm:inline">Network</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "analytics"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "analytics" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("analytics")}>
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Analytics</span>
-          </TabsTrigger>
-          <TabsTrigger value="console" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "console"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "console" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("console")}>
             <Terminal className="h-4 w-4" />
             <span className="hidden sm:inline">Console</span>
-          </TabsTrigger>
-          <TabsTrigger value="config" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "config"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "config" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("config")}>
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Config</span>
-          </TabsTrigger>
-          <TabsTrigger value="diagnostics" className="gap-2">
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "diagnostics"} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === "diagnostics" ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`} onClick={() => setActiveTab("diagnostics")}>
             <AlertCircle className="h-4 w-4" />
             <span className="hidden sm:inline">Diagnostics</span>
-          </TabsTrigger>
-        </TabsList>
+          </button>
+        </div>
 
         {/* Sensors Tab */}
-        <TabsContent value="sensors" className="space-y-6">
+        {activeTab === "sensors" && (
+        <section role="tabpanel" className="space-y-6">
           {/* Auto-Discovered Peripherals (Dynamic) */}
           {device && (
             <Card>
@@ -1449,10 +1593,13 @@ export function MycoBrainDeviceManager({
               </CardContent>
             </Card>
           )}
-        </TabsContent>
+        </section>
+        )}
 
         {/* Controls Tab */}
-        <TabsContent value="controls" className="space-y-6">
+        {activeTab === "controls" && (
+        <section role="tabpanel" className="space-y-6">
+          <>
           {/* Machine Mode Status */}
           {device && (
             <Card className="border-dashed">
@@ -1555,10 +1702,9 @@ export function MycoBrainDeviceManager({
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
-                    onClick={() => handleCommand("neopixel-color", () => 
-                      setNeoPixel(portForControl, neopixelColor.r, neopixelColor.g, neopixelColor.b, neopixelBrightness)
+                    onClick={() => handleCommand("neopixel-color", () =>
+                      sendLegacyLed("rgb", { r: neopixelColor.r, g: neopixelColor.g, b: neopixelColor.b })
                     )}
-                    disabled={commandLoading === "neopixel-color"}
                   >
                     <Lightbulb className="h-4 w-4 mr-2" />
                     Set Color
@@ -1566,16 +1712,14 @@ export function MycoBrainDeviceManager({
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("neopixel-rainbow", () => neoPixelRainbow(portForControl))}
-                    disabled={commandLoading === "neopixel-rainbow"}
+                    onClick={() => handleCommand("neopixel-rainbow", () => sendLegacyLed("pattern", { pattern: "rainbow" }))}
                   >
                     <Palette className="h-4 w-4 mr-2" />
                     Rainbow
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("neopixel-off", () => neoPixelOff(portForControl))}
-                    disabled={commandLoading === "neopixel-off"}
+                    onClick={() => handleCommand("neopixel-off", () => sendLegacyLed("off"))}
                   >
                     <LightbulbOff className="h-4 w-4" />
                   </Button>
@@ -1611,19 +1755,20 @@ export function MycoBrainDeviceManager({
                     />
                   </div>
                   <div>
-                    <Label>Brightness: {Math.round((neopixelBrightness / 255) * 100)}%</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Brightness: {Math.round((neopixelBrightness / 255) * 100)}%</Label>
+                      <Badge variant="outline" className="text-muted-foreground">Firmware pending</Badge>
+                    </div>
                     <Slider
                       value={[neopixelBrightness]}
                       onValueChange={([v]) => setNeopixelBrightness(v)}
-                      onValueCommit={([v]) => {
-                        // Send brightness command when slider is released
-                        const brightnessPercent = Math.round((v / 255) * 100)
-                        sendControl(portForControl, "command", "brightness", { cmd: `led brightness ${brightnessPercent}` })
-                          .catch(() => {}) // Silently ignore errors
-                      }}
                       max={255}
                       className="mt-2"
+                      disabled
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Current COM4 firmware supports RGB, off, and rainbow. Brightness is held until the firmware command is implemented.
+                    </p>
                   </div>
                 </div>
 
@@ -1656,7 +1801,12 @@ export function MycoBrainDeviceManager({
                         size="sm"
                         className="h-8 w-8 p-0"
                         style={{ backgroundColor: `rgb(${preset.r}, ${preset.g}, ${preset.b})` }}
-                        onClick={() => setNeopixelColor({ r: preset.r, g: preset.g, b: preset.b })}
+                        onClick={() => {
+                          setNeopixelColor({ r: preset.r, g: preset.g, b: preset.b })
+                          handleCommand(`neopixel-preset-${preset.name}`, () =>
+                            sendLegacyLed("rgb", { r: preset.r, g: preset.g, b: preset.b })
+                          )
+                        }}
                         title={preset.name}
                       />
                     ))}
@@ -1679,10 +1829,9 @@ export function MycoBrainDeviceManager({
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
-                    onClick={() => handleCommand("buzzer-beep", () => 
-                      buzzerBeep(portForControl, buzzerFrequency, 200)
+                    onClick={() => handleCommand("buzzer-beep", () =>
+                      sendLegacyBuzzer("tone", { hz: buzzerFrequency, ms: 200 })
                     )}
-                    disabled={commandLoading === "buzzer-beep"}
                   >
                     <Volume2 className="h-4 w-4 mr-2" />
                     Beep
@@ -1690,16 +1839,14 @@ export function MycoBrainDeviceManager({
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("buzzer-melody", () => buzzerMelody(portForControl))}
-                    disabled={commandLoading === "buzzer-melody"}
+                    onClick={() => handleCommand("buzzer-melody", () => sendLegacyBuzzer("melody"))}
                   >
                     <Activity className="h-4 w-4 mr-2" />
                     Melody
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("buzzer-off", () => buzzerOff(portForControl))}
-                    disabled={commandLoading === "buzzer-off"}
+                    onClick={() => handleCommand("buzzer-off", () => sendLegacyBuzzer("off"))}
                   >
                     <VolumeX className="h-4 w-4" />
                   </Button>
@@ -1743,7 +1890,7 @@ export function MycoBrainDeviceManager({
                         size="sm"
                         onClick={() => {
                           setBuzzerFrequency(tone.freq)
-                          handleCommand(`tone-${tone.name}`, () => buzzerBeep(portForControl, tone.freq, 100))
+                          handleCommand(`tone-${tone.name}`, () => sendLegacyBuzzer("tone", { hz: tone.freq, ms: 100 }))
                         }}
                       >
                         {tone.name}
@@ -1800,10 +1947,13 @@ export function MycoBrainDeviceManager({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+          </>
+        </section>
+        )}
 
         {/* Communication Tab */}
-        <TabsContent value="communication" className="space-y-6">
+        {activeTab === "communication" && (
+        <section role="tabpanel" className="space-y-6">
           {/* New NDJSON Protocol Communication Panel */}
           {activeDevice && (
             <CommunicationPanel 
@@ -2047,10 +2197,12 @@ export function MycoBrainDeviceManager({
               </ScrollArea>
             </CardContent>
           </Card>
-        </TabsContent>
+        </section>
+        )}
 
         {/* Network Devices Tab */}
-        <TabsContent value="network" className="space-y-6">
+        {activeTab === "network" && (
+        <section role="tabpanel" className="space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -2243,10 +2395,12 @@ export function MycoBrainDeviceManager({
               </ol>
             </CardContent>
           </Card>
-        </TabsContent>
+        </section>
+        )}
 
         {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-6">
+        {activeTab === "analytics" && (
+        <section role="tabpanel" className="space-y-6">
           {/* MINDEX Integration */}
           {device && (
             <MINDEXIntegrationWidget 
@@ -2290,10 +2444,12 @@ export function MycoBrainDeviceManager({
               </Card>
             </div>
           )}
-        </TabsContent>
+        </section>
+        )}
 
         {/* Console Tab */}
-        <TabsContent value="console">
+        {activeTab === "console" && (
+        <section role="tabpanel">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -2321,10 +2477,12 @@ export function MycoBrainDeviceManager({
               </ScrollArea>
             </CardContent>
           </Card>
-        </TabsContent>
+        </section>
+        )}
 
         {/* Config Tab */}
-        <TabsContent value="config" className="space-y-6">
+        {activeTab === "config" && (
+        <section role="tabpanel" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Device Information</CardTitle>
@@ -2412,10 +2570,12 @@ export function MycoBrainDeviceManager({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </section>
+        )}
 
         {/* Diagnostics Tab */}
-        <TabsContent value="diagnostics" className="space-y-6">
+        {activeTab === "diagnostics" && (
+        <section role="tabpanel" className="space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -2594,13 +2754,16 @@ export function MycoBrainDeviceManager({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </section>
+        )}
 
         {/* Firmware Tab */}
-        <TabsContent value="firmware" className="space-y-4">
+        {activeTab === "firmware" && (
+        <section role="tabpanel" className="space-y-4">
           <FirmwareUpdater />
-        </TabsContent>
-      </Tabs>
+        </section>
+        )}
+      </div>
     </div>
   )
 }

@@ -10,6 +10,10 @@ const DEFAULT_OPERATOR_URLS = (
   .map((u) => u.trim().replace(/\/+$/, ""))
   .filter(Boolean)
 
+const OPERATOR_PROBE_TIMEOUT_MS = Number(
+  process.env.MYCOBRAIN_OPERATOR_PROBE_TIMEOUT_MS || 3000
+)
+
 export interface OperatorProbeResult {
   host: string
   agent_url: string
@@ -32,7 +36,7 @@ export async function probeOperatorAgent(baseUrl: string): Promise<OperatorProbe
     const statusRes = await fetch(`${baseUrl}/api/status`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(OPERATOR_PROBE_TIMEOUT_MS),
     })
     if (!statusRes.ok) return null
 

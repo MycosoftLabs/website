@@ -24,25 +24,39 @@ function sourceLabel(source: EagleViewportSource) {
   return source.name || `${source.provider} camera`
 }
 
+function dispatchEagleCameraClick(detail: Record<string, unknown>) {
+  try {
+    if (typeof window.CustomEvent === "function") {
+      window.dispatchEvent(new CustomEvent("crep:eagle:camera-click", { detail }))
+      return
+    }
+  } catch {
+    /* fall back below */
+  }
+  try {
+    const event = new Event("crep:eagle:camera-click")
+    ;(event as Event & { detail?: Record<string, unknown> }).detail = detail
+    window.dispatchEvent(event)
+  } catch {
+    /* keep the fly-to behavior even if the player event cannot dispatch */
+  }
+}
+
 export function openEagleCamera(
   source: EagleViewportSource,
   onFlyTo?: (lng: number, lat: number, zoom?: number) => void,
 ) {
-  onFlyTo?.(source.lng, source.lat, 14)
-  window.dispatchEvent(
-    new CustomEvent("crep:eagle:camera-click", {
-      detail: {
-        id: source.id,
-        name: sourceLabel(source),
-        provider: source.provider,
-        lat: source.lat,
-        lng: source.lng,
-        stream_url: source.stream_url,
-        embed_url: source.embed_url,
-        media_url: source.media_url,
-      },
-    }),
-  )
+  dispatchEagleCameraClick({
+    id: source.id,
+    name: sourceLabel(source),
+    provider: source.provider,
+    lat: source.lat,
+    lng: source.lng,
+    stream_url: source.stream_url,
+    embed_url: source.embed_url,
+    media_url: source.media_url,
+  })
+  window.setTimeout(() => onFlyTo?.(source.lng, source.lat, 14), 0)
 }
 
 function EagleEyeThumbnailGrid({
@@ -155,7 +169,7 @@ function EagleEyeThumbnailGrid({
           >
             {source ? (
               <>
-                <EagleLivePreviewTile source={source} className="absolute inset-0 h-full w-full" />
+                <EagleLivePreviewTile source={source} className="pointer-events-none absolute inset-0 h-full w-full" />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 py-0.5">
                   <div className="truncate text-[7px] font-medium text-white">{sourceLabel(source)}</div>
                   <div className="truncate text-[6px] text-cyan-300/80">{source.provider}</div>

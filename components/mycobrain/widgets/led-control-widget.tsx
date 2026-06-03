@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Lightbulb, Zap, Radio, Play, Square, Loader2 } from "lucide-react"
@@ -28,7 +27,11 @@ const COLOR_PRESETS = [
 ]
 
 const PATTERN_PRESETS = [
-  "solid", "blink", "breathe", "rainbow", "chase", "sparkle"
+  { id: "rainbow", label: "Rainbow" },
+  { id: "blink", label: "Blink" },
+  { id: "breathe", label: "Breathe" },
+  { id: "chase", label: "Chase" },
+  { id: "sparkle", label: "Sparkle" },
 ]
 
 const OPTICAL_PROFILES = [
@@ -40,8 +43,9 @@ const OPTICAL_PROFILES = [
 export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps) {
   const [rgb, setRgb] = useState({ r: 0, g: 255, b: 0 })
   const [brightness, setBrightness] = useState(100)
-  const [loading, setLoading] = useState(false)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("color")
   
   // Optical modem state
   const [opticalProfile, setOpticalProfile] = useState("camera_ook")
@@ -50,38 +54,39 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
   const [opticalRepeat, setOpticalRepeat] = useState(1)
   const [opticalRunning, setOpticalRunning] = useState(false)
 
-  const sendLedCommand = useCallback(async (action: string, params: Record<string, unknown> = {}) => {
-    setLoading(true)
+  const sendLedCommand = useCallback(async (
+    action: string,
+    params: Record<string, unknown> = {},
+    actionKey = action
+  ) => {
+    setPendingAction(actionKey)
     setLastResult(null)
     try {
       const res = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/led`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...params }),
+        signal: AbortSignal.timeout(14000),
       })
       const data = await res.json()
       setLastResult(data.success ? "OK" : data.error || "Failed")
-      onCommand?.(`led ${action}`)
+      onCommand?.(data.command || `led ${action}`)
     } catch (error) {
       setLastResult(String(error))
     } finally {
-      setLoading(false)
+      setPendingAction((current) => current === actionKey ? null : current)
     }
   }, [deviceId, onCommand])
 
   const setColor = (r: number, g: number, b: number) => {
     setRgb({ r, g, b })
-    sendLedCommand("rgb", { r, g, b })
+    sendLedCommand("rgb", { r, g, b }, `rgb-${r}-${g}-${b}`)
   }
 
   const startOpticalTx = async () => {
-    setOpticalRunning(true)
-    await sendLedCommand("optical_tx", {
-      profile: opticalProfile,
-      payload: opticalPayload,
-      rate_hz: opticalRate,
-      repeat: opticalRepeat,
-    })
+    setOpticalRunning(false)
+    setLastResult("Standby")
+    onCommand?.("optical tx standby: Side-B science comms pending")
   }
 
   const stopOpticalTx = async () => {
@@ -95,23 +100,35 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
         <CardTitle className="flex items-center gap-2 text-base">
           <Lightbulb className="h-5 w-5 text-yellow-500" />
           LED Control
-          {loading && <Loader2 className="h-4 w-4 animate-spin ml-auto" />}
-          {lastResult && (
-            <Badge variant={lastResult === "OK" ? "default" : "destructive"} className="ml-auto">
-              {lastResult}
-            </Badge>
-          )}
+          <Loader2 className={`h-4 w-4 ml-auto ${pendingAction ? "animate-spin opacity-100" : "opacity-0"}`} />
+          <Badge variant={lastResult === "OK" ? "default" : lastResult ? "destructive" : "secondary"}>
+            {pendingAction ? "Sending" : lastResult || "Ready"}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="color" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="color">Color</TabsTrigger>
-            <TabsTrigger value="patterns">Patterns</TabsTrigger>
-            <TabsTrigger value="optical">Optical TX</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <div role="tablist" aria-label="LED controls" className="grid w-full grid-cols-3 rounded-lg bg-muted p-[3px] text-muted-foreground">
+            {[
+              { value: "color", label: "Color" },
+              { value: "patterns", label: "Patterns" },
+              { value: "optical", label: "Optical TX" },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                className={`inline-flex h-8 items-center justify-center rounded-md px-2 text-sm font-medium transition-colors ${activeTab === tab.value ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"}`}
+                onClick={() => setActiveTab(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <TabsContent value="color" className="space-y-4">
+          {activeTab === "color" && (
+          <section role="tabpanel" className="space-y-4">
             {/* Color Preview */}
             <div className="flex items-center gap-4">
               <div
@@ -155,7 +172,6 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
             <Button
               className="w-full"
               onClick={() => setColor(rgb.r, rgb.g, rgb.b)}
-              disabled={loading}
             >
               Apply Color
             </Button>
@@ -168,8 +184,14 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
                   variant="outline"
                   size="sm"
                   className="h-8"
-                  onClick={() => setColor(preset.r, preset.g, preset.b)}
-                  disabled={loading}
+                  onClick={() => {
+                    if (preset.name === "Off") {
+                      setRgb({ r: 0, g: 0, b: 0 })
+                      sendLedCommand("off", {}, "preset-Off")
+                      return
+                    }
+                    setColor(preset.r, preset.g, preset.b)
+                  }}
                 >
                   <div
                     className="w-3 h-3 rounded-full mr-1 border"
@@ -182,35 +204,45 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
 
             {/* Brightness */}
             <div className="space-y-2">
-              <Label>Brightness: {brightness}%</Label>
+              <div className="flex items-center justify-between">
+                <Label>Brightness: {brightness}%</Label>
+                <Badge variant="outline" className="text-muted-foreground">Firmware pending</Badge>
+              </div>
               <Slider
                 value={[brightness]}
-                onValueChange={([v]) => {
-                  setBrightness(v)
-                  sendLedCommand("brightness", { value: v })
-                }}
+                onValueChange={([v]) => setBrightness(v)}
                 max={100}
+                disabled
               />
+              <p className="text-xs text-muted-foreground">
+                Firmware 2.1.1 supports RGB, off, and rainbow. Brightness will be enabled after the firmware command lands.
+              </p>
             </div>
-          </TabsContent>
+          </section>
+          )}
 
-          <TabsContent value="patterns" className="space-y-4">
+          {activeTab === "patterns" && (
+          <section role="tabpanel" className="space-y-4">
             <div className="grid grid-cols-3 gap-2">
               {PATTERN_PRESETS.map((pattern) => (
                 <Button
-                  key={pattern}
+                  key={pattern.id}
                   variant="outline"
-                  onClick={() => sendLedCommand("pattern", { pattern })}
-                  disabled={loading}
+                  onClick={() => sendLedCommand("pattern", { pattern: pattern.id }, `pattern-${pattern.id}`)}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  {pattern}
+                  {pattern.label}
                 </Button>
               ))}
             </div>
-          </TabsContent>
+            <p className="text-xs text-muted-foreground">
+              Pattern commands are sent directly to the board. If a pattern does not animate, that is firmware-side support rather than a frozen UI control.
+            </p>
+          </section>
+          )}
 
-          <TabsContent value="optical" className="space-y-4">
+          {activeTab === "optical" && (
+          <section role="tabpanel" className="space-y-4">
             <div className="p-3 rounded-lg bg-muted/50 border">
               <div className="flex items-center gap-2 mb-2">
                 <Radio className="h-4 w-4" />
@@ -275,10 +307,11 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
                 <Button
                   className="flex-1"
                   onClick={startOpticalTx}
-                  disabled={loading || opticalRunning || !opticalPayload}
+                  disabled={opticalRunning || !opticalPayload}
+                  title="Side-B optical modem firmware is pending"
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Start TX
+                  Standby
                 </Button>
                 <Button
                   variant="destructive"
@@ -290,8 +323,9 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
                 </Button>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </section>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

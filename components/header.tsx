@@ -8,7 +8,6 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
 import Image from "next/image"
-import { useTheme } from "next-themes"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -56,6 +55,7 @@ const natureOSItems: NavItem[] = [
 ]
 
 const devicesItems = [
+  { title: "MycoBrain", href: "/devices/mycobrain", icon: Cpu, description: "Device brain and sensing platform" },
   { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Walking Ground Droid" },
   { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Breathing Aerosol Collector" },
   { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular Data Center" },
@@ -318,13 +318,20 @@ function HeaderShell() {
     <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
-          <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold">
+          <Link href="/" aria-label="Mycosoft home" className="flex items-center gap-1.5 md:gap-2 font-semibold">
             <div className="relative h-7 w-7 md:h-8 md:w-8 pointer-events-none">
               <Image
-                src={DARK_LOGO_SRC}
-                alt="Mycosoft Logo"
+                src={LIGHT_LOGO_SRC}
+                alt=""
                 fill
-                className="pointer-events-none object-contain"
+                className="pointer-events-none object-contain dark:hidden"
+                priority
+              />
+              <Image
+                src={DARK_LOGO_SRC}
+                alt=""
+                fill
+                className="pointer-events-none hidden object-contain dark:block"
                 priority
               />
             </div>
@@ -342,7 +349,6 @@ function HeaderShell() {
 }
 
 function HeaderContent() {
-  const { resolvedTheme } = useTheme()
   const { user: supabaseUser, loading: isLoading, signOut } = useSupabaseUser()
   const router = useRouter()
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
@@ -388,24 +394,29 @@ function HeaderContent() {
     router.push("/")
   }
 
-  const logoSrc = (resolvedTheme ?? "dark") === "light" ? LIGHT_LOGO_SRC : DARK_LOGO_SRC
-
   return (
     <header className="bg-background/80 backdrop-blur-xl sticky top-0 z-[200] shadow-none">
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
-          <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
+          <Link href="/" aria-label="Mycosoft home" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
             <motion.div
               className="relative h-7 w-7 pointer-events-none md:h-8 md:w-8"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
               <Image
-                src={logoSrc}
-                alt="Mycosoft Logo"
+                src={LIGHT_LOGO_SRC}
+                alt=""
                 fill
-                className="pointer-events-none object-contain"
+                className="pointer-events-none object-contain dark:hidden"
+                priority
+              />
+              <Image
+                src={DARK_LOGO_SRC}
+                alt=""
+                fill
+                className="pointer-events-none hidden object-contain dark:block"
                 priority
               />
             </motion.div>

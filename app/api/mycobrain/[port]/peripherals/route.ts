@@ -50,6 +50,30 @@ const WIDGET_MAP: Record<string, { widget: string; icon: string; controls: strin
   },
 }
 
+const EXPECTED_BME688_SLOTS: Record<string, { uid: string; product: string; bus: string; role: string }> = {
+  AMB: {
+    uid: "amb-0x77",
+    product: "BME688 A - I2C-1 AMB",
+    bus: "I2C-1",
+    role: "ambient",
+  },
+  ENV: {
+    uid: "env-0x76",
+    product: "BME688 B - I2C-2 ENV",
+    bus: "I2C-2",
+    role: "environment",
+  },
+}
+
+function localSerialServiceDeviceId(port: string) {
+  const value = port.trim()
+  const bareCom = value.match(/^COM\d+$/i)?.[0]
+  if (bareCom) return `mycobrain-${bareCom.toUpperCase()}`
+  const mycobrainCom = value.match(/^mycobrain-(COM\d+)$/i)?.[1]
+  if (mycobrainCom) return `mycobrain-${mycobrainCom.toUpperCase()}`
+  return null
+}
+
 /**
  * Parse I2C scan results from firmware response (supports both JSON and text format)
  */
@@ -151,8 +175,10 @@ function parseI2CScan(response: string): Array<{
       }
     }
     
-    // Legacy text format: "0x76: BME688" or "  found: 0x76"
-    const match = line.match(/0x([0-9a-fA-F]{2})(?::\s*(.+))?/i)
+    // Legacy text format: "0x76: BME688" or "  found: 0x76".
+    // Keep this intentionally anchored so crash logs/backtraces containing
+    // random hex bytes cannot be promoted to fake peripherals.
+    const match = line.match(/^\s*(?:found:\s*)?0x([0-9a-fA-F]{2})(?::\s*(.+))?\s*$/i)
     if (match) {
       const addrNum = parseInt(match[1], 16)
       const addrHex = `0x${match[1].toUpperCase()}`
@@ -232,6 +258,97 @@ function parsePeriphList(response: string): Array<{
   return peripherals
 }
 
+function parseBmeStatusSlots(response: string): Array<{
+  uid: string
+  address: string
+  type: string
+  vendor?: string
+  product?: string
+  bus?: string
+  role?: string
+  expected?: boolean
+  present: boolean
+  status?: string
+  widget?: { widget: string; icon: string; controls: string[]; telemetryFields: string[]; charts: string[] }
+}> {
+  const slots: Array<{
+    uid: string
+    address: string
+    type: string
+    vendor?: string
+    product?: string
+    bus?: string
+    role?: string
+    expected?: boolean
+    present: boolean
+    status?: string
+    widget?: { widget: string; icon: string; controls: string[]; telemetryFields: string[]; charts: string[] }
+  }> = []
+
+  const rx = /\b(AMB|ENV):\s+present=(YES|NO)\s+addr=([^\s]+)\s+begin=(OK|FAIL)\s+sub=(OK|FAIL)/gi
+  let match: RegExpExecArray | null
+  while ((match = rx.exec(response)) !== null) {
+    const label = match[1].toUpperCase()
+    const present = match[2].toUpperCase() === "YES"
+    const beginOk = match[4].toUpperCase() === "OK"
+    const subOk = match[5].toUpperCase() === "OK"
+    const slot = EXPECTED_BME688_SLOTS[label]
+    slots.push({
+      uid: slot?.uid || `${label.toLowerCase()}-${match[3]}`,
+      address: match[3],
+      type: "bme688",
+      vendor: "Bosch",
+      product: slot?.product || `BME688 ${label}`,
+      bus: slot?.bus,
+      role: slot?.role,
+      expected: true,
+      present,
+      widget: WIDGET_MAP.bme688,
+      status: present
+        ? beginOk && subOk
+          ? "online"
+          : beginOk
+            ? "subscription_failed"
+            : "init_failed"
+        : "not_detected",
+    })
+  }
+  return slots
+}
+
+function peripheralsFromSensorInstances(instances: Array<Record<string, unknown>>) {
+  return instances.map((sensor) => {
+    const addressNumber = Number(sensor.i2c_address)
+    const address = Number.isFinite(addressNumber)
+      ? `0x${addressNumber.toString(16).toUpperCase().padStart(2, "0")}`
+      : typeof sensor.i2c_address === "string"
+        ? sensor.i2c_address
+        : "0x00"
+    const slot = String(sensor.sensor_slot || "")
+    const slotMeta = slot === "bme688_b" ? EXPECTED_BME688_SLOTS.ENV : EXPECTED_BME688_SLOTS.AMB
+    const sensorType = String(sensor.sensor_type || "unknown")
+    return {
+      uid: String(sensor.peripheral_uid || sensor.sensor_id || address),
+      address,
+      type: sensorType,
+      vendor: sensorType === "bme688" ? "Bosch" : undefined,
+      product: slotMeta?.product || sensorType,
+      bus: typeof sensor.bus === "string" ? sensor.bus : slotMeta?.bus,
+      role: slot === "bme688_b" ? "environment" : slot === "bme688_a" ? "ambient" : slotMeta?.role,
+      expected: true,
+      present: sensor.status !== "not_detected",
+      status: typeof sensor.status === "string" ? sensor.status : undefined,
+      widget: WIDGET_MAP[sensorType] || {
+        widget: "generic",
+        icon: "help-circle",
+        controls: [],
+        telemetryFields: [],
+        charts: [],
+      },
+    }
+  })
+}
+
 /**
  * GET /api/mycobrain/{port}/peripherals
  * Get discovered peripherals
@@ -244,8 +361,10 @@ export async function GET(
   
   try {
     // Resolve device ID
-    let deviceId = port
+    const directDeviceId = localSerialServiceDeviceId(port)
+    let deviceId = directDeviceId || port
     try {
+      if (directDeviceId) throw new Error("direct local serial target")
       const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
         signal: AbortSignal.timeout(3000),
       })
@@ -256,16 +375,39 @@ export async function GET(
         )
         if (device?.device_id) deviceId = device.device_id
       }
-    } catch { /* use port */ }
+    } catch { /* use direct id or port */ }
+
+    try {
+      const identityRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/sensors`, {
+        signal: AbortSignal.timeout(2500),
+      })
+      if (identityRes.ok) {
+        const identity = await identityRes.json()
+        if (Array.isArray(identity.sensor_instances) && identity.sensor_instances.length > 0) {
+          const peripherals = peripheralsFromSensorInstances(identity.sensor_instances)
+          return NextResponse.json({
+            port,
+            device_id: deviceId,
+            board_id: typeof identity.board_id === "string" ? identity.board_id : undefined,
+            peripherals,
+            count: peripherals.length,
+            source: "sensor-identity",
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+    } catch {
+      // Fall back to command/status based discovery below.
+    }
     
-    // Send scan command using CLI endpoint for longer wait time
-    // Firmware v2.0.0 supports: help, status, ping, get_mac, get_version, scan, sensors, led, beep, fmt, optx, aotx, reboot
+    // Ask status first: current COM4 Side-A MDP firmware still exposes BME slot
+    // truth here even when the old scan command is unavailable.
     const scanRes = await fetch(
       `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: { cmd: "scan" } }),
+        body: JSON.stringify({ command: { cmd: "status" } }),
         signal: AbortSignal.timeout(10000),
       }
     )
@@ -277,11 +419,16 @@ export async function GET(
     const scanData = await scanRes.json()
     const scanResponse = scanData.response || ""
     
-    // Try NDJSON format first, fallback to legacy
-    let peripherals = parsePeriphList(scanResponse)
+    // Try slot status, NDJSON format, then legacy scan output.
+    let peripherals = parseBmeStatusSlots(scanResponse)
     if (peripherals.length === 0) {
-      // Legacy/JSON format from firmware
-      const parsedDevices = parseI2CScan(scanResponse)
+      peripherals = parsePeriphList(scanResponse)
+    }
+    if (peripherals.length === 0) {
+      // Legacy/JSON format from firmware. Do not parse ESP crash output as
+      // peripheral data; it can contain many incidental 0xNN fragments.
+      const isCrashLog = /task watchdog|backtrace|abort\(\)|rebooting|rst:0x/i.test(scanResponse)
+      const parsedDevices = isCrashLog ? [] : parseI2CScan(scanResponse)
       // Deduplicate by address
       const uniqueDevices = new Map<string, typeof parsedDevices[0]>()
       for (const p of parsedDevices) {
@@ -361,12 +508,6 @@ export async function POST(
   // Same as GET but explicitly triggers a new scan
   return GET(request, { params })
 }
-
-
-
-
-
-
 
 
 

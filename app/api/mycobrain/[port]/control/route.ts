@@ -9,6 +9,91 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
+function isLocalCom4Target(port: string) {
+  const value = port.toUpperCase()
+  return value === "COM4" || value === "MYCOBRAIN-COM4" || value.endsWith("-COM4")
+}
+
+function localSerialServiceDeviceId(port: string) {
+  const value = port.trim()
+  const bareCom = value.match(/^COM\d+$/i)?.[0]
+  if (bareCom) return `mycobrain-${bareCom.toUpperCase()}`
+  const mycobrainCom = value.match(/^mycobrain-(COM\d+)$/i)?.[1]
+  if (mycobrainCom) return `mycobrain-${mycobrainCom.toUpperCase()}`
+  return null
+}
+
+function normalizeRawCommand(cmd: unknown) {
+  return typeof cmd === "string" ? cmd.trim().toLowerCase().replace(/\s+/g, " ") : ""
+}
+
+function blockedCom4Control(peripheral: string, action: string, data: Record<string, unknown>) {
+  const rawCommand = normalizeRawCommand(data.cmd)
+  if (peripheral !== "command") return false
+  // COM4 firmware 2.1.1 verifies actuator commands. Keep only low-level
+  // reconfiguration/destructive commands blocked from the UI relay.
+  if (/(^|\s)(flash|erase|factory|bootloader|ota|format)(\s|$)/i.test(rawCommand)) return true
+  if (/(^|\s)(gpio|pinmode|pin mode|set pins|i2c pins|i2c reconfig|reconfigure i2c)(\s|$)/i.test(rawCommand)) return true
+  if (peripheral === "command") {
+    const allowed = new Set([
+      "ping",
+      "health",
+      "status",
+      "sensors",
+      "sensor read",
+      "get sensors",
+      "get-sensors",
+      "read_sensors",
+      "scan",
+      "i2c",
+      "i2c scan",
+      "get_mac",
+      "get version",
+      "get_version",
+      "version",
+      "coin",
+      "bump",
+      "power",
+      "1up",
+      "morgio",
+      "led pattern rainbow",
+      "led brightness 25",
+      "led brightness 50",
+      "led brightness 75",
+      "led brightness 100",
+      "buzzer off",
+      "beep",
+      "beep off",
+      "tone off",
+      "speaker off",
+      "led off",
+      "neopixel off",
+      "optx status",
+      "aotx status",
+    ])
+    if (allowed.has(rawCommand)) return false
+    if (/^beep\s+\d{2,5}\s+\d{1,4}$/i.test(rawCommand)) return false
+    if (/^led rgb\s+\d{1,3}\s+\d{1,3}\s+\d{1,3}$/i.test(rawCommand)) return false
+    if (/^led brightness\s+\d{1,3}$/i.test(rawCommand)) return false
+    return false
+  }
+  return false
+}
+
+function com4SafetyResponse(peripheral: string, action: string) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "COM4 safety interlock active",
+      message: "Psathyrella COM4 blocked a low-level reconfiguration command. Verified actuator, sensor, and status commands remain enabled.",
+      peripheral,
+      action,
+      source: "local-com4-safety-interlock",
+    },
+    { status: 423 }
+  )
+}
+
 async function relayFieldControl(
   registryId: string,
   peripheral: string,
@@ -70,6 +155,10 @@ export async function POST(
   const body = await request.json()
   const { peripheral, action, ...data } = body
 
+  if (isLocalCom4Target(port) && blockedCom4Control(peripheral, action, data)) {
+    return com4SafetyResponse(peripheral, action)
+  }
+
   if (isFieldRegistryId(port)) {
     try {
       return await relayFieldControl(port, peripheral, action, data)
@@ -90,10 +179,10 @@ export async function POST(
   try {
     // First, try to find the device_id from the port
     // The port parameter might be a device_id (e.g., "mycobrain-side-a-COM5") or just a port (e.g., "COM5")
-    let deviceId = port
+    let deviceId = localSerialServiceDeviceId(port) || port
     
     // If it looks like a port path (COM5, /dev/ttyACM0), try to find the device_id
-    if (port.match(/^COM\d+$/i) || port.startsWith("/dev/")) {
+    if (!localSerialServiceDeviceId(port) && (port.match(/^COM\d+$/i) || port.startsWith("/dev/"))) {
       try {
         const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
           signal: AbortSignal.timeout(3000),
@@ -125,7 +214,7 @@ export async function POST(
           // Use rainbow pattern mode
           payload = { command: { cmd: "led pattern rainbow" } }
         } else if (action === "off") {
-          payload = { command: { cmd: "led mode off" } }
+          payload = { command: { cmd: "led off" } }
         } else {
           // Handle brightness if provided (convert 0-255 to 0-100%)
           if (data.brightness !== undefined) {
@@ -163,14 +252,13 @@ export async function POST(
         } else if (action === "1up") {
           payload = { command: { cmd: "1up" } }
         } else if (action === "off") {
-          // No buzzer off command, just ignore
-          return NextResponse.json({ success: true, peripheral, action, message: "Buzzer stops automatically" })
+          payload = { command: { cmd: "buzzer off" } }
         } else if (action === "beep") {
-          // Use frequency and duration from data
-          payload = { command: { cmd: `beep ${freq} ${duration}` } }
+          const safeFreq = Math.max(50, Math.min(8000, Number(freq)))
+          const safeDuration = Math.max(20, Math.min(2000, Number(duration)))
+          payload = { command: { cmd: `beep ${safeFreq} ${safeDuration}` } }
         } else {
-          // Default beep
-          payload = { command: { cmd: "beep 1000 200" } }
+          payload = { command: { cmd: "bump" } }
         }
         break
 

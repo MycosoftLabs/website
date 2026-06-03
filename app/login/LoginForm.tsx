@@ -19,6 +19,7 @@ interface LoginFormProps {
 
 export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isLocalDevHost, setIsLocalDevHost] = useState(false)
   const [error, setError] = useState(initialError ?? "")
   const [message, setMessage] = useState(initialMessage ?? "")
   const [showMagicLink, setShowMagicLink] = useState(false)
@@ -30,6 +31,10 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
   useEffect(() => {
     if (initialMessage) setMessage(initialMessage)
   }, [initialMessage])
+  useEffect(() => {
+    const host = window.location.hostname.toLowerCase()
+    setIsLocalDevHost(process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "::1"].includes(host))
+  }, [])
 
   const handleMagicLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -116,6 +121,27 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
     }
   }
 
+  const handleLocalDevLogin = async () => {
+    setIsLoading(true)
+    setError("")
+    setMessage("")
+    try {
+      const response = await fetch("/api/auth/local-dev-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ redirectTo }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || data.success !== true) {
+        throw new Error(data.error || "Local dev session failed")
+      }
+      window.location.replace(data.redirectTo || redirectTo)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Local dev session failed")
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="container flex min-h-dvh w-screen flex-col items-center justify-center py-8">
       <Card className="w-full max-w-lg">
@@ -129,6 +155,18 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
         </CardHeader>
         <CardContent>
           <div className="grid gap-2 mb-4">
+            {isLocalDevHost ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isLoading}
+                onClick={handleLocalDevLogin}
+                className="h-12"
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Local Dev Test Session
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

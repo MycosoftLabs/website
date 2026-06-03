@@ -51,7 +51,9 @@ type BorderCam = {
 // Static port-of-entry seeds for the SD–Tijuana corridor. Each entry has
 // an official CBP wait-time port code so we can join with CBP data.
 const POE_SEEDS: BorderCam[] = [
-  { id: "poe-san-ysidro",     provider: "cbp", name: "San Ysidro POE — World's busiest land border crossing",       lat: 32.5435, lng: -117.0298, embed_url: "https://bwt.cbp.gov/details/2504/POV", media_url: null, category: "port-of-entry", metadata: { port_code: "2504", crossings_per_day: 70000, lanes_pov: 25, lanes_ped: 30 } },
+  { id: "poe-san-ysidro",     provider: "cbp", name: "San Ysidro Point of Entry - World's busiest land border crossing", lat: 32.5435, lng: -117.0298, embed_url: "https://bwt.cbp.gov/details/250401/POV", media_url: null, category: "port-of-entry", metadata: { port_code: "250401", port_group: "2504", crossings_per_day: 70000, lanes_pov: 25, lanes_ped: 30 } },
+  { id: "poe-san-ysidro-cbx", provider: "cbp", name: "San Ysidro Cross Border Express", lat: 32.5488, lng: -116.9747, embed_url: "https://bwt.cbp.gov/details/250409/PED", media_url: null, category: "port-of-entry", metadata: { port_code: "250409", port_group: "2504", crossing_type: "pedestrian-airport" } },
+  { id: "poe-san-ysidro-pedwest", provider: "cbp", name: "San Ysidro PedWest", lat: 32.5437, lng: -117.0359, embed_url: "https://bwt.cbp.gov/details/250407/PED", media_url: null, category: "port-of-entry", metadata: { port_code: "250407", port_group: "2504", crossing_type: "pedestrian" } },
   { id: "poe-otay-mesa",      provider: "cbp", name: "Otay Mesa POE — Truck + POV crossing",                        lat: 32.5527, lng: -116.9395, embed_url: "https://bwt.cbp.gov/details/2502/POV", media_url: null, category: "port-of-entry", metadata: { port_code: "2502", lanes_pov: 12, lanes_ped: 6, lanes_truck: 14 } },
   { id: "poe-otay-mesa-east", provider: "cbp", name: "Otay Mesa East POE (under construction)",                     lat: 32.5450, lng: -116.8780, embed_url: "https://bwt.cbp.gov/details/2503/POV", media_url: null, category: "port-of-entry", metadata: { port_code: "2503", expected_open: "2026" } },
   { id: "poe-tecate",         provider: "cbp", name: "Tecate POE",                                                    lat: 32.5712, lng: -116.6286, embed_url: "https://bwt.cbp.gov/details/2505/POV", media_url: null, category: "port-of-entry", metadata: { port_code: "2505" } },
@@ -75,39 +77,39 @@ const POE_SEEDS: BorderCam[] = [
 // CBP Border Wait Times — official JSON feed.
 async function pullCBPWaitTimes(): Promise<{ port_code: string; lane: string; wait_min: number | null; updated_at: string | null }[]> {
   try {
-    const res = await fetch("https://bwt.cbp.gov/xml/bwt.xml", {
-      headers: { Accept: "application/xml,text/xml,*/*", "User-Agent": "MycosoftCREP/1.0" },
+    const res = await fetch("https://bwt.cbp.gov/api/waittimes", {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
       signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return []
-    const xml = await res.text()
-    // Light XML parsing — extract <port> blocks. Each port has port_number,
-    // lane elements with delay_minutes + lanes_open + update_time.
+    const rows: any[] = await res.json()
     const out: { port_code: string; lane: string; wait_min: number | null; updated_at: string | null }[] = []
-    const portRegex = /<port>([\s\S]*?)<\/port>/g
-    const txt = xml.replace(/\r?\n/g, "")
-    let pm: RegExpExecArray | null
-    while ((pm = portRegex.exec(txt)) !== null) {
-      const block = pm[1]
-      const code = (/\<port_number\>(\d+)\<\/port_number\>/.exec(block) || [])[1]
+    const groups: Array<[string, string, any]> = []
+    for (const row of rows || []) {
+      const code = String(row?.port_number || "")
       if (!code) continue
-      // Multiple <passenger_vehicle_lanes>, <commercial_vehicle_lanes>,
-      // <pedestrian_lanes> children. Extract delay_minutes + lanes_open
-      // for each.
-      for (const lane of ["passenger_vehicle_lanes", "commercial_vehicle_lanes", "pedestrian_lanes"]) {
-        const re = new RegExp(`<${lane}>([\\s\\S]*?)<\\/${lane}>`, "g")
-        let lm: RegExpExecArray | null
-        while ((lm = re.exec(block)) !== null) {
-          const lblock = lm[1]
-          const delay = (/\<delay_minutes\>(\d+)\<\/delay_minutes\>/.exec(lblock) || [])[1]
-          const upd = (/\<update_time\>([^<]+)\<\/update_time\>/.exec(lblock) || [])[1]
-          out.push({
-            port_code: code,
-            lane: lane.replace(/_lanes$/, "").replace(/_/g, " "),
-            wait_min: delay ? Number(delay) : null,
-            updated_at: upd || null,
-          })
-        }
+      groups.length = 0
+      groups.push(
+        ["commercial standard", code, row?.commercial_vehicle_lanes?.standard_lanes],
+        ["commercial FAST", code, row?.commercial_vehicle_lanes?.FAST_lanes],
+        ["passenger standard", code, row?.passenger_vehicle_lanes?.standard_lanes],
+        ["passenger SENTRI", code, row?.passenger_vehicle_lanes?.NEXUS_SENTRI_lanes],
+        ["passenger ready", code, row?.passenger_vehicle_lanes?.ready_lanes],
+        ["pedestrian standard", code, row?.pedestrian_lanes?.standard_lanes],
+        ["pedestrian ready", code, row?.pedestrian_lanes?.ready_lanes],
+      )
+      for (const [lane, portCode, data] of groups) {
+        const delayRaw = String(data?.delay_minutes || "").trim()
+        const delay = delayRaw ? Number(delayRaw) : null
+        const updatedAt = String(data?.update_time || row?.time || "").trim() || null
+        const status = String(data?.operational_status || "").trim()
+        if (delay == null && !status && !updatedAt) continue
+        out.push({
+          port_code: portCode,
+          lane,
+          wait_min: Number.isFinite(delay) ? delay : null,
+          updated_at: updatedAt,
+        })
       }
     }
     return out

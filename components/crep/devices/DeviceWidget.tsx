@@ -24,9 +24,9 @@
  * sensor history ring buffer + an onClose callback.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react"
 import { createPortal } from "react-dom"
-import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react"
+import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2, ExternalLink, Waves, Volume2 } from "lucide-react"
 import Link from "next/link"
 
 export interface DeviceLike {
@@ -57,8 +57,34 @@ export interface DeviceLike {
     pressure?: number
     vocEquivalent?: number
     uptime?: number
+    raw?: string
+    bmeChannels?: Array<{
+      id: string
+      label: string
+      address?: string
+      bus?: string
+      present?: boolean
+      beginOk?: boolean
+      subscribed?: boolean
+      temperature?: number | null
+      humidity?: number | null
+      iaq?: number | null
+      co2Equivalent?: number | null
+      pressure?: number | null
+      vocEquivalent?: number | null
+    }>
+    marine?: {
+      positionMode?: string
+      waveHeightM?: number | null
+      waterTemperatureC?: number | null
+      wavePeriodS?: number | null
+      hydrophoneLow?: string | number | null
+      hydrophoneHigh?: string | number | null
+      transducer?: string | null
+    }
     [k: string]: unknown
   }
+  pageHref?: string
 }
 
 export type SensorHistory = {
@@ -93,6 +119,7 @@ function gpsStateBadge(state: string | null | undefined): { label: string; color
     case "locked": return { label: "GPS lock", color: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10", icon: CheckCircle2, pulse: true }
     case "drift":  return { label: "GPS drift", color: "text-yellow-400 border-yellow-500/40 bg-yellow-500/10", icon: AlertTriangle, pulse: false }
     case "manual": return { label: "Manual location", color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10", icon: MapPin, pulse: false }
+    case "site": return { label: "Site position", color: "text-cyan-400 border-cyan-500/40 bg-cyan-500/10", icon: MapPin, pulse: false }
     case "unavailable":
     default:       return { label: "No GPS", color: "text-rose-400 border-rose-500/40 bg-rose-500/10", icon: AlertTriangle, pulse: false }
   }
@@ -179,18 +206,176 @@ function MetricCard({
   )
 }
 
+function formatNullableNumber(value: unknown, digits = 1): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—"
+}
+
+function formatStandbyNumber(value: unknown, digits = 1): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "standby"
+}
+
+function bmeStatusFromRaw(raw?: string) {
+  const slot = (label: string) => {
+    const match = raw?.match(new RegExp(`${label}:\\s+present=(YES|NO)\\s+addr=([^\\s]+)\\s+begin=(OK|FAIL)\\s+sub=(OK|FAIL)`, "i"))
+    if (!match) {
+      return {
+        present: undefined,
+        address: "0x--",
+        beginOk: undefined,
+        subscribed: undefined,
+      }
+    }
+    return {
+      present: match?.[1]?.toUpperCase() === "YES",
+      address: match?.[2] || "—",
+      beginOk: match?.[3]?.toUpperCase() === "OK",
+      subscribed: match?.[4]?.toUpperCase() === "OK",
+    }
+  }
+  return { ambient: slot("AMB"), environment: slot("ENV") }
+}
+
+function PsathyrellaBuoyPanel({ device }: { device: DeviceLike }) {
+  const raw = typeof device.sensorData?.raw === "string" ? device.sensorData.raw : undefined
+  const rawStatus = bmeStatusFromRaw(raw)
+  const channels = device.sensorData?.bmeChannels?.length
+    ? device.sensorData.bmeChannels
+    : [
+        {
+          id: "ambient",
+          label: "BME688 A - I2C-1 AMB",
+          address: rawStatus.ambient.address || "0x77",
+          bus: "I2C-1",
+          present: rawStatus.ambient.present,
+          beginOk: rawStatus.ambient.beginOk,
+          subscribed: rawStatus.ambient.subscribed,
+          temperature: device.sensorData?.temperature ?? null,
+          humidity: device.sensorData?.humidity ?? null,
+          iaq: device.sensorData?.iaq ?? null,
+          co2Equivalent: device.sensorData?.co2Equivalent ?? null,
+          pressure: device.sensorData?.pressure ?? null,
+          vocEquivalent: device.sensorData?.vocEquivalent ?? null,
+        },
+        {
+          id: "environment",
+          label: "BME688 B - I2C-2 ENV",
+          address: rawStatus.environment.address || "0x76",
+          bus: "I2C-2",
+          present: rawStatus.environment.present,
+          beginOk: rawStatus.environment.beginOk,
+          subscribed: rawStatus.environment.subscribed,
+          temperature: null,
+          humidity: null,
+          iaq: null,
+          co2Equivalent: null,
+          pressure: null,
+          vocEquivalent: null,
+        },
+      ]
+  const marine = device.sensorData?.marine || {}
+
+  return (
+    <div className="px-3 pt-3 space-y-3">
+      <div>
+        <div className="text-[9px] uppercase tracking-wider text-teal-200/90 flex items-center gap-1 mb-1.5">
+          <Waves className="w-3 h-3" /> Psathyrella Buoy Stack
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <MetricCard icon={MapPin} label="Position" value={marine.positionMode || "Project Oyster position"} unit="Project Oyster" color="#2dd4bf" />
+          <MetricCard icon={Waves} label="Wave Height" value={formatStandbyNumber(marine.waveHeightM)} unit="m" color="#38bdf8" />
+          <MetricCard icon={Thermometer} label="Water Temp" value={formatStandbyNumber(marine.waterTemperatureC)} unit="°C" color="#60a5fa" />
+          <MetricCard icon={Activity} label="Wave Period" value={formatStandbyNumber(marine.wavePeriodS)} unit="s" color="#a78bfa" />
+          <MetricCard icon={Volume2} label="Hydrophone LF" value={marine.hydrophoneLow ?? "standby"} unit="low freq" color="#22d3ee" />
+          <MetricCard icon={Volume2} label="Hydrophone HF" value={marine.hydrophoneHigh ?? "standby"} unit="high freq" color="#f472b6" />
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[9px] uppercase tracking-wider text-cyan-300/80 flex items-center gap-1 mb-1.5">
+          <Activity className="w-3 h-3" /> Dual BME688 Gas Telemetry
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {channels.map((channel) => {
+            const statusText = channel.present === false
+              ? "not seen"
+              : channel.beginOk === false
+                ? "init fail"
+                : channel.subscribed === false
+                  ? "sub fail"
+                  : channel.present
+                    ? "online"
+                    : "pending"
+            const statusColor = channel.present && channel.beginOk && channel.subscribed
+              ? "text-emerald-300 border-emerald-400/30 bg-emerald-500/10"
+              : channel.present
+                ? "text-amber-300 border-amber-400/30 bg-amber-500/10"
+                : "text-rose-300 border-rose-400/30 bg-rose-500/10"
+            return (
+              <div key={channel.id} className="rounded-lg border border-slate-700/60 bg-slate-950/55 p-2">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-white/70 truncate">{channel.label}</span>
+                  <span className={`shrink-0 rounded border px-1 py-0 text-[8px] font-mono ${statusColor}`}>{statusText}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[8px] font-mono text-cyan-200/65">
+                  <span>{channel.bus || "I2C"}</span>
+                  <span>{channel.address || "0x--"}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[9px]">
+                  <span className="text-gray-500">Temp</span><span className="font-mono text-orange-200 text-right">{formatNullableNumber(channel.temperature)} °C</span>
+                  <span className="text-gray-500">Humidity</span><span className="font-mono text-cyan-200 text-right">{formatNullableNumber(channel.humidity)} %</span>
+                  <span className="text-gray-500">Pressure</span><span className="font-mono text-amber-200 text-right">{formatNullableNumber(channel.pressure, 0)} hPa</span>
+                  <span className="text-gray-500">IAQ</span><span className="font-mono text-purple-200 text-right">{formatNullableNumber(channel.iaq, 0)}</span>
+                  <span className="text-gray-500">eCO2</span><span className="font-mono text-blue-200 text-right">{formatNullableNumber(channel.co2Equivalent, 0)} ppm</span>
+                  <span className="text-gray-500">BVOC</span><span className="font-mono text-pink-200 text-right">{formatNullableNumber(channel.vocEquivalent, 2)} ppm</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 export default function DeviceWidget({ device, history, onClose, onControl }: DeviceWidgetProps) {
   const [controlBusy, setControlBusy] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const stopWidgetEvent = useCallback((event: SyntheticEvent | Event) => {
+    event.stopPropagation?.()
+    ;(event as SyntheticEvent).nativeEvent?.stopImmediatePropagation?.()
+    ;(event as Event).stopImmediatePropagation?.()
+  }, [])
+
+  const handleClose = useCallback((event?: SyntheticEvent | Event) => {
+    if (event) {
+      event.preventDefault?.()
+      stopWidgetEvent(event)
+    }
+    onClose()
+  }, [onClose, stopWidgetEvent])
 
   // Esc to close
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(e) }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
+  }, [handleClose])
 
   const isOnline = device.status === "online" || device.status === "connected"
+  const isPsathyrella =
+    device.type?.toLowerCase().includes("psathyrella") ||
+    device.id?.toLowerCase().includes("psathyrella") ||
+    device.registryId?.toLowerCase() === "mycobrain-com4"
   const iaq = iaqQuality(device.sensorData?.iaq)
   const gpsBadge = gpsStateBadge(device.gpsLockState)
   const SignalIcon = signalIcon(device.signalConnectionType)
@@ -208,33 +393,52 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
 
   const sendControl = async (peripheral: string, params?: Record<string, any>) => {
     if (!onControl) return
+    if (controlBusy) return
     setControlBusy(peripheral)
-    try { await onControl(peripheral, params) } finally { setControlBusy(null) }
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    try {
+      await Promise.race([
+        onControl(peripheral, params),
+        new Promise<void>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("Device control request timed out")), 8000)
+        }),
+      ])
+    } catch (error) {
+      console.warn("[CREP] Device widget control failed:", error)
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (mountedRef.current) setControlBusy(null)
+    }
   }
 
   const managerHref =
     device.managerHref ||
+    device.pageHref ||
     (device.registryId ? `/natureos/devices/${encodeURIComponent(device.registryId)}` : null)
 
   const widget = (
     <div
-      className="fixed inset-0 z-[1500] flex items-center justify-center pointer-events-auto"
-      onClick={onClose}
+      className="pointer-events-none fixed inset-0 z-[2000] flex items-center justify-center"
       role="dialog"
     >
-      {/* Glass scrim */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-md" />
+      {/* Visual scrim only; never traps the map if a device request is slow. */}
+      <div className="pointer-events-none absolute inset-0 bg-black/15 backdrop-blur-[2px]" />
 
       <div
         ref={dialogRef}
-        className="relative w-[400px] max-h-[88vh] overflow-y-auto rounded-2xl shadow-[0_0_60px_rgba(34,211,238,0.15)] animate-in fade-in zoom-in-95 duration-150"
+        className="pointer-events-auto relative w-[400px] max-h-[88vh] overflow-y-auto rounded-2xl shadow-[0_0_60px_rgba(34,211,238,0.15)] animate-in fade-in zoom-in-95 duration-150"
         style={{
           background: "linear-gradient(155deg, rgba(8,16,32,0.92) 0%, rgba(10,22,40,0.94) 50%, rgba(7,14,28,0.96) 100%)",
           border: "1px solid rgba(34,211,238,0.25)",
           backdropFilter: "blur(18px) saturate(1.2)",
           WebkitBackdropFilter: "blur(18px) saturate(1.2)",
         }}
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={stopWidgetEvent}
+        onPointerUp={stopWidgetEvent}
+        onMouseDown={stopWidgetEvent}
+        onMouseUp={stopWidgetEvent}
+        onClick={stopWidgetEvent}
+        onDoubleClick={stopWidgetEvent}
       >
         {/* Top accent bar — pulses when online */}
         <div
@@ -255,7 +459,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
               className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${isOnline ? "bg-gradient-to-br from-emerald-600/40 to-cyan-700/30" : "bg-gradient-to-br from-rose-600/40 to-rose-900/30"}`}
               style={{ boxShadow: isOnline ? "0 0 24px rgba(34,211,238,0.4)" : "0 0 20px rgba(244,63,94,0.4)" }}
             >
-              {device.type?.toLowerCase().includes("brain") ? "🧠" : device.type?.toLowerCase().includes("sensor") ? "📡" : "🔋"}
+              {isPsathyrella ? "◈" : device.type?.toLowerCase().includes("brain") ? "🧠" : device.type?.toLowerCase().includes("sensor") ? "📡" : "🔋"}
             </div>
             {isOnline && (
               <div
@@ -299,8 +503,10 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
           </div>
 
           <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-white/10 transition-colors shrink-0"
+            type="button"
+            onPointerDown={stopWidgetEvent}
+            onClick={handleClose}
+            className="relative z-10 p-1 rounded hover:bg-white/10 transition-colors shrink-0"
             aria-label="Close"
           >
             <X className="w-4 h-4 text-gray-400" />
@@ -336,7 +542,9 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
         </div>
 
         {/* Sensor metrics */}
-        {isOnline && device.sensorData ? (
+        {isOnline && isPsathyrella ? (
+          <PsathyrellaBuoyPanel device={device} />
+        ) : isOnline && device.sensorData ? (
           <div className="px-3 pt-3">
             <div className="text-[9px] uppercase tracking-wider text-cyan-300/80 flex items-center gap-1 mb-1.5">
               <Activity className="w-3 h-3" /> Live Telemetry
@@ -360,14 +568,74 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
           </div>
         ) : null}
 
+        {/* Psathyrella aquatic controls */}
+        {isOnline && isPsathyrella && onControl ? (
+          <div className="px-3 pt-3">
+            <div className="text-[9px] uppercase tracking-wider text-teal-300/80 flex items-center gap-1 mb-1.5">
+              <Waves className="w-3 h-3" /> Buoy Controls
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100, duration_ms: 100 })}
+                className="text-[10px] py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 hover:border-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "buzzer" ? "..." : "Beep Test"}
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("neopixel", { effect: "rainbow" })}
+                className="text-[10px] py-1.5 rounded-lg border border-violet-500/30 text-violet-200 hover:bg-violet-500/10 hover:border-violet-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "neopixel" ? "..." : "LED Rainbow"}
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("neopixel", { effect: "off" })}
+                className="text-[10px] py-1.5 rounded-lg border border-rose-500/30 text-rose-200 hover:bg-rose-500/10 hover:border-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                LED Off
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("hydrophone-lf", { cmd: "hydrophone record low", duration_s: 10 })}
+                className="text-[10px] py-1.5 rounded-lg border border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/10 hover:border-cyan-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "hydrophone-lf" ? "..." : "Record LF"}
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("hydrophone-hf", { cmd: "hydrophone record high", duration_s: 10 })}
+                className="text-[10px] py-1.5 rounded-lg border border-pink-500/30 text-pink-200 hover:bg-pink-500/10 hover:border-pink-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "hydrophone-hf" ? "..." : "Record HF"}
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("transducer", { cmd: "transducer ping", pulse_ms: 100 })}
+                className="text-[10px] py-1.5 rounded-lg border border-sky-500/30 text-sky-200 hover:bg-sky-500/10 hover:border-sky-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "transducer" ? "..." : "Ping"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Quick controls */}
-        {isOnline && (device.port || device.registryId) && onControl ? (
+        {isOnline && (device.port || device.registryId) && onControl && !isPsathyrella ? (
           <div className="px-3 pt-3">
             <div className="text-[9px] uppercase tracking-wider text-cyan-300/80 flex items-center gap-1 mb-1.5">
               <Zap className="w-3 h-3" /> Quick Controls
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               <button
+                type="button"
                 disabled={!!controlBusy}
                 onClick={() => sendControl("neopixel", { effect: "rainbow" })}
                 className="text-[10px] py-1.5 rounded-lg border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -375,6 +643,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
                 {controlBusy === "neopixel" ? "…" : "🌈 Rainbow"}
               </button>
               <button
+                type="button"
                 disabled={!!controlBusy}
                 onClick={() => sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100 })}
                 className="text-[10px] py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 hover:border-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -382,6 +651,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
                 {controlBusy === "buzzer" ? "…" : "🔔 Beep"}
               </button>
               <button
+                type="button"
                 disabled={!!controlBusy}
                 onClick={() => sendControl("neopixel", { effect: "off" })}
                 className="text-[10px] py-1.5 rounded-lg border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:border-rose-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -389,15 +659,18 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
                 LED Off
               </button>
             </div>
-            {managerHref ? (
-              <Link
-                href={managerHref}
-                className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 transition-colors"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open Device Manager
-              </Link>
-            ) : null}
+          </div>
+        ) : null}
+
+        {isOnline && managerHref ? (
+          <div className="px-3 pt-3">
+            <Link
+              href={managerHref}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-400/35 bg-cyan-500/10 px-3 py-2 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open Device Manager
+            </Link>
           </div>
         ) : null}
 

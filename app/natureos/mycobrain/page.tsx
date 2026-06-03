@@ -4,17 +4,18 @@ import Link from "next/link"
 import { Cpu, ArrowRight } from "lucide-react"
 import { MycoBrainDeviceManager } from "@/components/mycobrain/mycobrain-device-manager"
 import { DevicePageShell } from "@/components/natureos/device-page-shell"
-import { isFieldRegistryId, isLocalSerialPort } from "@/lib/devices/firmware-compatibility"
+import { isFieldRegistryId, normalizeLocalSerialPort } from "@/lib/devices/firmware-compatibility"
 import { useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 
 function MycoBrainConsoleContent() {
   const searchParams = useSearchParams()
   const deviceParam = searchParams.get("device")
+  const localPort = normalizeLocalSerialPort(deviceParam)
 
   return (
     <MycoBrainDeviceManager
-      initialPort={isLocalSerialPort(deviceParam) ? deviceParam! : undefined}
+      initialPort={localPort || undefined}
       initialDeviceId={isFieldRegistryId(deviceParam) ? deviceParam! : undefined}
     />
   )

@@ -54,17 +54,17 @@ export const FIELD_MYCOBRAIN_DEPLOYMENTS: FieldDeployment[] = [
   },
   {
     registry_id: "mycobrain-COM4",
-    catalog_id: "bench-com4",
-    name: "Bench MycoBrain (COM4)",
-    role: "standalone",
+    catalog_id: "psathyrella-buoy-com4",
+    name: "Psathyrella Aquatic MycoBrain Buoy",
+    role: "psathyrella",
     host_ip: "192.168.0.241",
     agent_port: 8003,
     agent_url: "http://192.168.0.241:8003",
     openclaw_url: "",
-    location: { lat: 32.715736, lon: -117.161087 },
-    location_label: "Mycosoft Lab (dev PC USB bench)",
+    location: { lat: 32.56289, lon: -117.13570 },
+    location_label: "Project Oyster - North Reef buoy position",
     mdp_device_id: "mycobrain-COM4",
-    board_type: "MycoBrain ESP32-S3",
+    board_type: "Psathyrella Aquatic MycoBrain buoy",
     page_href: "/natureos/mycobrain?device=mycobrain-COM4",
   },
 ]
@@ -75,6 +75,22 @@ export function deploymentByHost(hostIp: string): FieldDeployment | undefined {
 
 export function deploymentByRegistryId(id: string): FieldDeployment | undefined {
   return FIELD_MYCOBRAIN_DEPLOYMENTS.find((d) => d.registry_id === id)
+}
+
+/** Match field deployment by registry id, portal alias, or psathyrella role on local serial. */
+export function deploymentForLocalDevice(
+  registryId: string,
+  role?: string | null,
+  portalDeviceId?: string | null
+): FieldDeployment | undefined {
+  const direct =
+    deploymentByRegistryId(registryId) ||
+    (portalDeviceId ? deploymentByRegistryId(portalDeviceId) : undefined)
+  if (direct) return direct
+  if ((role || "").toLowerCase() === "psathyrella") {
+    return deploymentByCatalogId("psathyrella-buoy-com4")
+  }
+  return undefined
 }
 
 export function deploymentByCatalogId(catalogId: string): FieldDeployment | undefined {

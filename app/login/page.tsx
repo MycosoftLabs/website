@@ -18,6 +18,20 @@ export const metadata: Metadata = {
   },
 }
 
+function normalizeRedirectForDevice(redirectTo: string, device: string | null) {
+  if (!device) return redirectTo
+  if (redirectTo === "/dashboard") return `/natureos/mycobrain?device=${encodeURIComponent(device)}`
+
+  try {
+    const url = new URL(redirectTo, "http://localhost")
+    if (url.pathname !== "/natureos/mycobrain") return redirectTo
+    url.searchParams.set("device", device)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return redirectTo
+  }
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -29,6 +43,8 @@ export default async function LoginPage({
     (typeof params.redirectTo === "string" ? params.redirectTo : null) ||
     (typeof params.callbackUrl === "string" ? params.callbackUrl : null) ||
     "/dashboard"
+  const device = typeof params.device === "string" ? params.device : null
+  const normalizedRedirectTo = normalizeRedirectForDevice(redirectTo, device)
   const initialError =
     typeof params.error === "string" ? params.error : null
   const initialMessage =
@@ -36,7 +52,7 @@ export default async function LoginPage({
 
   return (
     <LoginForm
-      redirectTo={redirectTo}
+      redirectTo={normalizedRedirectTo}
       initialError={initialError}
       initialMessage={initialMessage}
     />
