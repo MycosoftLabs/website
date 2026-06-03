@@ -271,6 +271,17 @@ export function Footer() {
                 <p className="text-xs" suppressHydrationWarning>
                   Mycosoft, LLC is an active SAM.gov-registered supplier eligible for U.S. federal contracting.
                 </p>
+                <p className="pt-1 text-xs" suppressHydrationWarning>
+                  <a
+                    href="/compliance"
+                    className="font-semibold text-foreground underline underline-offset-2 hover:text-foreground/80 transition-colors"
+                    suppressHydrationWarning
+                  >
+                    Compliance
+                  </a>
+                  <span className="mx-2 text-muted-foreground/60">·</span>
+                  <span suppressHydrationWarning>NDAA · CMMC / NIST 800-171 · Buy American</span>
+                </p>
               </div>
             </div>
           </div>
