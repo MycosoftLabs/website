@@ -3011,7 +3011,8 @@ function WidgetContent({
     case "food":
       return <EmptyWidgetState type="food" label={WIDGET_REGISTRY.food.label} />
     case "flights":
-      return <EmptyWidgetState type="flights" label={WIDGET_REGISTRY.flights.label} />
+      if (!aircraft?.length) return <EmptyWidgetState type="flights" label={WIDGET_REGISTRY.flights.label} />
+      return <FallbackWidget bucketKey="aircraft" title="Flights" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedId} />
     case "stocks":
       return <EmptyWidgetState type="stocks" label={WIDGET_REGISTRY.stocks.label} />
     case "sports":
@@ -3024,6 +3025,15 @@ function WidgetContent({
       return <EmptyWidgetState type="shopping" label={WIDGET_REGISTRY.shopping.label} />
     case "recipe":
       return <EmptyWidgetState type="recipe" label={WIDGET_REGISTRY.recipe.label} />
+    case "transport":
+      if (!aircraft?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.transport.label} searchContext={searchContext} />
+      return <FallbackWidget bucketKey="aircraft" title="Transport" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+    case "marine":
+      if (!vessels?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.marine.label} searchContext={searchContext} />
+      return <FallbackWidget bucketKey="vessels" title="Marine" items={vessels} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+    case "space_assets":
+      if (!satellites?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.space_assets.label} searchContext={searchContext} />
+      return <FallbackWidget bucketKey="satellites" title="Space Assets" items={satellites} onViewOnMap={onViewOnMap} focusedId={focusedId} />
     case "risk":
     case "power_grid":
     case "supply_chain":
@@ -3033,9 +3043,6 @@ function WidgetContent({
     case "hydrology":
     case "wildfire":
     case "air_quality":
-    case "space_assets":
-    case "marine":
-    case "transport":
     case "source_health":
     case "qa_trace":
       return <StrategicContextWidget type={type} label={WIDGET_REGISTRY[type].label} searchContext={searchContext} />
