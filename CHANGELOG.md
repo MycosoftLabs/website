@@ -344,6 +344,9 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Stop POSTing disabled website iNat ETL in delta sync workflow
 - *(earth)* Stabilize Bay Area intel and camera playback
 - *(earth)* Stabilize camera playback and secure device controls
+- *(earth)* Stabilize species filters and startup [fast]
+- *(earth)* Stabilize simulator and MycoBrain release [fast]
+- *(search)* Rich flight widget details + global planes on Earth map
 
 ### CREP
 
@@ -570,6 +573,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Codex deploy handoff for field MycoBrain device controls
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 
 ### Features
@@ -824,6 +828,7 @@ All notable changes to this project will be documented in this file.
 - *(website)* Lint and production build on push/PR
 - *(terms)* Publish 2026-05-11 Terms of Service (#151)
 - Fast deploy search earth fixes [fast]
+- Parse iNat report geojson safely [skip ci]
 
 ### Performance
 
