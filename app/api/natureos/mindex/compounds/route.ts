@@ -1,30 +1,31 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
-
 /**
  * MINDEX Compounds API Proxy
  * 
  * Fetches compound data from MINDEX database
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" }
-    if (MINDEX_API_KEY) headers["X-API-Key"] = MINDEX_API_KEY
-    const response = await fetch(`${MINDEX_API_URL}/api/mindex/compounds`, {
-      headers,
-      next: { revalidate: 300 }, // Cache for 5 minutes
+    const url = new URL(request.url)
+    const query = url.searchParams.toString()
+    const response = await fetchMindexWithAuthRetry(`${MINDEX_API_URL}/api/mindex/compounds${query ? `?${query}` : ""}`, {
+      cache: "no-store",
     })
 
     if (!response.ok) {
-      // Return empty array if MINDEX is unavailable
+      const errBody = await response.text().catch(() => "")
       return NextResponse.json({
         compounds: [],
-        source: "fallback",
+        source: "mindex",
+        count: 0,
+        message: `MINDEX compounds unavailable (HTTP ${response.status})`,
+        detail: errBody.slice(0, 200),
         timestamp: new Date().toISOString(),
       })
     }
@@ -47,7 +48,6 @@ export async function GET() {
     })
   }
 }
-
 
 
 

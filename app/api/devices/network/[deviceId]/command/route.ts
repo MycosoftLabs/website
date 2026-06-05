@@ -75,7 +75,7 @@ async function forwardFieldOperatorCommand(
 
   const operatorCommand = networkCommandToOperator(command, params)
   try {
-    const timeoutMs = Math.max(900, Math.min(timeout * 1000, 2500))
+    const timeoutMs = Math.max(900, Math.min(timeout * 1000, 6500))
     const response = await fetch(`${field.agent_url}/api/cmd`, {
       method: "POST",
       headers: {

@@ -1,13 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Shield, Radio, Wallet } from "lucide-react"
+import { Radio, Shield, TerminalSquare, Wallet } from "lucide-react"
 import useSWR from "swr"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { GlassCard } from "@/components/ui/glowing-border"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Separator } from "@/components/ui/separator"
 import { MINDEXSearchInput } from "@/components/mindex/search-input"
@@ -17,10 +16,14 @@ import { HashChainVisualizer } from "@/components/mindex/hash-chain-visualizer"
 
 import type { Taxon } from "./mindex-dashboard-types"
 
-const fetcher = (url: string) => fetch(url, { cache: "no-store" }).then((r) => {
-  if (!r.ok) throw new Error(`HTTP ${r.status}`)
-  return r.json()
-})
+const fetcher = async (url: string) => {
+  const response = await fetch(url, { cache: "no-store" })
+  if (!response.ok) {
+    const body = await response.text().catch(() => "")
+    throw new Error(`HTTP ${response.status}${body ? `: ${body.slice(0, 220)}` : ""}`)
+  }
+  return response.json()
+}
 
 interface IntegritySummary {
   timestamp?: string
@@ -45,6 +48,18 @@ interface LiveIntegrityTick {
   anchor_count?: number
   latest_anchor?: AnchorRow | null
   error?: string
+}
+
+function asBool(value: unknown): boolean {
+  return value === true || value === "true" || value === 1
+}
+
+function statusWord(online: boolean): string {
+  return online ? "online" : "pending"
+}
+
+function statusColor(online: boolean): string {
+  return online ? "text-emerald-300" : "text-amber-300"
 }
 
 export function IntegritySection({
@@ -99,6 +114,34 @@ export function IntegritySection({
   }, [anchorsBody, tierFilter])
 
   const [openRow, setOpenRow] = useState<AnchorRow | null>(null)
+  const summaryRows = useMemo(() => {
+    const hashes = summary?.content_hashes ?? {}
+    return [
+      { label: "Taxa hashed", key: "taxon", total: hashes.taxon?.total, hashed: hashes.taxon?.hashed },
+      { label: "Observations hashed", key: "observation", total: hashes.observation?.total, hashed: hashes.observation?.hashed },
+      { label: "Compounds hashed", key: "taxon_compound", total: hashes.taxon_compound?.total, hashed: hashes.taxon_compound?.hashed },
+    ]
+  }, [summary])
+
+  const walletRailLines = useMemo(() => {
+    const token = walletCfg?.myca_token as { configured?: boolean; connected?: boolean; supply?: string | number | null } | undefined
+    const solanaConnected = asBool(walletCfg?.solana_connected) || asBool(token?.connected)
+    const tokenConfigured = asBool(token?.configured) || Boolean(walletCfg?.myca_solana_mint)
+    const bitcoinConnected = asBool(walletCfg?.bitcoin_rpc_connected) || asBool(walletCfg?.bitcoin_rpc_configured)
+    const ordinalsReady = asBool(walletCfg?.btc_ordinals_wallet_configured)
+    const platformReady = asBool(walletCfg?.p1_connected) || asBool(walletCfg?.p1_configured)
+    const hypergraphReady = asBool(walletCfg?.hypergraph_connected) || asBool(walletCfg?.hypergraph_configured)
+
+    return [
+      { label: "ledger.wallet", value: walletCfg ? "poll complete" : "waiting for status", online: Boolean(walletCfg) },
+      { label: "myca.token", value: tokenConfigured ? "registry detected" : "registry pending", online: tokenConfigured },
+      { label: "solana.anchor", value: solanaConnected ? "relay online" : "relay pending", online: solanaConnected },
+      { label: "bitcoin.node", value: bitcoinConnected ? "node reachable" : "node pending", online: bitcoinConnected },
+      { label: "bitcoin.ordinals", value: ordinalsReady ? "wallet rail ready" : "wallet rail pending", online: ordinalsReady },
+      { label: "hypergraph.dag", value: hypergraphReady ? "DAG relay online" : "DAG relay pending", online: hypergraphReady },
+      { label: "platform.one", value: platformReady ? "correlation relay online" : "correlation relay pending", online: platformReady },
+    ]
+  }, [walletCfg])
 
   return (
     <div className="space-y-6">
@@ -129,7 +172,7 @@ export function IntegritySection({
             <Input
               value={integrityRecordId}
               onChange={(e) => setIntegrityRecordId(e.target.value)}
-              placeholder="ledger.anchor UUID…"
+              placeholder="ledger.anchor UUID..."
               className="bg-black/40 border-orange-500/30 text-white text-base min-h-[44px]"
             />
             {integrityRecordId.trim() ? <MINDEXIntegrityBadge recordId={integrityRecordId.trim()} /> : null}
@@ -171,10 +214,36 @@ export function IntegritySection({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 text-sm text-gray-300 mb-3">
+          <div className="grid gap-3 text-sm text-gray-300 mb-3 lg:grid-cols-[1fr_280px]">
             <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-              <div className="text-xs text-gray-500 mb-1">Summary (DB)</div>
-              <pre className="text-xs font-mono overflow-auto max-h-32">{JSON.stringify(summary ?? {}, null, 2)}</pre>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-gray-500">Summary DB</div>
+                  <p className="text-sm text-gray-300">Content hashing coverage from MINDEX integrity tables.</p>
+                </div>
+                <Badge variant="outline" className="border-orange-500/30 text-orange-200">
+                  {(summary?.anchors_total ?? 0).toLocaleString()} anchors
+                </Badge>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {summaryRows.map((row) => {
+                  const total = row.total ?? 0
+                  const hashed = row.hashed ?? 0
+                  const pct = total > 0 ? Math.round((hashed / total) * 100) : 0
+                  return (
+                    <div key={row.key} className="rounded-md bg-white/5 p-3">
+                      <p className="text-xs text-gray-500">{row.label}</p>
+                      <p className="mt-1 font-mono text-lg text-white">{hashed.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">
+                        {total.toLocaleString()} total, {pct}% covered
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                {summary?.timestamp ? `Snapshot ${new Date(summary.timestamp).toLocaleString()}` : "Waiting for integrity summary."}
+              </p>
             </div>
             <div className="rounded-lg border border-white/10 bg-black/30 p-3">
               <div className="text-xs text-gray-500 mb-1">SSE tick</div>
@@ -182,10 +251,19 @@ export function IntegritySection({
             </div>
           </div>
 
-          {anchorsLoading ? <p className="text-sm text-gray-500">Loading anchors…</p> : null}
-          {anchorsError ? <p className="text-sm text-amber-300">Failed to load anchors.</p> : null}
+          {anchorsLoading ? <p className="text-sm text-gray-500">Loading anchors...</p> : null}
+          {anchorsError ? (
+            <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-sm font-medium text-amber-200">Anchor rows are unavailable.</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Integrity summary is available, but recent anchor rows are not ready. The anchor list will open when the
+                stream has records to display.
+              </p>
+            </div>
+          ) : null}
 
-          <ScrollArea className="h-[min(55vh,520px)] rounded-md border border-white/10 mt-2">
+          {!anchorsError ? (
+          <div className="h-[min(44vh,420px)] overflow-auto rounded-md border border-white/10 mt-2">
             <ul className="divide-y divide-white/10">
               {rows.map((a) => (
                 <li key={String(a.id)}>
@@ -196,13 +274,13 @@ export function IntegritySection({
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="font-mono text-xs">
-                        {a.tier || "—"}
+                          {a.tier || "-"}
                       </Badge>
                       <span className="text-xs text-gray-400">
-                        {a.entity_type}:{a.entity_id?.slice(0, 8)}…
+                          {a.entity_type}:{a.entity_id?.slice(0, 8)}...
                       </span>
                     </div>
-                    <span className="font-mono text-xs text-cyan-200/90 truncate max-w-full sm:max-w-[240px]">{a.content_hash_hex || "—"}</span>
+                      <span className="font-mono text-xs text-cyan-200/90 truncate max-w-full sm:max-w-[240px]">{a.content_hash_hex || "-"}</span>
                   </button>
                 </li>
               ))}
@@ -210,7 +288,8 @@ export function IntegritySection({
             {rows.length === 0 && !anchorsLoading ? (
               <p className="p-4 text-sm text-gray-500">No anchors for this filter, or MINDEX returned an empty set.</p>
             ) : null}
-          </ScrollArea>
+          </div>
+          ) : null}
         </GlassCard>
 
         <GlassCard color="cyan">
@@ -218,14 +297,30 @@ export function IntegritySection({
             <Wallet className="h-5 w-5 text-cyan-400" />
             Chain / wallet rail
           </h3>
-          <p className="text-sm text-gray-400 mb-3">
-            Operator keys stay in <span className="font-mono">.credentials.local</span> / VM env — UI shows configuration presence from MINDEX only.
-          </p>
-          <ScrollArea className="h-48 rounded-md border border-white/10">
-            <pre className="text-xs font-mono p-3 text-gray-300 whitespace-pre-wrap break-all">{JSON.stringify(walletCfg ?? {}, null, 2)}</pre>
-          </ScrollArea>
+          <p className="text-sm text-gray-400 mb-3">Live anchoring readiness reported by MINDEX.</p>
+          <div className="h-56 overflow-auto rounded-md border border-cyan-500/20 bg-[#050812] shadow-inner shadow-cyan-500/10">
+            <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-xs text-cyan-100/80">
+              <TerminalSquare className="h-3.5 w-3.5 text-cyan-300" />
+              <span className="font-mono">mindex-ledger-terminal</span>
+              <span className="ml-auto font-mono text-[10px] text-gray-500">
+                {new Date().toLocaleTimeString()}
+              </span>
+            </div>
+            <div className="space-y-1 p-3 font-mono text-xs">
+              {walletRailLines.map((line) => (
+                <div key={line.label} className="grid grid-cols-[82px_1fr] gap-2">
+                  <span className={statusColor(line.online)}>[{statusWord(line.online)}]</span>
+                  <span className="min-w-0 break-words text-gray-300">
+                    <span className="text-cyan-200">{line.label}</span>
+                    <span className="text-gray-500"> :: </span>
+                    {line.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
           <Separator className="my-4 bg-white/10" />
-          <p className="text-sm text-gray-400 mb-2">Hash chain tool (loads by record IDs when your integrity API exposes rows)</p>
+          <p className="text-sm text-gray-400 mb-2">Hash chain verification</p>
           <HashChainVisualizer />
         </GlassCard>
       </div>

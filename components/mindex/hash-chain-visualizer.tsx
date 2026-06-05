@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { AlertTriangle, CheckCircle2, Copy, Link2, Loader2, Shield, XCircle } from "lucide-react"
 
@@ -26,6 +26,8 @@ interface LoadedRecordState {
   records: MINDEXRecord[]
   isLoading: boolean
   error: string | null
+  autoLoadError?: string | null
+  autoLoadAttempted?: boolean
 }
 
 function normalizeIdList(input: string): string[] {
@@ -39,6 +41,16 @@ async function fetchRecord(recordId: string): Promise<MINDEXRecord> {
   const res = await fetch(`/api/mindex/integrity/record/${encodeURIComponent(recordId)}`, { cache: "no-store" })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
+}
+
+async function fetchRecentRecords(): Promise<MINDEXRecord[]> {
+  const res = await fetch("/api/mindex/integrity/records/recent?limit=8", { cache: "no-store" })
+  if (!res.ok) throw new Error(await res.text())
+  const data = await res.json()
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.records)) return data.records
+  return []
 }
 
 function shortHash(value: string | null | undefined): string {
@@ -57,6 +69,8 @@ export function HashChainVisualizer({ className, initialRecords }: HashChainVisu
     records: initialRecords ?? [],
     isLoading: false,
     error: null,
+    autoLoadError: null,
+    autoLoadAttempted: Boolean(initialRecords?.length),
   })
 
   const ordered = useMemo(() => {
@@ -69,6 +83,34 @@ export function HashChainVisualizer({ className, initialRecords }: HashChainVisu
     if (!ordered.length) return null
     return verifyHashChain(ordered)
   }, [ordered])
+
+  async function loadRecentRecords() {
+    setState((s) => ({ ...s, isLoading: true, error: null, autoLoadError: null, autoLoadAttempted: true }))
+    try {
+      const records = await fetchRecentRecords()
+      setState({
+        records,
+        isLoading: false,
+        error: null,
+        autoLoadError: records.length ? null : "No recent integrity records returned.",
+        autoLoadAttempted: true,
+      })
+    } catch (e) {
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        autoLoadAttempted: true,
+        autoLoadError: e instanceof Error ? e.message : String(e),
+      }))
+    }
+  }
+
+  useEffect(() => {
+    if (initialRecords?.length) return
+    void loadRecentRecords()
+    // Run once on mount; manual retry uses the button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const derived = useMemo(() => {
     return ordered.map((r) => {
@@ -141,7 +183,7 @@ export function HashChainVisualizer({ className, initialRecords }: HashChainVisu
             {!chainResult ? (
               <>
                 <Loader2 className="h-3.5 w-3.5" />
-                Load records to verify
+                {state.isLoading ? "Loading recent records" : state.autoLoadError ? "Record stream pending" : "Waiting for records"}
               </>
             ) : chainResult.valid ? (
               <>
@@ -160,6 +202,12 @@ export function HashChainVisualizer({ className, initialRecords }: HashChainVisu
             <span className="text-xs text-muted-foreground">
               {ordered.length} record(s) • {chainResult.failures.length} failure(s)
             </span>
+          ) : null}
+          {!ordered.length && state.autoLoadAttempted ? (
+            <Button size="sm" variant="outline" onClick={loadRecentRecords} disabled={state.isLoading}>
+              {state.isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Retry latest
+            </Button>
           ) : null}
         </div>
 
@@ -292,8 +340,13 @@ export function HashChainVisualizer({ className, initialRecords }: HashChainVisu
                 </div>
               </ScrollArea>
             ) : (
-              <div className="text-sm text-muted-foreground">
-                Enter record IDs above to render a real hash chain. This view uses the same SHA-256 linkage MINDEX verifies in production.
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>Waiting for recent integrity records from MINDEX.</p>
+                {state.autoLoadError ? (
+                  <p className="break-words rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    Recent record stream is not available yet. The live chain will appear when integrity records are ready.
+                  </p>
+                ) : null}
               </div>
             )}
           </TabsContent>

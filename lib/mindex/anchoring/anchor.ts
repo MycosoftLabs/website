@@ -8,37 +8,36 @@ export interface AnchorResult {
   ledger: AnchorRequest["ledger"]
   tx_id?: string
   message?: string
+  results?: Array<{ ok: boolean; record_id: string; tx_id?: string; message?: string }>
 }
 
+/**
+ * Anchor MINDEX integrity records via NatureOS BFF → MINDEX API (no separate HYPERGRAPH_ANCHOR_URL env).
+ */
 export async function anchorRecords(request: AnchorRequest): Promise<AnchorResult> {
-  const ledgerUrl =
-    request.ledger === "hypergraph"
-      ? process.env.HYPERGRAPH_ANCHOR_URL
-      : request.ledger === "solana"
-        ? process.env.SOLANA_ANCHOR_URL
-        : process.env.BITCOIN_ORDINALS_ANCHOR_URL
-
-  if (!ledgerUrl) {
-    return {
-      ok: false,
-      ledger: request.ledger,
-      message: `Anchoring is not configured. Set ${request.ledger.toUpperCase()} anchor URL environment variables.`,
-    }
-  }
-
-  const res = await fetch(ledgerUrl, {
+  const res = await fetch("/api/natureos/mindex/ledger/anchor", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(60_000),
     cache: "no-store",
   })
 
+  const data = (await res.json()) as AnchorResult & { error?: string }
   if (!res.ok) {
-    return { ok: false, ledger: request.ledger, message: `Ledger anchor failed: ${res.status}` }
+    return {
+      ok: false,
+      ledger: request.ledger,
+      message: data?.message || data?.error || `Anchor failed: HTTP ${res.status}`,
+      results: data?.results,
+    }
   }
 
-  const data = (await res.json()) as AnchorResult
-  return { ...data, ledger: request.ledger }
+  return {
+    ok: Boolean(data.ok),
+    ledger: request.ledger,
+    tx_id: data.tx_id,
+    message: data.message,
+    results: data.results,
+  }
 }
-

@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 1000)
     const offset = parseInt(searchParams.get("offset") || "0")
     const taxonId = searchParams.get("taxon_id") || ""
+    const query = searchParams.get("q") || searchParams.get("search") || ""
     const hasLocation = searchParams.get("has_location")
     const hasImages = searchParams.get("has_images")
     const source = searchParams.get("source") || ""
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
     params.set("limit", limit.toString())
     params.set("offset", offset.toString())
     if (taxonId) params.set("taxon_id", taxonId)
+    if (query) params.set("q", query)
     if (hasLocation) params.set("has_location", hasLocation)
     if (hasImages) params.set("has_images", hasImages)
     if (source) params.set("source", source)

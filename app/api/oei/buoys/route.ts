@@ -170,7 +170,7 @@ async function fetchNDBCBuoys(): Promise<BuoyObservation[]> {
   try {
     const res = await fetch("https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt", {
       cache: "no-store",
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(6000),
       headers: { Accept: "text/plain" },
     })
     if (!res.ok) {
@@ -192,7 +192,7 @@ async function fetchMINDEXBuoys(): Promise<BuoyObservation[]> {
     const url = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=buoys&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=2000`
     const res = await fetch(url, {
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(2500),
       headers: { Accept: "application/json", "X-API-Key": MINDEX_API_KEY },
     })
     if (!res.ok) return []

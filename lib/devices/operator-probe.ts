@@ -10,13 +10,16 @@ const DEFAULT_OPERATOR_URLS = (
   .map((u) => u.trim().replace(/\/+$/, ""))
   .filter(Boolean)
 
+/** Mushroom 1 (123) often responds in ~2s; 1s timeout caused false offline on Earth Simulator. */
 const OPERATOR_PROBE_TIMEOUT_MS = Number(
-  process.env.MYCOBRAIN_OPERATOR_PROBE_TIMEOUT_MS || 3000
+  process.env.MYCOBRAIN_OPERATOR_PROBE_TIMEOUT_MS || 5000
 )
 
 export interface OperatorProbeResult {
   host: string
   agent_url: string
+  /** Agent HTTP responded (status fetch succeeded). */
+  reachable: boolean
   online: boolean
   serial_connected: boolean
   last_seen: string | null
@@ -30,15 +33,31 @@ export function getOperatorUrls(): string[] {
   return DEFAULT_OPERATOR_URLS
 }
 
-export async function probeOperatorAgent(baseUrl: string): Promise<OperatorProbeResult | null> {
+function unreachableProbeResult(baseUrl: string): OperatorProbeResult {
+  const host = new URL(baseUrl).hostname
+  return {
+    host,
+    agent_url: baseUrl,
+    reachable: false,
+    online: false,
+    serial_connected: false,
+    last_seen: null,
+    mdp_device_id: null,
+    role: null,
+    firmware_version: null,
+    telemetry: null,
+  }
+}
+
+export async function probeOperatorAgent(baseUrl: string): Promise<OperatorProbeResult> {
+  const host = new URL(baseUrl).hostname
   try {
-    const host = new URL(baseUrl).hostname
     const statusRes = await fetch(`${baseUrl}/api/status`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(OPERATOR_PROBE_TIMEOUT_MS),
     })
-    if (!statusRes.ok) return null
+    if (!statusRes.ok) return unreachableProbeResult(baseUrl)
 
     const status = (await statusRes.json()) as Record<string, unknown>
     const reading = (status.lastSensorReading as Record<string, unknown>) || null
@@ -57,11 +76,15 @@ export async function probeOperatorAgent(baseUrl: string): Promise<OperatorProbe
       }
     }
 
+    const serialConnected = status.serialConnected === true
+    const agentOk = status.ok === true
+
     return {
       host,
       agent_url: baseUrl,
-      online: status.serialConnected === true || status.ok === true,
-      serial_connected: status.serialConnected === true,
+      reachable: true,
+      online: serialConnected || agentOk,
+      serial_connected: serialConnected,
       last_seen:
         (typeof status.lastHeartbeat === "string" ? status.lastHeartbeat : null) ||
         (reading && typeof reading.ts === "string" ? reading.ts : null),
@@ -74,11 +97,10 @@ export async function probeOperatorAgent(baseUrl: string): Promise<OperatorProbe
       telemetry,
     }
   } catch {
-    return null
+    return unreachableProbeResult(baseUrl)
   }
 }
 
 export async function probeAllOperatorAgents(): Promise<OperatorProbeResult[]> {
-  const results = await Promise.all(DEFAULT_OPERATOR_URLS.map(probeOperatorAgent))
-  return results.filter((r): r is OperatorProbeResult => r !== null)
+  return Promise.all(DEFAULT_OPERATOR_URLS.map(probeOperatorAgent))
 }

@@ -49,7 +49,7 @@ export async function GET() {
     const response = await fetch(`${MAS_API_URL}/notifications?user_id=${encodeURIComponent(auth.user.id)}`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(1000),
     })
 
     if (response.ok) {

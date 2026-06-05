@@ -70,7 +70,7 @@ async function fromOpenCelliD(bbox: [number, number, number, number], limit = 10
   try {
     const [w, s, e, n] = bbox
     const url = `https://opencellid.org/cell/getInArea?key=${key}&BBOX=${s},${w},${n},${e}&limit=${limit}&format=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(6_000) })
     if (!res.ok) return []
     const j = await res.json()
     return (j.cells || []).map((c: any) => ({
@@ -107,7 +107,7 @@ async function fromFCCASR(bbox?: [number, number, number, number]): Promise<Cell
       `&inSR=4326&outSR=4326` +
       `&spatialRel=esriSpatialRelIntersects` +
       `&outFields=*&f=geojson&resultRecordCount=2000`
-    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(6_000) })
     if (!res.ok) return []
     const j = await res.json()
     return (j.features || []).map((f: any, i: number) => {
@@ -139,7 +139,7 @@ async function fromOSM(bbox?: [number, number, number, number], limit = 1000): P
   if (!bbox) return []
   const [w, s, e, n] = bbox
   const safeLimit = Math.max(100, Math.min(Math.floor(limit), 5000))
-  const q = `[out:json][timeout:18];(` +
+  const q = `[out:json][timeout:8];(` +
     `node["man_made"="communications_tower"](${s},${w},${n},${e});` +
     `way["man_made"="communications_tower"](${s},${w},${n},${e});` +
     `node["tower:type"="communication"](${s},${w},${n},${e});` +
@@ -164,7 +164,7 @@ async function fromOSM(bbox?: [number, number, number, number], limit = 1000): P
           "User-Agent": "Mycosoft Earth Simulator cell tower bbox fill (contact: mycosoft.com)",
         },
         body,
-        signal: AbortSignal.timeout(18_000),
+        signal: AbortSignal.timeout(8_000),
       })
       if (!res.ok) continue
       const j = await res.json()
@@ -185,11 +185,12 @@ async function fromOSM(bbox?: [number, number, number, number], limit = 1000): P
 }
 
 // ─── Source 4: MINDEX ───────────────────────────────────────────────────────
-async function fromMindex(baseUrl: string, bbox?: [number, number, number, number]): Promise<CellTowerRecord[]> {
+async function fromMindex(baseUrl: string, bbox?: [number, number, number, number], limit = 1000): Promise<CellTowerRecord[]> {
   try {
     const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
-    const res = await fetch(`${baseUrl}/api/mindex/proxy/cell-towers?limit=20000${bboxParam}`, {
-      signal: AbortSignal.timeout(15_000),
+    const safeLimit = Math.max(100, Math.min(Math.floor(limit), 2500))
+    const res = await fetch(`${baseUrl}/api/mindex/proxy/cell-towers?limit=${safeLimit}${bboxParam}`, {
+      signal: AbortSignal.timeout(3_000),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -211,6 +212,7 @@ export async function getCellTowers(opts: {
   bbox: [number, number, number, number]
   maxPerSource?: number
   mindexFirst?: boolean
+  liveFallback?: boolean
 }): Promise<CellTowerRegistryResult> {
   const baseUrl = opts.baseUrl || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   const maxPerSource = opts.maxPerSource || 2000
@@ -256,9 +258,14 @@ export async function getCellTowers(opts: {
   }
 
   if (opts.mindexFirst !== false) {
-    const mindex = await time("MINDEX", () => fromMindex(baseUrl, opts.bbox))
-    if (mindex.length > 0) {
-      return buildResult([mindex], "Returned MINDEX first so map controls do not wait for slow live tower crawls.")
+    const mindex = await time("MINDEX", () => fromMindex(baseUrl, opts.bbox, maxPerSource))
+    if (mindex.length > 0 || opts.liveFallback !== true) {
+      return buildResult(
+        [mindex],
+        mindex.length > 0
+          ? "Returned MINDEX first so map controls do not wait for slow live tower crawls."
+          : "MINDEX returned no towers; skipped live tower crawls to keep map interaction responsive.",
+      )
     }
   }
 
@@ -266,7 +273,7 @@ export async function getCellTowers(opts: {
     time("OpenCelliD", () => fromOpenCelliD(opts.bbox, maxPerSource)),
     time("FCC ASR", () => fromFCCASR(opts.bbox)),
     time("OSM", () => fromOSM(opts.bbox, maxPerSource)),
-    opts.mindexFirst === false ? time("MINDEX", () => fromMindex(baseUrl, opts.bbox)) : Promise.resolve([]),
+    opts.mindexFirst === false ? time("MINDEX", () => fromMindex(baseUrl, opts.bbox, maxPerSource)) : Promise.resolve([]),
   ])
 
   return buildResult([ocid, fcc, osm, mindex])

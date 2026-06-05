@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import { BookOpen, Filter, Loader2, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,7 @@ import { KingdomSwitcher, type KingdomFilterId } from "./kingdom-switcher"
 import { SpeciesCard } from "./species-card"
 
 function kingdomFromMetadata(t: Taxon): string | null {
+  if (typeof t.kingdom === "string" && t.kingdom.trim()) return t.kingdom.toLowerCase()
   const m = t.metadata
   if (!m || typeof m !== "object") return null
   const k = (m as Record<string, unknown>).kingdom
@@ -31,18 +32,17 @@ function matchesKingdom(t: Taxon, k: KingdomFilterId): boolean {
     if (k === "bacteria") return mk.includes("bacter") || mk.includes("archae")
     return !mk.includes("fungi") && !mk.includes("plant") && !mk.includes("animal") && !mk.includes("bacter")
   }
-  /* MINDEX is fungal-first: unclassified rows remain visible for fungi filter only */
-  if (k === "fungi") return true
   return false
 }
 
 export function EncyclopediaSection({
   taxa,
-  observations: _observations,
+  observations,
   searchQuery,
   setSearchQuery,
   selectedTaxon,
   setSelectedTaxon,
+  taxaError,
   stats: _stats,
   isLoading: _isLoading,
 }: {
@@ -52,10 +52,10 @@ export function EncyclopediaSection({
   setSearchQuery: (q: string) => void
   selectedTaxon: Taxon | null
   setSelectedTaxon: (t: Taxon | null) => void
+  taxaError?: string | null
   stats: MINDEXStats | null
   isLoading: boolean
 }) {
-  void _observations
   void _stats
   void _isLoading
 
@@ -64,6 +64,9 @@ export function EncyclopediaSection({
   const [requireHash, setRequireHash] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkNote, setBulkNote] = useState<string | null>(null)
+  const [fallbackObservations, setFallbackObservations] = useState<Observation[]>([])
+  const [fallbackObservationsError, setFallbackObservationsError] = useState<string | null>(null)
+  const [fallbackObservationsLoading, setFallbackObservationsLoading] = useState(false)
 
   const filtered = useMemo(() => {
     return taxa.filter((t) => {
@@ -79,6 +82,65 @@ export function EncyclopediaSection({
   }, [taxa, kingdom, preferGbif, requireHash])
 
   const visible = filtered.slice(0, 24)
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchFallbackObservations() {
+      setFallbackObservationsLoading(true)
+      setFallbackObservationsError(null)
+      try {
+        const res = await fetch("/api/natureos/mindex/observations?limit=60", { cache: "no-store" })
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
+        if (res.ok) {
+          const rows = Array.isArray(data.observations)
+            ? data.observations
+            : Array.isArray(data.data)
+              ? data.data
+              : []
+          setFallbackObservations(rows as Observation[])
+        } else {
+          setFallbackObservations([])
+          setFallbackObservationsError(
+            data.message || data.error || `MINDEX observations endpoint returned HTTP ${res.status}`,
+          )
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setFallbackObservations([])
+          setFallbackObservationsError(error instanceof Error ? error.message : "Failed to fetch MINDEX observations")
+        }
+      } finally {
+        if (!cancelled) setFallbackObservationsLoading(false)
+      }
+    }
+
+    if (taxaError && observations.length === 0) {
+      void fetchFallbackObservations()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [observations.length, taxaError])
+
+  const effectiveObservations = observations.length > 0 ? observations : fallbackObservations
+  const observationPreview = effectiveObservations.slice(0, 12)
+
+  const metadataRecord = (metadata: unknown): Record<string, unknown> => {
+    return metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>) : {}
+  }
+
+  const firstMediaUrl = (media: unknown): string | null => {
+    if (!Array.isArray(media)) return null
+    for (const item of media) {
+      if (item && typeof item === "object") {
+        const url = (item as Record<string, unknown>).url
+        if (typeof url === "string" && url.trim()) return url
+      }
+    }
+    return null
+  }
 
   return (
     <div className="space-y-6">
@@ -88,8 +150,8 @@ export function EncyclopediaSection({
           Encyclopedia (all kingdoms)
         </h3>
         <p className="text-sm text-gray-400 mb-4">
-          Default view is <strong className="text-white">All kingdoms</strong>. When <span className="font-mono">metadata.kingdom</span> is missing,
-          rows still appear for <em>All</em> and <em>Fungi</em> filters; other kingdom filters rely on explicit metadata. No synthetic taxa.
+          Default view is <strong className="text-white">All kingdoms</strong>. Kingdom filters read MINDEX taxonomy fields directly;
+          unclassified rows remain visible only in the all-life view. No synthetic taxa.
         </p>
         <KingdomSwitcher value={kingdom} onChange={setKingdom} className="mb-4" />
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -251,8 +313,30 @@ export function EncyclopediaSection({
                   <span className="text-white capitalize">{selectedTaxon.rank}</span>
                 </div>
                 <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Kingdom:</span>
+                  <span className="text-white capitalize">{selectedTaxon.kingdom || "Unclassified"}</span>
+                </div>
+                <div className="flex justify-between gap-2">
                   <span className="text-gray-500">Source:</span>
                   <Badge className="bg-cyan-500/20 text-cyan-300 border-none">{selectedTaxon.source}</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <div className="rounded-md bg-white/5 px-3 py-2">
+                    <p className="text-xs text-gray-500">Observations</p>
+                    <p className="font-mono text-cyan-200">{(selectedTaxon.obs_count ?? 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-white/5 px-3 py-2">
+                    <p className="text-xs text-gray-500">Images</p>
+                    <p className="font-mono text-cyan-200">{(selectedTaxon.image_count ?? 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-white/5 px-3 py-2">
+                    <p className="text-xs text-gray-500">Genomes</p>
+                    <p className="font-mono text-green-200">{(selectedTaxon.genome_count ?? 0).toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-md bg-white/5 px-3 py-2">
+                    <p className="text-xs text-gray-500">Compounds</p>
+                    <p className="font-mono text-green-200">{(selectedTaxon.compound_link_count ?? 0).toLocaleString()}</p>
+                  </div>
                 </div>
               </div>
               <SpeciesCard taxon={selectedTaxon} showProfileLink />
@@ -286,8 +370,77 @@ export function EncyclopediaSection({
         ))}
       </div>
 
-      {filtered.length === 0 ? (
-        <p className="text-center text-sm text-gray-500">No taxa match the current filters — widen kingdom or disable hash/GBIF filters.</p>
+      {taxaError ? (
+        <div className="space-y-4">
+          <GlassCard color="orange">
+            <p className="text-sm font-medium text-amber-200">All-life taxonomy profiles are not available from MINDEX yet.</p>
+            <p className="mt-2 text-sm text-gray-400">
+              Live observations are still flowing below. Species profile pages will fill in when the all-life taxonomy
+              catalog is available.
+            </p>
+          </GlassCard>
+
+          <GlassCard color="cyan">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Live biology observations</h3>
+                <p className="text-sm text-gray-400">
+                  Observation-backed records from MINDEX while species profiles finish loading.
+                </p>
+              </div>
+              <Badge variant="outline" className="w-fit border-cyan-500/30 text-cyan-200">
+                {effectiveObservations.length.toLocaleString()} loaded
+              </Badge>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {observationPreview.map((obs) => {
+                const metadata = metadataRecord(obs.metadata)
+                const image = firstMediaUrl(obs.media)
+                const place = typeof metadata.place_guess === "string" ? metadata.place_guess : "location unavailable"
+                const uri = typeof metadata.uri === "string" ? metadata.uri : null
+                return (
+                  <div key={obs.id} className="overflow-hidden rounded-lg border border-cyan-500/20 bg-black/30">
+                    {image ? (
+                      <img src={image} alt="" className="h-36 w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="flex h-36 items-center justify-center bg-white/5 text-xs text-gray-500">
+                        no media in row
+                      </div>
+                    )}
+                    <div className="space-y-2 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge className="bg-cyan-500/20 text-cyan-200 border-none text-xs">{obs.source}</Badge>
+                        <span className="font-mono text-xs text-gray-500">{String(obs.id).slice(0, 8)}</span>
+                      </div>
+                      <p className="line-clamp-2 min-h-10 text-sm text-gray-300">{place}</p>
+                      <p className="text-xs text-gray-500">
+                        {obs.observed_at ? new Date(obs.observed_at).toLocaleString() : "time unavailable"}
+                      </p>
+                      {uri ? (
+                        <a href={uri} target="_blank" rel="noreferrer" className="block text-xs text-cyan-300 hover:text-cyan-200">
+                          Open source observation
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {fallbackObservationsLoading && observationPreview.length === 0 ? (
+              <p className="text-sm text-cyan-200">Loading live observations from MINDEX...</p>
+            ) : null}
+            {fallbackObservationsError ? (
+              <p className="text-sm text-amber-200">Observation fallback failed: {fallbackObservationsError}</p>
+            ) : null}
+            {observationPreview.length === 0 ? (
+              <p className="text-sm text-gray-500">No observations are loaded in this dashboard snapshot.</p>
+            ) : null}
+          </GlassCard>
+        </div>
+      ) : null}
+
+      {!taxaError && filtered.length === 0 ? (
+        <p className="text-center text-sm text-gray-500">No taxa match the current filters - widen kingdom or disable hash/GBIF filters.</p>
       ) : null}
     </div>
   )

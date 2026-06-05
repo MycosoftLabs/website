@@ -84,6 +84,7 @@ import type { WidgetType } from "@/lib/search/widget-registry"
 import { DEFAULT_WIDGET_SIZES, WIDGET_REGISTRY } from "@/lib/search/widget-registry"
 import type { ResultBucketKey } from "@/lib/search/unified-search-sdk"
 import { FIELD_MYCOBRAIN_DEPLOYMENTS } from "@/lib/devices/field-deployments"
+import { collectGeospatialLocationResults, enrichEarthEntity } from "@/lib/search/earth-entity-bridge"
 import { AnswersWidget } from "./widgets/AnswersWidget"
 import { CameraWidget } from "./widgets/CameraWidget"
 import { ChemistryWidget } from "./widgets/ChemistryWidget"
@@ -92,7 +93,7 @@ import { EarthWidget } from "./widgets/EarthWidget"
 import { EmbeddingAtlasWidget } from "./widgets/EmbeddingAtlasWidget"
 import { FallbackWidget } from "./widgets/FallbackWidget"
 import { GeneticsWidget } from "./widgets/GeneticsWidget"
-import { LocationWidget } from "./widgets/LocationWidget"
+import { LocationWidget, type LocationResult as FluidLocationResult } from "./widgets/LocationWidget"
 import { MediaWidget } from "./widgets/MediaWidget"
 import { NewsWidget } from "./widgets/NewsWidget"
 import { ResearchWidget } from "./widgets/ResearchWidget"
@@ -1238,22 +1239,27 @@ export function FluidSearchCanvas({
       if (!Array.isArray(items)) continue
       for (const raw of items) {
         const item = raw as Record<string, unknown>
-        const id = String(item.id || `${type}-${item.lat || item.latitude}-${item.lng || item.longitude}`)
+        const enriched = enrichEarthEntity(item, type)
+        const id = enriched.entityKey
         if (seenIds.has(id)) continue
         seenIds.add(id)
+        const lat = Number(enriched.lat ?? item.lat ?? item.latitude ?? 0)
+        const lng = Number(enriched.lng ?? item.lng ?? item.longitude ?? 0)
         merged.push({
           id,
           type,
           title: titleFn(item),
           description: String(item.description || ""),
-          latitude: Number(item.lat || item.latitude || 0),
-          longitude: Number(item.lng || item.longitude || 0),
+          latitude: lat,
+          longitude: lng,
           altitude: item.altitude != null ? Number(item.altitude) : undefined,
           timestamp: String(item.timestamp || item.lastSeen || new Date().toISOString()),
           source: String(item.source || type),
-          properties: propsFn(item),
+          properties: { ...propsFn(item), entityKey: id, detailRoute: enriched.detailRoute },
           relevance: 0.5,
-          crepMapUrl: `/natureos/earth-simulator?lat=${item.lat || item.latitude}&lng=${item.lng || item.longitude}&zoom=8&highlight=${id}`,
+          crepMapUrl: enriched.earthSimulatorUrl,
+          earthSimulatorUrl: enriched.earthSimulatorUrl,
+          detailRoute: enriched.detailRoute,
         })
       }
     }
@@ -1268,6 +1274,58 @@ export function FluidSearchCanvas({
     }
     return deduped
   }, [crepResults, aircraft, vessels, eventsForWidgets, satellites, devices, spaceWeather])
+
+  const geospatialLocationResults = useMemo(
+    () =>
+      collectGeospatialLocationResults({
+        locationApi: locationResults as FluidLocationResult[],
+        species: (species as Array<SpeciesResult & { lat?: number | null; lng?: number | null; imageUrl?: string }>)
+          .filter((s) => s.lat != null && s.lng != null)
+          .map((s) => ({
+            id: s.id,
+            lat: s.lat,
+            lng: s.lng,
+            scientificName: s.scientificName,
+            commonName: s.commonName,
+            imageUrl: s.photos?.[0]?.medium_url,
+          })),
+        liveResults,
+        crepMerged: mergedCrepData,
+        earthBuckets: {
+          events: eventsForWidgets as unknown[],
+          aircraft: aircraft as unknown[],
+          vessels: vessels as unknown[],
+          satellites: satellites as unknown[],
+          weather: weather as unknown[],
+          emissions: emissions as unknown[],
+          infrastructure: infrastructure as unknown[],
+          devices: devices as unknown[],
+          space_weather: spaceWeather as unknown[],
+          cameras: cameras as unknown[],
+        },
+        limit: 48,
+      }),
+    [
+      locationResults,
+      species,
+      liveResults,
+      mergedCrepData,
+      eventsForWidgets,
+      aircraft,
+      vessels,
+      satellites,
+      weather,
+      emissions,
+      infrastructure,
+      devices,
+      spaceWeather,
+      cameras,
+    ]
+  )
+  const geospatialLocationRecords = useMemo<Record<string, unknown>[]>(
+    () => geospatialLocationResults.map((loc) => ({ ...loc })),
+    [geospatialLocationResults],
+  )
 
   const earth2Data = earth2RawData?.available ? earth2RawData : null
 
@@ -1284,44 +1342,37 @@ export function FluidSearchCanvas({
     thumbnailUrl?: string; imageUrl?: string;
   }
   const mapObservations = useMemo((): MapObservation[] => {
-    const locations = (locationResults as LocationResult[]).map((loc) => ({
-      id: loc.id || `loc-${loc.lat}-${loc.lng}`,
+    return geospatialLocationResults.map((loc) => ({
+      id: loc.id,
       lat: loc.lat,
       lng: loc.lng,
-      species: loc.species || loc.commonName || "Unknown",
-      scientificName: loc.scientificName || "",
-      timestamp: loc.observedOn || loc.timestamp || new Date().toISOString(),
-      source: loc.source || "iNaturalist",
+      species: loc.speciesName || loc.commonName || "Unknown",
+      scientificName: "",
+      timestamp: loc.observedAt || new Date().toISOString(),
+      source: "MINDEX",
       thumbnailUrl: loc.imageUrl,
     }))
-    const creps = (crepResults as any[]).map((obs) => ({
-      id: obs.id || `crep-${obs.latitude}-${obs.longitude}`,
-      lat: obs.latitude,
-      lng: obs.longitude,
-      species: obs.commonName || obs.species || "Unknown",
-      scientificName: obs.scientificName || "",
-      timestamp: obs.timestamp || new Date().toISOString(),
-      source: obs.source || "CREP",
-      thumbnailUrl: obs.thumbnailUrl || obs.imageUrl,
-    }))
-    return [...locations, ...creps]
-  }, [locationResults, crepResults])
+  }, [geospatialLocationResults])
 
   const eventObservations = useMemo(() => {
     if (!eventsForWidgets || !Array.isArray(eventsForWidgets)) return []
-    return (eventsForWidgets as unknown as Array<Record<string, unknown>>).map((ev) => ({
-      id: String(ev.id || Math.random().toString(36).slice(2)),
+    return (eventsForWidgets as unknown as Array<Record<string, unknown>>).map((ev) => {
+      const enriched = enrichEarthEntity(ev, "events")
+      return {
+      id: enriched.entityKey,
       title: String(ev.title || ev.type || "Event"),
       type: String(ev.type || "event"),
       severity: ev.severity ? String(ev.severity) : undefined,
-      lat: Number(ev.lat || ev.latitude || 0),
-      lng: Number(ev.lng || ev.longitude || 0),
+      lat: Number(enriched.lat || ev.lat || ev.latitude || 0),
+      lng: Number(enriched.lng || ev.lng || ev.longitude || 0),
       timestamp: ev.timestamp ? String(ev.timestamp) : undefined,
       magnitude: ev.magnitude ? Number(ev.magnitude) : undefined,
       depth: ev.depth ? Number(ev.depth) : undefined,
       locationName: ev.locationName || ev.place || ev.location,
       link: ev.link || ev.url || ev.sourceUrl,
-    }))
+      earthSimulatorUrl: enriched.earthSimulatorUrl,
+    }
+    })
   }, [eventsForWidgets])
 
   // Handler to view an observation on the map
@@ -1501,20 +1552,19 @@ export function FluidSearchCanvas({
           source: "iNaturalist",
         })
       }
-    } else if (locationResults.length > 0) {
-      // Fallback to location results
-      for (const obs of (locationResults as LocationResult[])) {
+    } else if (geospatialLocationResults.length > 0) {
+      for (const obs of geospatialLocationResults) {
         allLiveItems.push({
-          id: obs.id || `loc-${obs.lat}-${obs.lng}`,
-          species: obs.commonName || obs.speciesName || obs.species || "Unknown",
-          location: obs.placeName || "Unknown location",
+          id: obs.id,
+          species: obs.commonName || obs.speciesName || "Unknown",
+          location: `${obs.lat.toFixed(4)}, ${obs.lng.toFixed(4)}`,
           date: obs.observedAt?.split("T")[0] || "",
           photoUrl: obs.imageUrl,
           lat: obs.lat,
           lng: obs.lng,
           type: "observation",
-          title: obs.commonName || obs.speciesName || obs.species || "Unknown",
-          source: "iNaturalist",
+          title: obs.commonName || obs.speciesName || "Unknown",
+          source: "MINDEX",
         })
       }
     }
@@ -1615,7 +1665,7 @@ export function FluidSearchCanvas({
       prevLiveCountRef.current = 0
       setLiveObservationsRef.current([])
     }
-  }, [liveResults, locationResults, eventsForWidgets, aircraft, vessels, newsResults, committedQuery])
+  }, [liveResults, geospatialLocationResults, eventsForWidgets, aircraft, vessels, newsResults, committedQuery])
 
   // Track history
   useEffect(() => {
@@ -1690,7 +1740,7 @@ export function FluidSearchCanvas({
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: len(genetics) > 0, depth: getParallaxDepth("genetics") },
     { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: len(research) > 0, depth: getParallaxDepth("research") },
     { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: len(mediaResults) > 0, depth: getParallaxDepth("media") },
-    { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(locationResults) > 0, depth: getParallaxDepth("location") },
+    { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(geospatialLocationResults) > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: len(newsResults) > 0, depth: getParallaxDepth("news") },
     { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: mergedCrepData.length > 0, depth: getParallaxDepth("crep") },
     { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || eventObservations.length > 0 || !!earth2Data || len(aircraft) > 0 || len(vessels) > 0 || len(satellites) > 0 || len(devices) > 0 || len(cameras) > 0 || len(infrastructure) > 0 || len(weather) > 0 || len(emissions) > 0, depth: getParallaxDepth("earth") },
@@ -1729,7 +1779,7 @@ export function FluidSearchCanvas({
     { type: "code", label: "Code", icon: "💻", gradient: "from-violet-500/30 to-slate-500/20", hasData: false, depth: getParallaxDepth("code") },
     { type: "shopping", label: "Shopping", icon: "🛒", gradient: "from-fuchsia-500/30 to-pink-500/20", hasData: false, depth: getParallaxDepth("shopping") },
     { type: "recipe", label: "Recipes", icon: "📖", gradient: "from-amber-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("recipe") },
-  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), len(eventObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, answerForWidget, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
+  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(geospatialLocationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), len(eventObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, answerForWidget, len(eventsForWidgets), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   const activeWidgets = widgetConfigs.filter((widget) => !EARTH_SIMULATOR_RESULT_WIDGETS.has(widget.type))
 
@@ -2576,7 +2626,7 @@ export function FluidSearchCanvas({
                           entityFamilies: effectiveSearchRoute?.searchPlan?.entityFamilies ?? [],
                           etlRequests: effectiveSearchRoute?.searchPlan?.etlRequests?.map((request) => `${request.widget}: ${request.missingDataKind}`) ?? [],
                         }}
-                        media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
+                        media={mediaResults} mediaError={mediaError} location={geospatialLocationRecords} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
                         earthFocusLocation={earthFocusLocation}
                         userLocation={activeUserLocation}

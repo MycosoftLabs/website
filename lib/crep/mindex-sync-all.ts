@@ -1,3 +1,5 @@
+import { resolveMindexServerBaseUrl } from "../mindex-base-url"
+
 /**
  * MINDEX Sync-All — Single Pipeline for Every CREP Source
  *
@@ -141,12 +143,31 @@ export async function syncAllToMindex(baseUrl: string): Promise<{ sinks: SinkRes
     }, baseUrl),
 
     // ── NATURE / BIODIVERSITY ──
-    // Full 300M iNat scrape runs separately via scripts/inat-backfill-parallel.ts
-    // Here we sync only recent observations (last 24h delta).
+    // Canonical iNat deltas run on MINDEX VM (mindex-etl inat_obs). This sink mirrors
+    // the last 24h from MINDEX into earth ingest tables — not the disabled website ETL route.
     timeSink("inat-delta", "nature", async () => {
-      const since = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10)
-      const j = await jsonGet(`${baseUrl}/api/etl/inat/sync?since=${since}`, 120_000).catch(() => ({ observations: [] }))
-      return { type: "nature-observations", items: (j.observations || []).map((o: any) => ({ id: o.id, ...o })) }
+      const mindexBase = resolveMindexServerBaseUrl()
+      const apiKey = process.env.MINDEX_API_KEY?.trim() || ""
+      const start = new Date(Date.now() - 24 * 3600_000).toISOString()
+      const headers: Record<string, string> = { Accept: "application/json" }
+      if (apiKey) headers["X-API-Key"] = apiKey
+      const url = `${mindexBase}/api/mindex/observations?start=${encodeURIComponent(start)}&limit=5000`
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(120_000) })
+      if (!res.ok) {
+        return { type: "nature-observations", items: [] }
+      }
+      const j = await res.json()
+      const rows = j.data || j.items || j.observations || []
+      return {
+        type: "nature-observations",
+        items: rows.map((o: any) => ({
+          id: o.id || o.source_id || o.uuid,
+          lat: o.lat ?? o.latitude,
+          lng: o.lng ?? o.longitude,
+          timestamp: o.observed_at || o.timestamp,
+          ...o,
+        })),
+      }
     }, baseUrl),
     timeSink("gbif-delta", "nature", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/gbif?limit=5000`)

@@ -15,6 +15,7 @@ export interface EagleViewportSource {
   stream_url?: string | null
   embed_url?: string | null
   media_url?: string | null
+  source_status?: string | null
 }
 
 const BAKED_GEOJSON_URLS = [
@@ -53,6 +54,7 @@ function featureToSource(feature: {
     stream_url: (p.stream_url as string) ?? null,
     embed_url,
     media_url: (p.media_url as string) ?? null,
+    source_status: ((p.source_status as string) ?? (p.status as string) ?? null),
   }
   const normalized = normalizeEagleCameraCoords(raw)
   if (!isDisplayableEagleCamera(normalized)) return null
@@ -148,6 +150,7 @@ function mapApiSources(raw: unknown[]): EagleViewportSource[] {
         stream_url: (c.stream_url as string) ?? null,
         embed_url: (c.embed_url as string) ?? null,
         media_url: (c.media_url as string) ?? null,
+        source_status: ((c.source_status as string) ?? (c.status as string) ?? null),
       }
     }),
   )

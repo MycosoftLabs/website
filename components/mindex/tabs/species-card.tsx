@@ -28,6 +28,9 @@ export function SpeciesCard({ taxon, showProfileLink = true }: { taxon: Taxon; s
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="bg-purple-500/20 text-purple-300 border-none text-xs capitalize">{taxon.rank}</Badge>
+          {taxon.kingdom ? (
+            <Badge className="bg-green-500/20 text-green-300 border-none text-xs capitalize">{taxon.kingdom}</Badge>
+          ) : null}
           <Badge className="bg-cyan-500/20 text-cyan-300 border-none text-xs">{taxon.source}</Badge>
           {hash ? (
             <Badge variant="outline" className="text-xs font-mono border-orange-500/40 text-orange-200">
@@ -38,6 +41,24 @@ export function SpeciesCard({ taxon, showProfileLink = true }: { taxon: Taxon; s
               No content hash in metadata
             </Badge>
           )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+          <div className="rounded-md bg-white/5 px-2 py-1">
+            <p className="text-gray-500">Obs</p>
+            <p className="font-mono text-cyan-200">{(taxon.obs_count ?? 0).toLocaleString()}</p>
+          </div>
+          <div className="rounded-md bg-white/5 px-2 py-1">
+            <p className="text-gray-500">Images</p>
+            <p className="font-mono text-cyan-200">{(taxon.image_count ?? 0).toLocaleString()}</p>
+          </div>
+          <div className="rounded-md bg-white/5 px-2 py-1">
+            <p className="text-gray-500">Genomes</p>
+            <p className="font-mono text-green-200">{(taxon.genome_count ?? 0).toLocaleString()}</p>
+          </div>
+          <div className="rounded-md bg-white/5 px-2 py-1">
+            <p className="text-gray-500">Compounds</p>
+            <p className="font-mono text-green-200">{(taxon.compound_link_count ?? 0).toLocaleString()}</p>
+          </div>
         </div>
         {showProfileLink ? (
           <Button asChild variant="secondary" className="w-full min-h-[44px] justify-center sm:w-auto sm:self-start">

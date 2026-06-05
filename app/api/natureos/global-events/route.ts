@@ -121,7 +121,7 @@ async function fetchUSGSEarthquakes(days = 7): Promise<GlobalEvent[]> {
     const feed = days >= 30 ? "all_month" : days > 1 ? "1.0_week" : "1.0_day";
     const res = await fetch(
       `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${feed}.geojson`,
-      { signal: AbortSignal.timeout(20000), cache: "no-store" }
+      { signal: AbortSignal.timeout(6000), cache: "no-store" }
     );
     
     if (!res.ok) throw new Error("USGS API error");
@@ -173,7 +173,7 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
     // Solar Flare data
     const flareRes = await fetch(
       "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json",
-      { signal: AbortSignal.timeout(10000), cache: "no-store" }
+      { signal: AbortSignal.timeout(4000), cache: "no-store" }
     );
     
     if (flareRes.ok) {
@@ -210,7 +210,7 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
     // Geomagnetic storms - K-index
     const kpRes = await fetch(
       "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
-      { signal: AbortSignal.timeout(10000), cache: "no-store" }
+      { signal: AbortSignal.timeout(4000), cache: "no-store" }
     );
     
     if (kpRes.ok) {
@@ -346,7 +346,7 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
   try {
     const res = await fetch(
       "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=5000",
-      { signal: AbortSignal.timeout(15000), cache: "no-store" }
+      { signal: AbortSignal.timeout(4000), cache: "no-store" }
     );
     
     if (!res.ok) throw new Error("NASA EONET API error");
@@ -408,7 +408,7 @@ async function fetchNWSActiveWeatherAlerts(): Promise<GlobalEvent[]> {
           Accept: "application/geo+json",
           "User-Agent": "Mycosoft NatureOS Earth Simulator (https://mycosoft.com)",
         },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(4000),
         cache: "no-store",
       },
     );

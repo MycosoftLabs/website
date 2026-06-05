@@ -48,7 +48,7 @@
         "kind": "permanent",
         "name": "Fremont Street YouTube Live",
         "embed_url": "https://www.youtube.com/embed/live_stream?channel=UCgWwDFcpz6FF8KCFEBSLZmA&autoplay=1&mute=1",
-        "status": "online"
+        "status": "unavailable"
       },
       "geometry": { "type": "Point", "coordinates": [-115.1455, 36.1707] }
     },
@@ -60,7 +60,7 @@
         "kind": "permanent",
         "name": "Las Vegas Strip YouTube Live",
         "embed_url": "https://www.youtube.com/embed/live_stream?channel=UCBuVdQ4AAQp4yrK2QJqsN8w&autoplay=1&mute=1",
-        "status": "online"
+        "status": "unavailable"
       },
       "geometry": { "type": "Point", "coordinates": [-115.1719, 36.1150] }
     },
@@ -72,7 +72,7 @@
         "kind": "permanent",
         "name": "Las Vegas City Hall YouTube Live (council chambers)",
         "embed_url": "https://www.youtube.com/embed/live_stream?channel=UCCs9Fy2QlMXah1JPxRs9Xdw&autoplay=1&mute=1",
-        "status": "online"
+        "status": "unavailable"
       },
       "geometry": { "type": "Point", "coordinates": [-115.1433, 36.1716] }
     },

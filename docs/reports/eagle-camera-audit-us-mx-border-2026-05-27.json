@@ -1,0 +1,3015 @@
+{
+  "generated_at": "2026-05-28T01:24:35.336Z",
+  "base": "http://localhost:3010",
+  "bboxes": [
+    [
+      -117.35,
+      32.45,
+      -114.6,
+      32.9
+    ],
+    [
+      -114.9,
+      31.25,
+      -109,
+      32.9
+    ],
+    [
+      -109.1,
+      31.25,
+      -103,
+      32.3
+    ],
+    [
+      -106.7,
+      25.7,
+      -97,
+      32.2
+    ]
+  ],
+  "loads": [
+    {
+      "bbox": [
+        -117.35,
+        32.45,
+        -114.6,
+        32.9
+      ],
+      "url": "http://localhost:3010/api/eagle/sources?bbox=-117.35%2C32.45%2C-114.6%2C32.9&limit=120&live=0&fast=1",
+      "elapsed_ms": 147,
+      "count": 105
+    },
+    {
+      "bbox": [
+        -114.9,
+        31.25,
+        -109,
+        32.9
+      ],
+      "url": "http://localhost:3010/api/eagle/sources?bbox=-114.9%2C31.25%2C-109%2C32.9&limit=120&live=0&fast=1",
+      "elapsed_ms": 50,
+      "count": 0
+    },
+    {
+      "bbox": [
+        -109.1,
+        31.25,
+        -103,
+        32.3
+      ],
+      "url": "http://localhost:3010/api/eagle/sources?bbox=-109.1%2C31.25%2C-103%2C32.3&limit=120&live=0&fast=1",
+      "elapsed_ms": 50,
+      "count": 0
+    },
+    {
+      "bbox": [
+        -106.7,
+        25.7,
+        -97,
+        32.2
+      ],
+      "url": "http://localhost:3010/api/eagle/sources?bbox=-106.7%2C25.7%2C-97%2C32.2&limit=120&live=0&fast=1",
+      "elapsed_ms": 40,
+      "count": 3
+    }
+  ],
+  "summary": {
+    "total": 108,
+    "by_status": {
+      "failing": 27,
+      "playable": 75,
+      "embed_only": 6
+    },
+    "by_provider": {
+      "alertwildfire": {
+        "failing": 2
+      },
+      "caltrans": {
+        "playable": 75,
+        "failing": 4
+      },
+      "earthcam": {
+        "failing": 5,
+        "embed_only": 1
+      },
+      "hpwren": {
+        "failing": 4
+      },
+      "nps": {
+        "embed_only": 1
+      },
+      "port-of-sd": {
+        "embed_only": 1
+      },
+      "scripps": {
+        "failing": 1
+      },
+      "skylinewebcams": {
+        "embed_only": 1,
+        "failing": 1
+      },
+      "surfline": {
+        "failing": 9
+      },
+      "webcamtaxi": {
+        "failing": 1
+      },
+      "youtube_live": {
+        "embed_only": 2
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "alertca-cowles",
+      "name": "ALERTCalifornia — Mt. Cowles (San Diego)",
+      "provider": "alertwildfire",
+      "lat": 32.81,
+      "lng": -117.11,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-snapshot?url=https%3A%2F%2Fcameras.alertcalifornia.org%2F%3Fpos%3D32.81%2C-117.11%2C16z%26id%3DAxis-Cowles&selector=video",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "alertca-otay",
+      "name": "ALERTCalifornia — Otay (SD border)",
+      "provider": "alertwildfire",
+      "lat": 32.5961,
+      "lng": -116.8342,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-snapshot?url=https%3A%2F%2Fcameras.alertcalifornia.org%2F%3Fpos%3D32.60%2C-116.83%2C15z%26id%3DAxis-Otay&selector=video",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.55579,-116.93958",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.55579,
+      "lng": -116.93958,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C250_WB_905_at_Siempre_Viva_bot.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 664,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc250i905semprevivab%2Fc250i905semprevivab.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 158
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.56094,-116.94437",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.56094,
+      "lng": -116.94437,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C099_WB_905_at_Airway_Bottom.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc099wb905airwayb%2Fc099wb905airwayb.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 157
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.56386,-116.96282",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.56386,
+      "lng": -116.96282,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C098_EB_905_at_La_Media_top.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 686,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc098eb905lamediat%2Fc098eb905lamediat.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 137
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.56464,-116.98003",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.56464,
+      "lng": -116.98003,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C247_WB_905_at_Britannia.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 79,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc247i905britanniabottom%2Fc247i905britanniabottom.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 115
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.68624,-117.09187",
+      "name": "National City",
+      "provider": "caltrans",
+      "lat": 32.68624,
+      "lng": -117.09187,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C093_SB_805_at_Division_St_On_Ramp.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1258,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc093sb805divisionstreetonramp%2Fc093sb805divisionstreetonramp.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 138
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.68867,-117.11612",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.68867,
+      "lng": -117.11612,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C030_SB_5_JSO_Rte_15.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 30,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc030sb5justsouthofi15%2Fc030sb5justsouthofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 138
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.69185,-117.09464",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.69185,
+      "lng": -117.09464,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C094_NB_805_at_47th_St_On_Ramp.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc094nb80547thstreetonramp%2Fc094nb80547thstreetonramp.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 152
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.69423,-117.12948",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.69423,
+      "lng": -117.12948,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C024_SB_5_at_30th_St.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc024sb530thstreet%2Fc024sb530thstreet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 129
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.694709,-117.125186",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.694709,
+      "lng": -117.125186,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C029_NB_5_JNO_Rte_15.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1375,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc029i5justnorthofi15%2Fc029i5justnorthofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 137
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.69688,-117.13708",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.69688,
+      "lng": -117.13708,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C023_SB_5_JNO_28th_St.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 417,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc023sb5justnorthof28thstreet%2Fc023sb5justnorthof28thstreet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 147
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.70318,-117.14597",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.70318,
+      "lng": -117.14597,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C022_SB_5_at_Crosby_St.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1107,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc022sb5cesarechavesparkway%2Fc022sb5cesarechavesparkway.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 149
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.70795,-117.14789",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.70795,
+      "lng": -117.14789,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C021_SB_5_at_Imperial.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc021i5imperialavenue%2Fc021i5imperialavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 135
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.71329,-117.14517",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.71329,
+      "lng": -117.14517,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C025_Rte_94_JEO_Rte_5.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 18,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc025sr94justeastofi5%2Fc025sr94justeastofi5.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 149
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.71385,-117.148",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.71385,
+      "lng": -117.148,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C020_SB_5_at_Rte_94.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc020sb5sr94%2Fc020sb5sr94.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 141
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.71725,-117.11678",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.71725,
+      "lng": -117.11678,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C027_WB_94_JEO_Rte_15.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc027sr94justeastofi15%2Fc027sr94justeastofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 179
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.71843,-117.10505",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.71843,
+      "lng": -117.10505,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C028_EB_94_JWO_Rte_805.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 831,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc028sr94justwestofi805%2Fc028sr94justwestofi805.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 150
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72036,-117.11707",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72036,
+      "lng": -117.11707,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C078_NB_15_at_94.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc078i15sr94%2Fc078i15sr94.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 120
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72285,-117.16356",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72285,
+      "lng": -117.16356,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C014_SB_5_at_First_St.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1059,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc014i5firstavenue%2Fc014i5firstavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 154
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72318,-117.14931",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72318,
+      "lng": -117.14931,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C019_NB_5_JNO_Rte_94.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1527,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc019nb5justnorthofsr94%2Fc019nb5justnorthofsr94.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 148
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72414,-117.15696",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72414,
+      "lng": -117.15696,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C016_NB_5_JSO_6th.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc016i56thave%2Fc016i56thave.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 126
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72452,-117.15386",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72452,
+      "lng": -117.15386,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C018_NB_5_at_Rte_163.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 18,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc018nb5sr163%2Fc018nb5sr163.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 3376
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.72647,-117.15637",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.72647,
+      "lng": -117.15637,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C017_SB_163_JNO_Rte_5.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 860,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc017sr163justnorthofi5%2Fc017sr163justnorthofi5.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 151
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.73166,-117.17124",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.73166,
+      "lng": -117.17124,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C013_NB_5_JNO_Laurel.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc013nb5atsassafrasst%2Fc013nb5atsassafrasst.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 131
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.73226,-117.11219",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.73226,
+      "lng": -117.11219,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C067_SB_805_I-15_UC.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1835,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc067i805i15%2Fc067i805i15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 146
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.73556,-117.17461",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.73556,
+      "lng": -117.17461,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C012_NB_5_JNO_Pacific_Hwy.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 996,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc012nb5justnorthofpacifichighway%2Fc012nb5justnorthofpacifichighway.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 153
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74197,-117.11265",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74197,
+      "lng": -117.11265,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C072_SB_15_and_SB_805_Intersection.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 20,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc072i15i805%2Fc072i15i805.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 158
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74339,-117.18376",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74339,
+      "lng": -117.18376,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C011_NB_5_JNO_Washington.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc011i5justnorthofwashingtonstreet%2Fc011i5justnorthofwashingtonstreet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 156
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74543,-117.11944",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74543,
+      "lng": -117.11944,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C068_NB_805_JSO_University.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 785,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc068i805justsouthofuniversity%2Fc068i805justsouthofuniversity.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 172
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74706,-117.19329",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74706,
+      "lng": -117.19329,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C010_SB_5_at_Old_Town_Ave.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc010i5oldtownavenue%2Fc010i5oldtownavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 156
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74936,-117.1094",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74936,
+      "lng": -117.1094,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C073_SB_15_at_University_Ave.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc073i15universityavenue%2Fc073i15universityavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 123
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.74958,-117.19542",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.74958,
+      "lng": -117.19542,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C009_NB_5_JNO_Old_Town.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 791,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc009i5justnorthofoldtown%2Fc009i5justnorthofoldtown.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 188
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.754717,-117.109203",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.754717,
+      "lng": -117.109203,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C074_SB_15_at_El_Cajon_BLVD.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc074i15elcajonboulevard%2Fc074i15elcajonboulevard.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 114
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.75506,-117.12534",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.75506,
+      "lng": -117.12534,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C069_SB_805_at_El_Cajon_Blvd_On_Ramp.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 786,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc069i805elcajonboulevardonramp%2Fc069i805elcajonboulevardonramp.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 158
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.75589,-117.20229",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.75589,
+      "lng": -117.20229,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C008_NB_5_JSO_Rte_8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 541,
+          "bytes_sampled": 125
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc008i5justsouthofi8%2Fc008i5justsouthofi8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 185
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.75919,-117.18028",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.75919,
+      "lng": -117.18028,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C006_EB_8_JEO_Taylor.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1051,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc006i8justeastoftaylor%2Fc006i8justeastoftaylor.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 153
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76002,-117.1968",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76002,
+      "lng": -117.1968,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C007_EB_8_at_Morena_Blvd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc007i8morenaboulevard%2Fc007i8morenaboulevard.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 126
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76005,-117.17079",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76005,
+      "lng": -117.17079,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C005_EB_8_at_Hotel_Circle.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc005i8hotelcircle%2Fc005i8hotelcircle.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 197
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76008,-117.19186",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76008,
+      "lng": -117.19186,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C015_EB_8_JWO_Taylor_St.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 812,
+          "bytes_sampled": 125
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc015i8justwestoftaylorstreet%2Fc015i8justwestoftaylorstreet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 171
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76076,-117.16382",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76076,
+      "lng": -117.16382,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C002_SB_163_JSO_Rte_8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 19,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc002sr163justsouthofi8%2Fc002sr163justsouthofi8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 503
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76143,-117.12743",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76143,
+      "lng": -117.12743,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C070_SB_805_at_Madison_Ave_Off_Ramp.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc070i805justsouthofadamsave%2Fc070i805justsouthofadamsave.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 192
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76209,-117.10966",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76209,
+      "lng": -117.10966,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C075_SB_15_at_Adams_Ave_On_Ramp.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 84,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc075i15adamsavenue%2Fc075i15adamsavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 145
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.763719,-117.162808",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.763719,
+      "lng": -117.162808,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C003_NB_163_at_Rte_8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 18,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc003sr163i8%2Fc003sr163i8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 140
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76412,-117.15772",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76412,
+      "lng": -117.15772,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C052_EB_8_JWO_Texas_St.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1067,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc052i8justeastof163%2Fc052i8justeastof163.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 137
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76657,-117.14814",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76657,
+      "lng": -117.14814,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C053_EB_8_JEO_Mission_Center_Rd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc053i8justeastofmissioncenterroad%2Fc053i8justeastofmissioncenterroad.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 124
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.76723,-117.1286",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.76723,
+      "lng": -117.1286,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C071_NB_805_JNO_Adams_Ave.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 609,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc071i805justsouthofi8%2Fc071i805justsouthofi8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 166
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.7711,-117.11301",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.7711,
+      "lng": -117.11301,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C076_SB_15_JSO_I-8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 657,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc076i15justsouthofi8%2Fc076i15justsouthofi8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 149
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77142,-117.1347",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77142,
+      "lng": -117.1347,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C054_WB_8_JWO_Rte_805.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 823,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc054i8justwestofi805%2Fc054i8justwestofi805.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 157
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.771578,-117.160533",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.771578,
+      "lng": -117.160533,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C350_NB_163_at_SSO_Friars_Rd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc350sr163friarsse%2Fc350sr163friarsse.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 182
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77199,-117.13017",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77199,
+      "lng": -117.13017,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C055_EB_8_JEO_Rte_805.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 125
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc055i8justeastofi805%2Fc055i8justeastofi805.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 188
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.772126,-117.160577",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.772126,
+      "lng": -117.160577,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C349_NB_163_at_North_Side_of_Friars_Rd_B.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc349sr163friarsnet%2Fc349sr163friarsnet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 144
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77816,-117.11253",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77816,
+      "lng": -117.11253,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C077_SB_15_at_I-8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 604,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc077i15i8%2Fc077i15i8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 144
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77823,-117.1194",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77823,
+      "lng": -117.1194,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C056_WB_8_JWO_I-15.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc056i8westofi15%2Fc056i8westofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 130
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77896,-117.10619",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77896,
+      "lng": -117.10619,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C057_WB_8_JEO_Rte_15.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc057i8justeastofi15%2Fc057i8justeastofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 133
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.77969,-117.13724",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.77969,
+      "lng": -117.13724,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C058_NB_805_JNO_Rte_8.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc058i805justnorthofi8%2Fc058i805justnorthofi8.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 140
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.7901,-117.11291",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.7901,
+      "lng": -117.11291,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C060_NB_15_JNO_Friars_Rd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc060i15justnorthoffriarsroad%2Fc060i15justnorthoffriarsroad.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 132
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.79144,-117.14978",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.79144,
+      "lng": -117.14978,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C059_SB_805_JSO_Kearny_Villa_Rd.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 817,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc059i805kearnyvillaroad%2Fc059i805kearnyvillaroad.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 159
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.80825,-117.1521",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.80825,
+      "lng": -117.1521,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C031_NB_805_JSO_Rte_163.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 809,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc031i805justsouthofsr163%2Fc031i805justsouthofsr163.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 151
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.809017,-117.114313",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.809017,
+      "lng": -117.114313,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C061_SB_15_JSO_Aero_Drive.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 30,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc061i15justsouthofaerodrive%2Fc061i15justsouthofaerodrive.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 166
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.81167,-116.91755",
+      "name": "El Cajon",
+      "provider": "caltrans",
+      "lat": 32.81167,
+      "lng": -116.91755,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C095_WB_8_at_Greenfield_Drive.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 1746,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc095i8greenfieldstreet%2Fc095i8greenfieldstreet.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 144
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.81984,-117.14818",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.81984,
+      "lng": -117.14818,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C032_SB_163_JSO_Balboa_Ave.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 868,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc032sr163justsouthofbalboaavenue%2Fc032sr163justsouthofbalboaavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 184
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.823059,-117.117302",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.823059,
+      "lng": -117.117302,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C062_SB_15_at_Balboa_Ave.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 29,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc062i15balboaavenue%2Fc062i15balboaavenue.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 160
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.83127,-117.14207",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.83127,
+      "lng": -117.14207,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C033_SB_163_JSO_Clairemont_Mesa.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 712,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc033sb163justsouthofclairemontmesa%2Fc033sb163justsouthofclairemontmesa.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 138
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.83373,-117.11962",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.83373,
+      "lng": -117.11962,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C063_SB_15_at_Clairemont_Mesa_Blvd.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 714,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc063sb15clairemontmesaboulevard%2Fc063sb15clairemontmesaboulevard.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 151
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.84065,-117.13437",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.84065,
+      "lng": -117.13437,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C034_SB_163_JSO_Rte_52.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 30,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc034sr163justsouthofsr52%2Fc034sr163justsouthofsr52.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 207
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.84217,-117.12142",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.84217,
+      "lng": -117.12142,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C064_SB_15_at_Rte_52.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc064sr52i15%2Fc064sr52i15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 129
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.84495,-117.13048",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.84495,
+      "lng": -117.13048,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C035_SB_163_JNO_Rte_52.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 606,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc035sr163justnorthofsr52%2Fc035sr163justnorthofsr52.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 170
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.84738,-117.11693",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.84738,
+      "lng": -117.11693,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C065_NB_15_JNO_Rte_52.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc065i15justnorthofsr52%2Fc065i15justnorthofsr52.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 117
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.85639,-117.11478",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.85639,
+      "lng": -117.11478,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C036_NB_163_JSO_Rte_15.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 569,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc036nb163justsouthofi15%2Fc036nb163justsouthofi15.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 155
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.860437,-117.112228",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.860437,
+      "lng": -117.112228,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C037_NB_163_South_End_HOV.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 616,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc037nb15sr163southendhov%2Fc037nb15sr163southendhov.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 154
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.87068,-117.10693",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.87068,
+      "lng": -117.10693,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C038_NB_15_JNO_SR_163.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 866,
+          "bytes_sampled": 126
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc038nb15justnorthofsr163%2Fc038nb15justnorthofsr163.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 3280
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.8805,-117.10767",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.8805,
+      "lng": -117.10767,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C039_NB_15_JSO_Miramar_Way.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc039nb15justsouthofmiramarway%2Fc039nb15justsouthofmiramarway.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 138
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.88761,-117.22831",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.88761,
+      "lng": -117.22831,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C048_SB_5_JNO_Genesee.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 50,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc048i5genesee%2Fc048i5genesee.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 176
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-32.89304,-117.11595",
+      "name": "San Diego",
+      "provider": "caltrans",
+      "lat": 32.89304,
+      "lng": -117.11595,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C040_SB_15_at_Miramar_Rd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-image?url=https%3A%2F%2Fcwwp2.dot.ca.gov%2Fdata%2Fd11%2Fcctv%2Fimage%2Fc040sb15miramarroad%2Fc040sb15miramarroad.jpg",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 137
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-c105-i5-dairy-mart-road",
+      "name": "I-5 at Dairy Mart Rd (San Ysidro)",
+      "provider": "caltrans",
+      "lat": 32.5506,
+      "lng": -117.0464,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C105_I-5_at_Dairy_Mart_Rd.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/c105i5dairymartroad/c105i5dairymartroad.jpg",
+          "status": "playable",
+          "http_status": 206,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 1085
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-c214-sb5-via-de-san-ysidro",
+      "name": "I-5 SB at Via de San Ysidro (POE approach)",
+      "provider": "caltrans",
+      "lat": 32.5432,
+      "lng": -117.0295,
+      "status": "playable",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/C214_SB_5_at_Via_De_San_Ysidro.stream/playlist.m3u8",
+          "status": "playable",
+          "http_status": 200,
+          "content_type": "application/vnd.apple.mpegurl",
+          "elapsed_ms": 431,
+          "bytes_sampled": 127
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/c214sb5viadesanysidro/c214sb5viadesanysidro.jpg",
+          "status": "playable",
+          "http_status": 206,
+          "content_type": "image/jpeg",
+          "elapsed_ms": 77
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-sr75-coronado-bridge",
+      "name": "SR-75 at Coronado Bay Bridge",
+      "provider": "caltrans",
+      "lat": 32.692,
+      "lng": -117.1717,
+      "status": "failing",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/SR-75_at_Coronado_Bay_Bridge.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/sr75coronadobaybridge/sr75coronadobaybridge.jpg",
+          "status": "bad_image",
+          "http_status": 500,
+          "content_type": "text/html",
+          "elapsed_ms": 7205
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-sr75-orange-ave",
+      "name": "SR-75 at Orange Ave (Coronado)",
+      "provider": "caltrans",
+      "lat": 32.678,
+      "lng": -117.179,
+      "status": "failing",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/SR-75_at_Orange_Ave.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/sr75orangeave/sr75orangeave.jpg",
+          "status": "bad_image",
+          "http_status": 500,
+          "content_type": "text/html",
+          "elapsed_ms": 3209
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-sr75-palm-ave",
+      "name": "SR-75 at Palm Ave (Imperial Beach)",
+      "provider": "caltrans",
+      "lat": 32.579,
+      "lng": -117.126,
+      "status": "failing",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/SR-75_at_Palm_Ave.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/sr75palmave/sr75palmave.jpg",
+          "status": "bad_image",
+          "http_status": 500,
+          "content_type": "text/html",
+          "elapsed_ms": 1090
+        }
+      ]
+    },
+    {
+      "id": "caltrans-d11-sr75-silverstrand",
+      "name": "SR-75 at Silver Strand (State Beach)",
+      "provider": "caltrans",
+      "lat": 32.6603,
+      "lng": -117.1497,
+      "status": "failing",
+      "has_stream_url": true,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "stream_url",
+          "url": "https://wzmedia.dot.ca.gov/D11/SR-75_at_Silver_Strand.stream/playlist.m3u8",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        },
+        {
+          "kind": "media_url",
+          "url": "https://cwwp2.dot.ca.gov/data/d11/cctv/image/sr75silverstrand/sr75silverstrand.jpg",
+          "status": "bad_image",
+          "http_status": 500,
+          "content_type": "text/html",
+          "elapsed_ms": 77
+        }
+      ]
+    },
+    {
+      "id": "earthcam-coronado-hotel-del",
+      "name": "EarthCam Hotel del Coronado",
+      "provider": "earthcam",
+      "lat": 32.681,
+      "lng": -117.179,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.earthcam.com/usa/california/coronado/hoteldelcoronado/",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 342
+        }
+      ]
+    },
+    {
+      "id": "earthcam-gaslamp-sd",
+      "name": "EarthCam Gaslamp Quarter",
+      "provider": "earthcam",
+      "lat": 32.711,
+      "lng": -117.1605,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.earthcam.com/usa/california/sandiego/gaslamp/",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 378
+        }
+      ]
+    },
+    {
+      "id": "earthcam-imperial-beach-pier",
+      "name": "EarthCam Imperial Beach Pier",
+      "provider": "earthcam",
+      "lat": 32.5789,
+      "lng": -117.1328,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.earthcam.com/usa/california/imperialbeach/",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 309
+        }
+      ]
+    },
+    {
+      "id": "earthcam-sd-bay",
+      "name": "EarthCam San Diego Bay",
+      "provider": "earthcam",
+      "lat": 32.715,
+      "lng": -117.173,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.earthcam.com/usa/california/sandiego/bay/",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 181
+        }
+      ]
+    },
+    {
+      "id": "starbase-cam-spi",
+      "name": "South Padre Island Beach",
+      "provider": "earthcam",
+      "lat": 26.1108,
+      "lng": -97.165,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.earthcam.com/usa/texas/southpadreisland/",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 354
+        }
+      ]
+    },
+    {
+      "id": "zoo-sdzoo-panda",
+      "name": "San Diego Zoo — Panda Cam",
+      "provider": "earthcam",
+      "lat": 32.7353,
+      "lng": -117.149,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.sandiegozoo.org/animals/panda",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=iso-8859-1",
+          "elapsed_ms": 174
+        }
+      ]
+    },
+    {
+      "id": "hpwren-lyons-peak",
+      "name": "HPWREN Lyons Peak — view toward TJ / Tecate",
+      "provider": "hpwren",
+      "lat": 32.695,
+      "lng": -116.892,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "https://hpwren.ucsd.edu/cameras/L/lp-n-mobo-c.jpg",
+          "status": "fetch_error",
+          "error": "fetch failed"
+        }
+      ]
+    },
+    {
+      "id": "hpwren-monument-peak",
+      "name": "HPWREN Monument Peak (Laguna Mtns)",
+      "provider": "hpwren",
+      "lat": 32.892,
+      "lng": -116.4245,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "https://hpwren.ucsd.edu/cameras/M/mp-n-mobo-c.jpg",
+          "status": "fetch_error",
+          "error": "fetch failed"
+        }
+      ]
+    },
+    {
+      "id": "hpwren-otay",
+      "name": "HPWREN — Otay Mountain",
+      "provider": "hpwren",
+      "lat": 32.5961,
+      "lng": -116.8342,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-snapshot?url=https%3A%2F%2Fhpwren.ucsd.edu%2Fcameras%2FL%2Fotay-mrg.jpg&selector=img",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "hpwren-tecmtn",
+      "name": "HPWREN — Tecate Peak",
+      "provider": "hpwren",
+      "lat": 32.5773,
+      "lng": -116.6356,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "http://localhost:3010/api/eagle/cam-snapshot?url=https%3A%2F%2Fhpwren.ucsd.edu%2Fcameras%2FL%2Ftecmtn-mrg.jpg&selector=img",
+          "status": "timeout",
+          "error": "This operation was aborted"
+        }
+      ]
+    },
+    {
+      "id": "nps-cabrillo-ref",
+      "name": "NPS Cabrillo National Monument",
+      "provider": "nps",
+      "lat": 32.6722,
+      "lng": -117.2413,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.nps.gov/cabr/index.htm",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html;charset=UTF-8",
+          "elapsed_ms": 61
+        }
+      ]
+    },
+    {
+      "id": "port-sd-waterfront-ref",
+      "name": "Port of San Diego Waterfront",
+      "provider": "port-of-sd",
+      "lat": 32.7132,
+      "lng": -117.1712,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.portofsandiego.org/",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 28
+        }
+      ]
+    },
+    {
+      "id": "scripps-pier-sio-cam",
+      "name": "Scripps Pier SIO Live Cam",
+      "provider": "scripps",
+      "lat": 32.8662,
+      "lng": -117.2547,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": true,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "media_url",
+          "url": "https://scripps.ucsd.edu/sites/default/files/piercam/current.jpg",
+          "status": "bad_image",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 98
+        }
+      ]
+    },
+    {
+      "id": "skylinewebcams-ocean-beach",
+      "name": "Skyline Ocean Beach",
+      "provider": "skylinewebcams",
+      "lat": 32.749,
+      "lng": -117.255,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.skylinewebcams.com/en/webcam/united-states/california/san-diego/ocean-beach.html",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 533
+        }
+      ]
+    },
+    {
+      "id": "skylinewebcams-sd-bay",
+      "name": "Skyline San Diego Bay & Bridge",
+      "provider": "skylinewebcams",
+      "lat": 32.707,
+      "lng": -117.167,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.skylinewebcams.com/en/webcam/united-states/california/san-diego/san-diego-bay.html",
+          "status": "embed_unreachable",
+          "http_status": 404,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 1478
+        }
+      ]
+    },
+    {
+      "id": "surfline-coronado-hotel-del",
+      "name": "Coronado / Hotel del Coronado Surf Cam",
+      "provider": "surfline",
+      "lat": 32.681,
+      "lng": -117.179,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/central-san-diego/5842041f4e65fad6a7708812",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 51
+        }
+      ]
+    },
+    {
+      "id": "surfline-imperial-beach-pier",
+      "name": "Imperial Beach Pier Surf Cam",
+      "provider": "surfline",
+      "lat": 32.5789,
+      "lng": -117.1328,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/imperial-beach/5842041f4e65fad6a7708805",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 86
+        }
+      ]
+    },
+    {
+      "id": "surfline-la-jolla-cove",
+      "name": "La Jolla Cove",
+      "provider": "surfline",
+      "lat": 32.8508,
+      "lng": -117.272,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/la-jolla/5842041f4e65fad6a7708818",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 52
+        }
+      ]
+    },
+    {
+      "id": "surfline-mission-beach",
+      "name": "Mission Beach Surf Cam",
+      "provider": "surfline",
+      "lat": 32.77,
+      "lng": -117.253,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/mission-beach/5842041f4e65fad6a770881a",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 314
+        }
+      ]
+    },
+    {
+      "id": "surfline-ocean-beach-pier",
+      "name": "Ocean Beach Pier",
+      "provider": "surfline",
+      "lat": 32.749,
+      "lng": -117.255,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/ocean-beach/5842041f4e65fad6a770881c",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 52
+        }
+      ]
+    },
+    {
+      "id": "surfline-pacific-beach-crystal-pier",
+      "name": "Pacific Beach / Crystal Pier",
+      "provider": "surfline",
+      "lat": 32.7965,
+      "lng": -117.2575,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/pacific-beach/5842041f4e65fad6a770881b",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 51
+        }
+      ]
+    },
+    {
+      "id": "surfline-scripps-pier",
+      "name": "Scripps Pier Surf Cam",
+      "provider": "surfline",
+      "lat": 32.8662,
+      "lng": -117.2547,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/scripps/5842041f4e65fad6a7708823",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 53
+        }
+      ]
+    },
+    {
+      "id": "surfline-silver-strand",
+      "name": "Silver Strand State Beach",
+      "provider": "surfline",
+      "lat": 32.632,
+      "lng": -117.143,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/silver-strand/5842041f4e65fad6a7708820",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 52
+        }
+      ]
+    },
+    {
+      "id": "surfline-windansea",
+      "name": "Windansea Surf Cam",
+      "provider": "surfline",
+      "lat": 32.83,
+      "lng": -117.278,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.surfline.com/surf-report/windansea/5842041f4e65fad6a770881e",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 310
+        }
+      ]
+    },
+    {
+      "id": "webcamtaxi-sd-harbor",
+      "name": "WebcamTaxi San Diego Harbor",
+      "provider": "webcamtaxi",
+      "lat": 32.718,
+      "lng": -117.174,
+      "status": "failing",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.webcamtaxi.com/en/united-states/california/san-diego-harbor.html",
+          "status": "embed_unreachable",
+          "http_status": 403,
+          "content_type": "text/html; charset=UTF-8",
+          "elapsed_ms": 305
+        }
+      ]
+    },
+    {
+      "id": "starbase-cam-nsf",
+      "name": "NASASpaceflight Starbase 24/7",
+      "provider": "youtube_live",
+      "lat": 25.9986,
+      "lng": -97.1639,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.youtube.com/embed/live_stream?channel=UCf0LRbPxIUFuoFfh-Dh9guQ&autoplay=1&mute=1",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html; charset=utf-8",
+          "elapsed_ms": 121
+        }
+      ]
+    },
+    {
+      "id": "starbase-cam-spacex",
+      "name": "SpaceX Starbase Live",
+      "provider": "youtube_live",
+      "lat": 25.9972,
+      "lng": -97.1569,
+      "status": "embed_only",
+      "has_stream_url": false,
+      "has_media_url": false,
+      "has_embed_url": true,
+      "checks": [
+        {
+          "kind": "embed_url",
+          "url": "https://www.youtube.com/embed/live_stream?channel=UCX6OQ3DkcsbYNE6H8uQQuVA&autoplay=1&mute=1",
+          "status": "embed_reachable",
+          "http_status": 200,
+          "content_type": "text/html; charset=utf-8",
+          "elapsed_ms": 102
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "This audit only checks public or already-configured Eagle Eye URLs.",
+    "CBP BWT rows without stream_url/media_url are classified as metadata_only, not CCTV.",
+    "Run this from MAS/MINDEX automation for scheduled audits; do not run it inside the Earth Simulator UI."
+  ]
+}

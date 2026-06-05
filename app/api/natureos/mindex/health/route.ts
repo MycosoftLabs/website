@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
           "X-API-Key": apiKey,
           "Content-Type": "application/json",
         },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(2500),
         cache: "no-store",
       })
 
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
             "apikey": env.supabaseAnonKey || "",
             "Authorization": `Bearer ${env.supabaseAnonKey || ""}`,
           },
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(1500),
           cache: "no-store",
         })
         

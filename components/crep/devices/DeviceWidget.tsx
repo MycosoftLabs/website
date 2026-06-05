@@ -352,16 +352,14 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
 
   const stopWidgetEvent = useCallback((event: SyntheticEvent | Event) => {
     event.stopPropagation?.()
-    ;(event as SyntheticEvent).nativeEvent?.stopImmediatePropagation?.()
-    ;(event as Event).stopImmediatePropagation?.()
   }, [])
 
   const handleClose = useCallback((event?: SyntheticEvent | Event) => {
+    onClose()
     if (event) {
       event.preventDefault?.()
       stopWidgetEvent(event)
     }
-    onClose()
   }, [onClose, stopWidgetEvent])
 
   // Esc to close
@@ -371,7 +369,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
     return () => window.removeEventListener("keydown", onKey)
   }, [handleClose])
 
-  const isOnline = device.status === "online" || device.status === "connected"
+  const isOnline = device.status === "online" || device.status === "connected" || device.status === "stale"
   const isPsathyrella =
     device.type?.toLowerCase().includes("psathyrella") ||
     device.id?.toLowerCase().includes("psathyrella") ||
@@ -504,7 +502,6 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
 
           <button
             type="button"
-            onPointerDown={stopWidgetEvent}
             onClick={handleClose}
             className="relative z-10 p-1 rounded hover:bg-white/10 transition-colors shrink-0"
             aria-label="Close"
@@ -582,6 +579,14 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
                 className="text-[10px] py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 hover:border-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {controlBusy === "buzzer" ? "..." : "Beep Test"}
+              </button>
+              <button
+                type="button"
+                disabled={!!controlBusy}
+                onClick={() => sendControl("buzzer", { action: "off" })}
+                className="text-[10px] py-1.5 rounded-lg border border-slate-500/40 text-slate-200 hover:bg-slate-500/10 hover:border-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {controlBusy === "buzzer" ? "..." : "Buzzer Off"}
               </button>
               <button
                 type="button"

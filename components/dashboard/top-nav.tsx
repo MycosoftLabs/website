@@ -17,7 +17,7 @@ import {
   MessageSquare, FileText
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from "react"
 import {
@@ -84,6 +84,7 @@ function notificationIcon(type: string) {
 
 export function TopNav() {
   const router = useRouter()
+  const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -96,8 +97,16 @@ export function TopNav() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
   const [notifPollPaused, setNotifPollPaused] = useState(false)
+  const isEarthSimulatorRoute =
+    pathname?.startsWith("/natureos/earth-simulator") ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator"))
 
   const fetchNotifications = useCallback(async () => {
+    const onEarthSimulator =
+      pathname?.startsWith("/natureos/earth-simulator") ||
+      (typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator"))
+    if (onEarthSimulator && !showNotifications) return
+
     try {
       setNotifLoading(true)
       const res = await fetch("/api/mas/notifications", { cache: "no-store" })
@@ -122,15 +131,16 @@ export function TopNav() {
     } finally {
       setNotifLoading(false)
     }
-  }, [])
+  }, [pathname, showNotifications])
 
   // Fetch notifications on mount and poll every 30s
   useEffect(() => {
+    if (isEarthSimulatorRoute && !showNotifications) return
     fetchNotifications()
-    if (notifPollPaused) return
+    if (notifPollPaused || isEarthSimulatorRoute) return
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
-  }, [fetchNotifications, notifPollPaused])
+  }, [fetchNotifications, notifPollPaused, isEarthSimulatorRoute, showNotifications])
 
   const unreadCount = notifications.filter(n => !n.read).length
 

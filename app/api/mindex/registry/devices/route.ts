@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
-import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -134,10 +134,9 @@ export async function GET(request: NextRequest) {
       queryParams.append("status", status)
     }
     
-    const mindexResponse = await fetch(
+    const mindexResponse = await fetchMindexWithAuthRetry(
       `${MINDEX_API_URL}/api/mindex/devices?${queryParams}`,
       {
-        headers: mindexUpstreamHeaders(),
         signal: AbortSignal.timeout(10000),
       }
     )
@@ -221,11 +220,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Register with MINDEX
-    const mindexResponse = await fetch(
+    const mindexResponse = await fetchMindexWithAuthRetry(
       `${MINDEX_API_URL}/api/mindex/devices/register`,
       {
         method: "POST",
-        headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(registration),
         signal: AbortSignal.timeout(10000),
       }
@@ -286,11 +285,11 @@ export async function PUT(request: NextRequest) {
     }
     
     // Update in MINDEX
-    const mindexResponse = await fetch(
+    const mindexResponse = await fetchMindexWithAuthRetry(
       `${MINDEX_API_URL}/api/mindex/devices/${encodeURIComponent(body.id)}/heartbeat`,
       {
         method: "POST",
-        headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(update),
         signal: AbortSignal.timeout(5000),
       }

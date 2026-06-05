@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { MINDEXDashboard } from "@/components/natureos/mindex-dashboard"
+import { MYCAProvider } from "@/contexts/myca-context"
 
 export const metadata: Metadata = {
   title: "MINDEX | Mycosoft Data Integrity Index | Mycosoft",
@@ -7,9 +8,12 @@ export const metadata: Metadata = {
 }
 
 export default function MINDEXPage() {
-  return <MINDEXDashboard />
+  return (
+    <MYCAProvider>
+      <MINDEXDashboard />
+    </MYCAProvider>
+  )
 }
-
 
 
 

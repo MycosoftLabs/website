@@ -48,16 +48,20 @@ function authHeaders(): Record<string, string> {
 /** MINDEX: GET /api/mindex/eagle/video-sources/{id} — one row, preferred path (Apr 17, 2026). */
 async function fetchVideoSourceByIdFromMindex(sourceId: string): Promise<any | null> {
   const url = `${MINDEX_BASE}/api/mindex/eagle/video-sources/${encodeURIComponent(sourceId)}`
-  const res = await fetch(url, {
-    headers: { Accept: "application/json", ...authHeaders() },
-    signal: AbortSignal.timeout(8_000),
-    cache: "no-store",
-  })
-  if (res.status === 404) return null
-  if (!res.ok) return null
-  const j = await res.json()
-  if (j?.found === false || !j?.source) return null
-  return j.source
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", ...authHeaders() },
+      signal: AbortSignal.timeout(4_000),
+      cache: "no-store",
+    })
+    if (res.status === 404) return null
+    if (!res.ok) return null
+    const j = await res.json()
+    if (j?.found === false || !j?.source) return null
+    return j.source
+  } catch {
+    return null
+  }
 }
 
 // Last-resort: global bbox cache (fair provider ordering in MINDEX; still heavy).
@@ -71,18 +75,22 @@ async function getAllEagleVideoSourcesCached(): Promise<any[]> {
     return sourcesCache.rows
   }
   const url = `${MINDEX_BASE}/api/mindex/earth/map/bbox?layer=eagle_video_sources&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=10000&offset=0`
-  const res = await fetch(url, {
-    headers: { Accept: "application/json", ...authHeaders() },
-    signal: AbortSignal.timeout(12_000),
-    cache: "no-store",
-  })
-  if (!res.ok) {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", ...authHeaders() },
+      signal: AbortSignal.timeout(5_000),
+      cache: "no-store",
+    })
+    if (!res.ok) {
+      return sourcesCache.rows
+    }
+    const j = await res.json()
+    const rows: any[] = j?.entities || j?.features || j?.sources || []
+    sourcesCache = { ts: now, rows }
+    return rows
+  } catch {
     return sourcesCache.rows
   }
-  const j = await res.json()
-  const rows: any[] = j?.entities || j?.features || j?.sources || []
-  sourcesCache = { ts: now, rows }
-  return rows
 }
 
 /**
@@ -100,15 +108,19 @@ async function fetchByCoordHintedId(sourceId: string): Promise<any | null> {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
   const pad = 0.002 // ~200 m bbox
   const url = `${MINDEX_BASE}/api/mindex/earth/map/bbox?layer=eagle_video_sources&lat_min=${lat - pad}&lat_max=${lat + pad}&lng_min=${lng - pad}&lng_max=${lng + pad}&limit=25`
-  const res = await fetch(url, {
-    headers: { Accept: "application/json", ...authHeaders() },
-    signal: AbortSignal.timeout(6_000),
-    cache: "no-store",
-  })
-  if (!res.ok) return null
-  const j = await res.json()
-  const rows: any[] = j?.entities || j?.features || j?.sources || []
-  return rows.find((r) => String(r.id) === sourceId) ?? rows[0] ?? null
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", ...authHeaders() },
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const j = await res.json()
+    const rows: any[] = j?.entities || j?.features || j?.sources || []
+    return rows.find((r) => String(r.id) === sourceId) ?? rows[0] ?? null
+  } catch {
+    return null
+  }
 }
 
 // Map/entity results nest fields under properties{}; direct eagle/video-sources
@@ -148,10 +160,11 @@ export async function GET(
   const qEmbed = req.nextUrl.searchParams.get("embed_url")
   const qMedia = req.nextUrl.searchParams.get("media_url")
   try {
+    const hasQueryFallback = Boolean(qEmbed || qMedia)
     // 1) MINDEX by-id (GET /eagle/video-sources/{id}) — O(1), no global bbox.
     // 2) Tight-bbox Caltrans / coord-hinted ids.
     // 3) Global layer cache (60 s) only as last resort.
-    let raw: any = await fetchVideoSourceByIdFromMindex(sourceId)
+    let raw: any = hasQueryFallback ? null : await fetchVideoSourceByIdFromMindex(sourceId)
     if (!raw) {
       raw = await fetchByCoordHintedId(sourceId)
     }
@@ -187,7 +200,15 @@ export async function GET(
     if (qEmbed && !src.embed_url) src.embed_url = qEmbed
     if (qMedia && !src.media_url) src.media_url = qMedia
 
-    const provider = src.provider || "unknown"
+    const embedHint = String(src.embed_url || "")
+    const streamHint = String(src.stream_url || "")
+    const sourceProvider = String(src.provider || "").trim()
+    const provider =
+      (sourceProvider && sourceProvider !== "unknown" ? sourceProvider : null) ||
+      (/earthcam\.com/i.test(embedHint) ? "earthcam" : null) ||
+      (/surfline\.com/i.test(embedHint) ? "surfline" : null) ||
+      (/youtube\.com|youtu\.be/i.test(`${embedHint} ${streamHint}`) ? "youtube_live" : null) ||
+      "unknown"
     const kind = src.kind || "permanent"
     let streamUrl = (src.stream_url || "").trim()
     const isHls =
@@ -288,6 +309,17 @@ export async function GET(
           stream_type: "snapshot",
         })
       }
+    }
+
+    if (provider === "earthcam" && src.embed_url) {
+      return NextResponse.json({
+        id: sourceId,
+        provider,
+        kind,
+        stream_url: src.embed_url,
+        embed_url: src.embed_url,
+        stream_type: "snapshot",
+      })
     }
 
     // Direct embed URL (YouTube, Twitch, Vimeo, EarthCam, Windy, etc.)

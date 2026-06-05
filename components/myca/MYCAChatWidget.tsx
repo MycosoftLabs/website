@@ -1,13 +1,20 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { useMYCA } from "@/contexts/myca-context"
-import { Brain, Loader2, Play, Send } from "lucide-react"
+import { useMYCA, type MYCASendOptions } from "@/contexts/myca-context"
+import { Brain, Loader2, Mic, MicOff, Play, Send } from "lucide-react"
+
+type MYCALocalCommandResult = {
+  handled: boolean
+  response: string
+  agent?: string
+  metadata?: Record<string, unknown>
+}
 
 interface MYCAChatWidgetProps {
   active?: boolean
@@ -16,6 +23,14 @@ interface MYCAChatWidgetProps {
   getContextText?: () => string
   context?: Record<string, unknown> | (() => Record<string, unknown> | undefined)
   showHeader?: boolean
+  actor?: string
+  source?: MYCASendOptions["source"]
+  wantAudio?: boolean
+  enableFastIntent?: boolean
+  localOnly?: boolean
+  placeholder?: string
+  emptyMessage?: string
+  onLocalCommand?: (message: string) => MYCALocalCommandResult | null | Promise<MYCALocalCommandResult | null>
 }
 
 export function MYCAChatWidget({
@@ -25,10 +40,19 @@ export function MYCAChatWidget({
   getContextText,
   context,
   showHeader = true,
+  actor = "user",
+  source = "web",
+  wantAudio = false,
+  enableFastIntent = true,
+  localOnly = false,
+  placeholder = "Ask MYCA...",
+  emptyMessage = "Start a conversation with MYCA.",
+  onLocalCommand,
 }: MYCAChatWidgetProps) {
   const {
     messages,
     isLoading,
+    appendLocalExchange,
     sendMessage,
     pendingConfirmationId,
     confirmAction,
@@ -38,8 +62,11 @@ export function MYCAChatWidget({
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
+  const [isListening, setIsListening] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const recognitionRef = useRef<any>(null)
 
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "system"),
@@ -52,7 +79,7 @@ export function MYCAChatWidget({
   // parse "show me / fly to / go to / zoom to / take me to <place>" BEFORE
   // waiting on the LLM and dispatch a map event immediately. LLM response
   // still produces the chat text; the map moves first.
-  const tryFastIntent = async (message: string): Promise<boolean> => {
+  const tryFastIntent = useCallback(async (message: string): Promise<boolean> => {
     const m = message.match(
       /^\s*(?:show|fly|go|take|zoom|navigate|send|move)(?:\s+me|\s+us)?\s+(?:to|into|on|at|over)?\s+(.+?)\s*$/i,
     )
@@ -110,26 +137,71 @@ export function MYCAChatWidget({
     } catch {
       return false
     }
-  }
+  }, [])
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async (overrideMessage?: string) => {
     if (isLoading) return
-    const message = (inputRef.current?.value || input).trim()
+    const message = (overrideMessage || inputRef.current?.value || input).trim()
     if (!message) return
     setInput("")
     if (inputRef.current) inputRef.current.value = ""
     setDraftActivity(0)
+    if (onLocalCommand) {
+      try {
+        const local = await onLocalCommand(message)
+        if (local?.handled && local.response) {
+          appendLocalExchange(message, local.response, {
+            agent: local.agent,
+            metadata: local.metadata,
+          })
+          return
+        }
+      } catch (error) {
+        console.error("MYCA local command error:", error)
+      }
+    }
+    if (localOnly) {
+      appendLocalExchange(
+        message,
+        "I am in Earth Simulator map mode. Ask me to fly to a place, show an event layer, or focus a visible map asset.",
+        {
+          agent: "myca-earth-simulator",
+          metadata: {
+            command: "earth-simulator-map-control",
+            routed_to: "local-only-fallback",
+            original_text: message,
+          },
+        },
+      )
+      return
+    }
     // Fire-and-forget intent parse — don't block the LLM send.
-    void tryFastIntent(message)
+    if (enableFastIntent) void tryFastIntent(message)
     const resolvedContext =
       typeof context === "function" ? context() : context
     await sendMessage(message, {
       contextText: getContextText?.(),
       context: resolvedContext,
-      source: "web",
-      wantAudio: false,
+      actor,
+      source,
+      wantAudio,
     })
-  }
+  }, [
+    actor,
+    appendLocalExchange,
+    context,
+    enableFastIntent,
+    getContextText,
+    input,
+    isLoading,
+    localOnly,
+    onLocalCommand,
+    sendMessage,
+    setDraftActivity,
+    source,
+    tryFastIntent,
+    wantAudio,
+  ])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -151,6 +223,69 @@ export function MYCAChatWidget({
       // Audio playback is best-effort
     }
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+    setSpeechSupported(Boolean(SpeechRecognition))
+  }, [])
+
+  const stopListening = useCallback(() => {
+    try {
+      recognitionRef.current?.stop?.()
+    } catch {
+      // Speech recognition stop is best-effort.
+    }
+    recognitionRef.current = null
+    setIsListening(false)
+  }, [])
+
+  const startListening = useCallback(() => {
+    if (typeof window === "undefined" || isLoading) return
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) return
+    stopListening()
+    const recognition = new SpeechRecognition()
+    let finalTranscript = ""
+    recognitionRef.current = recognition
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+    recognition.onstart = () => setIsListening(true)
+    recognition.onresult = (event: any) => {
+      let interimTranscript = ""
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const transcript = String(event.results[i]?.[0]?.transcript || "").trim()
+        if (!transcript) continue
+        if (event.results[i].isFinal) finalTranscript = `${finalTranscript} ${transcript}`.trim()
+        else interimTranscript = `${interimTranscript} ${transcript}`.trim()
+      }
+      const next = (finalTranscript || interimTranscript).trim()
+      setInput(next)
+      if (inputRef.current) inputRef.current.value = next
+      setDraftActivity(next.length)
+    }
+    recognition.onerror = () => setIsListening(false)
+    recognition.onend = () => {
+      recognitionRef.current = null
+      setIsListening(false)
+      const spoken = finalTranscript.trim()
+      if (spoken) void handleSend(spoken)
+    }
+    try {
+      recognition.start()
+    } catch {
+      setIsListening(false)
+    }
+  }, [handleSend, isLoading, setDraftActivity, stopListening])
+
+  useEffect(() => {
+    return () => stopListening()
+  }, [stopListening])
 
   useEffect(() => {
     setIsActive(active)
@@ -197,7 +332,7 @@ export function MYCAChatWidget({
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-sm text-muted-foreground text-center py-8">
-              Start a conversation with MYCA.
+              {emptyMessage}
             </div>
           )}
           {visibleMessages.map((message) => (
@@ -283,7 +418,7 @@ export function MYCAChatWidget({
               setInput(value)
               setDraftActivity(value.trim().length)
             }}
-            placeholder="Ask MYCA..."
+            placeholder={placeholder}
             className="myca-chat-input h-11 text-base"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -298,6 +433,17 @@ export function MYCAChatWidget({
               }
             }}
           />
+          <Button
+            type="button"
+            variant={isListening ? "secondary" : "outline"}
+            className="h-11 w-11"
+            onClick={isListening ? stopListening : startListening}
+            disabled={isLoading || !speechSupported}
+            aria-label={isListening ? "Stop voice input" : "Start voice input"}
+            title={speechSupported ? (isListening ? "Stop voice input" : "Speak a MYCA map command") : "Voice input is not available in this browser"}
+          >
+            {isListening ? <MicOff className="h-4 w-4 text-red-400" /> : <Mic className="h-4 w-4" />}
+          </Button>
           <Button
             type="submit"
             className="h-11 w-11"

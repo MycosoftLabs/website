@@ -17,8 +17,7 @@ interface LedgerSsePayload {
 }
 
 /**
- * Subscribes to MINDEX ledger anchor tail via BFF SSE (`/api/mindex/ledger/stream`).
- * No synthetic hashes — displays the latest row from `ledger.anchor` when present.
+ * Subscribes to the MINDEX ledger anchor tail and displays the latest real row when present.
  */
 export function LiveAnchorStream() {
   const [payload, setPayload] = useState<LedgerSsePayload | null>(null)
@@ -32,11 +31,11 @@ export function LiveAnchorStream() {
         setPayload(data)
         setConnectionError(null)
       } catch {
-        setConnectionError("Invalid SSE payload")
+        setConnectionError("Ledger stream sent an unreadable update.")
       }
     }
     es.onerror = () => {
-      setConnectionError("SSE connection interrupted — check MINDEX API and BFF auth headers")
+      setConnectionError("Ledger stream is not available yet.")
       es.close()
     }
     return () => es.close()
@@ -51,7 +50,7 @@ export function LiveAnchorStream() {
           <Radio className="h-4 w-4 text-cyan-400 animate-pulse" />
           <span>Ledger anchor stream</span>
         </div>
-        <Badge className="bg-cyan-500/15 text-cyan-200 border-cyan-500/30 text-xs">SSE</Badge>
+        <Badge className="bg-cyan-500/15 text-cyan-200 border-cyan-500/30 text-xs">Live</Badge>
       </div>
 
       {payload?.error ? (
@@ -81,19 +80,19 @@ export function LiveAnchorStream() {
           <div>
             <dt className="text-gray-500 text-xs uppercase tracking-wide">Entity</dt>
             <dd>
-              {latest.entity_type} · {latest.created_at ? new Date(String(latest.created_at)).toLocaleString() : "—"}
+              {latest.entity_type} - {latest.created_at ? new Date(String(latest.created_at)).toLocaleString() : "--"}
             </dd>
           </div>
           <div>
             <dt className="text-gray-500 text-xs uppercase tracking-wide">Tier</dt>
-            <dd>{latest.tier || "—"}</dd>
+            <dd>{latest.tier || "--"}</dd>
           </div>
         </dl>
       ) : (
         <p className="text-sm text-gray-500">
           {payload?.ts
-            ? "Connected — waiting for anchors in ledger.anchor (empty database shows no rows)."
-            : "Connecting to MINDEX…"}
+            ? "Connected. Waiting for ledger anchors."
+            : "Connecting to MINDEX..."}
         </p>
       )}
     </div>

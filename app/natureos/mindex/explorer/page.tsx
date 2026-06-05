@@ -4,8 +4,11 @@ import { MindexExplorerClient } from "./explorer-client"
 export const metadata: Metadata = {
   title: "MINDEX Explorer - Data Visualization Hub",
   description:
-    "Interactive data explorer for fungal species, genome browsing, circular plots, and spatial visualization powered by MINDEX",
+    "Interactive data explorer for species, genome browsing, circular plots, and spatial visualization powered by MINDEX.",
 }
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 interface SpeciesRecord {
   id: string
@@ -17,16 +20,27 @@ interface SpeciesRecord {
 }
 
 async function fetchSpecies(): Promise<SpeciesRecord[]> {
-  const mindexUrl = process.env.MINDEX_API_URL
+  const { resolveMindexServerBaseUrl } = await import("@/lib/mindex-base-url")
+  const { fetchMindexWithAuthRetry } = await import("@/lib/mindex-bff-auth")
+  const mindexUrl = resolveMindexServerBaseUrl()
   if (!mindexUrl) return []
 
   try {
-    const res = await fetch(`${mindexUrl}/api/species?limit=50`, {
-      next: { revalidate: 300 },
+    const res = await fetchMindexWithAuthRetry(`${mindexUrl.replace(/\/$/, "")}/api/mindex/taxa?limit=50`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
     })
     if (!res.ok) return []
     const data = await res.json()
-    return Array.isArray(data) ? data : data.species ?? data.results ?? []
+    const rows = Array.isArray(data?.data) ? data.data : []
+    return rows.map((t: Record<string, unknown>) => ({
+      id: String(t.id ?? ""),
+      scientific_name: String(t.canonical_name ?? t.scientific_name ?? ""),
+      common_name: t.common_name ? String(t.common_name) : undefined,
+      kingdom: t.kingdom ? String(t.kingdom) : undefined,
+      phylum: t.phylum ? String(t.phylum) : undefined,
+      observation_count: typeof t.observation_count === "number" ? t.observation_count : undefined,
+    }))
   } catch {
     return []
   }
@@ -38,39 +52,32 @@ export default async function MINDEXExplorerPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold">MINDEX Data Explorer</h1>
-          <p className="text-muted-foreground mt-2">
-            Interactive species list, genome browser, circular plots, and spatial
-            visualization — all backed by the MINDEX knowledge graph
+          <p className="mt-2 text-muted-foreground">
+            Interactive species list, genome browser, circular plots, and spatial visualization for the MINDEX knowledge graph.
           </p>
         </div>
 
-        {/* Client‑side tabbed explorer */}
         <MindexExplorerClient initialSpecies={species} />
 
-        {/* Info cards */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="font-semibold mb-2">Data Sources</h3>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-lg bg-muted/30 p-4">
+            <h3 className="mb-2 font-semibold">Data Sources</h3>
             <p className="text-sm text-muted-foreground">
-              Aggregated from iNaturalist research-grade observations and GBIF
-              occurrence records via MINDEX ETL pipelines
+              Aggregated from iNaturalist research-grade observations, GBIF occurrence records, and other MINDEX sources.
             </p>
           </div>
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="font-semibold mb-2">Visualization</h3>
+          <div className="rounded-lg bg-muted/30 p-4">
+            <h3 className="mb-2 font-semibold">Visualization</h3>
             <p className="text-sm text-muted-foreground">
-              Genome tracks (Gosling.js), linear genome view (JBrowse2), circular
-              plots (pyCirclize), and spatial data (Vitessce)
+              Genome tracks, linear genome views, circular plots, and spatial data viewers for species records.
             </p>
           </div>
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="font-semibold mb-2">Integration</h3>
+          <div className="rounded-lg bg-muted/30 p-4">
+            <h3 className="mb-2 font-semibold">Integration</h3>
             <p className="text-sm text-muted-foreground">
-              Connected to MINDEX database on MINDEX_HOST and MAS orchestrator
-              for real-time agent data enrichment
+              Connected to MINDEX knowledge services and MYCA analysis for real-time data enrichment.
             </p>
           </div>
         </div>

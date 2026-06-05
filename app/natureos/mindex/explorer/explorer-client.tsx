@@ -1,23 +1,17 @@
 "use client"
 
 import React, { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CircleDot, Dna, Globe, List, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  List, Dna, CircleDot, Globe, Search, Loader2, ExternalLink,
-} from "lucide-react"
-import {
-  GenomeTrackViewerLazy,
   CircosViewerLazy,
+  GenomeTrackViewerLazy,
   JBrowseViewerLazy,
   SpeciesExplorerLazy,
 } from "@/components/mindex/lazy-viewers"
-
-/* -------------------------------------------------------------------------- */
-/*  Types                                                                     */
-/* -------------------------------------------------------------------------- */
 
 interface SpeciesRecord {
   id: string
@@ -31,10 +25,6 @@ interface SpeciesRecord {
 interface MindexExplorerClientProps {
   initialSpecies: SpeciesRecord[]
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Species list tab                                                          */
-/* -------------------------------------------------------------------------- */
 
 function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
   const [query, setQuery] = useState("")
@@ -52,30 +42,11 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
     return (
       <Card className="border-orange-500/30 bg-orange-500/5">
         <CardContent className="py-12 text-center">
-          <List className="h-10 w-10 mx-auto mb-3 text-orange-400" />
-          <p className="text-lg font-semibold text-orange-400 mb-2">
-            MINDEX Database Connection Error
-          </p>
-          <p className="text-muted-foreground mb-4">
-            The MINDEX API is running but the PostgreSQL database is not connected.
-          </p>
-          <div className="inline-block text-left bg-background/50 rounded-lg p-4 border border-orange-500/30 max-w-lg">
-            <p className="text-xs font-mono text-orange-300 mb-2">🔍 Diagnostic:</p>
-            <ul className="text-xs space-y-1 text-muted-foreground">
-              <li>✅ API Reachable: <span className="text-green-400">http://localhost:8000</span></li>
-              <li>❌ Database: <span className="text-red-400">PostgreSQL connection failed</span></li>
-              <li>📋 Fix: <span className="text-cyan-400">SSH to VM 189 and restart postgres container</span></li>
-            </ul>
-            <div className="mt-3 p-2 bg-black/40 rounded border border-orange-500/20">
-              <code className="text-[10px] text-cyan-300">
-                ssh mycosoft@MINDEX_HOST<br/>
-                cd /home/mycosoft/mindex<br/>
-                docker-compose restart
-              </code>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Contact platform admin or check <span className="text-cyan-400 font-mono">docs/FIX_MINDEX_DB_CONNECTION_FEB11_2026.md</span>
+          <List className="mx-auto mb-3 h-10 w-10 text-orange-400" />
+          <p className="mb-2 text-lg font-semibold text-orange-300">Species catalog is waiting for live rows</p>
+          <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
+            MINDEX will show the all-life species list here when catalog rows are available. Observations, media,
+            genetics, and chemistry can still be explored from the main MINDEX app.
           </p>
         </CardContent>
       </Card>
@@ -85,17 +56,17 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">
             Species Catalog
             <Badge variant="secondary" className="ml-2 text-xs">
               {species.length} records
             </Badge>
           </CardTitle>
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Filter species…"
+              placeholder="Filter species..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9"
@@ -104,14 +75,14 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-lg border overflow-hidden">
+        <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left px-4 py-2 font-medium">Scientific Name</th>
-                <th className="text-left px-4 py-2 font-medium">Common Name</th>
-                <th className="text-left px-4 py-2 font-medium">Phylum</th>
-                <th className="text-right px-4 py-2 font-medium">Observations</th>
+                <th className="px-4 py-2 text-left font-medium">Scientific Name</th>
+                <th className="px-4 py-2 text-left font-medium">Common Name</th>
+                <th className="px-4 py-2 text-left font-medium">Phylum</th>
+                <th className="px-4 py-2 text-right font-medium">Observations</th>
               </tr>
             </thead>
             <tbody>
@@ -123,18 +94,20 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
                 </tr>
               ) : (
                 filtered.slice(0, 100).map((s) => (
-                  <tr key={s.id} className="border-t hover:bg-muted/30 transition-colors">
+                  <tr key={s.id} className="border-t transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2 font-medium italic">{s.scientific_name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{s.common_name ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{s.common_name ?? "-"}</td>
                     <td className="px-4 py-2">
                       {s.phylum ? (
-                        <Badge variant="outline" className="text-xs">{s.phylum}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {s.phylum}
+                        </Badge>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
-                      {s.observation_count?.toLocaleString() ?? "—"}
+                      {s.observation_count?.toLocaleString() ?? "-"}
                     </td>
                   </tr>
                 ))
@@ -142,26 +115,22 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
             </tbody>
           </table>
         </div>
-        {filtered.length > 100 && (
-          <p className="text-xs text-muted-foreground text-center mt-3">
+        {filtered.length > 100 ? (
+          <p className="mt-3 text-center text-xs text-muted-foreground">
             Showing first 100 of {filtered.length} results
           </p>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   )
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Public client component                                                   */
-/* -------------------------------------------------------------------------- */
 
 export function MindexExplorerClient({ initialSpecies }: MindexExplorerClientProps) {
   const [activeTab, setActiveTab] = useState("species")
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
         <TabsTrigger value="species" className="gap-2">
           <List className="h-4 w-4" />
           Species List
@@ -180,12 +149,10 @@ export function MindexExplorerClient({ initialSpecies }: MindexExplorerClientPro
         </TabsTrigger>
       </TabsList>
 
-      {/* Species list tab */}
       <TabsContent value="species">
         <SpeciesListTab species={initialSpecies} />
       </TabsContent>
 
-      {/* Genome browser tab — uses the existing JBrowse viewer */}
       <TabsContent value="genome">
         <div className="grid grid-cols-1 gap-6">
           <GenomeTrackViewerLazy />
@@ -193,12 +160,10 @@ export function MindexExplorerClient({ initialSpecies }: MindexExplorerClientPro
         </div>
       </TabsContent>
 
-      {/* Circular plot tab — uses the existing Circos viewer */}
       <TabsContent value="circos">
         <CircosViewerLazy />
       </TabsContent>
 
-      {/* Spatial view tab — uses the existing Species Explorer (Vitessce) */}
       <TabsContent value="spatial">
         <SpeciesExplorerLazy className="border" />
       </TabsContent>

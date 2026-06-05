@@ -96,6 +96,12 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
   const { data: correlations } = useSWR<Record<string, unknown>>("/api/mindex/mwave/correlations", fetcher, {
     refreshInterval: 120_000,
   })
+  const { data: fciDevices } = useSWR<Record<string, unknown>>("/api/fci/devices", fetcher, {
+    refreshInterval: 120_000,
+  })
+  const { data: fciEvents } = useSWR<Record<string, unknown>>("/api/fci/events?limit=50&correlate=true", fetcher, {
+    refreshInterval: 60_000,
+  })
 
   const subscribeUrl = useMemo(() => {
     const qs = new URLSearchParams()
@@ -145,7 +151,8 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
     }
   }, [])
 
-  const latest = events[0]?.prediction ?? null
+  const fciDeviceRows = Array.isArray(fciDevices?.devices) ? fciDevices.devices : []
+  const fciEventRows = Array.isArray(fciEvents?.events) ? fciEvents.events : []
 
   return (
     <Card className={cn("border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-background to-blue-500/5", className)}>
@@ -154,9 +161,12 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <Waves className="h-5 w-5 text-purple-400" />
-              M-Wave Seismic Lens
+              M-Wave FCI Seismic Correlator
             </CardTitle>
-            <CardDescription>Stream distributed mycelium-network anomaly predictions and visualize risk in real time.</CardDescription>
+            <CardDescription>
+              Couple Fungal Computer Interface signals with live earthquake data to find before, during, and after-event
+              mycelium correlations.
+            </CardDescription>
           </div>
 
           <div
@@ -167,14 +177,14 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
             )}
           >
             <Shield className="h-3.5 w-3.5" />
-            {isConnected ? "SSE connected" : "Connecting…"}
+            {isConnected ? "SSE connected" : "Connecting..."}
             {isConnected ? <Activity className="h-3.5 w-3.5" /> : <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           </div>
         </div>
 
         <p className="text-xs text-gray-500">
-          Randomized demo predictions were removed (May 03, 2026). Streams show only events published by your
-          Mycorrhizae/MINDEX integrations.
+          M-Wave is not a generic prediction toy. It is the Fungi Compute / FCI correlation layer for mycelium signal
+          changes against USGS seismic events and MINDEX computed streams.
         </p>
 
         {error ? (
@@ -195,7 +205,7 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
             <CardContent>
               <div className={cn("inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium", 
                 mwaveData ? riskColor(mwaveData.status as Risk) : "border-white/10 bg-white/5 text-white/70")}>
-                {isLoading ? "Loading..." : mwaveData?.status || "—"}
+                {isLoading ? "Loading..." : mwaveData?.status || "-"}
               </div>
             </CardContent>
           </Card>
@@ -217,7 +227,7 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
             <CardContent>
               <div className="text-2xl font-bold text-orange-200 flex items-center gap-2">
                 <Gauge className="h-5 w-5" />
-                M{mwaveData?.earthquakes?.max_magnitude_24h?.toFixed(1) || "—"}
+                M{mwaveData?.earthquakes?.max_magnitude_24h?.toFixed(1) || "-"}
               </div>
             </CardContent>
           </Card>
@@ -226,16 +236,49 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
               <CardTitle className="text-xs text-muted-foreground">Sensors Online</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-cyan-200">{mwaveData?.sensor_count || 0}</div>
+              <div className="text-2xl font-bold text-cyan-200">{mwaveData?.sensor_count || fciDeviceRows.length || 0}</div>
             </CardContent>
           </Card>
         </div>
 
         <Card className="border-white/10 bg-black/20">
           <CardHeader className="pb-2">
+            <CardTitle className="text-sm">FCI / Fungi Compute coupling</CardTitle>
+            <CardDescription className="text-xs">
+              Mycelium bioelectric events from FCI routes are paired with USGS earthquake windows and MINDEX correlation
+              output.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-md bg-white/5 px-3 py-2">
+                <p className="text-xs text-muted-foreground">FCI devices</p>
+                <p className="font-mono text-2xl text-cyan-200">{fciDeviceRows.length}</p>
+              </div>
+              <div className="rounded-md bg-white/5 px-3 py-2">
+                <p className="text-xs text-muted-foreground">FCI events</p>
+                <p className="font-mono text-2xl text-purple-200">{fciEventRows.length}</p>
+              </div>
+              <div className="rounded-md bg-white/5 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Active correlations</p>
+                <p className="font-mono text-2xl text-green-200">{mwaveData?.active_correlations ?? 0}</p>
+              </div>
+              <div className="rounded-md bg-white/5 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Confidence</p>
+                <p className="font-mono text-2xl text-orange-200">{Math.round((mwaveData?.prediction_confidence ?? 0) * 100)}%</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              FCI device/event counts stay at zero until Fungi Compute publishes live bioelectric events into MAS/MINDEX.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-white/10 bg-black/20">
+          <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground">Correlation stats (MINDEX)</CardTitle>
             <CardDescription className="text-xs">
-              From <span className="font-mono">/api/mindex/mwave/correlations</span> — USGS hour feed spacing; device pairs
+              From <span className="font-mono">/api/mindex/mwave/correlations</span> - USGS hour feed spacing; device pairs
               populate when telemetry joins exist.
             </CardDescription>
           </CardHeader>
@@ -272,7 +315,7 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
           <div className="text-sm font-medium">Recent Earthquakes (USGS Live)</div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {mwaveData?.data_source === "live" ? "LIVE" : mwaveData?.data_source || "—"}
+              {mwaveData?.data_source === "live" ? "LIVE" : mwaveData?.data_source || "-"}
             </Badge>
             <Button size="sm" variant="outline" onClick={() => mutate()} disabled={isLoading}>
               <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
@@ -358,7 +401,7 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
                       <div className="text-xs text-muted-foreground">{new Date(e.timestamp).toLocaleTimeString()}</div>
                       <div className="text-sm font-medium flex items-center gap-2">
                         <span className="font-mono text-purple-200">{e.prediction.risk_level}</span>
-                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground">/</span>
                         <span className="font-mono text-xs">{e.prediction.risk_score}</span>
                       </div>
                     </div>
@@ -370,7 +413,7 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
               ))
             ) : (
               <div className="text-sm text-muted-foreground p-2">
-                No predictions in this session yet — connect the Mycorrhizae computed channel or wait for upstream
+                No predictions in this session yet - connect the Mycorrhizae computed channel or wait for upstream
                 publishers.
               </div>
             )}
@@ -380,4 +423,3 @@ export function MWaveDashboard({ className, channelId = "mwave-analysis" }: { cl
     </Card>
   )
 }
-

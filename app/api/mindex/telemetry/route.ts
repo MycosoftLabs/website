@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
-import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -23,9 +23,8 @@ export async function GET(request: NextRequest) {
     const upstreamPath =
       mode === "devices" ? "/api/mindex/internal/devices" : "/api/mindex/internal/telemetry/devices/latest"
 
-    const res = await fetch(`${MINDEX_API_URL}${upstreamPath}?${params}`, {
+    const res = await fetchMindexWithAuthRetry(`${MINDEX_API_URL}${upstreamPath}?${params}`, {
       signal: AbortSignal.timeout(10000),
-      headers: mindexUpstreamHeaders(),
     })
     
     if (!res.ok) {
@@ -57,9 +56,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const res = await fetch(`${MINDEX_API_URL}/api/telemetry/envelope`, {
+    const res = await fetchMindexWithAuthRetry(`${MINDEX_API_URL}/api/telemetry/envelope`, {
       method: "POST",
-      headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     })
@@ -84,7 +83,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to ingest envelope", details: String(error) }, { status: 500 })
   }
 }
-
 
 
 

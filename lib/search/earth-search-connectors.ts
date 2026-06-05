@@ -32,12 +32,13 @@ import type {
   CameraResult,
 } from "./unified-search-sdk"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { mapMindexEarthResponse, enrichEarthEntity } from "@/lib/search/earth-entity-bridge"
 import { defineConnector, type ConnectorRunContext } from "@/lib/search/connectors/_framework"
 import { getAllPowerPlants } from "@/lib/crep/registries/power-plant-registry"
 import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 import { FIELD_MYCOBRAIN_DEPLOYMENTS } from "@/lib/devices/field-deployments"
 
-/** MINDEX `/api/search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
+/** MINDEX `/api/mindex/unified-search/earth` may return non-arrays for empty buckets — never iterate or trust `.length` on unknown shapes. */
 function asEarthBucket<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : []
 }
@@ -48,7 +49,7 @@ async function safeEarthSlice<T>(p: Promise<T[]>): Promise<T[]> {
     const v = await p
     return Array.isArray(v) ? v : []
   } catch {
-    return FIELD_MYCOBRAIN_DEPLOYMENTS.map(mapFieldDeploymentRow).slice(0, limit)
+    return []
   }
 }
 
@@ -1189,19 +1190,27 @@ export function detectEarthDomains(query: string): EarthSearchDomains {
  * Try MINDEX Earth search endpoint first (local DB, low latency).
  * Falls through to external APIs if MINDEX returns nothing.
  */
-async function searchMindexEarth(query: string, limit: number): Promise<Record<string, unknown[]> | null> {
-  const mindexBase = resolveMindexServerBaseUrl()
+async function searchMindexEarth(
+  query: string,
+  limit: number,
+  origin?: string
+): Promise<Record<string, unknown[]> | null> {
+  const params = new URLSearchParams({
+    q: query,
+    types: "all",
+    limit: String(limit),
+  })
+  const base = origin ? resolveInternalBaseUrl(origin) : resolveMindexServerBaseUrl()
+  const path = origin
+    ? `${base}/api/mindex/unified-search/earth?${params}`
+    : `${base}/api/mindex/unified-search/earth?${params}`
   try {
-    const res = await safeFetch(
-      `${mindexBase}/api/search/earth?q=${encodeURIComponent(query)}&limit=${limit}`,
-      6000
-    )
+    const res = await safeFetch(path, 10_000)
     if (!res) return null
-    const data = await res.json()
-    if (data?.universal_results?.length > 0 || data?.results) {
-      return data.results || data
-    }
-    return null
+    const data = (await res.json()) as Record<string, unknown>
+    const mapped = mapMindexEarthResponse(data)
+    const hasAny = Object.values(mapped).some((v) => Array.isArray(v) && v.length > 0)
+    return hasAny ? mapped : null
   } catch {
     return null
   }
@@ -1213,7 +1222,7 @@ export const earthMindexFirstConnector = defineConnector({
   sources: [
     {
       name: "mindex-earth",
-      fetch: async (ctx: ConnectorRunContext) => searchMindexEarth(ctx.query, ctx.limit),
+      fetch: async (ctx: ConnectorRunContext) => searchMindexEarth(ctx.query, ctx.limit, ctx.origin),
       transform: (raw) =>
         raw && typeof raw === "object" && !Array.isArray(raw) ? [raw as Record<string, unknown[]>] : [],
     },

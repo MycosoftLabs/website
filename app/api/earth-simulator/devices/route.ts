@@ -56,12 +56,27 @@ type EarthSimDevicesPayload = {
 }
 
 const MAS_API_URL = resolveMasServerBaseUrl();
-const DEVICES_CACHE_TTL_MS = 15_000;
-const DEVICE_ONLINE_GRACE_MS = 2 * 60_000;
+const DEVICES_CACHE_TTL_MS = 8_000;
+const DEVICE_ONLINE_GRACE_MS = 10 * 60_000;
+const FIELD_OPERATOR_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1", "psathyrella-buoy-com4"]);
+
+function operatorProbeEarthSimStatus(
+  probe: { reachable: boolean; online: boolean },
+  previousStatus: string | undefined
+): string {
+  if (probe.reachable) {
+    return toEarthSimConnectionStatus(undefined, probe.online);
+  }
+  if (previousStatus === "connected" || previousStatus === "online") {
+    return previousStatus;
+  }
+  return "stale";
+}
 const ENABLE_COM4_TELEMETRY_FALLBACK =
   process.env.EARTH_SIM_DEVICES_ENABLE_COM4_TELEMETRY_FALLBACK === "1";
+/** Sensor command is required for Psathyrella BME (envelope on wire); enabled unless explicitly disabled. */
 const DISABLE_SENSOR_COMMAND_SNAPSHOT =
-  process.env.EARTH_SIM_DEVICES_DISABLE_SENSOR_COMMAND_SNAPSHOT !== "0";
+  process.env.EARTH_SIM_DEVICES_DISABLE_SENSOR_COMMAND_SNAPSHOT === "1";
 let devicesCache: { at: number; payload: EarthSimDevicesPayload } | null = null;
 let devicesInFlight: Promise<EarthSimDevicesPayload> | null = null;
 const lastConnectedDevices = new Map<
@@ -82,7 +97,7 @@ async function fetchNetworkTelemetrySnapshot(deviceId: string): Promise<Record<s
     const res = await fetch(`${MAS_API_URL}/api/devices/${encodeURIComponent(deviceId)}/telemetry`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(1500),
+      signal: AbortSignal.timeout(700),
     })
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
@@ -93,6 +108,8 @@ async function fetchNetworkTelemetrySnapshot(deviceId: string): Promise<Record<s
   }
 }
 
+const LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS = 10_000
+
 async function fetchLocalMycoBrainTelemetrySnapshot(
   baseUrl: string,
   deviceId: string
@@ -101,12 +118,29 @@ async function fetchLocalMycoBrainTelemetrySnapshot(
     const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices/${encodeURIComponent(deviceId)}/telemetry`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(900),
+      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS),
     })
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
     const telemetry = data.telemetry
-    return telemetry && typeof telemetry === "object" ? telemetry as Record<string, unknown> : null
+    if (!telemetry || typeof telemetry !== "object") return null
+    const record = telemetry as Record<string, unknown>
+    if (hasUsefulTelemetry(record)) return record
+    const raw = typeof record.raw === "string" ? record.raw : ""
+    if (raw) {
+      const parsed = buildPsathyrellaTelemetryFromSensorResponse(raw)
+      if (parsed) return parsed
+    }
+    const envelope = record.envelope
+    if (envelope && typeof envelope === "object") {
+      const parsed = buildPsathyrellaTelemetryFromSensorResponse(JSON.stringify(envelope))
+      if (parsed) return parsed
+    }
+    const bme1 = normalizeBmeSlot(record.bme1)
+    if (bme1) {
+      return buildPsathyrellaTelemetryFromBmeSlots(raw || JSON.stringify(record), bme1, normalizeBmeSlot(record.bme2))
+    }
+    return record
   } catch {
     return null
   }
@@ -175,51 +209,146 @@ function normalizeBmeSlot(slot: unknown): Record<string, unknown> | null {
   return Object.keys(normalized).length ? normalized : null
 }
 
+/** When MDP JSON is truncated on the wire, still extract BME readings by unit from the raw string. */
+function normalizeBmeSlotFromEnvelopeRegex(response: string): Record<string, unknown> | null {
+  const slot: Record<string, unknown> = {}
+  const unitValue = (unit: string) => {
+    const re = new RegExp(`"v"\\s*:\\s*([-+0-9.eE]+)\\s*,\\s*"u"\\s*:\\s*"${unit}"`, "i")
+    const match = response.match(re)
+    if (!match) return undefined
+    return finiteTelemetryNumber(match[1])
+  }
+  const temperature_c = unitValue("C")
+  const humidity_pct = unitValue("%")
+  const pressure_hpa = unitValue("hPa")
+  const gas_ohm = unitValue("Ohm")
+  const iaq = unitValue("IAQ")
+  if (temperature_c !== undefined) slot.temperature_c = temperature_c
+  if (humidity_pct !== undefined) slot.humidity_pct = humidity_pct
+  if (pressure_hpa !== undefined) slot.pressure_hpa = pressure_hpa
+  if (gas_ohm !== undefined) slot.gas_ohm = gas_ohm
+  if (iaq !== undefined) slot.iaq = iaq
+  const ppmMatches = [...response.matchAll(/"v"\s*:\s*([-+0-9.eE]+)\s*,\s*"u"\s*:\s*"ppm"/gi)]
+  if (ppmMatches[0]) slot.co2_equivalent = finiteTelemetryNumber(ppmMatches[0][1])
+  if (ppmMatches[1]) slot.voc_equivalent = finiteTelemetryNumber(ppmMatches[1][1])
+  return normalizeBmeSlot(slot)
+}
+
+/** MDP envelope pack[] — firmware may ship garbled ids; map by unit + known id suffixes. */
+function normalizeBmeSlotFromEnvelopePack(pack: unknown): Record<string, unknown> | null {
+  if (!Array.isArray(pack)) return null
+  const slot: Record<string, unknown> = {}
+  let eco2: number | undefined
+  let bvoc: number | undefined
+
+  for (const item of pack) {
+    if (!item || typeof item !== "object") continue
+    const row = item as Record<string, unknown>
+    const unit = String(row.u ?? "").trim()
+    const id = String(row.id ?? "").toLowerCase()
+    const value = finiteTelemetryNumber(row.v)
+    if (value === undefined) continue
+
+    if (unit === "C" || id.endsWith(".tc") || id.includes("temp")) {
+      slot.temperature_c = value
+    } else if (unit === "%" || id.endsWith(".rh") || id.includes("humid")) {
+      slot.humidity_pct = value
+    } else if (unit === "hpa" || id.endsWith(".p") || id.includes("press")) {
+      slot.pressure_hpa = value
+    } else if (unit === "ohm" || id.endsWith(".gas") || id.includes("gas")) {
+      slot.gas_ohm = value
+    } else if (unit === "iaq" || id.endsWith(".iaq")) {
+      slot.iaq = value
+    } else if (unit === "ppm") {
+      if (id.includes("eco2") || id.includes("co2")) eco2 = value
+      else if (id.includes("bvoc") || id.includes("voc")) bvoc = value
+      else if (eco2 === undefined) eco2 = value
+      else if (bvoc === undefined) bvoc = value
+    }
+  }
+
+  if (eco2 !== undefined) slot.co2_equivalent = eco2
+  if (bvoc !== undefined) slot.voc_equivalent = bvoc
+  return normalizeBmeSlot(slot)
+}
+
+function buildPsathyrellaTelemetryFromBmeSlots(
+  response: string,
+  a: Record<string, unknown> | null,
+  b: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  if (!a && !b) return null
+
+  const telemetry: Record<string, unknown> = {
+    raw: response,
+    bme688: {
+      ...(a ? { a } : {}),
+      ...(b ? { b } : {}),
+    },
+    wave_height_m: null,
+    water_temperature_c: null,
+    wave_period_s: null,
+    hydrophone_low: "standby",
+    hydrophone_high: "standby",
+    transducer: "standby",
+    captured_at: new Date().toISOString(),
+  }
+
+  if (a) {
+    telemetry.temperature_c = a.temperature_c
+    telemetry.humidity_pct = a.humidity_pct
+    telemetry.pressure_hpa = a.pressure_hpa
+    telemetry.gas_resistance_ohm = a.gas_ohm
+    telemetry.iaq = a.iaq
+    telemetry.eco2_ppm = a.co2_equivalent
+    telemetry.bvoc_ppm = a.voc_equivalent
+  }
+  if (b) {
+    telemetry.bme_b_temperature_c = b.temperature_c
+    telemetry.bme_b_humidity_pct = b.humidity_pct
+    telemetry.bme_b_pressure_hpa = b.pressure_hpa
+    telemetry.bme_b_gas_resistance_ohm = b.gas_ohm
+    telemetry.bme_b_iaq = b.iaq
+    telemetry.bme_b_eco2_ppm = b.co2_equivalent
+    telemetry.bme_b_bvoc_ppm = b.voc_equivalent
+  }
+
+  return telemetry
+}
+
 function buildPsathyrellaTelemetryFromSensorResponse(response: string): Record<string, unknown> | null {
+  if (response.includes("mycosoft.envelope.v1")) {
+    const fromRegex = normalizeBmeSlotFromEnvelopeRegex(response)
+    const fromRegexTelemetry = buildPsathyrellaTelemetryFromBmeSlots(response, fromRegex, null)
+    if (fromRegexTelemetry) return fromRegexTelemetry
+  }
+
   const jsonMessages = parseJsonObjectsFromMixedSerial(response)
   for (const msg of jsonMessages) {
     if (!msg || typeof msg !== "object") continue
-    const record = msg as Record<string, any>
+    const record = msg as Record<string, unknown>
+
+    if (record.schema === "mycosoft.envelope.v1" && Array.isArray(record.pack)) {
+      const a = normalizeBmeSlotFromEnvelopePack(record.pack)
+      const fromEnvelope = buildPsathyrellaTelemetryFromBmeSlots(response, a, null)
+      if (fromEnvelope) return fromEnvelope
+    }
+
+    const nested =
+      record.envelope && typeof record.envelope === "object"
+        ? (record.envelope as Record<string, unknown>)
+        : null
+    if (nested?.schema === "mycosoft.envelope.v1" && Array.isArray(nested.pack)) {
+      const a = normalizeBmeSlotFromEnvelopePack(nested.pack)
+      const fromNested = buildPsathyrellaTelemetryFromBmeSlots(response, a, null)
+      if (fromNested) return fromNested
+    }
+
     const bme = record.bme688 && typeof record.bme688 === "object" ? record.bme688 : null
-    const a = normalizeBmeSlot(bme?.a ?? record.bme1)
-    const b = normalizeBmeSlot(bme?.b ?? record.bme2)
-    if (!a && !b) continue
-
-    const telemetry: Record<string, unknown> = {
-      raw: response,
-      bme688: {
-        ...(a ? { a } : {}),
-        ...(b ? { b } : {}),
-      },
-      wave_height_m: null,
-      water_temperature_c: null,
-      wave_period_s: null,
-      hydrophone_low: "standby",
-      hydrophone_high: "standby",
-      transducer: "standby",
-      captured_at: new Date().toISOString(),
-    }
-
-    if (a) {
-      telemetry.temperature_c = a.temperature_c
-      telemetry.humidity_pct = a.humidity_pct
-      telemetry.pressure_hpa = a.pressure_hpa
-      telemetry.gas_resistance_ohm = a.gas_ohm
-      telemetry.iaq = a.iaq
-      telemetry.eco2_ppm = a.co2_equivalent
-      telemetry.bvoc_ppm = a.voc_equivalent
-    }
-    if (b) {
-      telemetry.bme_b_temperature_c = b.temperature_c
-      telemetry.bme_b_humidity_pct = b.humidity_pct
-      telemetry.bme_b_pressure_hpa = b.pressure_hpa
-      telemetry.bme_b_gas_resistance_ohm = b.gas_ohm
-      telemetry.bme_b_iaq = b.iaq
-      telemetry.bme_b_eco2_ppm = b.co2_equivalent
-      telemetry.bme_b_bvoc_ppm = b.voc_equivalent
-    }
-
-    return telemetry
+    const a = normalizeBmeSlot((bme as Record<string, unknown> | null)?.a ?? record.bme1)
+    const b = normalizeBmeSlot((bme as Record<string, unknown> | null)?.b ?? record.bme2)
+    const fromLegacy = buildPsathyrellaTelemetryFromBmeSlots(response, a, b)
+    if (fromLegacy) return fromLegacy
   }
   return null
 }
@@ -229,12 +358,12 @@ async function fetchLocalMycoBrainSensorCommandSnapshot(
   deviceId: string
 ): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices/${encodeURIComponent(deviceId)}/command`, {
+    const url = `${baseUrl.replace(/\/+$/, "")}/devices/${encodeURIComponent(deviceId)}/command?command=${encodeURIComponent("read_sensors")}`
+    const res = await fetch(url, {
       method: "POST",
       cache: "no-store",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ command: { cmd: "read_sensors" } }),
-      signal: AbortSignal.timeout(1200),
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS),
     })
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
@@ -248,8 +377,37 @@ async function fetchLocalMycoBrainSensorCommandSnapshot(
 function hasUsefulTelemetry(telemetry: unknown): boolean {
   if (!telemetry || typeof telemetry !== "object") return false
   const record = telemetry as Record<string, unknown>
-  if (Object.keys(record).some((key) => key !== "raw")) return true
+  if (finiteTelemetryNumber(record.temperature_c) !== undefined) return true
+  if (finiteTelemetryNumber(record.humidity_pct) !== undefined) return true
+  const bme = record.bme688
+  if (bme && typeof bme === "object") {
+    const slots = bme as Record<string, unknown>
+    if (normalizeBmeSlot(slots.a) || normalizeBmeSlot(slots.b)) return true
+  }
+  if (normalizeBmeSlot(record.bme1) || normalizeBmeSlot(record.bme2)) return true
+  const envelope = record.envelope
+  if (envelope && typeof envelope === "object") {
+    const env = envelope as Record<string, unknown>
+    if (env.schema === "mycosoft.envelope.v1" && normalizeBmeSlotFromEnvelopePack(env.pack)) return true
+  }
+  if (record.schema === "mycosoft.envelope.v1" && normalizeBmeSlotFromEnvelopePack(record.pack)) return true
   return false
+}
+
+function resolvePsathyrellaSerialDeviceId(
+  localDevices: Record<string, unknown>[],
+  registryId: string
+): string {
+  for (const device of localDevices) {
+    const serialId = String(device.device_id ?? device.id ?? "")
+    const portalId = String(device.registry_id ?? device.portal_device_id ?? "")
+    const role = String(device.device_role ?? device.role ?? "").toLowerCase()
+    if (!serialId) continue
+    if (portalId === registryId || serialId === registryId || role === "psathyrella") {
+      return serialId
+    }
+  }
+  return registryId
 }
 
 async function fetchMasDevices(): Promise<Record<string, unknown>[]> {
@@ -257,7 +415,7 @@ async function fetchMasDevices(): Promise<Record<string, unknown>[]> {
     const res = await fetch(`${MAS_API_URL}/api/devices?include_offline=true`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(3500),
+      signal: AbortSignal.timeout(1200),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { devices?: Record<string, unknown>[] };
@@ -272,7 +430,7 @@ async function fetchLocalMycoBrainDevices(baseUrl: string): Promise<Record<strin
     const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(900),
+      signal: AbortSignal.timeout(500),
     });
     if (!response.ok) return [];
     const data = (await response.json()) as { devices?: Record<string, unknown>[] };
@@ -385,6 +543,10 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       const field = deploymentByHost(probe.host);
       if (!field) continue;
       const prev = byId.get(field.catalog_id);
+      const status = operatorProbeEarthSimStatus(probe, prev?.status);
+      const telemetry =
+        probe.telemetry ??
+        (hasUsefulTelemetry(prev?.telemetry) ? (prev?.telemetry as Record<string, unknown>) : null);
       byId.set(field.catalog_id, {
         ...(prev || {
           id: field.catalog_id,
@@ -395,15 +557,15 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
           firmware_repo: "mycobrain/firmware",
           source: "operator",
         }),
-        status: toEarthSimConnectionStatus(undefined, probe.online),
+        status,
         location: field.location,
         location_label: field.location_label,
-        lastSeen: probe.last_seen,
-        telemetry: probe.telemetry,
+        lastSeen: probe.last_seen ?? prev?.lastSeen ?? null,
+        telemetry,
         agent_url: probe.agent_url,
         host: probe.host,
         port: field.agent_port,
-        source: "operator",
+        source: probe.reachable ? "operator" : prev?.source ?? "operator",
       });
     }
 
@@ -446,21 +608,52 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
         }
 
     const psathyrella = byId.get("psathyrella-buoy-com4")
-    if (psathyrella && !hasUsefulTelemetry(psathyrella.telemetry)) {
+    const localPsathyrellaConnected = localMycoBrainDevices.some((device) => {
+      const d = device as Record<string, unknown>
+      const role = String(d.device_role ?? d.role ?? "").toLowerCase()
+      const status = String(d.status ?? "").toLowerCase()
+      return role === "psathyrella" && (status === "connected" || status === "online")
+    })
+    const canRefreshPsathyrellaTelemetry =
+      ENABLE_COM4_TELEMETRY_FALLBACK ||
+      localPsathyrellaConnected ||
+      psathyrella?.status === "connected" ||
+      psathyrella?.status === "online"
+    if (psathyrella && canRefreshPsathyrellaTelemetry && !hasUsefulTelemetry(psathyrella.telemetry)) {
       const registryTarget = psathyrella.registry_id || "mycobrain-COM4"
-      let telemetry = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, registryTarget)
+      const serialTarget = resolvePsathyrellaSerialDeviceId(localMycoBrainDevices, registryTarget)
+      let telemetry: Record<string, unknown> | null = null
+
+      if (!DISABLE_SENSOR_COMMAND_SNAPSHOT) {
+        telemetry = await fetchLocalMycoBrainSensorCommandSnapshot(mycobrainUrl, registryTarget)
+        if (!hasUsefulTelemetry(telemetry) && serialTarget !== registryTarget) {
+          telemetry = await fetchLocalMycoBrainSensorCommandSnapshot(mycobrainUrl, serialTarget)
+        }
+      }
+      if (!hasUsefulTelemetry(telemetry)) {
+        telemetry = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, registryTarget)
+        if (!hasUsefulTelemetry(telemetry) && serialTarget !== registryTarget) {
+          const alt = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, serialTarget)
+          if (hasUsefulTelemetry(alt)) telemetry = alt
+        }
+        if (telemetry && !hasUsefulTelemetry(telemetry)) {
+          const parsed = buildPsathyrellaTelemetryFromSensorResponse(
+            typeof telemetry.raw === "string" ? telemetry.raw : JSON.stringify(telemetry.envelope ?? telemetry)
+          )
+          if (parsed) telemetry = parsed
+        }
+      }
       if (!hasUsefulTelemetry(telemetry)) {
         telemetry = await fetchNetworkTelemetrySnapshot(registryTarget)
       }
-      if (!hasUsefulTelemetry(telemetry) && !DISABLE_SENSOR_COMMAND_SNAPSHOT) {
-        telemetry = await fetchLocalMycoBrainSensorCommandSnapshot(mycobrainUrl, registryTarget)
-      }
-      if (telemetry) {
+      if (telemetry && hasUsefulTelemetry(telemetry)) {
         byId.set("psathyrella-buoy-com4", {
           ...psathyrella,
           telemetry,
           status: "connected",
-          lastSeen: String(telemetry.timestamp || psathyrella.lastSeen || new Date().toISOString()),
+          lastSeen: String(
+            telemetry.captured_at || telemetry.timestamp || psathyrella.lastSeen || new Date().toISOString()
+          ),
         })
       }
     }
@@ -473,7 +666,7 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       count: devices.length,
       sources: {
         mas: masDevices.length,
-        operator: operatorProbes.filter((p) => p.online).length,
+        operator: operatorProbes.filter((p) => p.reachable && p.online).length,
         field_deployments: FIELD_MYCOBRAIN_DEPLOYMENTS.length,
       },
       mas_url: MAS_API_URL,
@@ -486,9 +679,13 @@ function stabilizeDevicePayload(payload: EarthSimDevicesPayload): EarthSimDevice
   const devices = payload.devices.map((device) => {
     const remembered = lastConnectedDevices.get(device.id)
     const nextIsOffline = device.status === "offline" || !device.status
-    if (!nextIsOffline || !remembered) return device
+    const nextIsStale = device.status === "stale"
+    if ((!nextIsOffline && !nextIsStale) || !remembered) return device
 
-    const withinGrace = now - remembered.at <= DEVICE_ONLINE_GRACE_MS
+    const graceMs = FIELD_OPERATOR_DEVICE_IDS.has(device.id)
+      ? DEVICE_ONLINE_GRACE_MS
+      : 2 * 60_000
+    const withinGrace = now - remembered.at <= graceMs
     if (!withinGrace) return device
 
     return {
@@ -519,14 +716,28 @@ function stabilizeDevicePayload(payload: EarthSimDevicesPayload): EarthSimDevice
   return { ...payload, devices }
 }
 
-export async function GET() {
+function earthSimDevicesResponse(
+  payload: EarthSimDevicesPayload,
+  cache: Record<string, unknown>
+) {
+  const stabilized = stabilizeDevicePayload(payload)
+  return NextResponse.json({ ...stabilized, cache })
+}
+
+export async function GET(request: Request) {
   const now = Date.now();
+  const forceRefresh = new URL(request.url).searchParams.get("refresh") === "1";
+  if (forceRefresh) {
+    devicesCache = null;
+    devicesInFlight = null;
+  }
   if (devicesCache) {
     const ageMs = now - devicesCache.at;
     if (ageMs <= DEVICES_CACHE_TTL_MS) {
-      return NextResponse.json({
-        ...devicesCache.payload,
-        cache: { hit: true, age_ms: ageMs, stale: false },
+      return earthSimDevicesResponse(devicesCache.payload, {
+        hit: true,
+        age_ms: ageMs,
+        stale: false,
       });
     }
     if (!devicesInFlight) {
@@ -544,9 +755,11 @@ export async function GET() {
           devicesInFlight = null;
         });
     }
-    return NextResponse.json({
-      ...devicesCache.payload,
-      cache: { hit: true, age_ms: ageMs, stale: true, revalidating: true },
+    return earthSimDevicesResponse(devicesCache.payload, {
+      hit: true,
+      age_ms: ageMs,
+      stale: true,
+      revalidating: true,
     });
   }
 
@@ -564,16 +777,14 @@ export async function GET() {
 
   try {
     const payload = await devicesInFlight;
-    return NextResponse.json({
-      ...payload,
-      cache: { hit: false, age_ms: 0, stale: false },
-    });
+    return earthSimDevicesResponse(payload, { hit: false, age_ms: 0, stale: false });
   } catch (error) {
     console.error("Devices API error:", error);
     if (devicesCache) {
-      return NextResponse.json({
-        ...devicesCache.payload,
-        cache: { hit: true, age_ms: Date.now() - devicesCache.at, stale: true },
+      return earthSimDevicesResponse(devicesCache.payload, {
+        hit: true,
+        age_ms: Date.now() - devicesCache.at,
+        stale: true,
       });
     }
     return NextResponse.json(

@@ -91,8 +91,9 @@ const ALLOW_HOSTS = new Set<string>([
 type CacheEntry = { jpeg: Buffer; t: number }
 const cache = new Map<string, CacheEntry>()
 const failureCache = new Map<string, number>()
-const CACHE_TTL_MS = 8_000
-const FAILURE_TTL_MS = 60_000
+const inFlightSnapshots = new Map<string, Promise<Buffer | null>>()
+const CACHE_TTL_MS = 12_000
+const FAILURE_TTL_MS = 20_000
 const STILL_IMAGE_RE = /\.(jpe?g|png|webp|gif)(\?|$)/i
 
 let browserPromise: Promise<Browser> | null = null
@@ -129,11 +130,19 @@ async function snapshotUrl(viewerUrl: string, selector: string | null, waitMs: n
       ignoreHTTPSErrors: true, // HPWREN expired cert
     })
     page = await ctx.newPage()
-    await page.goto(viewerUrl, { waitUntil: "domcontentloaded", timeout: 12_000 })
+    try {
+      await page.goto(viewerUrl, { waitUntil: "domcontentloaded", timeout: 4_500 })
+    } catch (err: any) {
+      // EarthCam and similar viewer pages can keep ads/analytics pending long
+      // enough for domcontentloaded to timeout even after the visible viewer has
+      // painted. Keep going so fullpage fallback can still return the frame.
+      if (mode !== "fullpage") throw err
+      console.warn("[cam-snapshot] continuing after navigation timeout:", err?.message || err)
+    }
     // If a video selector was provided, wait for it to mount + start.
     // Otherwise generic wait_ms for any JS player to settle.
     if (selector && mode === "element") {
-      try { await page.waitForSelector(selector, { timeout: 8_000 }) } catch { /* fall through; we'll still screenshot */ }
+      try { await page.waitForSelector(selector, { timeout: 2_500 }) } catch { /* fall through; we'll still screenshot */ }
     }
     if (waitMs > 0) await page.waitForTimeout(waitMs)
     let buf: Buffer
@@ -236,7 +245,7 @@ function fetchDirectImageViaNode(target: URL, redirects = 2): Promise<Buffer | n
 export async function GET(req: NextRequest) {
   const qUrl = req.nextUrl.searchParams.get("url") || ""
   const selector = req.nextUrl.searchParams.get("selector") || null
-  const waitMs = Math.min(8_000, Math.max(0, Number(req.nextUrl.searchParams.get("wait_ms") || 2000)))
+  const waitMs = Math.min(2_000, Math.max(0, Number(req.nextUrl.searchParams.get("wait_ms") || 500)))
   const mode = (req.nextUrl.searchParams.get("mode") === "fullpage") ? "fullpage" : "element"
 
   let target: URL
@@ -279,9 +288,17 @@ export async function GET(req: NextRequest) {
   }
 
   const isDirectStill = STILL_IMAGE_RE.test(target.toString())
-  const buf = isDirectStill
-    ? await fetchDirectImage(target)
-    : await snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
+  let snapshotPromise = inFlightSnapshots.get(cacheKey)
+  if (!snapshotPromise) {
+    snapshotPromise = (isDirectStill
+      ? fetchDirectImage(target)
+      : snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
+    ).finally(() => {
+      inFlightSnapshots.delete(cacheKey)
+    })
+    inFlightSnapshots.set(cacheKey, snapshotPromise)
+  }
+  const buf = await snapshotPromise
   if (!buf) {
     failureCache.set(cacheKey, now)
     return NextResponse.json(

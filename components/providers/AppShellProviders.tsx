@@ -105,7 +105,10 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     }
   }, [activePathname])
 
-  const hideFooter = activePathname === "/search" || activePathname.startsWith("/search/")
+  const hideFooter =
+    activePathname === "/search" ||
+    activePathname.startsWith("/search/") ||
+    activePathname === "/sensing/sine/player"
 
   let content: React.ReactNode = children
 

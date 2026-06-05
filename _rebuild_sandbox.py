@@ -75,6 +75,11 @@ def main():
     parser = argparse.ArgumentParser(description="Rebuild and deploy website to Sandbox VM (187)")
     parser.add_argument("--production", action="store_true", help="Deploy with mycosoft.com URLs (production)")
     parser.add_argument(
+        "--branch",
+        default=os.environ.get("REBUILD_GIT_REF", "main"),
+        help="Git ref on origin to deploy (default: main or REBUILD_GIT_REF env)",
+    )
+    parser.add_argument(
         "--skip-build",
         action="store_true",
         help="Skip Dockerfile fix and docker build; use existing image on VM (start container only)",
@@ -157,9 +162,10 @@ def main():
         _run(f"kill {pid} 2>/dev/null || true", timeout=5)
         raise RuntimeError(f"Build did not finish within {timeout_sec}s (PID {pid} killed)")
     
-    # Pull latest code so build uses current main
-    print("\n1. Syncing repo to origin/main...")
-    code, out, err = _run(f"cd {WEBSITE_DIR} && git fetch origin && git reset --hard origin/main", timeout=180)
+    # Pull latest code so build uses requested branch/ref
+    git_ref = args.branch if args.branch.startswith("origin/") else f"origin/{args.branch}"
+    print(f"\n1. Syncing repo to {git_ref}...")
+    code, out, err = _run(f"cd {WEBSITE_DIR} && git fetch origin && git reset --hard {git_ref}", timeout=180)
     if code != 0:
         raise RuntimeError(f"Failed to sync repo (exit {code}): {err or out}")
     if out:

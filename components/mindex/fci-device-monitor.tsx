@@ -106,7 +106,7 @@ export function FCIDeviceMonitor({ className }: { className?: string }) {
             <div>
               <div className="font-medium">Devices unavailable</div>
               <div className="text-yellow-200/70">
-                This panel requires a live MINDEX backend for <span className="font-mono">/api/mindex/devices</span>.
+                This panel will show live device telemetry when the MINDEX device feed is available.
               </div>
             </div>
           </div>

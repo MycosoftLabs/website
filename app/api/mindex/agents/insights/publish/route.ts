@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server"
 import { env } from "@/lib/env"
+import { requireMindexStreamPublisher } from "@/lib/mindex/streaming/publish-auth"
 import { publishToChannel } from "@/lib/mindex/streaming/sse-manager"
 
 export const dynamic = "force-dynamic"
-
-function isAuthorized(request: Request): boolean {
-  const configured = process.env.MYCORRHIZAE_PUBLISH_KEY
-  if (!configured) return false
-  const provided = request.headers.get("x-mycorrhizae-key")
-  return Boolean(provided && provided === configured)
-}
 
 export async function POST(request: Request) {
   if (!env.integrationsEnabled) {
@@ -19,12 +13,8 @@ export async function POST(request: Request) {
     )
   }
 
-  if (!isAuthorized(request)) {
-    return NextResponse.json(
-      { error: "Unauthorized", code: "UNAUTHORIZED", requiredHeader: "x-mycorrhizae-key" },
-      { status: 401 },
-    )
-  }
+  const authError = await requireMindexStreamPublisher(request)
+  if (authError) return authError
 
   let body: { channel?: string; event?: string; data?: unknown }
   try {

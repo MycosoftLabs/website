@@ -35,6 +35,20 @@ function appendEmbedParams(base: string): string {
   }
 }
 
+function extractChannelId(raw: string): string | null {
+  const match = /[?&]channel=((?:UC|HC)[\w-]{20,})/i.exec(raw)
+  return match?.[1] || null
+}
+
+function isDirectVideoEmbed(raw: string): boolean {
+  return (
+    /youtube(?:-nocookie)?\.com\/embed\/(?!live_stream)([a-zA-Z0-9_-]{11})(?:\?|$)/i.test(raw) ||
+    /[?&]v=([a-zA-Z0-9_-]{11})/i.test(raw) ||
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/i.test(raw) ||
+    /youtube\.com\/live\/([a-zA-Z0-9_-]{11})/i.test(raw)
+  )
+}
+
 async function resolveHandleViaApi(handle: string): Promise<string | null> {
   if (!YOUTUBE_API_KEY) return null
   const qp = new URLSearchParams({
@@ -76,25 +90,28 @@ async function resolveLiveVideoViaApi(channelId: string): Promise<string | null>
 
 async function resolveYouTubeEmbed(raw: string): Promise<string | null> {
   const sync = normalizeYouTubeEmbedUrlSync(raw)
-  if (sync) return sync
-
   if (!isYouTubeUrl(raw)) return null
+
+  if (sync && isDirectVideoEmbed(raw)) return sync
+
+  const syncChannelId = sync ? extractChannelId(sync) : null
+  let channelId = syncChannelId || extractChannelId(raw)
 
   const handleMatch = /youtube\.com\/@([\w.-]+)/i.exec(raw)
   const handle = handleMatch?.[1]
-  if (!handle) return null
+  if (!channelId && handle) {
+    const handleKey = handle.replace(/\./g, "").toLowerCase()
+    channelId =
+      YOUTUBE_HANDLE_CHANNEL_IDS[handleKey] ||
+      (await resolveHandleViaApi(handle))
+  }
 
-  const handleKey = handle.replace(/\./g, "").toLowerCase()
-  let channelId =
-    YOUTUBE_HANDLE_CHANNEL_IDS[handleKey] ||
-    (await resolveHandleViaApi(handle))
-
-  if (!channelId?.startsWith("UC")) return null
+  if (!channelId?.startsWith("UC")) return sync
 
   const liveVideoEmbed = await resolveLiveVideoViaApi(channelId)
   if (liveVideoEmbed) return liveVideoEmbed
 
-  return appendEmbedParams(`https://www.youtube.com/embed/live_stream?channel=${channelId}`)
+  return sync || appendEmbedParams(`https://www.youtube.com/embed/live_stream?channel=${channelId}`)
 }
 
 export async function GET(req: NextRequest) {

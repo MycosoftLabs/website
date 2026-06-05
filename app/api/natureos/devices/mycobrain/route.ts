@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth/api-auth"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 import { resolveMycoBrainServiceUrl } from "@/lib/mycobrain-service-url"
-import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -33,9 +33,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const mindexRes = await fetch(`${MINDEX_API_URL}/api/mindex/devices?device_type=mycobrain`, {
+    const mindexRes = await fetchMindexWithAuthRetry(`${MINDEX_API_URL}/api/mindex/devices?device_type=mycobrain`, {
       signal: AbortSignal.timeout(5000),
-      headers: mindexUpstreamHeaders(),
     })
     if (mindexRes.ok) {
       const data = await mindexRes.json()
@@ -134,9 +133,9 @@ export async function POST(request: NextRequest) {
     const deviceId = device_id || port
     
     // Register with MINDEX
-    const mindexRes = await fetch(`${MINDEX_API_URL}/api/mindex/devices/register`, {
+    const mindexRes = await fetchMindexWithAuthRetry(`${MINDEX_API_URL}/api/mindex/devices/register`, {
       method: "POST",
-      headers: mindexUpstreamHeaders({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         device_id: deviceId,
         device_type: "mycobrain",
@@ -171,7 +170,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
 
 
 

@@ -50,23 +50,34 @@ const CCTV_VISIBILITY_LAYER_IDS = Object.values(eagleCameraLayerIds(CCTV_LAYER_P
 const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
 const CCTV_MIN_ZOOM = 7
 const CCTV_FAST_LIMIT = "160"
-const CCTV_FULL_LIMIT = "1200"
+const CCTV_FULL_LIMIT = "600"
 let railwayLiveCache: { ts: number; data: any } | null = null
 let railwayLiveInFlight: Promise<any> | null = null
+let railwayLiveAbortController: AbortController | null = null
 
 async function fetchRailwayLiveCached() {
   const now = Date.now()
-  if (railwayLiveCache && now - railwayLiveCache.ts < 8_000) return railwayLiveCache.data
+  if (typeof document !== "undefined" && document.hidden) return railwayLiveCache?.data ?? { trains: [] }
+  if (railwayLiveCache && now - railwayLiveCache.ts < 30_000) return railwayLiveCache.data
   if (railwayLiveInFlight) return railwayLiveInFlight
-  railwayLiveInFlight = fetch("/api/oei/railway-live?limit=1500")
+  railwayLiveAbortController?.abort()
+  railwayLiveAbortController = new AbortController()
+  const timeout = window.setTimeout(() => railwayLiveAbortController?.abort(), 5_000)
+  railwayLiveInFlight = fetch("/api/oei/railway-live?limit=1500", {
+      signal: railwayLiveAbortController.signal,
+      cache: "no-store",
+    })
     .then(async (res) => {
       if (!res.ok) return railwayLiveCache?.data ?? { trains: [] }
       const data = await res.json()
       railwayLiveCache = { ts: Date.now(), data }
       return data
     })
+    .catch(() => railwayLiveCache?.data ?? { trains: [] })
     .finally(() => {
+      window.clearTimeout(timeout)
       railwayLiveInFlight = null
+      railwayLiveAbortController = null
     })
   return railwayLiveInFlight
 }
@@ -208,13 +219,16 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   const loadedRef = useRef<Record<string, boolean>>({})
   const landMaskResolutionRef = useRef<"10m" | "50m" | null>(null)
   const txBboxKeyRef = useRef("")
+  const txInFlightKeyRef = useRef("")
   const txFetchTimerRef = useRef<number | null>(null)
   const txAbortRef = useRef<AbortController | null>(null)
   const cellTowerBboxKeyRef = useRef("")
+  const cellTowerInFlightKeyRef = useRef("")
   const cellTowerFetchTimerRef = useRef<number | null>(null)
   const cellTowerAbortRef = useRef<AbortController | null>(null)
   const cctvInFlightKeyRef = useRef("")
   const cctvLastFetchRef = useRef<{ key: string; ts: number } | null>(null)
+  const cctvAbortRef = useRef<AbortController | null>(null)
   const [styleReadyTick, setStyleReadyTick] = useState(0)
 
   useEffect(() => {
@@ -785,6 +799,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
     if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5) {
+      txBboxKeyRef.current = ""
+      txInFlightKeyRef.current = ""
+      txAbortRef.current?.abort()
       clearBboxLayer()
       return
     }
@@ -792,11 +809,15 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 
     const precision = mapZoom >= 9 ? 3 : mapZoom >= 7 ? 2 : 1
     const bboxKey = `${mapZoom >= 9 ? 9 : mapZoom >= 7 ? 7 : 5}:${effectiveBbox.map((v) => v.toFixed(precision)).join(",")}`
-    if (bboxKey === txBboxKeyRef.current && map.getLayer(layerId)) {
-      setLayerVisibility(map, [layerId], true)
-      return
+    if (bboxKey === txBboxKeyRef.current) {
+      if (map.getLayer(layerId)) {
+        setLayerVisibility(map, [layerId], true)
+        return
+      }
+      if (txInFlightKeyRef.current === bboxKey) return
     }
     txBboxKeyRef.current = bboxKey
+    txInFlightKeyRef.current = bboxKey
 
     if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
     txAbortRef.current?.abort()
@@ -806,13 +827,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     txFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 9 ? 6000 : mapZoom >= 7 ? 3500 : 1500
+          const limit = mapZoom >= 9 ? 900 : mapZoom >= 7 ? 600 : 350
           const res = await fetch(`/api/oei/transmission-lines-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
           })
-          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map)) return
+          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map) || txBboxKeyRef.current !== bboxKey) return
           const data = await res.json()
+          if (abortController.signal.aborted || !isMapStyleReady(map) || txBboxKeyRef.current !== bboxKey) return
           const features = (data.lines || []).slice(0, limit).map((line: any, index: number) => ({
             type: "Feature" as const,
             id: line.id || `tx-bbox-${index}`,
@@ -830,6 +852,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (features.length === 0) txBboxKeyRef.current = ""
           const fc = { type: "FeatureCollection" as const, features }
 
+          if (!isMapStyleReady(map) || txBboxKeyRef.current !== bboxKey) return
           if (!map.getSource(sourceId)) {
             map.addSource(sourceId, { type: "geojson", data: emptyFc, generateId: false })
           }
@@ -887,13 +910,16 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           console.log(`[ProposalOverlays] bbox transmission lines: ${features.length} loaded`)
         } catch (error: any) {
           if (error?.name !== "AbortError") console.warn("[ProposalOverlays/txLinesBbox]", error?.message || error)
+        } finally {
+          if (txInFlightKeyRef.current === bboxKey) txInFlightKeyRef.current = ""
         }
       })()
-    }, 400)
+    }, 650)
 
     return () => {
       if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
-      abortController.abort()
+      txAbortRef.current?.abort()
+      if (txInFlightKeyRef.current === bboxKey) txInFlightKeyRef.current = ""
     }
   }, [map, styleReadyTick, enabled.txLinesGlobal, bbox, mapZoom])
 
@@ -911,6 +937,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
     if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM) {
+      cellTowerBboxKeyRef.current = ""
+      cellTowerInFlightKeyRef.current = ""
+      cellTowerAbortRef.current?.abort()
       clearBboxLayer()
       return
     }
@@ -919,11 +948,15 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const zoomBand = mapZoom >= 10 ? 10 : mapZoom >= 8 ? 8 : mapZoom >= 6 ? 6 : 5
     const precision = mapZoom >= 10 ? 3 : mapZoom >= 8 ? 2 : 1
     const bboxKey = `${zoomBand}:${effectiveBbox.map((v) => v.toFixed(precision)).join(",")}`
-    if (bboxKey === cellTowerBboxKeyRef.current && map.getLayer(layerId)) {
-      setLayerVisibility(map, [layerId], true)
-      return
+    if (bboxKey === cellTowerBboxKeyRef.current) {
+      if (map.getLayer(layerId)) {
+        setLayerVisibility(map, [layerId], true)
+        return
+      }
+      if (cellTowerInFlightKeyRef.current === bboxKey) return
     }
     cellTowerBboxKeyRef.current = bboxKey
+    cellTowerInFlightKeyRef.current = bboxKey
 
     if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
     cellTowerAbortRef.current?.abort()
@@ -933,13 +966,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     cellTowerFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 10 ? 3500 : mapZoom >= 8 ? 1800 : mapZoom >= 6 ? 900 : 450
+          const limit = mapZoom >= 10 ? 450 : mapZoom >= 8 ? 300 : mapZoom >= 6 ? 180 : 100
           const res = await fetch(`/api/oei/cell-towers-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
           })
-          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map)) return
+          if (!res.ok || abortController.signal.aborted || !isMapStyleReady(map) || cellTowerBboxKeyRef.current !== bboxKey) return
           const data = await res.json()
+          if (abortController.signal.aborted || !isMapStyleReady(map) || cellTowerBboxKeyRef.current !== bboxKey) return
           const features = (data.towers || []).slice(0, limit).map((tower: any, index: number) => ({
             type: "Feature" as const,
             id: tower.id || `celltower-bbox-${index}`,
@@ -960,6 +994,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (features.length === 0) cellTowerBboxKeyRef.current = ""
           const fc = { type: "FeatureCollection" as const, features }
 
+          if (!isMapStyleReady(map) || cellTowerBboxKeyRef.current !== bboxKey) return
           if (!map.getSource(sourceId)) {
             map.addSource(sourceId, { type: "geojson", data: emptyFc, generateId: false })
           }
@@ -1030,13 +1065,16 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           console.log(`[ProposalOverlays] bbox cell towers: ${features.length} loaded`)
         } catch (error: any) {
           if (error?.name !== "AbortError") console.warn("[ProposalOverlays/cellTowersG]", error?.message || error)
+        } finally {
+          if (cellTowerInFlightKeyRef.current === bboxKey) cellTowerInFlightKeyRef.current = ""
         }
       })()
-    }, 350)
+    }, 650)
 
     return () => {
       if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
-      abortController.abort()
+      cellTowerAbortRef.current?.abort()
+      if (cellTowerInFlightKeyRef.current === bboxKey) cellTowerInFlightKeyRef.current = ""
     }
   }, [map, styleReadyTick, enabled.cellTowersG, bbox, mapZoom])
 
@@ -1728,6 +1766,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       loadedRef.current.railwayTrains = true
     }
 
+    let cancelled = false
+    let paintInFlight = false
+
     // Apr 19, 2026 (Morgan: "live train must be a train icon with cars of
     // length if possible animated on the track"). We load a small SVG train
     // icon into the map image registry once, then use a symbol layer with
@@ -1776,6 +1817,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     loadTrainIcon()
 
     const fetchAndPaint = async () => {
+      if (paintInFlight) return
+      paintInFlight = true
       try {
         const promoteTrainLayers = () => {
           for (const id of ["crep-trains-live-cars-line", "crep-trains-live-square"]) {
@@ -1783,6 +1826,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           }
         }
         const j = await fetchRailwayLiveCached()
+        if (cancelled) return
         const features = (j.trains || []).map((t: any) => {
           const heading = Number(t.heading ?? 0) || 0
           // Estimate a "cars" trail: 40 m per car at 4 cars default for rail,
@@ -1844,7 +1888,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         }))
         const fc = { type: "FeatureCollection" as const, features }
         const fcLines = { type: "FeatureCollection" as const, features: lineFeatures }
-        if (!mapReady()) return
+        if (cancelled || !mapReady()) return
         if (!map.getSource("crep-trains-live")) {
           map.addSource("crep-trains-live", { type: "geojson", data: fc, promoteId: "id" } as any)
           map.addSource("crep-trains-live-cars", { type: "geojson", data: fcLines, promoteId: "id" } as any)
@@ -1945,12 +1989,18 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const ops = Object.entries(byOp).filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(" ")
         console.log(`[ProposalOverlays] railway live: ${features.length} vehicles (${ops || "—"})`)
       } catch (e: any) { console.warn("[ProposalOverlays/railwayTrains]", e.message) }
+      finally {
+        paintInFlight = false
+      }
     }
 
     idleLoad(fetchAndPaint)
     // Re-poll every 30s while enabled
     const timer = setInterval(() => { if (enabled.railwayTrains) fetchAndPaint() }, 30_000)
-    return () => clearInterval(timer)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
   }, [map, styleReadyTick, enabled.railwayTrains])
 
   // ─── 12. Drone No-Fly Zones — FAA UAS restricted + OpenAIP airspace ────
@@ -2114,6 +2164,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const layerIds = CCTV_VISIBILITY_LAYER_IDS
     const cctvVisible = Boolean(enabled.cctv) && mapZoom >= CCTV_MIN_ZOOM && Boolean(bbox)
     if (!cctvVisible) {
+      cctvAbortRef.current?.abort()
+      cctvInFlightKeyRef.current = ""
       setLayerVisibility(map, layerIds, false)
       return
     }
@@ -2133,13 +2185,24 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       if (lastFetch?.key === requestKey && now - lastFetch.ts < 12_000) return
       cctvInFlightKeyRef.current = requestKey
       cctvLastFetchRef.current = { key: requestKey, ts: now }
+      cctvAbortRef.current?.abort()
+      const abortController = new AbortController()
+      cctvAbortRef.current = abortController
+      const isCurrentRequest = () => (
+        !abortController.signal.aborted &&
+        cctvInFlightKeyRef.current === requestKey &&
+        isMapStyleReady(map) &&
+        Boolean(bbox) &&
+        mapZoom >= CCTV_MIN_ZOOM
+      )
       try {
-        if (!isMapStyleReady(map)) return
+        if (!isCurrentRequest()) return
         if (!bbox || mapZoom < CCTV_MIN_ZOOM) {
           setLayerVisibility(map, layerIds, false)
           return
         }
         const paintCameraPayload = async (legacyJson: any, eagleJson: any, logLabel: string) => {
+          if (!isCurrentRequest()) return
           const byId = new Map<string, any>()
           for (const c of legacyJson.cameras || []) {
             const id = String(c.id || `${c.source || c.operator || "cctv"}-${c.lat}-${c.lng}`)
@@ -2198,8 +2261,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
               geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
             }))
           const fc = { type: "FeatureCollection" as const, features }
+          if (!isCurrentRequest()) return
           if (!map.getSource("crep-cctv")) {
             await ensureEagleCameraMapIcon(map)
+            if (!isCurrentRequest()) return
             map.addSource("crep-cctv", { type: "geojson", data: fc, generateId: true })
             map.addLayer(eagleCameraHitLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
             map.addLayer(eagleCameraGlowLayer("crep-cctv", CCTV_LAYER_PREFIX) as any)
@@ -2265,10 +2330,12 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const fastQuery = new URLSearchParams({ limit: CCTV_FAST_LIMIT, fast: "1", live: "0" })
         fastQuery.set("bbox", bbox.join(","))
         const fastRes = await fetch(`/api/eagle/sources?${fastQuery.toString()}`, {
-          signal: AbortSignal.timeout(2_500),
+          signal: abortController.signal,
           cache: "no-store",
         }).catch(() => null)
+        if (!isCurrentRequest()) return
         const fastJson = fastRes?.ok ? await fastRes.json() : {}
+        if (!isCurrentRequest()) return
         if (Array.isArray(fastJson.sources) && fastJson.sources.length > 0) {
           await paintCameraPayload({}, fastJson, "fast")
         }
@@ -2276,11 +2343,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         const cameraQuery = new URLSearchParams({ limit: CCTV_FULL_LIMIT, live: "0" })
         cameraQuery.set("bbox", bbox.join(","))
         const [legacyRes, eagleRes] = await Promise.all([
-          fetch(`/api/oei/cctv?${cameraQuery.toString()}`, { signal: AbortSignal.timeout(5_000), cache: "no-store" }).catch(() => null),
-          fetch(`/api/eagle/sources?${cameraQuery.toString()}`, { signal: AbortSignal.timeout(5_000), cache: "no-store" }).catch(() => null),
+          fetch(`/api/oei/cctv?${cameraQuery.toString()}`, { signal: abortController.signal, cache: "no-store" }).catch(() => null),
+          fetch(`/api/eagle/sources?${cameraQuery.toString()}`, { signal: abortController.signal, cache: "no-store" }).catch(() => null),
         ])
+        if (!isCurrentRequest()) return
         const legacyJson = legacyRes?.ok ? await legacyRes.json() : {}
         const eagleJson = eagleRes?.ok ? await eagleRes.json() : fastJson
+        if (!isCurrentRequest()) return
         await paintCameraPayload(legacyJson, eagleJson, "full")
       } catch (e: any) {
         console.warn("[ProposalOverlays/cctv]", e?.message)
@@ -2292,7 +2361,11 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     idleLoad(fetchAndPaint)
     // Poll every 5 min — cameras move rarely but Shinobi monitor list may change
     const timer = setInterval(() => { if (enabled.cctv && mapZoom >= CCTV_MIN_ZOOM && bbox) fetchAndPaint() }, 300_000)
-    return () => clearInterval(timer)
+    return () => {
+      cctvAbortRef.current?.abort()
+      cctvInFlightKeyRef.current = ""
+      clearInterval(timer)
+    }
   }, [map, styleReadyTick, enabled.cctv, bbox, mapZoom])
 
   return null

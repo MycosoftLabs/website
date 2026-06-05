@@ -18,6 +18,8 @@ export interface EagleCameraLike {
   stream_url?: string | null
   embed_url?: string | null
   media_url?: string | null
+  status?: string | null
+  source_status?: string | null
   kind?: string | null
   category?: string | null
 }
@@ -76,6 +78,21 @@ const INFO_ONLY_PROVIDERS = new Set([
   "parks-ca",
 ])
 
+const UNAVAILABLE_SOURCE_STATUSES = new Set([
+  "offline",
+  "unavailable",
+  "retired",
+  "disabled",
+  "blocked",
+  "deprecated",
+])
+
+const KNOWN_UNAVAILABLE_SOURCE_IDS = new Set([
+  "vegas-youtube-fremont-live",
+  "vegas-youtube-strip-live",
+  "vegas-youtube-cityhall",
+])
+
 /** id → [lng, lat] verified US-side / on-land positions. */
 const COORDINATE_OVERRIDES: Record<string, [number, number]> = {
   // CBP wait-time POE duplicate in manual seed was ~1 km south of official POE.
@@ -112,12 +129,21 @@ function isSensorOnly(source: EagleCameraLike): boolean {
   return isEagleEnvironmentalSensor(source)
 }
 
+function isUnavailableSource(source: EagleCameraLike): boolean {
+  const id = String(source.id || "")
+  if (KNOWN_UNAVAILABLE_SOURCE_IDS.has(id)) return true
+
+  const rawStatus = String(source.source_status ?? source.status ?? "").trim().toLowerCase()
+  return rawStatus ? UNAVAILABLE_SOURCE_STATUSES.has(rawStatus) : false
+}
+
 export { SENSOR_ONLY_PROVIDERS }
 
 export function isDisplayableEagleCamera(source: EagleCameraLike): boolean {
   if (!Number.isFinite(Number(source.lat)) || !Number.isFinite(Number(source.lng))) {
     return false
   }
+  if (isUnavailableSource(source)) return false
   if (isSensorOnly(source)) return false
 
   const provider = String(source.provider || "").toLowerCase()

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -12,6 +12,8 @@ import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 
 import type {
   ETLStatus,
+  MindexConsole,
+  MindexFieldDeviceSummary,
   MindexHealthAll,
   MINDEXHealth,
   MINDEXStats,
@@ -22,6 +24,8 @@ import type {
 import { MINDEX_NAV_ITEMS } from "@/components/mindex/tabs/mindex-nav-items"
 import { MindexNavButton } from "@/components/mindex/tabs/mindex-nav-button"
 import { OverviewSection } from "@/components/mindex/tabs/overview-tab"
+import { DataSection } from "@/components/mindex/tabs/data-tab"
+import { LibrarySection } from "@/components/mindex/tabs/library-tab"
 import { EncyclopediaSection } from "@/components/mindex/tabs/encyclopedia-tab"
 import { DataPipelineSection } from "@/components/mindex/tabs/data-pipeline-tab"
 import { IntegritySection } from "@/components/mindex/tabs/integrity-tab"
@@ -29,7 +33,6 @@ import { LedgerSection } from "@/components/mindex/tabs/ledger-tab"
 import { NetworkSection } from "@/components/mindex/tabs/network-tab"
 import { BioSection } from "@/components/mindex/tabs/bio-tab"
 import { ChemistrySection } from "@/components/mindex/tabs/chemistry-tab"
-import { DevicesSection } from "@/components/mindex/tabs/devices-tab"
 import { MWaveSection } from "@/components/mindex/tabs/mwave-tab"
 import { AgentsSection } from "@/components/mindex/tabs/agents-tab"
 
@@ -40,9 +43,12 @@ export function MINDEXDashboard() {
   const [taxa, setTaxa] = useState<Taxon[]>([])
   const [observations, setObservations] = useState<Observation[]>([])
   const [etlStatus, setEtlStatus] = useState<ETLStatus | null>(null)
+  const [consolePayload, setConsolePayload] = useState<MindexConsole | null>(null)
+  const [fieldDevices, setFieldDevices] = useState<MindexFieldDeviceSummary | null>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [taxaError, setTaxaError] = useState<string | null>(null)
   const [selectedTaxon, setSelectedTaxon] = useState<Taxon | null>(null)
   const [activeSection, setActiveSection] = useState<WidgetSection>("overview")
   const [integrityRecordId, setIntegrityRecordId] = useState("")
@@ -113,30 +119,79 @@ export function MINDEXDashboard() {
         ? `/api/natureos/mindex/taxa?q=${encodeURIComponent(query)}&limit=50`
         : `/api/natureos/mindex/taxa?limit=50`
       const res = await fetch(url)
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        const data = await res.json()
         setTaxa(data.data || [])
+        setTaxaError(null)
+      } else {
+        setTaxa([])
+        setTaxaError(
+          data.message ||
+            data.error ||
+            `MINDEX all-life taxa endpoint returned HTTP ${res.status}`,
+        )
       }
     } catch (error) {
       console.error("Failed to fetch taxa:", error)
+      setTaxa([])
+      setTaxaError(error instanceof Error ? error.message : "Failed to fetch MINDEX taxa")
+    }
+  }, [])
+
+  const fetchFieldDevices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/earth-simulator/devices", { cache: "no-store" })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data?.success !== false) {
+        setFieldDevices({
+          devices: Array.isArray(data.devices) ? data.devices : [],
+          count: typeof data.count === "number" ? data.count : Array.isArray(data.devices) ? data.devices.length : 0,
+          sources: data.sources,
+          mas_url: data.mas_url,
+          timestamp: data.timestamp,
+          success: data.success,
+        })
+      } else {
+        setFieldDevices({
+          devices: [],
+          count: 0,
+          error: data?.error || `Device route returned HTTP ${res.status}`,
+        })
+      }
+    } catch (error) {
+      console.error("Failed to fetch Mycosoft field devices:", error)
+      setFieldDevices({
+        devices: [],
+        count: 0,
+        error: error instanceof Error ? error.message : "Failed to fetch Mycosoft devices",
+      })
     }
   }, [])
 
   const fetchObservations = useCallback(async () => {
     try {
-      const res = await fetch("/api/natureos/mindex/observations?limit=100")
+      const res = await fetch("/api/natureos/mindex/observations?limit=100", { cache: "no-store" })
       if (res.ok) {
         const data = await res.json()
-        setObservations(data.observations || [])
+        setObservations(
+          Array.isArray(data.observations)
+            ? data.observations
+            : Array.isArray(data.data)
+              ? data.data
+              : [],
+        )
+      } else {
+        setObservations([])
       }
     } catch (error) {
       console.error("Failed to fetch observations:", error)
+      setObservations([])
     }
   }, [])
 
   const fetchETLStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/natureos/mindex/sync")
+      const res = await fetch("/api/natureos/mindex/sync", { cache: "no-store" })
       if (res.ok) {
         const data = await res.json()
         setEtlStatus(data)
@@ -145,6 +200,80 @@ export function MINDEXDashboard() {
       console.error("Failed to fetch ETL status:", error)
     }
   }, [])
+
+  const fetchConsole = useCallback(async () => {
+    try {
+      const res = await fetch("/api/natureos/mindex/console", { cache: "no-store" })
+      if (res.ok) {
+        const data = (await res.json()) as MindexConsole
+        setConsolePayload(data)
+        if (data.etl) setEtlStatus(data.etl as ETLStatus)
+        if (data.stats) {
+          setStats((prev) => ({
+            ...(prev ?? {
+              total_taxa: 0,
+              total_observations: 0,
+              total_external_ids: 0,
+              taxa_by_source: {},
+              observations_by_source: {},
+              observations_with_location: 0,
+              observations_with_images: 0,
+              taxa_with_observations: 0,
+              observation_date_range: { earliest: null, latest: null },
+              etl_status: "unknown",
+              genome_records: 0,
+              trait_records: 0,
+              synonym_records: 0,
+            }),
+            ...data.stats,
+            etl_status: (data.stats.etl_status as MINDEXStats["etl_status"]) ?? prev?.etl_status ?? "unknown",
+          }))
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setConsolePayload({ error: (err as { error?: string }).error ?? `HTTP ${res.status}` })
+      }
+    } catch (error) {
+      console.error("Failed to fetch MINDEX console:", error)
+      setConsolePayload({
+        error: error instanceof Error ? error.message : "console_fetch_failed",
+      })
+    }
+  }, [])
+
+  const runEtlJob = useCallback(
+    async (job: string): Promise<{ ok: boolean; message: string }> => {
+      setIsSyncing(true)
+      try {
+        const res = await fetch("/api/natureos/mindex/etl/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job, max_pages: 20 }),
+        })
+        const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
+        if (res.ok) {
+          await Promise.all([fetchConsole(), fetchETLStatus(), fetchStats()])
+          return {
+            ok: true,
+            message: body.message || `${job} queued`,
+          }
+        }
+        return {
+          ok: false,
+          message: body.error || body.message || `Could not queue ${job}`,
+        }
+      } catch (error) {
+        console.error("Failed to run ETL job:", error)
+        return {
+          ok: false,
+          message: error instanceof Error ? error.message : "Could not queue job",
+        }
+      } finally {
+        setIsSyncing(false)
+      }
+    },
+    [fetchConsole, fetchETLStatus, fetchStats],
+  )
 
   const triggerSync = useCallback(
     async (sources?: string[]) => {
@@ -157,8 +286,7 @@ export function MINDEXDashboard() {
         })
         if (res.ok) {
           setTimeout(() => {
-            fetchStats()
-            fetchETLStatus()
+            void Promise.all([fetchStats(), fetchETLStatus(), fetchConsole()])
             setIsSyncing(false)
           }, 2000)
         } else {
@@ -169,7 +297,7 @@ export function MINDEXDashboard() {
         setIsSyncing(false)
       }
     },
-    [fetchStats, fetchETLStatus],
+    [fetchStats, fetchETLStatus, fetchConsole],
   )
 
   useEffect(() => {
@@ -184,7 +312,9 @@ export function MINDEXDashboard() {
       setActiveSection("overview")
     } else if (command.includes("encyclopedia") || command.includes("species")) {
       setActiveSection("encyclopedia")
-    } else if (command.includes("data") || command.includes("pipeline")) {
+    } else if (command.includes("pipeline")) {
+      setActiveSection("pipeline")
+    } else if (command.includes("data") || command.includes("database")) {
       setActiveSection("data")
     } else if (command.includes("integrity") || command.includes("verify")) {
       setActiveSection("integrity")
@@ -207,7 +337,7 @@ export function MINDEXDashboard() {
     } else if (command.includes("agents") || command.includes("topology")) {
       setActiveSection("agents")
     } else if (command.includes("containers") || command.includes("docker")) {
-      setActiveSection("data")
+      setActiveSection("pipeline")
     } else if (command.includes("sync") || command.includes("synchronize")) {
       triggerSync()
     } else if (command.includes("refresh") || command.includes("update")) {
@@ -232,6 +362,8 @@ export function MINDEXDashboard() {
         fetchHealth(),
         fetchHealthAll(),
         fetchStats(),
+        fetchConsole(),
+        fetchFieldDevices(),
         fetchTaxa(),
         fetchObservations(),
         fetchETLStatus(),
@@ -244,10 +376,21 @@ export function MINDEXDashboard() {
       fetchHealth()
       fetchHealthAll()
       fetchStats()
+      fetchConsole()
+      fetchFieldDevices()
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [fetchHealth, fetchHealthAll, fetchStats, fetchTaxa, fetchObservations, fetchETLStatus])
+  }, [
+    fetchHealth,
+    fetchHealthAll,
+    fetchStats,
+    fetchConsole,
+    fetchFieldDevices,
+    fetchTaxa,
+    fetchObservations,
+    fetchETLStatus,
+  ])
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -278,12 +421,12 @@ export function MINDEXDashboard() {
   return (
     <div className="relative min-h-dvh bg-[#0A0A0F] overflow-hidden">
       <TronCircuitAnimation
-        opacity={0.2}
+        opacity={0.08}
         lineColor="#8B5CF6"
         glowColor="#A855F7"
         particleColor="#22D3EE"
-        particleCount={40}
-        gridSize={80}
+        particleCount={18}
+        gridSize={96}
       />
 
       <div className="relative z-10 flex h-screen">
@@ -294,23 +437,15 @@ export function MINDEXDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <motion.div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center"
+                      <div
+                        className="w-12 h-12 rounded-lg flex items-center justify-center"
                         style={{
                           background: "linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)",
-                          boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)",
+                          boxShadow: "0 0 20px rgba(139, 92, 246, 0.3)",
                         }}
-                        animate={{
-                          boxShadow: [
-                            "0 0 30px rgba(139, 92, 246, 0.5)",
-                            "0 0 50px rgba(139, 92, 246, 0.8)",
-                            "0 0 30px rgba(139, 92, 246, 0.5)",
-                          ],
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
                       >
                         <Database className="h-6 w-6 text-white" />
-                      </motion.div>
+                      </div>
                       <GlowingStatus status={headerStatus} size={14} animated />
                     </div>
                     <div>
@@ -321,7 +456,7 @@ export function MINDEXDashboard() {
                         <span className="text-gray-400 font-normal text-lg">Infrastructure</span>
                       </h1>
                       <p className="text-sm text-gray-500">
-                        Cryptographic Intelligence Database • v{health?.version || "2.0"}
+                        Cryptographic intelligence database - v{health?.version || "2.0"}
                       </p>
                     </div>
                   </div>
@@ -358,6 +493,7 @@ export function MINDEXDashboard() {
                         fetchHealth()
                         fetchHealthAll()
                         fetchStats()
+                        fetchConsole()
                       }}
                       disabled={isLoading}
                       className="border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
@@ -383,69 +519,81 @@ export function MINDEXDashboard() {
                 </div>
               </motion.header>
 
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeSection}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {activeSection === "overview" ? (
-                    <OverviewSection
-                      health={health}
-                      healthAll={healthAll}
-                      stats={stats}
-                      observations={observations}
-                      isLoading={isLoading}
-                    />
-                  ) : null}
+              <div>
+                {activeSection === "overview" ? (
+                  <OverviewSection
+                    health={health}
+                    healthAll={healthAll}
+                    stats={stats}
+                    console={consolePayload}
+                    fieldDevices={fieldDevices}
+                    observations={observations}
+                    isLoading={isLoading}
+                  />
+                ) : null}
 
-                  {activeSection === "encyclopedia" ? (
-                    <EncyclopediaSection
-                      taxa={taxa}
-                      observations={observations}
-                      searchQuery={searchQuery}
-                      setSearchQuery={setSearchQuery}
-                      selectedTaxon={selectedTaxon}
-                      setSelectedTaxon={setSelectedTaxon}
-                      stats={stats}
-                      isLoading={isLoading}
-                    />
-                  ) : null}
+                {activeSection === "data" ? (
+                  <DataSection
+                    stats={stats}
+                    console={consolePayload}
+                    healthAll={healthAll}
+                    etlStatus={etlStatus}
+                    fieldDevices={fieldDevices}
+                    taxa={taxa}
+                    observations={observations}
+                  />
+                ) : null}
 
-                  {activeSection === "data" ? (
-                    <DataPipelineSection
-                      stats={stats}
-                      etlStatus={etlStatus}
-                      isSyncing={isSyncing}
-                      triggerSync={triggerSync}
-                    />
-                  ) : null}
+                {activeSection === "library" ? (
+                  <LibrarySection fieldDevices={fieldDevices} />
+                ) : null}
 
-                  {activeSection === "integrity" ? (
-                    <IntegritySection
-                      integrityRecordId={integrityRecordId}
-                      setIntegrityRecordId={setIntegrityRecordId}
-                      setSelectedTaxon={setSelectedTaxon}
-                    />
-                  ) : null}
+                {activeSection === "encyclopedia" ? (
+                  <EncyclopediaSection
+                    taxa={taxa}
+                    observations={observations}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    selectedTaxon={selectedTaxon}
+                    setSelectedTaxon={setSelectedTaxon}
+                    taxaError={taxaError}
+                    stats={stats}
+                    isLoading={isLoading}
+                  />
+                ) : null}
 
-                  {activeSection === "ledger" ? <LedgerSection /> : null}
+                {activeSection === "pipeline" ? (
+                  <DataPipelineSection
+                    stats={stats}
+                    etlStatus={etlStatus}
+                    console={consolePayload}
+                    isSyncing={isSyncing}
+                    triggerSync={triggerSync}
+                    runEtlJob={runEtlJob}
+                  />
+                ) : null}
 
-                  {activeSection === "network" ? <NetworkSection /> : null}
+                {activeSection === "integrity" ? (
+                  <IntegritySection
+                    integrityRecordId={integrityRecordId}
+                    setIntegrityRecordId={setIntegrityRecordId}
+                    setSelectedTaxon={setSelectedTaxon}
+                  />
+                ) : null}
 
-                  {activeSection === "bio" ? <BioSection stats={stats} /> : null}
+                {activeSection === "ledger" ? <LedgerSection /> : null}
 
-                  {activeSection === "chemistry" ? <ChemistrySection /> : null}
+                {activeSection === "network" ? <NetworkSection /> : null}
 
-                  {activeSection === "devices" ? <DevicesSection /> : null}
+                {activeSection === "bio" ? <BioSection stats={stats} /> : null}
 
-                  {activeSection === "mwave" ? <MWaveSection /> : null}
+                {activeSection === "chemistry" ? <ChemistrySection /> : null}
 
-                  {activeSection === "agents" ? <AgentsSection /> : null}
-                </motion.div>
-              </AnimatePresence>
+
+                {activeSection === "mwave" ? <MWaveSection /> : null}
+
+                {activeSection === "agents" ? <AgentsSection /> : null}
+              </div>
             </div>
           </ScrollArea>
         </div>
@@ -496,11 +644,9 @@ export function MINDEXDashboard() {
                     <span className="font-mono text-cyan-400">{stats?.total_observations?.toLocaleString() || 0}</span>
                   </div>
                   <div className="flex justify-between text-gray-500">
-                    <span>Telemetry devices</span>
+                    <span>Mycosoft devices</span>
                     <span className="font-mono text-green-400">
-                      {healthAll?.counts?.telemetry_devices != null
-                        ? healthAll.counts.telemetry_devices.toLocaleString()
-                        : "—"}
+                      {(fieldDevices?.count ?? healthAll?.counts?.telemetry_devices)?.toLocaleString() ?? "--"}
                     </span>
                   </div>
                 </div>

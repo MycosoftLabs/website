@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(url.searchParams.get("limit") || 15000), 50000)
   const radio = url.searchParams.get("radio")
   const mcc = Number(url.searchParams.get("mcc"))
+  const liveFallback = url.searchParams.get("liveFallback") === "true"
   const cacheKey = [
     bbox.map((value) => value.toFixed(3)).join(","),
     limit,
@@ -60,7 +61,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const baseUrl = `${url.protocol}//${url.host}`
-    const r = await getCellTowers({ baseUrl, bbox, maxPerSource: Math.floor(limit / 4), mindexFirst: true })
+    const r = await getCellTowers({
+      baseUrl,
+      bbox,
+      maxPerSource: Math.floor(limit / 4),
+      mindexFirst: true,
+      liveFallback,
+    })
     let towers = r.towers
     if (radio) towers = towers.filter((t) => t.radio === radio)
     if (mcc) towers = towers.filter((t) => t.mcc === mcc)

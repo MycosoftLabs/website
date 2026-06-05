@@ -2,7 +2,7 @@
  * MINDEX Taxa API Route (BFF Proxy)
  * 
  * Proxies requests to MINDEX /api/mindex/taxa endpoint
- * Returns fungal species taxonomy data with pagination
+ * Returns all-life taxonomy data with pagination
  * 
  * Supports:
  * - q: Search query (canonical_name, common_name)
@@ -10,12 +10,14 @@
  * - offset: Pagination offset
  * - source: Filter by data source (iNaturalist, GBIF, MycoBank, etc.)
  * - rank: Filter by taxonomic rank (species, genus, family, etc.)
+ * - kingdom: Filter by top-level kingdom/domain view when MINDEX exposes it
  * 
  * NO MOCK DATA - all data comes from real MINDEX database
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -24,15 +26,23 @@ interface TaxonResponse {
     id: string
     canonical_name: string
     rank: string
+    kingdom?: string | null
+    lineage?: string[] | null
+    lineage_ids?: string[] | null
     common_name?: string
     authority?: string
     description?: string
     source: string
-    fungi_type?: string
-    is_edible?: boolean
-    is_medicinal?: boolean
-    is_poisonous?: boolean
-    image_url?: string
+    external_ids?: Record<string, string | number | null | undefined> | null
+    obs_count?: number
+    image_count?: number
+    video_count?: number
+    audio_count?: number
+    genome_count?: number
+    compound_link_count?: number
+    interaction_count?: number
+    publication_count?: number
+    characteristic_count?: number
     metadata?: Record<string, unknown>
     created_at: string
     updated_at: string
@@ -45,7 +55,6 @@ interface TaxonResponse {
 
 export async function GET(request: NextRequest) {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
 
   try {
     // Forward all query parameters to MINDEX
@@ -57,6 +66,10 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("q") || searchParams.get("search") || ""
     const source = searchParams.get("source") || ""
     const rank = searchParams.get("rank") || ""
+    const kingdom = searchParams.get("kingdom") || ""
+    const lineageContains = searchParams.get("lineage_contains") || ""
+    const orderBy = searchParams.get("order_by") || ""
+    const order = searchParams.get("order") || ""
     
     // Build MINDEX query string
     const params = new URLSearchParams()
@@ -65,19 +78,20 @@ export async function GET(request: NextRequest) {
     if (query) params.set("q", query)
     if (source) params.set("source", source)
     if (rank) params.set("rank", rank)
+    if (kingdom) params.set("kingdom", kingdom)
+    if (lineageContains) params.set("lineage_contains", lineageContains)
+    if (orderBy) params.set("order_by", orderBy)
+    if (order) params.set("order", order)
     
     const url = `${mindexUrl}/api/mindex/taxa?${params.toString()}`
 
-    const response = await fetch(url, {
-      headers: {
-        "X-API-Key": apiKey,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(10000),
+    const response = await fetchMindexWithAuthRetry(url, {
+      signal: AbortSignal.timeout(30000),
       cache: "no-store",
     })
 
     if (!response.ok) {
+      const details = await response.text().catch(() => "")
       console.error(`MINDEX taxa API error: HTTP ${response.status}`)
       return NextResponse.json(
         { 
@@ -87,24 +101,33 @@ export async function GET(request: NextRequest) {
           offset,
           has_more: false,
           error: `MINDEX API returned HTTP ${response.status}`,
-          troubleshooting: {
-            mindex_url: mindexUrl,
-            endpoint: url,
-          }
+          message:
+            response.status >= 500
+              ? "MINDEX all-life taxa are not available yet. Species profiles will populate when the all-life catalog is ready."
+              : details.slice(0, 500),
         },
         { status: response.status }
       )
     }
 
     const rawData = await response.json()
+    const rows = rawData.data || rawData.taxa || rawData.results || []
+    const total =
+      rawData.pagination?.total ??
+      rawData.total ??
+      rawData.count ??
+      rows.length
     
     // Normalize response structure (MINDEX API may return different formats)
     const data: TaxonResponse = {
-      data: rawData.data || rawData.taxa || rawData.results || [],
-      total: rawData.total || rawData.count || 0,
+      data: rows,
+      total,
       limit,
       offset,
-      has_more: (rawData.total || 0) > offset + limit,
+      has_more:
+        rawData.pagination?.has_next ??
+        rawData.has_more ??
+        total > offset + limit,
     }
     
     return NextResponse.json(data)
@@ -120,13 +143,7 @@ export async function GET(request: NextRequest) {
         offset: 0,
         has_more: false,
         error: "MINDEX service unavailable",
-        message: error instanceof Error ? error.message : "Unknown error",
-        mindex_url: mindexUrl,
-        troubleshooting: {
-          check_host: "On the MINDEX VM: verify the mindex-api process/container and network path to MINDEX_API_URL",
-          check_api: `curl ${mindexUrl}/api/mindex/health`,
-          restart: "On the MINDEX host: restart the mindex-api compose service or container",
-        }
+        message: "MINDEX all-life taxa are not available yet. Species profiles will populate when the all-life catalog is ready.",
       },
       { status: 503 }
     )

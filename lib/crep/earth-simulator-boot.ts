@@ -84,6 +84,16 @@ export const EARTH_SIM_EVENT_LAYER_IDS = [
 
 export const EARTH_SIM_ALWAYS_ON_INFRA_IDS = ["cctv", "eagleEyeCameras", "militaryBases", "radar"] as const
 
+/** Civic/public-safety facilities should be visible at refresh anywhere viewport intel has them. */
+export const EARTH_SIM_CIVIC_BOOT_LAYER_IDS = [
+  "hospitals",
+  "fireStations",
+  "universities",
+  "policeStations",
+  "libraries",
+  "civicFacilities",
+] as const
+
 /** Fungi only at first paint — MYCA/nature context stays live immediately. */
 export const EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS = [
   "mycobrain",
@@ -165,9 +175,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "waterPollution",
   "eagleEyeEvents",
   "im3DataCenterFootprints",
-  "hospitals",
-  "fireStations",
-  "universities",
   "droneNoFly",
   "mapboxSatelliteStreets",
   "mapbox3dBuildings",
@@ -209,6 +216,7 @@ export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
   ...EARTH_SIM_ALWAYS_ON_INFRA_IDS,
+  ...EARTH_SIM_CIVIC_BOOT_LAYER_IDS,
   ...EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
 ])
 
@@ -348,6 +356,7 @@ export const EARTH_SIMULATOR_BOOT_PROFILE = {
   telecomBoot: EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
   events: EARTH_SIM_EVENT_LAYER_IDS,
   alwaysOnInfra: EARTH_SIM_ALWAYS_ON_INFRA_IDS,
+  civicBootLayers: EARTH_SIM_CIVIC_BOOT_LAYER_IDS,
   mycoBrainBootLayers: EARTH_SIM_MYCOBRAIN_BOOT_LAYER_IDS,
   instantLiveLayers: EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
   offAtBoot: EARTH_SIM_OFF_AT_BOOT_LAYER_IDS,

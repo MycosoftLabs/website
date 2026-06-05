@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || env.mindexApiBaseUrl.replace(/\/api\/v1$/, "")
 
 async function fetchRecordById(recordId: string): Promise<MINDEXRecord> {
-  const res = await fetch(`${MINDEX_API_URL}/api/mindex/integrity/records/${encodeURIComponent(recordId)}`, {
+  const res = await fetch(`${MINDEX_API_URL}/api/mindex/integrity/record/${encodeURIComponent(recordId)}`, {
     headers: {
       "X-API-Key": env.mindexApiKey || "",
     },

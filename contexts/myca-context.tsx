@@ -45,6 +45,11 @@ export interface MYCASendOptions {
   source?: "web" | "personaplex" | "web-speech" | "api"
 }
 
+export interface MYCALocalExchangeOptions {
+  agent?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface MYCASearchAction {
   type: "search" | "focus_widget" | "expand_widget" | "add_to_notepad" | "clear_search"
   query?: string
@@ -95,6 +100,7 @@ export interface MYCAContextValue {
   memoryEnabled: boolean
   setMemoryEnabled: (enabled: boolean) => void
   pendingConfirmationId: string | null
+  appendLocalExchange: (text: string, responseText: string, options?: MYCALocalExchangeOptions) => void
   sendMessage: (text: string, options?: MYCASendOptions) => Promise<void>
   confirmAction: (transcript: string) => Promise<void>
   clearMessages: () => void
@@ -261,6 +267,42 @@ export function MYCAProvider({
   const appendMessage = useCallback((message: MYCAMessage) => {
     setMessages((prev) => [...prev, message])
   }, [])
+
+  const appendLocalExchange = useCallback(
+    (text: string, responseText: string, options?: MYCALocalExchangeOptions) => {
+      const cleanText = text.trim()
+      const cleanResponse = responseText.trim()
+      if (!cleanText || !cleanResponse) return
+      const timestamp = new Date().toISOString()
+      const suffix = Math.random().toString(36).slice(2, 8)
+      appendMessage({
+        id: `msg-${Date.now()}-${suffix}-user`,
+        role: "user",
+        content: cleanText,
+        timestamp,
+      })
+      appendMessage({
+        id: `msg-${Date.now()}-${suffix}-assistant`,
+        role: "assistant",
+        content: cleanResponse,
+        timestamp: new Date().toISOString(),
+        agent: options?.agent || "myca-earth-simulator",
+        metadata: {
+          routed_to: "local",
+          ...(options?.metadata || {}),
+        },
+      })
+      setIsUserActive(true)
+      setDraftActivity(0)
+      setIsLoading(false)
+      setPendingConfirmationId(null)
+      setLastResponseMetadata({
+        agent: options?.agent || "myca-earth-simulator",
+        routed_to: "local",
+      })
+    },
+    [appendMessage, setDraftActivity]
+  )
 
   const storeMemory = useCallback(
     async (message: MYCAMessage) => {
@@ -642,6 +684,7 @@ export function MYCAProvider({
       draftActivity,
       setDraftActivity,
       pendingConfirmationId,
+      appendLocalExchange,
       sendMessage,
       confirmAction,
       clearMessages,
@@ -666,6 +709,7 @@ export function MYCAProvider({
       draftActivity,
       setDraftActivity,
       pendingConfirmationId,
+      appendLocalExchange,
       sendMessage,
       confirmAction,
       clearMessages,

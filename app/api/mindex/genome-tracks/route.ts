@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
+import { fetchMindexWithAuthRetry } from "@/lib/mindex-bff-auth"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -13,14 +13,10 @@ export async function GET(request: Request) {
     const timeoutId = setTimeout(() => controller.abort(), 2000)
 
     // Call the Python FastAPI endpoint
-    const url = `${MINDEX_API_URL}/api/genomes?species=${encodeURIComponent(speciesName)}`
-    
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": MINDEX_API_KEY,
-      },
-      signal: controller.signal
+    const url = `${MINDEX_API_URL}/api/mindex/genomes?species=${encodeURIComponent(speciesName)}`
+
+    const response = await fetchMindexWithAuthRetry(url, {
+      signal: controller.signal,
     })
     
     clearTimeout(timeoutId)

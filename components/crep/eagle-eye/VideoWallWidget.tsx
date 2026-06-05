@@ -86,6 +86,36 @@ function withRetryParam(url: string, token: number): string {
   }
 }
 
+function stableVideoWallJitter(input: string): number {
+  let hash = 0
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0
+  }
+  return hash % 7_000
+}
+
+function videoWallRefreshDelayMs(provider: string | undefined, url: string, selector?: string): number {
+  const p = (provider || "").toLowerCase()
+  const baseDelay = p === "earthcam" || selector === "body" ? 30_000 : 20_000
+  return baseDelay + stableVideoWallJitter(`${p}:${selector || "still"}:${url}`)
+}
+
+function releaseVideoElement(video: HTMLVideoElement | null) {
+  if (!video) return
+  try { video.pause() } catch { /* ignore */ }
+  try {
+    const srcObject = video.srcObject
+    if (srcObject instanceof MediaStream) {
+      srcObject.getTracks().forEach((track) => {
+        try { track.stop() } catch { /* ignore */ }
+      })
+    }
+  } catch { /* ignore */ }
+  try { video.srcObject = null } catch { /* ignore */ }
+  try { video.removeAttribute("src") } catch { /* ignore */ }
+  try { video.load() } catch { /* ignore */ }
+}
+
 function HlsPlayer({
   url,
   onFallback,
@@ -215,6 +245,7 @@ function HlsPlayer({
       video.removeEventListener("timeupdate", markFrame)
       video.removeEventListener("error", onVideoError)
       cleanup()
+      releaseVideoElement(video)
     }
   }, [url, disableNoFrameWatchdog])
 
@@ -302,6 +333,7 @@ function WebRTCPlayer({ url }: { url: string }) {
   useEffect(() => {
     let pc: RTCPeerConnection | null = null
     let stopped = false
+    let attachedVideo: HTMLVideoElement | null = null
     ;(async () => {
       try {
         pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] })
@@ -309,8 +341,9 @@ function WebRTCPlayer({ url }: { url: string }) {
         pc.addTransceiver("audio", { direction: "recvonly" })
         pc.ontrack = (e) => {
           if (videoRef.current && !stopped) {
-            videoRef.current.srcObject = e.streams[0]
-            videoRef.current.play().catch(() => {})
+            attachedVideo = videoRef.current
+            attachedVideo.srcObject = e.streams[0]
+            attachedVideo.play().catch(() => {})
           }
         }
         const offer = await pc.createOffer()
@@ -330,6 +363,7 @@ function WebRTCPlayer({ url }: { url: string }) {
     })()
     return () => {
       stopped = true
+      releaseVideoElement(attachedVideo)
       try { pc?.close() } catch { /* ignore */ }
     }
   }, [url])
@@ -418,32 +452,25 @@ function ProviderInfoCard({ provider, name, kind }: { url?: string; provider?: s
 }
 
 async function resolveYouTubeEmbedUrl(raw: string): Promise<string | null> {
-  const sync = normalizeYouTubeEmbedUrlSync(raw)
-  if (sync) return sync
   try {
     const res = await fetch(`/api/eagle/youtube-embed?url=${encodeURIComponent(raw)}`, {
       signal: AbortSignal.timeout(10_000),
     })
-    if (!res.ok) return null
+    if (!res.ok) return normalizeYouTubeEmbedUrlSync(raw)
     const data = await res.json()
-    return (data?.embed_url as string) || null
+    return (data?.embed_url as string) || normalizeYouTubeEmbedUrlSync(raw)
   } catch {
-    return null
+    return normalizeYouTubeEmbedUrlSync(raw)
   }
 }
 
 function YouTubeEmbedResolver({ rawUrl, name }: { rawUrl: string; name?: string }) {
-  const [embedUrl, setEmbedUrl] = useState<string | null>(() => normalizeYouTubeEmbedUrlSync(rawUrl))
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setFailed(false)
-    const sync = normalizeYouTubeEmbedUrlSync(rawUrl)
-    if (sync) {
-      setEmbedUrl(sync)
-      return
-    }
     resolveYouTubeEmbedUrl(rawUrl).then((resolved) => {
       if (cancelled) return
       if (resolved) setEmbedUrl(resolved)
@@ -503,11 +530,14 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
     providerLc === "youtube-live" ||
     providerLc.includes("youtube") ||
     isYouTubeUrl(url)
-  const normalizedYoutube = youtubeCandidate ? normalizeYouTubeEmbedUrlSync(url) : null
-  const iframeSrc = normalizedYoutube || (youtubeCandidate && looksLikeVideoEmbed(url) ? url : null)
+  const iframeSrc = youtubeCandidate ? null : looksLikeVideoEmbed(url) ? url : null
 
-  if (iframeSrc || (youtubeCandidate && looksLikeVideoEmbed(url))) {
-    const src = iframeSrc || url
+  if (youtubeCandidate) {
+    return <YouTubeEmbedResolver rawUrl={url} name={name} />
+  }
+
+  if (iframeSrc) {
+    const src = iframeSrc
     // Apr 22, 2026 — Morgan: "every surfline camera needs to not open a
     // widget with a play button it needs to open the video widget and
     // auto play". Autoplay is in the allow list; eager load so we don't
@@ -521,13 +551,9 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
         allowFullScreen
         referrerPolicy="no-referrer-when-downgrade"
         loading="eager"
-        title={name || "YouTube live stream"}
+        title={name || "Live stream"}
       />
     )
-  }
-
-  if (youtubeCandidate) {
-    return <YouTubeEmbedResolver rawUrl={url} name={name} />
   }
 
   if (looksLikeVideoEmbed(url)) {
@@ -594,6 +620,7 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
   const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas", "body"]
                       : provider === "windy" ? ["video", ".player-video", "canvas.leaflet-zoom-animated", "body"]
                       : provider === "alertwildfire" ? ["video", "img", "canvas", "body"]
+                      : provider === "earthcam" ? ["video", "img", "canvas", "body"]
                       : provider === "surfline" ? ["video", "canvas", "iframe", "img[src*='surfline']", "img", "body"]
                       : provider === "caltrans" ? ["img", "video", "body"]
                       : provider === "nysdot" ? ["img", "body"]
@@ -607,21 +634,68 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
   const [t, setT] = useState(Date.now())
   const [selectorIdx, setSelectorIdx] = useState(0)
   const [allFailed, setAllFailed] = useState(false)
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) return
-      setT(Date.now())
-    }, 20_000)
-    return () => clearInterval(id)
-  }, [])
-  useEffect(() => { setSelectorIdx(0); setAllFailed(false) }, [url])
+  const refreshTimerRef = useRef<number | null>(null)
+  const loadWatchdogRef = useRef<number | null>(null)
 
   const currentSelector = selectorChain[selectorIdx] || "body"
   const isFullpage = selectorIdx >= selectorChain.length - 1 && currentSelector === "body"
   const snapshotApi = `/api/eagle/cam-snapshot?url=${encodeURIComponent(url)}&selector=${encodeURIComponent(currentSelector)}${isFullpage ? "&mode=fullpage" : ""}&_t=${t}`
+  const refreshDelayMs = videoWallRefreshDelayMs(provider, url, currentSelector)
+
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+  }, [])
+
+  const clearLoadWatchdog = useCallback(() => {
+    if (loadWatchdogRef.current !== null) {
+      window.clearTimeout(loadWatchdogRef.current)
+      loadWatchdogRef.current = null
+    }
+  }, [])
+
+  const scheduleNextRefresh = useCallback((delayMs: number) => {
+    if (typeof window === "undefined") return
+    clearRefreshTimer()
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null
+      if (typeof document !== "undefined" && document.hidden) {
+        scheduleNextRefresh(delayMs)
+        return
+      }
+      setT(Date.now())
+    }, delayMs)
+  }, [clearRefreshTimer])
+
+  useEffect(() => {
+    return () => {
+      clearRefreshTimer()
+      clearLoadWatchdog()
+    }
+  }, [clearLoadWatchdog, clearRefreshTimer])
+
+  useEffect(() => {
+    setSelectorIdx(0)
+    setAllFailed(false)
+    setT(Date.now())
+    clearRefreshTimer()
+    clearLoadWatchdog()
+  }, [clearLoadWatchdog, clearRefreshTimer, url])
+
+  useEffect(() => {
+    clearLoadWatchdog()
+    loadWatchdogRef.current = window.setTimeout(() => {
+      loadWatchdogRef.current = null
+      scheduleNextRefresh(4_000 + stableVideoWallJitter(`${url}:${currentSelector}:${t}`))
+    }, isFullpage ? 18_000 : 12_000)
+    return clearLoadWatchdog
+  }, [clearLoadWatchdog, currentSelector, isFullpage, scheduleNextRefresh, t, url])
 
   const onImgError = () => {
+    clearLoadWatchdog()
+    clearRefreshTimer()
     // Advance to next selector; if exhausted, show no-stream tile
     if (selectorIdx < selectorChain.length - 1) {
       console.warn(`[VideoWall] selector "${currentSelector}" failed → trying "${selectorChain[selectorIdx + 1]}"`)
@@ -643,9 +717,18 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
         alt=""
         className="w-full h-full object-contain bg-black"
         onError={onImgError}
+        onLoad={(event) => {
+          clearLoadWatchdog()
+          const img = event.currentTarget
+          if (img.naturalWidth <= 2 || img.naturalHeight <= 2) {
+            onImgError()
+            return
+          }
+          scheduleNextRefresh(refreshDelayMs)
+        }}
       />
       <div className="absolute top-2 left-2 bg-black/70 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded font-mono border border-cyan-500/30">
-        ◉ LIVE · headless render · sel={currentSelector} · refresh 20s
+        ◉ LIVE · headless render · sel={currentSelector}
       </div>
       {name ? (
         <div className="absolute bottom-2 left-2 bg-black/60 text-cyan-200 text-[9px] px-2 py-1 rounded font-mono border border-cyan-500/30">
@@ -657,6 +740,7 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
 }
 
 function MjpegStream({ url }: { url: string }) {
+  const imageRef = useRef<HTMLImageElement | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -664,6 +748,13 @@ function MjpegStream({ url }: { url: string }) {
     setFailed(false)
   }, [url])
   const src = withRetryParam(url, retryNonce)
+  useEffect(() => {
+    const image = imageRef.current
+    return () => {
+      if (!image) return
+      try { image.removeAttribute("src") } catch { /* ignore */ }
+    }
+  }, [src])
   const retry = () => {
     if (retryNonce >= 3) {
       setFailed(true)
@@ -681,7 +772,7 @@ function MjpegStream({ url }: { url: string }) {
   // Continuous MJPEG multipart/x-mixed-replace — the browser decodes
   // frames natively off a single long-lived <img>.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="Live feed" className="w-full h-full object-contain bg-black" onError={retry} />
+  return <img ref={imageRef} src={src} alt="Live feed" className="w-full h-full object-contain bg-black" onError={retry} />
 }
 
 function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedUrl?: string; provider?: string; name?: string }) {
@@ -701,19 +792,39 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
   const [t, setT] = useState(Date.now())
   const [failed, setFailed] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
+  const refreshTimerRef = useRef<number | null>(null)
   const normalizedUrl = normalizeEagleStillImageUrl(url) || url
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) return
-      setT(Date.now())
-    }, 20_000)
-    return () => clearInterval(id)
+  const refreshDelayMs = videoWallRefreshDelayMs(provider, normalizedUrl)
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
   }, [])
+  const scheduleNextRefresh = useCallback((delayMs: number) => {
+    if (typeof window === "undefined") return
+    clearRefreshTimer()
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null
+      if (typeof document !== "undefined" && document.hidden) {
+        scheduleNextRefresh(delayMs)
+        return
+      }
+      setT(Date.now())
+    }, delayMs)
+  }, [clearRefreshTimer])
+  useEffect(() => clearRefreshTimer, [clearRefreshTimer])
   // Reset failure state when url changes (different cam selected)
-  useEffect(() => { setFailed(false); setRetryCount(0); setT(Date.now()) }, [normalizedUrl])
+  useEffect(() => {
+    clearRefreshTimer()
+    setFailed(false)
+    setRetryCount(0)
+    setT(Date.now())
+  }, [clearRefreshTimer, normalizedUrl])
 
   const src = normalizedUrl.includes("?") ? `${normalizedUrl}&_t=${t}` : `${normalizedUrl}?_t=${t}`
   const retryImage = () => {
+    clearRefreshTimer()
     if (retryCount >= 3) {
       setFailed(true)
       return
@@ -780,6 +891,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
           }
           setRetryCount(0)
           setFailed(false)
+          scheduleNextRefresh(refreshDelayMs)
         }}
       />
       {retryCount > 0 && !failed && (
@@ -994,18 +1106,6 @@ export default function VideoWallWidget() {
     const ytRaw = de || feed.embedUrl
 
     if (ytRaw && isYoutubeFeed) {
-      const syncYt = normalizeYouTubeEmbedUrlSync(ytRaw)
-      if (syncYt) {
-        setResolved({
-          id: feed.id,
-          provider: feed.provider,
-          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-          stream_type: "iframe",
-          embed_url: syncYt,
-          stream_url: syncYt,
-        })
-        return
-      }
       setLoading(true)
       resolveYouTubeEmbedUrl(ytRaw).then((yt) => {
         if (cancelled) return
@@ -1153,10 +1253,10 @@ export default function VideoWallWidget() {
         </div>
         <div className="flex items-center gap-1">
           <button
-            onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
-              event.stopPropagation()
               setMinimized((m) => !m)
+              event.preventDefault()
+              event.stopPropagation()
             }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Minimize"
@@ -1165,11 +1265,11 @@ export default function VideoWallWidget() {
             <Minus className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <button
-            onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
-              event.stopPropagation()
               setMaximized((m) => !m)
               setMinimized(false)
+              event.preventDefault()
+              event.stopPropagation()
             }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Maximize"
@@ -1178,10 +1278,10 @@ export default function VideoWallWidget() {
             <Square className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <button
-            onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
-              event.stopPropagation()
               closeWidget()
+              event.preventDefault()
+              event.stopPropagation()
             }}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Close"

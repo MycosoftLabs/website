@@ -1531,7 +1531,188 @@ const PSATHYRELLA_COM4_LOCATION = { lat: 32.56289, lng: -117.13570 };
 const PSATHYRELLA_COM4_LOCATION_LABEL = "Project Oyster - North Reef buoy position";
 const FIELD_MYCOBRAIN_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1", PSATHYRELLA_COM4_ID, "bench-com4"]);
 const FIELD_MYCOBRAIN_REGISTRY_IDS = new Set(["mycobrain-mushroom1-jetson-123", "mycobrain-hyphae1-jetson-228", PSATHYRELLA_COM4_REGISTRY_ID]);
+const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
+  {
+    id: "mushroom-1",
+    registryId: "mycobrain-mushroom1-jetson-123",
+    name: "Mushroom 1",
+    lat: 32.715736,
+    lng: -117.161087,
+    status: "connected",
+    type: "mushroom1",
+    port: "mycobrain-mushroom1-jetson-123",
+    protocol: "MAS field heartbeat",
+    agentUrl: "http://192.168.0.123:8787",
+    host: "192.168.0.123",
+    pageHref: "/devices/mushroom-1",
+    source: "field-deployment-seed",
+    locationLabel: "San Diego, CA (Jetson WiFi)",
+    gpsLockState: "locked",
+    signalConnectionType: "wifi",
+  },
+  {
+    id: "hyphae-1",
+    registryId: "mycobrain-hyphae1-jetson-228",
+    name: "Hyphae 1",
+    lat: 32.640278,
+    lng: -117.085833,
+    status: "connected",
+    type: "hyphae1",
+    port: "mycobrain-hyphae1-jetson-228",
+    protocol: "MAS field heartbeat",
+    agentUrl: "http://192.168.0.228:8787",
+    host: "192.168.0.228",
+    pageHref: "/devices/hyphae-1",
+    source: "field-deployment-seed",
+    locationLabel: "Southwestern College, 900 Otay Lakes Rd, Chula Vista, CA",
+    gpsLockState: "locked",
+    signalConnectionType: "ethernet",
+  },
+  {
+    id: PSATHYRELLA_COM4_ID,
+    registryId: PSATHYRELLA_COM4_REGISTRY_ID,
+    name: "Psathyrella Aquatic MycoBrain Buoy",
+    lat: PSATHYRELLA_COM4_LOCATION.lat,
+    lng: PSATHYRELLA_COM4_LOCATION.lng,
+    status: "connected",
+    type: "psathyrella",
+    port: PSATHYRELLA_COM4_REGISTRY_ID,
+    protocol: "MycoBrain buoy link",
+    agentUrl: "http://localhost:8003",
+    host: "localhost",
+    pageHref: "/natureos/mycobrain?device=mycobrain-COM4",
+    source: "field-deployment-seed",
+    locationLabel: PSATHYRELLA_COM4_LOCATION_LABEL,
+    gpsLockState: "site",
+    signalConnectionType: "usb-serial",
+    sensorData: {
+      marine: {
+        positionMode: "Project Oyster position",
+        waveHeightM: null,
+        waterTemperatureC: null,
+        wavePeriodS: null,
+        hydrophoneLow: "standby",
+        hydrophoneHigh: "standby",
+        transducer: "standby",
+      },
+    },
+  },
+];
+const EARTH_DEVICE_CONTROL_FETCH_TIMEOUT_MS = 6500;
 const DEVICE_RAW_TELEMETRY_MAX_CHARS = 6000;
+
+function canonicalFieldMycoBrainKey(device: Partial<Device> | null | undefined) {
+  if (!device) return null;
+  const id = String(device.id || "");
+  const registryId = String(device.registryId || device.port || "");
+  if (
+    id === PSATHYRELLA_COM4_ID ||
+    id === "bench-com4" ||
+    registryId === PSATHYRELLA_COM4_ID ||
+    registryId === PSATHYRELLA_COM4_REGISTRY_ID
+  ) {
+    return PSATHYRELLA_COM4_ID;
+  }
+  if (id === "mushroom-1" || registryId === "mushroom-1" || registryId === "mycobrain-mushroom1-jetson-123") {
+    return "mushroom-1";
+  }
+  if (id === "hyphae-1" || registryId === "hyphae-1" || registryId === "mycobrain-hyphae1-jetson-228") {
+    return "hyphae-1";
+  }
+  return null;
+}
+
+function isFieldMycoBrainDevice(device: Partial<Device> | null | undefined) {
+  return canonicalFieldMycoBrainKey(device) != null;
+}
+
+function isDeviceConnectedLike(device: Partial<Device> | null | undefined) {
+  if (!device) return false;
+  const status = String(device.status || "").toLowerCase();
+  return status === "online" || status === "connected" || (status === "stale" && isFieldMycoBrainDevice(device));
+}
+
+function fieldDeviceKey(device: Partial<Device>) {
+  const canonicalKey = canonicalFieldMycoBrainKey(device);
+  if (canonicalKey) return canonicalKey;
+  return String(device.registryId || device.id || device.port || "");
+}
+
+function stabilizeFieldDevice(incoming: Device, previous?: Device) {
+  if (!isFieldMycoBrainDevice(incoming)) return incoming;
+  const incomingKey = fieldDeviceKey(incoming);
+  const seed = FIELD_MYCOBRAIN_SEED_DEVICES.find((device) => fieldDeviceKey(device) === incomingKey);
+  const connectedLike =
+    isDeviceConnectedLike(incoming) ||
+    isDeviceConnectedLike(previous) ||
+    isDeviceConnectedLike(seed);
+  return {
+    ...(seed || {}),
+    ...(previous || {}),
+    ...incoming,
+    lat: Number.isFinite(incoming.lat) && Math.abs(incoming.lat) > 0.1 ? incoming.lat : (previous?.lat ?? seed?.lat ?? incoming.lat),
+    lng: Number.isFinite(incoming.lng) && Math.abs(incoming.lng) > 0.1 ? incoming.lng : (previous?.lng ?? seed?.lng ?? incoming.lng),
+    status: connectedLike ? "connected" : incoming.status,
+  } as Device;
+}
+
+function mergeFieldMycoBrainDevices(previous: Device[], incoming: Device[]) {
+  const byKey = new Map<string, Device>();
+  for (const device of FIELD_MYCOBRAIN_SEED_DEVICES) {
+    byKey.set(fieldDeviceKey(device), device);
+  }
+  for (const device of previous || []) {
+    const key = fieldDeviceKey(device);
+    if (isFieldMycoBrainDevice(device)) {
+      byKey.set(key, stabilizeFieldDevice(device, byKey.get(key)));
+    } else {
+      byKey.set(key, device);
+    }
+  }
+  for (const device of incoming || []) {
+    const key = fieldDeviceKey(device);
+    byKey.set(key, stabilizeFieldDevice(device, byKey.get(key)));
+  }
+  return Array.from(byKey.values()).filter((device) => Number.isFinite(device.lat) && Number.isFinite(device.lng));
+}
+
+async function fetchEarthDeviceControl(input: RequestInfo | URL, init: RequestInit) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), EARTH_DEVICE_CONTROL_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+function earthDeviceControlResultOk(result: any) {
+  return result?.success === true ||
+    result?.status === "ok" ||
+    result?.ok === true ||
+    (result?.result && typeof result.result === "object" && result.result.ok !== false);
+}
+
+function earthDeviceControlFailureMessage(response: Response | null, result: any, device?: Partial<Device> | null) {
+  const text = typeof result === "string" ? result : JSON.stringify(result || {});
+  const lower = text.toLowerCase();
+  if (
+    response?.status === 401 ||
+    response?.status === 403 ||
+    lower.includes("admin") ||
+    lower.includes("auth") ||
+    lower.includes("sign-in") ||
+    lower.includes("sign in") ||
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden")
+  ) {
+    return "Admin sign-in required to control this MycoBrain device.";
+  }
+  if (isFieldMycoBrainDevice(device)) {
+    return "Command relay did not confirm. This field device still reports online.";
+  }
+  return "Device command did not complete. Check MycoBrain connection.";
+}
 
 function clampDeviceRawTelemetry(raw: unknown): string | undefined {
   if (typeof raw !== "string" || raw.length === 0) return undefined;
@@ -1579,21 +1760,19 @@ function extractBmeTelemetrySlots(sensorData: any) {
 }
 
 function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
-  const normalized = (Array.isArray(rawDevices) ? rawDevices : [])
-    .filter((d: any) => (
-      FIELD_MYCOBRAIN_DEVICE_IDS.has(String(d.id || "")) ||
-      FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(d.registry_id || d.registryId || d.device_id || ""))
-    ))
-    .map((d: any, index: number) => {
-      const registryId = d.registry_id || d.registryId || d.device_id || d.id;
+  const normalized: Device[] = (Array.isArray(rawDevices) ? rawDevices : [])
+    .map<Device | null>((d: any, index: number) => {
+      const registryId = d.registry_id || d.registryId || d.device_id || d.mycobrain_id || d.id;
       const isPsathyrella = String(registryId) === PSATHYRELLA_COM4_REGISTRY_ID ||
         String(d.id || "") === PSATHYRELLA_COM4_ID ||
         String(d.id || "") === "bench-com4";
+      const rawId = d.id || d.device_id || registryId || `earth-device-${index}`;
       const rawLat = Number(d.location?.lat ?? d.location_coords?.lat ?? d.lat ?? d.latitude);
       const rawLng = Number(d.location?.lon ?? d.location?.lng ?? d.location_coords?.lon ?? d.location_coords?.lng ?? d.lng ?? d.longitude);
       const hasValidLocation = Number.isFinite(rawLat) && Number.isFinite(rawLng) &&
         Math.abs(rawLat) > 0.1 && Math.abs(rawLng) > 0.1 &&
         !(Math.abs(rawLat - 49) < 1 && Math.abs(rawLng + 123) < 1);
+      if (!hasValidLocation && !isPsathyrella) return null;
       const sensorData = d.telemetry || d.sensor_data || d.extra?.latest_telemetry || d.device_info?.sensor_data || {};
       const rawTelemetry = clampDeviceRawTelemetry(sensorData.raw);
       const bmeStatus = parseBmeStatusFromRaw(rawTelemetry);
@@ -1615,15 +1794,15 @@ function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
       const connected = d.connected ?? (d.status === "connected" || d.status === "online");
       const deviceStatus: Device["status"] = connected ? "online" : "offline";
       return {
-        id: isPsathyrella ? PSATHYRELLA_COM4_ID : (d.id || d.device_id || `field-mycobrain-${index}`),
+        id: isPsathyrella ? PSATHYRELLA_COM4_ID : String(rawId),
         registryId,
         name: isPsathyrella
           ? "Psathyrella Aquatic MycoBrain Buoy"
           : d.name || d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
-        lat: isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lat : (hasValidLocation ? rawLat : 0),
-        lng: isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lng : (hasValidLocation ? rawLng : 0),
+        lat: hasValidLocation ? rawLat : (isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lat : 0),
+        lng: hasValidLocation ? rawLng : (isPsathyrella ? PSATHYRELLA_COM4_LOCATION.lng : 0),
         status: deviceStatus,
-        type: isPsathyrella ? "psathyrella" : d.role || d.device_role || d.type || "mushroom1",
+        type: isPsathyrella ? "psathyrella" : d.role || d.device_role || d.type || d.device_type || d.category || "mycobrain",
         port: registryId,
         firmware: d.firmware_version || d.firmware || info.firmware_version || info.firmware,
         protocol: isPsathyrella ? "MycoBrain buoy link" : d.protocol || "MAS field heartbeat",
@@ -1632,9 +1811,11 @@ function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
         pageHref: isPsathyrella ? "/natureos/mycobrain?device=mycobrain-COM4" : d.page_href,
         source: d.source,
         locationLabel: isPsathyrella ? PSATHYRELLA_COM4_LOCATION_LABEL : d.location_label || d.location?.name,
-        gpsLockState: isPsathyrella ? "site" : (hasValidLocation ? "locked" : "unavailable"),
-        manualLocation: isPsathyrella ? null : d.location_label || d.location?.name || null,
-        signalConnectionType: isPsathyrella ? "usb-serial" : d.host === "192.168.0.228" ? "ethernet" : d.host === "192.168.0.123" ? "wifi" : null,
+        gpsLockState: isPsathyrella ? (hasValidLocation ? "locked" : "site") : (hasValidLocation ? "locked" : "unavailable"),
+        manualLocation: isPsathyrella && hasValidLocation ? null : d.location_label || d.location?.name || null,
+        signalConnectionType: isPsathyrella
+          ? "usb-serial"
+          : (d.signalConnectionType || d.connection_type || (d.host === "192.168.0.228" ? "ethernet" : d.host === "192.168.0.123" ? "wifi" : null)),
         sensorData: {
           temperature: sensorData.temperature_c ?? sensorData.temperature ?? numericTelemetryValue(bmeSlots.ambient, ["temp_c", "temperature_c", "temperature"]),
           humidity: sensorData.humidity_pct ?? sensorData.humidity ?? numericTelemetryValue(bmeSlots.ambient, ["humidity_pct", "humidity"]),
@@ -1691,7 +1872,8 @@ function normalizeFieldMycoBrainDevices(rawDevices: any[]): Device[] {
         lastUpdate: sensorData.captured_at || sensorData.last_update || d.lastSeen || d.last_seen || new Date().toISOString(),
         lastSeen: d.lastSeen || d.last_seen,
       };
-    });
+    })
+    .filter((device): device is Device => device !== null);
   const byRegistry = new Map<string, Device>();
   for (const device of normalized) {
     const key = device.registryId || device.id;
@@ -1957,6 +2139,9 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   const width = window.innerWidth || 1440;
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
   if (width <= 767 || (coarsePointer && width <= 900)) return "phone";
+  // iPads and other tablet-class devices can carry the same Earth Simulator
+  // data budget as desktop. Keep the reduced path only for true phone widths.
+  if (width >= 768) return "desktop";
   if (width <= 1180 || coarsePointer) return "tablet";
   return "desktop";
 }
@@ -2872,6 +3057,133 @@ function withAllEventFiltersOn(filter: GroundFilter): GroundFilter {
   };
 }
 
+type EarthMycaEventKey =
+  | "showEarthquakes"
+  | "showVolcanoes"
+  | "showWildfires"
+  | "showStorms"
+  | "showLightning"
+  | "showTornadoes"
+  | "showFloods";
+
+const EARTH_MYCA_EVENT_LABELS: Record<EarthMycaEventKey, string> = {
+  showEarthquakes: "earthquakes",
+  showVolcanoes: "volcanoes",
+  showWildfires: "wildfires",
+  showStorms: "storms",
+  showLightning: "lightning",
+  showTornadoes: "tornadoes",
+  showFloods: "floods",
+};
+
+const EARTH_MYCA_EVENT_PATTERNS: Array<{ key: EarthMycaEventKey; re: RegExp }> = [
+  { key: "showWildfires", re: /\b(?:wild\s*fires?|fires?|fire\s+activity|burns?)\b/i },
+  { key: "showEarthquakes", re: /\b(?:earthquakes?|quakes?|seismic)\b/i },
+  { key: "showVolcanoes", re: /\b(?:volcano(?:es)?|volcanic)\b/i },
+  { key: "showStorms", re: /\b(?:storms?|hurricanes?|cyclones?|weather)\b/i },
+  { key: "showLightning", re: /\b(?:lightning|strikes?)\b/i },
+  { key: "showTornadoes", re: /\b(?:tornado(?:es)?|twisters?)\b/i },
+  { key: "showFloods", re: /\b(?:floods?|flooding|tsunami(?:s)?)\b/i },
+];
+
+const EARTH_MYCA_LOCATIONS: Array<{ name: string; lat: number; lng: number; zoom: number; aliases: string[] }> = [
+  { name: "United States", lat: 39.8283, lng: -98.5795, zoom: 3.5, aliases: ["united states", "usa", "u.s.", "u.s.a.", "america", "the us"] },
+  { name: "Chula Vista", lat: 32.6401, lng: -117.0842, zoom: 12, aliases: ["chula vista"] },
+  { name: "San Diego", lat: 32.7157, lng: -117.1611, zoom: 10, aliases: ["san diego"] },
+  { name: "San Francisco", lat: 37.7749, lng: -122.4194, zoom: 11, aliases: ["san francisco", "sf"] },
+  { name: "Menlo Park", lat: 37.453, lng: -122.1817, zoom: 12, aliases: ["menlo park"] },
+  { name: "Palo Alto", lat: 37.4419, lng: -122.143, zoom: 12, aliases: ["palo alto"] },
+  { name: "San Mateo", lat: 37.563, lng: -122.3255, zoom: 12, aliases: ["san mateo"] },
+  { name: "Los Angeles", lat: 34.0522, lng: -118.2437, zoom: 10, aliases: ["los angeles", "la"] },
+  { name: "Las Vegas", lat: 36.1699, lng: -115.1398, zoom: 12, aliases: ["las vegas", "vegas"] },
+  { name: "Fremont Street", lat: 36.1694, lng: -115.1446, zoom: 15, aliases: ["fremont street"] },
+  { name: "New York City", lat: 40.7128, lng: -74.006, zoom: 10, aliases: ["new york", "new york city", "nyc"] },
+  { name: "Times Square", lat: 40.758, lng: -73.9855, zoom: 15, aliases: ["times square"] },
+  { name: "Yellowstone", lat: 44.428, lng: -110.5885, zoom: 9, aliases: ["yellowstone", "yellowstone national park"] },
+  { name: "Vancouver", lat: 49.2827, lng: -123.1207, zoom: 11, aliases: ["vancouver"] },
+  { name: "Tijuana", lat: 32.5149, lng: -117.0382, zoom: 12, aliases: ["tijuana"] },
+  { name: "San Ysidro", lat: 32.5435, lng: -117.0298, zoom: 14, aliases: ["san ysidro", "san ysidro border"] },
+];
+
+function findEarthMycaEventKey(text: string): EarthMycaEventKey | null {
+  return EARTH_MYCA_EVENT_PATTERNS.find((entry) => entry.re.test(text))?.key || null;
+}
+
+function findEarthMycaKnownLocation(text: string) {
+  const lower = text.toLowerCase();
+  return EARTH_MYCA_LOCATIONS.find((loc) => loc.aliases.some((alias) => lower.includes(alias)));
+}
+
+function stripEarthMycaLocationQuery(text: string, eventKey: EarthMycaEventKey | null): string {
+  let next = text
+    .toLowerCase()
+    .replace(/\b(?:show|fly|go|take|zoom|navigate|send|move|find|search)\b/g, " ")
+    .replace(/\b(?:me|us|to|into|on|at|over|around|near|for|all|of|the|let|see|i|want|in|across)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (eventKey) {
+    for (const entry of EARTH_MYCA_EVENT_PATTERNS) {
+      if (entry.key === eventKey) next = next.replace(entry.re, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+  return next;
+}
+
+function buildEarthMycaEventPatch(eventKey: EarthMycaEventKey): Partial<GroundFilter> {
+  return {
+    showFungi: false,
+    showPlants: false,
+    showBirds: false,
+    showMammals: false,
+    showReptiles: false,
+    showInsects: false,
+    showMarineLife: false,
+    showEarthquakes: eventKey === "showEarthquakes",
+    showVolcanoes: eventKey === "showVolcanoes",
+    showWildfires: eventKey === "showWildfires",
+    showStorms: eventKey === "showStorms",
+    showLightning: eventKey === "showLightning",
+    showTornadoes: eventKey === "showTornadoes",
+    showFloods: eventKey === "showFloods",
+    showFactories: false,
+    showPowerPlants: false,
+    showMining: false,
+    showOilGas: false,
+    showWaterPollution: false,
+    showMilitaryBases: false,
+    showMycoBrain: false,
+    showSporeBase: false,
+    showSmartFence: false,
+    showPartnerNetworks: false,
+  };
+}
+
+async function geocodeEarthMycaLocation(query: string) {
+  const clean = query.trim();
+  if (!clean) return null;
+  try {
+    const res = await fetch(`/api/crep/geocode?q=${encodeURIComponent(clean)}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const hit = Array.isArray(data?.results) ? data.results[0] : data;
+    const lat = Number(hit?.lat ?? hit?.latitude ?? hit?.center?.lat);
+    const lng = Number(hit?.lng ?? hit?.lon ?? hit?.longitude ?? hit?.center?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      name: String(hit?.name || hit?.label || hit?.display_name || clean),
+      lat,
+      lng,
+      zoom: 11,
+      aliases: [clean.toLowerCase()],
+    };
+  } catch {
+    return null;
+  }
+}
+
 function applyAssetIsolationToLayers(
   sourceLayers: LayerConfig[],
   mode: AssetIsolationMode,
@@ -3698,11 +4010,10 @@ function DeviceMarker({ device, isSelected, onClick, onClose, history, onControl
   onControl?: (peripheral: string, params?: Record<string, any>) => Promise<void>;
   onHover?: (payload: MapAssetHoverPayload | null) => void;
 }) {
-  const isOnline = device.status === "online" || device.status === "connected";
+  const isOnline = isDeviceConnectedLike(device);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
   const hoverPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const isFieldMycoBrain = FIELD_MYCOBRAIN_DEVICE_IDS.has(device.id) ||
-    FIELD_MYCOBRAIN_REGISTRY_IDS.has(String(device.registryId || device.port || ""));
+  const isFieldMycoBrain = isFieldMycoBrainDevice(device);
 
   // Get device-specific widget configuration based on device type (Feb 12, 2026)
   const widgetConfig = getDeviceWidgetConfig(device.type);
@@ -3748,30 +4059,25 @@ function DeviceMarker({ device, isSelected, onClick, onClose, history, onControl
         typeof params?.cmd === "string" ? "raw" :
         String(params?.effect || peripheral);
       const localControlId = String(device.port || registryDeviceId);
-      const response = registryDeviceId && !isLocalCom4 ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+      const response = registryDeviceId && !isLocalCom4 ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
-      }) : await fetch(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
+      }) : await fetchEarthDeviceControl(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ peripheral, action, ...(params || {}) }),
       });
       const result = await response.json();
-      if (!response.ok || !(
-        result.success === true ||
-        result.status === "ok" ||
-        result.ok === true ||
-        (result.result && typeof result.result === "object" && result.result.ok !== false)
-      )) {
+      if (!response.ok || !earthDeviceControlResultOk(result)) {
         // Short message only - avoid description; Next.js dev overlay intercepts console.error
-        toast(response.status === 401 || response.status === 403
-          ? "Admin sign-in required to control this MycoBrain device."
-          : "Device may be offline. Check MycoBrain connection.",
-          { duration: 5000 });
+        toast(earthDeviceControlFailureMessage(response, result, device), { duration: 5000 });
       }
     } catch {
-      toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
+      toast(isFieldMycoBrain
+        ? "Command relay timed out. This field device still reports online."
+        : "Device command timed out. Check MycoBrain connection.",
+        { duration: 5000 });
     } finally {
       setControlLoading(null);
     }
@@ -5207,16 +5513,31 @@ function EnvironmentSection({
   );
 }
 
-function inferViewportFacilityInfraType(typeLabel: string, id: string): InfraAssetType {
+function viewportFacilityClassificationText(facility: ViewportIntelFacility): string {
+  return [
+    facility.type,
+    facility.name,
+    facility.agency,
+    facility.address,
+    facility.description,
+    facility.source,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function inferViewportFacilityInfraType(facility: ViewportIntelFacility): InfraAssetType {
+  const id = facility.id;
   if (id.startsWith("plant-")) return "plant";
   if (id.startsWith("sub-")) return "substation";
-  const t = typeLabel.toLowerCase();
-  if (t.includes("city hall") || t.includes("town hall") || t.includes("civic") || t.includes("municipal") || t.includes("government") || t.includes("courthouse") || t.includes("mayor") || t.includes("council")) return "civic";
-  if (t.includes("police") || t.includes("sheriff")) return "police";
+  const t = viewportFacilityClassificationText(facility);
   if (t.includes("library")) return "library";
+  if (t.includes("fire station") || t.includes("fire department") || t.includes("fire-rescue") || t.includes("firehouse")) return "fire_station";
+  if (t.includes("police") || t.includes("sheriff") || t.includes("law enforcement") || t.includes("public safety")) return "police";
   if (t.includes("hospital") || t.includes("clinic") || t.includes("medical")) return "hospital";
-  if (t.includes("fire station") || t.includes("fire department")) return "fire_station";
   if (t.includes("school") || t.includes("university") || t.includes("college")) return "university";
+  if (t.includes("city hall") || t.includes("town hall") || t.includes("civic") || t.includes("municipal") || t.includes("government") || t.includes("courthouse") || t.includes("mayor") || t.includes("council")) return "civic";
   if (t.includes("substation")) return "substation";
   if (t.includes("plant") || t.includes("power") || t.includes("generation")) return "plant";
   if (t.includes("cable")) return "cable";
@@ -5233,7 +5554,7 @@ function buildInfraAssetFromViewportFacility(
   powerPlants: PowerPlant[],
   substations: any[],
 ): InfraAsset {
-  const infraType = inferViewportFacilityInfraType(facility.type, facility.id);
+  const infraType = inferViewportFacilityInfraType(facility);
 
   if (facility.id.startsWith("plant-")) {
     const plantId = facility.id.slice("plant-".length);
@@ -6417,16 +6738,27 @@ function LayerControlPanel({
 function ServicesPanel() {
   const [mycoStatus, setMycoStatus] = useState<{ connected: boolean; devices: number }>({ connected: false, devices: 0 });
   useEffect(() => {
+    let inFlight = false;
+    let abortController: AbortController | null = null;
     const check = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
+      if (inFlight) return;
+      inFlight = true;
+      abortController?.abort();
+      abortController = new AbortController();
+      const timeout = window.setTimeout(() => abortController?.abort(), 4_000);
       try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(5000), cache: "no-store" });
+        const res = await fetch("/api/earth-simulator/devices", { signal: abortController.signal, cache: "no-store" });
         const data = await res.json();
         const devices = Array.isArray(data.devices) ? data.devices : [];
         const connected = devices.some((device: any) => device.status === "connected" || device.status === "online");
         setMycoStatus({ connected, devices: devices.length });
       } catch {
-        setMycoStatus({ connected: false, devices: 0 });
+        // Keep the last good status; transient COM/MAS stalls must not make
+        // the footer or panels flicker offline while the map stays usable.
+      } finally {
+        window.clearTimeout(timeout);
+        inFlight = false;
       }
     };
     check();
@@ -6437,6 +6769,7 @@ function ServicesPanel() {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(interval);
+      abortController?.abort();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
@@ -6723,6 +7056,89 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
     return () => window.removeEventListener("myca-search-action", handler);
   }, [fungalObservations, onSelectFungal]);
 
+  const handleEarthSimulatorMycaCommand = useCallback(async (message: string) => {
+    const text = message.trim();
+    const lower = text.toLowerCase();
+    const looksMapCommand = /\b(?:show|fly|go|take|zoom|navigate|send|move|find|search|let me see|i want to see)\b/i.test(text);
+    const eventKey = findEarthMycaEventKey(text);
+    if (!looksMapCommand && !eventKey) return null;
+
+    let target = findEarthMycaKnownLocation(text);
+    if (!target) {
+      const query = stripEarthMycaLocationQuery(text, eventKey);
+      if (query && query.length >= 2 && !["fires", "fire", "wildfires", "events"].includes(query)) {
+        target = await geocodeEarthMycaLocation(query);
+      }
+    }
+
+    if (!target && !eventKey) return null;
+
+    if (eventKey) {
+      onGroundFilterChange(buildEarthMycaEventPatch(eventKey));
+      recordEarthInteraction(`MYCA filter: ${EARTH_MYCA_EVENT_LABELS[eventKey]}`);
+    }
+
+    if (target && typeof window !== "undefined") {
+      const map =
+        mapRef.current ||
+        (typeof window !== "undefined" ? (window as any).__crep_map : null);
+      try {
+        map?.flyTo?.({
+          center: [target.lng, target.lat],
+          zoom: target.zoom,
+          duration: 900,
+          essential: true,
+        });
+      } catch {
+        /* event fallback below */
+      }
+      window.dispatchEvent(
+        new CustomEvent("crep:flyto", {
+          detail: {
+            lat: target.lat,
+            lng: target.lng,
+            zoom: target.zoom,
+            name: target.name,
+            source: "myca-earth-simulator",
+          },
+        }),
+      );
+      window.dispatchEvent(
+        new CustomEvent("myca-search-action", {
+          detail: {
+            type: eventKey ? "map_filter_flyto" : "flyto",
+            query: target.name,
+            lat: target.lat,
+            lng: target.lng,
+            name: target.name,
+            event: eventKey ? EARTH_MYCA_EVENT_LABELS[eventKey] : undefined,
+          },
+        }),
+      );
+      recordEarthInteraction(`MYCA fly-to ${target.name}`);
+    }
+
+    const response = eventKey && target
+      ? `Showing ${EARTH_MYCA_EVENT_LABELS[eventKey]} around ${target.name}.`
+      : eventKey
+        ? `Showing ${EARTH_MYCA_EVENT_LABELS[eventKey]} on the map.`
+        : target
+          ? `Here is ${target.name}.`
+          : "Map command applied.";
+
+    return {
+      handled: true,
+      response,
+      agent: "myca-earth-simulator",
+      metadata: {
+        command: "earth-simulator-map-control",
+        event_filter: eventKey || null,
+        target: target ? { name: target.name, lat: target.lat, lng: target.lng, zoom: target.zoom } : null,
+        original_text: lower,
+      },
+    };
+  }, [mapRef, onGroundFilterChange, recordEarthInteraction]);
+
   return (
     <div className="flex flex-col h-full">
       <MYCAChatWidget
@@ -6731,6 +7147,9 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
         showHeader={true}
         getContextText={getContextText}
         context={getStructuredContext}
+        enableFastIntent={false}
+        localOnly={true}
+        onLocalCommand={handleEarthSimulatorMycaCommand}
       />
     </div>
   );
@@ -7032,6 +7451,11 @@ export default function CREPDashboardPage({
   // simply doesn't paint and the rest of the map works fine.
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
+    const recordCrepSilencedError = (kind: string, msg: string, stack = "") => {
+      const bucket = ((window as any).__crepSilencedErrors ||= []);
+      bucket.push({ kind, msg, stack, ts: Date.now() });
+      if (bucket.length > 40) bucket.shift();
+    };
     const mapLibreSourceUrlPattern = /(blob:|pmtiles:\/\/|https?:\/\/|\/api\/|\/data\/)/i;
     const isMapLibreAjax = (msg: string) =>
       /AJAXError/i.test(msg) && (mapLibreSourceUrlPattern.test(msg) || /Failed to fetch/i.test(msg));
@@ -7067,14 +7491,12 @@ export default function CREPDashboardPage({
       const msg = reason?.message || String(reason);
       const stack = reason?.stack || "";
       if (isNonFatalMapNoise(msg, stack)) {
+        recordCrepSilencedError("unhandledrejection", msg, stack);
         if (isReactReconcilerNoise(msg)) {
           e.preventDefault();
           e.stopImmediatePropagation?.();
           return;
         }
-        const bucket = ((window as any).__crepSilencedErrors ||= []);
-        bucket.push({ kind: "unhandledrejection", msg, stack, ts: Date.now() });
-        if (bucket.length > 40) bucket.shift();
         e.preventDefault();  // keep Next dev overlay from surfacing
         e.stopImmediatePropagation?.();
         console.warn("[CREP] silenced non-fatal error:", msg.slice(0, 140));
@@ -7084,14 +7506,12 @@ export default function CREPDashboardPage({
       const msg = e?.error?.message || e?.message || "";
       const stack = e?.error?.stack || "";
       if (isNonFatalMapNoise(msg, stack)) {
+        recordCrepSilencedError("error", msg, stack);
         if (isReactReconcilerNoise(msg)) {
           e.preventDefault();
           e.stopImmediatePropagation?.();
           return;
         }
-        const bucket = ((window as any).__crepSilencedErrors ||= []);
-        bucket.push({ kind: "error", msg, stack, ts: Date.now() });
-        if (bucket.length > 40) bucket.shift();
         e.preventDefault();
         e.stopImmediatePropagation?.();
         console.warn("[CREP] silenced non-fatal error (error):", msg.slice(0, 140));
@@ -7102,6 +7522,7 @@ export default function CREPDashboardPage({
       const msg = args.map((arg: any) => arg?.message || String(arg)).join(" ");
       const stack = args.map((arg: any) => arg?.stack || "").join("\n");
       if (isNonFatalMapNoise(msg, stack)) {
+        recordCrepSilencedError("console.error", msg, stack);
         if (isReactReconcilerNoise(msg)) return;
         console.warn("[CREP] silenced non-fatal console error:", msg.slice(0, 140));
         return;
@@ -7313,7 +7734,7 @@ export default function CREPDashboardPage({
   const [globalEvents, setGlobalEvents] = useState<GlobalEvent[]>([]);
   // Persistent event store â€” merge incoming, never fully replace (prevents blink)
   const eventStoreRef = useRef<Map<string, GlobalEvent>>(new Map());
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<Device[]>(FIELD_MYCOBRAIN_SEED_DEVICES);
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
   const [vessels, setVessels] = useState<VesselEntity[]>([]);
   const [buoys, setBuoys] = useState<any[]>([]);
@@ -7324,19 +7745,32 @@ export default function CREPDashboardPage({
   useEffect(() => {
     if (auditAllOffMode || isEmbeddedEarthquakeSearch || assetIsolationMode) return;
     let cancelled = false;
+    let inFlight = false;
+    let abortController: AbortController | null = null;
     const fetchFieldDevices = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
+      if (inFlight) return;
+      inFlight = true;
+      abortController?.abort();
+      abortController = new AbortController();
+      const timeout = window.setTimeout(() => abortController?.abort(), 5_000);
       try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(12_000), cache: "no-store" });
+        const res = await fetch("/api/earth-simulator/devices", { signal: abortController.signal, cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         const nextDevices = normalizeFieldMycoBrainDevices(data.devices || []);
         if (!cancelled) {
-          setDevices(nextDevices);
-          if (typeof window !== "undefined") (window as any).__crep_field_mycobrain_devices = nextDevices;
+          setDevices((previous) => {
+            const merged = mergeFieldMycoBrainDevices(previous, nextDevices);
+            if (typeof window !== "undefined") (window as any).__crep_field_mycobrain_devices = merged;
+            return merged;
+          });
         }
       } catch {
         /* Field devices are also refreshed by the broader CREP data pass. */
+      } finally {
+        window.clearTimeout(timeout);
+        inFlight = false;
       }
     };
     fetchFieldDevices();
@@ -7347,6 +7781,7 @@ export default function CREPDashboardPage({
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
+      abortController?.abort();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -7485,29 +7920,24 @@ export default function CREPDashboardPage({
         typeof params?.cmd === "string" ? "raw" :
         String(params?.effect || peripheral);
       const localControlId = String(device.port || registryDeviceId);
-      const response = registryDeviceId && !isLocalCom4 ? await fetch(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+      const response = registryDeviceId && !isLocalCom4 ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
-      }) : await fetch(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
+      }) : await fetchEarthDeviceControl(`/api/mycobrain/${encodeURIComponent(localControlId)}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ peripheral, action, ...(params || {}) }),
       });
       const result = await response.json();
-      if (!response.ok || !(
-        result.success === true ||
-        result.status === "ok" ||
-        result.ok === true ||
-        (result.result && typeof result.result === "object" && result.result.ok !== false)
-      )) {
-        toast(response.status === 401 || response.status === 403
-          ? "Admin sign-in required to control this MycoBrain device."
-          : "Device may be offline. Check MycoBrain connection.",
-          { duration: 5000 });
+      if (!response.ok || !earthDeviceControlResultOk(result)) {
+        toast(earthDeviceControlFailureMessage(response, result, device), { duration: 5000 });
       }
     } catch {
-      toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
+      toast(isFieldMycoBrainDevice(device)
+        ? "Command relay timed out. This field device still reports online."
+        : "Device command timed out. Check MycoBrain connection.",
+        { duration: 5000 });
     }
   }, [selectedDevice]);
 
@@ -7628,9 +8058,18 @@ export default function CREPDashboardPage({
   const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());
   const loadedBakedInatRegionsRef = useRef<Set<BakedInatRegion>>(new Set());
   const loadingBakedInatRegionsRef = useRef<Set<BakedInatRegion>>(new Set());
+  const bakedInatInitialPaintRef = useRef(false);
+  const crepDashboardMountedRef = useRef(true);
   const [isLoading, setIsLoading] = useState(true);
   const [manualRefreshNonce, setManualRefreshNonce] = useState(0);
   const initialDataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    crepDashboardMountedRef.current = true;
+    return () => {
+      crepDashboardMountedRef.current = false;
+    };
+  }, []);
 
   // Conservation Demo widget data (fence/presence - empty until real MAS devices exist)
   const [fenceSegments, setFenceSegments] = useState<FenceSegment[]>([]);
@@ -9957,8 +10396,24 @@ export default function CREPDashboardPage({
       return () => clearTimeout(spinnerDeadline);
     }
 
+    let fetchInFlight = false;
+    let fetchAbortController: AbortController | null = null;
+
     async function fetchData() {
       if (shouldPauseLiveWork()) return;
+      if (fetchInFlight) return;
+      fetchInFlight = true;
+      fetchAbortController?.abort();
+      const controller = new AbortController();
+      fetchAbortController = controller;
+      const fetchWithCycleTimeout = (url: string, timeoutMs = 8_000) => {
+        const timeoutController = new AbortController();
+        const timeout = window.setTimeout(() => timeoutController.abort(), timeoutMs);
+        const signal = typeof AbortSignal !== "undefined" && typeof (AbortSignal as any).any === "function"
+          ? (AbortSignal as any).any([controller.signal, timeoutController.signal])
+          : controller.signal;
+        return fetch(url, { signal, cache: "no-store" }).finally(() => window.clearTimeout(timeout));
+      };
       const showSpinner = !initialDataLoadedRef.current;
       if (showSpinner) setIsLoading(true);
       try {
@@ -9967,7 +10422,7 @@ export default function CREPDashboardPage({
           const eventsUrl = isEmbeddedEarthquakeSearch
             ? "/api/natureos/global-events?type=earthquake&days=30&limit=5000"
             : "/api/natureos/global-events?days=3&limit=1200";
-          const eventsRes = await fetch(eventsUrl, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
+          const eventsRes = await fetchWithCycleTimeout(eventsUrl, isEmbeddedEarthquakeSearch ? 10_000 : 6_000);
           if (eventsRes.ok) {
             const data = await eventsRes.json();
             let formattedEvents = (data.events || [])
@@ -10031,14 +10486,14 @@ export default function CREPDashboardPage({
         if (!embeddedAllowsDevices || failCount >= 3 || isEarthSimulatorRoute || !mycoLayerEnabled) {
           // Skip silently â€” endpoint is dead, don't burn retries
         } else try {
-          const devicesRes = await fetch("/api/earth-simulator/devices", { signal: AbortSignal.timeout(8000), cache: "no-store" });
+          const devicesRes = await fetchWithCycleTimeout("/api/earth-simulator/devices", 5_000);
           if (devicesRes.ok) {
             (window as any)[mbKey] = 0; // reset on success
             const data = await devicesRes.json();
             const rawDevices = data.devices || [];
             const formattedDevices = normalizeFieldMycoBrainDevices(rawDevices);
             console.log(`[CREP] Loaded ${formattedDevices.length} field MycoBrain devices (source: ${data.source || "earth-simulator/devices"})`);
-            setDevices(formattedDevices);
+            setDevices((previous) => mergeFieldMycoBrainDevices(previous, formattedDevices));
           } else {
             (window as any)[mbKey] = failCount + 1;
           }
@@ -10058,12 +10513,9 @@ export default function CREPDashboardPage({
         // second-mount fetches and silently wiping state. If a fetch is slow
         // we'd rather have the data late than lose it entirely.
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        const fetchWithTimeout = (url: string, timeoutMs = 12_000) =>
-          fetch(url, { signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
-
         const [aircraftResult, vesselResult, satelliteResult, spaceWxResult] = await Promise.allSettled([
           // Aircraft (all sources via registry)
-          false && embeddedAllowsAircraft ? fetchWithTimeout("/api/oei/flightradar24", 12_000).then(async (res) => {
+          false && embeddedAllowsAircraft ? fetchWithCycleTimeout("/api/oei/flightradar24", 12_000).then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.aircraft && Array.isArray(data.aircraft) && data.aircraft.length > 0) {
@@ -10080,7 +10532,7 @@ export default function CREPDashboardPage({
             return data;
           }) : Promise.resolve(null),
           // Vessels (all sources via registry)
-          false && embeddedAllowsVessels ? fetchWithTimeout(`/api/oei/aisstream?publish=true&refresh=true&limit=${RESOURCE_LIMITS.normal.vessels}`, 12_000).then(async (res) => {
+          false && embeddedAllowsVessels ? fetchWithCycleTimeout(`/api/oei/aisstream?publish=true&refresh=true&limit=${RESOURCE_LIMITS.normal.vessels}`, 12_000).then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.vessels && Array.isArray(data.vessels) && data.vessels.length > 0) {
@@ -10095,7 +10547,7 @@ export default function CREPDashboardPage({
             return data;
           }) : Promise.resolve(null),
           // Satellites (all sources via registry)
-          false && embeddedAllowsSatellites ? fetchWithTimeout("/api/oei/satellites?category=active&mode=registry", 12_000).then(async (res) => {
+          false && embeddedAllowsSatellites ? fetchWithCycleTimeout("/api/oei/satellites?category=active&mode=registry", 12_000).then(async (res) => {
             if (!res.ok) return null;
             initialSatelliteLoadDoneRef.current = true;
             const data = await res.json();
@@ -10111,7 +10563,7 @@ export default function CREPDashboardPage({
             return data;
           }) : Promise.resolve(null),
           // Space weather
-          embeddedAllowsSpaceWeather && !auditAllOffMode && !isEarthSimulatorRoute ? fetchWithTimeout("/api/oei/space-weather", 10_000).then(async (res) => {
+          embeddedAllowsSpaceWeather && !auditAllOffMode && !isEarthSimulatorRoute ? fetchWithCycleTimeout("/api/oei/space-weather", 10_000).then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
             if (data.scales) {
@@ -10162,6 +10614,8 @@ export default function CREPDashboardPage({
       } finally {
         initialDataLoadedRef.current = true;
         if (showSpinner) setIsLoading(false);
+        if (fetchAbortController === controller) fetchAbortController = null;
+        fetchInFlight = false;
       }
     }
 
@@ -10174,6 +10628,7 @@ export default function CREPDashboardPage({
       fetchData()
     }, 60000)
     return () => {
+      fetchAbortController?.abort();
       clearInterval(interval)
       clearTimeout(spinnerDeadline)
     }
@@ -10201,9 +10656,17 @@ export default function CREPDashboardPage({
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
     if (!embeddedAllowsMarine) return;
+    let inFlight = false;
+    let abortController: AbortController | null = null;
     const fetchBuoys = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (inFlight) return;
+      inFlight = true;
+      abortController?.abort();
+      abortController = new AbortController();
+      const timeout = window.setTimeout(() => abortController?.abort(), 6_000);
       try {
-        const res = await fetch("/api/oei/buoys");
+        const res = await fetch("/api/oei/buoys", { signal: abortController.signal, cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           if (data.buoys && Array.isArray(data.buoys)) {
@@ -10213,6 +10676,9 @@ export default function CREPDashboardPage({
         }
       } catch (e) {
         console.warn("[CREP] Buoy: Failed to fetch buoy data:", e);
+      } finally {
+        window.clearTimeout(timeout);
+        inFlight = false;
       }
     };
 
@@ -10223,7 +10689,10 @@ export default function CREPDashboardPage({
       if (typeof document !== "undefined" && document.hidden) return
       fetchBuoys()
     }, 5 * 60 * 1000)
-    return () => clearInterval(interval)
+    return () => {
+      abortController?.abort();
+      clearInterval(interval)
+    }
   }, [embeddedAllowsMarine, auditAllOffMode, assetIsolationMode]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -10576,9 +11045,24 @@ export default function CREPDashboardPage({
           }
           pruneStoreByRank(store, EARTH_SIM_NATURE_STORE_CAP, observationResourceRank, null, new Set());
           loadedBakedInatRegionsRef.current.add(region);
-          if (!cancelled) {
+          if (crepDashboardMountedRef.current) {
             const snapshot = Array.from(store.values());
-            startTransition(() => setFungalObservations(snapshot));
+            const firstPaint = !bakedInatInitialPaintRef.current && snapshot.length > 0;
+            if (firstPaint) {
+              bakedInatInitialPaintRef.current = true;
+              setFungalObservations(snapshot);
+            } else if (cancelled) {
+              setFungalObservations(snapshot);
+            } else {
+              startTransition(() => setFungalObservations(snapshot));
+            }
+            if (cancelled || firstPaint) {
+              window.setTimeout(() => {
+                if (!crepDashboardMountedRef.current) return;
+                const latest = Array.from(fungalStoreRef.current.values());
+                if (latest.length > 0) setFungalObservations(latest);
+              }, 250);
+            }
           }
           console.log(`[CREP/iNat-baked] ${region}: +${added} historical observations â†’ merged into fungalObservations (total now ${store.size})`);
         } catch (e) {
@@ -13381,6 +13865,31 @@ export default function CREPDashboardPage({
     auditAllOffMode,
   ]);
   const viewportIntelPrefetch = useViewportIntelPrefetch(mapBounds, mapZoom);
+  const viewportOverlayFacilities = useMemo<ViewportIntelFacility[]>(() => {
+    const intel = viewportIntelPrefetch.intel as ViewportIntelResponse | null;
+    const bounds = resolveViewportIntelBounds(mapBounds);
+    const place = intel?.place ?? viewportIntelPrefetch.optimisticPlace ?? null;
+    const hints = resolveCivicFacilityHintsForViewport({
+      place,
+      bounds,
+      limit: mapZoom >= 12 ? 24 : 12,
+    });
+    const merged = new Map<string, ViewportIntelFacility>();
+    for (const facility of [...hints, ...(intel?.facilities?.facilities ?? [])]) {
+      if (typeof facility.lat !== "number" || typeof facility.lng !== "number") continue;
+      const id = facility.id || `${facility.type}:${facility.lat.toFixed(5)}:${facility.lng.toFixed(5)}:${facility.name}`;
+      merged.set(id, { ...facility, id });
+    }
+    return Array.from(merged.values());
+  }, [
+    viewportIntelPrefetch.intel,
+    viewportIntelPrefetch.optimisticPlace,
+    mapBounds?.north,
+    mapBounds?.south,
+    mapBounds?.east,
+    mapBounds?.west,
+    mapZoom,
+  ]);
   const viewportEnvironmentPrefetch = useViewportEnvironmentPrefetch(mapBounds, mapZoom);
   const [mycaAssetsReady, setMycaAssetsReady] = useState(() => !isEarthSimulatorPath());
   useEffect(() => {
@@ -13858,7 +14367,7 @@ export default function CREPDashboardPage({
   // Stats
   const criticalCount = globalEvents.filter(e => e.severity === "critical" || e.severity === "extreme").length;
   const highCount = globalEvents.filter(e => e.severity === "high").length;
-  const onlineDevices = devices.filter(d => d.status === "online").length;
+  const onlineDevices = devices.filter(isDeviceConnectedLike).length;
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // INFRASTRUCTURE DATA â€” fetched from Overpass API via /api/oei/overpass
@@ -21059,6 +21568,7 @@ export default function CREPDashboardPage({
               See components/crep/layers/v3-overlays.tsx (Apr 19, 2026). */}
           {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, V3_OVERLAY_LAYER_IDS) && <V3Overlays
             map={mapRef}
+            facilities={viewportOverlayFacilities}
             enabled={{
               earthquakes:     layers.find(l => l.id === "earthquakes")?.enabled ?? false,
               volcanoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "volcanoes")?.enabled ?? false),

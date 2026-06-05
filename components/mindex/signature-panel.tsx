@@ -241,8 +241,8 @@ export function SignaturePanel({ className }: SignaturePanelProps) {
             <div className="rounded-xl border border-white/10 bg-black/20 p-4">
               <div className="text-sm font-medium">ECDSA (roadmap)</div>
               <div className="text-sm text-muted-foreground mt-1">
-                This UI slot is reserved for ECDSA verification once the backend exposes ECDSA key material and signatures (e.g., legacy
-                chain integrations). The dashboard will support side-by-side verification across algorithms.
+                This UI slot is reserved for ECDSA verification and legacy chain signatures. The dashboard will support
+                side-by-side verification across algorithms.
               </div>
             </div>
           </TabsContent>

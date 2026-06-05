@@ -12,6 +12,7 @@ import {
   useId,
   useImperativeHandle,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -19,7 +20,7 @@ import {
   type HTMLAttributes,
   type SyntheticEvent,
 } from "react";
-import { createPortal } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -44,19 +45,143 @@ const defaultStyles = {
   light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
 };
 
-const scheduleMapLibreDomRemoval = (remove: () => void, delayMs = 250) => {
-  if (typeof window === "undefined") {
-    remove();
-    return;
-  }
-  window.setTimeout(remove, delayMs);
-};
-
 const stopPopupEvent = (event: SyntheticEvent | Event) => {
   event.preventDefault?.();
   event.stopPropagation?.();
   (event as SyntheticEvent).nativeEvent?.stopImmediatePropagation?.();
   (event as Event).stopImmediatePropagation?.();
+};
+
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+type IsolatedRootRecord = {
+  root: Root;
+  mountNode: HTMLElement;
+  refCount: number;
+  unmountTimer: number | null;
+};
+
+const isolatedMapPortalRoots = new WeakMap<HTMLElement, IsolatedRootRecord>();
+
+const acquireIsolatedMapPortalRoot = (container: HTMLElement) => {
+  const existing = isolatedMapPortalRoots.get(container);
+  if (existing) {
+    existing.refCount += 1;
+    if (existing.unmountTimer !== null && typeof window !== "undefined") {
+      window.clearTimeout(existing.unmountTimer);
+      existing.unmountTimer = null;
+    }
+    if (!existing.mountNode.parentElement) {
+      container.appendChild(existing.mountNode);
+    }
+    return existing.root;
+  }
+
+  const mountNode = document.createElement("div");
+  mountNode.setAttribute("data-maplibre-react-mount", "1");
+  container.appendChild(mountNode);
+
+  const record: IsolatedRootRecord = {
+    root: createRoot(mountNode),
+    mountNode,
+    refCount: 1,
+    unmountTimer: null,
+  };
+  isolatedMapPortalRoots.set(container, record);
+  return record.root;
+};
+
+const releaseIsolatedMapPortalRoot = (container: HTMLElement) => {
+  const record = isolatedMapPortalRoots.get(container);
+  if (!record) return;
+
+  record.refCount = Math.max(0, record.refCount - 1);
+  if (record.refCount > 0) return;
+
+  const unmount = () => {
+    const latest = isolatedMapPortalRoots.get(container);
+    if (!latest || latest.refCount > 0) return;
+    isolatedMapPortalRoots.delete(container);
+    try {
+      latest.root.unmount();
+    } catch {
+      /* React may already be tearing down this detached root during hot reload. */
+    }
+    try {
+      latest.mountNode.remove();
+    } catch {
+      /* The MapLibre shell may already be detached. */
+    }
+  };
+
+  if (typeof window === "undefined") {
+    unmount();
+    return;
+  }
+
+  if (record.unmountTimer !== null) {
+    window.clearTimeout(record.unmountTimer);
+  }
+  record.unmountTimer = window.setTimeout(unmount, 32);
+};
+
+function IsolatedMapPortal({
+  container,
+  children,
+}: {
+  container: HTMLElement | null | undefined;
+  children: ReactNode;
+}) {
+  const rootRef = useRef<Root | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!container) return;
+
+    containerRef.current = container;
+    rootRef.current = acquireIsolatedMapPortalRoot(container);
+
+    return () => {
+      rootRef.current = null;
+      containerRef.current = null;
+      releaseIsolatedMapPortalRoot(container);
+    };
+  }, [container]);
+
+  useEffect(() => {
+    if (!container || containerRef.current !== container) return;
+    rootRef.current?.render(<>{children}</>);
+  }, [children, container]);
+
+  return null;
+}
+
+const parkReactPortalNode = (node: HTMLElement | null | undefined) => {
+  // Do not move portal containers during React's deletion/layout cleanup phase.
+  // Moving the parent while React is reconciling children can leave React with a
+  // null host parent and freeze CREP controls with a removeChild hard error.
+  void node;
+};
+
+const attachReactPortalNode = (
+  parent: HTMLElement | null | undefined,
+  node: HTMLElement | null | undefined
+) => {
+  if (!parent || !node || parent.contains(node)) return;
+  try {
+    parent.appendChild(node);
+  } catch {
+    /* MapLibre may be tearing down during hot reload. */
+  }
+};
+
+const createMapLibrePortalShell = (kind: string) => {
+  const shell = document.createElement("div");
+  const portal = document.createElement("div");
+  shell.setAttribute("data-maplibre-react-shell", kind);
+  portal.setAttribute("data-maplibre-react-portal", kind);
+  shell.appendChild(portal);
+  return { shell, portal };
 };
 
 type MapStyleOption = string | MapLibreGL.StyleSpecification;
@@ -683,6 +808,7 @@ function MapMarker({
     const mountToken = markerMountTokenRef.current + 1;
     markerMountTokenRef.current = mountToken;
     try {
+      attachReactPortalNode(markerDom.markerElement, markerDom.portalElement);
       // Native MapLibre markers anchor to lat/lng on globe projection — required
       // for Earth Simulator / CREP. Manual canvas-container positioning drifted
       // off the map during pan/zoom because project() coords ≠ canvas transforms.
@@ -757,29 +883,45 @@ function MapMarker({
         debug.netActive = Math.max(0, debug.netActive - 1);
         debug.lastMapId = (map as any).__debugMapId || "unknown";
       }
-      const removeMarker = () => {
-        if (markerMountTokenRef.current !== mountToken) return;
-        try {
-          const element = marker.getElement?.();
-          if (element?.parentNode) marker.remove();
-        } catch {
-          /* map teardown can remove the marker container before React cleanup */
-        }
-      };
-      // MarkerContent is rendered through a React portal into MapLibre's
-      // native marker element. Let React unmount the portal children first;
-      // removing the marker synchronously can make React delete from a parent
-      // MapLibre already detached, which throws removeChild during heavy zoom.
+      // MarkerContent renders into an isolated React root inside MapLibre's
+      // native marker element. Hide immediately, then remove the native shell
+      // after React's cleanup pass so stale markers do not accumulate.
       try {
         const element = marker.getElement?.();
         if (element) {
           element.style.opacity = "0";
           element.style.pointerEvents = "none";
         }
+        parkReactPortalNode(markerDom.portalElement);
       } catch {
         /* marker may already be disposed */
       }
-      scheduleMapLibreDomRemoval(removeMarker);
+      const removeNativeMarker = () => {
+        if (markerMountTokenRef.current !== mountToken) return;
+        let markerElement: HTMLElement | null = null;
+        try {
+          markerElement = marker.getElement();
+        } catch {
+          markerElement = null;
+        }
+        try {
+          marker.remove();
+        } catch {
+          /* marker may already be disposed */
+        }
+        if (markerElement?.isConnected) {
+          try {
+            markerElement.remove();
+          } catch {
+            /* marker element may already be detached */
+          }
+        }
+      };
+      if (typeof window !== "undefined") {
+        window.setTimeout(removeNativeMarker, 96);
+      } else {
+        removeNativeMarker();
+      }
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -854,7 +996,7 @@ function MarkerContent({
 }: MarkerContentProps) {
   const { markerElement, portalElement, triggerClick } = useMarkerContext();
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     if (!markerElement || !dataMarker) return;
     const previousMarker = markerElement.getAttribute("data-marker-root");
     const previousZIndex = markerElement.style.zIndex;
@@ -867,14 +1009,16 @@ function MarkerContent({
     }
 
     return () => {
+      parkReactPortalNode(portalElement);
       if (previousMarker == null) markerElement.removeAttribute("data-marker-root");
       else markerElement.setAttribute("data-marker-root", previousMarker);
       markerElement.style.zIndex = previousZIndex;
       markerElement.style.pointerEvents = previousPointerEvents;
     };
-  }, [dataMarker, markerElement]);
+  }, [dataMarker, markerElement, portalElement]);
 
-  return createPortal(
+  return (
+    <IsolatedMapPortal container={portalElement}>
     <div 
       {...rest}
       className={cn("relative cursor-pointer", className)} 
@@ -912,8 +1056,8 @@ function MarkerContent({
       }}
     >
       {children || <DefaultMarkerIcon />}
-    </div>,
-    portalElement
+    </div>
+    </IsolatedMapPortal>
   );
 }
 
@@ -945,7 +1089,7 @@ function MarkerPopup({
   ...popupOptions
 }: MarkerPopupProps) {
   const { marker, map } = useMarkerContext();
-  const container = useMemo(() => document.createElement("div"), []);
+  const popupDom = useMemo(() => createMapLibrePortalShell("marker-popup"), []);
   const prevPopupOptions = useRef(popupOptions);
   const suppressInitialCloseRef = useRef(true);
   const popupMountTokenRef = useRef(0);
@@ -955,13 +1099,22 @@ function MarkerPopup({
       offset: 16,
       ...popupOptions,
       closeButton: false,
+      closeOnClick: false,
+      closeOnMove: false,
+      focusAfterOpen: false,
     })
       .setMaxWidth("none")
-      .setDOMContent(container);
+      .setDOMContent(popupDom.shell);
 
     return popupInstance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useIsoLayoutEffect(() => {
+    return () => {
+      parkReactPortalNode(popupDom.portal);
+    };
+  }, [popupDom.portal]);
 
   useEffect(() => {
     if (!map) return;
@@ -970,12 +1123,14 @@ function MarkerPopup({
     popupMountTokenRef.current = mountToken;
     suppressInitialCloseRef.current = true;
     const onCloseProp = () => {
+      parkReactPortalNode(popupDom.portal);
       if (suppressInitialCloseRef.current) return;
       onClose?.();
     };
     popup.on("close", onCloseProp);
 
-    popup.setDOMContent(container);
+    attachReactPortalNode(popupDom.shell, popupDom.portal);
+    popup.setDOMContent(popupDom.shell);
     // Deterministic open: when this component mounts (i.e., selected state), open the popup
     // without relying on a marker click to toggle it.
     popup.setLngLat(marker.getLngLat()).addTo(map);
@@ -997,11 +1152,10 @@ function MarkerPopup({
         window.clearTimeout(unsuppressId);
       }
       try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
-      const removePopup = () => {
-        if (popupMountTokenRef.current !== mountToken) return;
+      parkReactPortalNode(popupDom.portal);
+      if (popupMountTokenRef.current === mountToken) {
         try { popup.remove(); } catch { /* map teardown can remove popup DOM first */ }
-      };
-      scheduleMapLibreDomRemoval(removePopup);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1021,14 +1175,12 @@ function MarkerPopup({
 
   const handleClose = (event?: SyntheticEvent | Event) => {
     if (event) stopPopupEvent(event);
+    parkReactPortalNode(popupDom.portal);
     onClose?.();
-    const removePopup = () => {
-      try { popup.remove(); } catch { /* popup may already be removed */ }
-    };
-    scheduleMapLibreDomRemoval(removePopup, 120);
   };
 
-  return createPortal(
+  return (
+    <IsolatedMapPortal container={popupDom.portal}>
     <div
       className={cn(
         "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
@@ -1049,8 +1201,8 @@ function MarkerPopup({
         </button>
       )}
       {children}
-    </div>,
-    container
+    </div>
+    </IsolatedMapPortal>
   );
 }
 
@@ -1067,30 +1219,47 @@ function MarkerTooltip({
   ...popupOptions
 }: MarkerTooltipProps) {
   const { marker, map } = useMarkerContext();
-  const container = useMemo(() => document.createElement("div"), []);
+  const tooltipDom = useMemo(() => createMapLibrePortalShell("marker-tooltip"), []);
   const prevTooltipOptions = useRef(popupOptions);
 
   const tooltip = useMemo(() => {
     const tooltipInstance = new MapLibreGL.Popup({
       offset: 16,
       ...popupOptions,
-      closeOnClick: true,
+      closeOnClick: false,
+      closeOnMove: false,
       closeButton: false,
+      focusAfterOpen: false,
     }).setMaxWidth("none");
 
     return tooltipInstance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useIsoLayoutEffect(() => {
+    return () => {
+      parkReactPortalNode(tooltipDom.portal);
+    };
+  }, [tooltipDom.portal]);
+
   useEffect(() => {
     if (!map) return;
 
-    tooltip.setDOMContent(container);
+    attachReactPortalNode(tooltipDom.shell, tooltipDom.portal);
+    tooltip.setDOMContent(tooltipDom.shell);
+
+    const handleTooltipClose = () => {
+      parkReactPortalNode(tooltipDom.portal);
+    };
+    tooltip.on("close", handleTooltipClose);
 
     const handleMouseEnter = () => {
+      attachReactPortalNode(tooltipDom.shell, tooltipDom.portal);
+      tooltip.setDOMContent(tooltipDom.shell);
       tooltip.setLngLat(marker.getLngLat()).addTo(map);
     };
     const handleMouseLeave = () => {
+      parkReactPortalNode(tooltipDom.portal);
       try { tooltip.remove(); } catch { /* tooltip may already be removed */ }
     };
 
@@ -1100,10 +1269,9 @@ function MarkerTooltip({
     return () => {
       marker.getElement()?.removeEventListener("mouseenter", handleMouseEnter);
       marker.getElement()?.removeEventListener("mouseleave", handleMouseLeave);
-      const removeTooltip = () => {
-        try { tooltip.remove(); } catch { /* tooltip may already be removed */ }
-      };
-      scheduleMapLibreDomRemoval(removeTooltip);
+      try { tooltip.off("close", handleTooltipClose); } catch { /* tooltip may already be disposed */ }
+      parkReactPortalNode(tooltipDom.portal);
+      try { tooltip.remove(); } catch { /* tooltip may already be removed */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1121,7 +1289,8 @@ function MarkerTooltip({
     prevTooltipOptions.current = popupOptions;
   }
 
-  return createPortal(
+  return (
+    <IsolatedMapPortal container={tooltipDom.portal}>
     <div
       className={cn(
         "rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95",
@@ -1129,8 +1298,8 @@ function MarkerTooltip({
       )}
     >
       {children}
-    </div>,
-    container
+    </div>
+    </IsolatedMapPortal>
   );
 }
 
@@ -1740,7 +1909,7 @@ function MapPopup({
 }: MapPopupProps) {
   const { map } = useMap();
   const popupOptionsRef = useRef(popupOptions);
-  const container = useMemo(() => document.createElement("div"), []);
+  const popupDom = useMemo(() => createMapLibrePortalShell("map-popup"), []);
   const popupMountTokenRef = useRef(0);
 
   const popup = useMemo(() => {
@@ -1748,6 +1917,9 @@ function MapPopup({
       offset: 16,
       ...popupOptions,
       closeButton: false,
+      closeOnClick: false,
+      closeOnMove: false,
+      focusAfterOpen: false,
     })
       .setMaxWidth("none")
       .setLngLat([longitude, latitude]);
@@ -1756,15 +1928,25 @@ function MapPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useIsoLayoutEffect(() => {
+    return () => {
+      parkReactPortalNode(popupDom.portal);
+    };
+  }, [popupDom.portal]);
+
   useEffect(() => {
     if (!map) return;
 
     const mountToken = popupMountTokenRef.current + 1;
     popupMountTokenRef.current = mountToken;
-    const onCloseProp = () => onClose?.();
+    const onCloseProp = () => {
+      parkReactPortalNode(popupDom.portal);
+      onClose?.();
+    };
     popup.on("close", onCloseProp);
 
-    popup.setDOMContent(container);
+    attachReactPortalNode(popupDom.shell, popupDom.portal);
+    popup.setDOMContent(popupDom.shell);
     popup.addTo(map);
     try {
       const popupElement = popup.getElement?.();
@@ -1775,15 +1957,14 @@ function MapPopup({
 
     return () => {
       try { popup.off("close", onCloseProp); } catch { /* popup may already be disposed */ }
-      const removePopup = () => {
-        if (popupMountTokenRef.current !== mountToken) return;
+      parkReactPortalNode(popupDom.portal);
+      if (popupMountTokenRef.current === mountToken) {
         try {
           if (popup.isOpen()) popup.remove();
         } catch {
           /* map teardown can remove popup DOM first */
         }
-      };
-      scheduleMapLibreDomRemoval(removePopup);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -1809,14 +1990,12 @@ function MapPopup({
 
   const handleClose = (event?: SyntheticEvent | Event) => {
     if (event) stopPopupEvent(event);
+    parkReactPortalNode(popupDom.portal);
     onClose?.();
-    const removePopup = () => {
-      try { popup.remove(); } catch { /* popup may already be removed */ }
-    };
-    scheduleMapLibreDomRemoval(removePopup, 120);
   };
 
-  return createPortal(
+  return (
+    <IsolatedMapPortal container={popupDom.portal}>
     <div
       className={cn(
         "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
@@ -1836,8 +2015,8 @@ function MapPopup({
         </button>
       )}
       {children}
-    </div>,
-    container
+    </div>
+    </IsolatedMapPortal>
   );
 }
 

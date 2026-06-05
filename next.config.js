@@ -84,6 +84,17 @@ const nextConfig = {
         crypto: false,
       };
     }
+    if (isServer && !dev) {
+      config.output = {
+        ...config.output,
+        chunkFilename: (pathData) => {
+          const chunkName = String(pathData?.chunk?.name || pathData?.chunk?.id || '[id]')
+          return chunkName.startsWith('vendor-chunks/')
+            ? '[name].js'
+            : 'chunks/[name].js'
+        },
+      };
+    }
     // Reduce EBUSY / file lock crashes and OOM on Windows (Next 15 dev server)
     // Apr 22, 2026 — also ignore var/, coverage/, tmp/. The vessel-disk-cache
     // writes var/cache/vessels.json every 5 s; without this ignore rule Next

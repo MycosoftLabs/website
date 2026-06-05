@@ -61,10 +61,11 @@ async function fromStaticUS(_baseUrl?: string): Promise<TxLine[]> {
   } catch { return [] }
 }
 
-async function fromOSMBBox(bbox: [number, number, number, number]): Promise<TxLine[]> {
+async function fromOSMBBox(bbox: [number, number, number, number], limit = 500): Promise<TxLine[]> {
   try {
     const [w, s, e, n] = bbox
-    const q = `[out:json][timeout:25];way["power"="line"](${s},${w},${n},${e});out geom 50000;`
+    const safeLimit = Math.max(100, Math.min(Math.floor(limit), 1000))
+    const q = `[out:json][timeout:8];way["power"="line"](${s},${w},${n},${e});out geom ${safeLimit};`
     const body = new URLSearchParams({ data: q }).toString()
     const res = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
@@ -74,7 +75,7 @@ async function fromOSMBBox(bbox: [number, number, number, number]): Promise<TxLi
         "User-Agent": "Mycosoft Earth Simulator transmission-line bbox fill (contact: mycosoft.com)",
       },
       body,
-      signal: AbortSignal.timeout(28_000),
+      signal: AbortSignal.timeout(8_000),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -94,11 +95,12 @@ async function fromOSMBBox(bbox: [number, number, number, number]): Promise<TxLi
   } catch { return [] }
 }
 
-async function fromMindex(baseUrl: string, bbox?: [number, number, number, number]): Promise<TxLine[]> {
+async function fromMindex(baseUrl: string, bbox?: [number, number, number, number], limit = 1000): Promise<TxLine[]> {
   try {
     const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
-    const res = await fetch(`${baseUrl}/api/mindex/proxy/transmission-lines?limit=50000${bboxParam}`, {
-      signal: AbortSignal.timeout(15_000),
+    const safeLimit = Math.max(100, Math.min(Math.floor(limit), 2500))
+    const res = await fetch(`${baseUrl}/api/mindex/proxy/transmission-lines?limit=${safeLimit}${bboxParam}`, {
+      signal: AbortSignal.timeout(3_000),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -115,7 +117,7 @@ export async function GET(req: NextRequest) {
   const bbox = url.searchParams.get("bbox")?.split(",").map(Number) as [number, number, number, number] | undefined
   const minVoltage = Number(url.searchParams.get("minVoltage") || 0)
   const country = url.searchParams.get("country")
-  const includeOSM = url.searchParams.get("includeOSM") !== "false"
+  const includeOSM = url.searchParams.get("includeOSM") === "true"
   const limit = Math.min(Number(url.searchParams.get("limit") || 30000), 100000)
 
   const baseUrl = `${url.protocol}//${url.host}`
@@ -148,9 +150,9 @@ export async function GET(req: NextRequest) {
       (bbox[2] >= -170 && bbox[0] <= -52 && bbox[3] >= 13 && bbox[1] <= 72)
     const tasks: Promise<TxLine[]>[] = [
       ...(bboxTouchesUs ? [time("Static US (HIFLD)", () => fromStaticUS(baseUrl))] : []),
-      time("MINDEX", () => fromMindex(baseUrl, bbox)),
+      time("MINDEX", () => fromMindex(baseUrl, bbox, limit)),
     ]
-    if (includeOSM && bbox && bbox.length === 4) tasks.push(time("OSM", () => fromOSMBBox(bbox)))
+    if (includeOSM && bbox && bbox.length === 4) tasks.push(time("OSM", () => fromOSMBBox(bbox, Math.min(limit, 500))))
     const results = await Promise.all(tasks)
     let lines = results.flat()
 

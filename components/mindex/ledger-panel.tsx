@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { Bitcoin, CheckCircle2, Copy, Hash, Loader2, Network, Shield, TriangleAlert, RefreshCw, ExternalLink } from "lucide-react"
+import { Bitcoin, CheckCircle2, Copy, Hash, Loader2, Network, Shield, TriangleAlert, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,9 +17,11 @@ type Ledger = "hypergraph" | "solana" | "bitcoin"
 interface LedgerStatusResponse {
   hypergraph: {
     connected: boolean
-    node_url: string
+    node_url?: string | null
     status: string
     dag_height?: number
+    dag_nodes?: number
+    platform_one_correlation?: boolean
   }
   solana: {
     connected: boolean
@@ -29,20 +31,28 @@ interface LedgerStatusResponse {
     block_height: number
     health: string
     estimated_fee_sol: number
+    myca_token?: {
+      mint?: string
+      supply?: string | number | null
+      configured?: boolean
+    }
   }
   bitcoin: {
     connected: boolean
     network: string
     api_url: string
     block_height: number
-    mempool_size: number
+    mempool_size?: number
     fee_rates: {
       fastest: number
       half_hour: number
       hour: number
       economy: number
     }
+    local_node?: { connected: boolean; source?: string }
+    anchor_modes?: string[]
   }
+  platform_one?: { configured?: boolean; reachable?: boolean }
   last_updated: string
 }
 
@@ -82,7 +92,7 @@ function explorerLink(ledger: Ledger, txId: string): string | null {
 
 export function LedgerPanel({ className }: { className?: string }) {
   // Use the new ledger status endpoint for real data
-  const { data: ledgerStatus, isLoading: isLoadingStatus, mutate } = useSWR<LedgerStatusResponse>(
+  const { data: ledgerStatus, error: ledgerStatusError, isLoading: isLoadingStatus, mutate } = useSWR<LedgerStatusResponse>(
     "/api/natureos/mindex/ledger",
     fetcher,
     { refreshInterval: 30_000 }
@@ -117,8 +127,14 @@ export function LedgerPanel({ className }: { className?: string }) {
   // Check if each ledger is configured based on real connection status
   const configured = useMemo(() => {
     if (!ledgerStatus) return false
-    if (ledger === "hypergraph") return ledgerStatus.hypergraph?.connected
-    if (ledger === "solana") return ledgerStatus.solana?.connected
+    if (ledger === "hypergraph") {
+      return (
+        ledgerStatus.hypergraph?.connected ||
+        (ledgerStatus.hypergraph?.dag_nodes ?? 0) > 0 ||
+        ledgerStatus.hypergraph?.status === "configured"
+      )
+    }
+    if (ledger === "solana") return Boolean(ledgerStatus.solana?.connected)
     if (ledger === "bitcoin") return ledgerStatus.bitcoin?.connected
     return false
   }, [ledgerStatus, ledger])
@@ -162,29 +178,39 @@ export function LedgerPanel({ className }: { className?: string }) {
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Last updated: {ledgerStatus?.last_updated ? new Date(ledgerStatus.last_updated).toLocaleTimeString() : "—"}
+            Last updated: {ledgerStatus?.last_updated ? new Date(ledgerStatus.last_updated).toLocaleTimeString() : "-"}
           </span>
           <Button size="sm" variant="ghost" onClick={() => mutate()}>
             <RefreshCw className={cn("h-4 w-4", isLoadingStatus && "animate-spin")} />
           </Button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        {ledgerStatusError ? (
+          <div className="rounded-md border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
+            MINDEX ledger status is unavailable. Backend ledger connectors are not reporting readiness yet.
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <LedgerStatusCard
             title="Hypergraph DAG"
             icon={Network}
-            connected={ledgerStatus?.hypergraph?.connected}
+            connected={ledgerStatus?.hypergraph?.connected || (ledgerStatus?.hypergraph?.dag_nodes ?? 0) > 0}
             loading={isLoadingStatus}
-            detail={ledgerStatus?.hypergraph?.dag_height ? `Height: ${ledgerStatus.hypergraph.dag_height}` : ledgerStatus?.hypergraph?.status}
+            detail={
+              ledgerStatus?.hypergraph?.dag_nodes != null
+                ? `DAG nodes: ${ledgerStatus.hypergraph.dag_nodes}; P1: ${ledgerStatus.hypergraph.platform_one_correlation ? "linked" : "not linked"}`
+                : ledgerStatus?.hypergraph?.status
+            }
           />
           <LedgerStatusCard
-            title="Solana"
+            title="Solana (MYCA)"
             icon={Shield}
             connected={ledgerStatus?.solana?.connected}
             loading={isLoadingStatus}
             detail={ledgerStatus?.solana?.connected 
-              ? `Block: ${ledgerStatus.solana.block_height?.toLocaleString()} • Fee: ${ledgerStatus.solana.estimated_fee_sol?.toFixed(6)} SOL`
-              : ledgerStatus?.solana?.health || "Not connected"}
+              ? `MYCA token rail online; ${ledgerStatus.solana.estimated_fee_sol?.toFixed(6) ?? "?"} SOL fee`
+              : ledgerStatus?.solana?.health || "Solana anchor relay pending"}
           />
           <LedgerStatusCard
             title="Bitcoin"
@@ -192,8 +218,21 @@ export function LedgerPanel({ className }: { className?: string }) {
             connected={ledgerStatus?.bitcoin?.connected}
             loading={isLoadingStatus}
             detail={ledgerStatus?.bitcoin?.connected
-              ? `Block: ${ledgerStatus.bitcoin.block_height?.toLocaleString()} • Fee: ${ledgerStatus.bitcoin.fee_rates?.fastest || 0} sat/vB`
-              : "Not connected"}
+              ? `Block ${ledgerStatus.bitcoin.block_height?.toLocaleString()}; ${(ledgerStatus.bitcoin.anchor_modes ?? ["ordinals", "op_return"]).join(", ")}`
+              : "Bitcoin full-node relay pending"}
+          />
+          <LedgerStatusCard
+            title="Platform One"
+            icon={Shield}
+            connected={ledgerStatus?.platform_one?.reachable}
+            loading={isLoadingStatus}
+            detail={
+              ledgerStatus?.platform_one?.configured
+                ? ledgerStatus.platform_one?.reachable
+                  ? "Defense correlation API reachable"
+                  : "P1 configured, not reachable"
+                : "Platform One relay pending"
+            }
           />
         </div>
 
@@ -223,7 +262,9 @@ export function LedgerPanel({ className }: { className?: string }) {
 
               {!configured ? (
                 <div className="text-xs text-yellow-200/80 border border-yellow-500/20 bg-yellow-500/10 rounded-md px-3 py-2">
-                  {l} anchoring is not configured. Set the corresponding anchor URL env var.
+                  {l === "hypergraph" && "Hypergraph DAG relay is not reporting readiness yet."}
+                  {l === "solana" && "Solana anchor relay is not reporting readiness yet."}
+                  {l === "bitcoin" && "Bitcoin anchoring relay is not reporting readiness yet."}
                 </div>
               ) : null}
 
@@ -246,7 +287,7 @@ export function LedgerPanel({ className }: { className?: string }) {
                       ledger <span className="font-mono">{result.ledger}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-mono text-xs break-all">{result.tx_id ?? "—"}</div>
+                      <div className="font-mono text-xs break-all">{result.tx_id ?? "-"}</div>
                       <Button size="sm" variant="outline" onClick={() => copyToClipboard(result.tx_id ?? "")} disabled={!result.tx_id}>
                         <Copy className="h-4 w-4 mr-2" />
                         Copy
@@ -293,18 +334,18 @@ function LedgerStatusCard({
   detail?: string
 }) {
   return (
-    <Card className="border-white/10 bg-black/20">
+    <Card className="min-w-0 border-white/10 bg-black/20">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="flex min-w-0 items-center gap-2 text-sm">
           <Icon className="h-4 w-4 text-purple-300" />
-          {title}
+          <span className="min-w-0 break-words">{title}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
         {loading ? (
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Checking…
+            Checking...
           </div>
         ) : connected ? (
           <div className="text-xs text-emerald-200 flex items-center gap-2">
@@ -317,9 +358,7 @@ function LedgerStatusCard({
             Not connected
           </div>
         )}
-        {detail && !loading && (
-          <div className="text-xs text-muted-foreground truncate">{detail}</div>
-        )}
+        {detail && !loading ? <div className="min-w-0 break-words text-xs text-muted-foreground">{detail}</div> : null}
       </CardContent>
     </Card>
   )

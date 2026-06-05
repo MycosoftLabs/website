@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,7 +67,6 @@ function colorForType(type: PacketType) {
 }
 
 export function DataFlow({ className, channelId = "data-flow" }: DataFlowProps) {
-  const [publishKey, setPublishKey] = useState("")
   const [isPublishing, setIsPublishing] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -84,23 +82,6 @@ export function DataFlow({ className, channelId = "data-flow" }: DataFlowProps) 
     qs.set("id", channelId)
     return `/api/mindex/stream/subscribe?${qs.toString()}`
   }, [channelId])
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("mindex:publishKey")
-      if (stored) setPublishKey(stored)
-    } catch {
-      // ignore
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("mindex:publishKey", publishKey)
-    } catch {
-      // ignore
-    }
-  }, [publishKey])
 
   useEffect(() => {
     setError(null)
@@ -137,16 +118,10 @@ export function DataFlow({ className, channelId = "data-flow" }: DataFlowProps) 
   }, [subscribeUrl])
 
   async function publishPacket(pkt: DataPacket) {
-    if (!publishKey.trim()) {
-      setError("Set MYCORRHIZAE_PUBLISH_KEY in env and paste it here to publish demo packets.")
-      return
-    }
-
     const res = await fetch("/api/mindex/stream/publish", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-mycorrhizae-key": publishKey.trim(),
       },
       body: JSON.stringify({
         channel: `computed:${channelId}`,
@@ -154,7 +129,10 @@ export function DataFlow({ className, channelId = "data-flow" }: DataFlowProps) 
         data: pkt,
       }),
     })
-    if (!res.ok) throw new Error(await res.text())
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string; code?: string } | null
+      throw new Error(body?.error || `Publish failed (${res.status}).`)
+    }
   }
 
   async function startDemo() {
@@ -249,17 +227,7 @@ export function DataFlow({ className, channelId = "data-flow" }: DataFlowProps) 
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-          <div className="relative">
-            <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={publishKey}
-              onChange={(e) => setPublishKey(e.target.value)}
-              placeholder="MYCORRHIZAE_PUBLISH_KEY (for demo packets)"
-              className="pl-10 font-mono"
-            />
-          </div>
-
+        <div className="flex flex-wrap gap-2">
           {!isPublishing ? (
             <Button onClick={startDemo} className="bg-purple-600 hover:bg-purple-700">
               <Play className="h-4 w-4 mr-2" />

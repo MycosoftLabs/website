@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
-import { mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
+import { fetchMindexWithAuthRetry, mindexUpstreamHeaders } from "@/lib/mindex-bff-auth"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -47,7 +47,14 @@ async function proxy(request: NextRequest, method: string, segments: string[]): 
   if (sse) {
     init.cache = "no-store"
   } else {
-    init.signal = AbortSignal.timeout(120_000)
+    const path = segments.join("/").toLowerCase()
+    const timeoutMs =
+      path === "health/all" || path === "health" || path.endsWith("/health")
+        ? 3_500
+        : path.startsWith("library/") || path.startsWith("sine/")
+          ? 45_000
+        : 15_000
+    init.signal = AbortSignal.timeout(timeoutMs)
   }
 
   if (method !== "GET" && method !== "HEAD") {
@@ -61,7 +68,7 @@ async function proxy(request: NextRequest, method: string, segments: string[]): 
 
   let upstream: Response
   try {
-    upstream = await fetch(target, init)
+    upstream = await fetchMindexWithAuthRetry(target, init)
   } catch (e) {
     return NextResponse.json({ error: "mindex_bff_upstream", detail: String(e) }, { status: 502 })
   }

@@ -58,12 +58,36 @@ jobs:
           ENVSCRIPT
           ssh-retry production bash -s <<ENVSCRIPT2
             cd /opt/mycosoft/website
+            set_secret() {
+              key="\$1"
+              val="\$2"
+              if [ -n "\$val" ]; then
+                sed -i "/^\${key}=/d" .env
+                printf '%s=%s\n' "\$key" "\$val" >> .env
+              elif grep -q "^\${key}=" .env; then
+                echo "\${key} preserved from existing production .env"
+              else
+                echo "::warning::\${key} is not set in GitHub secrets or production .env"
+              fi
+            }
             echo 'NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}' >> .env
             echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}' >> .env
             echo 'SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' >> .env
             echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
             echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            set_secret MAS_API_URL '${{ secrets.MAS_API_URL }}'
+            set_secret NEXT_PUBLIC_MAS_API_URL '${{ secrets.NEXT_PUBLIC_MAS_API_URL }}'
+            set_secret MINDEX_API_URL '${{ secrets.MINDEX_API_URL }}'
+            set_secret NEXT_PUBLIC_MINDEX_API_URL '${{ secrets.NEXT_PUBLIC_MINDEX_API_URL }}'
+            set_secret MINDEX_API_KEY '${{ secrets.MINDEX_API_KEY }}'
+            set_secret OPENAI_API_KEY '${{ secrets.OPENAI_API_KEY }}'
+            set_secret AIRNOW_API_KEY '${{ secrets.AIRNOW_API_KEY }}'
+            set_secret TRANSIT_511_API_KEY '${{ secrets.TRANSIT_511_API_KEY }}'
+            set_secret SF_511_API_KEY '${{ secrets.SF_511_API_KEY }}'
+            set_secret GLOBAL_FISHING_WATCH_TOKEN '${{ secrets.GLOBAL_FISHING_WATCH_TOKEN }}'
+            set_secret YOUTUBE_API_KEY '${{ secrets.YOUTUBE_API_KEY }}'
+            set_secret NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY '${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}'
             echo "Env vars injected"
           ENVSCRIPT2
 

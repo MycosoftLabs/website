@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server"
-import { env } from "@/lib/env"
 import { anchorRecords, type AnchorRequest } from "@/lib/mindex/anchoring/anchor"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
-  if (!env.integrationsEnabled) {
-    return NextResponse.json(
-      { error: "Integrations disabled", code: "INTEGRATIONS_DISABLED", requiredEnv: ["INTEGRATIONS_ENABLED=true"] },
-      { status: 503 },
-    )
-  }
-
   let body: AnchorRequest
   try {
     body = (await request.json()) as AnchorRequest

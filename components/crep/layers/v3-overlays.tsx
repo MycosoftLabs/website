@@ -44,7 +44,7 @@
  * when a specific feed is down.
  */
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
 
 export interface V3Enabled {
@@ -93,13 +93,41 @@ interface Props {
   enabled: V3Enabled
   /** Current map viewport bbox [w, s, e, n]. Optional. */
   bbox?: [number, number, number, number]
+  /** Facilities already resolved by viewport-intel/MINDEX/hints. */
+  facilities?: ViewportOverlayFacility[]
+}
+
+type FacilityKind = "hospital" | "fire_station" | "university" | "police" | "library" | "civic"
+
+type ViewportOverlayFacility = {
+  id?: string
+  name?: string
+  type?: string
+  lat?: number
+  lng?: number
+  latitude?: number
+  longitude?: number
+  agency?: string
+  address?: string
+  phone?: string
+  email?: string
+  website?: string
+  description?: string
+  source?: string
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function mapReady(map: MapLibreMap): boolean {
   try {
-    return !!(map && map.isStyleLoaded?.() && (map as any).style && typeof map.getSource === "function")
+    return !!(
+      map &&
+      (map as any).style &&
+      typeof map.getSource === "function" &&
+      typeof map.addSource === "function" &&
+      typeof map.addLayer === "function" &&
+      (typeof (map as any).isStyleLoaded !== "function" || (map as any).isStyleLoaded())
+    )
   } catch {
     return false
   }
@@ -115,9 +143,9 @@ function ensureSource(map: MapLibreMap, id: string) {
   }
 }
 
-function ensureCircleLayer(map: MapLibreMap, id: string, source: string, paint: any) {
+function ensureCircleLayer(map: MapLibreMap, id: string, source: string, paint: any, opts?: { minzoom?: number }) {
   if (!mapReady(map) || map.getLayer(id)) return
-  try { map.addLayer({ id, type: "circle", source, paint, layout: { visibility: "visible" } }) } catch { /* ignore */ }
+  try { map.addLayer({ id, type: "circle", source, paint, minzoom: opts?.minzoom, layout: { visibility: "visible" } } as any) } catch { /* ignore */ }
 }
 
 function ensureHeatmapLayer(map: MapLibreMap, id: string, source: string, paint: any) {
@@ -158,6 +186,37 @@ function ensureSymbolLabel(
         "text-color": opts.color ?? "#ffffff",
         "text-halo-color": opts.halo ?? "rgba(0,0,0,0.85)",
         "text-halo-width": 1.3,
+      },
+    })
+  } catch { /* ignore */ }
+}
+
+function ensureSymbolIconLayer(
+  map: MapLibreMap,
+  id: string,
+  source: string,
+  opts?: { minzoom?: number },
+) {
+  if (!mapReady(map) || map.getLayer(id)) return
+  try {
+    map.addLayer({
+      id,
+      type: "symbol",
+      source,
+      minzoom: opts?.minzoom ?? 10,
+      layout: {
+        "text-field": ["coalesce", ["get", "glyph"], ["get", "icon"], "?"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 12, 15, 16, 20],
+        "text-anchor": "center",
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+        "text-optional": true,
+        "visibility": "visible",
+      } as any,
+      paint: {
+        "text-color": "#ffffff",
+        "text-halo-color": "rgba(0,0,0,0.9)",
+        "text-halo-width": 1.6,
       },
     })
   } catch { /* ignore */ }
@@ -219,6 +278,17 @@ let _globalEventsCache: { ts: number; events: any[] } = { ts: 0, events: [] }
 let _globalEventsInFlight: Promise<any[]> | null = null
 const EVENT_DISPLAY_WINDOW_MS = 72 * 60 * 60 * 1000
 const BIODIVERSITY_HOTSPOT_MIN_ZOOM = 5
+const FACILITY_ICON_MIN_ZOOM = 9
+const FACILITY_OSM_FETCH_MIN_ZOOM = 10
+const FACILITY_OSM_MAX_POINTS_PER_KIND = 900
+const FACILITY_GLYPHS: Record<FacilityKind, string> = {
+  hospital: "H",
+  fire_station: "F",
+  university: "U",
+  police: "P",
+  library: "L",
+  civic: "C",
+}
 
 function eventTimestampMs(event: any): number {
   const value = event?.timestamp ?? event?.time ?? event?.updatedAt ?? event?.properties?.time
@@ -333,14 +403,14 @@ function facilityQueryFragment(kind: "hospital" | "fire_station" | "university" 
   }
 }
 
-async function fetchOSMFacility(bbox: [number, number, number, number], kind: "hospital" | "fire_station" | "university" | "police" | "library" | "civic") {
+async function fetchOSMFacility(bbox: [number, number, number, number], kind: FacilityKind, signal?: AbortSignal) {
   const [w, s, e, n] = bbox
   const bboxText = `${s},${w},${n},${e}`
   const fragment = facilityQueryFragment(kind).replace(/\{BBOX\}/g, bboxText)
-  const q = `[out:json][timeout:30];(${fragment});out center 3000;`
+  const q = `[out:json][timeout:6];(${fragment});out center 1200;`
   try {
     const r = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
-      signal: AbortSignal.timeout(30_000),
+      signal: signal ?? AbortSignal.timeout(6_000),
     })
     if (!r.ok) return []
     const j = await r.json()
@@ -353,6 +423,7 @@ async function fetchOSMFacility(bbox: [number, number, number, number], kind: "h
         ...(el.tags || {}),
         address: osmAddress(el.tags),
         facility_type: kind,
+        glyph: FACILITY_GLYPHS[kind],
         source: "osm-overpass",
       },
     })).filter((x: any) => typeof x.lat === "number" && typeof x.lng === "number")
@@ -395,13 +466,108 @@ function pointsToFC(points: any[], extraProps?: (p: any) => Record<string, any>)
   return { type: "FeatureCollection" as const, features }
 }
 
+function classifyViewportFacility(facility: ViewportOverlayFacility): FacilityKind | null {
+  const text = [
+    facility.type,
+    facility.name,
+    facility.agency,
+    facility.address,
+    facility.description,
+    facility.source,
+  ].filter(Boolean).join(" ").toLowerCase()
+  if (/\blibrary\b|biblioteca|bibliotheque|bibliothek/.test(text)) return "library"
+  if (/\bfire\s+(station|department|rescue)\b|fire-rescue|\bfirehouse\b/.test(text)) return "fire_station"
+  if (/\bpolice\b|sheriff|law enforcement|public safety/.test(text)) return "police"
+  if (/\bhospital\b|medical center|urgent care|health clinic|\bclinic\b/.test(text)) return "hospital"
+  if (/university|college|campus|\bschool\b/.test(text)) return "university"
+  if (/city hall|town hall|courthouse|government|civic|municipal|county|port of entry|border|customs|cbp|ibwc/.test(text)) return "civic"
+  return null
+}
+
+function viewportFacilityToPoint(facility: ViewportOverlayFacility, kind: FacilityKind) {
+  const lat = typeof facility.lat === "number" ? facility.lat : facility.latitude
+  const lng = typeof facility.lng === "number" ? facility.lng : facility.longitude
+  if (typeof lat !== "number" || typeof lng !== "number") return null
+  const name = facility.name || facility.agency || kind.replace("_", " ")
+  return {
+    id: facility.id || `viewport-${kind}-${lat.toFixed(5)}-${lng.toFixed(5)}-${name}`,
+    lat,
+    lng,
+    name,
+    tags: {
+      address: facility.address,
+      agency: facility.agency,
+      description: facility.description,
+      email: facility.email,
+      facility_type: kind,
+      glyph: FACILITY_GLYPHS[kind],
+      phone: facility.phone,
+      source: facility.source || "viewport-intel",
+      website: facility.website,
+    },
+  }
+}
+
+function mergePointsByIdentity(...groups: any[][]) {
+  const merged: any[] = []
+  const seen = new Set<string>()
+  for (const group of groups) {
+    for (const point of group || []) {
+      if (typeof point?.lat !== "number" || typeof point?.lng !== "number") continue
+      const key = String(point.id || `${point.lat.toFixed(5)}:${point.lng.toFixed(5)}:${point.name || ""}`).toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      merged.push(point)
+    }
+  }
+  return merged
+}
+
+function compactBboxKey(bbox: [number, number, number, number]) {
+  return bbox.map((value) => value.toFixed(3)).join(",")
+}
+
+function capFacilityPoints(points: any[]) {
+  return points.length > FACILITY_OSM_MAX_POINTS_PER_KIND
+    ? points.slice(0, FACILITY_OSM_MAX_POINTS_PER_KIND)
+    : points
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export default function V3Overlays({ map, enabled, bbox }: Props) {
+const REQUIRED_V3_SETUP_SOURCES = [
+  "crep-earthquakes",
+  "crep-hospitals",
+  "crep-firestations",
+  "crep-universities",
+  "crep-policestations",
+  "crep-libraries",
+  "crep-civicfacilities",
+] as const
+
+export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Props) {
   const setupRef = useRef(false)
   const lastBiodiversityDataRef = useRef<any>(null)
+  const facilityOsmCacheRef = useRef<Map<string, any[]>>(new Map())
   const [styleReadyTick, setStyleReadyTick] = useState(0)
   const [mapZoom, setMapZoom] = useState(0)
+  const viewportFacilityGroups = useMemo(() => {
+    const groups: Record<FacilityKind, any[]> = {
+      hospital: [],
+      fire_station: [],
+      university: [],
+      police: [],
+      library: [],
+      civic: [],
+    }
+    for (const facility of facilities) {
+      const kind = classifyViewportFacility(facility)
+      if (!kind) continue
+      const point = viewportFacilityToPoint(facility, kind)
+      if (point) groups[kind].push(point)
+    }
+    return groups
+  }, [facilities])
 
   useEffect(() => {
     if (!map) return
@@ -410,7 +576,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     const bump = () => {
       if (frame != null) window.cancelAnimationFrame(frame)
       frame = window.requestAnimationFrame(() => {
-        if (mapReady(map)) setStyleReadyTick((value) => value + 1)
+        if (!mapReady(map)) return
+        const setupComplete = setupRef.current && REQUIRED_V3_SETUP_SOURCES.every((id) => map.getSource(id))
+        if (setupComplete) return
+        setStyleReadyTick((value) => value + 1)
       })
     }
     const resetAndBump = () => {
@@ -422,14 +591,12 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     map.on("load", resetAndBump)
     map.on("style.load", resetAndBump)
     map.on("styledata", bump)
-    map.on("idle", bump)
 
     return () => {
       if (frame != null) window.cancelAnimationFrame(frame)
       try { map.off("load", resetAndBump) } catch { /* map can be gone during HMR */ }
       try { map.off("style.load", resetAndBump) } catch { /* map can be gone during HMR */ }
       try { map.off("styledata", bump) } catch { /* map can be gone during HMR */ }
-      try { map.off("idle", bump) } catch { /* map can be gone during HMR */ }
     }
   }, [map])
 
@@ -494,8 +661,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.8,
       "circle-stroke-width": 0.8,
       "circle-stroke-color": "#fdf2f8",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-hospitals-icon", "crep-hospitals", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-hospitals-dot", "hospital", "Hospital")
+    wireClick(map, "crep-hospitals-icon", "hospital", "Hospital")
 
     ensureSource(map, "crep-firestations")
     ensureCircleLayer(map, "crep-firestations-dot", "crep-firestations", {
@@ -504,8 +673,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.8,
       "circle-stroke-width": 0.8,
       "circle-stroke-color": "#ffffff",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-firestations-icon", "crep-firestations", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-firestations-dot", "fire_station", "Fire Station")
+    wireClick(map, "crep-firestations-icon", "fire_station", "Fire Station")
 
     ensureSource(map, "crep-universities")
     ensureCircleLayer(map, "crep-universities-dot", "crep-universities", {
@@ -514,8 +685,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.75,
       "circle-stroke-width": 0.8,
       "circle-stroke-color": "#ede9fe",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-universities-icon", "crep-universities", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-universities-dot", "university", "University")
+    wireClick(map, "crep-universities-icon", "university", "University")
 
     ensureSource(map, "crep-policestations")
     ensureCircleLayer(map, "crep-policestations-dot", "crep-policestations", {
@@ -524,8 +697,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.78,
       "circle-stroke-width": 0.8,
       "circle-stroke-color": "#e0f2fe",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-policestations-icon", "crep-policestations", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-policestations-dot", "police", "Police Station")
+    wireClick(map, "crep-policestations-icon", "police", "Police Station")
 
     ensureSource(map, "crep-libraries")
     ensureCircleLayer(map, "crep-libraries-dot", "crep-libraries", {
@@ -534,8 +709,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.78,
       "circle-stroke-width": 0.8,
       "circle-stroke-color": "#fef9c3",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-libraries-icon", "crep-libraries", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-libraries-dot", "library", "Library")
+    wireClick(map, "crep-libraries-icon", "library", "Library")
 
     ensureSource(map, "crep-civicfacilities")
     ensureCircleLayer(map, "crep-civicfacilities-dot", "crep-civicfacilities", {
@@ -544,8 +721,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
       "circle-opacity": 0.82,
       "circle-stroke-width": 1,
       "circle-stroke-color": "#ccfbf1",
-    })
+    }, { minzoom: FACILITY_ICON_MIN_ZOOM })
+    ensureSymbolIconLayer(map, "crep-civicfacilities-icon", "crep-civicfacilities", { minzoom: FACILITY_ICON_MIN_ZOOM })
     wireClick(map, "crep-civicfacilities-dot", "civic", "Civic Facility")
+    wireClick(map, "crep-civicfacilities-icon", "civic", "Civic Facility")
 
     // POLLUTION — OSM industrial tagged
     for (const k of ["oilGas", "methaneSources", "metalOutput", "waterPollution"] as const) {
@@ -681,7 +860,11 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     })
     if (lastBiodiversityDataRef.current) setData(map, "crep-biodiversity", lastBiodiversityDataRef.current)
 
-    console.log("[V3Overlays] sources + layers attached (empty until fetchers complete)")
+    const missingSetupSources = REQUIRED_V3_SETUP_SOURCES.filter((id) => !map.getSource(id))
+    if (missingSetupSources.length > 0) {
+      setupRef.current = false
+      window.setTimeout(() => setStyleReadyTick((value) => value + 1), 200)
+    }
   }, [map, styleReadyTick])
 
   // Visibility sync — flip any layer on/off when its toggle changes.
@@ -695,12 +878,20 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-floods-dot", !!enabled.floods)
     flip("crep-lightning-dot", !!enabled.lightning)
     flip("crep-tornadoes-dot", !!enabled.tornadoes)
-    flip("crep-hospitals-dot", !!enabled.hospitals)
-    flip("crep-firestations-dot", !!enabled.fireStations)
-    flip("crep-universities-dot", !!enabled.universities)
-    flip("crep-policestations-dot", !!enabled.policeStations)
-    flip("crep-libraries-dot", !!enabled.libraries)
-    flip("crep-civicfacilities-dot", !!enabled.civicFacilities)
+    const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
+    const showFacilities = zoom >= FACILITY_ICON_MIN_ZOOM
+    flip("crep-hospitals-dot", !!enabled.hospitals && showFacilities)
+    flip("crep-hospitals-icon", !!enabled.hospitals && showFacilities)
+    flip("crep-firestations-dot", !!enabled.fireStations && showFacilities)
+    flip("crep-firestations-icon", !!enabled.fireStations && showFacilities)
+    flip("crep-universities-dot", !!enabled.universities && showFacilities)
+    flip("crep-universities-icon", !!enabled.universities && showFacilities)
+    flip("crep-policestations-dot", !!enabled.policeStations && showFacilities)
+    flip("crep-policestations-icon", !!enabled.policeStations && showFacilities)
+    flip("crep-libraries-dot", !!enabled.libraries && showFacilities)
+    flip("crep-libraries-icon", !!enabled.libraries && showFacilities)
+    flip("crep-civicfacilities-dot", !!enabled.civicFacilities && showFacilities)
+    flip("crep-civicfacilities-icon", !!enabled.civicFacilities && showFacilities)
     flip("crep-oilgas-dot", !!enabled.oilGas)
     flip("crep-oilgas-label", !!enabled.oilGas)
     flip("crep-methanesources-dot", !!enabled.methaneSources)
@@ -723,7 +914,6 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     flip("crep-containers-dot", !!enabled.containers)
     flip("crep-vehicles-dot", !!enabled.vehicles)
     flip("crep-drones-dot", !!enabled.drones)
-    const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
     flip("crep-biodiversity-heat", !!enabled.biodiversity && zoom >= BIODIVERSITY_HOTSPOT_MIN_ZOOM)
   }, [map, enabled, styleReadyTick, mapZoom])
 
@@ -763,6 +953,48 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     return () => timers.forEach((t) => clearInterval(t))
   }, [map, enabled.earthquakes, enabled.volcanoes, enabled.wildfires, enabled.storms, enabled.floods, enabled.lightning, enabled.tornadoes])
 
+  // Viewport-intel/MINDEX facilities are already scoped to the active city.
+  // Paint them immediately so civic/public-safety icons do not wait on
+  // best-effort Overpass fetches.
+  useEffect(() => {
+    if (!map || !mapReady(map) || facilities.length === 0) return
+    const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
+    if (zoom < FACILITY_ICON_MIN_ZOOM) return
+    const paintFacility = (sourceId: string, points: any[]) => {
+      if (points.length > 0) setData(map, sourceId, pointsToFC(points))
+    }
+    if (enabled.hospitals && viewportFacilityGroups.hospital.length > 0) {
+      paintFacility("crep-hospitals", viewportFacilityGroups.hospital)
+    }
+    if (enabled.fireStations && viewportFacilityGroups.fire_station.length > 0) {
+      paintFacility("crep-firestations", viewportFacilityGroups.fire_station)
+    }
+    if (enabled.universities && viewportFacilityGroups.university.length > 0) {
+      paintFacility("crep-universities", viewportFacilityGroups.university)
+    }
+    if (enabled.policeStations && viewportFacilityGroups.police.length > 0) {
+      paintFacility("crep-policestations", viewportFacilityGroups.police)
+    }
+    if (enabled.libraries && viewportFacilityGroups.library.length > 0) {
+      paintFacility("crep-libraries", viewportFacilityGroups.library)
+    }
+    if (enabled.civicFacilities && viewportFacilityGroups.civic.length > 0) {
+      paintFacility("crep-civicfacilities", viewportFacilityGroups.civic)
+    }
+  }, [
+    map,
+    styleReadyTick,
+    mapZoom,
+    facilities.length,
+    viewportFacilityGroups,
+    enabled.hospitals,
+    enabled.fireStations,
+    enabled.universities,
+    enabled.policeStations,
+    enabled.libraries,
+    enabled.civicFacilities,
+  ])
+
   // FACILITIES (OSM) — fetch when bbox is set + zoom is high enough.
   // Apr 19, 2026 (Morgan QA: hospitals/fireStations/universities toggles
   // not responding). Lowered zoom floor from 5 → 3 so a viewport roughly
@@ -771,24 +1003,58 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
   // but the UX feedback now exists even at continental zoom.
   useEffect(() => {
     if (!map || !bbox) return
-    const hospitals = enabled.hospitals
-    const fires = enabled.fireStations
-    const unis = enabled.universities
-    const police = enabled.policeStations
-    const libraries = enabled.libraries
-    const civic = enabled.civicFacilities
-    if (!hospitals && !fires && !unis && !police && !libraries && !civic) return
+    type FacilityTask = {
+      enabled: boolean
+      kind: FacilityKind
+      sourceId: string
+      viewport: any[]
+    }
+    const facilityTasks = ([
+      { enabled: !!enabled.hospitals, kind: "hospital", sourceId: "crep-hospitals", viewport: viewportFacilityGroups.hospital },
+      { enabled: !!enabled.fireStations, kind: "fire_station", sourceId: "crep-firestations", viewport: viewportFacilityGroups.fire_station },
+      { enabled: !!enabled.universities, kind: "university", sourceId: "crep-universities", viewport: viewportFacilityGroups.university },
+      { enabled: !!enabled.policeStations, kind: "police", sourceId: "crep-policestations", viewport: viewportFacilityGroups.police },
+      { enabled: !!enabled.libraries, kind: "library", sourceId: "crep-libraries", viewport: viewportFacilityGroups.library },
+      { enabled: !!enabled.civicFacilities, kind: "civic", sourceId: "crep-civicfacilities", viewport: viewportFacilityGroups.civic },
+    ] satisfies FacilityTask[]).filter((task): task is FacilityTask => task.enabled)
+    if (facilityTasks.length === 0) return
     const zoom = map.getZoom()
-    if (zoom < 3) return // avoid flooding Overpass at pure world view
-    ;(async () => {
-      if (hospitals) setData(map, "crep-hospitals", pointsToFC(await fetchOSMFacility(bbox, "hospital")))
-      if (fires) setData(map, "crep-firestations", pointsToFC(await fetchOSMFacility(bbox, "fire_station")))
-      if (unis) setData(map, "crep-universities", pointsToFC(await fetchOSMFacility(bbox, "university")))
-      if (police) setData(map, "crep-policestations", pointsToFC(await fetchOSMFacility(bbox, "police")))
-      if (libraries) setData(map, "crep-libraries", pointsToFC(await fetchOSMFacility(bbox, "library")))
-      if (civic) setData(map, "crep-civicfacilities", pointsToFC(await fetchOSMFacility(bbox, "civic")))
-    })()
-  }, [map, bbox, enabled.hospitals, enabled.fireStations, enabled.universities, enabled.policeStations, enabled.libraries, enabled.civicFacilities])
+    if (zoom < FACILITY_OSM_FETCH_MIN_ZOOM) return // viewport-intel paints immediately; Overpass enriches at city scale
+    const requestBbox = bbox.join(",")
+    const cacheBbox = compactBboxKey(bbox)
+    let active = true
+    const abortController = new AbortController()
+    const timer = window.setTimeout(() => {
+      ;(async () => {
+      const results = await Promise.all(facilityTasks.map(async (task) => {
+        const cacheKey = `${task.kind}:${cacheBbox}`
+        let osm = facilityOsmCacheRef.current.get(cacheKey)
+        if (!osm) {
+          osm = capFacilityPoints(await fetchOSMFacility(bbox, task.kind, abortController.signal))
+          if (!active || abortController.signal.aborted) return { ...task, points: capFacilityPoints(task.viewport) }
+          facilityOsmCacheRef.current.set(cacheKey, osm)
+          if (facilityOsmCacheRef.current.size > 96) {
+            const firstKey = facilityOsmCacheRef.current.keys().next().value
+            if (firstKey) facilityOsmCacheRef.current.delete(firstKey)
+          }
+        }
+        return { ...task, points: capFacilityPoints(mergePointsByIdentity(task.viewport, osm)) }
+      }))
+      if (!active || abortController.signal.aborted || !mapReady(map)) return
+      const currentBbox = bbox.join(",")
+      const currentZoom = typeof map.getZoom === "function" ? map.getZoom() : 0
+      if (currentBbox !== requestBbox || currentZoom < FACILITY_OSM_FETCH_MIN_ZOOM) return
+      for (const result of results) {
+        if (result.points.length > 0) setData(map, result.sourceId, pointsToFC(result.points))
+      }
+      })()
+    }, 350)
+    return () => {
+      active = false
+      abortController.abort()
+      window.clearTimeout(timer)
+    }
+  }, [map, bbox, viewportFacilityGroups, enabled.hospitals, enabled.fireStations, enabled.universities, enabled.policeStations, enabled.libraries, enabled.civicFacilities])
 
   // POLLUTION (OSM) — zoom floor 3 (not 6) so continental view triggers
   // queries. Morgan QA: "Pollution & Industry filters do nothing show

@@ -55,9 +55,10 @@ const SHINOBI_API_KEY = process.env.SHINOBI_API_KEY
 const SHINOBI_GROUP_KEY = process.env.SHINOBI_GROUP_KEY
 
 // ─── Source 1: MINDEX ─────────────────────────────────────────────────────
-async function fromMindex(bbox?: string): Promise<Camera[]> {
+async function fromMindex(bbox?: string, limit = 1000): Promise<Camera[]> {
   try {
-    const qp = new URLSearchParams({ layer: "cctv_cameras", limit: "10000" })
+    const safeLimit = Math.max(100, Math.min(Math.floor(limit), 2000))
+    const qp = new URLSearchParams({ layer: "cctv_cameras", limit: String(safeLimit) })
     if (bbox) {
       const [w, s, e, n] = bbox.split(",").map(Number)
       if ([w, s, e, n].every(Number.isFinite)) {
@@ -72,7 +73,7 @@ async function fromMindex(bbox?: string): Promise<Camera[]> {
         Accept: "application/json",
         "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
       },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(1_500),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -114,7 +115,7 @@ async function fromShinobi(): Promise<Camera[]> {
     const url = `${SHINOBI_URL}/${SHINOBI_API_KEY}/monitor/${SHINOBI_GROUP_KEY}`
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(1_500),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -155,9 +156,9 @@ async function fromShinobi(): Promise<Camera[]> {
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const bbox = url.searchParams.get("bbox") || undefined
-  const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
+  const limit = Math.min(Number(url.searchParams.get("limit") || 1000), 5000)
 
-  const [mindex, shinobi] = await Promise.all([fromMindex(bbox), fromShinobi()])
+  const [mindex, shinobi] = await Promise.all([fromMindex(bbox, limit), fromShinobi()])
 
   // Dedup by 5-decimal grid (1 m) — same physical camera from Shinobi should
   // override MINDEX's cached row (Shinobi is live).

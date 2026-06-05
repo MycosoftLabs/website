@@ -1866,9 +1866,11 @@ export async function GET(request: NextRequest) {
 
     // Always fetch MINDEX (local DB — fast, no rate limits)
     if (!fallbackOnly && (!source || source === "all" || source === "mindex" || source === "mindex-only" || quickMode)) {
-      const mindexTimeoutForRequest = quickMode
-        ? Math.min(QUICK_MINDEX_VIEWPORT_TIMEOUT_MS, MINDEX_OBSERVATIONS_TIMEOUT_MS)
-        : MINDEX_OBSERVATIONS_TIMEOUT_MS
+      const mindexTimeoutForRequest = mindexOnlyRequest
+        ? MINDEX_OBSERVATIONS_TIMEOUT_MS
+        : quickMode
+          ? Math.min(QUICK_MINDEX_VIEWPORT_TIMEOUT_MS, MINDEX_OBSERVATIONS_TIMEOUT_MS)
+          : MINDEX_OBSERVATIONS_TIMEOUT_MS
       const mindexLimit =
         kingdom !== "all" && bounds && limit
           ? limit
@@ -1885,7 +1887,7 @@ export async function GET(request: NextRequest) {
           return [] as FungalObservation[]
         })
       fetchPromises.push(
-        quickMode && bounds
+        quickMode && bounds && !mindexOnlyRequest
           ? withSoftTimeout(mindexPromise, mindexTimeoutForRequest, [] as FungalObservation[], "quick MINDEX viewport fetch")
           : mindexPromise,
       )

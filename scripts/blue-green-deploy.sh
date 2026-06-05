@@ -87,6 +87,25 @@ load_production_env() {
     fi
   done
   ok "Production auth env loaded from $env_file"
+
+  local earth_required=(AIRNOW_API_KEY MAS_API_URL MINDEX_API_URL MINDEX_API_KEY)
+  for k in "${earth_required[@]}"; do
+    v="${!k:-}"
+    if [[ -z "$v" ]]; then
+      err "Production .env missing or empty Earth Simulator runtime key: $k"
+      err "Set $k in GitHub production secrets and $env_file before blue/green cutover."
+      exit 8
+    fi
+  done
+  ok "Production Earth Simulator runtime env loaded from $env_file"
+
+  local earth_optional=(OPENAI_API_KEY TRANSIT_511_API_KEY GLOBAL_FISHING_WATCH_TOKEN YOUTUBE_API_KEY SF_511_API_KEY NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY NEXT_PUBLIC_MAS_API_URL NEXT_PUBLIC_MINDEX_API_URL)
+  for k in "${earth_optional[@]}"; do
+    v="${!k:-}"
+    if [[ -z "$v" ]]; then
+      warn "Production optional live-data env missing: $k (related layer may be reduced or fallback-only)"
+    fi
+  done
 }
 load_deploy_env
 

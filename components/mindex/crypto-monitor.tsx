@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { Activity, AlertTriangle, CheckCircle2, Copy, KeyRound, Loader2, Pause, Play, Shield, Zap } from "lucide-react"
+import { Activity, AlertTriangle, CheckCircle2, Copy, Loader2, Pause, Play, Shield, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -52,7 +51,6 @@ function copyToClipboard(text: string) {
 }
 
 export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMonitorProps) {
-  const [publishKey, setPublishKey] = useState("")
   const [isConnected, setIsConnected] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,23 +66,6 @@ export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMon
     qs.set("id", channel.id)
     return `/api/mindex/stream/subscribe?${qs.toString()}`
   }, [channel])
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("mindex:publishKey")
-      if (stored) setPublishKey(stored)
-    } catch {
-      // ignore
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("mindex:publishKey", publishKey)
-    } catch {
-      // ignore
-    }
-  }, [publishKey])
 
   useEffect(() => {
     setError(null)
@@ -120,11 +101,6 @@ export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMon
   }, [subscribeUrl])
 
   async function publishOnce(op: CryptoOpType) {
-    if (!publishKey.trim()) {
-      setError("Set MYCORRHIZAE_PUBLISH_KEY in env and paste it here to publish demo events.")
-      return
-    }
-
     const start = performance.now()
     const bytes = Math.floor(256 + Math.random() * 4096)
     const payload: CryptoOpEvent = {
@@ -158,7 +134,6 @@ export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMon
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-mycorrhizae-key": publishKey.trim(),
       },
       body: JSON.stringify({
         channel: `computed:${channel.id}`,
@@ -167,7 +142,10 @@ export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMon
       }),
     })
 
-    if (!res.ok) throw new Error(await res.text())
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string; code?: string } | null
+      throw new Error(body?.error || `Publish failed (${res.status}).`)
+    }
   }
 
   async function startPublishing() {
@@ -254,17 +232,7 @@ export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMon
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-          <div className="relative">
-            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={publishKey}
-              onChange={(e) => setPublishKey(e.target.value)}
-              placeholder="MYCORRHIZAE_PUBLISH_KEY (for demo publishing)"
-              className="pl-10 font-mono"
-            />
-          </div>
-
+        <div className="flex flex-wrap gap-2">
           {!isPublishing ? (
             <Button onClick={startPublishing} className="bg-purple-600 hover:bg-purple-700">
               <Play className="h-4 w-4 mr-2" />

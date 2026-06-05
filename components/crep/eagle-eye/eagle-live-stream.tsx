@@ -141,9 +141,30 @@ function pickLiveFromUrls(
   }
   for (const url of candidates) {
     if (isStillImage(url)) continue
-    const yt = isYouTubeUrl(url) ? normalizeYouTubeEmbedUrlSync(url) : null
-    if (yt) return { stream_type: "iframe", url: yt }
+    if (isYouTubeUrl(url)) continue
     if (looksLikeVideoEmbed(url)) return { stream_type: "iframe", url }
+  }
+  return null
+}
+
+async function resolveYouTubeFromUrls(
+  ...candidates: (string | undefined | null)[]
+): Promise<EagleLiveStreamResolved | null> {
+  for (const url of candidates) {
+    if (!url || !isYouTubeUrl(url) || isStillImage(url)) continue
+    try {
+      const res = await fetch(`/api/eagle/youtube-embed?url=${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.embed_url) return { stream_type: "iframe", url: data.embed_url }
+      }
+    } catch {
+      /* fall through to sync fallback */
+    }
+    const sync = normalizeYouTubeEmbedUrlSync(url)
+    if (sync) return { stream_type: "iframe", url: sync }
   }
   return null
 }
@@ -164,6 +185,8 @@ async function resolveEagleLiveStreamFromApi(sourceId: string): Promise<EagleLiv
     if (data.stream_type === "webrtc" && data.stream_url) {
       return { stream_type: "webrtc", url: data.stream_url }
     }
+    const fromYouTube = await resolveYouTubeFromUrls(data.stream_url, data.embed_url)
+    if (fromYouTube) return fromYouTube
     const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
     if (fromApi) return fromApi
     if (data.stream_type === "iframe" && data.embed_url) {
@@ -181,6 +204,8 @@ export async function resolveEagleLiveStream(
 ): Promise<EagleLiveStreamResolved | null> {
   const direct = pickLiveFromUrls(source.stream_url, source.embed_url)
   if (direct) return direct
+  const youtube = await resolveYouTubeFromUrls(source.stream_url, source.embed_url)
+  if (youtube) return youtube
   const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
   if (options.allowResolver !== false && mediaUrl && isStillImage(mediaUrl) && shouldResolveBeforeStill(source)) {
     const apiResolved = await resolveEagleLiveStreamFromApi(source.id)
@@ -203,8 +228,8 @@ export async function resolveEagleLiveStream(
   if (apiResolved) return apiResolved
 
   if (source.embed_url && !isStillImage(source.embed_url)) {
-    const yt = isYouTubeUrl(source.embed_url) ? normalizeYouTubeEmbedUrlSync(source.embed_url) : null
-    if (yt) return { stream_type: "iframe", url: yt }
+    const yt = isYouTubeUrl(source.embed_url) ? await resolveYouTubeFromUrls(source.embed_url) : null
+    if (yt) return yt
     if (looksLikeVideoEmbed(source.embed_url)) {
       return { stream_type: "iframe", url: source.embed_url }
     }
@@ -363,8 +388,23 @@ export function HlsLivePlayer({
 function snapshotSelectorChain(provider?: string): string[] {
   const p = (provider || "").toLowerCase()
   if (p === "caltrans" || p.includes("dot")) return ["img", "video", "body"]
+  if (p === "earthcam") return ["video", "img", "canvas", "body"]
   if (p === "surfline") return ["video", "canvas", "img", "body"]
   return ["video", "img", "canvas", "body"]
+}
+
+function stableSnapshotJitter(input: string): number {
+  let hash = 0
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0
+  }
+  return hash % 7_000
+}
+
+function snapshotRefreshDelayMs(provider: string | undefined, viewerUrl: string, selector: string): number {
+  const p = (provider || "").toLowerCase()
+  const baseDelay = p === "earthcam" || selector === "body" ? 30_000 : 20_000
+  return baseDelay + stableSnapshotJitter(`${p}:${selector}:${viewerUrl}`)
 }
 
 export function SnapshotLivePlayer({
@@ -378,22 +418,69 @@ export function SnapshotLivePlayer({
 }) {
   const [tick, setTick] = useState(() => Date.now())
   const [selectorIdx, setSelectorIdx] = useState(0)
+  const refreshTimerRef = useRef<number | null>(null)
+  const loadWatchdogRef = useRef<number | null>(null)
   const chain = snapshotSelectorChain(provider)
   const selector = chain[selectorIdx] || "body"
   const isFullpage = selector === "body"
   const snapshotApi = `/api/eagle/cam-snapshot?url=${encodeURIComponent(viewerUrl)}&selector=${encodeURIComponent(selector)}${isFullpage ? "&mode=fullpage" : ""}&_t=${tick}`
+  const refreshDelayMs = snapshotRefreshDelayMs(provider, viewerUrl, selector)
+
+  const clearRefreshTimer = () => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+  }
+
+  const clearLoadWatchdog = () => {
+    if (loadWatchdogRef.current !== null) {
+      window.clearTimeout(loadWatchdogRef.current)
+      loadWatchdogRef.current = null
+    }
+  }
+
+  const scheduleNextRefresh = (delay = refreshDelayMs) => {
+    clearRefreshTimer()
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null
+      if (typeof document !== "undefined" && document.hidden) {
+        scheduleNextRefresh(refreshDelayMs)
+        return
+      }
+      setTick(Date.now())
+    }, delay)
+  }
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) return
-      setTick(Date.now())
-    }, 20_000)
-    return () => window.clearInterval(id)
+    return () => {
+      clearRefreshTimer()
+      clearLoadWatchdog()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    clearRefreshTimer()
+    clearLoadWatchdog()
+    setSelectorIdx(0)
+    setTick(Date.now())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewerUrl])
 
   useEffect(() => {
-    setSelectorIdx(0)
-  }, [viewerUrl, provider])
+    clearLoadWatchdog()
+    loadWatchdogRef.current = window.setTimeout(() => {
+      loadWatchdogRef.current = null
+      if (selectorIdx < chain.length - 1) {
+        setSelectorIdx((idx) => Math.min(idx + 1, chain.length - 1))
+        return
+      }
+      scheduleNextRefresh(4_000 + stableSnapshotJitter(`${viewerUrl}:${tick}`))
+    }, isFullpage ? 18_000 : 12_000)
+    return clearLoadWatchdog
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotApi, selectorIdx, isFullpage, viewerUrl, tick])
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -402,8 +489,17 @@ export function SnapshotLivePlayer({
       alt={provider ? `${provider} live snapshot` : "Live camera snapshot"}
       className={className || "h-full w-full bg-black object-cover"}
       loading="eager"
+      onLoad={() => {
+        clearLoadWatchdog()
+        scheduleNextRefresh()
+      }}
       onError={() => {
-        setSelectorIdx((idx) => Math.min(idx + 1, chain.length - 1))
+        clearLoadWatchdog()
+        if (selectorIdx < chain.length - 1) {
+          setSelectorIdx((idx) => Math.min(idx + 1, chain.length - 1))
+          return
+        }
+        scheduleNextRefresh(10_000 + stableSnapshotJitter(`${viewerUrl}:error:${tick}`))
       }}
     />
   )
@@ -548,13 +644,29 @@ export function EagleLivePreviewTile({
     }
     return (
       <div className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-950 to-black px-1 text-center ${className || ""}`}>
-        <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Camera feed</span>
-        <span className="text-[6px] text-gray-500">Tap to open live view</span>
+        <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Live feed</span>
+        <span className="text-[6px] text-gray-500">Tap to open stream</span>
       </div>
     )
   }
 
-  if (resolved.stream_type === "iframe" || resolved.stream_type === "webrtc") {
+  if (resolved.stream_type === "iframe") {
+    return (
+      <div className={`relative overflow-hidden bg-black ${className || ""}`}>
+        <EagleLiveStreamPlayer
+          resolved={resolved}
+          provider={source.provider}
+          muted
+          className="pointer-events-none h-full w-full object-cover"
+        />
+        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[6px] font-mono uppercase tracking-wide text-cyan-300">
+          LIVE
+        </div>
+      </div>
+    )
+  }
+
+  if (resolved.stream_type === "webrtc") {
     return (
       <div className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-950 to-black px-1 text-center ${className || ""}`}>
         <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Live feed</span>
