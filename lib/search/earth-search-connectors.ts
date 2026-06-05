@@ -250,6 +250,12 @@ export function isAircraftQuery(query: string): boolean {
   return AIRCRAFT_KEYWORDS.some(kw => q.includes(kw))
 }
 
+/**
+ * Tight city bounding boxes intentionally narrow the live feed so a "flights over LA"
+ * query lands on local traffic. Ocean/region queries (Pacific, Atlantic, …) and generic
+ * flight queries deliberately return NO bounds so the feed stays GLOBAL — the Earth widget
+ * zooms the camera to the region while every plane on Earth remains visible.
+ */
 function aircraftBoundsForQuery(query: string): URLSearchParams {
   const q = query.toLowerCase()
   const params = new URLSearchParams()
@@ -262,8 +268,29 @@ function aircraftBoundsForQuery(query: string): URLSearchParams {
 
   if (q.includes("over la") || q.includes("los angeles")) setBounds(29.05, 39.05, -123.24, -113.24)
   else if (q.includes("over sf") || q.includes("san francisco")) setBounds(33.77, 41.77, -126.42, -118.42)
-  else if (q.includes("pacific")) setBounds(-60, 60, -180, -120)
+  // Region/ocean/global flight queries fetch worldwide aircraft (no bbox).
   return params
+}
+
+/** A "city" flight query is scoped to local traffic; everything else shows all planes globally. */
+function isCityScopedAircraftQuery(query: string): boolean {
+  const q = query.toLowerCase()
+  return (
+    q.includes("over la") ||
+    q.includes("los angeles") ||
+    q.includes("over sf") ||
+    q.includes("san francisco")
+  )
+}
+
+/**
+ * Broad flight queries ("flights over the Pacific", "planes worldwide") should surface as many
+ * aircraft as the globe can render, not the default page size. City-scoped queries keep the
+ * smaller incoming limit so the local feed stays readable.
+ */
+function resolveAircraftLimit(query: string, limit: number): number {
+  if (isCityScopedAircraftQuery(query)) return limit
+  return Math.max(limit, 500)
 }
 
 function mapAircraftRow(a: Record<string, unknown>): AircraftResult {
@@ -284,8 +311,9 @@ function mapAircraftRow(a: Record<string, unknown>): AircraftResult {
 
 export async function searchAircraft(query: string, origin = "", limit = 20): Promise<AircraftResult[]> {
   try {
+    const effectiveLimit = resolveAircraftLimit(query, limit)
     const localParams = aircraftBoundsForQuery(query)
-    localParams.set("limit", String(limit))
+    localParams.set("limit", String(effectiveLimit))
     for (const base of serverSelfFetchBases(origin)) {
       const localRes = await safeFetch(`${base}/api/oei/flightradar24?${localParams.toString()}`, 15000)
       if (localRes) {
@@ -294,7 +322,7 @@ export async function searchAircraft(query: string, origin = "", limit = 20): Pr
         const mapped = (localRows as Record<string, unknown>[])
           .map(mapAircraftRow)
           .filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng))
-          .slice(0, limit)
+          .slice(0, effectiveLimit)
         if (mapped.length > 0) return mapped
       }
     }
@@ -307,7 +335,8 @@ export async function searchAircraft(query: string, origin = "", limit = 20): Pr
     const q = query.toLowerCase()
     let filtered = states
 
-    // Filter by callsign or region if query hints
+    // Only city-scoped queries narrow the feed. Ocean/region/global queries (e.g. "Pacific")
+    // keep every plane on Earth so the map stays globally populated while it zooms to the region.
     if (q.includes("over la") || q.includes("los angeles")) {
       filtered = states.filter((s: unknown[]) => {
         const lat = s[6] as number, lng = s[5] as number
@@ -318,14 +347,9 @@ export async function searchAircraft(query: string, origin = "", limit = 20): Pr
         const lat = s[6] as number, lng = s[5] as number
         return lat && lng && Math.abs(lat - 37.77) < 2 && Math.abs(lng + 122.42) < 2
       })
-    } else if (q.includes("pacific")) {
-      filtered = states.filter((s: unknown[]) => {
-        const lng = s[5] as number
-        return lng && lng < -120 && lng > -180
-      })
     }
 
-    return filtered.slice(0, limit).map((s: unknown[]) => ({
+    return filtered.slice(0, effectiveLimit).map((s: unknown[]) => ({
       id: `opensky-${s[0]}`,
       callsign: ((s[1] as string) || "").trim(),
       icao24: (s[0] as string) || "",

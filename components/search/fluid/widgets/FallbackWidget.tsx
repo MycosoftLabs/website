@@ -271,6 +271,25 @@ function EarthquakeEventsList({
   )
 }
 
+/** Pull a handful of human-readable numeric/short-string fields off an arbitrary record for the metrics grid. */
+function deriveGenericMetrics(item: Record<string, unknown>): Array<{ label: string; value: string }> {
+  const skip = new Set(["id", "uuid", "title", "name", "description", "type", "category", "source", "timestamp", "link", "url", "sourceUrl"])
+  const metrics: Array<{ label: string; value: string }> = []
+  const lat = readNumber(item, ["lat", "latitude", "location.latitude", "location.lat"])
+  const lng = readNumber(item, ["lng", "lon", "longitude", "location.longitude", "location.lng"])
+  for (const [key, raw] of Object.entries(item)) {
+    if (metrics.length >= 4) break
+    if (skip.has(key) || /^(lat|lng|lon|latitude|longitude)$/i.test(key)) continue
+    if (raw == null || typeof raw === "object") continue
+    const label = key.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 18)
+    const value = typeof raw === "number" ? (Number.isInteger(raw) ? raw.toLocaleString() : raw.toFixed(2)) : String(raw).slice(0, 28)
+    if (value.trim()) metrics.push({ label, value })
+  }
+  if (lat != null) metrics.push({ label: "Lat", value: lat.toFixed(4) })
+  if (lng != null) metrics.push({ label: "Lng", value: lng.toFixed(4) })
+  return metrics
+}
+
 function GenericItemsList({
   items,
   onViewOnMap,
@@ -280,7 +299,7 @@ function GenericItemsList({
   onViewOnMap?: (item: Record<string, unknown>) => void
   focusedId?: string | null
 }) {
-  const normalized = useMemo(
+  const entities = useMemo<DetailEntity[]>(
     () =>
       items.map((item, i) => {
         const title = String(
@@ -295,72 +314,328 @@ function GenericItemsList({
         )
         const lat = readNumber(item, ["lat", "latitude", "location.latitude", "location.lat"])
         const lng = readNumber(item, ["lng", "lon", "longitude", "location.longitude", "location.lng"])
+        const description = String(item.description ?? item.summary ?? item.place ?? item.locationName ?? "").trim()
         return {
           item,
           id: readItemId(item, `${title}-${i}`),
           title,
+          subtitle: description || undefined,
           lat,
           lng,
+          badge: typeof item.severity === "string" ? item.severity : typeof item.type === "string" ? item.type : undefined,
+          kind: String(item.type ?? item.category ?? "result").toLowerCase(),
+          zoom: 8,
+          source: String(item.source ?? "Live source"),
+          timestamp: typeof item.timestamp === "string" ? item.timestamp : undefined,
+          link: typeof item.link === "string" ? item.link : typeof item.url === "string" ? item.url : typeof item.sourceUrl === "string" ? item.sourceUrl : undefined,
+          metrics: deriveGenericMetrics(item),
         }
       }),
     [items],
   )
 
+  return <DetailEntityList entities={entities} accent="border-border/50" onViewOnMap={onViewOnMap} focusedId={focusedId} />
+}
+
+/** Shared map-preview tile for any geolocated entity (reuses the earthquake preview endpoint). */
+function mapPreviewUrl(lat: number, lng: number, title: string, zoom: number) {
+  return `/api/search/map-preview?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}&zoom=${zoom}&title=${encodeURIComponent(title)}`
+}
+
+/** m/s → km/h (live aircraft/vessel feeds report velocity in m/s). */
+function msToKmh(value: unknown) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return num * 3.6
+}
+
+interface DetailEntity {
+  item: Record<string, unknown>
+  id: string
+  title: string
+  subtitle?: string
+  lat: number | null
+  lng: number | null
+  badge?: string
+  metrics: Array<{ label: string; value: string }>
+  source: string
+  timestamp?: string
+  link?: string
+  kind: string
+  zoom: number
+}
+
+/**
+ * Generic rich-detail list used by aircraft / vessels / satellites. Mirrors the earthquake card:
+ * map preview, a metrics grid, expandable raw source fields, click-to-focus on the Earth widget,
+ * and a synced selection event so the globe highlights the same entity.
+ */
+function DetailEntityList({
+  entities,
+  accent,
+  onViewOnMap,
+  focusedId,
+}: {
+  entities: DetailEntity[]
+  accent: string
+  onViewOnMap?: (item: Record<string, unknown>) => void
+  focusedId?: string | null
+}) {
+  const [localFocusedId, setLocalFocusedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const activeFocusedId = focusedId || localFocusedId
+
   useEffect(() => {
     if (!focusedId) return
+    setLocalFocusedId(focusedId)
+    setExpandedId(focusedId)
     const node = document.querySelector(`[data-search-item-id="${CSS.escape(focusedId)}"]`)
     node?.scrollIntoView({ block: "nearest", behavior: "smooth" })
   }, [focusedId])
 
   const visibleItems = useMemo(() => {
-    const top = normalized.slice(0, 10)
-    if (!focusedId || top.some((item) => item.id === focusedId)) return top
-    const focused = normalized.find((item) => item.id === focusedId)
-    return focused ? [focused, ...top.slice(0, 9)] : top
-  }, [focusedId, normalized])
+    const top = entities.slice(0, 12)
+    if (!activeFocusedId || top.some((entity) => entity.id === activeFocusedId)) return top
+    const focused = entities.find((entity) => entity.id === activeFocusedId)
+    return focused ? [focused, ...top.slice(0, 11)] : top
+  }, [activeFocusedId, entities])
 
   return (
-    <ul className="space-y-2">
-      {visibleItems.map((row) => {
-        const selected = focusedId === row.id
+    <div className="h-full space-y-2 overflow-y-auto pr-1">
+      {visibleItems.map((entity) => {
+        const selected = activeFocusedId === entity.id
+        const expanded = expandedId === entity.id
+        const focusEntity = () => {
+          setLocalFocusedId(entity.id)
+          setExpandedId(expanded ? null : entity.id)
+          if (entity.lat != null && entity.lng != null) {
+            onViewOnMap?.({ ...entity.item, lat: entity.lat, lng: entity.lng, title: entity.title, zoom: entity.zoom })
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("search:earth-feature-selected", {
+                  detail: {
+                    id: entity.id,
+                    kind: entity.kind,
+                    title: entity.title,
+                    detail: entity.subtitle || entity.metrics.map((m) => `${m.label} ${m.value}`).join(" · "),
+                    source: entity.source,
+                    timestamp: entity.timestamp,
+                  },
+                }),
+              )
+            }
+          }
+        }
+        const preview = entity.lat != null && entity.lng != null
+          ? mapPreviewUrl(entity.lat, entity.lng, entity.title, expanded ? 7 : 5)
+          : null
         return (
-          <li
-            key={row.id}
-            data-search-item-id={row.id}
+          <article
+            key={entity.id}
+            data-search-item-id={entity.id}
+            data-search-map-focus="true"
+            data-search-map-kind={entity.kind}
+            data-search-map-lat={entity.lat ?? ""}
+            data-search-map-lng={entity.lng ?? ""}
+            data-search-map-title={entity.title}
             aria-selected={selected}
+            role="button"
+            tabIndex={0}
+            onClick={focusEntity}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                focusEntity()
+              }
+            }}
             className={cn(
-              "rounded-md border border-border/50 bg-muted/30 text-sm transition-all duration-200",
+              "pointer-events-auto cursor-pointer overflow-hidden rounded-md border bg-black/25 transition-all duration-200",
+              accent,
               selected && "animate-pulse border-cyan-300 bg-cyan-500/10 shadow-[0_0_24px_rgba(34,211,238,0.32)] ring-2 ring-cyan-300/50",
             )}
           >
-            <button
-              type="button"
-              className="block w-full px-2 py-1.5 text-left transition hover:bg-background/40 focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
-              onClick={() => onViewOnMap?.({
-                ...row.item,
-                lat: row.lat ?? row.item.lat,
-                lng: row.lng ?? row.item.lng,
-                title: row.title,
-                zoom: 8.5,
-              })}
-            >
-              {typeof row.item.title === "string" && row.item.title}
-              {typeof row.item.name === "string" && row.item.name}
-              {typeof row.item.scientific_name === "string" && row.item.scientific_name}
-              {!row.item.title && !row.item.name && !row.item.scientific_name && (
-                <span className="block truncate text-muted-foreground">
-                  {JSON.stringify(row.item).slice(0, 80)}...
-                </span>
+            {preview && (
+              <img
+                src={preview}
+                alt={`Map preview for ${entity.title}`}
+                className={cn("w-full object-cover opacity-90", expanded ? "h-32" : "h-20")}
+                loading="lazy"
+              />
+            )}
+            <div className="space-y-2 p-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">{entity.title}</div>
+                  {entity.subtitle && <div className="truncate text-[11px] text-muted-foreground">{entity.subtitle}</div>}
+                </div>
+                {entity.badge && (
+                  <span className="shrink-0 rounded border border-cyan-300/30 bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold text-cyan-200">
+                    {entity.badge}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                {entity.metrics.map((metric) => (
+                  <div key={metric.label} className="rounded bg-muted/30 px-2 py-1">
+                    <span className="text-muted-foreground">{metric.label}</span>{" "}
+                    <span className="font-mono">{metric.value}</span>
+                  </div>
+                ))}
+              </div>
+              {expanded && (
+                <details open className="rounded bg-black/20 px-2 py-1 text-[11px]">
+                  <summary className="cursor-pointer text-cyan-300">Raw source fields</summary>
+                  <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-[10px] text-muted-foreground">
+                    {JSON.stringify(entity.item, null, 2)}
+                  </pre>
+                </details>
               )}
-            </button>
-          </li>
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <span className="truncate">{entity.timestamp ? formatDateTime(entity.timestamp) : entity.source}</span>
+                {entity.link && (
+                  <a className="shrink-0 text-cyan-300 hover:text-cyan-200" href={entity.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                    Source
+                  </a>
+                )}
+              </div>
+            </div>
+          </article>
         )
       })}
-      {items.length > 10 && (
-        <p className="text-xs text-muted-foreground">+{items.length - 10} more</p>
+      {entities.length > 12 && (
+        <p className="text-xs text-muted-foreground">+{entities.length - 12} more</p>
       )}
-    </ul>
+    </div>
   )
+}
+
+function AircraftItemsList(props: {
+  items: Array<Record<string, unknown>>
+  onViewOnMap?: (item: Record<string, unknown>) => void
+  focusedId?: string | null
+}) {
+  const entities = useMemo<DetailEntity[]>(
+    () =>
+      props.items.map((item, i) => {
+        const callsign = String(item.callsign ?? item.flightNumber ?? item.flight ?? "").trim()
+        const registration = String(item.registration ?? item.icao24 ?? item.icao ?? item.hex ?? "").trim()
+        const title = callsign || registration || "Aircraft"
+        const lat = readNumber(item, ["lat", "latitude", "location.latitude", "location.lat"])
+        const lng = readNumber(item, ["lng", "lon", "longitude", "location.longitude", "location.lng"])
+        const altitude = readNumber(item, ["altitude", "alt", "geo_altitude", "baro_altitude"])
+        const velocity = readNumber(item, ["velocity", "speed", "groundSpeed"])
+        const speedKmh = msToKmh(velocity)
+        const heading = readNumber(item, ["heading", "track", "true_track"])
+        const onGround = Boolean(item.onGround ?? item.on_ground ?? false)
+        const origin = String(item.origin ?? item.originCountry ?? item.origin_country ?? item.country ?? "").trim()
+        const destination = String(item.destination ?? "").trim()
+        return {
+          item,
+          id: readItemId(item, `${title}-${i}`),
+          title,
+          subtitle: [origin, destination ? `→ ${destination}` : ""].filter(Boolean).join(" ") || (registration && registration !== title ? registration : undefined),
+          lat,
+          lng,
+          badge: onGround ? "On ground" : altitude != null ? `${Math.round(altitude).toLocaleString()} m` : undefined,
+          kind: "aircraft",
+          zoom: 7,
+          source: String(item.source ?? "OpenSky Network"),
+          metrics: [
+            { label: "Altitude", value: altitude != null ? `${Math.round(altitude).toLocaleString()} m` : "N/A" },
+            { label: "Speed", value: speedKmh != null ? `${Math.round(speedKmh).toLocaleString()} km/h` : "N/A" },
+            { label: "Heading", value: heading != null ? `${Math.round(heading)}°` : "N/A" },
+            { label: "Reg", value: registration || "N/A" },
+            { label: "Lat", value: lat != null ? lat.toFixed(4) : "N/A" },
+            { label: "Lng", value: lng != null ? lng.toFixed(4) : "N/A" },
+          ],
+        }
+      }),
+    [props.items],
+  )
+  return <DetailEntityList entities={entities} accent="border-sky-400/25" onViewOnMap={props.onViewOnMap} focusedId={props.focusedId} />
+}
+
+function VesselItemsList(props: {
+  items: Array<Record<string, unknown>>
+  onViewOnMap?: (item: Record<string, unknown>) => void
+  focusedId?: string | null
+}) {
+  const entities = useMemo<DetailEntity[]>(
+    () =>
+      props.items.map((item, i) => {
+        const title = String(item.name ?? item.vessel_name ?? item.mmsi ?? "Vessel").trim()
+        const mmsi = String(item.mmsi ?? "").trim()
+        const shipType = String(item.shipType ?? item.ship_type ?? item.type ?? "").trim()
+        const lat = readNumber(item, ["lat", "latitude", "location.latitude", "location.lat"])
+        const lng = readNumber(item, ["lng", "lon", "longitude", "location.longitude", "location.lng"])
+        const speed = readNumber(item, ["speed", "sog", "velocity"])
+        const heading = readNumber(item, ["heading", "cog", "course"])
+        const destination = String(item.destination ?? "").trim()
+        return {
+          item,
+          id: readItemId(item, `${title}-${i}`),
+          title,
+          subtitle: [shipType, destination ? `→ ${destination}` : ""].filter(Boolean).join(" · ") || undefined,
+          lat,
+          lng,
+          badge: shipType || undefined,
+          kind: "vessel",
+          zoom: 8,
+          source: String(item.source ?? "AISstream"),
+          metrics: [
+            { label: "Speed", value: speed != null ? `${speed.toFixed(1)} kn` : "N/A" },
+            { label: "Heading", value: heading != null ? `${Math.round(heading)}°` : "N/A" },
+            { label: "MMSI", value: mmsi || "N/A" },
+            { label: "Type", value: shipType || "N/A" },
+            { label: "Lat", value: lat != null ? lat.toFixed(4) : "N/A" },
+            { label: "Lng", value: lng != null ? lng.toFixed(4) : "N/A" },
+          ],
+        }
+      }),
+    [props.items],
+  )
+  return <DetailEntityList entities={entities} accent="border-cyan-400/25" onViewOnMap={props.onViewOnMap} focusedId={props.focusedId} />
+}
+
+function SatelliteItemsList(props: {
+  items: Array<Record<string, unknown>>
+  onViewOnMap?: (item: Record<string, unknown>) => void
+  focusedId?: string | null
+}) {
+  const entities = useMemo<DetailEntity[]>(
+    () =>
+      props.items.map((item, i) => {
+        const title = String(item.name ?? item.satelliteId ?? item.noradId ?? "Satellite").trim()
+        const noradId = String(item.noradId ?? item.norad_id ?? "").trim()
+        const category = String(item.category ?? "").trim()
+        const lat = readNumber(item, ["lat", "latitude", "location.latitude", "location.lat"])
+        const lng = readNumber(item, ["lng", "lon", "longitude", "location.longitude", "location.lng"])
+        const altitude = readNumber(item, ["altitude", "alt"])
+        const velocity = readNumber(item, ["velocity", "speed"])
+        return {
+          item,
+          id: readItemId(item, `${title}-${i}`),
+          title,
+          subtitle: category || undefined,
+          lat,
+          lng,
+          badge: altitude != null ? `${Math.round(altitude).toLocaleString()} km` : undefined,
+          kind: "satellite",
+          zoom: 4,
+          source: String(item.source ?? "CelesTrak"),
+          metrics: [
+            { label: "Altitude", value: altitude != null ? `${Math.round(altitude).toLocaleString()} km` : "N/A" },
+            { label: "Velocity", value: velocity != null ? `${velocity.toFixed(2)} km/s` : "N/A" },
+            { label: "NORAD", value: noradId || "N/A" },
+            { label: "Category", value: category || "N/A" },
+            { label: "Lat", value: lat != null ? lat.toFixed(4) : "N/A" },
+            { label: "Lng", value: lng != null ? lng.toFixed(4) : "N/A" },
+          ],
+        }
+      }),
+    [props.items],
+  )
+  return <DetailEntityList entities={entities} accent="border-violet-400/25" onViewOnMap={props.onViewOnMap} focusedId={props.focusedId} />
 }
 
 function DeviceItemsList({
@@ -628,6 +903,33 @@ export function FallbackWidget({
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <DeviceItemsList items={items} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+        </div>
+      </div>
+    )
+  }
+
+  // Rich detail lists for live moving entities — parity with the earthquake card.
+  if (bucketKey === "aircraft" || bucketKey === "flights" || bucketKey === "transport" || bucketKey === "vessels" || bucketKey === "marine" || bucketKey === "satellites" || bucketKey === "space_assets") {
+    const List =
+      bucketKey === "vessels" || bucketKey === "marine"
+        ? VesselItemsList
+        : bucketKey === "satellites" || bucketKey === "space_assets"
+          ? SatelliteItemsList
+          : AircraftItemsList
+    const accentBadge =
+      bucketKey === "vessels" || bucketKey === "marine"
+        ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
+        : bucketKey === "satellites" || bucketKey === "space_assets"
+          ? "border-violet-300/20 bg-violet-400/10 text-violet-100"
+          : "border-sky-300/20 bg-sky-400/10 text-sky-100"
+    return (
+      <div className={cn("flex h-full min-h-0 flex-col overflow-hidden", className)} data-widget-type={widgetType}>
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-2 px-1">
+          <span className="text-sm font-semibold">{title || bucketKey}</span>
+          <span className={cn("rounded-full border px-2 py-0.5 text-xs", accentBadge)}>{items.length} tracked</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <List items={items} onViewOnMap={onViewOnMap} focusedId={focusedId} />
         </div>
       </div>
     )
