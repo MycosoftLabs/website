@@ -35,6 +35,7 @@ const MINDEX_INTERNAL_TOKEN =
   process.env.MINDEX_INTERNAL_TOKEN ||
   (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||
   ""
+const DEBUG_PUBLIC_WEBCAMS = process.env.EAGLE_PUBLIC_WEBCAMS_DEBUG === "1"
 
 function authHeaders(): Record<string, string> {
   if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
@@ -240,7 +241,9 @@ async function pullWindy(bbox?: string): Promise<Cam[]> {
       signal: AbortSignal.timeout(15_000),
     })
     if (!res.ok) {
-      console.warn(`[webcams/windy] ${res.status} ${res.statusText}`)
+      if (DEBUG_PUBLIC_WEBCAMS) {
+        console.warn(`[webcams/windy] ${res.status} ${res.statusText}`)
+      }
       return []
     }
     const j = await res.json()
@@ -259,7 +262,9 @@ async function pullWindy(bbox?: string): Promise<Cam[]> {
         category: (w.categories || [])[0]?.name || "weather",
       }))
   } catch (e: any) {
-    console.warn("[webcams/windy]", e?.message || e)
+    if (DEBUG_PUBLIC_WEBCAMS) {
+      console.warn("[webcams/windy]", e?.message || e)
+    }
     return []
   }
 }

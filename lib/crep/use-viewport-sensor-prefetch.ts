@@ -57,7 +57,15 @@ export function useViewportSensorPrefetch(
   }, [effectiveBounds, mapZoom, assetsReady])
 
   useEffect(() => {
-    if (!assetsReady || !revisionKey) return
+    if (!assetsReady || !revisionKey) {
+      inFlightRef.current?.abort()
+      inFlightRef.current = null
+      snapshotRef.current = null
+      revisionKeyRef.current = null
+      setSensors([])
+      setFetching(false)
+      return
+    }
 
     inFlightRef.current?.abort()
     const controller = new AbortController()

@@ -38,6 +38,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "substations",
     pmtilesUrl: "/data/crep/tiles/substations-us.pmtiles",
     geojsonUrl: "/data/crep/substations-us.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
     label: "US substations (HIFLD)",
   },
   transmissionLines: {
@@ -52,6 +53,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     // oddities on large PMTiles files.
     pmtilesUrl: "/api/crep/tiles/transmission-lines-us-major.pmtiles",
     geojsonUrl: "/data/crep/transmission-lines-us-major.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
     label: "US transmission lines (HIFLD ≥345 kV)",
   },
   /**
@@ -93,6 +95,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "power_plants",
     pmtilesUrl: "/data/crep/tiles/power-plants-global.pmtiles",
     geojsonUrl: "/data/crep/power-plants-global.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
     label: "Global power plants (WRI)",
   },
   cellTowersGlobal: {

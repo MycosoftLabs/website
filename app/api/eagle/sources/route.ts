@@ -98,10 +98,10 @@ function connectorFetchBase(req: NextRequest): string {
   // Local dev: http://localhost:3010/... has explicit port. Production HTTPS
   // to :443 has no port — use the Node listen port (Docker 3000, etc.).
   if (u.port && u.port !== "80" && u.port !== "443") {
-    return `http://127.0.0.1:${u.port}`
+    return `http://localhost:${u.port}`
   }
   const port = process.env.PORT || "3000"
-  return `http://127.0.0.1:${port}`
+  return `http://localhost:${port}`
 }
 
 function authHeaders(): Record<string, string> {
@@ -368,10 +368,15 @@ export async function GET(req: NextRequest) {
   }
   const kind = url.searchParams.get("kind") || undefined
   const provider = url.searchParams.get("provider") || undefined
-  const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
+  const requestedLimit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
+  const mapMetadataRequest = Boolean(bbox && !kind && !provider)
+  const limit = mapMetadataRequest ? Math.min(requestedLimit, 180) : requestedLimit
+  const directLiveFanoutEnabled =
+    process.env.EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT !== "0"
   const liveFanoutAllowed =
-    process.env.EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT === "1" &&
-    url.searchParams.get("live") === "1"
+    directLiveFanoutEnabled &&
+    url.searchParams.get("live") === "1" &&
+    !mapMetadataRequest
   const skipLive = !liveFanoutAllowed
   // Apr 22, 2026 — Morgan: "needs first load fast". ?fast=1 returns the
   // fast-tier connectors (public-webcams + 511 + border + webcamtaxi
@@ -438,9 +443,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const forceLive = url.searchParams.get("live") === "1"
   const mindexCold = sources.length === 0
-  if (!skipLive && (mindexCold || forceLive)) {
+  if (!skipLive && mindexCold) {
     const live = await fromLiveConnectors(origin, bbox, fast)
     if (live.length) {
       sources = mergeSourcesLiveWins(sources, live)

@@ -28,6 +28,7 @@
  */
 
 import { NextResponse } from "next/server"
+import { getAirNowApiKey } from "@/lib/airnow-key"
 import { listChartsIndex, staleChartIds, collectH2sCharts } from "@/lib/crep/h2s-ucsd-collector"
 
 export const dynamic = "force-dynamic"
@@ -97,7 +98,7 @@ async function fetchFromOpenAQ(): Promise<H2SReading[]> {
 }
 
 async function fetchFromAirNow(): Promise<H2SReading[]> {
-  const key = process.env.AIRNOW_API_KEY || process.env.NEXT_PUBLIC_AIRNOW_API_KEY || ""
+  const key = getAirNowApiKey()
   if (!key) return []
   const url = `https://www.airnowapi.org/aq/data/?startDate=&endDate=&parameters=H2S&BBOX=-117.25,32.50,-116.90,32.65&dataType=B&format=application/json&verbose=1&API_KEY=${encodeURIComponent(key)}`
   try {

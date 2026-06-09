@@ -19,9 +19,10 @@ interface GlobeToggleProps {
   mode: ProjectionMode
   onChange: (mode: ProjectionMode) => void
   className?: string
+  globeDisabled?: boolean
 }
 
-export function GlobeToggle({ mode, onChange, className }: GlobeToggleProps) {
+export function GlobeToggle({ mode, onChange, className, globeDisabled = false }: GlobeToggleProps) {
   return (
     <div className={cn("flex gap-1", className)}>
       <button
@@ -38,14 +39,20 @@ export function GlobeToggle({ mode, onChange, className }: GlobeToggleProps) {
         <MapIcon className="w-4 h-4" />
       </button>
       <button
-        onClick={() => onChange("globe")}
+        onClick={() => {
+          if (!globeDisabled) onChange("globe")
+        }}
+        disabled={globeDisabled}
+        aria-disabled={globeDisabled}
         className={cn(
           "p-2 rounded-lg border transition-all",
-          mode === "globe"
+          globeDisabled
+            ? "cursor-not-allowed border-gray-800/60 bg-black/25 text-gray-700 opacity-45"
+            : mode === "globe"
             ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400"
             : "bg-black/40 border-gray-700/50 text-gray-500 hover:text-gray-300 hover:border-gray-600"
         )}
-        title="Globe projection"
+        title={globeDisabled ? "Globe projection is disabled for this viewport" : "Globe projection"}
         aria-label="Globe projection"
       >
         <Globe className="w-4 h-4" />

@@ -56,6 +56,9 @@ const ALLOW_HOSTS = new Set<string>([
   "www.surfline.com", "cams.cdn-surfline.com",
   // EarthCam viewer pages
   "www.earthcam.com",
+  // HDOnTap public embeds used by venue webcams. These block iframe
+  // embedding to our app but render directly in headless Chromium.
+  "portal.hdontap.com",
   // Skyline / global landmark viewer
   "www.skylinewebcams.com",
   // Webcamtaxi
@@ -95,6 +98,7 @@ const inFlightSnapshots = new Map<string, Promise<Buffer | null>>()
 const CACHE_TTL_MS = 12_000
 const FAILURE_TTL_MS = 20_000
 const STILL_IMAGE_RE = /\.(jpe?g|png|webp|gif)(\?|$)/i
+const MAX_HEADLESS_SNAPSHOTS = 2
 
 let browserPromise: Promise<Browser> | null = null
 function getBrowser(): Promise<Browser> {
@@ -288,6 +292,19 @@ export async function GET(req: NextRequest) {
   }
 
   const isDirectStill = STILL_IMAGE_RE.test(target.toString())
+  if (!isDirectStill && inFlightSnapshots.size >= MAX_HEADLESS_SNAPSHOTS && !inFlightSnapshots.has(cacheKey)) {
+    return NextResponse.json(
+      { error: "snapshot renderer busy" },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": "8",
+          "X-Snapshot-Source": "renderer-busy",
+        },
+      },
+    )
+  }
   let snapshotPromise = inFlightSnapshots.get(cacheKey)
   if (!snapshotPromise) {
     snapshotPromise = (isDirectStill

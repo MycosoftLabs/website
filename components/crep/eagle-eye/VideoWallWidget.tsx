@@ -51,6 +51,7 @@ interface ActiveFeed {
   directEmbed?: string
   embedUrl?: string
   mediaUrl?: string
+  sourceStatus?: string
   thumbnail?: string
   confidence?: number
   kind: "camera" | "video_event"
@@ -68,8 +69,17 @@ async function resolveStream(
     const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}${suffix}`, {
       signal: AbortSignal.timeout(12_000),
     })
-    if (!res.ok) return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: `HTTP ${res.status}` }
-    return res.json()
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      return {
+        id: sourceId,
+        provider: data?.provider || "unknown",
+        kind: data?.kind || "permanent",
+        stream_type: data?.stream_type || "iframe",
+        error: data?.error || `HTTP ${res.status}`,
+      }
+    }
+    return data || { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: "invalid stream resolver response" }
   } catch (err) {
     return { id: sourceId, provider: "unknown", kind: "permanent", stream_type: "iframe", error: (err as Error)?.message || "stream resolver timeout" }
   }
@@ -100,6 +110,45 @@ function videoWallRefreshDelayMs(provider: string | undefined, url: string, sele
   return baseDelay + stableVideoWallJitter(`${p}:${selector || "still"}:${url}`)
 }
 
+const UNAVAILABLE_FEED_STATUSES = new Set([
+  "offline",
+  "unavailable",
+  "retired",
+  "disabled",
+  "blocked",
+  "deprecated",
+  "temporarily_unavailable",
+])
+
+const KNOWN_UNAVAILABLE_FEED_IDS = new Set([
+  "caltrans-d11-sr75-silverstrand",
+  "caltrans-d11-sr75-coronado-bridge",
+  "caltrans-d11-sr75-orange-ave",
+  "caltrans-d11-sr75-palm-ave",
+])
+
+const TEMPORARILY_UNPLAYABLE_PROVIDERS = new Set([
+  "navy",
+  "surfline",
+])
+
+function isKnownUnavailableFeedId(id: string | undefined | null): boolean {
+  return KNOWN_UNAVAILABLE_FEED_IDS.has(String(id || "").trim())
+}
+
+function isTemporarilyUnplayableProvider(provider: string | undefined | null): boolean {
+  return TEMPORARILY_UNPLAYABLE_PROVIDERS.has(String(provider || "").trim().toLowerCase())
+}
+
+function isHlsUrl(url: string | undefined | null): boolean {
+  return !!url && (/\.m3u8(\?|$|%3f)/i.test(url) || /\/api\/eagle\/hls-proxy(?:\?|$)/i.test(url))
+}
+
+function isUnavailableFeedStatus(status: string | undefined | null): boolean {
+  const normalized = String(status || "").trim().toLowerCase()
+  return normalized.length > 0 && UNAVAILABLE_FEED_STATUSES.has(normalized)
+}
+
 function releaseVideoElement(video: HTMLVideoElement | null) {
   if (!video) return
   try { video.pause() } catch { /* ignore */ }
@@ -119,14 +168,25 @@ function releaseVideoElement(video: HTMLVideoElement | null) {
 function HlsPlayer({
   url,
   onFallback,
+  onFrame,
   disableNoFrameWatchdog = false,
+  noFrameTimeoutMs = 20_000,
+  stablePlayback = false,
+  showControls = true,
+  className,
 }: {
   url: string
   onFallback?: () => void
+  onFrame?: () => void
   disableNoFrameWatchdog?: boolean
+  noFrameTimeoutMs?: number
+  stablePlayback?: boolean
+  showControls?: boolean
+  className?: string
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const onFallbackRef = useRef(onFallback)
+  const onFrameRef = useRef(onFrame)
   // Apr 22, 2026 v2 — Morgan: "caltrans cameras were working fine before
   // now they are just saying loading hls what happend fix that".
   //
@@ -140,6 +200,9 @@ function HlsPlayer({
   useEffect(() => {
     onFallbackRef.current = onFallback
   }, [onFallback])
+  useEffect(() => {
+    onFrameRef.current = onFrame
+  }, [onFrame])
   useEffect(() => { setRecovering(""); setErrMsg("") }, [url])
   useEffect(() => {
     const video = videoRef.current
@@ -148,9 +211,15 @@ function HlsPlayer({
     setRecovering("")
     const playbackUrl = url
     let cleanup = () => {}
+    let active = true
     let hasFrame = false
     let watchdog: ReturnType<typeof setTimeout> | null = null
-    const markFrame = () => { hasFrame = true; setRecovering("") }
+    const markFrame = () => {
+      if (video.readyState < 2 && video.videoWidth <= 0 && video.videoHeight <= 0) return
+      hasFrame = true
+      setRecovering("")
+      onFrameRef.current?.()
+    }
     const failOrFallback = (reason: string) => {
       if (onFallbackRef.current) {
         setRecovering("")
@@ -161,7 +230,7 @@ function HlsPlayer({
       setErrMsg(reason)
     }
     const retryInsideWidget = (reason: string) => {
-      if (hasFrame) return
+      if (hasFrame && video.readyState >= 2) return
       failOrFallback(reason)
     }
     const onVideoError = () => retryInsideWidget("video element reported a playback error")
@@ -173,7 +242,7 @@ function HlsPlayer({
     if (!disableNoFrameWatchdog) {
       watchdog = setTimeout(() => {
         if (!hasFrame && video.readyState < 2) retryInsideWidget("no video frames received")
-      }, 20_000)
+      }, noFrameTimeoutMs)
     }
 
     // Let the browser's own "play" gesture handle readiness. No phase
@@ -183,60 +252,82 @@ function HlsPlayer({
     const onMeta = () => seekVideoToLiveEdge(video)
     video.addEventListener("loadedmetadata", onMeta)
 
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    const startNativeHls = () => {
+      if (!active) return
       video.src = playbackUrl
       kickPlay()
-    } else {
-      import("hls.js").then((Hls) => {
-        const H = (Hls as any).default || Hls
-        if (!H.isSupported()) {
-          // Firefox with plugin / older browsers — try direct src.
-          video.src = playbackUrl
-          kickPlay()
-          return
-        }
-        const hls = new H({ ...hlsLivePlayerConfig() })
-        hls.loadSource(playbackUrl)
-        hls.attachMedia(video)
-        hls.on(H.Events.MANIFEST_PARSED, () => {
-          seekVideoToLiveEdge(video, hls)
-          kickPlay()
-        })
-        let recoveryAttempts = 0
-        hls.on(H.Events.ERROR, (_evt: any, data: any) => {
-          if (!data?.fatal) return
-          if (data?.type === H.ErrorTypes.NETWORK_ERROR && recoveryAttempts < 1) {
-            recoveryAttempts++
-            try { hls.startLoad() } catch { /* ignore */ }
-            return
-          }
-          if (data?.type === H.ErrorTypes.MEDIA_ERROR && recoveryAttempts < 1) {
-            recoveryAttempts++
-            try { hls.recoverMediaError() } catch { /* ignore */ }
-            return
-          }
-          const detail = data?.details || data?.reason || data?.type || "playback failed"
-          failOrFallback(String(detail))
-          try { hls.destroy() } catch { /* ignore */ }
-        })
-        const driftTimer = window.setInterval(() => {
-          if (video.duration === Infinity || hls.liveSyncPosition != null) {
-            seekVideoToLiveEdge(video, hls)
-          }
-        }, 10_000)
-        cleanup = () => {
-          window.clearInterval(driftTimer)
-          try { hls.destroy() } catch { /* ignore */ }
-        }
-      }).catch((err) => {
-        video.src = playbackUrl
-        video.play().catch(() => {
-          setErrMsg("hls.js unavailable: " + (err?.message || ""))
-        })
-      })
     }
 
+    import("hls.js").then((Hls) => {
+      if (!active) return
+      const H = (Hls as any).default || Hls
+      if (!H.isSupported()) {
+        if (!video.canPlayType("application/vnd.apple.mpegurl")) {
+          failOrFallback("HLS playback is not supported in this browser")
+          return
+        }
+        // Firefox with plugin / older browsers — try direct src.
+        startNativeHls()
+        return
+      }
+      const hlsConfig = stablePlayback
+        ? {
+            ...hlsLivePlayerConfig(),
+            lowLatencyMode: false,
+            liveSyncDurationCount: 6,
+            liveMaxLatencyDurationCount: 18,
+            maxLiveSyncPlaybackRate: 1.05,
+            backBufferLength: 20,
+            maxBufferLength: 30,
+            manifestLoadingTimeOut: 20_000,
+            levelLoadingTimeOut: 20_000,
+            fragLoadingTimeOut: 20_000,
+          }
+        : hlsLivePlayerConfig()
+      const hls = new H(hlsConfig)
+      hls.loadSource(playbackUrl)
+      hls.attachMedia(video)
+      hls.on(H.Events.MANIFEST_PARSED, () => {
+        seekVideoToLiveEdge(video, hls)
+        kickPlay()
+      })
+      let recoveryAttempts = 0
+      hls.on(H.Events.ERROR, (_evt: any, data: any) => {
+        if (!data?.fatal) return
+        if (data?.type === H.ErrorTypes.NETWORK_ERROR && recoveryAttempts < 1) {
+          recoveryAttempts++
+          try { hls.startLoad() } catch { /* ignore */ }
+          return
+        }
+        if (data?.type === H.ErrorTypes.MEDIA_ERROR && recoveryAttempts < 1) {
+          recoveryAttempts++
+          try { hls.recoverMediaError() } catch { /* ignore */ }
+          return
+        }
+        const detail = data?.details || data?.reason || data?.type || "playback failed"
+        failOrFallback(String(detail))
+        try { hls.destroy() } catch { /* ignore */ }
+      })
+      const driftTimer = stablePlayback ? null : window.setInterval(() => {
+        if (video.duration === Infinity || hls.liveSyncPosition != null) {
+          seekVideoToLiveEdge(video, hls)
+        }
+      }, 10_000)
+      cleanup = () => {
+        if (driftTimer) window.clearInterval(driftTimer)
+        try { hls.destroy() } catch { /* ignore */ }
+      }
+    }).catch((err) => {
+      if (!active) return
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        startNativeHls()
+      } else {
+        setErrMsg("hls.js unavailable: " + (err?.message || ""))
+      }
+    })
+
     return () => {
+      active = false
       if (watchdog) clearTimeout(watchdog)
       video.removeEventListener("loadedmetadata", onMeta)
       video.removeEventListener("loadeddata", markFrame)
@@ -247,19 +338,24 @@ function HlsPlayer({
       cleanup()
       releaseVideoElement(video)
     }
-  }, [url, disableNoFrameWatchdog])
+  }, [url, disableNoFrameWatchdog, noFrameTimeoutMs, stablePlayback])
 
   return (
-    <div className="relative w-full h-full bg-black">
+    <div className={`relative w-full h-full bg-black ${className || ""}`}>
       <video
         ref={videoRef}
         className="w-full h-full bg-black object-contain"
-        controls
+        controls={showControls}
         muted
         autoPlay
         playsInline
         preload="auto"
       />
+      {!showControls && !errMsg ? (
+        <div className="pointer-events-none absolute left-2 top-2 rounded border border-red-400/40 bg-black/70 px-2 py-1 text-[9px] font-mono font-semibold text-red-200">
+          LIVE
+        </div>
+      ) : null}
       {recovering && !errMsg && (
         <div className="absolute right-2 top-2 rounded border border-cyan-500/30 bg-black/70 px-2 py-1 text-[9px] font-mono text-cyan-200">
           {recovering}
@@ -293,6 +389,29 @@ function proxiedCaltransSnapshot(embed: string | undefined, mediaUrl?: string): 
   return `/api/eagle/cam-image?url=${encodeURIComponent(upstream)}`
 }
 
+function proxiedDotHlsUrl(url: string): string {
+  if (!isHlsUrl(url) || url.startsWith("/api/eagle/hls-proxy")) return url
+  try {
+    const parsed = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost")
+    const host = parsed.hostname.toLowerCase()
+    if (
+      host.endsWith("dot.ca.gov") ||
+      host.includes("dot.ca.gov") ||
+      /videos-\d+\.earthcam\.com/i.test(host) ||
+      host === "live.hdontap.com" ||
+      host === "d1wse1.its.nv.gov" ||
+      host.endsWith(".its.nv.gov") ||
+      host === "nysdot.skyvdn.com" ||
+      host.endsWith(".nysdot.skyvdn.com")
+    ) {
+      return `/api/eagle/hls-proxy?url=${encodeURIComponent(parsed.toString())}`
+    }
+  } catch {
+    /* keep original URL */
+  }
+  return url
+}
+
 function HlsWithSnapshotFallback({
   url,
   fallbackSnapshot,
@@ -307,8 +426,27 @@ function HlsWithSnapshotFallback({
   name?: string
 }) {
   const [useSnapshot, setUseSnapshot] = useState(false)
+  const [videoFrameReady, setVideoFrameReady] = useState(false)
+  const frameSeenRef = useRef(false)
   const normalizedFallbackSnapshot = normalizeEagleStillImageUrl(fallbackSnapshot)
-  useEffect(() => { setUseSnapshot(false) }, [url, normalizedFallbackSnapshot])
+  const playbackUrl = proxiedDotHlsUrl(url)
+  const providerLc = String(provider || "").toLowerCase()
+  const stableHlsPlayback = providerLc === "caltrans"
+  const showNativeControls = false
+  const fallbackDelayMs = stableHlsPlayback ? 24_000 : 10_000
+  const noFrameTimeoutMs = stableHlsPlayback ? 24_000 : 8_000
+  useEffect(() => {
+    frameSeenRef.current = false
+    setUseSnapshot(false)
+    setVideoFrameReady(false)
+  }, [playbackUrl, normalizedFallbackSnapshot])
+  useEffect(() => {
+    if (!normalizedFallbackSnapshot || useSnapshot) return
+    const timer = window.setTimeout(() => {
+      if (!frameSeenRef.current) setUseSnapshot(true)
+    }, fallbackDelayMs)
+    return () => window.clearTimeout(timer)
+  }, [fallbackDelayMs, normalizedFallbackSnapshot, playbackUrl, useSnapshot])
   if (useSnapshot && normalizedFallbackSnapshot) {
     return (
       <SnapshotStream
@@ -319,10 +457,51 @@ function HlsWithSnapshotFallback({
       />
     )
   }
+  if (normalizedFallbackSnapshot) {
+    return (
+      <div className="relative h-full w-full bg-black">
+        {!videoFrameReady ? (
+          stableHlsPlayback ? (
+            // Caltrans HLS can take a few segments to settle. Use a static
+            // poster instead of a refreshing snapshot so still-image reloads
+            // do not compete visually with the live player during startup.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={normalizedFallbackSnapshot}
+              alt=""
+              className="h-full w-full bg-black object-contain"
+            />
+          ) : (
+            <SnapshotStream
+              url={normalizedFallbackSnapshot}
+              embedUrl={embedUrl || undefined}
+              provider={provider}
+              name={name}
+            />
+          )
+        ) : null}
+        <HlsPlayer
+          url={playbackUrl}
+          className={`absolute inset-0 transition-opacity duration-200 ${videoFrameReady ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          stablePlayback={stableHlsPlayback}
+          showControls={showNativeControls}
+          onFrame={() => {
+            frameSeenRef.current = true
+            setVideoFrameReady(true)
+          }}
+          onFallback={() => setUseSnapshot(true)}
+          noFrameTimeoutMs={noFrameTimeoutMs}
+        />
+      </div>
+    )
+  }
   return (
     <HlsPlayer
-      url={url}
-      onFallback={normalizedFallbackSnapshot ? () => setUseSnapshot(true) : undefined}
+      url={playbackUrl}
+      stablePlayback={stableHlsPlayback}
+      showControls={showNativeControls}
+      onFrame={() => { frameSeenRef.current = true }}
+      noFrameTimeoutMs={stableHlsPlayback ? 30_000 : 20_000}
     />
   )
 }
@@ -385,12 +564,14 @@ function WebRTCPlayer({ url }: { url: string }) {
 // iframe attempt before bottom-failing to the "no stream" tile.)
 const VIDEO_EMBED_PATTERNS: RegExp[] = [
   /earthcam\.com\/embed\//i,
+  /earthcam\.com\/.+/i,
   /youtube(?:-nocookie)?\.com\/embed\//i,
   /youtube\.com\/watch\?/i,
   /youtube\.com\/live\//i,
   /youtu\.be\//i,
   /player\.twitch\.tv/i,
   /player\.vimeo\.com/i,
+  /portal\.hdontap\.com\/s\/embed\/?/i,
   /windy\.com\/webcams\/\d+/i,                 // windy player URLs (webcam ID)
   /webcams\.windy\.com\/webcams\/stream\/\d+/i, // windy stream wrapper
   /ipcamlive\.com\/player\//i,                 // IPCamLive embeddable players
@@ -452,6 +633,8 @@ function ProviderInfoCard({ provider, name, kind }: { url?: string; provider?: s
 }
 
 async function resolveYouTubeEmbedUrl(raw: string): Promise<string | null> {
+  const localEmbed = normalizeYouTubeEmbedUrlSync(raw)
+  if (localEmbed) return localEmbed
   try {
     const res = await fetch(`/api/eagle/youtube-embed?url=${encodeURIComponent(raw)}`, {
       signal: AbortSignal.timeout(10_000),
@@ -465,12 +648,18 @@ async function resolveYouTubeEmbedUrl(raw: string): Promise<string | null> {
 }
 
 function YouTubeEmbedResolver({ rawUrl, name }: { rawUrl: string; name?: string }) {
-  const [embedUrl, setEmbedUrl] = useState<string | null>(null)
+  const [embedUrl, setEmbedUrl] = useState<string | null>(() => normalizeYouTubeEmbedUrlSync(rawUrl) || rawUrl)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setFailed(false)
+    const immediate = normalizeYouTubeEmbedUrlSync(rawUrl)
+    if (immediate) {
+      setEmbedUrl(immediate)
+      return () => { cancelled = true }
+    }
+    setEmbedUrl(null)
     resolveYouTubeEmbedUrl(rawUrl).then((resolved) => {
       if (cancelled) return
       if (resolved) setEmbedUrl(resolved)
@@ -525,6 +714,9 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
   }
 
   const providerLc = (provider || "").toLowerCase()
+  if (isTemporarilyUnplayableProvider(providerLc)) {
+    return <NoStreamStatusTile provider={provider} name={name} />
+  }
   const youtubeCandidate =
     providerLc === "youtube_live" ||
     providerLc === "youtube-live" ||
@@ -570,20 +762,17 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
   }
 
   const SNAPSHOT_PROVIDERS = new Set([
-    "earthcam",
     "hpwren",
     "alertwildfire",
     "alertcalifornia",
-    "surfline",
-    "webcamtaxi",
-    "skylinewebcams",
     "windy",
     "nps",
     "usgs",
     "caltrans",
   ])
+  const headlessSnapshotsEnabled = false
   const providerKey = (provider || "").toLowerCase()
-  if (SNAPSHOT_PROVIDERS.has(providerKey) || /earthcam|hpwren|surfline|webcamtaxi|skyline|windy|alert/i.test(url)) {
+  if (headlessSnapshotsEnabled && (SNAPSHOT_PROVIDERS.has(providerKey) || /hpwren|windy|alert/i.test(url))) {
     return <SnapshotProxyVideo url={url} provider={provider} name={name} />
   }
 
@@ -620,8 +809,9 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
   const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas", "body"]
                       : provider === "windy" ? ["video", ".player-video", "canvas.leaflet-zoom-animated", "body"]
                       : provider === "alertwildfire" ? ["video", "img", "canvas", "body"]
-                      : provider === "earthcam" ? ["video", "img", "canvas", "body"]
-                      : provider === "surfline" ? ["video", "canvas", "iframe", "img[src*='surfline']", "img", "body"]
+                      : provider === "earthcam" ? ["body"]
+                      : provider === "hdontap" ? ["video", "canvas", "img", "body"]
+                      : provider === "surfline" ? ["video", "canvas", "img[src*='surfline']", "img", "body"]
                       : provider === "caltrans" ? ["img", "video", "body"]
                       : provider === "nysdot" ? ["img", "body"]
                       : provider === "vdot" ? ["img", "body"]
@@ -688,10 +878,14 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
     clearLoadWatchdog()
     loadWatchdogRef.current = window.setTimeout(() => {
       loadWatchdogRef.current = null
-      scheduleNextRefresh(4_000 + stableVideoWallJitter(`${url}:${currentSelector}:${t}`))
-    }, isFullpage ? 18_000 : 12_000)
+      if (selectorIdx < selectorChain.length - 1) {
+        setSelectorIdx((idx) => Math.min(idx + 1, selectorChain.length - 1))
+      } else {
+        setAllFailed(true)
+      }
+    }, isFullpage ? 10_000 : 7_000)
     return clearLoadWatchdog
-  }, [clearLoadWatchdog, currentSelector, isFullpage, scheduleNextRefresh, t, url])
+  }, [clearLoadWatchdog, currentSelector, isFullpage, selectorChain.length, selectorIdx, url])
 
   const onImgError = () => {
     clearLoadWatchdog()
@@ -860,7 +1054,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
             ? `${provider} didn't serve a still frame — the source host may be offline or blocking our proxy.`
             : "Source host offline or blocking proxy."}
         </div>
-        {embedUrl ? (
+        {false && embedUrl ? (
           <a
             href={embedUrl}
             target="_blank"
@@ -899,7 +1093,7 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
           Refreshing camera frame
         </div>
       )}
-      {embedUrl && (
+      {false && embedUrl && (
         <a
           href={embedUrl}
           target="_blank"
@@ -922,13 +1116,20 @@ export default function VideoWallWidget() {
   const [loading, setLoading] = useState(false)
   const lastOpenAtRef = useRef(0)
   const lastCameraEventRef = useRef<{ id: string; at: number } | null>(null)
+  const resolveSeqRef = useRef(0)
   const closeWidget = useCallback(() => {
+    resolveSeqRef.current += 1
     setFeed(null)
     setResolved(null)
     setLoading(false)
     setMinimized(false)
     setMaximized(false)
   }, [])
+  const handleCloseControl = useCallback((event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+    event?.preventDefault?.()
+    event?.stopPropagation?.()
+    closeWidget()
+  }, [closeWidget])
 
   // Listen for camera + event clicks from EagleEyeOverlay
   useEffect(() => {
@@ -959,17 +1160,33 @@ export default function VideoWallWidget() {
       const streamUrl = d.stream_url || undefined
       const embedUrl = d.embed_url || undefined
       const mediaUrl = d.media_url || undefined
+      const sourceStatus = isKnownUnavailableFeedId(d.id) ? "temporarily_unavailable" : d.source_status || d.status || undefined
+      const providerLc = String(d.provider || "").toLowerCase()
+      const hasYouTubeUrl = isYouTubeUrl(streamUrl || "") || isYouTubeUrl(embedUrl || "")
+      const resolveViaStreamApi =
+        (providerLc === "earthcam" || providerLc === "hdontap" || providerLc === "skylinewebcams" || providerLc === "surfline") &&
+        !hasYouTubeUrl &&
+        !isHlsUrl(streamUrl)
       const directEmbed =
-        (streamUrl && /\.m3u8/i.test(streamUrl) ? streamUrl : undefined) ||
+        resolveViaStreamApi
+          ? undefined
+          :
+        (streamUrl && isHlsUrl(streamUrl) ? streamUrl : undefined) ||
         (streamUrl && !isViewerPage(streamUrl) ? streamUrl : undefined) ||
-        (embedUrl && /\.m3u8/i.test(embedUrl) ? embedUrl : undefined) ||
+        (embedUrl && isHlsUrl(embedUrl) ? embedUrl : undefined) ||
+        (embedUrl && looksLikeVideoEmbed(embedUrl) && !isViewerPage(embedUrl) ? embedUrl : undefined) ||
         undefined
+      setResolved(null)
+      setLoading(false)
+      setMinimized(false)
+      setMaximized(false)
       setFeed({
         id: d.id, name: d.name || `${d.provider} camera`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "camera",
         directEmbed,
         embedUrl,
         mediaUrl,
+        sourceStatus,
       })
     }
     const onEvent = (e: any) => {
@@ -981,6 +1198,7 @@ export default function VideoWallWidget() {
         directEmbed: d.stream_url || d.embed_url || undefined,
         embedUrl: d.embed_url || undefined,
         mediaUrl: d.media_url || undefined,
+        sourceStatus: d.source_status || d.status || undefined,
         thumbnail: d.thumbnail || undefined,
         confidence: d.confidence,
       })
@@ -1021,11 +1239,43 @@ export default function VideoWallWidget() {
   // May 26, 2026 — Caltrans HLS via stream API when registry lacks m3u8;
   // proxied JPEG fallback only after HLS fails; Surfline embed-cam iframe.
   useEffect(() => {
-    if (!feed) { setResolved(null); setLoading(false); return }
+    if (!feed) {
+      resolveSeqRef.current += 1
+      setResolved(null)
+      setLoading(false)
+      return
+    }
+    setResolved(null)
     setLoading(false)
+    const resolveSeq = ++resolveSeqRef.current
     let cancelled = false
+    const isCurrentResolve = () => !cancelled && resolveSeq === resolveSeqRef.current
+    const settleResolved = (next: ResolvedStream) => {
+      if (!isCurrentResolve()) return false
+      setResolved(next)
+      setLoading(false)
+      return true
+    }
 
-    const isHls    = (u: string) => /\.m3u8(\?|$)/i.test(u)
+    if (
+      isUnavailableFeedStatus(feed.sourceStatus) ||
+      isKnownUnavailableFeedId(feed.id) ||
+      isTemporarilyUnplayableProvider(feed.provider)
+    ) {
+      const unavailableReason = feed.sourceStatus
+        ? `Source status: ${feed.sourceStatus}`
+        : `${feed.provider || "source"} live stream unavailable`
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "iframe",
+        error: unavailableReason,
+      })
+      return () => { cancelled = true }
+    }
+
+    const isHls    = (u: string) => isHlsUrl(u)
     const isWhep   = (u: string) => /\/whep(\?|\/|$)/i.test(u)
     const isMjpeg  = (u: string) => /\/mjpeg(\?|\/|$)/i.test(u) || /multipart\/x-mixed-replace/i.test(u)
     const isStill  = (u: string) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u) || /\/api\/eagle\/cam-image/i.test(u)
@@ -1055,6 +1305,9 @@ export default function VideoWallWidget() {
 
     const providerLc = (feed.provider || "").toLowerCase()
     const normalizedMediaUrl = normalizeEagleStillImageUrl(feed.mediaUrl)
+    const isSnapshotPageProvider =
+      providerLc === "webcamtaxi" ||
+      providerLc === "windy"
     const caltransNeedsResolve =
       providerLc === "caltrans" &&
       !(feed.directEmbed && isHls(feed.directEmbed))
@@ -1085,8 +1338,8 @@ export default function VideoWallWidget() {
 
     // 2: Surfline — rewrite surf-report to embed-cam
     const surflineEmbed = deriveSurflineEmbed(de || feed.embedUrl)
-    if (surflineEmbed || providerLc === "surfline") {
-      const embed = surflineEmbed || de || feed.embedUrl
+    if (surflineEmbed && providerLc !== "surfline") {
+      const embed = surflineEmbed
       if (embed) {
         setResolved({
           id: feed.id,
@@ -1106,18 +1359,14 @@ export default function VideoWallWidget() {
     const ytRaw = de || feed.embedUrl
 
     if (ytRaw && isYoutubeFeed) {
-      setLoading(true)
-      resolveYouTubeEmbedUrl(ytRaw).then((yt) => {
-        if (cancelled) return
-        setResolved({
-          id: feed.id,
-          provider: feed.provider,
-          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-          stream_type: "iframe",
-          embed_url: yt || ytRaw,
-          stream_url: yt || ytRaw,
-        })
-        setLoading(false)
+      const yt = normalizeYouTubeEmbedUrlSync(ytRaw) || ytRaw
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "iframe",
+        embed_url: yt,
+        stream_url: yt,
       })
       return
     }
@@ -1131,6 +1380,18 @@ export default function VideoWallWidget() {
         stream_url: normalizedMediaUrl,
         embed_url: feed.embedUrl,
         snapshot_url: normalizedMediaUrl,
+      })
+      return
+    }
+
+    if (isSnapshotPageProvider && feed.embedUrl) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "iframe",
+        stream_url: feed.embedUrl,
+        embed_url: feed.embedUrl,
       })
       return
     }
@@ -1150,75 +1411,103 @@ export default function VideoWallWidget() {
 
     // 5: server-side live stream resolver (Caltrans HLS lookup, Surfline, etc.)
     setLoading(true)
-    resolveStream(feed.id, {
-      embed_url: feed.embedUrl,
-      media_url: normalizedMediaUrl || feed.mediaUrl,
-    }).then(async (r) => {
-      if (cancelled) return
-      if (r.stream_type === "snapshot" && r.stream_url) {
-        setResolved({
-          ...r,
-          embed_url: r.embed_url || feed.embedUrl,
-          snapshot_url: r.stream_url,
-        })
-        setLoading(false)
-        return
-      }
-      const liveFromApi = pickLiveUrl(r.stream_url, r.embed_url)
-      if (liveFromApi) {
-        const snap =
-          r.snapshot_url ||
-          (providerLc === "caltrans"
-            ? proxiedCaltransSnapshot(feed.embedUrl || r.embed_url, normalizedMediaUrl || feed.mediaUrl)
-            : null)
-        setResolved({
-          ...r,
-          stream_url: liveFromApi,
-          embed_url: r.embed_url || feed.embedUrl || liveFromApi,
-          snapshot_url: snap || undefined,
-          stream_type: pickStreamType(liveFromApi, r.stream_type),
-        })
-        setLoading(false)
-        return
-      }
-      const resolvedLive = await resolveEagleLiveStream({
-        id: feed.id,
-        stream_url: r.stream_url || feed.mediaUrl,
-        embed_url: r.embed_url || feed.embedUrl,
-        media_url: normalizedMediaUrl || feed.mediaUrl,
-        provider: feed.provider,
-      })
-      if (cancelled) return
-      if (resolvedLive) {
-        setResolved({
-          id: feed.id,
-          provider: feed.provider,
-          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-          stream_type: resolvedLive.stream_type,
-          stream_url: resolvedLive.url,
-          embed_url: feed.embedUrl || resolvedLive.url,
-          snapshot_url:
-            resolvedLive.stream_type === "snapshot"
-              ? resolvedLive.url
-              : normalizedMediaUrl && isStill(normalizedMediaUrl)
-                ? normalizedMediaUrl
-                : undefined,
-        })
-      } else if (normalizedMediaUrl && isStill(normalizedMediaUrl)) {
-        setResolved({
-          id: feed.id,
-          provider: feed.provider,
-          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-          stream_type: "snapshot",
-          stream_url: normalizedMediaUrl,
+    void (async () => {
+      try {
+        const r = await resolveStream(feed.id, {
           embed_url: feed.embedUrl,
-          snapshot_url: normalizedMediaUrl,
+          media_url: normalizedMediaUrl || feed.mediaUrl,
         })
-      } else {
-        setResolved({ ...r, error: r.error || "No live video stream available" })
+        if (!isCurrentResolve()) return
+        if (r.stream_type === "snapshot" && r.stream_url) {
+          settleResolved({
+            ...r,
+            embed_url: r.embed_url || feed.embedUrl,
+            snapshot_url: r.stream_url,
+          })
+          return
+        }
+        const liveFromApi = pickLiveUrl(r.stream_url, r.embed_url)
+        if (liveFromApi) {
+          const snap =
+            r.snapshot_url ||
+            (providerLc === "caltrans"
+              ? proxiedCaltransSnapshot(feed.embedUrl || r.embed_url, normalizedMediaUrl || feed.mediaUrl)
+              : null)
+          settleResolved({
+            ...r,
+            stream_url: liveFromApi,
+            embed_url: r.embed_url || feed.embedUrl || liveFromApi,
+            snapshot_url: snap || undefined,
+            stream_type: pickStreamType(liveFromApi, r.stream_type),
+          })
+          return
+        }
+        if (r.error) {
+          settleResolved({
+            ...r,
+            id: feed.id,
+            provider: feed.provider,
+            kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+            error: r.error,
+          })
+          return
+        }
+        if (providerLc === "earthcam") {
+          settleResolved({
+            ...r,
+            id: feed.id,
+            provider: feed.provider,
+            kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+            error: r.error || "EarthCam live stream unavailable",
+          })
+          return
+        }
+        const resolvedLive = await resolveEagleLiveStream({
+          id: feed.id,
+          stream_url: r.stream_url || feed.mediaUrl,
+          embed_url: r.embed_url || feed.embedUrl,
+          media_url: normalizedMediaUrl || feed.mediaUrl,
+          provider: feed.provider,
+        })
+        if (!isCurrentResolve()) return
+        if (resolvedLive) {
+          settleResolved({
+            id: feed.id,
+            provider: feed.provider,
+            kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+            stream_type: resolvedLive.stream_type,
+            stream_url: resolvedLive.url,
+            embed_url: feed.embedUrl || resolvedLive.url,
+            snapshot_url:
+              resolvedLive.stream_type === "snapshot"
+                ? resolvedLive.url
+                : normalizedMediaUrl && isStill(normalizedMediaUrl)
+                  ? normalizedMediaUrl
+                  : undefined,
+          })
+        } else if (normalizedMediaUrl && isStill(normalizedMediaUrl)) {
+          settleResolved({
+            id: feed.id,
+            provider: feed.provider,
+            kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+            stream_type: "snapshot",
+            stream_url: normalizedMediaUrl,
+            embed_url: feed.embedUrl,
+            snapshot_url: normalizedMediaUrl,
+          })
+        } else {
+          settleResolved({ ...r, error: r.error || "No live video stream available" })
+        }
+      } catch (err) {
+        settleResolved({
+          id: feed.id,
+          provider: feed.provider,
+          kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+          stream_type: "iframe",
+          error: (err as Error)?.message || "Stream resolver failed",
+        })
       }
-      setLoading(false)
-    })
+    })()
 
     return () => { cancelled = true }
   }, [feed])
@@ -1278,11 +1567,9 @@ export default function VideoWallWidget() {
             <Square className="w-3.5 h-3.5 text-gray-400" />
           </button>
           <button
-            onClick={(event) => {
-              closeWidget()
-              event.preventDefault()
-              event.stopPropagation()
-            }}
+            type="button"
+            onPointerDown={handleCloseControl}
+            onClick={handleCloseControl}
             className="p-1 rounded hover:bg-white/10"
             aria-label="Close"
           >
@@ -1300,13 +1587,7 @@ export default function VideoWallWidget() {
             </div>
           )}
           {!loading && resolved?.error && (
-            <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400 p-4 text-center">
-              Stream resolver error: {resolved.error}
-              <br />
-              <span className="text-gray-500 text-[10px]">
-                Source may be offline or require additional auth.
-              </span>
-            </div>
+            <NoStreamStatusTile provider={feed.provider} name={feed.name} kind={feed.kind} />
           )}
           {!loading && resolved && !resolved.error && (() => {
             const url = resolved.stream_url || resolved.embed_url || feed.directEmbed

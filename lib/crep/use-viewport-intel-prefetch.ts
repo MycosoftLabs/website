@@ -81,6 +81,7 @@ function mergeCivicFacilityHints(
 export function useViewportIntelPrefetch(
   mapBounds: MapBoundsLike | null,
   mapZoom: number,
+  enabled = true,
 ) {
   const effectiveBounds = useMemo(
     () => resolveEffectiveBounds(mapBounds),
@@ -95,18 +96,18 @@ export function useViewportIntelPrefetch(
   }, [mapZoom, effectiveBounds])
 
   const boundsCacheHit = useMemo(
-    () => getViewportIntelCacheByBounds<ViewportIntelPrefetchPayload>(effectiveBounds, mapZoom),
-    [effectiveBounds, mapZoom],
+    () => enabled ? getViewportIntelCacheByBounds<ViewportIntelPrefetchPayload>(effectiveBounds, mapZoom) : null,
+    [effectiveBounds, mapZoom, enabled],
   )
 
   const [intel, setIntel] = useState<ViewportIntelPrefetchPayload | null>(
-    () => boundsCacheHit,
+    () => enabled ? boundsCacheHit : null,
   )
   const [optimisticPlace, setOptimisticPlace] = useState<ViewportPlaceLike | null>(
-    () => boundsCacheHit?.place ?? null,
+    () => enabled ? boundsCacheHit?.place ?? null : null,
   )
   const [fetching, setFetching] = useState(
-    () => !getViewportIntelCacheByBounds<ViewportIntelPrefetchPayload>(effectiveBounds, mapZoom),
+    () => enabled && !getViewportIntelCacheByBounds<ViewportIntelPrefetchPayload>(effectiveBounds, mapZoom),
   )
 
   const snapshotRef = useRef<{ bounds: ViewportBoundsLike; zoom: number } | null>(null)
@@ -120,6 +121,17 @@ export function useViewportIntelPrefetch(
   }, [])
 
   useEffect(() => {
+    if (!enabled) {
+      inFlightRef.current?.abort()
+      inFlightRef.current = null
+      snapshotRef.current = null
+      revisionKeyRef.current = null
+      setIntel(null)
+      setOptimisticPlace(null)
+      setFetching(false)
+      return
+    }
+
     const next = { bounds: effectiveBounds, zoom: mapZoom }
     const shouldRefresh =
       !snapshotRef.current ||
@@ -235,7 +247,7 @@ export function useViewportIntelPrefetch(
     // Do not return the controller abort here. Small map state churn can re-run
     // this effect without a significant viewport change; aborting in that path
     // leaves MYCA stuck on empty stale intel until the next large move.
-  }, [effectiveBounds, mapZoom, lodLabel])
+  }, [enabled, effectiveBounds, mapZoom, lodLabel])
 
   const hasDisplayContent = Boolean(intel || optimisticPlace)
 

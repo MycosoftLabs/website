@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import fs from "node:fs/promises"
+import path from "node:path"
 import { caltransProxiedSnapshot, resolveCaltransHls } from "@/lib/crep/caltrans-hls-resolve"
 import { normalizeYouTubeEmbedUrlSync } from "@/lib/crep/youtube-embed"
 
@@ -38,6 +40,85 @@ const MINDEX_INTERNAL_TOKEN =
   ""
 
 const MEDIAMTX_URL = process.env.MEDIAMTX_URL || "https://media.mycosoft.com"
+
+const BAKED_GEOJSON_FILES = [
+  "eagle-cameras-registry.geojson",
+  "eagle-cameras-manual-seed.geojson",
+  "eagle-cameras-caltrans-san-diego-seed.geojson",
+  "eagle-cameras-nyc-dc-seed.geojson",
+  "eagle-cameras-vegas-seed.geojson",
+  "eagle-cameras-deployment-sites-seed.geojson",
+]
+
+const UNAVAILABLE_SOURCE_STATUSES = new Set([
+  "offline",
+  "unavailable",
+  "retired",
+  "disabled",
+  "blocked",
+  "deprecated",
+  "temporarily_unavailable",
+])
+
+const KNOWN_UNAVAILABLE_SOURCE_IDS = new Set([
+  "earthcam-san-diego-bay",
+  "earthcam-sd-bay",
+  "earthcam-imperial-beach-pier",
+  "nps-cabrillo-ref",
+  "caltrans-d11-sr75-silverstrand",
+  "caltrans-d11-sr75-coronado-bridge",
+  "caltrans-d11-sr75-orange-ave",
+  "caltrans-d11-sr75-palm-ave",
+  "scripps-pier-sio-cam",
+])
+
+const SOURCE_ID_ALIASES = new Map<string, string>([
+  ["hoteldel-coronado-beach-south", "earthcam-coronado-hotel-del"],
+])
+
+const TEMPORARILY_UNPLAYABLE_PROVIDERS = new Set([
+  "navy",
+])
+
+function isStillImageUrl(url: string | null | undefined): boolean {
+  return !!url && (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) || /\/api\/eagle\/cam-image(?:\?|$)/i.test(url))
+}
+
+function proxiedStillImageUrl(url: string | null | undefined): string | null {
+  if (!url || !isStillImageUrl(url)) return null
+  if (/^\/api\/eagle\/cam-image(?:\?|$)/i.test(url)) return url
+  try {
+    const parsed = new URL(url)
+    return `/api/eagle/cam-image?url=${encodeURIComponent(parsed.toString())}`
+  } catch {
+    return null
+  }
+}
+
+function knownUnavailableProviderFor(sourceId: string): string {
+  if (sourceId.startsWith("caltrans-")) return "caltrans"
+  if (sourceId.startsWith("nps-")) return "youtube_live"
+  if (sourceId.startsWith("scripps-")) return "scripps"
+  if (sourceId.startsWith("skyline-")) return "skylinewebcams"
+  if (sourceId.startsWith("port-")) return "public-webcam"
+  if (sourceId.startsWith("weather-")) return "public-webcam"
+  if (sourceId.startsWith("av-")) return "public-webcam"
+  if (sourceId.startsWith("ski-")) return "public-webcam"
+  if (sourceId.startsWith("wild-")) return "public-webcam"
+  if (sourceId.startsWith("aq-")) return "public-webcam"
+  if (
+    sourceId.startsWith("earthcam-") ||
+    sourceId.startsWith("ec-") ||
+    sourceId.includes("-earthcam-") ||
+    sourceId.startsWith("stad-") ||
+    sourceId.startsWith("zoo-")
+  ) {
+    return "earthcam"
+  }
+  return "unknown"
+}
+
+let bakedSourceIndexPromise: Promise<Map<string, any>> | null = null
 
 function authHeaders(): Record<string, string> {
   if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
@@ -93,6 +174,50 @@ async function getAllEagleVideoSourcesCached(): Promise<any[]> {
   }
 }
 
+async function getBakedSourceIndex(): Promise<Map<string, any>> {
+  if (!bakedSourceIndexPromise) {
+    bakedSourceIndexPromise = (async () => {
+      const index = new Map<string, any>()
+      for (const file of BAKED_GEOJSON_FILES) {
+        try {
+          const full = path.join(process.cwd(), "public", "data", "crep", file)
+          const json = JSON.parse(await fs.readFile(full, "utf8"))
+          for (const feature of json?.features || []) {
+            const props = feature?.properties || {}
+            const id = String(props.id || props.source_id || "")
+            const coords = feature?.geometry?.coordinates || []
+            if (!id) continue
+            index.set(id, {
+              id,
+              source_id: id,
+              provider: props.provider || "unknown",
+              kind: props.kind || "permanent",
+              name: props.name ?? props.title ?? null,
+              stream_url: props.stream_url ?? null,
+              embed_url: props.embed_url ?? null,
+              media_url: props.media_url ?? null,
+              source_status: props.source_status ?? props.status ?? null,
+              status: props.status ?? null,
+              lat: Number(coords[1]),
+              lng: Number(coords[0]),
+              properties: props,
+            })
+          }
+        } catch {
+          /* seed file is optional */
+        }
+      }
+      return index
+    })()
+  }
+  return bakedSourceIndexPromise
+}
+
+async function fetchBakedSourceById(sourceId: string): Promise<any | null> {
+  const index = await getBakedSourceIndex()
+  return index.get(sourceId) ?? null
+}
+
 /**
  * Caltrans D11 / D12 ids encode the camera coordinates, e.g.
  *   caltrans-d11-32.69845,-117.18376
@@ -135,6 +260,7 @@ function flattenSource(raw: any): any {
     stream_url: raw.stream_url ?? props.stream_url ?? null,
     embed_url: raw.embed_url ?? props.embed_url ?? null,
     media_url: raw.media_url ?? props.media_url ?? null,
+    source_status: raw.source_status ?? props.source_status ?? raw.status ?? props.status ?? null,
     lat: raw.lat,
     lng: raw.lng,
     name: raw.name,
@@ -149,6 +275,276 @@ function deriveSurflineEmbed(embedUrl: string | null | undefined): string | null
   return `https://www.surfline.com/embed-cam/${m[1]}?autoplay=1&mute=1&playsinline=1`
 }
 
+async function surflineEmbedIsReachable(embedUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(embedUrl, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0",
+      },
+      signal: AbortSignal.timeout(5_000),
+      cache: "no-store",
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+function decodeProviderUrl(value: string): string {
+  return value
+    .replace(/\\\//g, "/")
+    .replace(/\\u0026/gi, "&")
+    .replace(/&amp;/gi, "&")
+}
+
+function earthCamStreamIdHints(embedUrl: string | null | undefined): string[] {
+  const url = String(embedUrl || "").toLowerCase()
+  const hints: string[] = []
+  const add = (id: string) => {
+    if (!hints.includes(id)) hints.push(id)
+  }
+  if (/bellagio|bellagio_fountain/.test(url)) add("3916")
+  if (/sphere/.test(url)) add("36330")
+  if (/sign_hd|welcome|fabulous/.test(url)) add("42116")
+  if (/wedding|chapel|elvis/.test(url)) add("21001")
+  if (/catsmeowkaraoke|karaoke/.test(url)) add("16813")
+  if (/catsmeow_lv_fremont|fremont|fremontst/.test(url)) add("16812")
+  return hints
+}
+
+function scoreEarthCamCandidate(candidate: string, embedUrl: string | null | undefined): number {
+  const lc = candidate.toLowerCase()
+  const hints = earthCamStreamIdHints(embedUrl)
+  for (let i = 0; i < hints.length; i += 1) {
+    const id = hints[i]
+    if (lc.includes(`/fecnetwork/${id}.`) || lc.includes(`/fecnetwork/${id}/`) || lc.includes(`/${id}.flv/`)) {
+      return 1_000 - i
+    }
+  }
+  return 0
+}
+
+async function probeHlsManifest(url: string, referer?: string | null): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.apple.mpegurl, application/x-mpegURL, */*",
+        "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0",
+        ...(referer ? { Referer: referer, Origin: new URL(referer).origin } : {}),
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return false
+    const text = await res.text()
+    return /#EXTM3U/i.test(text)
+  } catch {
+    return false
+  }
+}
+
+type CachedEarthCamHls = {
+  url: string
+  expiresAt: number
+}
+
+const earthCamHlsCache = new Map<string, CachedEarthCamHls>()
+const earthCamHlsInflight = new Map<string, Promise<string | null>>()
+const EARTHCAM_HLS_CACHE_MS = 90_000
+
+async function resolveEarthCamHls(embedUrl: string | null | undefined): Promise<string | null> {
+  if (!embedUrl || !/earthcam\.com/i.test(embedUrl)) return null
+  const cacheKey = embedUrl.trim()
+  const cached = earthCamHlsCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return cached.url
+  const inflight = earthCamHlsInflight.get(cacheKey)
+  if (inflight) return inflight
+  const promise = resolveEarthCamHlsFresh(cacheKey).then((resolved) => {
+    if (resolved) {
+      earthCamHlsCache.set(cacheKey, {
+        url: resolved,
+        expiresAt: Date.now() + EARTHCAM_HLS_CACHE_MS,
+      })
+    } else {
+      earthCamHlsCache.delete(cacheKey)
+    }
+    return resolved
+  }).finally(() => {
+    earthCamHlsInflight.delete(cacheKey)
+  })
+  earthCamHlsInflight.set(cacheKey, promise)
+  return promise
+}
+
+async function resolveEarthCamHlsFresh(embedUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(embedUrl, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0",
+      },
+      signal: AbortSignal.timeout(7_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    const candidates = new Set<string>()
+    for (const match of html.matchAll(/"stream"\s*:\s*"([^"]+?\.m3u8[^"]*)"/gi)) {
+      candidates.add(decodeProviderUrl(match[1]))
+    }
+    for (const match of html.matchAll(/https?:\\?\/\\?\/videos-[^"'<> ]+?\.m3u8[^"'<> ]*/gi)) {
+      candidates.add(decodeProviderUrl(match[0]))
+    }
+    const hints = earthCamStreamIdHints(embedUrl)
+    const orderedCandidates = Array.from(candidates).sort(
+      (a, b) => scoreEarthCamCandidate(b, embedUrl) - scoreEarthCamCandidate(a, embedUrl),
+    )
+    const candidatesToProbe = hints.length
+      ? orderedCandidates.filter((candidate) => scoreEarthCamCandidate(candidate, embedUrl) > 0)
+      : orderedCandidates
+    for (const candidate of candidatesToProbe) {
+      if (!/^https?:\/\//i.test(candidate)) continue
+      if (await probeHlsManifest(candidate, embedUrl)) return candidate
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function resolveHdontapHls(embedUrl: string | null | undefined): Promise<string | null> {
+  if (!embedUrl || !/portal\.hdontap\.com/i.test(embedUrl)) return null
+  try {
+    const parsed = new URL(embedUrl.startsWith("//") ? `https:${embedUrl}` : embedUrl)
+    const streamName = parsed.searchParams.get("stream")
+    if (!streamName) return null
+    const referrer = /hoteldel/i.test(streamName)
+      ? "https://www.hoteldel.com/live-webcam/"
+      : "https://portal.hdontap.com/s/embed/"
+    const lookupUrl =
+      `https://portal.hdontap.com/backend/embed/${encodeURIComponent(streamName)}` +
+      `?r=${encodeURIComponent(Buffer.from(referrer).toString("base64"))}`
+    const res = await fetch(lookupUrl, {
+      headers: {
+        Accept: "text/plain,*/*",
+        "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0",
+        Referer: parsed.toString(),
+      },
+      signal: AbortSignal.timeout(7_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const text = (await res.text()).trim()
+    let data: any = null
+    try {
+      data = JSON.parse(Buffer.from(text, "base64").toString("utf8"))
+    } catch {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = null
+      }
+    }
+    const streamSrc = String(data?.streamSrc || "")
+    if (!/\.m3u8(\?|$)/i.test(streamSrc)) return null
+    if (await probeHlsManifest(streamSrc, parsed.toString())) return streamSrc
+    return streamSrc
+  } catch {
+    return null
+  }
+}
+
+function extract511NyCameraKey(sourceId: string, embedUrl: string | null | undefined): string | null {
+  const stripped = sourceId.replace(/^nysdot-/i, "")
+  if (/^Skyline-\d+$/i.test(stripped)) return stripped
+  const m = /511ny\.org\/map\/Cctv\/(\d+)/i.exec(String(embedUrl || ""))
+  return m?.[1] || null
+}
+
+async function resolveNysdotHls(sourceId: string, embedUrl: string | null | undefined): Promise<string | null> {
+  const key = extract511NyCameraKey(sourceId, embedUrl)
+  if (!key) return null
+  try {
+    const res = await fetch("https://511ny.org/api/getcameras?format=json", {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(8_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const items: any[] = await res.json()
+    const match = items.find((camera: any) => {
+      const id = String(camera?.ID || "")
+      const url = String(camera?.Url || "")
+      return id === key || url.includes(`/Cctv/${key}`)
+    })
+    const videoUrl = String(match?.VideoUrl || "")
+    return /\.m3u8(\?|$)/i.test(videoUrl) ? videoUrl : null
+  } catch {
+    return null
+  }
+}
+
+async function resolveSkylineWebcams(
+  embedUrl: string | null | undefined,
+): Promise<{ type: "iframe" | "snapshot"; url: string } | null> {
+  if (!embedUrl || !/skylinewebcams\.com/i.test(embedUrl)) return null
+  try {
+    const pageUrl = new URL(embedUrl)
+    const res = await fetch(pageUrl.toString(), {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0",
+      },
+      signal: AbortSignal.timeout(8_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    const ytMatch =
+      /videoId\s*:\s*['"]([^'"]+)['"]/i.exec(html) ||
+      /["']videoId["']\s*:\s*["']([^"']+)["']/i.exec(html)
+    if (ytMatch?.[1]) {
+      const id = encodeURIComponent(ytMatch[1])
+      return {
+        type: "iframe",
+        url: `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0`,
+      }
+    }
+    const liveImage =
+      (() => {
+        const key = /nkey\s*:\s*['"](\d+)\.jpg['"]/i.exec(html)?.[1]
+        return key ? `https://cdn.skylinewebcams.com/live${key}.jpg` : null
+      })() ||
+      /https?:\/\/cdn\.skylinewebcams\.com\/live\d+\.jpg/i.exec(html)?.[0]
+    if (liveImage) {
+      return {
+        type: "snapshot",
+        url: `/api/eagle/cam-image?url=${encodeURIComponent(liveImage)}`,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function shouldProxyHls(provider: string, url: string): boolean {
+  return (
+    provider === "caltrans" ||
+    provider === "earthcam" ||
+    provider === "hdontap" ||
+    provider === "ndot" ||
+    provider === "nysdot" ||
+    /cwwp2\.dot\.ca\.gov/i.test(url) ||
+    /wzmedia\.dot\.ca\.gov/i.test(url) ||
+    /videos-\d+\.earthcam\.com/i.test(url) ||
+    /live\.hdontap\.com/i.test(url) ||
+    /d1wse1\.its\.nv\.gov/i.test(url) ||
+    /nysdot\.skyvdn\.com/i.test(url)
+  )
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sourceId: string }> },
@@ -157,6 +553,14 @@ export async function GET(
   if (!sourceId) {
     return NextResponse.json({ error: "sourceId required" }, { status: 400 })
   }
+  const lookupSourceId = SOURCE_ID_ALIASES.get(sourceId) ?? sourceId
+  if (KNOWN_UNAVAILABLE_SOURCE_IDS.has(lookupSourceId)) {
+    const provider = knownUnavailableProviderFor(lookupSourceId)
+    return NextResponse.json(
+      { error: "source temporarily unavailable", id: sourceId, provider, kind: "permanent", source_status: "temporarily_unavailable" },
+      { status: 503 },
+    )
+  }
   const qEmbed = req.nextUrl.searchParams.get("embed_url")
   const qMedia = req.nextUrl.searchParams.get("media_url")
   try {
@@ -164,17 +568,23 @@ export async function GET(
     // 1) MINDEX by-id (GET /eagle/video-sources/{id}) — O(1), no global bbox.
     // 2) Tight-bbox Caltrans / coord-hinted ids.
     // 3) Global layer cache (60 s) only as last resort.
-    let raw: any = hasQueryFallback ? null : await fetchVideoSourceByIdFromMindex(sourceId)
-    if (!raw) {
-      raw = await fetchByCoordHintedId(sourceId)
+    let raw: any = hasQueryFallback ? null : await fetchBakedSourceById(lookupSourceId)
+    if (!raw && !hasQueryFallback) {
+      raw = await fetchVideoSourceByIdFromMindex(lookupSourceId)
     }
-    if (!raw) {
+    if (!raw && !hasQueryFallback) {
+      raw = await fetchByCoordHintedId(lookupSourceId)
+    }
+    if (!raw && !hasQueryFallback) {
       const allSources = await getAllEagleVideoSourcesCached()
       raw = allSources.find(
         (s: any) =>
           String(s.id) === sourceId ||
+          String(s.id) === lookupSourceId ||
           String(s.source_id) === sourceId ||
-          String(s?.properties?.source_id ?? "") === sourceId,
+          String(s.source_id) === lookupSourceId ||
+          String(s?.properties?.source_id ?? "") === sourceId ||
+          String(s?.properties?.source_id ?? "") === lookupSourceId,
       )
     }
     const src = raw
@@ -186,11 +596,16 @@ export async function GET(
             ? "caltrans"
             : sourceId.startsWith("surfline-")
               ? "surfline"
-              : "unknown",
+              : sourceId.startsWith("vegas-ndot-") || sourceId.startsWith("ndot-")
+                ? "ndot"
+                : sourceId.startsWith("navy-")
+                  ? "navy"
+                  : "unknown",
           kind: "permanent",
           stream_url: null,
           embed_url: qEmbed,
           media_url: qMedia,
+          source_status: null,
         }
 
     if (!raw && !qEmbed && !qMedia) {
@@ -202,20 +617,51 @@ export async function GET(
 
     const embedHint = String(src.embed_url || "")
     const streamHint = String(src.stream_url || "")
+    const mediaHint = String(src.media_url || qMedia || "")
+    const hintText = `${embedHint} ${streamHint} ${mediaHint}`
     const sourceProvider = String(src.provider || "").trim()
     const provider =
       (sourceProvider && sourceProvider !== "unknown" ? sourceProvider : null) ||
       (/earthcam\.com/i.test(embedHint) ? "earthcam" : null) ||
       (/surfline\.com/i.test(embedHint) ? "surfline" : null) ||
-      (/youtube\.com|youtu\.be/i.test(`${embedHint} ${streamHint}`) ? "youtube_live" : null) ||
+      (/nvroads\.com/i.test(hintText) || sourceId.startsWith("vegas-ndot-") || sourceId.startsWith("ndot-") ? "ndot" : null) ||
+      (sourceId.startsWith("navy-") ? "navy" : null) ||
+      (/511ny\.org|nysdot\.skyvdn\.com/i.test(hintText) || sourceId.startsWith("nysdot-") ? "nysdot" : null) ||
+      (/webcams\.nyctmc\.org/i.test(hintText) || sourceId.startsWith("nyctmc-") ? "nyctmc" : null) ||
+      (/youtube\.com|youtu\.be/i.test(hintText) ? "youtube_live" : null) ||
+      (/portal\.hdontap\.com/i.test(hintText) || sourceId.startsWith("hoteldel-") ? "hdontap" : null) ||
+      (/webcams\.windy\.com|windy\.com/i.test(hintText) || sourceId.startsWith("windy-") ? "windy" : null) ||
+      (/skylinewebcams\.com/i.test(hintText) || sourceId.startsWith("skylinewebcams-") ? "skylinewebcams" : null) ||
+      (/webcamtaxi\.com/i.test(hintText) || sourceId.startsWith("webcamtaxi-") ? "webcamtaxi" : null) ||
+      (/hpwren\.ucsd\.edu/i.test(hintText) || sourceId.startsWith("hpwren-") ? "hpwren" : null) ||
+      (/alertwildfire|alertcalifornia/i.test(hintText) || sourceId.startsWith("alertwildfire-") ? "alertwildfire" : null) ||
+      (/nps\.gov/i.test(hintText) || sourceId.startsWith("nps-") ? "nps" : null) ||
+      (/usgs\.gov/i.test(hintText) || sourceId.startsWith("usgs-") ? "usgs" : null) ||
       "unknown"
     const kind = src.kind || "permanent"
+    const sourceStatus = String(src.source_status || "").trim().toLowerCase()
+    if (
+      (sourceStatus && UNAVAILABLE_SOURCE_STATUSES.has(sourceStatus)) ||
+      TEMPORARILY_UNPLAYABLE_PROVIDERS.has(provider)
+    ) {
+      return NextResponse.json(
+        { error: "source temporarily unavailable", id: sourceId, provider, kind, source_status: sourceStatus || "temporarily_unavailable" },
+        { status: 503 },
+      )
+    }
     let streamUrl = (src.stream_url || "").trim()
     const isHls =
       streamUrl.length > 0 &&
       (streamUrl.toLowerCase().endsWith(".m3u8") || streamUrl.toLowerCase().includes(".m3u8?"))
 
-    if (provider === "caltrans" && !isHls) {
+    if (provider === "ndot" && !isHls && !proxiedStillImageUrl(src.media_url || qMedia)) {
+      return NextResponse.json(
+        { error: "ndot live stream unavailable", id: sourceId, provider, kind, source_status: "temporarily_unavailable" },
+        { status: 503 },
+      )
+    }
+
+    if (provider === "caltrans") {
       const resolved = await resolveCaltransHls({
         sourceId,
         stream_url: src.stream_url,
@@ -223,6 +669,70 @@ export async function GET(
         media_url: src.media_url,
       })
       if (resolved) streamUrl = resolved
+      else if (isHls) streamUrl = ""
+    }
+
+    if (provider === "nysdot" && !isHls) {
+      const resolved = await resolveNysdotHls(sourceId, src.embed_url)
+      if (resolved) streamUrl = resolved
+    }
+
+    const directYouTube = normalizeYouTubeEmbedUrlSync(String(src.stream_url || "")) ||
+      normalizeYouTubeEmbedUrlSync(String(src.embed_url || ""))
+    if (directYouTube) {
+      return NextResponse.json({
+        id: sourceId,
+        provider,
+        kind,
+        embed_url: directYouTube,
+        stream_url: directYouTube,
+        stream_type: "iframe",
+      })
+    }
+
+    if (provider === "earthcam" && !isHls) {
+      const resolved = await resolveEarthCamHls(src.embed_url)
+      if (resolved) {
+        streamUrl = resolved
+      } else {
+        return NextResponse.json(
+          { error: "earthcam live stream unavailable", id: sourceId, provider, kind, source_status: "temporarily_unavailable" },
+          { status: 503 },
+        )
+      }
+    }
+
+    if (provider === "hdontap" && !isHls) {
+      const resolved = await resolveHdontapHls(src.embed_url)
+      if (resolved) streamUrl = resolved
+    }
+
+    if (provider === "skylinewebcams" && !isHls) {
+      const resolved = await resolveSkylineWebcams(src.embed_url)
+      if (resolved?.type === "iframe") {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          embed_url: resolved.url,
+          stream_url: resolved.url,
+          stream_type: "iframe",
+        })
+      }
+      if (resolved?.type === "snapshot") {
+        return NextResponse.json({
+          id: sourceId,
+          provider,
+          kind,
+          stream_url: resolved.url,
+          embed_url: src.embed_url,
+          stream_type: "snapshot",
+        })
+      }
+      return NextResponse.json(
+        { error: "skylinewebcams live stream unavailable", id: sourceId, provider, kind, source_status: "temporarily_unavailable" },
+        { status: 503 },
+      )
     }
 
     const resolvedHls =
@@ -235,9 +745,7 @@ export async function GET(
           ? caltransProxiedSnapshot(src.embed_url, src.media_url)
           : null
       const needsProxy =
-        provider === "caltrans" ||
-        /cwwp2\.dot\.ca\.gov/i.test(streamUrl) ||
-        /wzmedia\.dot\.ca\.gov/i.test(streamUrl)
+        shouldProxyHls(provider, streamUrl)
       const playable =
         needsProxy && !streamUrl.startsWith("/api/eagle/hls-proxy")
           ? `/api/eagle/hls-proxy?url=${encodeURIComponent(streamUrl)}`
@@ -254,7 +762,7 @@ export async function GET(
 
     if (provider === "surfline" && src.embed_url) {
       const surfEmbed = deriveSurflineEmbed(String(src.embed_url))
-      if (surfEmbed) {
+      if (surfEmbed && await surflineEmbedIsReachable(surfEmbed)) {
         return NextResponse.json({
           id: sourceId,
           provider,
@@ -263,6 +771,10 @@ export async function GET(
           stream_type: "iframe",
         })
       }
+      return NextResponse.json(
+        { error: "surfline live stream unavailable", id: sourceId, provider, kind, source_status: "temporarily_unavailable" },
+        { status: 503 },
+      )
     }
 
     // Shinobi → proxy through MediaMTX as HLS.
@@ -311,12 +823,14 @@ export async function GET(
       }
     }
 
-    if (provider === "earthcam" && src.embed_url) {
+    // Proxied still-frame (state DOT JPEG refresh, HPWREN live stills, etc.).
+    const proxiedStill = proxiedStillImageUrl(src.media_url)
+    if (proxiedStill) {
       return NextResponse.json({
         id: sourceId,
         provider,
         kind,
-        stream_url: src.embed_url,
+        stream_url: proxiedStill,
         embed_url: src.embed_url,
         stream_type: "snapshot",
       })
@@ -332,18 +846,6 @@ export async function GET(
         kind,
         embed_url,
         stream_type: "iframe",
-      })
-    }
-
-    // Proxied still-frame (Caltrans / state DOT JPEG refresh).
-    if (src.media_url && /\/api\/eagle\/cam-image/i.test(String(src.media_url))) {
-      return NextResponse.json({
-        id: sourceId,
-        provider,
-        kind,
-        stream_url: src.media_url,
-        embed_url: src.embed_url,
-        stream_type: "snapshot",
       })
     }
 

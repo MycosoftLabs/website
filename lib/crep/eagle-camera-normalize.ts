@@ -32,6 +32,7 @@ const SENSOR_ONLY_PROVIDERS = new Set([
   "sandiego_deh",
   "noaa-coops",
   "noaa_trnerr",
+  "navy",
 ])
 
 const SENSOR_ID_PREFIXES = [
@@ -49,6 +50,7 @@ const KNOWN_CAMERA_PROVIDERS = new Set([
   "shinobi",
   "earthcam",
   "webcamtaxi",
+  "hdontap",
   "windy",
   "nps",
   "usgs",
@@ -63,6 +65,7 @@ const KNOWN_CAMERA_PROVIDERS = new Set([
   "511sf",
   "nysdot",
   "nyctmc",
+  "ndot",
   "wsdot",
   "fdot",
   "txdot",
@@ -78,6 +81,14 @@ const INFO_ONLY_PROVIDERS = new Set([
   "parks-ca",
 ])
 
+const STREAM_REQUIRED_PROVIDERS = new Set([
+  "nysdot",
+  "port-of-sd",
+  "usgs",
+  "webcamtaxi",
+  "windy",
+])
+
 const UNAVAILABLE_SOURCE_STATUSES = new Set([
   "offline",
   "unavailable",
@@ -85,12 +96,40 @@ const UNAVAILABLE_SOURCE_STATUSES = new Set([
   "disabled",
   "blocked",
   "deprecated",
+  "temporarily_unavailable",
 ])
 
 const KNOWN_UNAVAILABLE_SOURCE_IDS = new Set([
   "vegas-youtube-fremont-live",
   "vegas-youtube-strip-live",
   "vegas-youtube-cityhall",
+  "ec-vegas-strip",
+  "earthcam-san-diego-bay",
+  "earthcam-sd-bay",
+  "earthcam-imperial-beach-pier",
+  "nps-cabrillo-ref",
+  "caltrans-d11-sr75-silverstrand",
+  "caltrans-d11-sr75-coronado-bridge",
+  "caltrans-d11-sr75-orange-ave",
+  "caltrans-d11-sr75-palm-ave",
+  "scripps-pier-sio-cam",
+])
+
+const LOCATION_CONTEXT_SOURCE_IDS = new Set([
+  "caltrans-d11-sr75-silverstrand",
+  "caltrans-d11-sr75-coronado-bridge",
+  "caltrans-d11-sr75-orange-ave",
+  "caltrans-d11-sr75-palm-ave",
+  "earthcam-imperial-beach-pier",
+  "earthcam-san-diego-bay",
+  "earthcam-sd-bay",
+  "nps-cabrillo-ref",
+  "skylinewebcams-ocean-beach",
+  "vegas-earthcam-fremont",
+  "vegas-ndot-i15-sahara",
+  "vegas-ndot-us95-summerlin",
+  "vegas-ndot-215-charleston",
+  "scripps-pier-sio-cam",
 ])
 
 /** id → [lng, lat] verified US-side / on-land positions. */
@@ -143,10 +182,12 @@ export function isDisplayableEagleCamera(source: EagleCameraLike): boolean {
   if (!Number.isFinite(Number(source.lat)) || !Number.isFinite(Number(source.lng))) {
     return false
   }
-  if (isUnavailableSource(source)) return false
+  const id = String(source.id || "")
+  if (isUnavailableSource(source) && !LOCATION_CONTEXT_SOURCE_IDS.has(id)) return false
   if (isSensorOnly(source)) return false
 
   const provider = String(source.provider || "").toLowerCase()
+  if (STREAM_REQUIRED_PROVIDERS.has(provider)) return hasDirectPlayableMedia(source)
   if (INFO_ONLY_PROVIDERS.has(provider)) return hasDirectPlayableMedia(source)
   if (KNOWN_CAMERA_PROVIDERS.has(provider)) return true
 
