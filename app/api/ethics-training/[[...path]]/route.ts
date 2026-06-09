@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ETHICS_TRAINING_ALLOWED_EMAILS } from "@/lib/access/routes"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const BASE = `${MAS_API_URL}/api/ethics/training`
@@ -21,7 +22,8 @@ async function proxy(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const email = user?.email?.toLowerCase() ?? ""
-  const role = (user?.user_metadata?.role as string | undefined) ?? ""
+  // SECURITY: role from verified email, not user-writable user_metadata.
+  const role = deriveServerRole(user)
   const allowedByEmail = ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)
   const allowedByRole = role === "owner" || role === "admin"
   if (!user || (!allowedByEmail && !allowedByRole)) {

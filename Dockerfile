@@ -62,9 +62,10 @@ ENV NEON_DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 ENV DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 # Supabase — NEXT_PUBLIC_ vars MUST be present at build time for Next.js to inline them.
 # The anon key is a public key (safe to embed in client bundles — it only grants Row-Level Security access).
-# Override via --build-arg if you use a different Supabase project.
-ARG NEXT_PUBLIC_SUPABASE_URL=https://hnevnsxnhfibhbsipqvz.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZXZuc3huaGZpYmhic2lwcXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NzQ1NzEsImV4cCI6MjA4NDI1MDU3MX0.ooL4ZtASkUR4aQqpN4KfUPNcEwpbPLoGfGUkEoc4g7w
+# SECURITY: no hardcoded default — CI passes these via --build-arg from secrets
+# (.github/workflows/ci-cd.yml). Do not bake a specific project's keys into the image.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 # Site URL for OAuth callbacks - MUST match deployed domain

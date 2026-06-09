@@ -7,6 +7,7 @@
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 const MAS_API_URL =
   process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
@@ -17,7 +18,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: auth } = await supabase.auth.getUser()
     const authUser = auth.user
-    const verifiedRole = String(authUser?.user_metadata?.role || "guest").toLowerCase()
+    // SECURITY: role from verified email, not user-writable user_metadata.
+    const verifiedRole = authUser ? deriveServerRole(authUser) : "guest"
     const verifiedEmail = authUser?.email ? String(authUser.email).toLowerCase().trim() : null
     const isCreator =
       verifiedEmail === "morgan@mycosoft.org" &&

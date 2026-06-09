@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-governance"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 /**
  * MYCA Voice Orchestrator API v6.0 - MYCA-Only Architecture
@@ -424,7 +425,8 @@ async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<Runt
     if (authError || !authData.user) return fallback
 
     const authUser = authData.user
-    const metadataRole = String(authUser.user_metadata?.role || "user").toLowerCase()
+    // SECURITY: role from verified email, not user-writable user_metadata.
+    const metadataRole = deriveServerRole(authUser)
     const verifiedEmail = String(authUser.email || "").toLowerCase().trim()
     const isSuperuser = ["superuser", "owner", "admin"].includes(metadataRole)
     const canWriteGlobalTraining = ["superuser", "owner"].includes(metadataRole)

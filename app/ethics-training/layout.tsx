@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ETHICS_TRAINING_ALLOWED_EMAILS } from "@/lib/access/routes"
 import { ETSidebar } from "@/components/ethics-training/ETSidebar"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 export const dynamic = "force-dynamic"
 
@@ -13,7 +14,8 @@ export default async function EthicsTrainingLayout({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const email = user?.email?.toLowerCase() ?? ""
-  const role = (user?.user_metadata?.role as string | undefined) ?? ""
+  // SECURITY: role from verified email, not user-writable user_metadata.
+  const role = deriveServerRole(user)
 
   if (!user) {
     redirect("/login?redirectTo=/ethics-training")

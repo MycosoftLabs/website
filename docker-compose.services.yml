@@ -13,7 +13,10 @@ services:
     container_name: mycosoft-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Loopback only — removes off-host exposure. NOTE: this Redis is still
+      # password-less on the compose network; to add --requirepass, update the
+      # REDIS_URL of every service in this file to redis://:<pw>@redis:6379.
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { masServiceHeaders } from "@/lib/auth/verified-identity"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
@@ -19,7 +20,8 @@ interface TrainingData {
 }
 
 function getVerifiedRole(authUser: any): string {
-  return String(authUser?.user_metadata?.role || "user").toLowerCase()
+  // SECURITY: role from verified email, not user-writable user_metadata.
+  return deriveServerRole(authUser)
 }
 
 function canWriteTraining(authUser: any): boolean {

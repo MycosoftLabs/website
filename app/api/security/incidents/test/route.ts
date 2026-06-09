@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth/api-auth';
 import { createClient } from '@supabase/supabase-js';
 import { 
   initializeSecurityAgents, 
@@ -87,6 +88,9 @@ export const dynamic = 'force-dynamic';
  * - withResolutions: boolean - whether to auto-resolve some incidents (default: true)
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   try {
     // Support both body JSON and query parameters
     let type = 'random';
@@ -487,6 +491,9 @@ async function createTestIncident(type: string, withChain: boolean = true) {
  * Get test API status and usage information
  */
 export async function GET() {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   return NextResponse.json({
     status: 'ready',
     description: 'Test API for generating incidents with chain entries',

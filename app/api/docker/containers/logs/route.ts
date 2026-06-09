@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 const DOCKER_API_URL = process.env.DOCKER_API_URL || "http://host.docker.internal:2375"
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const containerId = request.nextUrl.searchParams.get("id")
   const tail = request.nextUrl.searchParams.get("tail") || "100"
   const timestamps = request.nextUrl.searchParams.get("timestamps") === "true"
@@ -64,6 +68,9 @@ export async function GET(request: NextRequest) {
 
 // Stream logs (for real-time)
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const body = await request.json()
   const { containerId, follow } = body
 

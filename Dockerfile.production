@@ -18,7 +18,10 @@
 # invalidates every downstream layer.
 
 FROM node:20-bookworm-slim AS base
-ARG NEXTAUTH_SECRET=change-me-before-prod
+# SECURITY: no default — a known fallback secret lets anyone forge sessions.
+# NEXTAUTH_SECRET must be provided at container runtime (compose env_file/.env),
+# not baked into the image. See SECURITY_CURSOR_HANDOFF.md.
+ARG NEXTAUTH_SECRET
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SITE_URL=https://mycosoft.com

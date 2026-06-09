@@ -4,6 +4,28 @@ dist/
 out/
 .turbo/
 
+# Build/audit/operational debris — must never be committed (see SECURITY_AUDIT_2026-06-09.md)
+git_diff*.txt
+git-status.txt
+conflict.diff
+pr_logs.txt
+get_pr_logs.js
+fix.js
+node-processes.txt
+cmd.json
+x402.txt
+tsout.txt
+tsc_output*.txt
+ts_errors.txt
+temp_original_*.txt
+site-media-audit*.json
+asset-audit-*.json
+asset-audit-*.tsv
+scripts/_*_check_result.txt
+
+# Employee PII — provision out-of-band on the VM at /opt/mycosoft/config/security/
+config/security/authorized-users.json
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
