@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic"
 
 type Cam = {
   id: string
-  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot"
+  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot" | "ndot"
   name: string | null
   lat: number
   lng: number
@@ -104,6 +104,7 @@ const PROVIDER_EXTENTS = {
   fdot: [-87.8, 24.3, -79.7, 31.1],
   nysdot: [-79.9, 40.3, -71.7, 45.2],
   nyctmc: [-74.3, 40.45, -73.65, 41.0],
+  ndot: [-120.1, 34.8, -114.0, 42.2],
   txdot: [-106.7, 25.8, -93.4, 36.6],
 } satisfies Record<string, Extent>
 
@@ -356,18 +357,126 @@ async function pullTxDOT(): Promise<Cam[]> {
   } catch { return [] }
 }
 
+function nvRoadsApiKey(): string {
+  return (
+    process.env.NVROADS_API_KEY ||
+    process.env.NEVADA_511_API_KEY ||
+    process.env.NV_511_API_KEY ||
+    process.env.TRANSIT_511_API_KEY ||
+    ""
+  ).trim()
+}
+
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value
+  return []
+}
+
+function firstNonEmptyArray(...values: any[]): any[] {
+  for (const value of values) {
+    const array = asArray(value)
+    if (array.length) return array
+  }
+  return []
+}
+
+function nvRoadsCameraItems(payload: any): any[] {
+  if (Array.isArray(payload)) return payload
+  return firstNonEmptyArray(
+    payload?.Cameras,
+    payload?.cameras,
+    payload?.data,
+    payload?.features,
+    payload?.CamerasList?.Cameras,
+    payload?.camerasList?.cameras,
+    payload?.Data?.Cameras,
+    payload?.data?.Cameras,
+    payload?.data?.cameras,
+  )
+}
+
+// Nevada 511 / NVroads publishes real CCTV HLS URLs from /api/v2/get/cameras,
+// but the endpoint requires a developer key. Without it, keep the connector
+// quiet so placeholder rows do not open the whole NVroads app in a widget.
+async function pullNDOT(): Promise<Cam[]> {
+  const key = nvRoadsApiKey()
+  if (!key) return []
+  try {
+    const qp = new URLSearchParams({ key, format: "json" })
+    const res = await fetch(`https://www.nvroads.com/api/v2/get/cameras?${qp}`, {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(12_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return []
+    const j = await res.json()
+    const items = nvRoadsCameraItems(j)
+    const cams: Cam[] = []
+    for (const item of items) {
+      const p = item?.properties || item
+      const baseLat = Number(p.Latitude ?? p.latitude ?? p.lat ?? item?.geometry?.coordinates?.[1])
+      const baseLng = Number(p.Longitude ?? p.longitude ?? p.lng ?? item?.geometry?.coordinates?.[0])
+      if (!Number.isFinite(baseLat) || !Number.isFinite(baseLng)) continue
+      const views = Array.isArray(p.Views) && p.Views.length ? p.Views : [p]
+      for (const view of views) {
+        const lat = Number(view.Latitude ?? view.latitude ?? baseLat)
+        const lng = Number(view.Longitude ?? view.longitude ?? baseLng)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+        const videoUrl = String(
+          view.VideoUrl ?? view.videoUrl ?? view.StreamUrl ?? view.streamUrl ?? p.VideoUrl ?? p.videoUrl ?? "",
+        ).trim()
+        const imageUrl = String(
+          view.ImageUrl ?? view.imageUrl ?? view.SnapshotUrl ?? view.snapshotUrl ?? view.Url ?? view.url ?? "",
+        ).trim()
+        const statusText = String(view.Status ?? view.status ?? p.Status ?? p.status ?? "").toLowerCase()
+        const disabled =
+          view.Enabled === false ||
+          view.Disabled === true ||
+          p.Disabled === true ||
+          /disabled|offline|blocked|retired|unavailable/.test(statusText)
+        const hasHls = /\.m3u8(\?|$)/i.test(videoUrl)
+        const hasStill = /\.(jpe?g|png|webp)(\?|$)/i.test(imageUrl)
+        if (disabled || (!hasHls && !hasStill)) continue
+        const rawId = view.Id ?? view.ID ?? view.ViewId ?? p.Id ?? p.ID ?? `${lat},${lng}`
+        const nameParts = [
+          p.Roadway || p.roadway || p.Name || p.name || "NDOT camera",
+          p.Direction || p.direction,
+          view.Description || view.description || view.Name || view.name,
+        ].filter(Boolean)
+        const mediaUrl = hasStill ? `/api/eagle/cam-image?url=${encodeURIComponent(imageUrl)}` : null
+        cams.push({
+          id: `ndot-${rawId}`,
+          provider: "ndot",
+          name: nameParts.join(" - "),
+          lat,
+          lng,
+          stream_url: hasHls ? videoUrl : null,
+          embed_url: String(view.Url ?? view.url ?? p.Url ?? p.url ?? "https://www.nvroads.com/").trim() || null,
+          media_url: mediaUrl,
+          source_status: "online",
+          category: "traffic",
+        })
+      }
+    }
+    return cams
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const bbox = req.nextUrl.searchParams.get("bbox") || undefined
   const parsedBbox = parseBbox(bbox)
-  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot] = await Promise.all([
+  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot, ndot] = await Promise.all([
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.caltrans) ? pullCaltrans(parsedBbox) : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.wsdot) ? pullWSDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.fdot) ? pullFDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nysdot) ? pullNYSDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nyctmc) ? pullNYCTMC() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.txdot) ? pullTxDOT() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.ndot) ? pullNDOT() : Promise.resolve([]),
   ])
-  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot]
+  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot, ...ndot]
   if (parsedBbox) cams = cams.filter((c) => pointInBbox(c, parsedBbox))
   return NextResponse.json(
     {
@@ -380,6 +489,7 @@ export async function GET(req: NextRequest) {
         nysdot: nysdot.length,
         nyctmc: nyctmc.length,
         txdot: txdot.length,
+        ndot: ndot.length,
       },
       cams,
     },

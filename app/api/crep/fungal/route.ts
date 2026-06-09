@@ -46,6 +46,7 @@ const QUICK_MINDEX_VIEWPORT_TIMEOUT_MS =
   Number.isFinite(configuredQuickMindexViewportTimeout) && configuredQuickMindexViewportTimeout > 0
     ? configuredQuickMindexViewportTimeout
     : 3500
+const DEBUG_CREP_FUNGAL = process.env.CREP_DEBUG_FUNGAL === "1"
 
 /** Fetch with timeout and retry for external APIs (iNaturalist, GBIF) to reduce ConnectTimeoutError */
 async function fetchWithRetry(
@@ -423,7 +424,9 @@ async function fetchMINDEXObservations(
     console.log(`[CREP/Fungal] MINDEX total fetched: ${allObservations.length} observations`)
     
     if (allObservations.length === 0) {
-      console.warn("[CREP/Fungal] MINDEX returned 0 observations, will use external fallback")
+      if (DEBUG_CREP_FUNGAL) {
+        console.warn("[CREP/Fungal] MINDEX returned 0 observations, will use external fallback")
+      }
       return []
     }
     

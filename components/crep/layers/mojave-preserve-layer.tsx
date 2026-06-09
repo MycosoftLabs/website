@@ -518,7 +518,7 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       safeAddLayer({
         id: "mojave-power-dot", type: "circle", source: "mojave-power", minzoom: 3,
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["capacity_mw"], 0, 4, 100, 5, 500, 7, 2000, 10],
+          "circle-radius": ["interpolate", ["linear"], ["to-number", ["get", "capacity_mw"], 0], 0, 4, 100, 5, 500, 7, 2000, 10],
           "circle-color": [ "match", ["get", "kind"], "solar", "#facc15", "wind", "#22d3ee", "coal-retired", "#78350f", "substation", "#fbbf24", "hvdc", "#a855f7", "#fbbf24" ],
           "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
         },

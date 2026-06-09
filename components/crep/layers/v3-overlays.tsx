@@ -309,8 +309,12 @@ async function fetchAllGlobalEvents(): Promise<any[]> {
   if (_globalEventsInFlight) return _globalEventsInFlight
   _globalEventsInFlight = (async () => {
     try {
-      const r = await fetch("/api/natureos/global-events?days=3&limit=1200", {
-        signal: AbortSignal.timeout(15_000),
+      const isTabletViewport =
+        typeof window !== "undefined" &&
+        (window.innerWidth <= 1180 || window.matchMedia?.("(pointer: coarse)")?.matches)
+      const limit = isTabletViewport ? 280 : 420
+      const r = await fetch(`/api/natureos/global-events?days=3&limit=${limit}`, {
+        signal: AbortSignal.timeout(isTabletViewport ? 5_000 : 10_000),
       })
       if (!r.ok) return _globalEventsCache.events
       const j = await r.json()
@@ -525,6 +529,10 @@ function mergePointsByIdentity(...groups: any[][]) {
 
 function compactBboxKey(bbox: [number, number, number, number]) {
   return bbox.map((value) => value.toFixed(3)).join(",")
+}
+
+function isEarthSimulatorRoute() {
+  return typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator")
 }
 
 function capFacilityPoints(points: any[]) {
@@ -1003,6 +1011,7 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
   // but the UX feedback now exists even at continental zoom.
   useEffect(() => {
     if (!map || !bbox) return
+    if (isEarthSimulatorRoute()) return
     type FacilityTask = {
       enabled: boolean
       kind: FacilityKind
@@ -1061,6 +1070,7 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
   // nothing have no data".
   useEffect(() => {
     if (!map || !bbox) return
+    if (isEarthSimulatorRoute()) return
     const any = enabled.oilGas || enabled.methaneSources || enabled.metalOutput || enabled.waterPollution
     if (!any || map.getZoom() < 3) return
     ;(async () => {

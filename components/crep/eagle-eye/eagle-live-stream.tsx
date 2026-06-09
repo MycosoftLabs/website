@@ -18,7 +18,7 @@ interface EagleLiveStreamResolveOptions {
 }
 
 function isHls(url: string) {
-  return /\.m3u8(\?|$)/i.test(url)
+  return /\.m3u8(\?|$|%3f)/i.test(url) || /\/api\/eagle\/hls-proxy(?:\?|$)/i.test(url)
 }
 
 function isWhep(url: string) {
@@ -33,6 +33,41 @@ function isStillImage(url: string) {
   return /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) || /\/api\/eagle\/cam-image/i.test(url)
 }
 
+const STILL_IMAGE_PROXY_HOSTS = new Set([
+  "hpwren.ucsd.edu",
+  "www.hpwren.ucsd.edu",
+  "firemap.sdsc.edu",
+  "www.alertcalifornia.org",
+  "cameras.alertcalifornia.org",
+  "www.alertwildfire.org",
+  "cameras.alertwildfire.org",
+  "www.nps.gov",
+  "webcams.nps.gov",
+  "volcanoes.usgs.gov",
+  "hvo-api.wr.usgs.gov",
+  "cdn.skylinewebcams.com",
+  "camsecure.co",
+  "cams.cdn-surfline.com",
+  "511ny.org",
+  "www.511ny.org",
+  "wsdot.wa.gov",
+  "www.wsdot.wa.gov",
+  "fl511.com",
+  "www.fl511.com",
+  "www.drivetexas.org",
+  "drivetexas.org",
+  "its.dot.ny.gov",
+  "cwwp2.dot.ca.gov",
+  "www.dot.ny.gov",
+  "511va.org",
+  "www.511va.org",
+  "chart.maryland.gov",
+  "ddot.dc.gov",
+  "dc.gov",
+  "webcams.nyctmc.org",
+  "nyctmc.org",
+])
+
 function proxiedHlsUrl(url: string): string {
   if (!isHls(url) || url.startsWith("/api/eagle/hls-proxy")) return url
   try {
@@ -40,7 +75,16 @@ function proxiedHlsUrl(url: string): string {
     const host = parsed.hostname.toLowerCase()
     const isLocalProxy = parsed.pathname === "/api/eagle/hls-proxy"
     if (isLocalProxy) return url
-    if (host.endsWith("dot.ca.gov") || host.includes("dot.ca.gov")) {
+    if (
+      host.endsWith("dot.ca.gov") ||
+      host.includes("dot.ca.gov") ||
+      /videos-\d+\.earthcam\.com/i.test(host) ||
+      host === "live.hdontap.com" ||
+      host === "d1wse1.its.nv.gov" ||
+      host.endsWith(".its.nv.gov") ||
+      host === "nysdot.skyvdn.com" ||
+      host.endsWith(".nysdot.skyvdn.com")
+    ) {
       return `/api/eagle/hls-proxy?url=${encodeURIComponent(parsed.toString())}`
     }
   } catch {
@@ -59,6 +103,13 @@ export function normalizeEagleStillImageUrl(url?: string | null): string | null 
         return `/api/eagle/cam-image?url=${encodeURIComponent(upstream)}`
       }
       return null
+    }
+    if (
+      parsed.pathname !== "/api/eagle/cam-image" &&
+      isStillImage(parsed.toString()) &&
+      STILL_IMAGE_PROXY_HOSTS.has(parsed.hostname.toLowerCase())
+    ) {
+      return `/api/eagle/cam-image?url=${encodeURIComponent(parsed.toString())}`
     }
   } catch {
     /* keep original URL */
@@ -95,7 +146,6 @@ const SNAPSHOT_VIEWER_HOSTS = [
   "hpwren.ucsd.edu",
   "www.surfline.com",
   "cams.cdn-surfline.com",
-  "www.earthcam.com",
   "www.skylinewebcams.com",
   "www.webcamtaxi.com",
   "www.windy.com",
@@ -121,7 +171,13 @@ function shouldResolveBeforeStill(
 ) {
   const provider = (source.provider || "").toLowerCase()
   const urls = `${source.stream_url || ""} ${source.embed_url || ""} ${source.media_url || ""}`.toLowerCase()
-  return provider === "caltrans" || provider.startsWith("511") || /caltrans|dot\.ca\.gov|cwwp2\.dot\.ca\.gov/.test(urls)
+  return (
+    provider === "caltrans" ||
+    provider === "earthcam" ||
+    provider === "nysdot" ||
+    provider.startsWith("511") ||
+    /caltrans|dot\.ca\.gov|cwwp2\.dot\.ca\.gov|earthcam\.com|511ny\.org|nysdot\.skyvdn\.com/.test(urls)
+  )
 }
 
 function looksLikeVideoEmbed(url: string) {
@@ -217,6 +273,7 @@ export async function resolveEagleLiveStream(
 
   const viewerUrl = source.embed_url || source.stream_url
   if (viewerUrl && !isStillImage(viewerUrl)) {
+    if ((source.provider || "").toLowerCase() === "earthcam" && options.allowResolver === false) return null
     if (!isCbpSource(source) && isSnapshotViewerUrl(viewerUrl)) {
       return { stream_type: "snapshot", url: viewerUrl }
     }
@@ -598,6 +655,33 @@ export function EagleLivePreviewTile({
   source: EagleViewportSource
   className?: string
 }) {
+  const previewMediaUrl = normalizeEagleStillImageUrl(source.media_url)
+  if (previewMediaUrl && isStillImage(previewMediaUrl)) {
+    return (
+      <div className={`relative overflow-hidden bg-black ${className || ""}`}>
+        <img
+          src={previewMediaUrl}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[6px] font-mono uppercase tracking-wide text-cyan-300">
+          LIVE
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className={`relative flex flex-col items-center justify-center gap-1 overflow-hidden bg-gradient-to-br from-slate-950 to-black px-1 text-center ${className || ""}`}>
+      <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Live feed</span>
+      <span className="text-[6px] text-gray-500">Tap to open player</span>
+      <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[6px] font-mono uppercase tracking-wide text-cyan-300">
+        LIVE
+      </div>
+    </div>
+  )
+
   const [resolved, setResolved] = useState<EagleLiveStreamResolved | null>(null)
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
   const { id, stream_url, embed_url, media_url, provider } = source

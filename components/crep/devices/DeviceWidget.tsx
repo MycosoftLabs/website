@@ -355,11 +355,11 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
   }, [])
 
   const handleClose = useCallback((event?: SyntheticEvent | Event) => {
-    onClose()
     if (event) {
       event.preventDefault?.()
       stopWidgetEvent(event)
     }
+    onClose()
   }, [onClose, stopWidgetEvent])
 
   // Esc to close

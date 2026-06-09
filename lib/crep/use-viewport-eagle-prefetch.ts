@@ -16,18 +16,6 @@ import {
   type MapBoundsLike,
 } from "@/lib/crep/viewport-revision"
 
-const DEFAULT_US_BOUNDS: ViewportBoundsLike = {
-  north: 50,
-  south: 24,
-  east: -66,
-  west: -125,
-}
-
-function resolveEffectiveBounds(mapBounds: MapBoundsLike | null): ViewportBoundsLike {
-  if (mapBounds) return mapBounds
-  return DEFAULT_US_BOUNDS
-}
-
 function eagleSourcesEqual(a: EagleViewportSource[], b: EagleViewportSource[]): boolean {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i += 1) {
@@ -53,19 +41,20 @@ export function useViewportEaglePrefetch(
   assetsReady: boolean,
   limit = 12,
 ) {
+  const shouldPrefetch = Boolean(mapBounds && assetsReady && mapZoom >= 7)
   const effectiveBounds = useMemo(
-    () => resolveEffectiveBounds(mapBounds),
+    () => mapBounds,
     [mapBounds?.north, mapBounds?.south, mapBounds?.east, mapBounds?.west, mapBounds],
   )
 
   const boundsCacheHit = useMemo(
-    () => getViewportEagleCache(effectiveBounds, mapZoom),
+    () => effectiveBounds ? getViewportEagleCache(effectiveBounds, mapZoom) : undefined,
     [effectiveBounds, mapZoom],
   )
 
   const [sources, setSources] = useState<EagleViewportSource[]>(() => boundsCacheHit ?? [])
   const [fetching, setFetching] = useState(
-    () => assetsReady && !getViewportEagleCache(effectiveBounds, mapZoom)?.length,
+    () => shouldPrefetch && !boundsCacheHit?.length,
   )
   const sourcesRef = useRef(sources)
   const fetchingRef = useRef(fetching)
@@ -75,7 +64,7 @@ export function useViewportEaglePrefetch(
   const inFlightRef = useRef<AbortController | null>(null)
 
   const revisionKey = useMemo(() => {
-    if (!assetsReady) return null
+    if (!shouldPrefetch || !effectiveBounds) return null
     const next = { bounds: effectiveBounds, zoom: mapZoom }
     const shouldRefresh =
       !snapshotRef.current ||
@@ -85,10 +74,18 @@ export function useViewportEaglePrefetch(
     const key = makeViewportRevisionKey(effectiveBounds, mapZoom)
     revisionKeyRef.current = key
     return key
-  }, [effectiveBounds, mapZoom, assetsReady])
+  }, [effectiveBounds, mapZoom, shouldPrefetch])
 
   useEffect(() => {
-    if (!assetsReady || !revisionKey) return
+    if (!shouldPrefetch || !revisionKey) {
+      inFlightRef.current?.abort()
+      inFlightRef.current = null
+      sourcesRef.current = []
+      setSources([])
+      fetchingRef.current = false
+      setFetching(false)
+      return
+    }
     const revision = snapshotRef.current
     if (!revision) return
     const requestBounds = revision.bounds
@@ -135,7 +132,7 @@ export function useViewportEaglePrefetch(
       })
 
     return () => controller.abort()
-  }, [revisionKey, assetsReady, limit])
+  }, [revisionKey, shouldPrefetch, limit])
 
   return {
     sources,

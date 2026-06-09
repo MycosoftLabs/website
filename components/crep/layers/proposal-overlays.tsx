@@ -215,6 +215,12 @@ function bboxFromUrl(zoom = 0): [number, number, number, number] | null {
   }
 }
 
+function shouldSkipEarthSimulatorTabletBboxDetail() {
+  if (typeof window === "undefined") return false
+  if (!window.location.pathname.includes("/natureos/earth-simulator")) return false
+  return window.innerWidth <= 1180 || window.innerHeight <= 820 || Boolean(window.matchMedia?.("(pointer: coarse)")?.matches)
+}
+
 export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false, mapZoom = 0 }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
   const landMaskResolutionRef = useRef<"10m" | "50m" | null>(null)
@@ -798,7 +804,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
-    if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5) {
+    if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5 || shouldSkipEarthSimulatorTabletBboxDetail()) {
       txBboxKeyRef.current = ""
       txInFlightKeyRef.current = ""
       txAbortRef.current?.abort()
@@ -824,10 +830,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const abortController = new AbortController()
     txAbortRef.current = abortController
 
+    const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
     txFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 9 ? 900 : mapZoom >= 7 ? 600 : 350
+          const limit = isTabletViewport
+            ? mapZoom >= 9 ? 240 : mapZoom >= 7 ? 180 : 120
+            : mapZoom >= 9 ? 480 : mapZoom >= 7 ? 320 : 220
           const res = await fetch(`/api/oei/transmission-lines-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
@@ -914,7 +923,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (txInFlightKeyRef.current === bboxKey) txInFlightKeyRef.current = ""
         }
       })()
-    }, 650)
+    }, isTabletViewport ? 2_500 : 1_200)
 
     return () => {
       if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
@@ -936,7 +945,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
-    if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM) {
+    if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM || shouldSkipEarthSimulatorTabletBboxDetail()) {
       cellTowerBboxKeyRef.current = ""
       cellTowerInFlightKeyRef.current = ""
       cellTowerAbortRef.current?.abort()
@@ -963,10 +972,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const abortController = new AbortController()
     cellTowerAbortRef.current = abortController
 
+    const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
     cellTowerFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 10 ? 450 : mapZoom >= 8 ? 300 : mapZoom >= 6 ? 180 : 100
+          const limit = isTabletViewport
+            ? mapZoom >= 10 ? 160 : mapZoom >= 8 ? 120 : mapZoom >= 6 ? 80 : 50
+            : mapZoom >= 10 ? 260 : mapZoom >= 8 ? 180 : mapZoom >= 6 ? 120 : 80
           const res = await fetch(`/api/oei/cell-towers-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
@@ -1069,7 +1081,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (cellTowerInFlightKeyRef.current === bboxKey) cellTowerInFlightKeyRef.current = ""
         }
       })()
-    }, 650)
+    }, isTabletViewport ? 2_500 : 1_200)
 
     return () => {
       if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
