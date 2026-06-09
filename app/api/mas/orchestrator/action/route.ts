@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 /**
  * MAS Orchestrator Action API - Jan 26, 2026
@@ -390,6 +391,9 @@ interface ActionResult {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { action, params = {} } = body
@@ -427,6 +431,9 @@ export async function POST(request: NextRequest) {
 
 // GET - List available actions
 export async function GET() {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   return NextResponse.json({
     availableActions: Object.keys(actionHandlers),
     descriptions: {

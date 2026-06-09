@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { deriveServerRole } from "@/lib/auth/server-role"
 
 export type AuthTrustLevel = "verified" | "anonymous"
 
@@ -14,7 +15,9 @@ export interface VerifiedIdentity {
 }
 
 export function normalizeVerifiedRole(user: any): string {
-  return String(user?.user_metadata?.role || "user").toLowerCase().trim()
+  // SECURITY: derive role from the verified email, NOT user_metadata (which the
+  // user can write to themselves and use to self-promote to admin/owner).
+  return deriveServerRole(user)
 }
 
 export function isOwnerOrSuperuserRole(role: string): boolean {

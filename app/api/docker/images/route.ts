@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 // Docker API URL - Windows Docker Desktop or Linux
 const DOCKER_API_URL = process.env.DOCKER_API_URL || "http://localhost:2375"
@@ -18,6 +19,9 @@ interface DockerImage {
 
 // Get list of local Docker images
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const source = request.nextUrl.searchParams.get("source") || "local"
   const search = request.nextUrl.searchParams.get("search") || ""
 
@@ -101,6 +105,9 @@ export async function GET(request: NextRequest) {
 
 // Pull image from Docker Hub or manage images
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { action, image, tag = "latest" } = body

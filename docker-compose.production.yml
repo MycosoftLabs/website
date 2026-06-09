@@ -145,7 +145,8 @@ services:
     image: ollama/ollama:latest
     container_name: mycosoft-ollama
     ports:
-      - "11434:11434"
+      # Loopback only — Ollama has no auth; intra-network access is unaffected.
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:

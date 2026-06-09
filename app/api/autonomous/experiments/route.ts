@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
+import { requireCompanyAuth } from '@/lib/auth/api-auth'
 
 const MAS_URL = process.env.NEXT_PUBLIC_MAS_URL || 'http://localhost:8001'
 
 export async function GET() {
+  const auth = await requireCompanyAuth()
+  if (auth.error) return auth.error
+
   try {
     const res = await fetch(`${MAS_URL}/autonomous/experiments`, {
       headers: { 'Accept': 'application/json' },
@@ -23,6 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireCompanyAuth()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
 

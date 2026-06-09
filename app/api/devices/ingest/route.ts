@@ -260,6 +260,19 @@ function getUnitForSensor(sensorType: string): string {
 // =============================================================================
 
 export async function POST(request: NextRequest) {
+  // SECURITY TODO: device telemetry ingest is unauthenticated by design so the
+  // fleet can post without a user session. As an opt-in hardening step, when
+  // DEVICE_INGEST_TOKEN is set in the environment, require devices to present a
+  // matching `x-device-token` header. Leave unset to preserve current behavior.
+  // Full fix: per-device HMAC signing (see SECURITY_CURSOR_HANDOFF.md).
+  const ingestToken = process.env.DEVICE_INGEST_TOKEN
+  if (ingestToken) {
+    const provided = request.headers.get("x-device-token")
+    if (provided !== ingestToken) {
+      return NextResponse.json({ error: "Unauthorized device" }, { status: 401 })
+    }
+  }
+
   try {
     const contentType = request.headers.get("content-type") || ""
     let payload: IngestPayload

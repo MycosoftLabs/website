@@ -12,11 +12,15 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { registerCctvDevice, listCctvDevices } from "@/lib/crep/cctv-registry"
+import { requireCompanyAuth } from "@/lib/auth/api-auth"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
 export async function POST(req: NextRequest) {
+  const auth = await requireCompanyAuth()
+  if (auth.error) return auth.error
+
   let body: { name?: string; operator?: string } = {}
   try {
     body = (await req.json()) as { name?: string; operator?: string }
@@ -37,5 +41,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  const auth = await requireCompanyAuth()
+  if (auth.error) return auth.error
+
   return NextResponse.json({ ok: true, count: listCctvDevices().length, devices: listCctvDevices() })
 }
