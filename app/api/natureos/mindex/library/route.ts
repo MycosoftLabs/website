@@ -71,6 +71,10 @@ function asSamples(value: unknown): number[] {
   return value.map((item) => Number(item)).filter((item) => Number.isFinite(item))
 }
 
+function isUuidLike(value: string | null | undefined): value is string {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))
+}
+
 async function fetchBackendJson<T = Record<string, unknown>>(path: string, timeoutMs: number): Promise<T | null> {
   const base = resolveMindexServerBaseUrl().replace(/\/$/, "")
   try {
@@ -158,6 +162,11 @@ function mimeFromExtension(extension: string, category: MindexLibraryCategoryId)
   return "application/octet-stream"
 }
 
+function isAcousticManifestSidecar(row: Pick<MindexLibraryBlob, "category" | "relative_path" | "filename" | "name">): boolean {
+  const text = [row.relative_path, row.filename, row.name].filter(Boolean).join(" ").toLowerCase()
+  return row.category === "acoustic" && (text.includes(".manifest.json") || text.includes(".wav.json"))
+}
+
 function mapBackendBlob(row: MindexLibraryBackendRow, fallbackCategory: string | null): MindexLibraryBlob {
   const category = normalizeCategory(row.category, fallbackCategory)
   const filename = asString(row.filename) || basename(asString(row.rel_path) || asString(row.relative_path) || asString(row.path))
@@ -169,6 +178,15 @@ function mapBackendBlob(row: MindexLibraryBackendRow, fallbackCategory: string |
     asString(row.checksum) ||
     asString(row.rel_path) ||
     asString(row.relative_path)
+  const analysisIdCandidates = [
+    asString(row.analysis_id),
+    asString(row.blob_id),
+    asString(row.uuid),
+    asString(row.database_id),
+    asString(row.remote_id),
+    asString(row.id),
+  ]
+  const analysisId = analysisIdCandidates.find(isUuidLike)
   const relPath =
     asString(row.relative_path) ||
     asString(row.rel_path) ||
@@ -195,6 +213,9 @@ function mapBackendBlob(row: MindexLibraryBackendRow, fallbackCategory: string |
 
   return {
     id: id || relPath,
+    analysis_id: analysisId || undefined,
+    remote_id: analysisId || id || relPath,
+    file_id: encodeLibraryBlobId(relPath),
     name,
     title: title || undefined,
     filename: filename || undefined,
@@ -352,17 +373,19 @@ async function fetchBackendLibraryCatalog(options: {
   category: string | null
   query: string | null
   limit?: number
+  offset?: number
 }): Promise<MindexLibraryCatalog | null> {
   const params = new URLSearchParams()
   if (options.category) params.set("category", options.category)
   if (options.query) params.set("q", options.query)
+  const requestedOffset = Math.max(options.offset ?? 0, 0)
   const requestedLimit = Math.min(
     Math.max(options.limit ?? BACKEND_LIBRARY_PAGE_LIMIT, 1),
     BACKEND_LIBRARY_VISIBLE_LIMIT,
   )
   const firstPageLimit = Math.min(requestedLimit, BACKEND_LIBRARY_PAGE_LIMIT)
   params.set("limit", String(firstPageLimit))
-  params.set("offset", "0")
+  params.set("offset", String(requestedOffset))
 
   const [storageData, sineData, catalogData, data] = await Promise.all([
     fetchBackendJson<Record<string, unknown>>("/api/mindex/library/storage", 15_000),
@@ -398,12 +421,12 @@ async function fetchBackendLibraryCatalog(options: {
         ? data.rows
         : []
   const firstPageTotal = asNumber(data.total) ?? asNumber(data.total_files) ?? rawRows.length
-  const rowsToLoad = Math.min(requestedLimit, firstPageTotal)
+  const rowsToLoad = Math.min(requestedLimit, Math.max(0, firstPageTotal - requestedOffset))
   const allRawRows = [...rawRows]
-  for (let offset = rawRows.length; offset < rowsToLoad; offset += BACKEND_LIBRARY_PAGE_LIMIT) {
+  for (let loaded = rawRows.length; loaded < rowsToLoad; loaded += BACKEND_LIBRARY_PAGE_LIMIT) {
     const pageParams = new URLSearchParams(params)
-    pageParams.set("limit", String(Math.min(BACKEND_LIBRARY_PAGE_LIMIT, rowsToLoad - offset)))
-    pageParams.set("offset", String(offset))
+    pageParams.set("limit", String(Math.min(BACKEND_LIBRARY_PAGE_LIMIT, rowsToLoad - loaded)))
+    pageParams.set("offset", String(requestedOffset + loaded))
     const page = await fetchBackendJson<MindexLibraryBackendResponse>(`/api/mindex/library/blobs?${pageParams.toString()}`, 35_000)
     const pageRows = Array.isArray(page?.items)
       ? page.items
@@ -418,7 +441,8 @@ async function fetchBackendLibraryCatalog(options: {
 
   const rows = uniqueLibraryBlobs(allRawRows
     .filter((row): row is MindexLibraryBackendRow => Boolean(row) && typeof row === "object")
-    .map((row) => mapBackendBlob(row, options.category)))
+    .map((row) => mapBackendBlob(row, options.category))
+    .filter((row) => !isAcousticManifestSidecar(row)))
   const filteredRows = options.query?.trim()
     ? rows.filter((row) => {
         const haystack =
@@ -458,10 +482,17 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")
   const limitParam = Number(request.nextUrl.searchParams.get("limit") ?? "")
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : undefined
+  const offsetParam = Number(request.nextUrl.searchParams.get("offset") ?? "")
+  const offset = Number.isFinite(offsetParam) && offsetParam > 0 ? offsetParam : undefined
 
   try {
-    const backendCatalog = await fetchBackendLibraryCatalog({ category, query, limit })
+    const backendCatalog = await fetchBackendLibraryCatalog({ category, query, limit, offset })
     if (backendCatalog) {
+      const backendTotal = backendCatalog.total_files ?? 0
+      if (!offset && backendTotal > 0 && backendCatalog.blobs.length === 0) {
+        const fallbackCatalog = await buildMindexLibraryCatalog({ category, query, limit })
+        if (fallbackCatalog.blobs.length) return NextResponse.json(fallbackCatalog)
+      }
       return NextResponse.json(backendCatalog)
     }
 

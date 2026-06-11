@@ -519,7 +519,7 @@ export function MINDEXDashboard() {
                 </div>
               </motion.header>
 
-              <div>
+              <div key={activeSection}>
                 {activeSection === "overview" ? (
                   <OverviewSection
                     health={health}
