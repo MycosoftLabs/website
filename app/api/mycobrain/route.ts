@@ -13,6 +13,7 @@ const OPERATOR_DEVICE_URLS = (
   .split(",")
   .map((url) => url.trim().replace(/\/+$/, ""))
   .filter(Boolean)
+const DEBUG_DEVICE_TELEMETRY = process.env.CREP_DEBUG_DEVICE_TELEMETRY === "1"
 
 export const dynamic = "force-dynamic"
 
@@ -169,7 +170,9 @@ async function fetchOperatorDevices(): Promise<NormalizedDevice[]> {
           .map((reading) => normalizeOperatorDevice(baseUrl, status, { reading }))
           .filter((device): device is NormalizedDevice => Boolean(device))
       } catch (error) {
-        console.error("Failed to fetch MycoBrain operator device:", error)
+        if (DEBUG_DEVICE_TELEMETRY) {
+          console.warn("Failed to fetch MycoBrain operator device:", error)
+        }
         return []
       }
     })

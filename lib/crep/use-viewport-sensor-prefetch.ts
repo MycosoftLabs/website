@@ -11,18 +11,6 @@ import {
   type MapBoundsLike,
 } from "@/lib/crep/viewport-revision"
 
-const DEFAULT_US_BOUNDS: MapBoundsLike = {
-  north: 50,
-  south: 24,
-  east: -66,
-  west: -125,
-}
-
-function resolveEffectiveBounds(mapBounds: MapBoundsLike | null): MapBoundsLike {
-  if (mapBounds) return mapBounds
-  return DEFAULT_US_BOUNDS
-}
-
 export function useViewportSensorPrefetch(
   mapBounds: MapBoundsLike | null,
   mapZoom: number,
@@ -30,24 +18,24 @@ export function useViewportSensorPrefetch(
   limit = 8,
 ) {
   const effectiveBounds = useMemo(
-    () => resolveEffectiveBounds(mapBounds),
+    () => mapBounds,
     [mapBounds?.north, mapBounds?.south, mapBounds?.east, mapBounds?.west, mapBounds],
   )
 
   const [sensors, setSensors] = useState<ViewportSensorSource[]>([])
   const [fetching, setFetching] = useState(false)
+  const sensorsRef = useRef<ViewportSensorSource[]>([])
+  const fetchingRef = useRef(false)
 
   const snapshotRef = useRef<{ bounds: MapBoundsLike; zoom: number } | null>(null)
   const revisionKeyRef = useRef<string | null>(null)
   const inFlightRef = useRef<AbortController | null>(null)
 
   const revisionKey = useMemo(() => {
-    if (!assetsReady) return null
+    if (!assetsReady || !effectiveBounds) return null
     const next = { bounds: effectiveBounds, zoom: mapZoom }
-    const cityZoom = mapZoom >= 10
     const shouldRefresh =
       !snapshotRef.current ||
-      cityZoom ||
       isSignificantViewportChange(snapshotRef.current, next)
     if (!shouldRefresh && revisionKeyRef.current) return revisionKeyRef.current
     snapshotRef.current = next
@@ -57,18 +45,42 @@ export function useViewportSensorPrefetch(
   }, [effectiveBounds, mapZoom, assetsReady])
 
   useEffect(() => {
-    if (!assetsReady || !revisionKey) return
+    if (!assetsReady || !revisionKey) {
+      inFlightRef.current?.abort()
+      inFlightRef.current = null
+      snapshotRef.current = null
+      revisionKeyRef.current = null
+      sensorsRef.current = []
+      setSensors([])
+      fetchingRef.current = false
+      setFetching(false)
+      return
+    }
+    const revision = snapshotRef.current
+    if (!revision) return
+    const requestBounds = revision.bounds
 
     inFlightRef.current?.abort()
     const controller = new AbortController()
     inFlightRef.current = controller
-    setFetching(true)
+    if (!fetchingRef.current) {
+      fetchingRef.current = true
+      setFetching(true)
+    }
 
     void loadViewportSensors(
-      effectiveBounds,
+      requestBounds,
       limit,
       (next) => {
         if (controller.signal.aborted) return
+        const previous = sensorsRef.current
+        if (
+          previous.length === next.length &&
+          previous.every((sensor, index) => sensor.id === next[index]?.id)
+        ) {
+          return
+        }
+        sensorsRef.current = next
         setSensors(next)
       },
       controller.signal,
@@ -79,11 +91,14 @@ export function useViewportSensorPrefetch(
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setFetching(false)
+        if (!controller.signal.aborted) {
+          fetchingRef.current = false
+          setFetching(false)
+        }
       })
 
     return () => controller.abort()
-  }, [revisionKey, effectiveBounds, assetsReady, limit])
+  }, [revisionKey, assetsReady, limit])
 
   return {
     sensors,

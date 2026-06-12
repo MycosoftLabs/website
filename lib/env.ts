@@ -79,13 +79,18 @@ function generateDefaultKey(): string {
 
 // Auto-generate Mycorrhizae key in development if not set
 if (typeof window === "undefined" && env.isDevelopment && !env.mycorrhizaePublishKey) {
-  const devKey = generateDefaultKey()
+  const globalEnv = globalThis as typeof globalThis & {
+    __mycosoftDevMycorrhizaePublishKey?: string
+  }
+  const devKey = globalEnv.__mycosoftDevMycorrhizaePublishKey || generateDefaultKey()
+  globalEnv.__mycosoftDevMycorrhizaePublishKey = devKey
+  process.env.MYCORRHIZAE_PUBLISH_KEY = devKey
   ;(env as unknown as Record<string, string>).mycorrhizaePublishKey = devKey
-  console.log(`[DEV] Auto-generated MYCORRHIZAE_PUBLISH_KEY: ${devKey}`)
 }
 
 // Server-side validation
 if (typeof window === "undefined") {
+  const warnOptionalEnv = process.env.CREP_DEBUG_ENV_WARNINGS === "1"
   const warnIfMissing = (name: string, value: string | undefined, required = false) => {
     if (!value) {
       if (required || env.integrationsEnabled) {
@@ -95,7 +100,9 @@ if (typeof window === "undefined") {
   }
 
   warnIfMissing("MINDEX_API_BASE_URL", process.env.MINDEX_API_BASE_URL)
-  warnIfMissing("MYCA_MAS_API_BASE_URL", process.env.MYCA_MAS_API_BASE_URL)
-  warnIfMissing("MYCORRHIZAE_PUBLISH_KEY", process.env.MYCORRHIZAE_PUBLISH_KEY)
-  warnIfMissing("SOLANA_RPC_URL", env.solanaRpcUrl)
+  if (warnOptionalEnv) {
+    warnIfMissing("MYCA_MAS_API_BASE_URL", process.env.MYCA_MAS_API_BASE_URL)
+    warnIfMissing("MYCORRHIZAE_PUBLISH_KEY", process.env.MYCORRHIZAE_PUBLISH_KEY)
+    warnIfMissing("SOLANA_RPC_URL", env.solanaRpcUrl)
+  }
 }

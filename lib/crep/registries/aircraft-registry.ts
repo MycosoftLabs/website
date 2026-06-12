@@ -68,6 +68,11 @@ const SOURCE_TIMEOUT_MS =
 
 const ENABLE_WEBSITE_MINDEX_WRITEBACK =
   process.env.CREP_ENABLE_WEBSITE_MINDEX_WRITEBACK === "1"
+const DEBUG_MOVING_REGISTRY = process.env.CREP_DEBUG_MOVING_REGISTRY === "1"
+
+function logMovingRegistryDebug(...args: unknown[]) {
+  if (DEBUG_MOVING_REGISTRY) console.log(...args)
+}
 
 // =============================================================================
 // SOURCE FETCHERS
@@ -84,6 +89,7 @@ async function fetchFromFlightRadar24(): Promise<AircraftRecord[]> {
   } catch {
     return []
   }
+  return []
 }
 
 /**
@@ -362,7 +368,8 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
     sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
       const start = Date.now()
       try {
-        const aircraft = await fn()
+        const fetched = await fn()
+        const aircraft = Array.isArray(fetched) ? fetched : []
         const dur = Date.now() - start
         if (aircraft.length > 0) {
           console.log(`[AircraftRegistry] ${name}: ${aircraft.length} aircraft (${dur}ms)`)
@@ -370,7 +377,7 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
         return { source: name, aircraft, durationMs: dur }
       } catch (err) {
         const dur = Date.now() - start
-        console.warn(`[AircraftRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
+        logMovingRegistryDebug(`[AircraftRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
         return { source: name, aircraft: [], error: (err as Error).message, durationMs: dur }
       }
     })

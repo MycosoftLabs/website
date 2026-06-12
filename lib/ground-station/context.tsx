@@ -196,6 +196,12 @@ export function useGroundStation() {
 function isFungaIsolationUrl() {
   if (typeof window === "undefined") return false
   const params = new URLSearchParams(window.location.search)
+  if (
+    window.location.pathname.includes("/natureos/earth-simulator") &&
+    params.get("groundStation") !== "1"
+  ) {
+    return true
+  }
   return (
     params.has("funga") ||
     params.get("mode") === "funga" ||

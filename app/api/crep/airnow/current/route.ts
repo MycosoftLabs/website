@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getAirNowApiKey } from "@/lib/airnow-key"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -106,7 +107,7 @@ const PARAM_LABELS: Record<string, string> = {
 }
 
 export async function GET(req: NextRequest) {
-  const key = process.env.AIRNOW_API_KEY?.trim() || process.env.NEXT_PUBLIC_AIRNOW_API_KEY?.trim() || ""
+  const key = getAirNowApiKey()
   if (!key) {
     return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 501 })
   }

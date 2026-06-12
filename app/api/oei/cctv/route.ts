@@ -156,7 +156,8 @@ async function fromShinobi(): Promise<Camera[]> {
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const bbox = url.searchParams.get("bbox") || undefined
-  const limit = Math.min(Number(url.searchParams.get("limit") || 1000), 5000)
+  const requestedLimit = Math.min(Number(url.searchParams.get("limit") || 1000), 5000)
+  const limit = bbox ? Math.min(requestedLimit, 180) : requestedLimit
 
   const [mindex, shinobi] = await Promise.all([fromMindex(bbox, limit), fromShinobi()])
 

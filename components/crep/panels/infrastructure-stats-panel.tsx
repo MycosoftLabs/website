@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import {
   computePlantStats,
+  type PlantStats,
   type PowerPlant,
 } from "@/components/crep/layers/power-plant-bubbles"
 import { VOLTAGE_CLASSES, type TransmissionLine } from "@/components/crep/layers/transmission-lines"
@@ -32,6 +33,14 @@ interface InfraStatsProps {
   substations?: Substation[]
   datacenters?: Datacenter[]
   cableRoutes?: any[]
+  statsOverride?: PlantStats | null
+  countsOverride?: {
+    plants?: number
+    transmissionLines?: number
+    substations?: number
+    datacenters?: number
+    cableRoutes?: number
+  } | null
   zoom?: number
   bubbleScale?: number
   onBubbleScaleChange?: (scale: number) => void
@@ -47,6 +56,8 @@ export function InfrastructureStatsPanel({
   substations = [],
   datacenters = [],
   cableRoutes = [],
+  statsOverride = null,
+  countsOverride = null,
   zoom = 2,
   bubbleScale = 1.0,
   onBubbleScaleChange,
@@ -87,8 +98,15 @@ export function InfrastructureStatsPanel({
     })
   }
 
-  // Compute plant stats
-  const stats = useMemo(() => computePlantStats(plants), [plants])
+  // Compute plant stats. The Earth Simulator can pass a server-side viewport
+  // summary so heavy global datasets do not need to be parsed in React.
+  const computedStats = useMemo(() => computePlantStats(plants), [plants])
+  const stats = statsOverride ?? computedStats
+  const totalPlants = countsOverride?.plants ?? stats.totalPlants
+  const totalTransmissionLines = countsOverride?.transmissionLines ?? transmissionLines.length
+  const totalSubstations = countsOverride?.substations ?? substations.length
+  const totalDatacenters = countsOverride?.datacenters ?? datacenters.length
+  const totalCableRoutes = countsOverride?.cableRoutes ?? cableRoutes.length
 
   // Compute transmission stats
   const txStats = useMemo(() => {
@@ -136,7 +154,7 @@ export function InfrastructureStatsPanel({
               </Badge>
             </div>
             <div className="text-[10px] text-gray-400 mt-0.5">
-              {stats.totalPlants.toLocaleString()} plants | {stats.totalCapacityGW} GW
+              {totalPlants.toLocaleString()} plants | {stats.totalCapacityGW} GW
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -188,22 +206,22 @@ export function InfrastructureStatsPanel({
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full shrink-0 bg-amber-400" />
             <span className="text-[10px] text-gray-300">Power Plants</span>
-            <span className="text-[10px] text-amber-400 font-mono ml-auto">{plants.length.toLocaleString()}</span>
+            <span className="text-[10px] text-amber-400 font-mono ml-auto">{totalPlants.toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full shrink-0 bg-violet-400" />
             <span className="text-[10px] text-gray-300">Substations</span>
-            <span className="text-[10px] text-violet-400 font-mono ml-auto">{substations.length.toLocaleString()}</span>
+            <span className="text-[10px] text-violet-400 font-mono ml-auto">{totalSubstations.toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full shrink-0 bg-rose-400" />
             <span className="text-[10px] text-gray-300">TX Lines</span>
-            <span className="text-[10px] text-rose-400 font-mono ml-auto">{transmissionLines.length.toLocaleString()}</span>
+            <span className="text-[10px] text-rose-400 font-mono ml-auto">{totalTransmissionLines.toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full shrink-0 bg-cyan-400" />
             <span className="text-[10px] text-gray-300">Sub. Cables</span>
-            <span className="text-[10px] text-cyan-400 font-mono ml-auto">{cableRoutes.length.toLocaleString()}</span>
+            <span className="text-[10px] text-cyan-400 font-mono ml-auto">{totalCableRoutes.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -292,7 +310,7 @@ export function InfrastructureStatsPanel({
             title={`Data Centers`}
             expanded={expandedSections.has("datacenters")}
             onToggle={() => toggleSection("datacenters")}
-            count={datacenters.length}
+            count={totalDatacenters}
             extra={
               <button type="button" onClick={(e) => { e.stopPropagation(); setSettingsPanel(settingsPanel === "datacenters" ? null : "datacenters") }} className="text-gray-500 hover:text-gray-300 p-0.5">
                 <Settings className="w-3 h-3" />
@@ -301,10 +319,10 @@ export function InfrastructureStatsPanel({
           />
           {expandedSections.has("datacenters") && (
             <div className="px-3 py-1 space-y-0.5 text-[10px]">
-              <LayerRow label="Data Centers" swatch="diamond" color="#ffffff" count={datacenters.length} active={layerIsOn("dataCentersG") || layerIsOn("dataCenters")} onToggle={() => toggleLayer("dataCentersG")} />
+              <LayerRow label="Data Centers" swatch="diamond" color="#ffffff" count={totalDatacenters} active={layerIsOn("dataCentersG") || layerIsOn("dataCenters")} onToggle={() => toggleLayer("dataCentersG")} />
               <LayerRow label="Internet Exchanges" swatch="diamond" color="#64748b" active={layerIsOn("dataCentersG")} onToggle={() => toggleLayer("dataCentersG")} muted />
               <LayerRow label="Fiber Infrastructure" color="#22d3ee" active={layerIsOn("submarineCables") || layerIsOn("fiber")} onToggle={() => toggleLayer("submarineCables")} />
-              <LayerRow label="Submarine Cables" color="#06b6d4" count={cableRoutes.length} active={layerIsOn("submarineCables")} onToggle={() => toggleLayer("submarineCables")} />
+              <LayerRow label="Submarine Cables" color="#06b6d4" count={totalCableRoutes} active={layerIsOn("submarineCables")} onToggle={() => toggleLayer("submarineCables")} />
               <LayerRow label="Landing Points" swatch="dot" color="#67e8f9" active={layerIsOn("submarineCables")} onToggle={() => toggleLayer("submarineCables")} />
               <div className="flex items-center gap-2 py-0.5">
                 <span className="text-gray-300">◆ Data Centers</span>
@@ -318,13 +336,13 @@ export function InfrastructureStatsPanel({
       )}
 
       {/* Transmission */}
-      {transmissionLines.length > 0 && (
+      {totalTransmissionLines > 0 && (
         <>
           <SectionHeader
             title="Transmission"
             expanded={expandedSections.has("transmission")}
             onToggle={() => toggleSection("transmission")}
-            count={transmissionLines.length}
+            count={totalTransmissionLines}
             extra={
               <button type="button" onClick={(e) => { e.stopPropagation(); setSettingsPanel(settingsPanel === "transmission" ? null : "transmission") }} className="text-gray-500 hover:text-gray-300 p-0.5">
                 <Settings className="w-3 h-3" />
@@ -353,13 +371,13 @@ export function InfrastructureStatsPanel({
       )}
 
       {/* Substations */}
-      {substations.length > 0 && (
+      {totalSubstations > 0 && (
         <>
           <SectionHeader
             title="Substations"
             expanded={expandedSections.has("substations")}
             onToggle={() => toggleSection("substations")}
-            count={substations.length}
+            count={totalSubstations}
             extra={
               <button type="button" onClick={(e) => { e.stopPropagation(); setSettingsPanel(settingsPanel === "substations" ? null : "substations") }} className="text-gray-500 hover:text-gray-300 p-0.5">
                 <Settings className="w-3 h-3" />
@@ -388,20 +406,20 @@ export function InfrastructureStatsPanel({
       )}
 
       {/* Submarine Cables */}
-      {cableRoutes.length > 0 && (
+      {totalCableRoutes > 0 && (
         <>
           <SectionHeader
             title="Submarine Cables"
             expanded={expandedSections.has("cables")}
             onToggle={() => toggleSection("cables")}
-            count={cableRoutes.length}
+            count={totalCableRoutes}
           />
           {expandedSections.has("cables") && (
             <div className="px-3 py-1 space-y-0.5 text-[10px]">
               <div className="flex items-center gap-2 py-0.5">
                 <div className="w-4 h-0.5 rounded bg-cyan-400" />
                 <span className="text-gray-300">Active routes</span>
-                <span className="text-gray-500 font-mono ml-auto">{cableRoutes.length}</span>
+                <span className="text-gray-500 font-mono ml-auto">{totalCableRoutes}</span>
               </div>
             </div>
           )}

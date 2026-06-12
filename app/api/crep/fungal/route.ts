@@ -46,6 +46,7 @@ const QUICK_MINDEX_VIEWPORT_TIMEOUT_MS =
   Number.isFinite(configuredQuickMindexViewportTimeout) && configuredQuickMindexViewportTimeout > 0
     ? configuredQuickMindexViewportTimeout
     : 3500
+const DEBUG_CREP_FUNGAL = process.env.CREP_DEBUG_FUNGAL === "1"
 
 /** Fetch with timeout and retry for external APIs (iNaturalist, GBIF) to reduce ConnectTimeoutError */
 async function fetchWithRetry(
@@ -423,7 +424,9 @@ async function fetchMINDEXObservations(
     console.log(`[CREP/Fungal] MINDEX total fetched: ${allObservations.length} observations`)
     
     if (allObservations.length === 0) {
-      console.warn("[CREP/Fungal] MINDEX returned 0 observations, will use external fallback")
+      if (DEBUG_CREP_FUNGAL) {
+        console.warn("[CREP/Fungal] MINDEX returned 0 observations, will use external fallback")
+      }
       return []
     }
     
@@ -2196,7 +2199,7 @@ export async function GET(request: NextRequest) {
       const requiredAfterPlacement = QUICK_PRIORITY_ICONIC_TAXA
       const requestedCap = limit && limit > 0 ? limit : 600
       const minimumByTaxon: Record<string, number> = {
-        Fungi: Math.min(220, Math.max(70, Math.floor(requestedCap * 0.12))),
+        Fungi: Math.min(700, Math.max(180, Math.floor(requestedCap * 0.35))),
         Plantae: Math.min(120, Math.max(35, Math.floor(requestedCap * 0.06))),
         Aves: Math.min(80, Math.max(20, Math.floor(requestedCap * 0.04))),
         Mammalia: Math.min(50, Math.max(12, Math.floor(requestedCap * 0.02))),
@@ -2210,16 +2213,21 @@ export async function GET(request: NextRequest) {
       const missingAfterPlacement = requiredAfterPlacement.filter(
         (taxon) => (countsAfterPlacement.get(normalizeTaxonToken(taxon)) || 0) < (minimumByTaxon[taxon] || 1),
       )
-      if (explicitEmergencyFallback && missingAfterPlacement.length > 0) {
+      if (missingAfterPlacement.length > 0) {
         console.warn(`[CREP/Life] All-species post-filter required taxa rescue (${missingAfterPlacement.join(", ")})`)
         const rescueBatches = await collectWithSoftTimeout(
-          missingAfterPlacement.map((taxon) =>
+          missingAfterPlacement.flatMap((taxon) => [
             fetchINaturalistQuick(
-              taxon === "Fungi" ? 800 : 260,
+              taxon === "Fungi" ? 1100 : 260,
               bounds,
               taxon,
             ).catch(() => [] as FungalObservation[]),
-          ),
+            fetchGBIFQuickObservations(
+              taxon === "Fungi" ? 1100 : 360,
+              taxon,
+              bounds,
+            ).catch(() => [] as FungalObservation[]),
+          ]),
           6500,
           [] as FungalObservation[],
           "quick post-filter taxa rescue",
@@ -2352,12 +2360,30 @@ function stratifiedObservationLimit(
     return observations.slice(0, cap)
   }
 
-  const unknownBudget = Math.min(unknownRows.length, Math.max(20, Math.floor(cap * 0.1)))
-  const perKnown = Math.max(25, Math.floor((cap - unknownBudget) / knownKeys.length))
   const picked: FungalObservation[] = []
   const seen = new Set<string>()
+  const fungiKey = knownKeys.find((key) => normalizeTaxonToken(key) === "fungi")
+  const fungiBudget = fungiKey
+    ? Math.min(buckets.get(fungiKey)?.length || 0, Math.max(80, Math.floor(cap * 0.35)))
+    : 0
 
-  for (const key of knownKeys) {
+  if (fungiKey && fungiBudget > 0) {
+    const fungiRows = spatialObservationLimit(buckets.get(fungiKey) || [], fungiBudget)
+    for (const row of fungiRows) {
+      if (seen.has(row.id)) continue
+      seen.add(row.id)
+      picked.push(row)
+    }
+  }
+
+  const remainingKnownKeys = knownKeys.filter((key) => key !== fungiKey)
+  const unknownBudget = Math.min(unknownRows.length, Math.max(20, Math.floor(cap * 0.1)))
+  const remainingKnownBudget = Math.max(0, cap - picked.length - unknownBudget)
+  const perKnown = remainingKnownKeys.length > 0
+    ? Math.max(25, Math.floor(remainingKnownBudget / remainingKnownKeys.length))
+    : 0
+
+  for (const key of remainingKnownKeys) {
     const rows = spatialObservationLimit(buckets.get(key) || [], perKnown)
     for (const row of rows) {
       if (seen.has(row.id)) continue

@@ -158,6 +158,104 @@ function ensureLineLayer(map: MapLibreMap, id: string, source: string, paint: an
   try { map.addLayer({ id, type: "line", source, paint, layout: { visibility: "visible" } }) } catch { /* ignore */ }
 }
 
+const FACILITY_ICON_IMAGES: Record<FacilityKind, string> = {
+  hospital: "crep-icon-hospital",
+  fire_station: "crep-icon-fire-station",
+  university: "crep-icon-university",
+  police: "crep-icon-police",
+  library: "crep-icon-library",
+  civic: "crep-icon-civic",
+}
+
+function facilityIconImage(kind: FacilityKind): ImageData | null {
+  if (typeof document === "undefined") return null
+  const canvas = document.createElement("canvas")
+  canvas.width = 48
+  canvas.height = 48
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.clearRect(0, 0, 48, 48)
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  ctx.strokeStyle = "#ffffff"
+  ctx.fillStyle = "#ffffff"
+  ctx.lineWidth = 5
+  if (kind === "hospital") {
+    ctx.fillRect(20, 9, 8, 30)
+    ctx.fillRect(9, 20, 30, 8)
+  } else if (kind === "fire_station") {
+    ctx.beginPath()
+    ctx.moveTo(24, 6)
+    ctx.bezierCurveTo(34, 15, 38, 25, 31, 38)
+    ctx.bezierCurveTo(24, 44, 13, 39, 13, 29)
+    ctx.bezierCurveTo(13, 21, 21, 17, 20, 9)
+    ctx.bezierCurveTo(23, 12, 25, 16, 24, 22)
+    ctx.bezierCurveTo(29, 17, 29, 11, 24, 6)
+    ctx.closePath()
+    ctx.fill()
+  } else if (kind === "police") {
+    ctx.beginPath()
+    ctx.moveTo(24, 6)
+    ctx.lineTo(38, 13)
+    ctx.lineTo(35, 31)
+    ctx.lineTo(24, 42)
+    ctx.lineTo(13, 31)
+    ctx.lineTo(10, 13)
+    ctx.closePath()
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(24, 23, 4, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (kind === "library") {
+    ctx.strokeRect(10, 13, 12, 25)
+    ctx.strokeRect(26, 13, 12, 25)
+    ctx.beginPath()
+    ctx.moveTo(24, 13)
+    ctx.lineTo(24, 38)
+    ctx.stroke()
+  } else if (kind === "university") {
+    ctx.beginPath()
+    ctx.moveTo(7, 18)
+    ctx.lineTo(24, 9)
+    ctx.lineTo(41, 18)
+    ctx.lineTo(24, 27)
+    ctx.closePath()
+    ctx.fill()
+    ctx.strokeStyle = "#ffffff"
+    ctx.beginPath()
+    ctx.moveTo(14, 26)
+    ctx.lineTo(14, 35)
+    ctx.lineTo(34, 35)
+    ctx.lineTo(34, 26)
+    ctx.stroke()
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(8, 17)
+    ctx.lineTo(24, 8)
+    ctx.lineTo(40, 17)
+    ctx.closePath()
+    ctx.fill()
+    for (const x of [13, 21, 29, 37]) {
+      ctx.fillRect(x - 2, 19, 4, 16)
+    }
+    ctx.fillRect(8, 37, 32, 4)
+  }
+  return ctx.getImageData(0, 0, 48, 48)
+}
+
+function ensureFacilityIconImages(map: MapLibreMap) {
+  for (const kind of Object.keys(FACILITY_ICON_IMAGES) as FacilityKind[]) {
+    const id = FACILITY_ICON_IMAGES[kind]
+    try {
+      if ((map as any).hasImage?.(id)) continue
+      const image = facilityIconImage(kind)
+      if (image) map.addImage(id, image, { pixelRatio: 2 } as any)
+    } catch {
+      /* icon can be re-added after style reload */
+    }
+  }
+}
+
 // Apr 21, 2026 (Morgan: "ALL NO FLY ZONE AND POLLUTION AND ANY GRID
 // NEEDS TO BE SELECTABLE AND HAVE LABELS"). Shared helper to tack a
 // text label layer onto the same source as a circle layer. Each label
@@ -198,6 +296,7 @@ function ensureSymbolIconLayer(
   opts?: { minzoom?: number },
 ) {
   if (!mapReady(map) || map.getLayer(id)) return
+  ensureFacilityIconImages(map)
   try {
     map.addLayer({
       id,
@@ -205,19 +304,13 @@ function ensureSymbolIconLayer(
       source,
       minzoom: opts?.minzoom ?? 10,
       layout: {
-        "text-field": ["coalesce", ["get", "glyph"], ["get", "icon"], "?"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 12, 15, 16, 20],
-        "text-anchor": "center",
-        "text-allow-overlap": true,
-        "text-ignore-placement": true,
+        "icon-image": ["coalesce", ["get", "icon_image"], FACILITY_ICON_IMAGES.civic],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.46, 12, 0.58, 16, 0.78],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
         "text-optional": true,
         "visibility": "visible",
       } as any,
-      paint: {
-        "text-color": "#ffffff",
-        "text-halo-color": "rgba(0,0,0,0.9)",
-        "text-halo-width": 1.6,
-      },
     })
   } catch { /* ignore */ }
 }
@@ -282,12 +375,12 @@ const FACILITY_ICON_MIN_ZOOM = 9
 const FACILITY_OSM_FETCH_MIN_ZOOM = 10
 const FACILITY_OSM_MAX_POINTS_PER_KIND = 900
 const FACILITY_GLYPHS: Record<FacilityKind, string> = {
-  hospital: "H",
-  fire_station: "F",
-  university: "U",
-  police: "P",
-  library: "L",
-  civic: "C",
+  hospital: "🏥",
+  fire_station: "🚒",
+  university: "🎓",
+  police: "🚔",
+  library: "📚",
+  civic: "🏛️",
 }
 
 function eventTimestampMs(event: any): number {
@@ -309,8 +402,12 @@ async function fetchAllGlobalEvents(): Promise<any[]> {
   if (_globalEventsInFlight) return _globalEventsInFlight
   _globalEventsInFlight = (async () => {
     try {
-      const r = await fetch("/api/natureos/global-events?days=3&limit=1200", {
-        signal: AbortSignal.timeout(15_000),
+      const isTabletViewport =
+        typeof window !== "undefined" &&
+        (window.innerWidth <= 1180 || window.matchMedia?.("(pointer: coarse)")?.matches)
+      const limit = isTabletViewport ? 280 : 420
+      const r = await fetch(`/api/natureos/global-events?days=3&limit=${limit}`, {
+        signal: AbortSignal.timeout(isTabletViewport ? 5_000 : 10_000),
       })
       if (!r.ok) return _globalEventsCache.events
       const j = await r.json()
@@ -424,6 +521,7 @@ async function fetchOSMFacility(bbox: [number, number, number, number], kind: Fa
         address: osmAddress(el.tags),
         facility_type: kind,
         glyph: FACILITY_GLYPHS[kind],
+        icon_image: FACILITY_ICON_IMAGES[kind],
         source: "osm-overpass",
       },
     })).filter((x: any) => typeof x.lat === "number" && typeof x.lng === "number")
@@ -501,6 +599,7 @@ function viewportFacilityToPoint(facility: ViewportOverlayFacility, kind: Facili
       email: facility.email,
       facility_type: kind,
       glyph: FACILITY_GLYPHS[kind],
+      icon_image: FACILITY_ICON_IMAGES[kind],
       phone: facility.phone,
       source: facility.source || "viewport-intel",
       website: facility.website,
@@ -525,6 +624,10 @@ function mergePointsByIdentity(...groups: any[][]) {
 
 function compactBboxKey(bbox: [number, number, number, number]) {
   return bbox.map((value) => value.toFixed(3)).join(",")
+}
+
+function isEarthSimulatorRoute() {
+  return typeof window !== "undefined" && window.location.pathname.startsWith("/natureos/earth-simulator")
 }
 
 function capFacilityPoints(points: any[]) {
@@ -1003,6 +1106,7 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
   // but the UX feedback now exists even at continental zoom.
   useEffect(() => {
     if (!map || !bbox) return
+    if (isEarthSimulatorRoute()) return
     type FacilityTask = {
       enabled: boolean
       kind: FacilityKind
@@ -1061,6 +1165,7 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
   // nothing have no data".
   useEffect(() => {
     if (!map || !bbox) return
+    if (isEarthSimulatorRoute()) return
     const any = enabled.oilGas || enabled.methaneSources || enabled.metalOutput || enabled.waterPollution
     if (!any || map.getZoom() < 3) return
     ;(async () => {

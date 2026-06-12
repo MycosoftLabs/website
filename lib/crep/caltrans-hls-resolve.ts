@@ -124,7 +124,6 @@ export interface CaltransResolveInput {
 /** Returns HLS m3u8 URL when Caltrans publishes one for this camera. */
 export async function resolveCaltransHls(input: CaltransResolveInput): Promise<string | null> {
   const existing = (input.stream_url || "").trim()
-  if (existing && /\.m3u8/i.test(existing)) return existing
 
   const snapshot =
     decodeProxiedSnapshot(input.media_url) ||
@@ -141,7 +140,9 @@ export async function resolveCaltransHls(input: CaltransResolveInput): Promise<s
     parseDistrictFromSourceId(input.sourceId || "") ||
     null
 
-  if (!district || !slug) return null
+  if (!district || !slug) {
+    return existing && /\.m3u8/i.test(existing) ? existing : null
+  }
 
   const rows = await fetchDistrictCams(district)
   const match = pickBySlug(rows, slug)

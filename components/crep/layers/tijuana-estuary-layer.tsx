@@ -36,6 +36,7 @@ import type { Map as MapLibreMap } from "maplibre-gl"
 
 interface Props {
   map: MapLibreMap | null
+  liveDataEnabled?: boolean
   enabled: {
     tijuanaEstuary?: boolean         // master
     projectOysterPerimeter?: boolean // teal polygon outline
@@ -127,9 +128,10 @@ const TJ_RIVER_COURSE_GEOJSON = {
   ],
 }
 
-export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
+export default function TijuanaEstuaryLayer({ map, enabled, liveDataEnabled = true }: Props) {
   const loadedRef = useRef(false)
   const [data, setData] = useState<any | null>(null)
+  const [styleReadyNonce, setStyleReadyNonce] = useState(0)
   // Apr 21, 2026 (Morgan: "crep keeps reloading ... too much data?"):
   // guard against the infinite-fetch loop we had here before. The old
   // effect listed `data` in its deps AND called setData(j) where j
@@ -162,6 +164,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       fetchAttemptedRef.current = false
       return
     }
+    if (!liveDataEnabled) return
     const doFetch = (label: string) => {
       if (typeof document !== "undefined" && document.hidden && label !== "initial") return
       console.log(`[TijuanaEstuary] ${label} fetch /api/crep/tijuana-estuary ...`)
@@ -190,7 +193,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     return () => { clearInterval(iv) }
     // Intentionally no fetch-cancel cleanup — strict-mode cleanup was
     // aborting mount-1 in an earlier bug.
-  }, [enabled.tijuanaEstuary])
+  }, [enabled.tijuanaEstuary, liveDataEnabled])
 
   useEffect(() => {
     if (!map) return
@@ -210,6 +213,26 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
         for (const id of allLayerIds) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none")
       } catch { /* ignore */ }
       return
+    }
+
+    if (!loadedRef.current && typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
+      let retried = false
+      let timer: number | undefined
+      const retryWhenReady = () => {
+        if (retried) return
+        retried = true
+        try { map.off("styledata", retryWhenReady) } catch { /* ignore */ }
+        try { map.off("idle", retryWhenReady) } catch { /* ignore */ }
+        if (mountedRef.current) setStyleReadyNonce((value) => value + 1)
+      }
+      try { map.once("styledata", retryWhenReady) } catch { /* ignore */ }
+      try { map.once("idle", retryWhenReady) } catch { /* ignore */ }
+      if (typeof window !== "undefined") timer = window.setTimeout(retryWhenReady, 500)
+      return () => {
+        if (timer !== undefined) window.clearTimeout(timer)
+        try { map.off("styledata", retryWhenReady) } catch { /* ignore */ }
+        try { map.off("idle", retryWhenReady) } catch { /* ignore */ }
+      }
     }
 
     if (!loadedRef.current) {
@@ -817,7 +840,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       setVis("oyster-inat-dot",           !!enabled.oysterNature)
       setVis("oyster-heatmap-layer",      !!enabled.oysterHeatmap)
     } catch { /* ignore */ }
-  }, [map, data, enabled])
+  }, [map, data, enabled, styleReadyNonce])
 
   return null
 }

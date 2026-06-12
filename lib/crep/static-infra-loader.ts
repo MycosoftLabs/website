@@ -38,6 +38,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "substations",
     pmtilesUrl: "/data/crep/tiles/substations-us.pmtiles",
     geojsonUrl: "/data/crep/substations-us.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
+    skipGeojsonFallback: true,
     label: "US substations (HIFLD)",
   },
   transmissionLines: {
@@ -52,6 +54,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     // oddities on large PMTiles files.
     pmtilesUrl: "/api/crep/tiles/transmission-lines-us-major.pmtiles",
     geojsonUrl: "/data/crep/transmission-lines-us-major.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
+    skipGeojsonFallback: true,
     label: "US transmission lines (HIFLD ≥345 kV)",
   },
   /**
@@ -86,6 +90,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "data_centers",
     pmtilesUrl: "/api/crep/tiles/data-centers-global.pmtiles",
     geojsonUrl: "/data/crep/data-centers-global.geojson",
+    skipGeojsonFallback: true,
     label: "Global data centers (OSM + PeeringDB + MINDEX)",
   },
   powerPlantsGlobal: {
@@ -93,6 +98,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "power_plants",
     pmtilesUrl: "/data/crep/tiles/power-plants-global.pmtiles",
     geojsonUrl: "/data/crep/power-plants-global.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
+    skipGeojsonFallback: true,
     label: "Global power plants (WRI)",
   },
   cellTowersGlobal: {
@@ -174,11 +181,11 @@ function resolvePmtilesUrl(appPath: string): string {
 }
 
 /**
- * Probe whether a .pmtiles file is reachable (HEAD request).
- * 15-second in-memory memoization so we don't re-probe on every source add.
+ * Probe whether a .pmtiles file is reachable.
+ * Cache for several minutes so style churn cannot re-probe on every source add.
  */
 const pmtilesProbeCache = new Map<string, { ts: number; available: boolean }>()
-const PROBE_TTL_MS = 15_000
+const PROBE_TTL_MS = 5 * 60_000
 
 export async function isPMTilesAvailable(url: string): Promise<boolean> {
   const cached = pmtilesProbeCache.get(url)
@@ -206,13 +213,25 @@ export async function isPMTilesAvailable(url: string): Promise<boolean> {
       ...(controller ? { signal: controller.signal } : {}),
     })
     const totalBytes = parseContentTotalBytes(res.headers)
+    const sliceBytes = Number(res.headers.get("content-length") || "")
+    const hasBodyBytes =
+      res.headers.get("content-length") !== "0" &&
+      (!Number.isFinite(sliceBytes) || sliceBytes > 0)
+    const isRangeSlice = res.status === 206
+    const largeEnough =
+      totalBytes != null
+        ? totalBytes >= 4096
+        : isRangeSlice
+          ? Number.isFinite(sliceBytes) && sliceBytes >= 512
+          : Number.isFinite(sliceBytes) && sliceBytes >= 4096
     const ok =
       (res.ok || res.status === 206) &&
-      (res.headers.get("content-length") !== "0") &&
+      hasBodyBytes &&
       // A real infra PMTiles archive is never a tiny JSON/error stub. Live
       // once served transmission-lines-us-full.pmtiles as 134 bytes with a
-      // 206 status; MapLibre accepted the source and then rendered nothing.
-      (totalBytes == null || totalBytes >= 4096)
+      // 206 status; accept normal 1 KiB range slices when the server omits
+      // Content-Range, but still reject tiny stubs.
+      largeEnough
     pmtilesProbeCache.set(url, { ts: Date.now(), available: ok })
     return ok
   } catch {

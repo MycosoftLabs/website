@@ -20,8 +20,12 @@
 
 import { useEffect } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import {
+  METRO_INFRA_REGION_IDS,
+  type MetroInfraRegionId,
+} from "@/lib/crep/metro-infra-layer-bridge"
 
-type Enabled = {
+type Enabled = Record<string, boolean | undefined> & {
   // Project anchor + perimeter + POIs (one toggle per project)
   projectNyc?: boolean
   projectDc?: boolean
@@ -78,7 +82,7 @@ type Enabled = {
 }
 
 interface RegionCategory {
-  region: "nyc" | "dc" | "vegas"
+  region: MetroInfraRegionId
   id: keyof Enabled
   file: string
   layerId: string
@@ -92,7 +96,7 @@ interface RegionCategory {
   minzoom?: number
 }
 
-const makeCategories = (region: "nyc" | "dc" | "vegas"): RegionCategory[] => [
+const makeCategories = (region: MetroInfraRegionId): RegionCategory[] => [
   { region, id: `${region}Hospitals` as keyof Enabled,     file: `/data/crep/${region}-hospitals.geojson`,       layerId: `crep-${region}-hospitals`,     sourceId: `crep-${region}-hospitals-src`,     label: "Hospital", color: "#f43f5e", selectType: "hospital", minzoom: 7 },
   { region, id: `${region}Police` as keyof Enabled,        file: `/data/crep/${region}-police.geojson`,          layerId: `crep-${region}-police`,        sourceId: `crep-${region}-police-src`,        label: "Police / Fire", color: "#3b82f6", selectType: "police", minzoom: 8 },
   { region, id: `${region}Sewage` as keyof Enabled,        file: `/data/crep/${region}-sewage.geojson`,          layerId: `crep-${region}-sewage`,        sourceId: `crep-${region}-sewage-src`,        label: "Sewage works", color: "#a16207", selectType: "sewage_works", polygon: true, minzoom: 7 },
@@ -142,13 +146,27 @@ function resolveMap(m: MapOrRef): MapLibreMap | null {
   return current ?? null
 }
 
-const REGION_BBOX: Record<"nyc" | "dc" | "vegas", [number, number, number, number]> = {
+const REGION_BBOX: Record<MetroInfraRegionId, [number, number, number, number]> = {
+  atlanta: [-84.75, 33.45, -83.95, 34.15],
+  austin: [-98.1, 30.0, -97.45, 30.65],
+  boston: [-71.35, 42.05, -70.75, 42.6],
+  chicago: [-88.15, 41.45, -87.35, 42.15],
+  dallas: [-97.15, 32.45, -96.35, 33.2],
   nyc: [-74.35, 40.35, -73.45, 41.05],
   dc: [-77.75, 38.55, -76.55, 39.25],
+  denver: [-105.35, 39.45, -104.55, 40.05],
+  houston: [-95.9, 29.35, -94.95, 30.25],
+  la: [-118.95, 33.45, -117.55, 34.55],
+  miami: [-80.65, 25.45, -79.95, 26.15],
+  philly: [-75.55, 39.65, -74.85, 40.25],
+  phoenix: [-112.55, 33.05, -111.45, 33.85],
+  seattle: [-122.65, 47.25, -121.95, 47.9],
+  sf: [-122.8, 37.45, -121.75, 38.15],
+  slc: [-112.25, 40.45, -111.55, 41.05],
   vegas: [-115.55, 35.8, -114.75, 36.55],
 }
 
-function viewportIntersectsRegion(m: MapLibreMap, region: "nyc" | "dc" | "vegas") {
+function viewportIntersectsRegion(m: MapLibreMap, region: MetroInfraRegionId) {
   const zoom = typeof m.getZoom === "function" ? m.getZoom() : 0
   if (zoom < 5) return false
   const bounds = m.getBounds()
@@ -168,6 +186,19 @@ function viewportIntersectsRegion(m: MapLibreMap, region: "nyc" | "dc" | "vegas"
     viewport[3] < south - pad ||
     viewport[1] > north + pad
   )
+}
+
+function safeTags(tags: unknown): Record<string, unknown> {
+  if (!tags) return {}
+  if (typeof tags === "string") {
+    try {
+      const parsed = JSON.parse(tags)
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof tags === "object" ? tags as Record<string, unknown> : {}
 }
 
 export interface ProjectNycDcLayerProps {
@@ -321,19 +352,19 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
     enabled.projectHomeAcero,
   ])
 
-  // Regional OSM layers (NYC + DC)
+  // Regional OSM layers (major US metros)
   useEffect(() => {
     const m = resolveMap(map)
     if (!m) return
     let cancelled = false
-    const all = [...makeCategories("nyc"), ...makeCategories("dc"), ...makeCategories("vegas")]
+    const all = METRO_INFRA_REGION_IDS.flatMap((region) => makeCategories(region))
     const loaded = new Set<string>()
 
     const ensureCategory = async (cat: RegionCategory) => {
       if (loaded.has(cat.layerId)) return
       try {
         const res = await fetch(cat.file, { cache: "default" })
-        if (!res.ok) { console.log(`[CREP/NYC-DC] ${cat.file} missing`); return }
+        if (!res.ok) { console.log(`[CREP/MetroInfra] ${cat.file} missing`); return }
         const gj = await res.json()
         if (cancelled) return
         try { if (!m.getSource(cat.sourceId)) m.addSource(cat.sourceId, { type: "geojson", data: gj }) } catch {}
@@ -370,18 +401,22 @@ export default function ProjectNycDcLayer({ map, enabled }: ProjectNycDcLayerPro
               operator: p.operator,
               ref: p.ref,
               source: "OSM (community-mapped)",
-              ...(typeof p.tags === "string" ? JSON.parse(p.tags) : p.tags || {}),
+              ...safeTags(p.tags),
             },
           })
         }
-        m.on("click", cat.layerId, openClick)
-        if (cat.polygon) m.on("click", cat.layerId + "-fill", openClick)
-        m.on("mouseenter", cat.layerId, () => { m.getCanvas().style.cursor = "pointer" })
-        m.on("mouseleave", cat.layerId, () => { m.getCanvas().style.cursor = "" })
+        const boundKey = `__crepMetroInfraBound_${cat.layerId}`
+        if (!(m as any)[boundKey]) {
+          ;(m as any)[boundKey] = true
+          m.on("click", cat.layerId, openClick)
+          if (cat.polygon) m.on("click", cat.layerId + "-fill", openClick)
+          m.on("mouseenter", cat.layerId, () => { m.getCanvas().style.cursor = "pointer" })
+          m.on("mouseleave", cat.layerId, () => { m.getCanvas().style.cursor = "" })
+        }
         loaded.add(cat.layerId)
-        console.log(`[CREP/NYC-DC] ${cat.layerId}: ${gj.features?.length ?? 0} loaded`)
+        console.log(`[CREP/MetroInfra] ${cat.layerId}: ${gj.features?.length ?? 0} loaded`)
       } catch (err: any) {
-        console.warn(`[CREP/NYC-DC] ${cat.layerId} failed:`, err?.message)
+        console.warn(`[CREP/MetroInfra] ${cat.layerId} failed:`, err?.message)
       }
     }
     const applyVisibility = (cat: RegionCategory, on: boolean) => {

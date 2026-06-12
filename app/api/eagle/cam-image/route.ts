@@ -40,6 +40,7 @@ const ALLOW_HOSTS = new Set([
   "volcanoes.usgs.gov",
   "hvo-api.wr.usgs.gov",
   "www.earthcam.com",
+  "cdn.skylinewebcams.com",
   "camsecure.co",
   "www.surfline.com",
   "cams.cdn-surfline.com",
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
   try {
     const upstream = await fetch(fetchUrl, {
       headers: { "User-Agent": "MycosoftCREP/1.0", Accept: "image/*" },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(4_500),
       // Node 20 fetch auto-follows redirects; cache for 20 s on client so
       // the snapshot refresh cadence from SnapshotStream lines up.
     })

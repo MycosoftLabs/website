@@ -85,6 +85,9 @@ const RESPONSE_HEADERS = {
 const DAY_MS = 86400_000;
 const DEFAULT_GLOBAL_EVENT_DAYS = 3;
 const MAX_GLOBAL_EVENT_DAYS = 7;
+const DEBUG_GLOBAL_EVENTS = process.env.NATUREOS_GLOBAL_EVENTS_DEBUG === "1";
+let lastEonetWarningAt = 0;
+let lastNwsWarningAt = 0;
 type GlobalEventsCacheEntry = {
   events: GlobalEvent[];
   fetchedAt: number;
@@ -388,13 +391,13 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
     })
     .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
   } catch (error) {
-    // May 21 2026 (Morgan): downgraded from console.error to console.warn.
-    // The Next.js dev error overlay treats console.error() as a runtime
-    // error and pops a "1 error" badge on the page, even when the calling
-    // route swallows the failure and returns []. EONET is a single source
-    // among many — its 5xx / timeout is the upstream's problem, not a
-    // dashboard bug. Same goes for the other upstream catches below.
-    console.warn("[global-events] NASA EONET upstream unavailable:", error instanceof Error ? error.message : error);
+    // EONET is optional for Earth Simulator boot. Keep expected upstream
+    // timeouts silent unless debugging this source directly.
+    const now = Date.now();
+    if (DEBUG_GLOBAL_EVENTS && now - lastEonetWarningAt > 5 * 60_000) {
+      lastEonetWarningAt = now;
+      console.warn("[global-events] NASA EONET upstream unavailable:", error instanceof Error ? error.message : error);
+    }
     return [];
   }
 }
@@ -456,7 +459,11 @@ async function fetchNWSActiveWeatherAlerts(): Promise<GlobalEvent[]> {
       })
       .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
   } catch (error) {
-    console.error("NWS alerts fetch error:", error);
+    const now = Date.now();
+    if (DEBUG_GLOBAL_EVENTS && now - lastNwsWarningAt > 5 * 60_000) {
+      lastNwsWarningAt = now;
+      console.warn("[global-events] NWS alerts upstream unavailable:", error instanceof Error ? error.message : error);
+    }
     return [];
   }
 }

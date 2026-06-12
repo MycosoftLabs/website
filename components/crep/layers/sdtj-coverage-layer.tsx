@@ -66,14 +66,257 @@ const CATEGORIES: CategoryDef[] = [
   { id: "sdtjCivicFacilities", layerId: "crep-sdtj-civic", sourceId: "crep-sdtj-civic-src", file: "/data/crep/sdtj-civic.geojson", label: "Civic facility", color: "#14b8a6", glyph: "C", selectType: "civic" },
 ]
 
+const SDTJ_ICON_IMAGES = {
+  hospital: "crep-icon-hospital",
+  fire_station: "crep-icon-fire-station",
+  police: "crep-icon-police",
+  library: "crep-icon-library",
+  civic: "crep-icon-civic",
+  border_crossing: "crep-icon-civic",
+  cell_tower: "crep-icon-cell-tower",
+  broadcast_antenna: "crep-icon-broadcast-antenna",
+  military_installation: "crep-icon-military",
+  data_center: "crep-icon-data-center",
+  sewage_works: "crep-icon-sewage",
+} as const
+
 export interface SdtjCoverageLayerProps {
-  map: React.RefObject<MapLibreMap | null>
+  map: MapLibreMap | React.RefObject<MapLibreMap | null> | null
   enabled: Enabled
+}
+
+function resolveMap(map: SdtjCoverageLayerProps["map"]): MapLibreMap | null {
+  if (!map) return null
+  if (typeof (map as MapLibreMap).getZoom === "function") return map as MapLibreMap
+  return (map as React.RefObject<MapLibreMap | null>).current ?? null
+}
+
+function safeTags(value: unknown): Record<string, unknown> {
+  if (!value) return {}
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === "object" ? value as Record<string, unknown> : {}
+}
+
+function propertyText(properties: Record<string, unknown>): string {
+  return [
+    properties.name,
+    properties.category,
+    properties.facility_type,
+    properties.amenity,
+    properties.operator,
+    properties.tags,
+  ].map((value) => typeof value === "string" ? value : JSON.stringify(value ?? "")).join(" ").toLowerCase()
+}
+
+function resolvePointGlyph(cat: CategoryDef, properties: Record<string, unknown>): string {
+  if (cat.id !== "sdtjPolice" && cat.id !== "sdtjCivicFacilities") return cat.glyph
+  const text = propertyText({ ...properties, ...safeTags(properties.tags) })
+  if (/\bfire\b|bomberos|fire_station/.test(text)) return "🚒"
+  if (/\bborder\b|cbp|customs|port of entry|immigration|checkpoint/.test(text)) return "🛂"
+  if (/\blibrary\b|biblioteca/.test(text)) return "📚"
+  if (/\bhospital\b|clinic|medical/.test(text)) return "🏥"
+  if (/\bpolice\b|sheriff|station|patrol/.test(text)) return "🚔"
+  if (/\bcity hall\b|townhall|courthouse|government|municipal|civic/.test(text)) return "🏛️"
+  return cat.glyph
+}
+
+function resolveSelectType(cat: CategoryDef, properties: Record<string, unknown>): string {
+  if (cat.id !== "sdtjPolice" && cat.id !== "sdtjCivicFacilities") return cat.selectType
+  const text = propertyText({ ...properties, ...safeTags(properties.tags) })
+  if (/\bfire\b|bomberos|fire_station/.test(text)) return "fire_station"
+  if (/\bborder\b|cbp|customs|port of entry|immigration|checkpoint/.test(text)) return "border_crossing"
+  if (/\blibrary\b|biblioteca/.test(text)) return "library"
+  if (/\bhospital\b|clinic|medical/.test(text)) return "hospital"
+  if (/\bpolice\b|sheriff|station|patrol/.test(text)) return "police"
+  return cat.selectType
+}
+
+function sdtjIconImage(selectType: string): string {
+  return (SDTJ_ICON_IMAGES as Record<string, string>)[selectType] || SDTJ_ICON_IMAGES.civic
+}
+
+function drawSdtjIcon(kind: "hospital" | "fire_station" | "police" | "library" | "civic" | "cell_tower" | "broadcast_antenna" | "military" | "data_center" | "sewage"): ImageData | null {
+  if (typeof document === "undefined") return null
+  const canvas = document.createElement("canvas")
+  canvas.width = 48
+  canvas.height = 48
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.clearRect(0, 0, 48, 48)
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  ctx.strokeStyle = "#ffffff"
+  ctx.fillStyle = "#ffffff"
+  ctx.lineWidth = 5
+  if (kind === "hospital") {
+    ctx.fillRect(20, 9, 8, 30)
+    ctx.fillRect(9, 20, 30, 8)
+  } else if (kind === "fire_station") {
+    ctx.beginPath()
+    ctx.moveTo(24, 6)
+    ctx.bezierCurveTo(34, 15, 38, 25, 31, 38)
+    ctx.bezierCurveTo(24, 44, 13, 39, 13, 29)
+    ctx.bezierCurveTo(13, 21, 21, 17, 20, 9)
+    ctx.bezierCurveTo(23, 12, 25, 16, 24, 22)
+    ctx.bezierCurveTo(29, 17, 29, 11, 24, 6)
+    ctx.closePath()
+    ctx.fill()
+  } else if (kind === "police") {
+    ctx.beginPath()
+    ctx.moveTo(24, 6)
+    ctx.lineTo(38, 13)
+    ctx.lineTo(35, 31)
+    ctx.lineTo(24, 42)
+    ctx.lineTo(13, 31)
+    ctx.lineTo(10, 13)
+    ctx.closePath()
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(24, 23, 4, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (kind === "library") {
+    ctx.strokeRect(10, 13, 12, 25)
+    ctx.strokeRect(26, 13, 12, 25)
+    ctx.beginPath()
+    ctx.moveTo(24, 13)
+    ctx.lineTo(24, 38)
+    ctx.stroke()
+  } else if (kind === "cell_tower") {
+    ctx.beginPath()
+    ctx.moveTo(24, 40)
+    ctx.lineTo(24, 13)
+    ctx.moveTo(14, 40)
+    ctx.lineTo(24, 13)
+    ctx.lineTo(34, 40)
+    ctx.moveTo(18, 27)
+    ctx.lineTo(30, 27)
+    ctx.moveTo(16, 34)
+    ctx.lineTo(32, 34)
+    ctx.stroke()
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(24, 15, 8, -0.9, 0.9)
+    ctx.stroke()
+  } else if (kind === "broadcast_antenna") {
+    ctx.beginPath()
+    ctx.moveTo(24, 39)
+    ctx.lineTo(24, 14)
+    ctx.moveTo(14, 39)
+    ctx.lineTo(24, 14)
+    ctx.lineTo(34, 39)
+    ctx.stroke()
+    ctx.lineWidth = 3
+    for (const r of [7, 13]) {
+      ctx.beginPath()
+      ctx.arc(24, 14, r, -0.85, 0.85)
+      ctx.stroke()
+    }
+  } else if (kind === "military") {
+    ctx.beginPath()
+    ctx.moveTo(24, 6)
+    ctx.lineTo(39, 13)
+    ctx.lineTo(36, 31)
+    ctx.lineTo(24, 42)
+    ctx.lineTo(12, 31)
+    ctx.lineTo(9, 13)
+    ctx.closePath()
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(17, 26)
+    ctx.lineTo(31, 26)
+    ctx.moveTo(24, 17)
+    ctx.lineTo(24, 35)
+    ctx.stroke()
+  } else if (kind === "data_center") {
+    ctx.strokeRect(11, 10, 26, 28)
+    ctx.beginPath()
+    ctx.moveTo(16, 18)
+    ctx.lineTo(32, 18)
+    ctx.moveTo(16, 26)
+    ctx.lineTo(32, 26)
+    ctx.moveTo(16, 34)
+    ctx.lineTo(32, 34)
+    ctx.stroke()
+    ctx.fillRect(33, 17, 3, 3)
+    ctx.fillRect(33, 25, 3, 3)
+    ctx.fillRect(33, 33, 3, 3)
+  } else if (kind === "sewage") {
+    ctx.beginPath()
+    ctx.arc(24, 24, 15, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(14, 24)
+    ctx.bezierCurveTo(19, 18, 29, 30, 34, 24)
+    ctx.moveTo(14, 31)
+    ctx.bezierCurveTo(19, 25, 29, 37, 34, 31)
+    ctx.stroke()
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(8, 17)
+    ctx.lineTo(24, 8)
+    ctx.lineTo(40, 17)
+    ctx.closePath()
+    ctx.fill()
+    for (const x of [13, 21, 29, 37]) ctx.fillRect(x - 2, 19, 4, 16)
+    ctx.fillRect(8, 37, 32, 4)
+  }
+  return ctx.getImageData(0, 0, 48, 48)
+}
+
+function ensureSdtjIconImages(map: MapLibreMap) {
+  const draw = {
+    "crep-icon-hospital": () => drawSdtjIcon("hospital"),
+    "crep-icon-fire-station": () => drawSdtjIcon("fire_station"),
+    "crep-icon-police": () => drawSdtjIcon("police"),
+    "crep-icon-library": () => drawSdtjIcon("library"),
+    "crep-icon-civic": () => drawSdtjIcon("civic"),
+    "crep-icon-cell-tower": () => drawSdtjIcon("cell_tower"),
+    "crep-icon-broadcast-antenna": () => drawSdtjIcon("broadcast_antenna"),
+    "crep-icon-military": () => drawSdtjIcon("military"),
+    "crep-icon-data-center": () => drawSdtjIcon("data_center"),
+    "crep-icon-sewage": () => drawSdtjIcon("sewage"),
+  }
+  for (const [id, make] of Object.entries(draw)) {
+    try {
+      if ((map as any).hasImage?.(id)) continue
+      const image = make()
+      if (image) map.addImage(id, image, { pixelRatio: 2 } as any)
+    } catch {
+      /* image can already exist after hot reload */
+    }
+  }
+}
+
+function enrichCoverageGeoJson(gj: any, cat: CategoryDef) {
+  return {
+    ...gj,
+    features: (Array.isArray(gj?.features) ? gj.features : []).map((feature: any) => {
+      const properties = feature?.properties && typeof feature.properties === "object" ? feature.properties : {}
+      const selectType = properties.select_type || resolveSelectType(cat, properties)
+      return {
+        ...feature,
+        properties: {
+          ...properties,
+          glyph: properties.glyph || resolvePointGlyph(cat, properties),
+          icon_image: properties.icon_image || sdtjIconImage(String(selectType)),
+          select_type: selectType,
+          category_label: properties.category_label || cat.label,
+        },
+      }
+    }),
+  }
 }
 
 export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
   useEffect(() => {
-    const m = map?.current
+    const m = resolveMap(map)
     if (!m) return
 
     let cancelled = false
@@ -94,13 +337,14 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
       const [lng, lat] = f.geometry?.type === "Point"
         ? (f.geometry.coordinates as [number, number])
         : [e.lngLat?.lng, e.lngLat?.lat]
+      const selectType = String(f.properties?.select_type || cat.selectType)
       hook({
-        type: cat.selectType,
+        type: selectType,
         id: f.properties?.id,
         name: f.properties?.name || `${cat.label}`,
         lat, lng,
         properties: {
-          category: cat.label,
+          category: f.properties?.category_label || cat.label,
           operator: f.properties?.operator,
           agency: f.properties?.agency,
           address: f.properties?.address,
@@ -109,7 +353,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
           facility_type: f.properties?.facility_type,
           ref: f.properties?.ref,
           source: f.properties?.source || "OSM (community-mapped)",
-          ...(typeof f.properties?.tags === "string" ? JSON.parse(f.properties.tags) : f.properties?.tags || {}),
+          ...safeTags(f.properties?.tags),
         },
       })
     }
@@ -129,10 +373,12 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
           console.log(`[CREP/SDTJ] ${cat.file} missing — skip ${cat.id}`)
           return
         }
-        const gj = await res.json()
+        const gj = enrichCoverageGeoJson(await res.json(), cat)
         if (cancelled) return
         safeAddSource(cat.sourceId, gj)
+        ensureSdtjIconImages(m)
         const categoryMinZoom = minZoomForCategory(cat)
+        const pointCircleOpacity = cat.id === "sdtjMilitary" ? 0.18 : 0.28
         if (cat.polygon) {
           // Polygon fill + outline
           safeAddLayer({
@@ -166,9 +412,9 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
             source: cat.sourceId,
             filter: ["==", ["geometry-type"], "Point"],
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 3, 10, 5, 14, 7],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2.5, 10, 3.5, 14, 4.5],
               "circle-color": cat.color,
-              "circle-opacity": 0.85,
+              "circle-opacity": pointCircleOpacity,
               "circle-stroke-color": "#000",
               "circle-stroke-width": 0.6,
             },
@@ -180,21 +426,42 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
             type: "circle",
             source: cat.sourceId,
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 3, 10, 5.5, 14, 8],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2.5, 10, 3.5, 14, 4.5],
               "circle-color": cat.color,
-              "circle-opacity": 0.85,
+              "circle-opacity": pointCircleOpacity,
               "circle-stroke-color": "#000",
               "circle-stroke-width": 0.6,
             },
             minzoom: categoryMinZoom,
           })
         }
+        safeAddLayer({
+          id: cat.layerId + "-icon",
+          type: "symbol",
+          source: cat.sourceId,
+          filter: ["==", ["geometry-type"], "Point"],
+          layout: {
+            "icon-image": ["coalesce", ["get", "icon_image"], SDTJ_ICON_IMAGES.civic],
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.44, 10, 0.56, 14, 0.76],
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "text-optional": true,
+            "visibility": "visible",
+          },
+          minzoom: categoryMinZoom,
+        })
 
-        // Click handler
-        m.on("click", cat.layerId, (e: any) => openClickPanel(cat, e))
-        if (cat.polygon) m.on("click", cat.layerId + "-fill", (e: any) => openClickPanel(cat, e))
-        m.on("mouseenter", cat.layerId, () => { m.getCanvas().style.cursor = "pointer" })
-        m.on("mouseleave", cat.layerId, () => { m.getCanvas().style.cursor = "" })
+        const boundKey = `__sdtjCoverageBound_${cat.layerId}`
+        if (!(m as any)[boundKey]) {
+          ;(m as any)[boundKey] = true
+          m.on("click", cat.layerId, (e: any) => openClickPanel(cat, e))
+          m.on("click", cat.layerId + "-icon", (e: any) => openClickPanel(cat, e))
+          if (cat.polygon) m.on("click", cat.layerId + "-fill", (e: any) => openClickPanel(cat, e))
+          m.on("mouseenter", cat.layerId, () => { m.getCanvas().style.cursor = "pointer" })
+          m.on("mouseenter", cat.layerId + "-icon", () => { m.getCanvas().style.cursor = "pointer" })
+          m.on("mouseleave", cat.layerId, () => { m.getCanvas().style.cursor = "" })
+          m.on("mouseleave", cat.layerId + "-icon", () => { m.getCanvas().style.cursor = "" })
+        }
         loaded.add(cat.layerId)
         console.log(`[CREP/SDTJ] ${cat.id}: ${gj.features?.length ?? 0} loaded`)
       } catch (err: any) {
@@ -204,7 +471,7 @@ export function SdtjCoverageLayer({ map, enabled }: SdtjCoverageLayerProps) {
 
     const applyVisibility = (cat: CategoryDef, on: boolean) => {
       const vis = on ? "visible" : "none"
-      for (const suffix of ["", "-fill", "-outline"]) {
+      for (const suffix of ["", "-fill", "-outline", "-icon"]) {
         try {
           if (m.getLayer(cat.layerId + suffix)) m.setLayoutProperty(cat.layerId + suffix, "visibility", vis)
         } catch { /* layer not yet present */ }

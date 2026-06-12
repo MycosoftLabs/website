@@ -1,7 +1,7 @@
 /**
  * Metro infra layer bridge — May 24, 2026
  *
- * City-specific OSM detail layers (NYC, DC, Vegas, SD/TJ) are hidden from the
+ * City-specific OSM detail layers (major US metros + SD/TJ) are hidden from the
  * filter panel. Their MapLibre overlays follow the generic parent toggles
  * (cell towers, data centers, hospitals, etc.) instead of separate city filters.
  */
@@ -17,42 +17,50 @@ export const METRO_PROJECT_ANCHOR_IDS = [
   "projectVegas",
 ] as const;
 
+export const METRO_INFRA_REGION_IDS = [
+  "atlanta",
+  "austin",
+  "boston",
+  "chicago",
+  "dallas",
+  "denver",
+  "dc",
+  "houston",
+  "la",
+  "miami",
+  "nyc",
+  "philly",
+  "phoenix",
+  "seattle",
+  "sf",
+  "slc",
+  "vegas",
+] as const;
+
+export type MetroInfraRegionId = typeof METRO_INFRA_REGION_IDS[number];
+
+const METRO_INFRA_DETAIL_LAYER_SUFFIXES = [
+  "Hospitals",
+  "Police",
+  "Sewage",
+  "CellTowers",
+  "AmFmAntennas",
+  "Military",
+  "DataCenters",
+  "TransitSubway",
+  "TransitRail",
+  "Airports",
+  "GovtEmbassy",
+] as const;
+
+type MetroInfraDetailLayerSuffix = typeof METRO_INFRA_DETAIL_LAYER_SUFFIXES[number];
+
 /** Per-city infra detail toggles — hidden from panel; driven by parent filters. */
-export const METRO_INFRA_DETAIL_LAYER_IDS = new Set<string>([
-  "nycHospitals",
-  "nycPolice",
-  "nycSewage",
-  "nycCellTowers",
-  "nycAmFmAntennas",
-  "nycMilitary",
-  "nycDataCenters",
-  "nycTransitSubway",
-  "nycTransitRail",
-  "nycAirports",
-  "nycGovtEmbassy",
-  "dcHospitals",
-  "dcPolice",
-  "dcSewage",
-  "dcCellTowers",
-  "dcAmFmAntennas",
-  "dcMilitary",
-  "dcDataCenters",
-  "dcTransitSubway",
-  "dcTransitRail",
-  "dcAirports",
-  "dcGovtEmbassy",
-  "vegasHospitals",
-  "vegasPolice",
-  "vegasSewage",
-  "vegasCellTowers",
-  "vegasAmFmAntennas",
-  "vegasMilitary",
-  "vegasDataCenters",
-  "vegasTransitSubway",
-  "vegasTransitRail",
-  "vegasAirports",
-  "vegasGovtEmbassy",
-]);
+export const METRO_INFRA_DETAIL_LAYER_IDS = new Set<string>(
+  METRO_INFRA_REGION_IDS.flatMap((region) =>
+    METRO_INFRA_DETAIL_LAYER_SUFFIXES.map((suffix) => `${region}${suffix}`),
+  ),
+);
 
 export const SDTJ_COVERAGE_DETAIL_LAYER_IDS = new Set<string>([
   "sdtjHospitals",
@@ -145,6 +153,7 @@ const POLICE_PARENT_IDS = ["policeStations", "fireStations"] as const;
 const MILITARY_PARENT_IDS = ["militaryBases"] as const;
 const TRANSIT_PARENT_IDS = ["liveTransit", "railwayTrains", "railwayTracks"] as const;
 const SEWAGE_PARENT_IDS = ["waterPollution"] as const;
+const SDTJ_SEWAGE_PROJECT_PARENT_IDS = ["tijuanaEstuary", "projectOysterPerimeter", "projectOysterSites"] as const;
 const AIRPORT_PARENT_IDS = ["aviation", "aviationRoutes"] as const;
 const GOVT_PARENT_IDS = ["civicFacilities", "events_human", "universities"] as const;
 
@@ -223,7 +232,7 @@ export function deriveSdtjCoverageEnabled(layers: LayerToggle[]): SdtjCoverageEn
   return {
     sdtjHospitals: isAnyLayerEnabled(layers, HOSPITAL_PARENT_IDS),
     sdtjPolice: isAnyLayerEnabled(layers, POLICE_PARENT_IDS),
-    sdtjSewage: isAnyLayerEnabled(layers, SEWAGE_PARENT_IDS),
+    sdtjSewage: isAnyLayerEnabled(layers, SEWAGE_PARENT_IDS) || isAnyLayerEnabled(layers, SDTJ_SEWAGE_PROJECT_PARENT_IDS),
     sdtjCellTowers: isAnyLayerEnabled(layers, CELL_PARENT_IDS),
     sdtjAmFmAntennas: isAnyLayerEnabled(layers, RADIO_PARENT_IDS),
     sdtjMilitary: isAnyLayerEnabled(layers, MILITARY_PARENT_IDS),
@@ -232,44 +241,11 @@ export function deriveSdtjCoverageEnabled(layers: LayerToggle[]): SdtjCoverageEn
   };
 }
 
-export interface MetroProjectLayerEnabled {
+export type MetroProjectLayerEnabled = Record<string, boolean> & {
   projectNyc: boolean;
   projectDc: boolean;
   projectVegas: boolean;
-  nycHospitals: boolean;
-  nycPolice: boolean;
-  nycSewage: boolean;
-  nycCellTowers: boolean;
-  nycAmFmAntennas: boolean;
-  nycMilitary: boolean;
-  nycDataCenters: boolean;
-  nycTransitSubway: boolean;
-  nycTransitRail: boolean;
-  nycAirports: boolean;
-  nycGovtEmbassy: boolean;
-  dcHospitals: boolean;
-  dcPolice: boolean;
-  dcSewage: boolean;
-  dcCellTowers: boolean;
-  dcAmFmAntennas: boolean;
-  dcMilitary: boolean;
-  dcDataCenters: boolean;
-  dcTransitSubway: boolean;
-  dcTransitRail: boolean;
-  dcAirports: boolean;
-  dcGovtEmbassy: boolean;
-  vegasHospitals: boolean;
-  vegasPolice: boolean;
-  vegasSewage: boolean;
-  vegasCellTowers: boolean;
-  vegasAmFmAntennas: boolean;
-  vegasMilitary: boolean;
-  vegasDataCenters: boolean;
-  vegasTransitSubway: boolean;
-  vegasTransitRail: boolean;
-  vegasAirports: boolean;
-  vegasGovtEmbassy: boolean;
-}
+};
 
 function deriveRegionInfraEnabled(layers: LayerToggle[]) {
   return {
@@ -289,42 +265,31 @@ function deriveRegionInfraEnabled(layers: LayerToggle[]) {
 
 export function deriveMetroProjectLayerEnabled(layers: LayerToggle[]): MetroProjectLayerEnabled {
   const region = deriveRegionInfraEnabled(layers);
-  return {
+  const enabled = {
     projectNyc: isLayerEnabled(layers, "projectNyc"),
     projectDc: isLayerEnabled(layers, "projectDc"),
     projectVegas: isLayerEnabled(layers, "projectVegas"),
-    nycHospitals: region.hospitals,
-    nycPolice: region.police,
-    nycSewage: region.sewage,
-    nycCellTowers: region.cellTowers,
-    nycAmFmAntennas: region.amFmAntennas,
-    nycMilitary: region.military,
-    nycDataCenters: region.dataCenters,
-    nycTransitSubway: region.transitSubway,
-    nycTransitRail: region.transitRail,
-    nycAirports: region.airports,
-    nycGovtEmbassy: region.govtEmbassy,
-    dcHospitals: region.hospitals,
-    dcPolice: region.police,
-    dcSewage: region.sewage,
-    dcCellTowers: region.cellTowers,
-    dcAmFmAntennas: region.amFmAntennas,
-    dcMilitary: region.military,
-    dcDataCenters: region.dataCenters,
-    dcTransitSubway: region.transitSubway,
-    dcTransitRail: region.transitRail,
-    dcAirports: region.airports,
-    dcGovtEmbassy: region.govtEmbassy,
-    vegasHospitals: region.hospitals,
-    vegasPolice: region.police,
-    vegasSewage: region.sewage,
-    vegasCellTowers: region.cellTowers,
-    vegasAmFmAntennas: region.amFmAntennas,
-    vegasMilitary: region.military,
-    vegasDataCenters: region.dataCenters,
-    vegasTransitSubway: region.transitSubway,
-    vegasTransitRail: region.transitRail,
-    vegasAirports: region.airports,
-    vegasGovtEmbassy: region.govtEmbassy,
+  } as MetroProjectLayerEnabled;
+
+  const values: Record<MetroInfraDetailLayerSuffix, boolean> = {
+    Hospitals: region.hospitals,
+    Police: region.police,
+    Sewage: region.sewage,
+    CellTowers: region.cellTowers,
+    AmFmAntennas: region.amFmAntennas,
+    Military: region.military,
+    DataCenters: region.dataCenters,
+    TransitSubway: region.transitSubway,
+    TransitRail: region.transitRail,
+    Airports: region.airports,
+    GovtEmbassy: region.govtEmbassy,
   };
+
+  for (const metroRegion of METRO_INFRA_REGION_IDS) {
+    for (const suffix of METRO_INFRA_DETAIL_LAYER_SUFFIXES) {
+      enabled[`${metroRegion}${suffix}`] = values[suffix];
+    }
+  }
+
+  return enabled;
 }
