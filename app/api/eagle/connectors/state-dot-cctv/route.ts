@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic"
 
 type Cam = {
   id: string
-  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot" | "ndot"
+  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot" | "ndot" | "ga511" | "wi511" | "pa511"
   name: string | null
   lat: number
   lng: number
@@ -464,10 +464,66 @@ async function pullNDOT(): Promise<Cam[]> {
   }
 }
 
+// ─── Castle Rock 511 platform (GA, WI, PA, …) ──────────────────────────
+// Jun 12, 2026 (Morgan: "lots of video, not just Caltrans, plenty of other
+// videos across the country"). Many state 511 sites run the Castle Rock
+// "OneStop" platform, which exposes two keyless endpoints:
+//   • /map/mapIcons/Cameras → { item2: [{ itemId, location:[lat,lng], title }] }
+//   • /map/Cctv/{itemId}    → the live JPEG/PNG snapshot (refreshes upstream)
+// Probed Jun 12, 2026: GA (4043 cams), PA (1511), WI all serve JSON here.
+// Other states run the newer React SPA where this path returns the HTML
+// shell — those return [] via the content-type guard below.
+type CastleRock511 = { provider: "ga511" | "wi511" | "pa511"; host: string; extent: Extent }
+const CASTLEROCK_511: CastleRock511[] = [
+  { provider: "ga511", host: "511ga.org", extent: [-85.7, 30.3, -80.8, 35.1] },
+  { provider: "wi511", host: "511wi.gov", extent: [-93.0, 42.4, -86.7, 47.2] },
+  { provider: "pa511", host: "www.511pa.com", extent: [-80.6, 39.6, -74.6, 42.4] },
+]
+
+async function pullCastleRock511(entry: CastleRock511): Promise<Cam[]> {
+  try {
+    const res = await fetch(`https://${entry.host}/map/mapIcons/Cameras`, {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return []
+    // Newer 511 SPAs serve an HTML shell at this path — bail before JSON.parse.
+    const ct = res.headers.get("content-type") || ""
+    if (!/json/i.test(ct)) return []
+    const j = await res.json()
+    const items: any[] = Array.isArray(j?.item2) ? j.item2 : []
+    return items
+      .map((it: any): Cam | null => {
+        const loc = it?.location
+        const lat = Number(loc?.[0])
+        const lng = Number(loc?.[1])
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        const itemId = it?.itemId ?? `${lat},${lng}`
+        const snapshot = `https://${entry.host}/map/Cctv/${encodeURIComponent(String(itemId))}`
+        return {
+          id: `${entry.provider}-${itemId}`,
+          provider: entry.provider,
+          name: (typeof it?.title === "string" && it.title.trim()) || `${entry.provider.toUpperCase()} camera`,
+          lat,
+          lng,
+          stream_url: null,
+          embed_url: `https://${entry.host}/`,
+          // Proxied snapshot — refreshes every few seconds upstream.
+          media_url: `/api/eagle/cam-image?url=${encodeURIComponent(snapshot)}`,
+          source_status: "online",
+          category: "traffic",
+        }
+      })
+      .filter((c): c is Cam => !!c)
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const bbox = req.nextUrl.searchParams.get("bbox") || undefined
   const parsedBbox = parseBbox(bbox)
-  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot, ndot] = await Promise.all([
+  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot, ndot, castleRock] = await Promise.all([
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.caltrans) ? pullCaltrans(parsedBbox) : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.wsdot) ? pullWSDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.fdot) ? pullFDOT() : Promise.resolve([]),
@@ -475,9 +531,18 @@ export async function GET(req: NextRequest) {
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nyctmc) ? pullNYCTMC() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.txdot) ? pullTxDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.ndot) ? pullNDOT() : Promise.resolve([]),
+    Promise.all(
+      CASTLEROCK_511
+        .filter((e) => bboxIntersectsExtent(parsedBbox, e.extent))
+        .map((e) => pullCastleRock511(e)),
+    ).then((groups) => groups.flat()),
   ])
-  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot, ...ndot]
+  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot, ...ndot, ...castleRock]
   if (parsedBbox) cams = cams.filter((c) => pointInBbox(c, parsedBbox))
+  const castleRockByProvider = castleRock.reduce<Record<string, number>>((acc, c) => {
+    acc[c.provider] = (acc[c.provider] || 0) + 1
+    return acc
+  }, {})
   return NextResponse.json(
     {
       source: "state-dot-cctv",
@@ -490,6 +555,7 @@ export async function GET(req: NextRequest) {
         nyctmc: nyctmc.length,
         txdot: txdot.length,
         ndot: ndot.length,
+        ...castleRockByProvider,
       },
       cams,
     },

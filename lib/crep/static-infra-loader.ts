@@ -28,6 +28,17 @@ export interface InfraLayerConfig {
   maxGeojsonFallbackBytes?: number
   /** Never load the raw GeoJSON fallback in the browser for this source. */
   skipGeojsonFallback?: boolean
+  /**
+   * Prefer the full GeoJSON over PMTiles for this layer. Set for cheap POINT
+   * layers (power plants, data centers) where the baked PMTiles decimate at low
+   * zoom — tippecanoe drops most points below its base zoom, so a continental
+   * flyover shows ~50 plants instead of all ~35k. Points are GPU-cheap to
+   * render, so loading the full GeoJSON gives OpenGridWorks-style "every asset
+   * at every zoom" without re-baking tiles. Lines (transmission) stay on PMTiles.
+   * (Jun 12, 2026 — Morgan: "massive amount of missing power stations, power
+   * plants. It should be all of them.")
+   */
+  preferGeoJSON?: boolean
 }
 
 const MB = 1024 * 1024
@@ -90,7 +101,11 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "data_centers",
     pmtilesUrl: "/api/crep/tiles/data-centers-global.pmtiles",
     geojsonUrl: "/data/crep/data-centers-global.geojson",
-    skipGeojsonFallback: true,
+    // ~1.1 MB of points — load the full set so every data center shows at
+    // flyover zoom (the PMTiles decimate; user: "missing data centers ...
+    // should be the neon blue icons everywhere").
+    preferGeoJSON: true,
+    maxGeojsonFallbackBytes: 8 * MB,
     label: "Global data centers (OSM + PeeringDB + MINDEX)",
   },
   powerPlantsGlobal: {
@@ -98,8 +113,11 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "power_plants",
     pmtilesUrl: "/data/crep/tiles/power-plants-global.pmtiles",
     geojsonUrl: "/data/crep/power-plants-global.geojson",
-    maxGeojsonFallbackBytes: 2 * MB,
-    skipGeojsonFallback: true,
+    // ~15.6 MB / 34,936 points. PMTiles base-zoom decimation shows only the
+    // biggest ~50 plants at z3-4; load the full GeoJSON so all plants paint at
+    // every zoom (capacity-sized via circle-radius LOD), like OpenGridWorks.
+    preferGeoJSON: true,
+    maxGeojsonFallbackBytes: 20 * MB,
     label: "Global power plants (WRI)",
   },
   cellTowersGlobal: {
@@ -306,7 +324,7 @@ export async function addInfraSourceWithFallback(
   // through /api/crep/tiles/*. The client pmtiles library handles HTTP
   // range requests natively.
   const pmtilesUrl = resolvePmtilesUrl(cfg.pmtilesUrl)
-  if (!opts?.forceGeoJSON) {
+  if (!opts?.forceGeoJSON && !cfg.preferGeoJSON) {
     const absoluteUrl = /^https?:\/\//.test(pmtilesUrl)
       ? pmtilesUrl
       : new URL(pmtilesUrl, window.location.origin).toString()
