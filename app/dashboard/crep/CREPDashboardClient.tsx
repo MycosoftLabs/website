@@ -9457,7 +9457,22 @@ export default function CREPDashboardPage({
         (async () => {
           if (!allowAircraft || breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
-            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${earthMoverLimits.aircraft}`, { signal: AbortSignal.timeout(90_000) });
+            // Jun 12, 2026: fetch identity-rich aircraft (callsign/onGround) from the
+            // multi-source registry so the category classifier can distinguish
+            // commercial/cargo/military/private. /api/mindex/proxy/aircraft returns a
+            // kinematics-only scrape (no callsign), which collapsed every plane into
+            // the "private" bucket. Vessels already hit their OEI source directly below
+            // for the same reason. syncToMINDEX still persists what we fetch.
+            const acBounds = mapBoundsRef.current;
+            const acZoom = mapZoomRef.current ?? 0;
+            const acWest = acBounds ? Math.max(-180, Math.min(180, acBounds.west)) : null;
+            const acEast = acBounds ? Math.max(-180, Math.min(180, acBounds.east)) : null;
+            const acHasBbox =
+              !!acBounds && acZoom >= 3 && Number.isFinite(acWest) && Number.isFinite(acEast) && acEast! > acWest!;
+            const aircraftUrl = acHasBbox
+              ? `/api/oei/flightradar24?lamin=${acBounds!.south}&lamax=${acBounds!.north}&lomin=${acWest}&lomax=${acEast}&limit=${earthMoverLimits.aircraft}`
+              : `/api/oei/flightradar24?limit=${earthMoverLimits.aircraft}`;
+            const res = await fetch(aircraftUrl, { signal: AbortSignal.timeout(90_000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             const aircraftRows = readMoverRows(data, "aircraft");
@@ -12068,7 +12083,7 @@ export default function CREPDashboardPage({
     }
   }, [applyMycorrhizalRasterState, assetIsolationMode, leaveAssetIsolationMode, mapRef]);
 
-  const setLayerEnabled = useCallback((layerId: string, enabled: boolean) => {
+  const setLayerEnabled = useCallback((layerId: string, enabled: boolean, syncMoverFilters: boolean = true) => {
     if (layerId === "fungalAtlasAM") {
       const ecmOn = layersRef.current.find((l) => l.id === "fungalAtlasECM")?.enabled ?? false;
       switchMycorrhizalFungiLayer(enabled ? "am" : ecmOn ? "ecm" : "off");
@@ -12105,43 +12120,52 @@ export default function CREPDashboardPage({
       return changed ? applyForceOffToLayers(next) : prev;
     });
     if (forceOff) return;
+    // syncMoverFilters: only the master layer toggle (or "ALL ON") should cascade
+    // every category on. Individual category buttons pass false so toggling one
+    // category no longer force-enables all the others (Jun 12, 2026 fix).
     if (layerId === "aviation" || layerId === "aviationRoutes") {
-      setAircraftFilter(prev => ({
-        ...prev,
-        showAirborne: enabled,
-        showGround: enabled,
-        showMilitary: enabled,
-        showCargo: enabled,
-        showPrivate: enabled,
-        showCommercial: enabled,
-      }));
+      if (syncMoverFilters) {
+        setAircraftFilter(prev => ({
+          ...prev,
+          showAirborne: enabled,
+          showGround: enabled,
+          showMilitary: enabled,
+          showCargo: enabled,
+          showPrivate: enabled,
+          showCommercial: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     } else if (layerId === "ships" || layerId === "shipRoutes" || layerId === "fishing" || layerId === "containers") {
-      setVesselFilter(prev => ({
-        ...prev,
-        showCargo: enabled,
-        showTanker: enabled,
-        showPassenger: enabled,
-        showFishing: enabled,
-        showTug: enabled,
-        showMilitary: enabled,
-        showPleasure: enabled,
-        showPortAreas: enabled,
-        showShippingLanes: enabled,
-        showAnchorages: enabled,
-      }));
+      if (syncMoverFilters) {
+        setVesselFilter(prev => ({
+          ...prev,
+          showCargo: enabled,
+          showTanker: enabled,
+          showPassenger: enabled,
+          showFishing: enabled,
+          showTug: enabled,
+          showMilitary: enabled,
+          showPleasure: enabled,
+          showPortAreas: enabled,
+          showShippingLanes: enabled,
+          showAnchorages: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     } else if (layerId === "satellites") {
-      setSatelliteFilter(prev => ({
-        ...prev,
-        showStations: enabled,
-        showWeather: enabled,
-        showComms: enabled,
-        showGPS: enabled,
-        showStarlink: enabled,
-        showDebris: enabled,
-        showActive: enabled,
-      }));
+      if (syncMoverFilters) {
+        setSatelliteFilter(prev => ({
+          ...prev,
+          showStations: enabled,
+          showWeather: enabled,
+          showComms: enabled,
+          showGPS: enabled,
+          showStarlink: enabled,
+          showDebris: enabled,
+          showActive: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     }
     if (assetIsolationMode === "funga" && FUNGAL_ATLAS_LAYER_IDS.includes(layerId as any)) {
@@ -14992,6 +15016,13 @@ export default function CREPDashboardPage({
       const isPleasure = (shipType >= 36 && shipType <= 39) || shipTypeStr.includes("pleasure");
       const isOther = !isCargo && !isTanker && !isPassenger && !isFishing && !isTug && !isMilitary && !isPleasure; // shipType 0 or unmapped
 
+      // AIS position reports (msg types 1/2/3) carry no ship type, so most live
+      // targets have shipType null -> isOther. Show those whenever ANY vessel
+      // category is enabled, otherwise boats never paint at all (Jun 12, 2026 fix).
+      const anyVesselCategoryOn =
+        vesselFilter.showCargo || vesselFilter.showTanker || vesselFilter.showPassenger ||
+        vesselFilter.showFishing || vesselFilter.showTug || vesselFilter.showMilitary ||
+        vesselFilter.showPleasure;
       const matchesEnabledCategory =
         (vesselFilter.showCargo && isCargo) ||
         (vesselFilter.showTanker && isTanker) ||
@@ -14999,7 +15030,8 @@ export default function CREPDashboardPage({
         (vesselFilter.showFishing && isFishing) ||
         (vesselFilter.showTug && isTug) ||
         (vesselFilter.showMilitary && isMilitary) ||
-        (vesselFilter.showPleasure && (isPleasure || isOther));
+        (vesselFilter.showPleasure && isPleasure) ||
+        (isOther && anyVesselCategoryOn);
 
       if (!matchesEnabledCategory) return false;
 
@@ -16543,8 +16575,10 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("aviation", true);
-        setLayerEnabled("aviationRoutes", true);
+        // false = enable the layer for rendering/pump WITHOUT cascading every
+        // category on, so toggling one aircraft category stays independent.
+        setLayerEnabled("aviation", true, false);
+        setLayerEnabled("aviationRoutes", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
@@ -16556,11 +16590,11 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("ships", true);
-        if (key === "showFishing") setLayerEnabled("fishing", true);
-        if (key === "showShippingLanes") setLayerEnabled("shipRoutes", true);
-        if (key === "showPortAreas" || key === "showAnchorages") setLayerEnabled("ports", true);
-        if (key === "showCargo" || key === "showTanker" || key === "showPassenger") setLayerEnabled("containers", true);
+        setLayerEnabled("ships", true, false);
+        if (key === "showFishing") setLayerEnabled("fishing", true, false);
+        if (key === "showShippingLanes") setLayerEnabled("shipRoutes", true, false);
+        if (key === "showPortAreas" || key === "showAnchorages") setLayerEnabled("ports", true, false);
+        if (key === "showCargo" || key === "showTanker" || key === "showPassenger") setLayerEnabled("containers", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
@@ -16572,7 +16606,7 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("satellites", true);
+        setLayerEnabled("satellites", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
