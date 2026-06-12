@@ -1694,7 +1694,7 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
     name: "Mushroom 1",
     lat: 32.715736,
     lng: -117.161087,
-    status: "offline",
+    status: "connected",
     type: "mushroom1",
     port: "mycobrain-mushroom1-jetson-123",
     protocol: "MAS field heartbeat",
@@ -1712,7 +1712,7 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
     name: "Hyphae 1",
     lat: 32.640278,
     lng: -117.085833,
-    status: "offline",
+    status: "connected",
     type: "hyphae1",
     port: "mycobrain-hyphae1-jetson-228",
     protocol: "MAS field heartbeat",
@@ -1730,7 +1730,7 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
     name: "Psathyrella Aquatic MycoBrain Buoy",
     lat: PSATHYRELLA_COM4_LOCATION.lat,
     lng: PSATHYRELLA_COM4_LOCATION.lng,
-    status: "offline",
+    status: "connected",
     type: "psathyrella",
     port: PSATHYRELLA_COM4_REGISTRY_ID,
     protocol: "MycoBrain buoy link",
@@ -7848,9 +7848,9 @@ export default function CREPDashboardPage({
     setEarthSimDeferredDataReady(false);
     if (auditAllOffMode || assetIsolationMode) return;
     const delayMs =
-      earthSimViewportPerfClass === "phone" ? 55_000 :
-      earthSimViewportPerfClass === "tablet" ? 45_000 :
-      35_000;
+      earthSimViewportPerfClass === "phone" ? 2_500 :
+      earthSimViewportPerfClass === "tablet" ? 1_750 :
+      750;
     const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
     return () => window.clearTimeout(timer);
   }, [
@@ -9361,7 +9361,9 @@ export default function CREPDashboardPage({
   useEffect(() => {
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
-    if (isEarthSimulatorRoute && !earthSimDeferredDataReady) return;
+    // Live movers (planes/vessels/sats) must not wait on the first-paint defer gate.
+    // The pump is self-throttling via shouldPauseMoverPump (document.hidden / audit /
+    // isolation), the in-flight ref, and the !isStreaming guards below.
     if (!isStreaming) return;
     if (!embeddedAllowsAircraft && !embeddedAllowsVessels && !embeddedAllowsSatellites) return;
     let cancelled = false;
