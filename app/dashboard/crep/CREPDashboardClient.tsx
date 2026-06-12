@@ -16661,7 +16661,9 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasAM", color: "#22c55e", label: "AM Fungi", icon: <span className="font-bold">AM</span>, title: "Arbuscular mycorrhizal fungi" },
     { id: "fungalAtlasECM", color: "#d946ef", label: "EcM Fungi", icon: <span className="font-bold">Ec</span>, title: "Ectomycorrhizal fungi" },
     { id: "fungalAtlasRare", color: "#f59e0b", label: "Rare / Endemic", icon: <Target className="h-2.5 w-2.5" /> },
-    { id: "fungalAtlasProtected", color: "#60a5fa", label: "Protected Areas", icon: <Shield className="h-2.5 w-2.5" /> },
+    // Protected Areas hidden until WDPA / Protected Planet polygon data is loaded.
+    // The source is status:"missing" locally and the layer would render nothing —
+    // no mock data, so we don't surface a dead toggle. (Jun 12, 2026)
     { id: "fungalAtlasUncertainty", color: "#d4d4d8", label: "High Uncertainty", icon: <AlertTriangle className="h-2.5 w-2.5" /> },
     { id: "fungalAtlasFci", color: "#fb7185", label: "FCI Priority", icon: <Crosshair className="h-2.5 w-2.5" />, title: "Pending real MYCA/MINDEX FCI model; no mock output" },
     { id: "fungalAtlasSamples", color: "#fbbf24", label: "Sequence Samples", icon: <Database className="h-2.5 w-2.5" /> },
@@ -19749,10 +19751,11 @@ export default function CREPDashboardPage({
                       source: result.sourceId,
                       ...sourceLayerSpec,
                       paint: {
-                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 5, 9, 8, 12, 13],
+                        // OpenGridWorks parity: visible at continental zoom (was z6-floored). (Jun 12, 2026)
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4, 6, 7, 9, 11, 12, 16],
                         "circle-color": ["interpolate", ["linear"], voltageKvExpr,
                           0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
-                        "circle-opacity": 0.22,
+                        "circle-opacity": 0.3,
                         "circle-blur": 1.0,
                       },
                       minzoom: INFRA_COUNTRY_REVEAL_MIN_ZOOM,
@@ -19763,7 +19766,7 @@ export default function CREPDashboardPage({
                       source: result.sourceId,
                       ...sourceLayerSpec,
                       paint: {
-                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 9, 3.5, 12, 6],
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.4, 6, 3.4, 9, 5, 12, 8],
                         "circle-color": ["interpolate", ["linear"], voltageKvExpr,
                           0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
                         "circle-opacity": 0.95,
@@ -20431,14 +20434,14 @@ export default function CREPDashboardPage({
                       paint: {
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          3, ["min", 12, ["+", 3, ["*", ["sqrt", plantCapacityExpr], 0.16]]],
-                          6, ["min", 18, ["+", 4, ["*", ["sqrt", plantCapacityExpr], 0.28]]],
-                          10, ["min", 30, ["+", 5, ["*", ["sqrt", plantCapacityExpr], 0.45]]],
-                          14, ["min", 42, ["+", 7, ["*", ["sqrt", plantCapacityExpr], 0.75]]],
+                          3, ["min", 17, ["+", 5, ["*", ["sqrt", plantCapacityExpr], 0.22]]],
+                          6, ["min", 24, ["+", 6, ["*", ["sqrt", plantCapacityExpr], 0.36]]],
+                          10, ["min", 38, ["+", 7, ["*", ["sqrt", plantCapacityExpr], 0.58]]],
+                          14, ["min", 52, ["+", 9, ["*", ["sqrt", plantCapacityExpr], 0.9]]],
                         ],
                         "circle-color": plantColorExpr,
-                        "circle-opacity": 0.3,
-                        "circle-blur": 1.1,
+                        "circle-opacity": 0.42,
+                        "circle-blur": 1.0,
                       },
                     });
                     safeAddLayer({
@@ -20448,15 +20451,17 @@ export default function CREPDashboardPage({
                       ...sourceLayer,
                       minzoom: POWER_PLANT_MIN_ZOOM,
                       paint: {
+                        // OpenGridWorks-parity capacity bubbles: bigger + brighter at
+                        // global/continental zoom so the grid reads worldwide. (Jun 12, 2026)
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          3, ["min", 4.5, ["max", 1.6, ["*", ["sqrt", plantCapacityExpr], 0.035]]],
-                          6, ["min", 7, ["max", 2, ["*", ["sqrt", plantCapacityExpr], 0.06]]],
-                          10, ["min", 12, ["max", 2.6, ["*", ["sqrt", plantCapacityExpr], 0.1]]],
-                          14, ["min", 18, ["max", 3.5, ["*", ["sqrt", plantCapacityExpr], 0.16]]],
+                          3, ["min", 9, ["max", 2.8, ["*", ["sqrt", plantCapacityExpr], 0.07]]],
+                          6, ["min", 15, ["max", 3.4, ["*", ["sqrt", plantCapacityExpr], 0.12]]],
+                          10, ["min", 24, ["max", 4.4, ["*", ["sqrt", plantCapacityExpr], 0.2]]],
+                          14, ["min", 34, ["max", 6, ["*", ["sqrt", plantCapacityExpr], 0.3]]],
                         ],
                         "circle-color": plantColorExpr,
-                        "circle-opacity": 0.92,
+                        "circle-opacity": 0.95,
                         "circle-stroke-width": [
                           "interpolate", ["linear"], ["zoom"],
                           3, 0.45, 8, 0.8, 12, 1.1,
@@ -20589,13 +20594,13 @@ export default function CREPDashboardPage({
                         // shows data centers as hero icons, not pinpricks.
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          2, 3, 5, 4.5, 8, 6, 12, 9, 16, 14,
+                          2, 4.5, 5, 6.5, 8, 9, 12, 13, 16, 18,
                         ],
                         "circle-color": "#60a5fa",  // blue-400
                         "circle-opacity": 1.0,
-                        "circle-stroke-width": 1.6,
+                        "circle-stroke-width": 2,
                         "circle-stroke-color": "#ffffff",
-                        "circle-stroke-opacity": 0.95,
+                        "circle-stroke-opacity": 1.0,
                       },
                     });
                     // Apr 19, 2026 (Morgan OpenGridView parity: "larger

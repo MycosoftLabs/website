@@ -648,6 +648,16 @@ const REQUIRED_V3_SETUP_SOURCES = [
   "crep-civicfacilities",
 ] as const
 
+// The LAST layer the one-shot setup adds. isStyleLoaded() can flip false partway
+// through the synchronous setup (sprite/tile churn on first load), which makes the
+// trailing ensure* calls silently no-op — leaving biodiversity, signal/population/
+// movement heatmaps, mover trajectories, military + transport sub-types, and the
+// pollution layers permanently uncreated. The old completion check validated only
+// REQUIRED_V3_SETUP_SOURCES (all created early), so setupRef stayed true and never
+// retried. Verifying this terminal layer forces a retry until setup truly finishes.
+// (Jun 12, 2026 fix.)
+const V3_SETUP_TERMINAL_LAYER = "crep-biodiversity-heat"
+
 export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Props) {
   const setupRef = useRef(false)
   const lastBiodiversityDataRef = useRef<any>(null)
@@ -680,7 +690,9 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
       if (frame != null) window.cancelAnimationFrame(frame)
       frame = window.requestAnimationFrame(() => {
         if (!mapReady(map)) return
-        const setupComplete = setupRef.current && REQUIRED_V3_SETUP_SOURCES.every((id) => map.getSource(id))
+        const setupComplete = setupRef.current
+          && REQUIRED_V3_SETUP_SOURCES.every((id) => map.getSource(id))
+          && !!map.getLayer(V3_SETUP_TERMINAL_LAYER)
         if (setupComplete) return
         setStyleReadyTick((value) => value + 1)
       })
@@ -964,7 +976,8 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
     if (lastBiodiversityDataRef.current) setData(map, "crep-biodiversity", lastBiodiversityDataRef.current)
 
     const missingSetupSources = REQUIRED_V3_SETUP_SOURCES.filter((id) => !map.getSource(id))
-    if (missingSetupSources.length > 0) {
+    const terminalLayerMissing = !map.getLayer(V3_SETUP_TERMINAL_LAYER)
+    if (missingSetupSources.length > 0 || terminalLayerMissing) {
       setupRef.current = false
       window.setTimeout(() => setStyleReadyTick((value) => value + 1), 200)
     }
