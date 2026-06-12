@@ -987,13 +987,19 @@ export default function V3Overlays({ map, enabled, bbox, facilities = [] }: Prop
   useEffect(() => {
     if (!map || !mapReady(map)) return
     const flip = (lid: string, on: boolean) => setVisibility(map, lid, on)
-    flip("crep-earthquakes-dot", !!enabled.earthquakes)
-    flip("crep-volcanoes-dot", !!enabled.volcanoes)
-    flip("crep-wildfires-dot", !!enabled.wildfires)
-    flip("crep-storms-dot", !!enabled.storms)
-    flip("crep-floods-dot", !!enabled.floods)
-    flip("crep-lightning-dot", !!enabled.lightning)
-    flip("crep-tornadoes-dot", !!enabled.tornadoes)
+    // Events are rendered as icon-widget DOM markers (<EventMarker> in
+    // CREPDashboardClient) — the canonical representation with icon, popup and
+    // fly-to. These V3 plain-circle dots duplicated every event (the "second
+    // earthquake icon" / bare USGS dot Morgan saw), so keep them permanently
+    // hidden. The sources still exist for any future low-cost fallback use.
+    // (Jun 12, 2026)
+    flip("crep-earthquakes-dot", false)
+    flip("crep-volcanoes-dot", false)
+    flip("crep-wildfires-dot", false)
+    flip("crep-storms-dot", false)
+    flip("crep-floods-dot", false)
+    flip("crep-lightning-dot", false)
+    flip("crep-tornadoes-dot", false)
     const zoom = mapZoom || (typeof map.getZoom === "function" ? map.getZoom() : 0)
     const showFacilities = zoom >= FACILITY_ICON_MIN_ZOOM
     flip("crep-hospitals-dot", !!enabled.hospitals && showFacilities)

@@ -20982,7 +20982,9 @@ export default function CREPDashboardPage({
                         type: "circle",
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
-                        minzoom: TELECOM_DETAIL_MIN_ZOOM,
+                        // Show at continental/US flyover, not just state level — the
+                        // global tileset has data down to z0. (Jun 12, 2026)
+                        minzoom: 3.5,
                         paint: {
                           // Apr 19, 2026 (final fix after two bad attempts):
                           //   1. First version nested TWO interpolates inside a case â†’ rejected
@@ -20998,11 +21000,11 @@ export default function CREPDashboardPage({
                           // kept big enough to stay clickable.
                           "circle-radius": [
                             "interpolate", ["linear"], ["zoom"],
-                            2,  ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 1],
-                            5,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.25],
-                            8,  ["case", ["boolean", ["feature-state", "hover"], false], 2.75, 1.5],
-                            12, ["case", ["boolean", ["feature-state", "hover"], false], 3.5,  2],
-                            16, ["case", ["boolean", ["feature-state", "hover"], false], 5,    3],
+                            3,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.4],
+                            5,  ["case", ["boolean", ["feature-state", "hover"], false], 2.6, 1.8],
+                            8,  ["case", ["boolean", ["feature-state", "hover"], false], 3.4, 2.4],
+                            12, ["case", ["boolean", ["feature-state", "hover"], false], 4.5, 3.2],
+                            16, ["case", ["boolean", ["feature-state", "hover"], false], 6,   4.5],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
