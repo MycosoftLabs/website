@@ -370,7 +370,7 @@ function wireClick(map: MapLibreMap, layerId: string, type: string, fallbackName
 let _globalEventsCache: { ts: number; events: any[] } = { ts: 0, events: [] }
 let _globalEventsInFlight: Promise<any[]> | null = null
 const EVENT_DISPLAY_WINDOW_MS = 72 * 60 * 60 * 1000
-const BIODIVERSITY_HOTSPOT_MIN_ZOOM = 5
+const BIODIVERSITY_HOTSPOT_MIN_ZOOM = 3
 const FACILITY_ICON_MIN_ZOOM = 9
 const FACILITY_OSM_FETCH_MIN_ZOOM = 10
 const FACILITY_OSM_MAX_POINTS_PER_KIND = 900

@@ -805,7 +805,7 @@ type MapBoundsLike = { north: number; south: number; east: number; west: number 
 type BboxLike = { west: number; south: number; east: number; north: number };
 
 const EARTH_PROJECT_DETAIL_DELAY_MS = 1_500;
-const EARTH_SIM_ASSET_READY_DELAY_MS = 25_000;
+const EARTH_SIM_ASSET_READY_DELAY_MS = 2_500;
 const EARTH_SIM_INFRA_READY_DELAY_MS = 750;
 const OYSTER_PROJECT_BBOX: BboxLike = { west: -117.36, south: 32.43, east: -116.92, north: 32.82 };
 const MOJAVE_PROJECT_BBOX: BboxLike = { west: -116.95, south: 34.35, east: -114.05, north: 36.55 };
