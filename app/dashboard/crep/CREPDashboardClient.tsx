@@ -1385,9 +1385,19 @@ function spatiallySampleNatureObservations(
   const protectedFungiMinimum = activeBuckets.length > 1 && fungiRows.length > 0
     ? Math.min(fungiRows.length, Math.max(80, Math.floor(cap * 0.35)))
     : 0;
-  const stickyLimitBase = activeBuckets.length > 1
-    ? Math.min(previousStillVisible.length, Math.max(0, Math.floor(cap * 0.65)))
-    : Math.min(previousStillVisible.length, cap);
+  // Sticky retention carries prior-frame markers forward to avoid flicker
+  // during a small pan. But keeping the full previous set (the single-bucket
+  // case kept 100%) glued the dense origin cluster — e.g. a San Diego deep-dive
+  // — to the screen on zoom-out, so the rest of the new viewport never painted.
+  // Cap sticky to ~35% so fresh viewport-wide spatial sampling dominates and
+  // species paint across the whole current view. (Jun 12, 2026 — Morgan:
+  // "unpaint things that are older in the new area and show the newest species
+  // in the entire viewport.")
+  const STICKY_FRACTION = 0.35;
+  const stickyLimitBase = Math.min(
+    previousStillVisible.length,
+    Math.max(0, Math.floor(cap * STICKY_FRACTION)),
+  );
   const stickyLimit = protectedFungiMinimum > 0
     ? Math.min(stickyLimitBase, Math.max(0, cap - protectedFungiMinimum))
     : stickyLimitBase;
@@ -1497,6 +1507,53 @@ function pruneStoreByRank<T>(
   for (const [id] of ranked) {
     if (keep.size >= maxEntries) break;
     keep.add(id);
+  }
+  let changed = false;
+  for (const id of Array.from(store.keys())) {
+    if (!keep.has(id)) {
+      store.delete(id);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// Viewport-windowed prune. The plain rank prune above let a dense origin cluster
+// (e.g. a San Diego deep-dive) survive forever because its observations rank
+// high (recent + quality) and the store cap was rarely reached — so panning to a
+// new region never dropped the stale cluster, and the unbounded store mounted
+// hundreds of DOM markers (the freeze). This keeps the CURRENT viewport densely
+// and retains only a small ranked buffer of off-screen observations for smooth
+// zoom-out, deleting the rest. (Jun 12, 2026 — Morgan: LOD / "unpaint things
+// that are older in the new area".)
+function pruneStoreViewportFirst<T>(
+  store: Map<string, T>,
+  bounds: MapBoundsLike | null | undefined,
+  isInViewport: (item: T, bounds: MapBoundsLike) => boolean,
+  inViewportCap: number,
+  outViewportCap: number,
+  getRank: (item: T) => number,
+  keepId?: string | number | null,
+) {
+  if (!bounds) return pruneStoreByRank(store, inViewportCap, getRank, keepId);
+  const inView: Array<[string, T]> = [];
+  const outView: Array<[string, T]> = [];
+  for (const entry of store.entries()) {
+    (isInViewport(entry[1], bounds) ? inView : outView).push(entry);
+  }
+  const keep = new Set<string>();
+  if (keepId != null) keep.add(String(keepId));
+  inView.sort((a, b) => getRank(b[1]) - getRank(a[1]));
+  for (const [id] of inView) {
+    if (keep.size >= inViewportCap) break;
+    keep.add(id);
+  }
+  outView.sort((a, b) => getRank(b[1]) - getRank(a[1]));
+  let outKept = 0;
+  for (const [id] of outView) {
+    if (outKept >= outViewportCap) break;
+    keep.add(id);
+    outKept += 1;
   }
   let changed = false;
   for (const id of Array.from(store.keys())) {
@@ -11724,16 +11781,14 @@ export default function CREPDashboardPage({
         : isCityLevelZoom(mapZoom, mapBounds)
           ? Math.min(20_000, RESOURCE_LIMITS[limitTier].nature * 2)
           : Math.min(12_000, RESOURCE_LIMITS[limitTier].nature);
-      pruneStoreByRank(
+      pruneStoreViewportFirst(
         store,
+        mapBounds,
+        (obs, bounds) => observationInMapBounds(obs, bounds, 0.25),
         storeCap,
+        Math.min(1500, Math.max(400, Math.floor(storeCap / 8))),
         observationResourceRank,
         selectedFungal?.id,
-        storeIdsInViewport(
-          store,
-          mapBounds,
-          (obs, bounds) => observationInMapBounds(obs, bounds, 0.25),
-        ),
       );
       setFungalObservations(Array.from(store.values()));
       console.log(`[CREP] Viewport fungal: ${formatted.length} new, ${store.size} total persisted`);
