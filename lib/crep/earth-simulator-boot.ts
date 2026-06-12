@@ -272,7 +272,7 @@ export const EARTH_SIM_NATURE_STORE_CAP = 12_000
 export const EARTH_SIM_NATURE_INSTANT_LIMIT = 1_600
 
 /** Live aircraft/vessel/satellite pump should start fast without blocking first paint. */
-export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 2_500
+export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 1_200
 
 export interface EarthSimBootDebugSnapshot {
   stagedBoot: boolean
