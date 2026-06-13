@@ -253,12 +253,12 @@ flowchart TB
   end
 
   subgraph NextJS["Next.js BFF (website API)"]
-    ES[/api/earth-simulator/*]
-    CREP[/api/crep/*]
-    OEI[/api/oei/*]
-    E2[/api/earth2/*]
-    MB[/api/mycobrain/*]
-    WV[/api/worldview/v1/*]
+    ES["/api/earth-simulator/*"]
+    CREP["/api/crep/*"]
+    OEI["/api/oei/*"]
+    E2["/api/earth2/*"]
+    MB["/api/mycobrain/*"]
+    WV["/api/worldview/v1/*"]
     SVC[crep-data-service.ts]
   end
 
