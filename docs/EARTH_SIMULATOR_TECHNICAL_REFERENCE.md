@@ -1,7 +1,10 @@
 # Earth Simulator — Technical Feature Reference & Capability Index
 
+> **Public overview:** [`docs/earth-simulator/README.md`](earth-simulator/README.md) — product README for visitors and GitHub (what Earth Simulator is, who it is for, live links).
 > **Route:** `/natureos/earth-simulator` (the operator-facing branding of the CREP — *Common Relevant Environmental Picture* — dashboard).
 > **Generated:** 2026-06-13. Built by a 21-agent codebase survey + completeness-critic backfill against `WEBSITE/website` (the canonical ~23,200-line `CREPDashboardClient.tsx` plus its layer/lib/api tree). **The code is the source of truth**; every claim below carries `file:line` references.
+> **Public distribution:** This document describes product capabilities and code references. **Private network addresses, internal hostnames, deployment runbooks, and credential values are redacted.** Configure all service URLs via environment variables in your own deployment.
+
 > **Purpose:** the definitive feature/capability index for the Earth Simulator, and the test plan for live production QA.
 
 ## Table of Contents
@@ -400,14 +403,14 @@ These are sibling routes the proxy and dashboard lean on; both verified to exist
 The proxy's species fallback (`FALLBACK_ROUTES.species = "/api/crep/fungal"`, `:121`) is yet another path (verified present at `app/api/crep/fungal/route.ts`) — it is the route invoked when the proxy's MINDEX species layer is empty and `liveFallback` is enabled but `preferLive` was not set.
 
 #### Key file references
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\natureos\earth-simulator\page.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\natureos\earth-simulator\EarthSimulatorViewportLock.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\natureos\crep\page.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\dashboard\crep\page.tsx`, `CREPDashboardLoader.tsx`, `CREPDashboardEmbedded.tsx`, `CREPDashboardClient.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\earth-simulator-boot.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\next.config.js`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\mindex\proxy\[source]\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\crep\species\search\route.ts`, `app\api\crep\nature\preloaded\route.ts`, `app\api\crep\fungal\route.ts`
+- `WEBSITE/website/app\natureos\earth-simulator\page.tsx`
+- `WEBSITE/website/app\natureos\earth-simulator\EarthSimulatorViewportLock.tsx`
+- `WEBSITE/website/app\natureos\crep\page.tsx`
+- `WEBSITE/website/app\dashboard\crep\page.tsx`, `CREPDashboardLoader.tsx`, `CREPDashboardEmbedded.tsx`, `CREPDashboardClient.tsx`
+- `WEBSITE/website/lib\crep\earth-simulator-boot.ts`
+- `WEBSITE/website/next.config.js`
+- `WEBSITE/website/app/api/mindex\proxy\[source]\route.ts`
+- `WEBSITE/website/app/api/crep\species\search\route.ts`, `app\api\crep\nature\preloaded\route.ts`, `app\api\crep\fungal\route.ts`
 
 ---
 
@@ -627,7 +630,7 @@ The phone shell does not help: `CrepMobileShell`'s `useIsPhone()` (`crep-mobile-
 
 **QA note:** because the classifier is width+pointer based, reproducing the freeze in a desktop browser requires emulating **both** a >1180px width **and** a fine pointer with `maxTouchPoints > 1` — DevTools device emulation that forces `(pointer: coarse)` will incorrectly demote to `tablet` and mask the bug. Test on physical iPad Pro hardware (both 11″ and 12.9″, landscape, with Magic Keyboard attached) and in iPadOS Safari's default desktop-site mode.
 
-**Relevant files:** `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\dashboard\crep\CREPDashboardClient.tsx`, `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\mobile\crep-mobile-shell.tsx`, `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\earth-simulator-boot.ts`, `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\globals.css`.
+**Relevant files:** `WEBSITE/website/app\dashboard\crep\CREPDashboardClient.tsx`, `WEBSITE/website/components\crep\mobile\crep-mobile-shell.tsx`, `WEBSITE/website/lib\crep\earth-simulator-boot.ts`, `WEBSITE/website/app\globals.css`.
 
 ---
 
@@ -763,7 +766,7 @@ All 183 layers, grouped by `category`, with literal default-enabled state. Categ
 | `satellites` | Satellites (TLE Live) | ON | 0.9 | CelesTrak live satellite positions. *(mover-merged)* (`:10039`) |
 | `liveTransit` | Live Transit (Trains/Buses) | ON | 0.9 | Live US transit (MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/Amtrak/SEPTA/Metrolink/DART), polled `/api/transit/all` every 15 s. (`:10072`) |
 | `ports` | Global Seaports | ON | 0.9 | 3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX). (`:10108`) |
-| `cctv` | CCTV / Webcams | ON | 0.85 | Public webcams + Shinobi CCTV (MINDEX `crep.cctv_cameras` + Shinobi on MAS VM). (`:10112`) |
+| `cctv` | CCTV / Webcams | ON | 0.85 | Public webcams + Shinobi CCTV (MINDEX `crep.cctv_cameras` + internal Shinobi connector). (`:<internal-connector-port>`) |
 | `eagleEyeCameras` | Eagle Eye — Cameras | ON | 0.9 | Permanent video — Shinobi + Caltrans/511 + Windy + EarthCam + NPS/USGS + ALERTWildfire/HPWREN + Surfline. (`:10119`) |
 | `eiaOperating` | EIA-860M Operating | ON | 0.85 | EIA Feb 2026 — 27,716 operating utility-scale generators. *(panel-merged into "Power Plants (all sources)")* (`:10128`) |
 | `eiaPlanned` | EIA-860M Planned (Projected) | ON | 0.9 | EIA-860M — 1,946 planned generators. *(power-merged)* (`:10129`) |
@@ -2079,14 +2082,14 @@ Relevant constants from `lib/crep/lod-policy.ts`: `TELECOM_DETAIL_MIN_ZOOM = 5` 
 ---
 
 **Key files referenced:**
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\signal-heatmap-layer.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\proposal-overlays.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\oei\radio-stations\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\registries\radio-station-registry.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\lod-policy.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\production-first-load.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\dashboard\crep\CREPDashboardClient.tsx` (signalHeatmap/cellTowerPoints, ProposalOverlays mount + gate, submarine cables block)
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\public\data\crep\submarine-cables.geojson` (710 TeleGeography cables, primary cable source)
+- `WEBSITE/website/components\crep\layers\signal-heatmap-layer.tsx`
+- `WEBSITE/website/components\crep\layers\proposal-overlays.tsx`
+- `WEBSITE/website/app/api/oei\radio-stations\route.ts`
+- `WEBSITE/website/lib\crep\registries\radio-station-registry.ts`
+- `WEBSITE/website/lib\crep\lod-policy.ts`
+- `WEBSITE/website/lib\crep\production-first-load.ts`
+- `WEBSITE/website/app\dashboard\crep\CREPDashboardClient.tsx` (signalHeatmap/cellTowerPoints, ProposalOverlays mount + gate, submarine cables block)
+- `WEBSITE/website/public\data\crep\submarine-cables.geojson` (710 TeleGeography cables, primary cable source)
 
 ---
 
@@ -2718,7 +2721,7 @@ The single tile endpoint the map uses for cached satellite imagery:
 - **Mapbox token resolution:** `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` → `MAPBOX_ACCESS_TOKEN` → `NEXT_PUBLIC_MAPBOX_TOKEN` (`:44-48`).
 - **Resolution order** (`:149-191`): (1) MINDEX NAS cache `{MINDEX_TILE_CACHE_URL or MINDEX_API_URL}/api/mindex/tile-cache/{basemap}/{z}/{x}/{y}.jpg` (weekly-refreshed); (2) upstream fetch; (3) on 200, proxy + async write-back to MINDEX.
 - **MINDEX circuit breaker** (`:80-104`): probe timeout 500 ms; on network failure trips a 60 s back-off (`MINDEX_UNAVAILABLE_TTL_MS`) so tile requests skip MINDEX while it's unreachable; a 404 is a valid miss (does not trip the breaker).
-- **Cache headers:** MINDEX hit → `s-maxage=604800` (1 wk) / SWR 30 d (`X-Tile-Source: mindex-cache`); upstream → `s-maxage=86400` / SWR 1 wk (`X-Tile-Source: upstream`). Weekly refresh is driven by `scripts/etl/crep/prefetch-satellite-tiles.mjs` on VM 189 (z0–14, atomic staging swap).
+- **Cache headers:** MINDEX hit → `s-maxage=604800` (1 wk) / SWR 30 d (`X-Tile-Source: mindex-cache`); upstream → `s-maxage=86400` / SWR 1 wk (`X-Tile-Source: upstream`). Weekly refresh is driven by `scripts/etl/crep/prefetch-satellite-tiles.mjs` on MINDEX infrastructure (z0–14, atomic staging swap).
 
 ##### 6.6 Known limitations
 - ESRI satellite/bathymetry are free, keyless, but ESRI imagery vintage/coverage varies; bathymetry capped at `maxzoom 14`, terrarium DEM at `maxzoom 15`.
@@ -2956,7 +2959,7 @@ Each effect (a) attaches once on first enable or first-load bootstrap, (b) on di
 
 ##### 3.5 Cached HD satellite proxy (`app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts`)
 
-A server route giving a single tile endpoint with MINDEX-NAS fallback. Basemaps (`:53`–`64`): `mapbox-sat-streets` (Mapbox satellite-streets-v12 `@2x`, needs `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`), `mapbox-sat` (satellite-v9 `@2x`, needs token), `esri-world-imagery` (ESRI World Imagery, no key). Resolution order: (1) MINDEX cache at `{MINDEX_TILE_BASE}/{basemap}/{z}/{x}/{y}.jpg`, (2) upstream fetch, (3) async write-back to MINDEX. A 60 s circuit breaker (`mindexUnavailableUntil`, `MINDEX_PROBE_TIMEOUT_MS=500`, `:80`–`104`) skips MINDEX when unreachable so tiles don't block. Weekly refresh by `scripts/etl/crep/prefetch-satellite-tiles.mjs` (systemd timer on VM 189), zooms 0–14.
+A server route giving a single tile endpoint with MINDEX-NAS fallback. Basemaps (`:53`–`64`): `mapbox-sat-streets` (Mapbox satellite-streets-v12 `@2x`, needs `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`), `mapbox-sat` (satellite-v9 `@2x`, needs token), `esri-world-imagery` (ESRI World Imagery, no key). Resolution order: (1) MINDEX cache at `{MINDEX_TILE_BASE}/{basemap}/{z}/{x}/{y}.jpg`, (2) upstream fetch, (3) async write-back to MINDEX. A 60 s circuit breaker (`mindexUnavailableUntil`, `MINDEX_PROBE_TIMEOUT_MS=500`, `:80`–`104`) skips MINDEX when unreachable so tiles don't block. Weekly refresh by `scripts/etl/crep/prefetch-satellite-tiles.mjs` (systemd timer on MINDEX infrastructure), zooms 0–14.
 
 ---
 
@@ -3123,20 +3126,20 @@ All three default to `true` while layer state hydrates (so they paint on refresh
 
 #### Key files (absolute paths)
 
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\gibs-layers.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\gibs-base-layers.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\earth2\gibs-eo-overlays.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\proposal-overlays.tsx` (satImagery/bathymetry/topography raster engine, §3)
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\aurora-overlay.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\realistic-cloud-layer.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\sun-earth-impact-layer.tsx`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\earth2\` (index.ts, earth2-tile-raster-layers.tsx, cloud-layer.tsx, earth2-layer-control.tsx, et al.)
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\crep\tiles\satellite\[basemap]\[z]\[x]\[y]\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\oei\space-weather\aurora\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\oei\sun-earth-correlation\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\eagle\weather\multi\route.ts`
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\dashboard\crep\CREPDashboardClient.tsx` (wiring + gates)
-- `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\lib\crep\earth-simulator-boot.ts` (boot profile)
+- `WEBSITE/website/lib\crep\gibs-layers.ts`
+- `WEBSITE/website/components\crep\layers\gibs-base-layers.tsx`
+- `WEBSITE/website/components\crep\earth2\gibs-eo-overlays.tsx`
+- `WEBSITE/website/components\crep\layers\proposal-overlays.tsx` (satImagery/bathymetry/topography raster engine, §3)
+- `WEBSITE/website/components\crep\layers\aurora-overlay.tsx`
+- `WEBSITE/website/components\crep\layers\realistic-cloud-layer.tsx`
+- `WEBSITE/website/components\crep\layers\sun-earth-impact-layer.tsx`
+- `WEBSITE/website/components\crep\earth2\` (index.ts, earth2-tile-raster-layers.tsx, cloud-layer.tsx, earth2-layer-control.tsx, et al.)
+- `WEBSITE/website/app/api/crep\tiles\satellite\[basemap]\[z]\[x]\[y]\route.ts`
+- `WEBSITE/website/app/api/oei\space-weather\aurora\route.ts`
+- `WEBSITE/website/app/api/oei\sun-earth-correlation\route.ts`
+- `WEBSITE/website/app/api/eagle\weather\multi\route.ts`
+- `WEBSITE/website/app\dashboard\crep\CREPDashboardClient.tsx` (wiring + gates)
+- `WEBSITE/website/lib\crep\earth-simulator-boot.ts` (boot profile)
 
 ---
 
@@ -3648,7 +3651,7 @@ Sequenced and `resolveSeq`-guarded:
 
 **Live fan-out gating (`:374-385`):** `live=1` **and** not a "map-metadata request" (`bbox && !kind && !provider`) **and** `EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT !== "0"`. So plain bbox map polling never triggers the heavy fan-out (it relies on MINDEX + baked).
 
-**Env:** `MINDEX_API_URL`/`NEXT_PUBLIC_MINDEX_API_URL` (default `http://192.168.0.189:8000`), `MINDEX_INTERNAL_TOKEN(S)`, `MINDEX_API_KEY`, `EAGLE_CONNECTOR_FETCH_BASE`/`EAGLE_INTERNAL_ORIGIN` (loopback base for self-fetches), `MIN_SOURCES = 1`.
+**Env:** `MINDEX_API_URL`/`NEXT_PUBLIC_MINDEX_API_URL` (default `{configured-service-url}`), `MINDEX_INTERNAL_TOKEN(S)`, `MINDEX_API_KEY`, `EAGLE_CONNECTOR_FETCH_BASE`/`EAGLE_INTERNAL_ORIGIN` (loopback base for self-fetches), `MIN_SOURCES = 1`.
 
 Response: `{ source, total, by_provider, by_kind, sources[], generatedAt, baked_seed_used, live_fanout_used, note }`. `Cache-Control: s-maxage=30, swr=120`.
 
@@ -4100,7 +4103,7 @@ Returns bbox-scoped permanent cameras. Source priority: **MINDEX `eagle.video_so
 | `live` | `=1` enables live fan-out (and only when not a map-metadata request and `EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT !== "0"`) | off |
 | `fast` | `=1` → fast-tier-only first paint | off |
 
-Key constants: `MIN_SOURCES = 1` (`:60`, only fan out when MINDEX truly empty); `MINDEX_BASE` from `MINDEX_API_URL`/`NEXT_PUBLIC_MINDEX_API_URL` else `http://192.168.0.189:8000` (`:74-77`); auth header `X-Internal-Token` (`MINDEX_INTERNAL_TOKEN[S]`) or `X-API-Key` (`MINDEX_API_KEY`) (`:79-111`).
+Key constants: `MIN_SOURCES = 1` (`:60`, only fan out when MINDEX truly empty); `MINDEX_BASE` from `MINDEX_API_URL`/`NEXT_PUBLIC_MINDEX_API_URL` else `{configured-service-url}` (`:74-77`); auth header `X-Internal-Token` (`MINDEX_INTERNAL_TOKEN[S]`) or `X-API-Key` (`MINDEX_API_KEY`) (`:79-111`).
 
 - `connectorFetchBase(req)` (`:93-105`): self-fetch base — `EAGLE_CONNECTOR_FETCH_BASE`/`EAGLE_INTERNAL_ORIGIN` override; on Vercel the request origin; otherwise loopback to the Node port (`http://localhost:{port}`), avoiding Docker hairpin/TLS.
 - `loadBakedSources` (`:128-169`): reads the 7 seed files from `public/data/crep`, dedupes by id, defaults `source_status` to `"online"` and `permissions` to `{access:"public"}`.
@@ -4219,24 +4222,24 @@ The Devices & Telemetry domain covers the physical and registered MycoBrain hard
 
 `/api/earth-simulator/devices` is the canonical device-marker endpoint. It merges up to five sources into a single `byId` map (`app/api/earth-simulator/devices/route.ts:18-24, :570-751`), where **later sources win** for the same id:
 
-| Order | Source | `source` tag | Backend | Works on prod w/o LAN? |
+| Order | Source | `source` tag | Backend | Works without private-network agents? |
 |-------|--------|--------------|---------|------------------------|
 | 1 | `KNOWN_DEVICE_CATALOG` (device-type roster) | `catalog` | Static — `lib/devices/catalog.ts` | Yes |
 | 2 | `FIELD_MYCOBRAIN_DEPLOYMENTS` (3 fixed sites) | `field` | Static — `lib/devices/field-deployments.ts` | Yes |
 | 3 | MAS device registry (MQTT/heartbeat) | `mas` | `GET {MAS}/api/devices?include_offline=true` | Yes |
-| 4 | LAN operator probes (`:8787`) | `operator` | `probeAllOperatorAgents()` → `GET {agent}/api/status` | LAN only |
-| 5 | Local MycoBrain serial service (`:8003`) | `live` | `GET {mycobrain}/devices` | LAN/host only |
+| 4 | Field operator probes | `operator` | `probeAllOperatorAgents()` → `GET {agent}/api/status` | Private network only |
+| 5 | Local MycoBrain gateway service | `live` | `GET {mycobrain}/devices` | Host-local only |
 
-- **MAS base URL** resolves to `http://192.168.0.188:8001` by default; loopback env values are rewritten to the LAN VM on the server unless `ALLOW_LOOPBACK_MAS=1` (`lib/mas-server-url.ts:9, :20-37`).
-- **Local MycoBrain service URL**: `process.env.MYCOBRAIN_SERVICE_URL || MYCOBRAIN_API_URL || "http://localhost:8003"` (`route.ts:571-574`). The standalone resolver defaults to `http://192.168.0.196:8003`, also loopback-guarded (`lib/mycobrain-service-url.ts:24, :41-51`).
-- **Operator URLs**: `MYCOBRAIN_OPERATOR_URLS`, default `http://192.168.0.228:8787,http://192.168.0.123:8787` (`lib/devices/operator-probe.ts:5-11`).
+- **MAS base URL** resolves to `{configured-service-url}` by default; loopback env values are rewritten to configured platform hosts on the server unless `explicit loopback override env flag` (`lib/mas-server-url.ts:9, :20-37`).
+- **Local MycoBrain service URL**: `process.env.MYCOBRAIN_SERVICE_URL || MYCOBRAIN_API_URL || "configured local MycoBrain gateway URL"` (`route.ts:571-574`). The standalone resolver defaults to `{configured-service-url}`, also loopback-guarded (`lib/mycobrain-service-url.ts:24, :41-51`).
+- **Operator URLs**: `MYCOBRAIN_OPERATOR_URLS`, default `{configured-service-url},{configured-service-url}` (`lib/devices/operator-probe.ts:5-11`).
 
 ##### Caching, refresh, and bootstrap (`route.ts:59, :80-81, :803-897`)
 - TTL: `DEVICES_CACHE_TTL_MS = 25_000` (25 s). Single in-flight refresh guarded by `devicesInFlight`.
 - Query params: `?refresh=1` forces a background refresh; `?wait=1` or `?blocking=1` awaits the fresh payload before responding.
 - **Cold start** returns a synchronous **bootstrap payload** (catalog + field seeds with a location, `cache.bootstrap:true`) and kicks off the real refresh (`buildBootstrapDevicesPayload`, `route.ts:554-568, :864-875`).
 - Stale-while-revalidate: a cache older than TTL is returned immediately with `cache.stale:true, revalidating:true` while a refresh runs.
-- Response envelope: `{ success, devices[], count, sources:{mas, operator, field_deployments}, mas_url, timestamp, cache }`.
+- Response envelope: `{ success, devices[], count, sources:{mas, operator, field_deployments}, platform_api_url, timestamp, cache }`.
 
 ##### Status stabilization / "online grace" (perf + flap suppression) (`route.ts:60-61, :753-793`)
 - `stabilizeDevicePayload` keeps a module-level `lastConnectedDevices` map. A device that flips to `offline`/`stale`/`""` is held at its last `connected`/`online` status (with remembered telemetry/lastSeen/source) within a grace window:
@@ -4252,12 +4255,12 @@ Defined once server-side in `FIELD_MYCOBRAIN_DEPLOYMENTS` (`lib/devices/field-de
 | Field | Mushroom 1 | Hyphae 1 | Psathyrella Aquatic Buoy |
 |-------|-----------|----------|--------------------------|
 | `catalog_id` / marker id | `mushroom-1` | `hyphae-1` | `psathyrella-buoy-com4` |
-| `registry_id` | `mycobrain-mushroom1-jetson-123` | `mycobrain-hyphae1-jetson-228` | `mycobrain-COM4` |
+| `registry_id` | `mycobrain-mushroom1-field` | `mycobrain-hyphae1-field` | `mycobrain-COM4` |
 | `role` / `device_type` | `mushroom1` | `hyphae1` | `psathyrella` |
-| `host_ip` | `192.168.0.123` | `192.168.0.228` | `192.168.0.241` |
-| `agent_port` | `8787` | `8787` | `8003` |
-| `agent_url` | `http://192.168.0.123:8787` | `http://192.168.0.228:8787` | `http://192.168.0.241:8003` (client seed uses `http://localhost:8003`) |
-| `openclaw_url` | `http://192.168.0.123:18789` | `http://192.168.0.228:18789` | `""` |
+| `host_ip` | `[private-host]` | `[private-host]` | `[private-host]` |
+| `agent_port` | configured | configured | configured |
+| `agent_url` | `{configured-service-url}` | `{configured-service-url}` | `{configured-service-url}` (client seed uses `configured local MycoBrain gateway URL`) |
+| `operator_ui_url` | `{configured-service-url}` | `{configured-service-url}` | `""` |
 | `location` (lat,lon) | `32.715736, -117.161087` | `32.640278, -117.085833` | `32.56289, -117.13570` |
 | `location_label` | "San Diego, CA (Jetson WiFi)" | "Southwestern College, 900 Otay Lakes Rd, Chula Vista, CA" | "Project Oyster - North Reef buoy position" |
 | `mdp_device_id` | `mycobrain-sidea-10b41d` | `mycobrain-sidea-10b41d` | `mycobrain-COM4` |
@@ -4318,7 +4321,7 @@ All share `firmware_repo: "mycobrain/firmware"` (Agaric variants: `mycobrain/fir
 `force-dynamic` route (`app/api/natureos/devices/telemetry/route.ts`) that aggregates **real connected-device telemetry** across three backends and returns a flat array (no envelope). `fetchRealDeviceTelemetry` order (`:225-345`):
 
 1. **Local MycoBrain service** `GET {mycoBrainUrl}/devices` → deviceId `mycobrain-{port}`, reads `sensor_data.bme688_1/_2`, `device_info.uptime/lora_status/firmware/mdp_version` (`:234-283`). Timeout `MYCOBRAIN_SERVICE_TIMEOUT_MS` (1200).
-2. **Wi-Fi operator endpoints** (`OPERATOR_DEVICE_URLS`, default the two `:8787` Jetsons) — `fetchOperatorDevice` reads `GET /api/status` (parses `lastLines[]` JSON telemetry frames + `lastSensorReading`) and `GET /api/sensor`, deduped by `sensor_slot|address|node_id|device_id` (`:167-222`). `normalizeOperatorReading` resolves the site via `deploymentByHost` and surfaces compensated metrics (`temperature_c_comp`, `humidity_pct_comp`, `gas_resistance_ohm_comp`, `iaq_static`, `iaq_accuracy`, `gas_percentage`, `eco2_ppm`, `bvoc_ppm`, `valid`) (`:114-165`). Timeouts: status 4500 ms, sensor 1800 ms.
+2. **Field operator endpoints** (`MYCOBRAIN_OPERATOR_URLS`, configured per deployment) — `fetchOperatorDevice` reads `GET /api/status` (parses `lastLines[]` JSON telemetry frames + `lastSensorReading`) and `GET /api/sensor`, deduped by `sensor_slot|address|node_id|device_id` (`:167-222`). `normalizeOperatorReading` resolves the site via `deploymentByHost` and surfaces compensated metrics (`temperature_c_comp`, `humidity_pct_comp`, `gas_resistance_ohm_comp`, `iaq_static`, `iaq_accuracy`, `gas_percentage`, `eco2_ppm`, `bvoc_ppm`, `valid`) (`:114-165`). Timeouts: status 4500 ms, sensor 1800 ms.
 3. **MINDEX** `GET {mindexUrl}/api/devices?type=mycobrain` (offline devices included), only if not already present (`:294-329`). Timeout `MINDEX_DEVICE_TIMEOUT_MS` (1500).
 4. **Earth Simulator registry fallback** `GET /api/earth-simulator/devices` normalized via `normalizeEarthSimDevice` (`:46-112`), deduped against existing ids/registryIds. Timeout `EARTH_DEVICE_FALLBACK_TIMEOUT_MS` (1200). This is also the top-level catch-all if the whole pass throws.
 
@@ -4335,7 +4338,7 @@ Debug logging is gated on `CREP_DEBUG_DEVICE_TELEMETRY=1`.
 Thin proxy to the MINDEX FastAPI device registry with an Earth-Simulator fallback (`app/api/mindex/devices/route.ts`).
 - Query params: `page` (default 1), `pageSize` (default 50), `type`.
 - If `env.integrationsEnabled` is false (requires `INTEGRATIONS_ENABLED=true` **or** `MINDEX_API_KEY` + a MINDEX URL — `lib/env.ts:61-63`), it falls back to `/api/earth-simulator/devices?refresh=1&wait=1` (6.5 s timeout), client-filters by `type`/`role`/`device_type`, and returns `{ data, devices, meta, total, source:"earth-simulator-devices-fallback", dataSource, upstream }` with header `X-MINDEX-Warning: mindex-devices-unavailable-using-earth-simulator-devices` (`:19-72`).
-- When enabled it calls `getDevices({page,pageSize})` (`lib/integrations/mindex.ts:106-113` → `GET /devices?page&page_size`), filters by `type`, and on error repeats the same Earth-Simulator fallback. MINDEX auth uses `X-API-Key` (+ optional `x-internal-token`), base URL `resolveMindexServerBaseUrl()` → `http://192.168.0.189:8000` (loopback-guarded, `lib/mindex-base-url.ts:25, :51-76`). Debug: `CREP_DEBUG_MINDEX_DEVICES=1`.
+- When enabled it calls `getDevices({page,pageSize})` (`lib/integrations/mindex.ts:106-113` → `GET /devices?page&page_size`), filters by `type`, and on error repeats the same Earth-Simulator fallback. MINDEX auth uses `X-API-Key` (+ optional `x-internal-token`), base URL `resolveMindexServerBaseUrl()` → `{configured-service-url}` (loopback-guarded, `lib/mindex-base-url.ts:25, :51-76`). Debug: `CREP_DEBUG_MINDEX_DEVICES=1`.
 
 #### 6. Mycosoft-Devices proxy — `/api/crep/mycosoft-devices`
 
@@ -4359,11 +4362,11 @@ The device widget routes commands through `sendSelectedDeviceControl` / `DeviceM
 - **All other registry devices** → `POST /api/devices/network/{registryId}/command` with `{ command, params, timeout:5 }`.
 
 `/api/devices/network/[deviceId]/command/route.ts` (`requireAdmin` gated, `:213-214`) resolves the command via `networkCommandToOperator` and tries, in order:
-1. **Local serial** for `:8003` field deployments — guarded by `isSafeLocalSerialCommand` (`:23-64`): blocks `flash/erase/factory/bootloader/ota/format` and GPIO/pin/I²C-reconfig; allows status/sensor/scan + actuator commands (`beep`, `led rgb/brightness/pattern rainbow`, `coin`, `bump`, `1up`, `morgio`, etc.). A blocked low-level command returns **HTTP 423** "COM4 safety interlock active" (`:148-161`).
-2. **Field operator** `:8787` `POST /api/cmd` `{cmd}` (`forwardFieldOperatorCommand`, `:66-136`) — the fast path for the two Jetsons; no delayed MAS fallback is queued (to avoid commands physically firing late).
+1. **Local serial** for field gateway deployments — guarded by `isSafeLocalSerialCommand` (`:23-64`): blocks `flash/erase/factory/bootloader/ota/format` and GPIO/pin/I²C-reconfig; allows status/sensor/scan + actuator commands (`beep`, `led rgb/brightness/pattern rainbow`, `coin`, `bump`, `1up`, `morgio`, etc.). A blocked low-level command returns **HTTP 423** with a serial safety interlock message (`:148-161`).
+2. **Field operator** `POST /api/cmd` `{cmd}` on configured agent URL (`forwardFieldOperatorCommand`, `:66-136`) — fast path for field operator agents; no delayed MAS fallback is queued (to avoid commands physically firing late).
 3. **MAS** `POST {MAS}/api/devices/{id}/command`, with field-operator fallback on failure (`:243-281`).
 
-`MAS_API_URL` here is the raw `process.env.MAS_API_URL || "http://localhost:8001"` (not the loopback-guarded resolver). `/api/devices/network/[deviceId]/telemetry/route.ts` mirrors this: field-operator probe first, then MAS per-device telemetry, then MAS registry snapshot.
+`MAS_API_URL` here uses the configured MAS base URL from environment (may differ from the loopback-guarded resolver used elsewhere). `/api/devices/network/[deviceId]/telemetry/route.ts` mirrors this: field-operator probe first, then MAS per-device telemetry, then MAS registry snapshot.
 
 Control-result handling: `earthDeviceControlResultOk` accepts `success`/`status:"ok"`/`ok`/`result.ok!==false`; failures toast a context-aware message — auth failures (401/403 or "admin"/"unauthorized") → "Admin sign-in required…"; field devices → "Command relay did not confirm. This field device still reports online." (`CREPDashboardClient.tsx:1902-1928`). The `earthSimControlToOperatorCommand` mapper distinguishes neopixel rainbow/off, buzzer beep, and raw `cmd` actions (`:4312-4317`).
 
@@ -4419,12 +4422,12 @@ A subset of device layers is also driven by the `groundFilter` object (voice/MYC
 - **`partners` and `smartfence` layers have no backing data source or marker renderer** — they are deliberate UI placeholders.
 - **Mushroom 1 / Hyphae 1 coordinate disagreement** between `catalog.ts` and `field-deployments.ts` (field wins); both share one `mdp_device_id`.
 - **Inconsistent default coordinates** in the telemetry route: Chula Vista (`32.6401,−117.0842`) vs NYC (`40.7128,−74.006`) depending on which backend produced the row.
-- **LAN-dependence:** operator (`:8787`) and local-serial (`:8003`) sources only resolve from a host on the lab LAN; on prod the map relies on catalog + field seeds + MAS-VM registry. Loopback env values for MAS/MINDEX/MycoBrain are silently rewritten to LAN VM IPs unless the matching `ALLOW_LOOPBACK_*` escape hatch is set.
+- **Network scope:** operator and local-gateway device sources require reachability from the application host; production deployments typically rely on catalog + field seeds + MAS platform registry. Loopback service URLs in environment variables may be rewritten to configured platform hosts unless an explicit loopback override is enabled.
 - **COM4 safety interlock** blocks firmware/GPIO/I²C-reconfig commands (HTTP 423); all network commands require an admin session.
 - **Status "stickiness":** the 10-min (field) / 2-min (other) online-grace window means a marker can read `connected` for minutes after a device actually drops — intentional flap suppression, but it can mask short outages.
 - **Map-source comment drift:** the GeoJSON source comment references `/api/crep/mycosoft-devices` as the populator, but the live client effect actually fills `crep-mycosoft-devices` from the `devices` React state (sourced from `/api/earth-simulator/devices`).
 
-Relevant files: `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\app\api\earth-simulator\devices\route.ts`, `…\app\api\natureos\devices\telemetry\route.ts`, `…\app\api\mindex\devices\route.ts`, `…\app\api\crep\mycosoft-devices\route.ts`, `…\app\api\devices\network\[deviceId]\command\route.ts`, `…\app\api\devices\network\[deviceId]\telemetry\route.ts`, `…\lib\devices\field-deployments.ts`, `…\lib\devices\catalog.ts`, `…\lib\devices\operator-probe.ts`, `…\lib\devices\dev-bench-location.ts`, `…\lib\devices\mqtt-config.ts`, `…\lib\integrations\mindex.ts`, `…\lib\mas-server-url.ts`, `…\lib\mindex-base-url.ts`, `…\lib\mycobrain-service-url.ts`, and `…\app\dashboard\crep\CREPDashboardClient.tsx`.
+Relevant files: `WEBSITE/website/app/api/earth-simulator\devices\route.ts`, `…/app\api\natureos\devices\telemetry\route.ts`, `…/app\api\mindex\devices\route.ts`, `…/app\api\crep\mycosoft-devices\route.ts`, `…/app\api\devices\network\[deviceId]\command\route.ts`, `…/app\api\devices\network\[deviceId]\telemetry\route.ts`, `…/lib\devices\field-deployments.ts`, `…/lib\devices\catalog.ts`, `…/lib\devices\operator-probe.ts`, `…/lib\devices\dev-bench-location.ts`, `…/lib\devices\mqtt-config.ts`, `…/lib\integrations\mindex.ts`, `…/lib\mas-server-url.ts`, `…/lib\mindex-base-url.ts`, `…/lib\mycobrain-service-url.ts`, and `…/app\dashboard\crep\CREPDashboardClient.tsx`.
 
 ---
 
@@ -4490,7 +4493,7 @@ The MDP (MycoBrain Data Protocol) version is surfaced from device telemetry but 
 
 ##### 1.2 Operator telemetry normalization (`fetchOperatorDevice` / `normalizeOperatorReading`)
 
-- Operator device URLs come from `MYCOBRAIN_OPERATOR_URLS` (default `http://192.168.0.228:8787,http://192.168.0.123:8787`, `route.ts:8`).
+- Operator device URLs come from `MYCOBRAIN_OPERATOR_URLS` (default `{configured-service-url},{configured-service-url}`, `route.ts:8`).
 - Timeouts (env-tunable): service `MYCOBRAIN_SERVICE_TIMEOUT_MS=1200`, operator status `=4500`, operator sensor `=1800`, MINDEX device `=1500`, earth-sim fallback `=1200` (`route.ts:15-19`).
 - `normalizeOperatorReading` (`:114`) maps firmware fields → metrics: `temperature_c_comp`/`ambient_temperature_c`/`temperature_c` → `temperature`; compensated humidity/gas; `iaq`, `iaq_static`, `iaq_accuracy`, `eco2_ppm`, `bvoc_ppm`, `gas_percentage`, `uptime_s`, `sensor_slot`, `address`, `valid`. Device identity & location resolve from `deploymentByHost(host)` (`lib/devices/field-deployments.ts`) with catalog_id/role/location/registry_id; falls back to default coordinates `32.6401, -117.0842` (Imperial Beach lab) (`:31`, `:64-65`).
 - Merge order in `fetchRealDeviceTelemetry` (`:225`): (1) MycoBrain service `/devices`, (2) operator HTTP, (3) MINDEX `/api/devices?type=mycobrain` (offline included, deduped by `deviceId`), (4) Earth Simulator registry fallback (`/api/earth-simulator/devices`). On total failure it returns the earth-sim fallback only (`:343`).
@@ -4580,7 +4583,7 @@ On the dashboard, AQI is painted by `LiveAqiLayer` gated by `liveAqiLayerReady &
 
 Source: `app/api/oei/buoys/route.ts` (`dynamic="force-dynamic"`).
 
-- **Sources (parallel):** (1) NOAA NDBC `https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt` (free, no key, ~1300 buoys; 6s timeout, `:171`), (2) MINDEX `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=buoys&...&limit=2000` (`:192`, 2.5s timeout, `X-API-Key`). `MINDEX_URL` resolves `MINDEX_API_URL || NEXT_PUBLIC_MINDEX_URL || http://192.168.0.189:8000`; key `MINDEX_API_KEY || "local-dev-key"` (`:54-59`).
+- **Sources (parallel):** (1) NOAA NDBC `https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt` (free, no key, ~1300 buoys; 6s timeout, `:171`), (2) MINDEX `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=buoys&...&limit=2000` (`:192`, 2.5s timeout, `X-API-Key`). `MINDEX_URL` resolves `MINDEX_API_URL || NEXT_PUBLIC_MINDEX_URL || {configured-service-url}`; key `MINDEX_API_KEY || "<configured-api-key>"` (`:54-59`).
 - **NDBC parser** (`parseNDBCText` `:73`): whitespace-delimited, 2 header rows (names + units), `MM` = missing; column index map for `STN, LAT, LON, YYYY/YY, MM, DD, hh, mm, WDIR, WSPD, GST, WVHT, DPD, ATMP, WTMP, PRES, VIS, DEWP`. Invalid/out-of-range coords skipped. `parseNDBCFloat` (`:161`) treats `MM/999/99.0/999.0/9999.0/99.00` as null.
 - **`BuoyObservation` shape** (`:22`): `id, station_id, lat, lng, wind_speed (m/s), wind_direction (deg), wind_gust (m/s), wave_height (m), dominant_wave_period (s), water_temp (°C), air_temp (°C), pressure (hPa), visibility (nmi), dew_point (°C), timestamp (ISO), source ("ndbc"|"mindex")`.
 - **Dedup:** by `station_id`, NDBC overwrites MINDEX (`:305-316`).
@@ -5033,7 +5036,7 @@ From `lib/crep/lod-policy.ts`:
 
 ---
 
-Key files: `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website\components\crep\layers\{tijuana-estuary-layer,mojave-preserve-layer,project-nyc-dc-layer,sdtj-coverage-layer,proposal-overlays,v3-overlays}.tsx`; `lib\crep\{metro-infra-layer-bridge,jurisdiction-layers,lod-policy}.ts`; `lib\crep\registries\radar-registry.ts`; `components\crep\controls\fly-to-projects.tsx`; military bases + jurisdiction mounting inline in `app\dashboard\crep\CREPDashboardClient.tsx`.
+Key files: `WEBSITE/website/components\crep\layers\{tijuana-estuary-layer,mojave-preserve-layer,project-nyc-dc-layer,sdtj-coverage-layer,proposal-overlays,v3-overlays}.tsx`; `lib\crep\{metro-infra-layer-bridge,jurisdiction-layers,lod-policy}.ts`; `lib\crep\registries\radar-registry.ts`; `components\crep\controls\fly-to-projects.tsx`; military bases + jurisdiction mounting inline in `app\dashboard\crep\CREPDashboardClient.tsx`.
 
 ---
 
@@ -5156,7 +5159,7 @@ All three bounds keys use the **identical zoom-precision ladder** as `makeViewpo
 
 ##### `/api/crep/viewport-intel/route.ts`
 - `dynamic = "force-dynamic"`, `revalidate = 86400`. Params: `north, south, east, west, zoom` (each `finiteNumber(...)` with fallback `0`; zoom default `4`). Bounds are normalized so `north = max, south = min`.
-- **MINDEX-first:** proxies `${MINDEX_API}/api/mindex/civic/viewport-intel` with `X-Internal-Token` (first of comma-split `MINDEX_INTERNAL_TOKEN(S)`) and `X-API-Key` (`MINDEX_API_KEY` or `local-dev-key`), under a **900 ms** abort budget (`MINDEX_TIMEOUT_MS`).
+- **MINDEX-first:** proxies `${MINDEX_API}/api/mindex/civic/viewport-intel` with `X-Internal-Token` (first of comma-split `MINDEX_INTERNAL_TOKEN(S)`) and `X-API-Key` (`MINDEX_API_KEY` or `<configured-api-key>`), under a **900 ms** abort budget (`MINDEX_TIMEOUT_MS`).
 - In parallel it runs `enrichPlaceFromBounds` (local hint → `reverseGeocodePlace` only when LOD-specific enrichment is needed via `placeNeedsLodEnrichment`).
 - **Three response tiers:** (a) MINDEX-live merged with country-government profiles + civic fallback (`:502-549`, sets `Server-Timing` and `Cache-Control: public, s-maxage=86400, stale-while-revalidate=604800`); (b) upstream-down → `fetchFallbackForViewport` (country profiles or `fetchCivicFallback`) (`:361-419`); (c) total failure → `buildEmptyCivicResponse` (`:255-300`). US-vs-international routing is decided by `shouldUseUnitedStatesFallback` / `centerAppearsInsideUnitedStates`. Every tier reports `meta.timings` against a **1200 ms** budget.
 
@@ -5420,7 +5423,7 @@ Every `route.ts` under the six base directories. HTTP methods in parentheses whe
 | `eagle/connectors/border-crossing` | GET | Tijuana/US-MX border crossing camera + data feed |
 | `eagle/connectors/mastodon` | GET | Mastodon timeline ephemeral video posts |
 | `eagle/connectors/public-webcams` | GET/POST | Windy + EarthCam + NPS + USGS + ALERTWildfire + HPWREN + Surfline + static-seed webcams |
-| `eagle/connectors/shinobi` | GET/POST | Shinobi NVR monitor list (MAS 188 instance) |
+| `eagle/connectors/shinobi` | GET/POST | Shinobi NVR monitor list (MAS platform instance) |
 | `eagle/connectors/state-dot-cctv` | GET | State DOT CCTV camera connector |
 | `eagle/connectors/traffic-511` | GET/POST | Union of three 511 traveler-info camera feeds |
 | `eagle/connectors/twitch` | GET | Twitch live streams (geo) connector |
