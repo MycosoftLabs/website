@@ -2360,7 +2360,15 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   // it to force any genuine multi-touch device to AT MOST "tablet" regardless of
   // width or pointer type. (Jun 13, 2026 — iPad Pro freeze P0 from live QA audit.)
   const touch = typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1;
-  if (width <= 767 || ((coarsePointer || touch) && width <= 900)) return "phone";
+  // iPhones report maxTouchPoints=5 too, so touch+width alone can't tell an iPad
+  // from a phone — and the old `(touch) && width<=900` clause misclassified iPad
+  // mini portrait (768) and iPad Pro 11" portrait (834) as "phone", which closed
+  // the panels and withheld the ECM atlas. A phone's SHORTER edge is <=430 even
+  // in landscape; the smallest iPad (mini) is 768 on its short edge. So gate the
+  // phone branch on the short edge, not innerWidth: every iPad -> "tablet", real
+  // phones (incl. landscape ~932x430) -> "phone". (Jun 13, 2026 — iPad Pro QA.)
+  const shortEdge = Math.min(width, window.innerHeight || width);
+  if (shortEdge <= 540 || (!touch && width <= 767)) return "phone";
   if (width <= 1180 || coarsePointer || touch) return "tablet";
   return "desktop";
 }
@@ -7874,7 +7882,12 @@ export default function CREPDashboardPage({
     const earthTabletMq = window.matchMedia("(max-width: 1180px), (pointer: coarse)");
     const applyResponsivePanelDefaults = () => {
       const earthSimulator = isEarthSimulatorPath();
-      const earthTablet = isEarthSimulatorPath() && earthTabletMq.matches;
+      // Only genuine phones (perf-class) auto-collapse the Earth Sim panels.
+      // earthTabletMq = "(max-width:1180px),(pointer:coarse)" matched EVERY iPad
+      // (coarse pointer) and re-closed the panels the init opened — defeating the
+      // "iPad starts like desktop" requirement. Now iPads ("tablet") fall into the
+      // panels-open branch. (Jun 13, 2026 — iPad QA.)
+      const earthTablet = isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone";
       if (phoneMq.matches || earthTablet) {
         setLeftPanelOpen(false);
         setRightPanelOpen(false);
@@ -9757,8 +9770,12 @@ export default function CREPDashboardPage({
   });
 
   const [vesselFilter, setVesselFilter] = useState<VesselFilter>(() => {
-    const filtersOff = getInitialFiltersOffMode();
-    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
+    // Vessels start ON on Earth Sim (unlike the other movers): the AIS feed is
+    // live and the user expects ocean traffic to paint. Gating the categories
+    // off-at-boot here (via isEarthSimulatorPath()) left moverVesselPool empty
+    // so nothing rendered even with the Ships layer enabled. (Jun 13, 2026 —
+    // "I don't see any vessels in the Strait of Hormuz".)
+    const moversOffAtBoot = getInitialFiltersOffMode();
     return {
       showCargo: !moversOffAtBoot,
       showTanker: !moversOffAtBoot,
@@ -13779,8 +13796,17 @@ export default function CREPDashboardPage({
   }, [earthStrictPerfMode, layers, mapZoom, markerBounds, natureFiltersEnabled, natureSpeciesFiltersActive]);
 
   // May 23 2026 regression lock (docs/codex-handoffs/2026-05-23-earth-simulator-handoff.md):
-  // NEVER unmount Event/Nature DOM markers during pan - update positions only (map.tsx batch sync).
-  const shouldRenderDomMarkers = true;
+  // kept Event/Nature DOM markers mounted through pan (update positions only) to
+  // avoid blink. That is right on desktop — but on a tablet/phone GPU, MapLibre
+  // re-projects + occlusion-tests (map.tsx Marker._update + setOccludedOpacity)
+  // every mounted DOM marker on EVERY move frame; at the tablet cap (~760) that
+  // starves the main thread and FREEZES the iPad on pan. CSS hiding doesn't help
+  // (the project() cost is JS, independent of display). So on non-desktop only,
+  // unmount the regular DOM markers during the pan/zoom gesture (the selected
+  // marker stays via the fallback below; a brief blink beats a frozen map) and
+  // remount on settle. Desktop keeps the no-blink behavior. (Jun 13, 2026 — iPad
+  // freeze P0 from live QA.)
+  const shouldRenderDomMarkers = !(isMapAnimationActive && earthSimViewportPerfClass !== "desktop");
   const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const shouldRenderHeavyOverlays =
     !earthStrictPerfMode || (earthSimDeferredDataReady && !isMapAnimationActive);
