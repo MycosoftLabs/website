@@ -2378,10 +2378,13 @@ function getInitialProjectionMode(): ProjectionMode {
 }
 
 function shouldStartInGlobeProjection(): boolean {
-  if (typeof window === "undefined") return true;
-  const width = window.innerWidth || 1440;
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  return width > 1180 && !coarsePointer;
+  // The Earth Simulator must ALWAYS open in the globe projection, never the flat
+  // mercator map — on every device including iPad. The earlier width/pointer gate
+  // downgraded touch/tablet/narrow viewports to mercator for GPU safety, but that
+  // is the wrong default: globe is the intended experience everywhere, and the
+  // user can still switch to map via the GlobeToggle. (Jun 13, 2026 — Morgan:
+  // "should always open in the globe, never open in the map.")
+  return true;
 }
 
 function isGlobeProjectionSafeForViewport(): boolean {

@@ -129,7 +129,15 @@ export async function GET(request: NextRequest) {
   const lomax = searchParams.get("lomax")
   const mmsi = searchParams.get("mmsi")
   const publish = searchParams.get("publish") === "true"
-  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : undefined
+  // Hard default + max cap so an uncapped GET can never serialize the entire
+  // global vessel set (~43k objects = 5.3s, the audit's worst route). The client
+  // sends limit=earthMoverLimits.vessels (2500/900) when zoomed in; external /
+  // world-zoom callers that omit it now get a sane ceiling instead of everything.
+  // (Jun 13, 2026 — P1-2 AIS over-SLA fix.)
+  const AIS_DEFAULT_LIMIT = 4000
+  const AIS_MAX_LIMIT = 8000
+  const rawLimit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : AIS_DEFAULT_LIMIT
+  const limit = Math.min(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : AIS_DEFAULT_LIMIT, AIS_MAX_LIMIT)
   const forceRefresh = searchParams.get("refresh") === "true"
 
   const cacheKey = `vessels_${lamin}_${lamax}_${lomin}_${lomax}_${mmsi}_${limit}_${publish}`
