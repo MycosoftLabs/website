@@ -370,13 +370,21 @@ export async function GET(req: NextRequest) {
   const provider = url.searchParams.get("provider") || undefined
   const requestedLimit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
   const mapMetadataRequest = Boolean(bbox && !kind && !provider)
-  const limit = mapMetadataRequest ? Math.min(requestedLimit, 180) : requestedLimit
+  // Jun 13, 2026 (camera-coverage fix): a dense metro viewport (e.g. Caltrans
+  // District 4 / SF Bay alone has 633 live cams) needs far more than 180, or the
+  // map shows only a handful of baked-seed pins. Raise the map cap to 2000.
+  const limit = mapMetadataRequest ? Math.min(requestedLimit, 2000) : requestedLimit
   const directLiveFanoutEnabled =
     process.env.EAGLE_WEBSITE_ALLOW_DIRECT_LIVE_FANOUT !== "0"
+  // Jun 13, 2026: the `&& !mapMetadataRequest` clause forced skipLive=true for
+  // EVERY plain map bbox request, so the overlay's explicit live=1 never ran the
+  // live state-DOT fan-out (Caltrans D4, etc.) — the map only ever got the small
+  // baked seed (SF showed ~1 cam). Honour live=1 for map requests; the ?fast=1
+  // first-paint path still returns the baked tier immediately, and the live tier
+  // is bbox/district-filtered + bounded by the 18s allSettled timeout.
   const liveFanoutAllowed =
     directLiveFanoutEnabled &&
-    url.searchParams.get("live") === "1" &&
-    !mapMetadataRequest
+    url.searchParams.get("live") === "1"
   const skipLive = !liveFanoutAllowed
   // Apr 22, 2026 — Morgan: "needs first load fast". ?fast=1 returns the
   // fast-tier connectors (public-webcams + 511 + border + webcamtaxi
