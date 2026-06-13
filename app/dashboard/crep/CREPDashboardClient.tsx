@@ -16457,8 +16457,14 @@ export default function CREPDashboardPage({
       return;
     }
 
-    // Earth Simulator idle perf: static satellite markers only (no SGP4 rAF loop).
-    if (earthStrictPerfMode) {
+    // Earth Simulator: the SGP4 rAF loop is held off on tablet/phone for idle
+    // perf (DOM/GPU budget), but desktop has the headroom. Run it on desktop —
+    // gated behind the first-paint stagger (earthSimDeferredDataReady) so it
+    // never competes with the initial globe paint — so that enabling the
+    // satellites layer actually shows live, moving satellites (previously the
+    // source stayed empty on Earth Sim and nothing rendered). Tablet/phone keep
+    // the static-markers-only behavior.
+    if (earthStrictPerfMode && (earthSimViewportPerfClass !== "desktop" || !earthSimDeferredDataReady)) {
       stopSatelliteAnimation();
       return;
     }
@@ -16497,7 +16503,7 @@ export default function CREPDashboardPage({
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
-  }, [filteredSatellites, earthStrictPerfMode]);
+  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimDeferredDataReady]);
 
   // Cleanup: stop satellite animation on unmount
   useEffect(() => {
