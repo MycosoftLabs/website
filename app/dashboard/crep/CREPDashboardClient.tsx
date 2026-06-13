@@ -7357,6 +7357,12 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
         map?.flyTo?.({
           center: [target.lng, target.lat],
           zoom: target.zoom,
+          // Reset tilt so a far jump is always visible. On a tilted globe a
+          // flyTo that inherits the current pitch can leave the destination
+          // behind the horizon — looking like the map didn't move. The working
+          // FlyToProjects chips already pass pitch:0/bearing:0. (Jun 13, 2026.)
+          pitch: 0,
+          bearing: 0,
           duration: 900,
           essential: true,
         });
@@ -8388,7 +8394,8 @@ export default function CREPDashboardPage({
       const zoom = Number.isFinite(Number(d.zoom)) ? Number(d.zoom) : 11;
       try {
         const m = mapNativeRef.current as any;
-        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, duration: 1200 });
+        // pitch:0/bearing:0 — a tilted globe can hide the destination over the horizon.
+        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, pitch: 0, bearing: 0, duration: 1200 });
       } catch { /* ignore */ }
     };
     window.addEventListener("crep:flyto", onFlyTo as any);
@@ -22700,7 +22707,7 @@ export default function CREPDashboardPage({
             <FlyToButtons
               onFlyTo={(center, zoom) => {
                 GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
-                mapRef?.flyTo({ center, zoom, duration: 1200 });
+                mapRef?.flyTo({ center, zoom, pitch: 0, bearing: 0, duration: 1200 });
               }}
               compact
             />
