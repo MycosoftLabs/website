@@ -55,20 +55,22 @@ convert() {
   fi
   echo "=== $src  →  $name.pmtiles  (z$zoom_min–$zoom_max) ==="
 
-  # Tippecanoe: feature-first (not cluster), drop gracefully, single layer
+  # Tippecanoe: feature-first (not cluster), single layer. These are small
+  # point/line sets (≤76k features) so we KEEP EVERY feature at every zoom —
+  # --drop-densest-as-needed was thinning power plants/substations at flyover
+  # (Morgan: "massive amount of missing power stations… should be all of them").
+  # --no-tile-size-limit + --no-feature-limit let low-zoom tiles hold the full
+  # set; OpenGridWorks-parity density. (Jun 12, 2026)
   tippecanoe \
     --output="$out_mbtiles" \
     --force \
     --minimum-zoom="$zoom_min" \
     --maximum-zoom="$zoom_max" \
     --layer="$layer_name" \
-    --drop-densest-as-needed \
     --extend-zooms-if-still-dropping \
     --no-feature-limit \
     --no-tile-size-limit \
     --simplification=2 \
-    --detect-shared-borders \
-    --coalesce-smallest-as-needed \
     "$IN/$src"
 
   pmtiles convert "$out_mbtiles" "$out_pmtiles" --force
@@ -79,8 +81,10 @@ convert() {
   echo "  → $(basename "$out_pmtiles"): $((bytes / 1024)) KB"
 }
 
-# Substations: point layer, render from zoom 5 so state-level inspection works
-convert "substations-us.geojson" "substations-us" 5 12 "substations"
+# Substations: point layer. minzoom 2 so the grid paints at US/continental
+# flyover (was 5 — invisible until state level, the "no substations on flyover"
+# bug). (Jun 12, 2026)
+convert "substations-us.geojson" "substations-us" 2 12 "substations"
 
 # Transmission lines: line layer, need higher zooms for route detail
 convert "transmission-lines-us-major.geojson" "transmission-lines-us-major" 4 12 "transmission_lines"

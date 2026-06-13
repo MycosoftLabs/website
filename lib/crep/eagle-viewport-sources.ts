@@ -15,6 +15,7 @@ export interface EagleViewportSource {
   stream_url?: string | null
   embed_url?: string | null
   media_url?: string | null
+  thumbnail_url?: string | null
   source_status?: string | null
 }
 
@@ -27,6 +28,8 @@ const BAKED_GEOJSON_URLS = [
   "/data/crep/eagle-cameras-vegas-seed.geojson",
   "/data/crep/eagle-cameras-deployment-sites-seed.geojson",
 ] as const
+
+const BAKED_GEOJSON_VERSION = "20260608-vegas-camera-data-fix"
 
 let bakedLoadPromise: Promise<EagleViewportSource[]> | null = null
 
@@ -54,6 +57,7 @@ function featureToSource(feature: {
     stream_url: (p.stream_url as string) ?? null,
     embed_url,
     media_url: (p.media_url as string) ?? null,
+    thumbnail_url: ((p.thumbnail_url as string) ?? (p.thumbnail as string) ?? null),
     source_status: ((p.source_status as string) ?? (p.status as string) ?? null),
   }
   const normalized = normalizeEagleCameraCoords(raw)
@@ -117,7 +121,7 @@ export async function loadBakedEagleCameras(): Promise<EagleViewportSource[]> {
       await Promise.all(
         BAKED_GEOJSON_URLS.map(async (url) => {
           try {
-            const res = await fetch(url, { cache: "force-cache" })
+            const res = await fetch(`${url}?v=${BAKED_GEOJSON_VERSION}`, { cache: "force-cache" })
             if (!res.ok) return
             const json = await res.json()
             for (const feature of json?.features || []) {
@@ -150,6 +154,7 @@ function mapApiSources(raw: unknown[]): EagleViewportSource[] {
         stream_url: (c.stream_url as string) ?? null,
         embed_url: (c.embed_url as string) ?? null,
         media_url: (c.media_url as string) ?? null,
+        thumbnail_url: ((c.thumbnail_url as string) ?? (c.thumbnail as string) ?? null),
         source_status: ((c.source_status as string) ?? (c.status as string) ?? null),
       }
     }),
@@ -180,7 +185,7 @@ async function fetchEagleApi(
 
 export type EagleLoadPhase = "instant" | "fast" | "full"
 
-/** Instant baked registry → fast MINDEX-only API → full live enrichment. */
+/** Instant baked registry → fast metadata-only API. Exact streams resolve on click. */
 export async function loadViewportEagleSources(
   bounds: MapBoundsLike,
   limit: number,
@@ -207,7 +212,7 @@ export async function loadViewportEagleSources(
   }
 
   const loadFullApi = async () => {
-    const fullApi = await fetchEagleApi(bounds, { fast: false, live: false, limit: Math.max(limit, 128) }, signal)
+    const fullApi = await fetchEagleApi(bounds, { fast: false, live: false, limit: Math.max(limit, 48) }, signal)
     if (fullApi.length) {
       current = filterSourcesInViewport(mergeEagleSources(current, fullApi), bounds, limit)
       onUpdate(current, "full")
@@ -216,8 +221,8 @@ export async function loadViewportEagleSources(
 
   try {
     if (focusedViewport) {
-      await loadFullApi()
-      if (!current.length) await loadFastApi()
+      await loadFastApi()
+      if (!current.length) await loadFullApi()
     } else {
       await loadFastApi()
       await loadFullApi()

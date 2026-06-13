@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Camera, Loader2, Play } from "lucide-react"
 import {
   bboxKeyFromBounds,
@@ -8,7 +8,7 @@ import {
   type EagleViewportSource,
 } from "@/lib/crep/eagle-viewport-sources"
 import type { MapBoundsLike } from "@/lib/crep/viewport-revision"
-import { EagleLivePreviewTile } from "@/components/crep/eagle-eye/eagle-live-stream"
+import { EagleLivePreviewTile } from "./eagle-live-stream"
 
 interface EagleEyeThumbnailGridProps {
   mapBounds: MapBoundsLike | null
@@ -22,6 +22,22 @@ interface EagleEyeThumbnailGridProps {
 
 function sourceLabel(source: EagleViewportSource) {
   return source.name || `${source.provider} camera`
+}
+
+function previewPriority(source: EagleViewportSource) {
+  const status = String(source.source_status || "").toLowerCase()
+  if (status.includes("unavailable") || status === "offline") return 100
+  const provider = String(source.provider || "").toLowerCase()
+  const urls = `${source.stream_url || ""} ${source.embed_url || ""} ${source.media_url || ""}`.toLowerCase()
+  if (/\.m3u8(\?|$)|\/mjpeg(\?|\/|$)|\/whep(\?|\/|$)/i.test(urls)) return 0
+  if (/youtube|youtu\.be|hdontap|ipcamlive|webcamtaxi/.test(urls)) return 1
+  if (/earthcam/.test(urls) && (source.stream_url || source.media_url)) return 2
+  if (/surfline/.test(urls) && (source.stream_url || source.media_url)) return 3
+  if (/earthcam|surfline/.test(urls)) return 25
+  if (/\/api\/eagle\/cam-image|\.jpe?g(\?|$)|\.png(\?|$)|\.webp(\?|$)/i.test(urls)) return 30
+  if (/\/api\/eagle\/cam-snapshot|alertcalifornia|alertwildfire/.test(urls)) return 40
+  if (provider === "caltrans" || provider.includes("dot")) return 45
+  return 50
 }
 
 function dispatchEagleCameraClick(detail: Record<string, unknown>) {
@@ -55,8 +71,10 @@ export function openEagleCamera(
     stream_url: source.stream_url,
     embed_url: source.embed_url,
     media_url: source.media_url,
+    thumbnail_url: source.thumbnail_url,
+    source_status: source.source_status,
   })
-  window.setTimeout(() => onFlyTo?.(source.lng, source.lat, 14), 0)
+  window.setTimeout(() => onFlyTo?.(source.lng, source.lat, 12.5), 1_200)
 }
 
 function EagleEyeThumbnailGrid({
@@ -79,6 +97,7 @@ function EagleEyeThumbnailGrid({
   )
   const lastFetchedKey = useRef<string | null>(null)
   const loadGen = useRef(0)
+  const lastOpenRef = useRef<{ id: string; at: number } | null>(null)
 
   useEffect(() => {
     if (useParentPrefetch) {
@@ -133,12 +152,19 @@ function EagleEyeThumbnailGrid({
 
   const openCamera = useCallback(
     (source: EagleViewportSource) => {
+      const now = Date.now()
+      if (lastOpenRef.current?.id === source.id && now - lastOpenRef.current.at < 500) return
+      lastOpenRef.current = { id: source.id, at: now }
       openEagleCamera(source, onFlyTo)
     },
     [onFlyTo],
   )
 
-  const slots = Array.from({ length: limit }, (_, i) => sources[i] ?? null)
+  const previewSources = useMemo(
+    () => [...sources].sort((a, b) => previewPriority(a) - previewPriority(b)),
+    [sources],
+  )
+  const slots = Array.from({ length: limit }, (_, i) => previewSources[i] ?? null)
   const statusLabel =
     phase === "loading" && sources.length === 0
       ? "loading…"
@@ -162,14 +188,34 @@ function EagleEyeThumbnailGrid({
             key={source?.id || `empty-${index}`}
             type="button"
             disabled={!source}
-            onClick={() => source && openCamera(source)}
-            className="group relative min-h-[52px] aspect-video overflow-hidden rounded border border-cyan-500/25 bg-black/50 transition-colors hover:border-cyan-400/60 disabled:cursor-default disabled:opacity-40 touch-manipulation"
+            onPointerDown={(event) => {
+              if (!source || event.button !== 0) return
+              event.stopPropagation()
+            }}
+            onClick={(event) => {
+              if (!source) return
+              event.preventDefault()
+              event.stopPropagation()
+              openCamera(source)
+            }}
+            onKeyDown={(event) => {
+              if (!source || (event.key !== "Enter" && event.key !== " ")) return
+              event.preventDefault()
+              event.stopPropagation()
+              openCamera(source)
+            }}
+            className="group relative min-h-[52px] aspect-video overflow-hidden rounded border border-cyan-500/25 bg-black/50 transition-colors hover:border-cyan-400/60 disabled:cursor-default disabled:opacity-40 touch-manipulation pointer-events-auto"
             title={source ? `${sourceLabel(source)} — tap to fly & play live` : "No camera in view"}
             aria-label={source ? `Fly to ${sourceLabel(source)}` : "Empty camera slot"}
           >
             {source ? (
               <>
-                <EagleLivePreviewTile source={source} className="pointer-events-none absolute inset-0 h-full w-full" />
+                <EagleLivePreviewTile
+                  source={source}
+                  deferMs={index * 900}
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-1 py-0.5">
                   <div className="truncate text-[7px] font-medium text-white">{sourceLabel(source)}</div>
                   <div className="truncate text-[6px] text-cyan-300/80">{source.provider}</div>

@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { getAirNowApiKey } from "@/lib/airnow-key"
 import { resolveInternalBaseUrl } from "@/lib/internal-base-url"
 import {
   VIEWPORT_SENSOR_CATALOG,
@@ -62,7 +63,7 @@ function filterCatalog(bbox: Bbox): ViewportSensorCatalogEntry[] {
 }
 
 async function fetchAirNowMonitors(origin: string, bbox: Bbox): Promise<ViewportSensorResult[]> {
-  const key = process.env.AIRNOW_API_KEY?.trim() || process.env.NEXT_PUBLIC_AIRNOW_API_KEY?.trim() || ""
+  const key = getAirNowApiKey()
   if (!key) return []
   try {
     const q = new URLSearchParams({
@@ -70,7 +71,7 @@ async function fetchAirNowMonitors(origin: string, bbox: Bbox): Promise<Viewport
       parameters: "PM25,OZONE",
     })
     const res = await fetch(`${origin}/api/crep/airnow/bbox?${q}`, {
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(2_800),
       cache: "no-store",
     })
     if (!res.ok) return []

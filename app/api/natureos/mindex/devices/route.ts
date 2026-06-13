@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 
 export const dynamic = "force-dynamic"
+const DEBUG_MINDEX_DEVICES = process.env.CREP_DEBUG_MINDEX_DEVICES === "1"
 
 interface Device {
   id: string
@@ -61,6 +62,64 @@ export async function GET(request: NextRequest) {
     data_source: "unavailable",
   }
 
+  const fallbackToEarthSimulatorDevices = async () => {
+    const fallbackUrl = new URL("/api/earth-simulator/devices", request.url)
+    fallbackUrl.searchParams.set("refresh", "1")
+    fallbackUrl.searchParams.set("wait", "1")
+    const fallbackResponse = await fetch(fallbackUrl, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6_500),
+    })
+    if (!fallbackResponse.ok) throw new Error(`earth-simulator-devices ${fallbackResponse.status}`)
+    const payload = await fallbackResponse.json()
+    const rows = Array.isArray(payload?.devices) ? payload.devices : []
+    const devices = rows.slice(0, limit).map((row: any): Device => ({
+      id: String(row.registry_id || row.id),
+      unique_id: String(row.registry_id || row.id),
+      name: String(row.name || row.id || "MycoBrain device"),
+      type: "mycobrain",
+      firmware_version: String(row.firmware_version || row.firmware || "unknown"),
+      last_seen: String(row.lastSeen || row.last_seen || ""),
+      is_online: row.status === "connected" || row.status === "online",
+      location: row.location
+        ? {
+            latitude: Number(row.location.lat ?? row.location.latitude),
+            longitude: Number(row.location.lon ?? row.location.lng ?? row.location.longitude),
+            name: row.location_label || undefined,
+          }
+        : undefined,
+      telemetry: row.telemetry && typeof row.telemetry === "object" ? row.telemetry : undefined,
+      metadata: {
+        catalog_id: row.id,
+        role: row.role,
+        source: row.source,
+        agent_url: row.agent_url,
+        host: row.host,
+      },
+    }))
+    const filteredDevices = type ? devices.filter((device) => device.type === type || String(device.metadata?.role) === type) : devices
+    const onlineDevices = online
+      ? filteredDevices.filter((device) => String(device.is_online) === online || (online === "true" ? device.is_online : !device.is_online))
+      : filteredDevices
+
+    return NextResponse.json({
+      devices: onlineDevices,
+      total: onlineDevices.length,
+      online_count: onlineDevices.filter((device) => device.is_online).length,
+      data_source: "live",
+      upstream: {
+        mindex: "unavailable",
+        fallback: "/api/earth-simulator/devices",
+      },
+    }, {
+      headers: {
+        "Cache-Control": "no-store",
+        "X-MINDEX-Warning": "mindex-devices-unavailable-using-earth-simulator-devices",
+      },
+    })
+  }
+
   try {
     // Build query params
     const params = new URLSearchParams()
@@ -83,20 +142,34 @@ export async function GET(request: NextRequest) {
       response.total = data.total || response.devices.length
       response.online_count = response.devices.filter((d: Device) => d.is_online).length
       response.data_source = "live"
+      if (response.devices.length === 0) {
+        return await fallbackToEarthSimulatorDevices()
+      }
+    } else {
+      return await fallbackToEarthSimulatorDevices()
     }
 
     return NextResponse.json(response)
   } catch (error) {
-    console.error("Devices API error:", error)
+    if (DEBUG_MINDEX_DEVICES) {
+      console.warn("MINDEX NatureOS devices unavailable, using Earth Simulator devices fallback:", error)
+    }
     
-    return NextResponse.json({
-      ...response,
-      error: error instanceof Error ? error.message : "Failed to fetch devices",
-      troubleshooting: {
-        mindex_url: mindexUrl,
-        endpoint: "/api/mindex/devices",
+    try {
+      return await fallbackToEarthSimulatorDevices()
+    } catch (fallbackError) {
+      if (DEBUG_MINDEX_DEVICES) {
+        console.warn("Earth Simulator devices fallback unavailable:", fallbackError)
       }
-    }, { status: 503 })
+      return NextResponse.json({
+        ...response,
+        error: error instanceof Error ? error.message : "Failed to fetch devices",
+        troubleshooting: {
+          mindex_url: mindexUrl,
+          endpoint: "/api/mindex/devices",
+        }
+      }, { status: 503 })
+    }
   }
 }
 

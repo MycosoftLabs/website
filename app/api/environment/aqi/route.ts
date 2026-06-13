@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getAirNowApiKey } from "@/lib/airnow-key"
 import { getNearestStation, getAQICategory, compareAQI } from "@/lib/openaq-client"
 
 const PARAM_LABELS: Record<string, string> = {
@@ -21,7 +22,7 @@ function airNowCategory(aqi: number): { level: string; color: string; descriptio
 }
 
 async function getAirNowStation(latitude: number, longitude: number, radiusKm: number, deviceValue?: number) {
-  const key = process.env.AIRNOW_API_KEY?.trim() || process.env.NEXT_PUBLIC_AIRNOW_API_KEY?.trim() || ""
+  const key = getAirNowApiKey()
   if (!key) return null
 
   const distanceMi = Math.min(100, Math.max(1, Math.ceil(radiusKm / 1.60934)))

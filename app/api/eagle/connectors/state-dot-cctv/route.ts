@@ -37,7 +37,7 @@ export const dynamic = "force-dynamic"
 
 type Cam = {
   id: string
-  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot"
+  provider: "caltrans" | "wsdot" | "fdot" | "nysdot" | "nyctmc" | "txdot" | "ndot" | "ga511" | "wi511" | "pa511"
   name: string | null
   lat: number
   lng: number
@@ -104,6 +104,7 @@ const PROVIDER_EXTENTS = {
   fdot: [-87.8, 24.3, -79.7, 31.1],
   nysdot: [-79.9, 40.3, -71.7, 45.2],
   nyctmc: [-74.3, 40.45, -73.65, 41.0],
+  ndot: [-120.1, 34.8, -114.0, 42.2],
   txdot: [-106.7, 25.8, -93.4, 36.6],
 } satisfies Record<string, Extent>
 
@@ -356,19 +357,192 @@ async function pullTxDOT(): Promise<Cam[]> {
   } catch { return [] }
 }
 
+function nvRoadsApiKey(): string {
+  return (
+    process.env.NVROADS_API_KEY ||
+    process.env.NEVADA_511_API_KEY ||
+    process.env.NV_511_API_KEY ||
+    process.env.TRANSIT_511_API_KEY ||
+    ""
+  ).trim()
+}
+
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value
+  return []
+}
+
+function firstNonEmptyArray(...values: any[]): any[] {
+  for (const value of values) {
+    const array = asArray(value)
+    if (array.length) return array
+  }
+  return []
+}
+
+function nvRoadsCameraItems(payload: any): any[] {
+  if (Array.isArray(payload)) return payload
+  return firstNonEmptyArray(
+    payload?.Cameras,
+    payload?.cameras,
+    payload?.data,
+    payload?.features,
+    payload?.CamerasList?.Cameras,
+    payload?.camerasList?.cameras,
+    payload?.Data?.Cameras,
+    payload?.data?.Cameras,
+    payload?.data?.cameras,
+  )
+}
+
+// Nevada 511 / NVroads publishes real CCTV HLS URLs from /api/v2/get/cameras,
+// but the endpoint requires a developer key. Without it, keep the connector
+// quiet so placeholder rows do not open the whole NVroads app in a widget.
+async function pullNDOT(): Promise<Cam[]> {
+  const key = nvRoadsApiKey()
+  if (!key) return []
+  try {
+    const qp = new URLSearchParams({ key, format: "json" })
+    const res = await fetch(`https://www.nvroads.com/api/v2/get/cameras?${qp}`, {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(12_000),
+      cache: "no-store",
+    })
+    if (!res.ok) return []
+    const j = await res.json()
+    const items = nvRoadsCameraItems(j)
+    const cams: Cam[] = []
+    for (const item of items) {
+      const p = item?.properties || item
+      const baseLat = Number(p.Latitude ?? p.latitude ?? p.lat ?? item?.geometry?.coordinates?.[1])
+      const baseLng = Number(p.Longitude ?? p.longitude ?? p.lng ?? item?.geometry?.coordinates?.[0])
+      if (!Number.isFinite(baseLat) || !Number.isFinite(baseLng)) continue
+      const views = Array.isArray(p.Views) && p.Views.length ? p.Views : [p]
+      for (const view of views) {
+        const lat = Number(view.Latitude ?? view.latitude ?? baseLat)
+        const lng = Number(view.Longitude ?? view.longitude ?? baseLng)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+        const videoUrl = String(
+          view.VideoUrl ?? view.videoUrl ?? view.StreamUrl ?? view.streamUrl ?? p.VideoUrl ?? p.videoUrl ?? "",
+        ).trim()
+        const imageUrl = String(
+          view.ImageUrl ?? view.imageUrl ?? view.SnapshotUrl ?? view.snapshotUrl ?? view.Url ?? view.url ?? "",
+        ).trim()
+        const statusText = String(view.Status ?? view.status ?? p.Status ?? p.status ?? "").toLowerCase()
+        const disabled =
+          view.Enabled === false ||
+          view.Disabled === true ||
+          p.Disabled === true ||
+          /disabled|offline|blocked|retired|unavailable/.test(statusText)
+        const hasHls = /\.m3u8(\?|$)/i.test(videoUrl)
+        const hasStill = /\.(jpe?g|png|webp)(\?|$)/i.test(imageUrl)
+        if (disabled || (!hasHls && !hasStill)) continue
+        const rawId = view.Id ?? view.ID ?? view.ViewId ?? p.Id ?? p.ID ?? `${lat},${lng}`
+        const nameParts = [
+          p.Roadway || p.roadway || p.Name || p.name || "NDOT camera",
+          p.Direction || p.direction,
+          view.Description || view.description || view.Name || view.name,
+        ].filter(Boolean)
+        const mediaUrl = hasStill ? `/api/eagle/cam-image?url=${encodeURIComponent(imageUrl)}` : null
+        cams.push({
+          id: `ndot-${rawId}`,
+          provider: "ndot",
+          name: nameParts.join(" - "),
+          lat,
+          lng,
+          stream_url: hasHls ? videoUrl : null,
+          embed_url: String(view.Url ?? view.url ?? p.Url ?? p.url ?? "https://www.nvroads.com/").trim() || null,
+          media_url: mediaUrl,
+          source_status: "online",
+          category: "traffic",
+        })
+      }
+    }
+    return cams
+  } catch {
+    return []
+  }
+}
+
+// ─── Castle Rock 511 platform (GA, WI, PA, …) ──────────────────────────
+// Jun 12, 2026 (Morgan: "lots of video, not just Caltrans, plenty of other
+// videos across the country"). Many state 511 sites run the Castle Rock
+// "OneStop" platform, which exposes two keyless endpoints:
+//   • /map/mapIcons/Cameras → { item2: [{ itemId, location:[lat,lng], title }] }
+//   • /map/Cctv/{itemId}    → the live JPEG/PNG snapshot (refreshes upstream)
+// Probed Jun 12, 2026: GA (4043 cams), PA (1511), WI all serve JSON here.
+// Other states run the newer React SPA where this path returns the HTML
+// shell — those return [] via the content-type guard below.
+type CastleRock511 = { provider: "ga511" | "wi511" | "pa511"; host: string; extent: Extent }
+const CASTLEROCK_511: CastleRock511[] = [
+  { provider: "ga511", host: "511ga.org", extent: [-85.7, 30.3, -80.8, 35.1] },
+  { provider: "wi511", host: "511wi.gov", extent: [-93.0, 42.4, -86.7, 47.2] },
+  { provider: "pa511", host: "www.511pa.com", extent: [-80.6, 39.6, -74.6, 42.4] },
+]
+
+async function pullCastleRock511(entry: CastleRock511): Promise<Cam[]> {
+  try {
+    const res = await fetch(`https://${entry.host}/map/mapIcons/Cameras`, {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return []
+    // Newer 511 SPAs serve an HTML shell at this path — bail before JSON.parse.
+    const ct = res.headers.get("content-type") || ""
+    if (!/json/i.test(ct)) return []
+    const j = await res.json()
+    const items: any[] = Array.isArray(j?.item2) ? j.item2 : []
+    return items
+      .map((it: any): Cam | null => {
+        const loc = it?.location
+        const lat = Number(loc?.[0])
+        const lng = Number(loc?.[1])
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+        const itemId = it?.itemId ?? `${lat},${lng}`
+        const snapshot = `https://${entry.host}/map/Cctv/${encodeURIComponent(String(itemId))}`
+        return {
+          id: `${entry.provider}-${itemId}`,
+          provider: entry.provider,
+          name: (typeof it?.title === "string" && it.title.trim()) || `${entry.provider.toUpperCase()} camera`,
+          lat,
+          lng,
+          stream_url: null,
+          embed_url: `https://${entry.host}/`,
+          // Proxied snapshot — refreshes every few seconds upstream.
+          media_url: `/api/eagle/cam-image?url=${encodeURIComponent(snapshot)}`,
+          source_status: "online",
+          category: "traffic",
+        }
+      })
+      .filter((c): c is Cam => !!c)
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const bbox = req.nextUrl.searchParams.get("bbox") || undefined
   const parsedBbox = parseBbox(bbox)
-  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot] = await Promise.all([
+  const [caltrans, wsdot, fdot, nysdot, nyctmc, txdot, ndot, castleRock] = await Promise.all([
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.caltrans) ? pullCaltrans(parsedBbox) : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.wsdot) ? pullWSDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.fdot) ? pullFDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nysdot) ? pullNYSDOT() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.nyctmc) ? pullNYCTMC() : Promise.resolve([]),
     bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.txdot) ? pullTxDOT() : Promise.resolve([]),
+    bboxIntersectsExtent(parsedBbox, PROVIDER_EXTENTS.ndot) ? pullNDOT() : Promise.resolve([]),
+    Promise.all(
+      CASTLEROCK_511
+        .filter((e) => bboxIntersectsExtent(parsedBbox, e.extent))
+        .map((e) => pullCastleRock511(e)),
+    ).then((groups) => groups.flat()),
   ])
-  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot]
+  let cams = [...caltrans, ...wsdot, ...fdot, ...nysdot, ...nyctmc, ...txdot, ...ndot, ...castleRock]
   if (parsedBbox) cams = cams.filter((c) => pointInBbox(c, parsedBbox))
+  const castleRockByProvider = castleRock.reduce<Record<string, number>>((acc, c) => {
+    acc[c.provider] = (acc[c.provider] || 0) + 1
+    return acc
+  }, {})
   return NextResponse.json(
     {
       source: "state-dot-cctv",
@@ -380,6 +554,8 @@ export async function GET(req: NextRequest) {
         nysdot: nysdot.length,
         nyctmc: nyctmc.length,
         txdot: txdot.length,
+        ndot: ndot.length,
+        ...castleRockByProvider,
       },
       cams,
     },

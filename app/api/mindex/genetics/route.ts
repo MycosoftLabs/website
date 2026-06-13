@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { env } from "@/lib/env"
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 export const dynamic = "force-dynamic"
 
@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic"
  * - offset: Pagination offset
  */
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || env.mindexApiBaseUrl.replace(/\/api\/v1$/, "")
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
+const MINDEX_GENETICS_TIMEOUT_MS = Number(process.env.MINDEX_GENETICS_TIMEOUT_MS || 15000)
 
 interface GeneticsSequence {
   id: string
@@ -32,7 +33,6 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "50", 10)
   const offset = parseInt(searchParams.get("offset") || "0", 10)
 
-  // Try to fetch from MINDEX backend
   try {
     const queryParams = new URLSearchParams({
       limit: limit.toString(),
@@ -43,12 +43,14 @@ export async function GET(request: NextRequest) {
       queryParams.set("search", search)
     }
 
-    const res = await fetch(`${MINDEX_API_URL}/api/genetics?${queryParams}`, {
-      headers: {
-        "X-API-Key": env.mindexApiKey || "",
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(15000),
+    const headers: Record<string, string> = { Accept: "application/json" }
+    if (MINDEX_API_KEY) headers["X-API-Key"] = MINDEX_API_KEY
+
+    const url = new URL("/api/mindex/genetics", resolveMindexServerBaseUrl())
+    queryParams.forEach((value, key) => url.searchParams.set(key, value))
+    const res = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(MINDEX_GENETICS_TIMEOUT_MS),
       cache: "no-store",
     })
 
@@ -64,31 +66,26 @@ export async function GET(request: NextRequest) {
         total: data.total ?? sequences.length,
         limit,
         offset,
-      })
+      }, { headers: { "Cache-Control": "no-store", "X-MINDEX-Source": "mindex" } })
     }
 
-    // If MINDEX genetics endpoint doesn't exist yet, return empty
     if (res.status === 404) {
       return NextResponse.json({
         sequences: [],
         total: 0,
         limit,
         offset,
-        message: "Genetics endpoint not yet configured on MINDEX. Connect to MINDEX API /api/genetics.",
-      })
+      }, { headers: { "Cache-Control": "no-store", "X-MINDEX-Source": "empty" } })
     }
 
     throw new Error(`MINDEX returned status ${res.status}`)
   } catch (error) {
-    // Return empty data with info message when MINDEX is unavailable
     return NextResponse.json({
       sequences: [],
       total: 0,
       limit,
       offset,
-      error: "Unable to connect to MINDEX genetics API",
       details: error instanceof Error ? error.message : String(error),
-      info: "Configure MINDEX_API_URL in environment and ensure /api/genetics endpoint is available on MINDEX VM (MINDEX_HOST:8000)",
-    })
+    }, { headers: { "Cache-Control": "no-store", "X-MINDEX-Source": "unavailable" } })
   }
 }

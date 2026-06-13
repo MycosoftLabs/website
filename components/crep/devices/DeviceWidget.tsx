@@ -355,11 +355,11 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
   }, [])
 
   const handleClose = useCallback((event?: SyntheticEvent | Event) => {
-    onClose()
     if (event) {
       event.preventDefault?.()
       stopWidgetEvent(event)
     }
+    onClose()
   }, [onClose, stopWidgetEvent])
 
   // Esc to close
@@ -369,7 +369,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
     return () => window.removeEventListener("keydown", onKey)
   }, [handleClose])
 
-  const isOnline = device.status === "online" || device.status === "connected" || device.status === "stale"
+  const isOnline = device.status === "online" || device.status === "connected"
   const isPsathyrella =
     device.type?.toLowerCase().includes("psathyrella") ||
     device.id?.toLowerCase().includes("psathyrella") ||

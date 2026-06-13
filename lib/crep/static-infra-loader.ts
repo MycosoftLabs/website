@@ -28,6 +28,17 @@ export interface InfraLayerConfig {
   maxGeojsonFallbackBytes?: number
   /** Never load the raw GeoJSON fallback in the browser for this source. */
   skipGeojsonFallback?: boolean
+  /**
+   * Prefer the full GeoJSON over PMTiles for this layer. Set for cheap POINT
+   * layers (power plants, data centers) where the baked PMTiles decimate at low
+   * zoom — tippecanoe drops most points below its base zoom, so a continental
+   * flyover shows ~50 plants instead of all ~35k. Points are GPU-cheap to
+   * render, so loading the full GeoJSON gives OpenGridWorks-style "every asset
+   * at every zoom" without re-baking tiles. Lines (transmission) stay on PMTiles.
+   * (Jun 12, 2026 — Morgan: "massive amount of missing power stations, power
+   * plants. It should be all of them.")
+   */
+  preferGeoJSON?: boolean
 }
 
 const MB = 1024 * 1024
@@ -38,6 +49,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "substations",
     pmtilesUrl: "/data/crep/tiles/substations-us.pmtiles",
     geojsonUrl: "/data/crep/substations-us.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
+    skipGeojsonFallback: true,
     label: "US substations (HIFLD)",
   },
   transmissionLines: {
@@ -52,6 +65,8 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     // oddities on large PMTiles files.
     pmtilesUrl: "/api/crep/tiles/transmission-lines-us-major.pmtiles",
     geojsonUrl: "/data/crep/transmission-lines-us-major.geojson",
+    maxGeojsonFallbackBytes: 2 * MB,
+    skipGeojsonFallback: true,
     label: "US transmission lines (HIFLD ≥345 kV)",
   },
   /**
@@ -86,6 +101,11 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "data_centers",
     pmtilesUrl: "/api/crep/tiles/data-centers-global.pmtiles",
     geojsonUrl: "/data/crep/data-centers-global.geojson",
+    // ~1.1 MB of points — load the full set so every data center shows at
+    // flyover zoom (the PMTiles decimate; user: "missing data centers ...
+    // should be the neon blue icons everywhere").
+    preferGeoJSON: true,
+    maxGeojsonFallbackBytes: 8 * MB,
     label: "Global data centers (OSM + PeeringDB + MINDEX)",
   },
   powerPlantsGlobal: {
@@ -93,6 +113,11 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "power_plants",
     pmtilesUrl: "/data/crep/tiles/power-plants-global.pmtiles",
     geojsonUrl: "/data/crep/power-plants-global.geojson",
+    // ~15.6 MB / 34,936 points. PMTiles base-zoom decimation shows only the
+    // biggest ~50 plants at z3-4; load the full GeoJSON so all plants paint at
+    // every zoom (capacity-sized via circle-radius LOD), like OpenGridWorks.
+    preferGeoJSON: true,
+    maxGeojsonFallbackBytes: 20 * MB,
     label: "Global power plants (WRI)",
   },
   cellTowersGlobal: {
@@ -174,11 +199,11 @@ function resolvePmtilesUrl(appPath: string): string {
 }
 
 /**
- * Probe whether a .pmtiles file is reachable (HEAD request).
- * 15-second in-memory memoization so we don't re-probe on every source add.
+ * Probe whether a .pmtiles file is reachable.
+ * Cache for several minutes so style churn cannot re-probe on every source add.
  */
 const pmtilesProbeCache = new Map<string, { ts: number; available: boolean }>()
-const PROBE_TTL_MS = 15_000
+const PROBE_TTL_MS = 5 * 60_000
 
 export async function isPMTilesAvailable(url: string): Promise<boolean> {
   const cached = pmtilesProbeCache.get(url)
@@ -206,13 +231,25 @@ export async function isPMTilesAvailable(url: string): Promise<boolean> {
       ...(controller ? { signal: controller.signal } : {}),
     })
     const totalBytes = parseContentTotalBytes(res.headers)
+    const sliceBytes = Number(res.headers.get("content-length") || "")
+    const hasBodyBytes =
+      res.headers.get("content-length") !== "0" &&
+      (!Number.isFinite(sliceBytes) || sliceBytes > 0)
+    const isRangeSlice = res.status === 206
+    const largeEnough =
+      totalBytes != null
+        ? totalBytes >= 4096
+        : isRangeSlice
+          ? Number.isFinite(sliceBytes) && sliceBytes >= 512
+          : Number.isFinite(sliceBytes) && sliceBytes >= 4096
     const ok =
       (res.ok || res.status === 206) &&
-      (res.headers.get("content-length") !== "0") &&
+      hasBodyBytes &&
       // A real infra PMTiles archive is never a tiny JSON/error stub. Live
       // once served transmission-lines-us-full.pmtiles as 134 bytes with a
-      // 206 status; MapLibre accepted the source and then rendered nothing.
-      (totalBytes == null || totalBytes >= 4096)
+      // 206 status; accept normal 1 KiB range slices when the server omits
+      // Content-Range, but still reject tiny stubs.
+      largeEnough
     pmtilesProbeCache.set(url, { ts: Date.now(), available: ok })
     return ok
   } catch {
@@ -287,7 +324,7 @@ export async function addInfraSourceWithFallback(
   // through /api/crep/tiles/*. The client pmtiles library handles HTTP
   // range requests natively.
   const pmtilesUrl = resolvePmtilesUrl(cfg.pmtilesUrl)
-  if (!opts?.forceGeoJSON) {
+  if (!opts?.forceGeoJSON && !cfg.preferGeoJSON) {
     const absoluteUrl = /^https?:\/\//.test(pmtilesUrl)
       ? pmtilesUrl
       : new URL(pmtilesUrl, window.location.origin).toString()

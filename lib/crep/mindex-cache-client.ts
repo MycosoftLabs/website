@@ -33,6 +33,27 @@ export interface MapLayerResponse {
   entities: MapEntity[]
   total: number
   bounds?: MapBounds | null
+  available?: boolean
+  source?: string
+  dataSource?: string
+  observations?: any[]
+  features?: any[]
+  message?: string
+  freshness?: {
+    timestamp: string
+    stale: boolean
+    maxAgeMs: number
+  }
+  lineage?: {
+    primary: string
+    activeSource: string
+    fallback: boolean
+  }
+}
+
+export interface MindexFetchOptions {
+  fallbackLive?: boolean
+  extraParams?: Record<string, string | number | boolean | null | undefined>
 }
 
 /** Available MINDEX data sources for CREP map layers */
@@ -57,7 +78,8 @@ export async function mindexFetch(
   source: MindexSource,
   bounds?: MapBounds | null,
   limit = 500,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: MindexFetchOptions = {}
 ): Promise<MapLayerResponse> {
   const params = new URLSearchParams({ limit: String(limit) })
 
@@ -66,6 +88,17 @@ export async function mindexFetch(
     params.set("lat_max", String(bounds.north))
     params.set("lng_min", String(bounds.west))
     params.set("lng_max", String(bounds.east))
+  }
+
+  if (source === "species") {
+    params.set("fallbackLive", options.fallbackLive === false ? "false" : "true")
+  } else if (typeof options.fallbackLive === "boolean") {
+    params.set("fallbackLive", options.fallbackLive ? "true" : "false")
+  }
+
+  for (const [key, value] of Object.entries(options.extraParams ?? {})) {
+    if (value == null) continue
+    params.set(key, String(value))
   }
 
   const res = await fetch(`/api/mindex/proxy/${source}?${params}`, {

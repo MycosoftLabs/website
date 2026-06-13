@@ -45,6 +45,7 @@ function resolveEffectiveBounds(mapBounds: MapBoundsLike | null): ViewportBounds
 export function useViewportEnvironmentPrefetch(
   mapBounds: MapBoundsLike | null,
   mapZoom: number,
+  enabled = true,
 ) {
   const effectiveBounds = useMemo(
     () => resolveEffectiveBounds(mapBounds),
@@ -52,15 +53,15 @@ export function useViewportEnvironmentPrefetch(
   )
 
   const boundsCacheHit = useMemo(
-    () => getViewportEnvironmentCache<ViewportEnvironmentPrefetchPayload>(effectiveBounds, mapZoom),
-    [effectiveBounds, mapZoom],
+    () => enabled ? getViewportEnvironmentCache<ViewportEnvironmentPrefetchPayload>(effectiveBounds, mapZoom) : null,
+    [effectiveBounds, mapZoom, enabled],
   )
 
   const [environment, setEnvironment] = useState<ViewportEnvironmentPrefetchPayload | null>(
-    () => boundsCacheHit,
+    () => enabled ? boundsCacheHit : null,
   )
   const [fetching, setFetching] = useState(
-    () => !getViewportEnvironmentCache<ViewportEnvironmentPrefetchPayload>(effectiveBounds, mapZoom),
+    () => enabled && !getViewportEnvironmentCache<ViewportEnvironmentPrefetchPayload>(effectiveBounds, mapZoom),
   )
 
   const snapshotRef = useRef<{ bounds: ViewportBoundsLike; zoom: number } | null>(null)
@@ -68,6 +69,16 @@ export function useViewportEnvironmentPrefetch(
   const inFlightRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    if (!enabled) {
+      inFlightRef.current?.abort()
+      inFlightRef.current = null
+      snapshotRef.current = null
+      revisionKeyRef.current = null
+      setEnvironment(null)
+      setFetching(false)
+      return
+    }
+
     const next = { bounds: effectiveBounds, zoom: mapZoom }
     const shouldRefresh =
       !snapshotRef.current ||
@@ -130,7 +141,7 @@ export function useViewportEnvironmentPrefetch(
       window.clearTimeout(debounceTimer)
       controller.abort()
     }
-  }, [effectiveBounds, mapZoom])
+  }, [enabled, effectiveBounds, mapZoom])
 
   const hasDisplayContent = Boolean(
     environment?.weather?.current ||

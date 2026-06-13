@@ -84,6 +84,13 @@ function parseNdbcRealtimeText(text: string, stationId: string): BuoyObservation
   return null
 }
 
+function unavailableBuoyResponse(station: string, error: string, extra: Record<string, unknown> = {}) {
+  return NextResponse.json(
+    { error, station_id: station, observation: null, unavailable: true, ...extra },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
+  )
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ station: string }> },
@@ -100,18 +107,12 @@ export async function GET(
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
-      return NextResponse.json(
-        { error: `NDBC ${res.status}`, station_id: station, observation: null },
-        { status: 502, headers: { "Cache-Control": "public, s-maxage=60" } },
-      )
+      return unavailableBuoyResponse(station, `NDBC ${res.status}`)
     }
     const text = await res.text()
     const obs = parseNdbcRealtimeText(text, station)
     if (!obs) {
-      return NextResponse.json(
-        { error: "no observations", station_id: station, observation: null, raw_sample: text.slice(0, 400) },
-        { status: 502, headers: { "Cache-Control": "public, s-maxage=60" } },
-      )
+      return unavailableBuoyResponse(station, "no observations", { raw_sample: text.slice(0, 400) })
     }
     return NextResponse.json(
       {
@@ -124,9 +125,6 @@ export async function GET(
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900" } },
     )
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "fetch failed", station_id: station, observation: null },
-      { status: 502, headers: { "Cache-Control": "public, s-maxage=60" } },
-    )
+    return unavailableBuoyResponse(station, e?.message || "fetch failed")
   }
 }

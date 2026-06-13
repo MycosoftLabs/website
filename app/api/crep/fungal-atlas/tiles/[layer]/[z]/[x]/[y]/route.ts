@@ -26,6 +26,7 @@ const VALID_LAYERS = new Set<string>([
 ])
 
 const FELT_TILE_HOST = "https://us1.data-pipeline.felt.com/imgtile"
+const DEBUG_FUNGAL_ATLAS_TILES = process.env.CREP_DEBUG_FUNGAL_ATLAS_TILES === "1"
 const FELT_DATASETS = {
   amRichness: "a0033e00-d4c3-5823-a660-7c7e00004453",
   ecmRichness: "7c3d3cc8-9fd7-5149-976c-995b00004453",
@@ -348,7 +349,7 @@ export async function GET(
         },
       })
     } catch (error) {
-      console.warn("[CREP/FungalAtlas] native tile fallback failed", {
+      if (DEBUG_FUNGAL_ATLAS_TILES) console.warn("[CREP/FungalAtlas] native tile fallback failed", {
         layer,
         z: zoom,
         x: tileX,
@@ -414,7 +415,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.warn("[CREP/FungalAtlas] SPUN tile proxy failed", {
+    if (DEBUG_FUNGAL_ATLAS_TILES) console.warn("[CREP/FungalAtlas] SPUN tile proxy failed", {
       layer,
       z: zoom,
       x: tileX,

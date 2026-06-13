@@ -336,7 +336,8 @@ import { addInfraSourceWithFallback, layerSpecForMode, INFRA_LAYERS } from "@/li
 import { MAJOR_PORTS, MAJOR_DATACENTERS } from "@/lib/crep/static-infra";
 
 // OpenGridWorks-style Infrastructure Layers (Apr 2026)
-import { usePowerPlantLayers, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
+import { usePowerPlantLayers, type PlantStats, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
+import type { Datacenter } from "@/components/crep/layers/datacenter-diamonds";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
 import { PlantPopup } from "@/components/crep/popups/plant-popup";
 import { InfraDetailWidget, type InfraAsset, type InfraAssetType } from "@/components/crep/popups/infra-detail-widget";
@@ -373,7 +374,6 @@ import {
   EARTH_SIM_NATURE_STORE_CAP,
   EARTH_SIM_NATURE_INSTANT_LIMIT,
   EARTH_SIM_LIVE_STREAM_DELAY_MS,
-  EARTH_SIM_SD_BBOX,
   EARTH_SIM_FUNGI_ONLY_GROUND_FILTER,
   EARTH_SIM_FUNGAL_OPACITY,
   applyEarthSimulatorBootToLayers,
@@ -804,12 +804,12 @@ type BrowserMemoryPressure = "normal" | "medium" | "high";
 type MapBoundsLike = { north: number; south: number; east: number; west: number };
 type BboxLike = { west: number; south: number; east: number; north: number };
 
-const EARTH_PROJECT_DETAIL_DELAY_MS = 15_000;
-const EARTH_SIM_ASSET_READY_DELAY_MS = 25_000;
-const EARTH_SIM_INFRA_READY_DELAY_MS = 1_000;
+const EARTH_PROJECT_DETAIL_DELAY_MS = 1_500;
+const EARTH_SIM_ASSET_READY_DELAY_MS = 2_500;
+const EARTH_SIM_INFRA_READY_DELAY_MS = 750;
 const OYSTER_PROJECT_BBOX: BboxLike = { west: -117.36, south: 32.43, east: -116.92, north: 32.82 };
 const MOJAVE_PROJECT_BBOX: BboxLike = { west: -116.95, south: 34.35, east: -114.05, north: 36.55 };
-const BAKED_INAT_REGIONS = ["sdtj", "la", "sf", "peninsula", "nyc", "dc", "vegas"] as const;
+const BAKED_INAT_REGIONS = ["sdtj", "nyc", "dc", "vegas", "la", "sf", "peninsula"] as const;
 type BakedInatRegion = typeof BAKED_INAT_REGIONS[number];
 const BAKED_INAT_REGION_BBOX: Record<BakedInatRegion, BboxLike> = {
   sdtj: OYSTER_PROJECT_BBOX,
@@ -849,13 +849,13 @@ const RESOURCE_LIMITS: Record<BrowserMemoryPressure, {
   high: { nature: 12_000, events: 500, aircraft: 600, vessels: 1_200, satellites: 600, streamed: 500, lastKnown: 1_600 },
 };
 const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
-  nature: 10_000,
-  events: 420,
+  nature: 30_000,
+  events: 220,
   aircraft: 700,
   vessels: 900,
   satellites: 240,
-  streamed: 250,
-  lastKnown: 1_200,
+  streamed: 180,
+  lastKnown: 900,
 };
 
 function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zoom: number): number {
@@ -890,6 +890,140 @@ function observationTimeMs(obs: Pick<FungalObservation, "observed_on">) {
 function observationResourceRank(obs: FungalObservation) {
   const qualityBonus = obs.quality_grade === "research" ? 2_000 : 0;
   return observationTimeMs(obs) + qualityBonus;
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function firstNumber(...values: unknown[]): number {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return Number.NaN;
+}
+
+function extractMindexSpeciesRows(data: any): Record<string, any>[] {
+  if (Array.isArray(data?.observations)) return data.observations;
+  if (Array.isArray(data?.entities)) return data.entities;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.features)) {
+    return data.features.map((feature: any) => ({
+      ...(feature?.properties ?? {}),
+      id: feature?.id ?? feature?.properties?.id,
+      geometry: feature?.geometry,
+      longitude: feature?.geometry?.coordinates?.[0],
+      latitude: feature?.geometry?.coordinates?.[1],
+    }));
+  }
+  return [];
+}
+
+function normalizeSpeciesRowToFungalObservation(row: Record<string, any>): FungalObservation | null {
+  const props = row && typeof row.properties === "object" && row.properties ? row.properties : {};
+  const taxon = row && typeof row.taxon === "object" && row.taxon ? row.taxon : {};
+  const coords = Array.isArray(row?.geometry?.coordinates) ? row.geometry.coordinates : [];
+  const latitude = firstNumber(row.latitude, row.lat, props.latitude, props.lat, coords[1]);
+  const longitude = firstNumber(row.longitude, row.lng, row.lon, props.longitude, props.lng, props.lon, coords[0]);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || (latitude === 0 && longitude === 0)) return null;
+
+  const observedOn = firstString(
+    row.observed_on,
+    row.observedOn,
+    row.timestamp,
+    row.occurred_at,
+    props.observed_on,
+    props.observedOn,
+    props.timestamp,
+    props.occurred_at,
+  );
+  const species = firstString(
+    row.commonName,
+    row.common_name,
+    row.species,
+    row.species_name,
+    row.scientificName,
+    row.scientific_name,
+    row.name,
+    props.commonName,
+    props.common_name,
+    props.species,
+    props.species_name,
+    props.scientificName,
+    props.scientific_name,
+    props.name,
+    taxon.preferred_common_name,
+    taxon.name,
+  ) || "Unknown";
+  const scientificName = firstString(
+    row.scientificName,
+    row.scientific_name,
+    row.species_name,
+    row.species,
+    props.scientificName,
+    props.scientific_name,
+    props.species_name,
+    props.species,
+    taxon.name,
+    species,
+  ) || species;
+  const commonName = firstString(row.commonName, row.common_name, props.commonName, props.common_name, taxon.preferred_common_name, species);
+  const source = firstString(row.source, props.source, row.dataSource, props.dataSource, "MINDEX");
+  const externalId = firstString(row.externalId, row.external_id, props.externalId, props.external_id, row.uuid, props.uuid);
+  const id = firstString(row.id, props.id, externalId) ||
+    `${source}:${scientificName}:${latitude.toFixed(5)}:${longitude.toFixed(5)}:${observedOn}`;
+  const taxonId = firstNumber(row.taxon_id, row.taxonId, props.taxon_id, props.taxonId, taxon.id);
+  const kingdom = firstString(
+    row.kingdom,
+    row.iconicTaxon,
+    row.iconic_taxon_name,
+    props.kingdom,
+    props.iconicTaxon,
+    props.iconic_taxon_name,
+    taxon.iconic_taxon_name,
+    "Unknown",
+  );
+  const imageUrl = firstString(row.imageUrl, row.image_url, row.thumbnailUrl, row.thumbnail_url, props.imageUrl, props.image_url, props.thumbnailUrl, props.thumbnail_url);
+  const existingPhotos = Array.isArray(row.photos) ? row.photos : [];
+  const photos = existingPhotos.length > 0
+    ? existingPhotos.map((photo: any, index: number) => ({
+        id: Number(photo?.id ?? index + 1),
+        url: String(photo?.url ?? photo?.mediumUrl ?? photo?.medium_url ?? photo?.src ?? ""),
+        license: firstString(photo?.license, photo?.attribution),
+      })).filter((photo: { url: string }) => photo.url)
+    : imageUrl
+      ? [{ id: 1, url: imageUrl, license: firstString(row.license, props.license) || "CC-BY-NC" }]
+      : [];
+
+  return {
+    id,
+    observed_on: observedOn,
+    latitude,
+    longitude,
+    species,
+    taxon_id: Number.isFinite(taxonId) ? taxonId : undefined,
+    taxon: {
+      id: Number.isFinite(taxonId) ? taxonId : 0,
+      name: scientificName,
+      preferred_common_name: commonName || species,
+      rank: firstString(taxon.rank, props.rank, "species"),
+    },
+    photos,
+    quality_grade: firstString(row.quality_grade, row.qualityGrade, props.quality_grade, props.qualityGrade) || (row.verified ? "research" : "needs_id"),
+    user: firstString(row.observer, row.user, row.user_name, props.observer, props.user, props.user_name),
+    source,
+    location: firstString(row.location, row.place_guess, props.location, props.place_guess),
+    sourceUrl: firstString(row.sourceUrl, row.source_url, row.uri, props.sourceUrl, props.source_url, props.uri),
+    externalId,
+    kingdom,
+    iconicTaxon: firstString(row.iconicTaxon, row.iconic_taxon_name, props.iconicTaxon, props.iconic_taxon_name, kingdom),
+  };
 }
 
 type NatureKingdomBucket =
@@ -1245,12 +1379,44 @@ function spatiallySampleNatureObservations(
   const previousStillVisible = previousVisible
     .map((obs) => observationsById.get(String(obs.id ?? "")))
     .filter((obs): obs is FungalObservation => !!obs && observationMatchesNatureFilter(obs, filter));
-  const stickyLimit = activeBuckets.length > 1
-    ? Math.min(previousStillVisible.length, Math.max(0, Math.floor(cap * 0.65)))
-    : Math.min(previousStillVisible.length, cap);
+  const fungiRows = activeBuckets.includes("Fungi")
+    ? observations.filter((obs) => natureKingdomBucket(obs) === "Fungi")
+    : [];
+  const protectedFungiMinimum = activeBuckets.length > 1 && fungiRows.length > 0
+    ? Math.min(fungiRows.length, Math.max(80, Math.floor(cap * 0.35)))
+    : 0;
+  // Sticky retention carries prior-frame markers forward to avoid flicker
+  // during a small pan. But keeping the full previous set (the single-bucket
+  // case kept 100%) glued the dense origin cluster — e.g. a San Diego deep-dive
+  // — to the screen on zoom-out, so the rest of the new viewport never painted.
+  // Cap sticky to ~35% so fresh viewport-wide spatial sampling dominates and
+  // species paint across the whole current view. (Jun 12, 2026 — Morgan:
+  // "unpaint things that are older in the new area and show the newest species
+  // in the entire viewport.")
+  const STICKY_FRACTION = 0.35;
+  const stickyLimitBase = Math.min(
+    previousStillVisible.length,
+    Math.max(0, Math.floor(cap * STICKY_FRACTION)),
+  );
+  const stickyLimit = protectedFungiMinimum > 0
+    ? Math.min(stickyLimitBase, Math.max(0, cap - protectedFungiMinimum))
+    : stickyLimitBase;
   for (const obs of previousStillVisible) {
     if (picked.length >= stickyLimit) break;
     addObservation(obs);
+  }
+
+  if (protectedFungiMinimum > 0 && picked.length < cap) {
+    const sampledFungi = spatiallySampleNatureBucket(
+      fungiRows,
+      protectedFungiMinimum,
+      bounds,
+      previousIds,
+    );
+    for (const obs of sampledFungi) {
+      if ((pickedBucketCounts.get("Fungi") ?? 0) >= protectedFungiMinimum || picked.length >= cap) break;
+      addObservation(obs);
+    }
   }
 
   if (activeBuckets.length > 1 && picked.length < cap) {
@@ -1341,6 +1507,53 @@ function pruneStoreByRank<T>(
   for (const [id] of ranked) {
     if (keep.size >= maxEntries) break;
     keep.add(id);
+  }
+  let changed = false;
+  for (const id of Array.from(store.keys())) {
+    if (!keep.has(id)) {
+      store.delete(id);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// Viewport-windowed prune. The plain rank prune above let a dense origin cluster
+// (e.g. a San Diego deep-dive) survive forever because its observations rank
+// high (recent + quality) and the store cap was rarely reached — so panning to a
+// new region never dropped the stale cluster, and the unbounded store mounted
+// hundreds of DOM markers (the freeze). This keeps the CURRENT viewport densely
+// and retains only a small ranked buffer of off-screen observations for smooth
+// zoom-out, deleting the rest. (Jun 12, 2026 — Morgan: LOD / "unpaint things
+// that are older in the new area".)
+function pruneStoreViewportFirst<T>(
+  store: Map<string, T>,
+  bounds: MapBoundsLike | null | undefined,
+  isInViewport: (item: T, bounds: MapBoundsLike) => boolean,
+  inViewportCap: number,
+  outViewportCap: number,
+  getRank: (item: T) => number,
+  keepId?: string | number | null,
+) {
+  if (!bounds) return pruneStoreByRank(store, inViewportCap, getRank, keepId);
+  const inView: Array<[string, T]> = [];
+  const outView: Array<[string, T]> = [];
+  for (const entry of store.entries()) {
+    (isInViewport(entry[1], bounds) ? inView : outView).push(entry);
+  }
+  const keep = new Set<string>();
+  if (keepId != null) keep.add(String(keepId));
+  inView.sort((a, b) => getRank(b[1]) - getRank(a[1]));
+  for (const [id] of inView) {
+    if (keep.size >= inViewportCap) break;
+    keep.add(id);
+  }
+  outView.sort((a, b) => getRank(b[1]) - getRank(a[1]));
+  let outKept = 0;
+  for (const [id] of outView) {
+    if (outKept >= outViewportCap) break;
+    keep.add(id);
+    outKept += 1;
   }
   let changed = false;
   for (const id of Array.from(store.keys())) {
@@ -1599,6 +1812,9 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
   },
 ];
 const EARTH_DEVICE_CONTROL_FETCH_TIMEOUT_MS = 6500;
+const EARTH_DEVICE_LIST_FETCH_TIMEOUT_MS = 5000;
+const EARTH_DEVICE_LIST_FAST_URL = "/api/earth-simulator/devices";
+const EARTH_DEVICE_LIST_LIVE_URL = "/api/earth-simulator/devices?refresh=1";
 const DEVICE_RAW_TELEMETRY_MAX_CHARS = 6000;
 
 function canonicalFieldMycoBrainKey(device: Partial<Device> | null | undefined) {
@@ -1629,7 +1845,7 @@ function isFieldMycoBrainDevice(device: Partial<Device> | null | undefined) {
 function isDeviceConnectedLike(device: Partial<Device> | null | undefined) {
   if (!device) return false;
   const status = String(device.status || "").toLowerCase();
-  return status === "online" || status === "connected" || (status === "stale" && isFieldMycoBrainDevice(device));
+  return status === "online" || status === "connected";
 }
 
 function fieldDeviceKey(device: Partial<Device>) {
@@ -1642,10 +1858,7 @@ function stabilizeFieldDevice(incoming: Device, previous?: Device) {
   if (!isFieldMycoBrainDevice(incoming)) return incoming;
   const incomingKey = fieldDeviceKey(incoming);
   const seed = FIELD_MYCOBRAIN_SEED_DEVICES.find((device) => fieldDeviceKey(device) === incomingKey);
-  const connectedLike =
-    isDeviceConnectedLike(incoming) ||
-    isDeviceConnectedLike(previous) ||
-    isDeviceConnectedLike(seed);
+  const connectedLike = isDeviceConnectedLike(incoming);
   return {
     ...(seed || {}),
     ...(previous || {}),
@@ -2139,18 +2352,31 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   const width = window.innerWidth || 1440;
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
   if (width <= 767 || (coarsePointer && width <= 900)) return "phone";
-  // iPads and other tablet-class devices can carry the same Earth Simulator
-  // data budget as desktop. Keep the reduced path only for true phone widths.
-  if (width >= 768) return "desktop";
   if (width <= 1180 || coarsePointer) return "tablet";
   return "desktop";
 }
 
+function getEarthSimGlobalEventApiLimit(): number {
+  const perfClass = getEarthSimViewportPerfClass();
+  if (perfClass === "phone") return 220;
+  if (perfClass === "tablet") return 360;
+  return 420;
+}
+
 function getInitialProjectionMode(): ProjectionMode {
   if (typeof window === "undefined") return "globe";
+  return shouldStartInGlobeProjection() ? "globe" : "mercator";
+}
+
+function shouldStartInGlobeProjection(): boolean {
+  if (typeof window === "undefined") return true;
   const width = window.innerWidth || 1440;
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  return width <= 1180 || coarsePointer ? "mercator" : "globe";
+  return width > 1180 && !coarsePointer;
+}
+
+function isGlobeProjectionSafeForViewport(): boolean {
+  return true;
 }
 
 function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
@@ -2195,37 +2421,37 @@ function getNatureDomMarkerCapForZoom(
   bounds?: { north: number; south: number; east: number; west: number } | null,
 ): number {
   void bounds;
-  void enabledKingdoms;
+  const kingdomScale = Math.min(1, Math.max(0.45, enabledKingdoms / 7));
   if (earthSimulator) {
     const perfClass = getEarthSimViewportPerfClass();
     if (perfClass === "phone") {
       const phoneCap =
-        zoom >= 11 ? 70 :
-        zoom >= 9 ? 55 :
-        zoom >= 7 ? 50 :
-        zoom >= 5 ? 45 :
-        zoom >= 3 ? 40 :
-        35;
-      return phoneCap;
+        zoom >= 11 ? 420 :
+        zoom >= 9 ? 340 :
+        zoom >= 7 ? 280 :
+        zoom >= 5 ? 220 :
+        zoom >= 3 ? 160 :
+        110;
+      return Math.max(60, Math.floor(phoneCap * kingdomScale));
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 11 ? 145 :
-        zoom >= 9 ? 105 :
-        zoom >= 7 ? 95 :
-        zoom >= 5 ? 85 :
-        zoom >= 3 ? 75 :
-        65;
-      return Math.min(EARTH_SIM_DOM_MARKER_CAP, tabletCap);
+        zoom >= 11 ? 760 :
+        zoom >= 9 ? 660 :
+        zoom >= 7 ? 560 :
+        zoom >= 5 ? 460 :
+        zoom >= 3 ? 320 :
+        220;
+      return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(120, Math.floor(tabletCap * kingdomScale)));
     }
     const tierCap =
-      zoom >= 11 ? 220 :
-      zoom >= 9 ? 180 :
-      zoom >= 7 ? 150 :
-      zoom >= 5 ? 120 :
-      zoom >= 3 ? 100 :
-      80;
-    return Math.min(EARTH_SIM_DOM_MARKER_CAP, tierCap);
+      zoom >= 11 ? 900 :
+      zoom >= 9 ? 850 :
+      zoom >= 7 ? 760 :
+      zoom >= 5 ? 680 :
+      zoom >= 3 ? 520 :
+      360;
+    return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(240, Math.floor(tierCap * kingdomScale)));
   }
   const tierCap =
     zoom >= 11 ? 1400 :
@@ -2242,6 +2468,8 @@ function getMaxEventAgeMsForZoom(_zoom: number): number {
 }
 
 function getMaxNatureAgeMsForZoom(_zoom: number): number {
+  if (_zoom >= 8) return Number.POSITIVE_INFINITY;
+  if (_zoom >= 5) return 5 * 365 * 86400_000;
   return MAP_DISPLAY_MAX_NATURE_AGE_MS;
 }
 
@@ -2451,6 +2679,34 @@ const FUNGAL_ATLAS_LAYER_IDS = [
 
 const FUNGAL_ATLAS_LAYER_SET = new Set<string>(FUNGAL_ATLAS_LAYER_IDS);
 
+function earthSimStartupFungalRastersEnabled(): boolean {
+  return getEarthSimViewportPerfClass() === "desktop";
+}
+
+function applyEarthSimFungalRasterBudgetToLayers<T extends { id: string; enabled: boolean; opacity?: number }>(layers: T[]): T[] {
+  if (!isEarthSimulatorPath() || earthSimStartupFungalRastersEnabled()) return layers;
+  return layers.map((layer) =>
+    FUNGAL_ATLAS_LAYER_SET.has(layer.id)
+      ? { ...layer, enabled: false }
+      : layer,
+  );
+}
+
+function applyEarthSimFungalRasterBudgetToGroundFilter<T extends Record<string, any>>(filter: T): T {
+  if (!isEarthSimulatorPath() || earthSimStartupFungalRastersEnabled()) return filter;
+  return {
+    ...filter,
+    showMyceliumHeat: false,
+    showAmFungi: false,
+    showEcmFungi: false,
+    showRareEndemicFungi: false,
+    showProtectedFungi: false,
+    showFungalUncertainty: false,
+    showFciPriority: false,
+    showFungalSamples: false,
+  } as T;
+}
+
 const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "biodiversity",
   "weather",
@@ -2606,8 +2862,9 @@ const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
 const EVENT_DOM_MARKER_CAP = 800;
 /** Hard ceiling for React FungalMarker DOM nodes â€” above ~1200 the main thread starves MapLibre WebGL (lod-policy). */
 const NATURE_DOM_MARKER_CAP = 1400;
-/** Earth Simulator: DOM markers starve WebGL paint above ~150-200; keep data in-store but sample rendered popups. */
-const EARTH_SIM_DOM_MARKER_CAP = 220;
+/** Earth Simulator: keep live React marker widgets under the documented WebGL starvation threshold. */
+const EARTH_SIM_DOM_MARKER_CAP = 900;
+const EARTH_SIM_NATURE_PANEL_LIST_CAP = 90;
 
 const EAGLE_EYE_LAYER_IDS = new Set<string>([
   "eagleEyeCameras",
@@ -6746,9 +7003,9 @@ function ServicesPanel() {
       inFlight = true;
       abortController?.abort();
       abortController = new AbortController();
-      const timeout = window.setTimeout(() => abortController?.abort(), 4_000);
+      const timeout = window.setTimeout(() => abortController?.abort(), EARTH_DEVICE_LIST_FETCH_TIMEOUT_MS);
       try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: abortController.signal, cache: "no-store" });
+        const res = await fetch(EARTH_DEVICE_LIST_LIVE_URL, { signal: abortController.signal, cache: "no-store" });
         const data = await res.json();
         const devices = Array.isArray(data.devices) ? data.devices : [];
         const connected = devices.some((device: any) => device.status === "connected" || device.status === "online");
@@ -6762,6 +7019,7 @@ function ServicesPanel() {
       }
     };
     check();
+    const startupRefresh = window.setTimeout(check, 7_500);
     const interval = setInterval(check, 30000);
     const onVisibility = () => {
       if (!document.hidden) check();
@@ -6769,6 +7027,7 @@ function ServicesPanel() {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       clearInterval(interval);
+      window.clearTimeout(startupRefresh);
       abortController?.abort();
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -7537,8 +7796,12 @@ export default function CREPDashboardPage({
       window.removeEventListener("error", onError, true);
     };
   }, []);
-  const [leftPanelOpen, setLeftPanelOpen] = useState(!embedded);
-  const [rightPanelOpen, setRightPanelOpen] = useState(!embedded);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+  );
+  const [rightPanelOpen, setRightPanelOpen] = useState(
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+  );
   const [rightPanelTab, setRightPanelTab] = useState("myca");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
   /** Row 2: Events | Devices â€” independent of Nature/Infra/MYCA row 1 selection */
@@ -7558,21 +7821,59 @@ export default function CREPDashboardPage({
     setLeftSecondaryTab(null);
   }, []);
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_left_panel_state = {
+      leftPanelOpen,
+      leftPanelTab,
+      leftSecondaryTab,
+      rightPanelOpen,
+      rightPanelTab,
+    };
+  }, [leftPanelOpen, leftPanelTab, leftSecondaryTab, rightPanelOpen, rightPanelTab]);
+  useEffect(() => {
     if (embedded || typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 767px)");
+    const phoneMq = window.matchMedia("(max-width: 767px)");
+    const earthTabletMq = window.matchMedia("(max-width: 1180px), (pointer: coarse)");
     const applyResponsivePanelDefaults = () => {
-      if (mq.matches) {
+      const earthSimulator = isEarthSimulatorPath();
+      const earthTablet = isEarthSimulatorPath() && earthTabletMq.matches;
+      if (phoneMq.matches || earthTablet) {
         setLeftPanelOpen(false);
         setRightPanelOpen(false);
+      } else if (earthSimulator) {
+        setLeftPanelOpen(true);
+        setRightPanelOpen(true);
       } else {
         setLeftPanelOpen(true);
         setRightPanelOpen(true);
       }
     };
     applyResponsivePanelDefaults();
-    mq.addEventListener("change", applyResponsivePanelDefaults);
-    return () => mq.removeEventListener("change", applyResponsivePanelDefaults);
+    phoneMq.addEventListener("change", applyResponsivePanelDefaults);
+    earthTabletMq.addEventListener("change", applyResponsivePanelDefaults);
+    return () => {
+      phoneMq.removeEventListener("change", applyResponsivePanelDefaults);
+      earthTabletMq.removeEventListener("change", applyResponsivePanelDefaults);
+    };
   }, [embedded]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncEarthPerfClass = () => {
+      setEarthSimViewportPerfClass(isEarthSimulatorPath() ? getEarthSimViewportPerfClass() : "desktop");
+    };
+    syncEarthPerfClass();
+    window.addEventListener("resize", syncEarthPerfClass);
+    window.visualViewport?.addEventListener("resize", syncEarthPerfClass);
+    const pointerQuery = window.matchMedia?.("(pointer: coarse)");
+    pointerQuery?.addEventListener?.("change", syncEarthPerfClass);
+    return () => {
+      window.removeEventListener("resize", syncEarthPerfClass);
+      window.visualViewport?.removeEventListener("resize", syncEarthPerfClass);
+      pointerQuery?.removeEventListener?.("change", syncEarthPerfClass);
+    };
+  }, []);
+
   const DEVICE_LEGEND_GROUP_KEYS = useMemo(
     () => new Set(["airspace", "maritime", "rail", "devices", "ground"]),
     [],
@@ -7584,10 +7885,37 @@ export default function CREPDashboardPage({
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const isEarthSimulatorRoute = isEarthSimulatorPath();
+  const [earthSimViewportPerfClass, setEarthSimViewportPerfClass] = useState<"desktop" | "tablet" | "phone">(
+    () => (isEarthSimulatorPath() ? getEarthSimViewportPerfClass() : "desktop"),
+  );
+  const earthSimDesktopOverlayBudget =
+    !isEarthSimulatorRoute || earthSimViewportPerfClass === "desktop";
+  const shouldMountRightPanelContent =
+    !isEarthSimulatorRoute || rightPanelOpen;
   const isGlobeCrepMapRoute = isGlobeCrepRoute();
   const earthStrictPerfMode = isEarthSimulatorRoute;
   const earthMoverLimits = earthStrictPerfMode ? EARTH_SIM_SAFE_RESOURCE_LIMITS : RESOURCE_LIMITS.normal;
   const [isMapAnimationActive, setIsMapAnimationActive] = useState(false);
+  const [earthSimDeferredDataReady, setEarthSimDeferredDataReady] = useState(() => !isEarthSimulatorPath());
+  useEffect(() => {
+    if (!isEarthSimulatorRoute) {
+      setEarthSimDeferredDataReady(true);
+      return;
+    }
+    setEarthSimDeferredDataReady(false);
+    if (auditAllOffMode || assetIsolationMode) return;
+    const delayMs =
+      earthSimViewportPerfClass === "phone" ? 2_500 :
+      earthSimViewportPerfClass === "tablet" ? 1_750 :
+      750;
+    const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [
+    isEarthSimulatorRoute,
+    earthSimViewportPerfClass,
+    auditAllOffMode,
+    assetIsolationMode,
+  ]);
   const fpsOverlayRef = useRef<HTMLElement>(null);
   const isSearchEmbedded = embedded || enabledLayerIds.length > 0;
   const isEmbeddedEarthquakeSearch = isSearchEmbedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
@@ -7646,6 +7974,35 @@ export default function CREPDashboardPage({
   // MapLibre globe + rasters can starve input on mobile GPUs; the globe toggle
   // remains available when the user wants the 3D projection.
   const [projectionMode, setProjectionMode] = useState<ProjectionMode>(() => getInitialProjectionMode());
+  const [globeProjectionAvailable, setGlobeProjectionAvailable] = useState(() => isGlobeProjectionSafeForViewport());
+  const handleProjectionModeChange = useCallback((mode: ProjectionMode) => {
+    setGlobeProjectionAvailable(true);
+    setProjectionMode(mode);
+    try {
+      mapRef?.setProjection?.({ type: mode });
+    } catch {
+      /* projection can be mid-style-load; the effect below retries after load */
+    }
+  }, [mapRef]);
+
+  useEffect(() => {
+    const syncGlobeAvailability = () => {
+      const available = isGlobeProjectionSafeForViewport();
+      setGlobeProjectionAvailable(available);
+    };
+    syncGlobeAvailability();
+    window.addEventListener("resize", syncGlobeAvailability);
+    window.visualViewport?.addEventListener("resize", syncGlobeAvailability);
+    const pointerQuery = window.matchMedia?.("(pointer: coarse)");
+    pointerQuery?.addEventListener?.("change", syncGlobeAvailability);
+    const resyncTimers = [250, 1_000, 2_500].map((ms) => window.setTimeout(syncGlobeAvailability, ms));
+    return () => {
+      window.removeEventListener("resize", syncGlobeAvailability);
+      window.visualViewport?.removeEventListener("resize", syncGlobeAvailability);
+      pointerQuery?.removeEventListener?.("change", syncGlobeAvailability);
+      resyncTimers.forEach((id) => window.clearTimeout(id));
+    };
+  }, []);
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
@@ -7746,6 +8103,7 @@ export default function CREPDashboardPage({
     if (auditAllOffMode || isEmbeddedEarthquakeSearch || assetIsolationMode) return;
     let cancelled = false;
     let inFlight = false;
+    let firstFetch = true;
     let abortController: AbortController | null = null;
     const fetchFieldDevices = async () => {
       if (typeof document !== "undefined" && document.hidden) return;
@@ -7753,9 +8111,11 @@ export default function CREPDashboardPage({
       inFlight = true;
       abortController?.abort();
       abortController = new AbortController();
-      const timeout = window.setTimeout(() => abortController?.abort(), 5_000);
+      const timeout = window.setTimeout(() => abortController?.abort(), EARTH_DEVICE_LIST_FETCH_TIMEOUT_MS);
       try {
-        const res = await fetch("/api/earth-simulator/devices", { signal: abortController.signal, cache: "no-store" });
+        const url = firstFetch ? EARTH_DEVICE_LIST_FAST_URL : EARTH_DEVICE_LIST_LIVE_URL;
+        firstFetch = false;
+        const res = await fetch(url, { signal: abortController.signal, cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         const nextDevices = normalizeFieldMycoBrainDevices(data.devices || []);
@@ -7774,6 +8134,7 @@ export default function CREPDashboardPage({
       }
     };
     fetchFieldDevices();
+    const startupRefresh = window.setTimeout(fetchFieldDevices, 7_500);
     const interval = window.setInterval(fetchFieldDevices, 30_000);
     const onVisibility = () => {
       if (!document.hidden) fetchFieldDevices();
@@ -7782,6 +8143,7 @@ export default function CREPDashboardPage({
     return () => {
       cancelled = true;
       abortController?.abort();
+      window.clearTimeout(startupRefresh);
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -8158,13 +8520,20 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    (window as any).__crep_hoverAsset = handleMapAssetHover;
+    const installHoverBridge = () => {
+      if ((window as any).__crep_hoverAsset !== handleMapAssetHover) {
+        (window as any).__crep_hoverAsset = handleMapAssetHover;
+      }
+    };
+    installHoverBridge();
+    const repairTimer = window.setInterval(installHoverBridge, 2_000);
     const onHover = (event: Event) => {
       const detail = (event as CustomEvent<MapAssetHoverPayload | null>).detail ?? null;
       handleMapAssetHover(detail);
     };
     window.addEventListener("crep:asset:hover", onHover);
     return () => {
+      window.clearInterval(repairTimer);
       if ((window as any).__crep_hoverAsset === handleMapAssetHover) {
         try { delete (window as any).__crep_hoverAsset; } catch { /* noop */ }
       }
@@ -8452,8 +8821,8 @@ export default function CREPDashboardPage({
       return;
     }
     const now = Date.now();
-    const minDelayMs = 15_000;
-    const minUrgentDelayMs = 900;
+    const minDelayMs = 1_500;
+    const minUrgentDelayMs = 500;
     const run = () => {
       lastViewportNatureFetchRequestAtRef.current = Date.now();
       pendingViewportNatureFetchTimerRef.current = null;
@@ -8519,9 +8888,10 @@ export default function CREPDashboardPage({
     if (assetIsolationMode) return true;
     if (typeof document !== "undefined" && document.hidden) return true;
     // Never run live refresh / heavy work while the globe is moving (Earth Simulator included).
+    if (isEarthSimulatorRoute && isMapAnimationActive) return true;
     if (mapInteractionActiveRef.current) return true;
     return Date.now() < navigationPauseUntilRef.current;
-  }, [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute]);
+  }, [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isMapAnimationActive]);
 
   useEffect(() => {
     if (!isEarthSimulatorPath()) return;
@@ -8536,13 +8906,17 @@ export default function CREPDashboardPage({
         /* ignore */
       }
       if (!fungalAtlasUserControlRef.current) {
-        setLayers((prev) => applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev)));
-        setGroundFilter((prev) => ({
+        const enableStartupFungalRasters = earthSimStartupFungalRastersEnabled();
+        setLayers((prev) =>
+          applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev))),
+        );
+        setGroundFilter((prev) => applyEarthSimFungalRasterBudgetToGroundFilter({
           ...prev,
           ...EARTH_SIM_FUNGI_ONLY_GROUND_FILTER,
+          showEcmFungi: enableStartupFungalRasters,
         }));
-        setMycorrhizalMode("ecm");
-        applyMycorrhizalRasterState(false, true, EARTH_SIM_FUNGAL_OPACITY);
+        setMycorrhizalMode(enableStartupFungalRasters ? "ecm" : "off");
+        applyMycorrhizalRasterState(false, enableStartupFungalRasters, EARTH_SIM_FUNGAL_OPACITY);
       }
       const streamTimer = window.setTimeout(() => {
         setIsStreaming(true);
@@ -8645,6 +9019,7 @@ export default function CREPDashboardPage({
       try { window.dispatchEvent(new CustomEvent("crep:mover-pump-request")); } catch {}
     };
     const onIdle = () => {
+      if (!mapInteractionActiveRef.current) return;
       clearMapInteractionState("idle");
       // MapLibre can emit idle repeatedly while tiles/symbol placement churn.
       // moveend/zoomend already request the settled viewport refresh; letting
@@ -8921,6 +9296,19 @@ export default function CREPDashboardPage({
   // INFRASTRUCTURE STATE â€” OpenGridWorks-style layers (Apr 2026)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const [powerPlants, setPowerPlants] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant[]>([]);
+  const [viewportInfraDatacenters, setViewportInfraDatacenters] = useState<Datacenter[]>([]);
+  const [viewportInfraStats, setViewportInfraStats] = useState<{
+    plantStats?: PlantStats | null;
+    counts?: {
+      plants?: number;
+      transmissionLines?: number;
+      substations?: number;
+      datacenters?: number;
+      cableRoutes?: number;
+    } | null;
+    generatedAt?: string;
+    sampled?: { plants?: boolean; datacenters?: boolean };
+  } | null>(null);
   const [selectedPlant, setSelectedPlant] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant | null>(null);
   const [infraSubstations, setInfraSubstations] = useState<any[]>([]);
   const [infraCableRoutes, setInfraCableRoutes] = useState<any[]>([]);
@@ -9008,9 +9396,9 @@ export default function CREPDashboardPage({
       setClientDate(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
     };
     updateClock();
-    const interval = setInterval(updateClock, 1000);
+    const interval = setInterval(updateClock, isEarthSimulatorRoute ? 60_000 : 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isEarthSimulatorRoute]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LIVE ENTITY PUMP (Fix B â€” Apr 18, 2026)
@@ -9030,6 +9418,9 @@ export default function CREPDashboardPage({
   useEffect(() => {
     if (auditAllOffMode) return;
     if (assetIsolationMode) return;
+    // Live movers (planes/vessels/sats) must not wait on the first-paint defer gate.
+    // The pump is self-throttling via shouldPauseMoverPump (document.hidden / audit /
+    // isolation), the in-flight ref, and the !isStreaming guards below.
     if (!isStreaming) return;
     if (!embeddedAllowsAircraft && !embeddedAllowsVessels && !embeddedAllowsSatellites) return;
     let cancelled = false;
@@ -9123,7 +9514,22 @@ export default function CREPDashboardPage({
         (async () => {
           if (!allowAircraft || breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
-            const res = await fetch(`/api/mindex/proxy/aircraft?limit=${earthMoverLimits.aircraft}`, { signal: AbortSignal.timeout(90_000) });
+            // Jun 12, 2026: fetch identity-rich aircraft (callsign/onGround) from the
+            // multi-source registry so the category classifier can distinguish
+            // commercial/cargo/military/private. /api/mindex/proxy/aircraft returns a
+            // kinematics-only scrape (no callsign), which collapsed every plane into
+            // the "private" bucket. Vessels already hit their OEI source directly below
+            // for the same reason. syncToMINDEX still persists what we fetch.
+            const acBounds = mapBoundsRef.current;
+            const acZoom = mapZoomRef.current ?? 0;
+            const acWest = acBounds ? Math.max(-180, Math.min(180, acBounds.west)) : null;
+            const acEast = acBounds ? Math.max(-180, Math.min(180, acBounds.east)) : null;
+            const acHasBbox =
+              !!acBounds && acZoom >= 3 && Number.isFinite(acWest) && Number.isFinite(acEast) && acEast! > acWest!;
+            const aircraftUrl = acHasBbox
+              ? `/api/oei/flightradar24?lamin=${acBounds!.south}&lamax=${acBounds!.north}&lomin=${acWest}&lomax=${acEast}&limit=${earthMoverLimits.aircraft}`
+              : `/api/oei/flightradar24?limit=${earthMoverLimits.aircraft}`;
+            const res = await fetch(aircraftUrl, { signal: AbortSignal.timeout(90_000) });
             if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             const aircraftRows = readMoverRows(data, "aircraft");
@@ -9280,7 +9686,7 @@ export default function CREPDashboardPage({
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("crep:mover-pump-request", onMoverPumpRequest as EventListener)
     }
-  }, [auditAllOffMode, embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites, shouldPauseLiveWork, assetIsolationMode, isStreaming, earthStrictPerfMode, earthMoverLimits]);
+  }, [auditAllOffMode, embeddedAllowsAircraft, embeddedAllowsVessels, embeddedAllowsSatellites, shouldPauseLiveWork, assetIsolationMode, isStreaming, earthStrictPerfMode, earthMoverLimits, earthSimDeferredDataReady, isEarthSimulatorRoute]);
 
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>(() => {
@@ -9352,14 +9758,14 @@ export default function CREPDashboardPage({
 
   const [groundFilter, setGroundFilter] = useState<GroundFilter>(() => {
     const initialGroundFilter = applyRequestedFungalLayersToGround(applyGroundFilterIsolation({
-    // Production first-load: all kingdoms visible at refresh.
+    // Production first-load: fungi is the focus species; other kingdoms stay opt-in.
     showFungi: true,
-    showPlants: true,
-    showBirds: true,
-    showMammals: true,
-    showReptiles: true,
-    showInsects: true,
-    showMarineLife: true,
+    showPlants: false,
+    showBirds: false,
+    showMammals: false,
+    showReptiles: false,
+    showInsects: false,
+    showMarineLife: false,
     // Fungal atlas startup defaults: ECM on, AM off (mutually exclusive).
     showMyceliumHeat: false,
     showAmFungi: false,
@@ -9396,7 +9802,7 @@ export default function CREPDashboardPage({
     showPartnerNetworks: true,
   }, assetIsolationMode, isolatedFungalLayerIds), getRequestedFungalLayerIdsFromUrl());
     if (EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()) {
-      return { ...initialGroundFilter, ...EARTH_SIM_FUNGI_ONLY_GROUND_FILTER };
+      return applyEarthSimFungalRasterBudgetToGroundFilter({ ...initialGroundFilter, ...EARTH_SIM_FUNGI_ONLY_GROUND_FILTER });
     }
     if (getInitialFiltersOffMode()) return applyFiltersOffToGround(initialGroundFilter);
     return initialGroundFilter;
@@ -9905,7 +10311,7 @@ export default function CREPDashboardPage({
           : initialLayers;
     const forced = applyForceOffToLayers(layersWithInitialFilters);
     if (EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()) {
-      return applyEarthSimulatorBootToLayers(forced);
+      return applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(forced));
     }
     return forced;
   });
@@ -9913,6 +10319,8 @@ export default function CREPDashboardPage({
   // Earth Simulator startup contract: base context layers must be visible on
   // first refresh (without needing any filter interaction).
   useLayoutEffect(() => {
+    if (!isEarthSimulatorPath()) return;
+    if (!earthSimStartupFungalRastersEnabled()) return;
     if (fungalAtlasUserControlRef.current) return;
     setLayers((prev) => {
       let changed = false;
@@ -9961,16 +10369,19 @@ export default function CREPDashboardPage({
       }
       setAuditAllOffMode(false);
       setAssetIsolationMode(null);
-      setLayers((prev) => applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev)));
-      setGroundFilter((prev) => ({
+      const enableStartupFungalRasters = earthSimStartupFungalRastersEnabled();
+      setLayers((prev) =>
+        applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev))),
+      );
+      setGroundFilter((prev) => applyEarthSimFungalRasterBudgetToGroundFilter({
         ...prev,
         ...EARTH_SIM_FUNGI_ONLY_GROUND_FILTER,
         showFungi: true,
         showAmFungi: false,
-        showEcmFungi: true,
+        showEcmFungi: enableStartupFungalRasters,
       }));
-      setMycorrhizalMode("ecm");
-      applyMycorrhizalRasterState(false, true, EARTH_SIM_FUNGAL_OPACITY);
+      setMycorrhizalMode(enableStartupFungalRasters ? "ecm" : "off");
+      applyMycorrhizalRasterState(false, enableStartupFungalRasters, EARTH_SIM_FUNGAL_OPACITY);
     };
     forceStartupLayers();
     earthStartupForceAppliedRef.current = true;
@@ -10324,6 +10735,9 @@ export default function CREPDashboardPage({
     if (!mapRef?.setProjection) return;
     const applyProjection = () => {
       try {
+        const current = mapRef.getProjection?.() as { type?: string; name?: string } | undefined;
+        const currentType = current?.type || current?.name;
+        if (currentType === projectionMode) return;
         mapRef.setProjection({ type: projectionMode });
         console.log(`[CREP] Projection set to: ${projectionMode}`);
       } catch (error) {
@@ -10415,14 +10829,21 @@ export default function CREPDashboardPage({
         return fetch(url, { signal, cache: "no-store" }).finally(() => window.clearTimeout(timeout));
       };
       const showSpinner = !initialDataLoadedRef.current;
+      const deferEarthNonCameraData =
+        isEarthSimulatorRoute &&
+        (!earthSimDeferredDataReady || isMapAnimationActive || mapInteractionActiveRef.current);
       if (showSpinner) setIsLoading(true);
       try {
         // Fetch global events - wrapped in try/catch for graceful failure
-        if (canFetchEvents) try {
+        if (canFetchEvents && !deferEarthNonCameraData) try {
+          const earthSimEventLimit = isEarthSimulatorRoute ? getEarthSimGlobalEventApiLimit() : 1200;
           const eventsUrl = isEmbeddedEarthquakeSearch
             ? "/api/natureos/global-events?type=earthquake&days=30&limit=5000"
-            : "/api/natureos/global-events?days=3&limit=1200";
-          const eventsRes = await fetchWithCycleTimeout(eventsUrl, isEmbeddedEarthquakeSearch ? 10_000 : 6_000);
+            : `/api/natureos/global-events?days=3&limit=${earthSimEventLimit}`;
+          const eventsRes = await fetchWithCycleTimeout(
+            eventsUrl,
+            isEmbeddedEarthquakeSearch ? 10_000 : isEarthSimulatorRoute ? 7_000 : 6_000,
+          );
           if (eventsRes.ok) {
             const data = await eventsRes.json();
             let formattedEvents = (data.events || [])
@@ -10474,7 +10895,10 @@ export default function CREPDashboardPage({
             }
           }
         } catch (e) {
-          console.warn("[CREP] Failed to fetch global events:", e);
+          const message = (e as Error)?.message || "";
+          if ((e as Error)?.name !== "AbortError" && !/abort/i.test(message)) {
+            console.warn("[CREP] Failed to fetch global events:", e);
+          }
         }
 
         // Fetch MycoBrain devices - use /api/mycobrain (merges local + MAS registry, fallback when service down)
@@ -10486,7 +10910,7 @@ export default function CREPDashboardPage({
         if (!embeddedAllowsDevices || failCount >= 3 || isEarthSimulatorRoute || !mycoLayerEnabled) {
           // Skip silently â€” endpoint is dead, don't burn retries
         } else try {
-          const devicesRes = await fetchWithCycleTimeout("/api/earth-simulator/devices", 5_000);
+          const devicesRes = await fetchWithCycleTimeout(EARTH_DEVICE_LIST_LIVE_URL, EARTH_DEVICE_LIST_FETCH_TIMEOUT_MS);
           if (devicesRes.ok) {
             (window as any)[mbKey] = 0; // reset on success
             const data = await devicesRes.json();
@@ -10593,9 +11017,9 @@ export default function CREPDashboardPage({
         // FUNGAL: Viewport-based fetching happens in the bounds effect below.
         // Pre-load: seed the species catalog from MINDEX, fall back to search API.
         if (!isEarthSimulatorRoute && canFetchNatureObservations && !auditAllOffMode) try {
-          const proxyRes = await fetch("/api/mindex/proxy/species?limit=500", { signal: AbortSignal.timeout(6_000), cache: "no-store" });
+          const proxyRes = await fetch("/api/mindex/proxy/species?limit=500&fallbackLive=true", { signal: AbortSignal.timeout(6_000), cache: "no-store" });
           const proxyData = proxyRes.ok ? await proxyRes.json() : null;
-          const proxyEntities = proxyData?.entities || proxyData?.results || proxyData?.data || [];
+          const proxyEntities = extractMindexSpeciesRows(proxyData);
           if (proxyEntities.length === 0) {
             // Fallback: try species search API for initial catalog data
             const searchRes = await fetch("/api/crep/species/search?q=fungi&limit=100", { signal: AbortSignal.timeout(6_000), cache: "no-store" });
@@ -10625,6 +11049,7 @@ export default function CREPDashboardPage({
     // stop triggering the multi-API fan-out.
     const interval = setInterval(() => {
       if (shouldPauseLiveWork()) return
+      if (isEarthSimulatorRoute && !earthSimDeferredDataReady) return
       fetchData()
     }, 60000)
     return () => {
@@ -10642,6 +11067,8 @@ export default function CREPDashboardPage({
     embeddedAllowsVessels,
     auditAllOffMode,
     assetIsolationMode,
+    earthSimDeferredDataReady,
+    isMapAnimationActive,
     isEarthSimulatorRoute,
     isEmbeddedEarthquakeSearch,
     manualRefreshNonce,
@@ -10693,7 +11120,7 @@ export default function CREPDashboardPage({
       abortController?.abort();
       clearInterval(interval)
     }
-  }, [embeddedAllowsMarine, auditAllOffMode, assetIsolationMode]);
+  }, [embeddedAllowsMarine, auditAllOffMode, assetIsolationMode, isEarthSimulatorRoute]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // MILITARY BASES FETCH â€” OSM + MINDEX military installations (every 5 minutes)
@@ -10750,13 +11177,6 @@ export default function CREPDashboardPage({
       setFungalLoading(false);
       return;
     }
-    if (isEarthSimulatorRoute) {
-      // Earth Simulator owns live nature through the viewport fetch below.
-      // Running this parallel MINDEX-only instant request duplicates startup
-      // traffic and delays species toggles behind stale/empty responses.
-      setFungalLoading(false);
-      return;
-    }
     const earthInstantKey = [
       natureSpeciesFilterKey,
       mapBounds
@@ -10798,63 +11218,47 @@ export default function CREPDashboardPage({
         });
         const cityViewport = Boolean(mapBounds && isCityLevelZoom(mapZoom ?? 10, mapBounds));
         const stateOrCloserViewport = Number(mapZoom ?? 0) >= 5;
+        const allowEarthLiveNatureFallback = !isEarthSimulatorRoute || earthSimDeferredDataReady;
         const useLiveNatureSource =
-          !isEarthSimulatorRoute && (kingdomExpanded || cityViewport || stateOrCloserViewport);
+          allowEarthLiveNatureFallback && (kingdomExpanded || cityViewport || stateOrCloserViewport);
+        const liveFallbackParam = useLiveNatureSource ? "true" : "false";
         if (mapBounds && cityViewport) {
           q.set("north", String(mapBounds.north));
           q.set("south", String(mapBounds.south));
           q.set("east", String(mapBounds.east));
           q.set("west", String(mapBounds.west));
+          q.set("bbox", `${mapBounds.west},${mapBounds.south},${mapBounds.east},${mapBounds.north}`);
           q.set("source", useLiveNatureSource ? "all" : "mindex-only");
-          q.set("fallbackLive", useLiveNatureSource ? "true" : "false");
+          q.set("fallbackLive", liveFallbackParam);
         } else if (isEarthSimulatorRoute) {
-          const fetchBounds = mapBounds ?? EARTH_SIM_US_BBOX;
+          const fetchBounds = Number(mapZoom ?? 0) < 5
+            ? EARTH_SIM_US_BBOX
+            : mapBounds ?? EARTH_SIM_US_BBOX;
           q.set("north", String(fetchBounds.north));
           q.set("south", String(fetchBounds.south));
           q.set("west", String(fetchBounds.west));
           q.set("east", String(fetchBounds.east));
+          q.set("bbox", `${fetchBounds.west},${fetchBounds.south},${fetchBounds.east},${fetchBounds.north}`);
           q.set("source", useLiveNatureSource ? "all" : "mindex-only");
-          q.set("fallbackLive", useLiveNatureSource ? "true" : "false");
+          q.set("fallbackLive", liveFallbackParam);
+          if (useLiveNatureSource) q.set("preferLive", "true");
         } else {
           q.set("source", "all");
+          q.set("fallbackLive", "true");
         }
-        const res = await fetch(`/api/crep/fungal?${q}`, {
+        const res = await fetch(`/api/mindex/proxy/species?${q}`, {
           signal: ctrl.signal,
         });
         if (!res.ok) return;
         const data = await res.json();
-        const raw = (data.observations && Array.isArray(data.observations)) ? data.observations : [];
+        const raw = extractMindexSpeciesRows(data);
         if (raw.length === 0) return;
         const store = fungalStoreRef.current;
         for (const o of raw) {
-          const id = String((o as any).id ?? (o as any).externalId ?? "");
-          if (!id) continue;
-          const lat = Number((o as any).latitude ?? (o as any).lat ?? 0);
-          const lng = Number((o as any).longitude ?? (o as any).lng ?? 0);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
-          const candidate = {
-            id,
-            observed_on: (o as any).timestamp || (o as any).observed_on || "",
-            latitude: lat,
-            longitude: lng,
-            species: (o as any).commonName || (o as any).species || (o as any).scientificName || "Unknown",
-            taxon_id: Number((o as any).taxon_id ?? 0),
-            taxon: {
-              id: Number((o as any).taxon_id ?? 0),
-              name: (o as any).scientificName || (o as any).species || "Unknown",
-              preferred_common_name: (o as any).commonName || (o as any).species,
-              rank: "species",
-            },
-            photos: ((o as any).imageUrl || (o as any).thumbnailUrl) ? [{ id: 1, url: String((o as any).imageUrl || (o as any).thumbnailUrl), license: "CC-BY-NC" }] : [],
-            quality_grade: (o as any).verified ? "research" : "needs_id",
-            user: (o as any).observer,
-            source: (o as any).source,
-            location: (o as any).location,
-            kingdom: (o as any).kingdom || (o as any).iconicTaxon || "Unknown",
-            iconicTaxon: (o as any).iconicTaxon || (o as any).kingdom || "Unknown",
-          } as FungalObservation;
+          const candidate = normalizeSpeciesRowToFungalObservation(o as Record<string, any>);
+          if (!candidate) continue;
           if (!observationMatchesNatureFilter(candidate, natureObservationFilter)) continue;
-          store.set(id, candidate);
+          store.set(String(candidate.id), candidate);
         }
         setFungalObservations(Array.from(store.values()));
         if (isEarthSimulatorRoute) earthInstantNaturePaintCompleteRef.current = earthInstantKey;
@@ -10868,7 +11272,7 @@ export default function CREPDashboardPage({
       }
     })();
     return () => ctrl.abort();
-  }, [canFetchNatureObservations, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, natureObservationFilter, natureSpeciesFilterKey, mapBounds, mapZoom]);
+  }, [canFetchNatureObservations, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, earthSimDeferredDataReady, natureObservationFilter, natureSpeciesFilterKey, mapBounds, mapZoom]);
 
   // Instant global events â€” independent of fetchData() so earthquakes/storms paint at load.
   useEffect(() => {
@@ -10921,8 +11325,14 @@ export default function CREPDashboardPage({
     return () => { cancelled = true; };
   }, [auditAllOffMode, assetIsolationMode, canFetchEvents, isEmbeddedEarthquakeSearch, isEarthSimulatorRoute]);
 
+  const earthSimPerfClassForBakedInat = isEarthSimulatorRoute ? getEarthSimViewportPerfClass() : "desktop";
+  const vegasBakedInatInViewport =
+    isEarthSimulatorRoute &&
+    !!mapBounds &&
+    boundsIntersectBbox(mapBounds, BAKED_INAT_REGION_BBOX.vegas, 0.08);
   const ENABLE_BAKED_INAT_PRELOAD =
-    isEarthSimulatorRoute && getEarthSimViewportPerfClass() === "desktop";
+    isEarthSimulatorRoute &&
+    (earthSimPerfClassForBakedInat === "desktop" || earthSimPerfClassForBakedInat === "tablet" || vegasBakedInatInViewport);
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // BAKED HISTORICAL iNAT â€” Apr 23, 2026
   //
@@ -10952,16 +11362,14 @@ export default function CREPDashboardPage({
     if (auditAllOffMode) return;
     if (!canFetchNatureObservations) return;
     const regionsInView = isEarthSimulatorRoute
-      ? BAKED_INAT_REGIONS.filter((region) =>
-        boundsIntersectBbox(mapBounds, BAKED_INAT_REGION_BBOX[region], region === "sdtj" ? 0.12 : 0.08),
-      )
+      ? [...BAKED_INAT_REGIONS]
       : [...BAKED_INAT_REGIONS];
     const regionsToLoad = regionsInView.filter((region) => (
       !loadedBakedInatRegionsRef.current.has(region) &&
       !loadingBakedInatRegionsRef.current.has(region)
     ));
     if (regionsToLoad.length === 0) return;
-    const BAKED_INAT_VERSION = "20260527-bayarea";
+    const BAKED_INAT_VERSION = "20260608-vegas-data";
     let cancelled = false;
     const waitForBakedPreloadSlot = () =>
       new Promise<void>((resolve) => {
@@ -11039,7 +11447,6 @@ export default function CREPDashboardPage({
               kingdom,
               iconicTaxon: p.iconicTaxon || p.iconic_taxon || kingdom,
             } as FungalObservation;
-            if (!observationMatchesNatureFilter(candidate, natureObservationFilter)) continue;
             store.set(id, candidate);
             added++;
           }
@@ -11244,109 +11651,47 @@ export default function CREPDashboardPage({
   useEffect(() => {
     if (!isEarthSimulatorRoute || !EARTH_SIM_STAGED_BOOT) return;
     if (assetIsolationMode || auditAllOffMode || !canFetchNatureObservations) return;
-    const enableEarthBootBackgroundNaturePreload = false;
+    const enableEarthBootBackgroundNaturePreload = true;
     if (!enableEarthBootBackgroundNaturePreload) return;
     if (earthNatureBootPreloadStartedRef.current) return;
     earthNatureBootPreloadStartedRef.current = true;
     const { north, south, east, west } = EARTH_SIM_US_BBOX;
     const ctrl = new AbortController();
     const apiKingdom = natureKingdomApiParam(natureObservationFilter);
+    const bootPreloadLimit = String(EARTH_SIM_NATURE_INSTANT_LIMIT);
     const q = new URLSearchParams({
       quick: "true",
-      fallbackLive: "true",
+      fallbackLive: "false",
       kingdom: apiKingdom,
       north: String(north),
       south: String(south),
       east: String(east),
       west: String(west),
-      source: "all",
-      limit: String(EARTH_SIM_NATURE_INSTANT_LIMIT),
+      source: "mindex-only",
+      limit: bootPreloadLimit,
     });
     void (async () => {
       try {
-        // Prioritize the San Diego / Tijuana city preload below. The broad
-        // North America request is valuable at reload, but it should not take
-        // the first live iNat slot when a user immediately flies to San Diego.
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+        // Keep the first Earth Simulator nature pass cache-only so external
+        // live lookups do not compete with map controls during startup.
+        await new Promise((resolve) => setTimeout(resolve, 250));
         if (ctrl.signal.aborted) return;
-        const res = await fetch(`/api/crep/fungal?${q}`, { signal: ctrl.signal });
+        const res = await fetch(`/api/mindex/proxy/species?${q}`, { signal: ctrl.signal });
         if (!res.ok) return;
         const data = await res.json();
-        const raw = Array.isArray(data.observations) ? data.observations : [];
+        const raw = extractMindexSpeciesRows(data);
         if (raw.length === 0) return;
         const store = fungalStoreRef.current;
         for (const obs of raw) {
-          const id = String((obs as any).id ?? "");
-          if (!id) continue;
-          const lat = Number((obs as any).latitude ?? (obs as any).lat);
-          const lng = Number((obs as any).longitude ?? (obs as any).lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-          store.set(id, {
-            id,
-            observed_on: String((obs as any).observed_on ?? (obs as any).timestamp ?? new Date().toISOString()),
-            latitude: lat,
-            longitude: lng,
-            species: String((obs as any).species ?? (obs as any).commonName ?? "Unknown"),
-            taxon_id: Number((obs as any).taxon_id ?? 0),
-            taxon: (obs as any).taxon ?? { id: 0, name: "Unknown", preferred_common_name: (obs as any).species, rank: "species" },
-            photos: [],
-            quality_grade: "needs_id",
-            kingdom: String((obs as any).kingdom ?? (obs as any).iconicTaxon ?? "Unknown"),
-            iconicTaxon: String((obs as any).iconicTaxon ?? (obs as any).kingdom ?? "Unknown"),
-          } as FungalObservation);
+          const candidate = normalizeSpeciesRowToFungalObservation(obs as Record<string, any>);
+          if (!candidate) continue;
+          store.set(String(candidate.id), candidate);
         }
         pruneStoreByRank(store, EARTH_SIM_NATURE_STORE_CAP, observationResourceRank, selectedFungal?.id, new Set());
         setFungalObservations(Array.from(store.values()));
         console.log(`[CREP/EarthBoot] US bbox preload: ${raw.length} observations (background, no DOM)`);
       } catch (e) {
         if ((e as Error).name !== "AbortError") console.warn("[CREP/EarthBoot] US preload failed:", e);
-      }
-    })();
-    const sd = EARTH_SIM_SD_BBOX;
-    const qSd = new URLSearchParams({
-      quick: "true",
-      kingdom: apiKingdom,
-      north: String(sd.north),
-      south: String(sd.south),
-      east: String(sd.east),
-      west: String(sd.west),
-      source: "all",
-      limit: String(EARTH_SIM_NATURE_INSTANT_LIMIT),
-      fallbackLive: "true",
-    });
-    void (async () => {
-      try {
-        const res = await fetch(`/api/crep/fungal?${qSd}`, { signal: ctrl.signal });
-        if (!res.ok) return;
-        const data = await res.json();
-        const raw = Array.isArray(data.observations) ? data.observations : [];
-        if (raw.length === 0) return;
-        const store = fungalStoreRef.current;
-        for (const obs of raw) {
-          const id = String((obs as any).id ?? "");
-          if (!id) continue;
-          const lat = Number((obs as any).latitude ?? (obs as any).lat);
-          const lng = Number((obs as any).longitude ?? (obs as any).lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-          store.set(id, {
-            id,
-            observed_on: String((obs as any).observed_on ?? (obs as any).timestamp ?? new Date().toISOString()),
-            latitude: lat,
-            longitude: lng,
-            species: String((obs as any).species ?? (obs as any).commonName ?? "Unknown"),
-            taxon_id: Number((obs as any).taxon_id ?? 0),
-            taxon: (obs as any).taxon ?? { id: 0, name: "Unknown", preferred_common_name: (obs as any).species, rank: "species" },
-            photos: [],
-            quality_grade: "needs_id",
-            kingdom: String((obs as any).kingdom ?? (obs as any).iconicTaxon ?? "Unknown"),
-            iconicTaxon: String((obs as any).iconicTaxon ?? (obs as any).kingdom ?? "Unknown"),
-          } as FungalObservation);
-        }
-        pruneStoreByRank(store, EARTH_SIM_NATURE_STORE_CAP, observationResourceRank, selectedFungal?.id, new Set());
-        setFungalObservations(Array.from(store.values()));
-        console.log(`[CREP/EarthBoot] San Diego bbox preload: ${raw.length} observations`);
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") console.warn("[CREP/EarthBoot] SD preload failed:", e);
       }
     })();
     return () => ctrl.abort();
@@ -11359,6 +11704,8 @@ export default function CREPDashboardPage({
     if (!mapBounds) return;
     const forceNatureFetch = forceViewportNatureFetchRef.current;
     if (forceNatureFetch) forceViewportNatureFetchRef.current = false;
+    const cityLevelNatureFetch = isCityLevelZoom(mapZoom, mapBounds);
+    if (isEarthSimulatorRoute && !earthSimDeferredDataReady && !forceNatureFetch && !cityLevelNatureFetch) return;
     // May 24, 2026: spinning the globe must not trigger viewport refetch storms.
     if (mapInteractionActiveRef.current && !forceNatureFetch) {
       const retry = window.setTimeout(() => {
@@ -11388,60 +11735,33 @@ export default function CREPDashboardPage({
     // explicitly request 20k at zoom 5+ so the server's pagination loop
     // (fetchINaturalistObservations page 1-10 Ã— 10 iconic taxa = 20k
     // ceiling) kicks in and we actually see the observations that exist.
-    let zoomLimit = mapZoom < 2 ? 1200
-      : mapZoom < 4 ? 2200
-      : mapZoom < 7 ? 3200
-      : mapZoom < 10 ? 4500
-      : 6000;
+    let zoomLimit = mapZoom < 2 ? 800
+      : mapZoom < 4 ? 1200
+      : mapZoom < 7 ? 1800
+      : mapZoom < 10 ? 2400
+      : 3000;
+    const earthSimPerfClassForNature = isEarthSimulatorRoute ? getEarthSimViewportPerfClass() : "desktop";
     const kingdomExpandedForViewport = !isFungiOnlyNatureFilter(natureObservationFilter);
     if (isEarthSimulatorRoute && kingdomExpandedForViewport) {
-      zoomLimit = Math.min(zoomLimit, 4500);
+      zoomLimit = Math.min(zoomLimit, 1800);
     }
     if (isCityLevelZoom(mapZoom, mapBounds)) {
-      zoomLimit = Math.max(zoomLimit, isEarthSimulatorRoute ? 3000 : 15000);
+      zoomLimit = Math.max(zoomLimit, isEarthSimulatorRoute ? 1600 : 15000);
     } else if (mapZoom >= 5) {
-      zoomLimit = Math.max(zoomLimit, 8000);
+      zoomLimit = Math.max(zoomLimit, isEarthSimulatorRoute ? 1600 : 8000);
+    }
+    if (isEarthSimulatorRoute) {
+      const earthNatureCap =
+        earthSimPerfClassForNature === "phone" ? 600 :
+        earthSimPerfClassForNature === "tablet" ? 1000 :
+        1800;
+      zoomLimit = Math.min(zoomLimit, earthNatureCap);
     }
     const ctrl = new AbortController();
-    const formatObs = (obs: Record<string, unknown>): FungalObservation => {
-      let lat = obs.latitude ?? obs.lat;
-      let lng = obs.longitude ?? obs.lng;
-      if (lat == null || lng == null) {
-        const geom = obs.geometry as { coordinates?: [number, number] } | undefined;
-        if (Array.isArray(geom?.coordinates) && geom.coordinates.length >= 2) {
-          lng = geom.coordinates[0];
-          lat = geom.coordinates[1];
-        }
-      }
-      return {
-      id: String(obs.id ?? obs.externalId ?? ""),
-      observed_on: (obs.timestamp || obs.observed_on) as string,
-      latitude: Number(lat ?? 0),
-      longitude: Number(lng ?? 0),
-      species: (obs.commonName || obs.species || obs.scientificName || "Unknown") as string,
-      taxon_id: Number(obs.taxon_id ?? 0),
-      taxon: {
-        id: Number(obs.taxon_id ?? 0),
-        name: (obs.scientificName || obs.species || "Unknown") as string,
-        preferred_common_name: (obs.commonName || obs.species) as string,
-        rank: "species",
-      },
-      photos: (obs.imageUrl || obs.thumbnailUrl) ? [{ id: 1, url: String(obs.imageUrl || obs.thumbnailUrl), license: "CC-BY-NC" }] : [],
-      quality_grade: obs.verified ? "research" : "needs_id",
-      user: obs.observer as string | undefined,
-      source: obs.source as string | undefined,
-      location: obs.location as string | undefined,
-      habitat: obs.habitat as string | undefined,
-      notes: obs.notes as string | undefined,
-      sourceUrl: obs.sourceUrl as string | undefined,
-      externalId: obs.externalId as string | undefined,
-      kingdom: (obs.kingdom || obs.iconicTaxon || "Unknown") as string,
-      iconicTaxon: (obs.iconicTaxon || obs.kingdom || "Unknown") as string,
-    };
-    };
-
     const mergeViewportNature = (raw: Record<string, unknown>[]) => {
-      const formatted = raw.map((o) => formatObs(o));
+      const formatted = raw
+        .map((o) => normalizeSpeciesRowToFungalObservation(o as Record<string, any>))
+        .filter((obs): obs is FungalObservation => Boolean(obs));
       const store = fungalStoreRef.current;
       const currentNatureFilter = natureObservationFilterRef.current;
       for (const obs of formatted) {
@@ -11461,16 +11781,14 @@ export default function CREPDashboardPage({
         : isCityLevelZoom(mapZoom, mapBounds)
           ? Math.min(20_000, RESOURCE_LIMITS[limitTier].nature * 2)
           : Math.min(12_000, RESOURCE_LIMITS[limitTier].nature);
-      pruneStoreByRank(
+      pruneStoreViewportFirst(
         store,
+        mapBounds,
+        (obs, bounds) => observationInMapBounds(obs, bounds, 0.25),
         storeCap,
+        Math.min(1500, Math.max(400, Math.floor(storeCap / 8))),
         observationResourceRank,
         selectedFungal?.id,
-        storeIdsInViewport(
-          store,
-          mapBounds,
-          (obs, bounds) => observationInMapBounds(obs, bounds, 0.25),
-        ),
       );
       setFungalObservations(Array.from(store.values()));
       console.log(`[CREP] Viewport fungal: ${formatted.length} new, ${store.size} total persisted`);
@@ -11492,27 +11810,45 @@ export default function CREPDashboardPage({
         const requestedKingdom = pendingKingdom ?? natureKingdomApiParam(natureObservationFilter);
         const q = new URLSearchParams({
           quick: opts.quick ? "true" : "false",
-          fallbackLive: cityViewport ? "true" : "false",
+          fallbackLive: isEarthSimulatorRoute || cityViewport ? "true" : "false",
           kingdom: requestedKingdom,
         });
         const kingdomExpanded = kingdomExpandedForViewport;
-        const earthNatureSource = isEarthSimulatorRoute || kingdomExpanded || cityViewport || stateOrCloserViewport ? "all" : "mindex-only";
-        const earthFallbackLive = isEarthSimulatorRoute || kingdomExpanded || cityViewport || stateOrCloserViewport ? "true" : "false";
+        const allowEarthLiveNatureFallback = !isEarthSimulatorRoute || earthSimDeferredDataReady;
+        const earthNatureSource =
+          isEarthSimulatorRoute
+            ? allowEarthLiveNatureFallback && (kingdomExpanded || cityViewport || stateOrCloserViewport) ? "all" : "mindex-only"
+            : kingdomExpanded || cityViewport || stateOrCloserViewport ? "all" : "mindex-only";
+        const earthFallbackLive =
+          allowEarthLiveNatureFallback && (isEarthSimulatorRoute || kingdomExpanded || cityViewport || stateOrCloserViewport)
+            ? "true"
+            : "false";
         if (useGlobalNoBboxMode) {
           q.set("source", isEarthSimulatorRoute ? earthNatureSource : "all");
+          q.set("fallbackLive", isEarthSimulatorRoute ? earthFallbackLive : "true");
         } else {
           q.set("north", String(north));
           q.set("south", String(south));
           q.set("east", String(clampedEast));
           q.set("west", String(clampedWest));
+          q.set("bbox", `${clampedWest},${south},${clampedEast},${north}`);
           q.set("source", isEarthSimulatorRoute ? earthNatureSource : "all");
           q.set("fallbackLive", isEarthSimulatorRoute ? earthFallbackLive : "true");
         }
-        if (zoomLimit) q.set("limit", String(zoomLimit));
-        const res = await fetch(`/api/crep/fungal?${q}`, { signal: ctrl.signal });
+        const earthWideNatureBoot = isEarthSimulatorRoute && mapZoom < 5;
+        const earthPreferLiveNature =
+          isEarthSimulatorRoute &&
+          allowEarthLiveNatureFallback &&
+          earthWideNatureBoot;
+        if (earthPreferLiveNature) {
+          q.set("preferLive", "true");
+          q.set("fallbackLive", "true");
+        }
+        if (zoomLimit) q.set("limit", String(earthWideNatureBoot ? Math.min(zoomLimit, 600) : zoomLimit));
+        const res = await fetch(`/api/mindex/proxy/species?${q}`, { signal: ctrl.signal });
         if (!res.ok) return;
         const data = await res.json();
-        const raw = data.observations && Array.isArray(data.observations) ? data.observations : [];
+        const raw = extractMindexSpeciesRows(data);
         mergeViewportNature(raw);
       } catch (e) {
         if ((e as Error).name !== "AbortError") console.warn("[CREP] Bounds fungal fetch failed:", e);
@@ -11565,7 +11901,7 @@ export default function CREPDashboardPage({
       if (!forceNatureFetch) ctrl.abort();
       clearTimeout(t);
     };
-  }, [canFetchNatureObservations, mapBounds, mapZoom, selectedFungal?.id, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isGlobeCrepMapRoute, requestViewportNatureFetch, viewportNatureFetchNonce]);
+  }, [canFetchNatureObservations, mapBounds, mapZoom, selectedFungal?.id, assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, earthSimDeferredDataReady, isGlobeCrepMapRoute, requestViewportNatureFetch, viewportNatureFetchNonce]);
 
   // Periodic refresh of live events (earthquakes, lightning, fire, etc.) â€“ new events pop up and blink
   const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
@@ -11802,7 +12138,7 @@ export default function CREPDashboardPage({
     }
   }, [applyMycorrhizalRasterState, assetIsolationMode, leaveAssetIsolationMode, mapRef]);
 
-  const setLayerEnabled = useCallback((layerId: string, enabled: boolean) => {
+  const setLayerEnabled = useCallback((layerId: string, enabled: boolean, syncMoverFilters: boolean = true) => {
     if (layerId === "fungalAtlasAM") {
       const ecmOn = layersRef.current.find((l) => l.id === "fungalAtlasECM")?.enabled ?? false;
       switchMycorrhizalFungiLayer(enabled ? "am" : ecmOn ? "ecm" : "off");
@@ -11839,43 +12175,52 @@ export default function CREPDashboardPage({
       return changed ? applyForceOffToLayers(next) : prev;
     });
     if (forceOff) return;
+    // syncMoverFilters: only the master layer toggle (or "ALL ON") should cascade
+    // every category on. Individual category buttons pass false so toggling one
+    // category no longer force-enables all the others (Jun 12, 2026 fix).
     if (layerId === "aviation" || layerId === "aviationRoutes") {
-      setAircraftFilter(prev => ({
-        ...prev,
-        showAirborne: enabled,
-        showGround: enabled,
-        showMilitary: enabled,
-        showCargo: enabled,
-        showPrivate: enabled,
-        showCommercial: enabled,
-      }));
+      if (syncMoverFilters) {
+        setAircraftFilter(prev => ({
+          ...prev,
+          showAirborne: enabled,
+          showGround: enabled,
+          showMilitary: enabled,
+          showCargo: enabled,
+          showPrivate: enabled,
+          showCommercial: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     } else if (layerId === "ships" || layerId === "shipRoutes" || layerId === "fishing" || layerId === "containers") {
-      setVesselFilter(prev => ({
-        ...prev,
-        showCargo: enabled,
-        showTanker: enabled,
-        showPassenger: enabled,
-        showFishing: enabled,
-        showTug: enabled,
-        showMilitary: enabled,
-        showPleasure: enabled,
-        showPortAreas: enabled,
-        showShippingLanes: enabled,
-        showAnchorages: enabled,
-      }));
+      if (syncMoverFilters) {
+        setVesselFilter(prev => ({
+          ...prev,
+          showCargo: enabled,
+          showTanker: enabled,
+          showPassenger: enabled,
+          showFishing: enabled,
+          showTug: enabled,
+          showMilitary: enabled,
+          showPleasure: enabled,
+          showPortAreas: enabled,
+          showShippingLanes: enabled,
+          showAnchorages: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     } else if (layerId === "satellites") {
-      setSatelliteFilter(prev => ({
-        ...prev,
-        showStations: enabled,
-        showWeather: enabled,
-        showComms: enabled,
-        showGPS: enabled,
-        showStarlink: enabled,
-        showDebris: enabled,
-        showActive: enabled,
-      }));
+      if (syncMoverFilters) {
+        setSatelliteFilter(prev => ({
+          ...prev,
+          showStations: enabled,
+          showWeather: enabled,
+          showComms: enabled,
+          showGPS: enabled,
+          showStarlink: enabled,
+          showDebris: enabled,
+          showActive: enabled,
+        }));
+      }
       if (enabled) window.setTimeout(() => window.dispatchEvent(new CustomEvent("crep:mover-pump-request")), 0);
     }
     if (assetIsolationMode === "funga" && FUNGAL_ATLAS_LAYER_IDS.includes(layerId as any)) {
@@ -12075,6 +12420,11 @@ export default function CREPDashboardPage({
   //   â€¢ showInfraLayers true, streaming on, audit mode off, asset-isolation
   //     cleared
   const enableAllAuditFilters = useCallback(() => {
+    groundFilterUserControlRef.current = true;
+    fungalAtlasUserControlRef.current = true;
+    setAuditAllOffMode(false);
+    setAssetIsolationMode(null);
+    setIsStreaming(true);
     startTransition(() => {
       setAuditAllOffMode(false);
       setAssetIsolationMode(null);
@@ -12157,6 +12507,11 @@ export default function CREPDashboardPage({
   }, []);
 
   const disableAllAuditFilters = useCallback(() => {
+    groundFilterUserControlRef.current = true;
+    fungalAtlasUserControlRef.current = true;
+    setAuditAllOffMode(true);
+    setAssetIsolationMode(null);
+    setIsStreaming(false);
     startTransition(() => {
       setAuditAllOffMode(true);
       setAssetIsolationMode(null);
@@ -12290,6 +12645,11 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (assetIsolationMode !== "funga") return;
+    if (!isGlobeProjectionSafeForViewport()) {
+      setGlobeProjectionAvailable(false);
+      if (projectionMode !== "mercator") setProjectionMode("mercator");
+      return;
+    }
     if (projectionMode !== "globe") setProjectionMode("globe");
     try { mapNativeRef.current?.setProjection?.({ type: "globe" }); } catch {}
   }, [assetIsolationMode, projectionMode]);
@@ -12485,7 +12845,7 @@ export default function CREPDashboardPage({
     // trains"): overlay components (ProposalOverlays, etc.) call this
     // hook from click handlers to open the shared InfraAsset panel.
     // Keeps the widget pipeline centralized in the dashboard.
-    (window as any).__crep_selectAsset = (payload: any) => {
+    const selectAsset = (payload: any) => {
       if (!payload || payload.lat == null || payload.lng == null) return;
       lastEntityPickTimeRef.current = Date.now();
       const payloadType = String(payload.type || payload.properties?.type || "").toLowerCase();
@@ -12629,16 +12989,32 @@ export default function CREPDashboardPage({
         properties: payload.properties || {},
       });
     };
+    (window as any).__crep_selectAsset = selectAsset;
     // Apr 23, 2026 â€” separate hook the baked iNat circle layers call
     // directly (avoids going through __crep_selectAsset's shape check).
-    (window as any).__crep_selectFungal = (obs: FungalObservation) => {
+    const selectFungal = (obs: FungalObservation) => {
       if (!obs) return;
       lastEntityPickTimeRef.current = Date.now();
       setSelectedFungal(obs);
     };
+    const installSelectionBridge = () => {
+      if ((window as any).__crep_selectAsset !== selectAsset) {
+        (window as any).__crep_selectAsset = selectAsset;
+      }
+      if ((window as any).__crep_selectFungal !== selectFungal) {
+        (window as any).__crep_selectFungal = selectFungal;
+      }
+    };
+    installSelectionBridge();
+    const repairTimer = window.setInterval(installSelectionBridge, 2_000);
     return () => {
-      try { delete (window as any).__crep_selectAsset; } catch { /* noop */ }
-      try { delete (window as any).__crep_selectFungal; } catch { /* noop */ }
+      window.clearInterval(repairTimer);
+      if ((window as any).__crep_selectAsset === selectAsset) {
+        try { delete (window as any).__crep_selectAsset; } catch { /* noop */ }
+      }
+      if ((window as any).__crep_selectFungal === selectFungal) {
+        try { delete (window as any).__crep_selectFungal; } catch { /* noop */ }
+      }
     };
   }, [embeddedAllowsInfrastructure, isEmbeddedEarthquakeSearch]);
 
@@ -13009,7 +13385,7 @@ export default function CREPDashboardPage({
           })
         : inViewport;
       if (isCityLevelZoom(mapZoom, markerBounds)) {
-        const cityCap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, earthStrictPerfMode, markerBounds);
+        const cityCap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, isEarthSimulatorRoute || earthStrictPerfMode, markerBounds);
         const citySampled = spatiallySampleNatureObservations(
           ageFiltered as FungalObservation[],
           cityCap,
@@ -13019,7 +13395,7 @@ export default function CREPDashboardPage({
         );
         return stabilizeNatureResult(citySampled as any);
       }
-      const cap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, earthStrictPerfMode, markerBounds);
+      const cap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, isEarthSimulatorRoute || earthStrictPerfMode, markerBounds);
       if (ageFiltered.length <= cap) {
         return stabilizeNatureResult(ageFiltered as any);
       }
@@ -13028,7 +13404,7 @@ export default function CREPDashboardPage({
         cap,
         natureObservationFilter,
         markerBounds ?? EARTH_SIM_US_BBOX,
-        visibleFungalObservationsStableRef.current.list as FungalObservation[],
+        mapZoom < 5 ? [] : visibleFungalObservationsStableRef.current.list as FungalObservation[],
       );
       if (spatialSampled.length > 0) {
         return stabilizeNatureResult(spatialSampled as any);
@@ -13133,7 +13509,7 @@ export default function CREPDashboardPage({
     });
 
     const kingdomCount = enabledNatureKingdomCount(natureObservationFilter);
-    const domHardCap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, earthStrictPerfMode, markerBounds);
+    const domHardCap = getNatureDomMarkerCapForZoom(mapZoom, kingdomCount, isEarthSimulatorRoute || earthStrictPerfMode, markerBounds);
 
     // Recency-first LOD for nature (Fix D â€” Apr 18, 2026)
     const preLodCount = inViewport.length
@@ -13299,10 +13675,10 @@ export default function CREPDashboardPage({
     const domCap = getNatureDomMarkerCapForZoom(
       mapZoom,
       enabledNatureKingdomCount(groundFilter),
-      earthStrictPerfMode,
+      isEarthSimulatorRoute || earthStrictPerfMode,
       markerBounds,
     );
-    if (isCityLevelZoom(mapZoom, markerBounds) || visible.length <= domCap) {
+    if (visible.length <= domCap) {
       const idKey = visible.map((obs) => String(obs.id ?? "")).sort().join("|");
       const cached = renderedNatureStableRef.current;
       if (filterKey === cached.filterKey && idKey === cached.idKey) return cached.list;
@@ -13342,7 +13718,8 @@ export default function CREPDashboardPage({
   // NEVER unmount Event/Nature DOM markers during pan - update positions only (map.tsx batch sync).
   const shouldRenderDomMarkers = true;
   const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
-  const shouldRenderHeavyOverlays = !(earthStrictPerfMode && isMapAnimationActive);
+  const shouldRenderHeavyOverlays =
+    !earthStrictPerfMode || (earthSimDeferredDataReady && !isMapAnimationActive);
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
@@ -13649,7 +14026,7 @@ export default function CREPDashboardPage({
       const fallback = lastRenderedEventsForPanRef.current;
       if (fallback.length > 0) return fallback;
     }
-    const eventDomCap = getEventDomMarkerCapForZoom(mapZoom, earthStrictPerfMode);
+    const eventDomCap = getEventDomMarkerCapForZoom(mapZoom, isEarthSimulatorRoute || earthStrictPerfMode);
     if (auditAllOffMode || !eventFiltersEnabled) {
       const cached = visibleEventsStableRef.current;
       if (cached.idKey === "") return cached.events;
@@ -13864,8 +14241,21 @@ export default function CREPDashboardPage({
     eventFiltersEnabled,
     auditAllOffMode,
   ]);
-  const viewportIntelPrefetch = useViewportIntelPrefetch(mapBounds, mapZoom);
+  const rightPanelPrefetchReady =
+    shouldMountRightPanelContent && (!isEarthSimulatorRoute || earthSimDeferredDataReady || rightPanelOpen);
+  const lightweightViewportDataReady =
+    !auditAllOffMode &&
+    !assetIsolationMode &&
+    (!isEarthSimulatorRoute || !isMapAnimationActive || rightPanelOpen);
+  const viewportDataPrefetchReady =
+    isEarthSimulatorRoute ? lightweightViewportDataReady : rightPanelPrefetchReady;
+  const viewportIntelPrefetch = useViewportIntelPrefetch(
+    mapBounds,
+    mapZoom,
+    viewportDataPrefetchReady,
+  );
   const viewportOverlayFacilities = useMemo<ViewportIntelFacility[]>(() => {
+    if (!viewportDataPrefetchReady) return [];
     const intel = viewportIntelPrefetch.intel as ViewportIntelResponse | null;
     const bounds = resolveViewportIntelBounds(mapBounds);
     const place = intel?.place ?? viewportIntelPrefetch.optimisticPlace ?? null;
@@ -13882,6 +14272,7 @@ export default function CREPDashboardPage({
     }
     return Array.from(merged.values());
   }, [
+    viewportDataPrefetchReady,
     viewportIntelPrefetch.intel,
     viewportIntelPrefetch.optimisticPlace,
     mapBounds?.north,
@@ -13890,8 +14281,14 @@ export default function CREPDashboardPage({
     mapBounds?.west,
     mapZoom,
   ]);
-  const viewportEnvironmentPrefetch = useViewportEnvironmentPrefetch(mapBounds, mapZoom);
+  const viewportEnvironmentPrefetch = useViewportEnvironmentPrefetch(
+    mapBounds,
+    mapZoom,
+    rightPanelPrefetchReady,
+  );
   const [mycaAssetsReady, setMycaAssetsReady] = useState(() => !isEarthSimulatorPath());
+  const [earthOverlayAssetsReady, setEarthOverlayAssetsReady] = useState(() => !isEarthSimulatorPath());
+  const earthOverlayAssetsLoadedRef = useRef(false);
   useEffect(() => {
     if (!isEarthSimulatorRoute) {
       setMycaAssetsReady(!isMapAnimationActive);
@@ -13913,6 +14310,37 @@ export default function CREPDashboardPage({
     mapBounds?.west,
     mapZoom,
   ]);
+  useEffect(() => {
+    if (!isEarthSimulatorRoute) {
+      earthOverlayAssetsLoadedRef.current = true;
+      setEarthOverlayAssetsReady(true);
+      return;
+    }
+    if (!earthSimDesktopOverlayBudget) {
+      earthOverlayAssetsLoadedRef.current = false;
+      setEarthOverlayAssetsReady(false);
+      return;
+    }
+    if (earthOverlayAssetsLoadedRef.current) return;
+    setEarthOverlayAssetsReady(false);
+    if (assetIsolationMode || auditAllOffMode || isMapAnimationActive || mapInteractionActiveRef.current) return;
+    const timer = window.setTimeout(() => {
+      earthOverlayAssetsLoadedRef.current = true;
+      setEarthOverlayAssetsReady(true);
+    }, EARTH_SIM_ASSET_READY_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [
+    isEarthSimulatorRoute,
+    earthSimDesktopOverlayBudget,
+    assetIsolationMode,
+    auditAllOffMode,
+    isMapAnimationActive,
+    mapBounds?.north,
+    mapBounds?.south,
+    mapBounds?.east,
+    mapBounds?.west,
+    mapZoom,
+  ]);
   const [earthProjectDetailsReady, setEarthProjectDetailsReady] = useState(() => !isEarthSimulatorPath());
   useEffect(() => {
     if (!isEarthSimulatorRoute) {
@@ -13923,13 +14351,48 @@ export default function CREPDashboardPage({
     const timer = window.setTimeout(() => setEarthProjectDetailsReady(true), EARTH_PROJECT_DETAIL_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [isEarthSimulatorRoute]);
-  const canRenderEarthProjectDetails = !isEarthSimulatorRoute || (earthProjectDetailsReady && !isMapAnimationActive);
-  const earthOverlayAssetsReady = !isEarthSimulatorRoute || !assetIsolationMode;
-  const eagleEyeAssetsReady = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
+  const earthProjectViewportReady =
+    !isEarthSimulatorRoute ||
+    (!!mapBounds && mapZoom >= 6.5 && !isMapAnimationActive);
+  const canRenderEarthProjectDetails =
+    !isEarthSimulatorRoute ||
+    (earthSimDesktopOverlayBudget && earthSimDeferredDataReady && earthProjectDetailsReady && earthProjectViewportReady);
+  const canRenderEarthStaticProjectDetails =
+    !isEarthSimulatorRoute ||
+    (!auditAllOffMode && !assetIsolationMode && earthProjectViewportReady);
+  const proposalOverlayAssetsReady = earthOverlayAssetsReady && earthSimDesktopOverlayBudget;
+  const stableEarthOverlayAssetsReady =
+    !isEarthSimulatorRoute ||
+    (!auditAllOffMode && !assetIsolationMode);
+  const satelliteImageryOverlayReady =
+    !isEarthSimulatorRoute ||
+    (!auditAllOffMode && !assetIsolationMode);
+  const liveAuxiliaryLayersReady = !isEarthSimulatorRoute || (proposalOverlayAssetsReady && earthSimDeferredDataReady);
+  const liveAqiLayerReady =
+    !isEarthSimulatorRoute ||
+    (!auditAllOffMode && !assetIsolationMode && !isMapAnimationActive);
+  const eagleEyeAssetsReady =
+    !auditAllOffMode &&
+    !isEmbeddedEarthquakeSearch &&
+    !assetIsolationMode &&
+    (!isEarthSimulatorRoute || !isMapAnimationActive);
   const oysterProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, OYSTER_PROJECT_BBOX, 0.12);
   const mojaveProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, MOJAVE_PROJECT_BBOX, 0.3);
-  const viewportEaglePrefetch = useViewportEaglePrefetch(mapBounds, mapZoom, eagleEyeAssetsReady, 12);
-  const viewportSensorPrefetch = useViewportSensorPrefetch(mapBounds, mapZoom, mycaAssetsReady, 8);
+  const viewportEaglePrefetch = useViewportEaglePrefetch(
+    rightPanelPrefetchReady ? mapBounds : null,
+    mapZoom,
+    rightPanelPrefetchReady && eagleEyeAssetsReady,
+    24,
+  );
+  const viewportSensorPrefetchReady =
+    viewportDataPrefetchReady &&
+    (!isEarthSimulatorRoute || (earthSimDeferredDataReady && !isMapAnimationActive));
+  const viewportSensorPrefetch = useViewportSensorPrefetch(
+    viewportSensorPrefetchReady ? mapBounds : null,
+    mapZoom,
+    viewportSensorPrefetchReady,
+    8,
+  );
   const mycaSelectedContext = useMemo(() => {
     if (selectedEvent) {
       const facts = buildEventMycaFacts(selectedEvent);
@@ -14018,8 +14481,8 @@ export default function CREPDashboardPage({
     if (isMapAnimationActive) {
       return renderedEventsStableRef.current.events;
     }
-    const eventDomCap = getEventDomMarkerCapForZoom(mapZoom, earthStrictPerfMode);
-    if (isCityLevelZoom(mapZoom, markerBounds) || filteredEvents.length <= eventDomCap) {
+    const eventDomCap = getEventDomMarkerCapForZoom(mapZoom, isEarthSimulatorRoute || earthStrictPerfMode);
+    if (filteredEvents.length <= eventDomCap) {
       const idKey = filteredEvents.map((event) => String(event.id ?? "")).sort().join("|");
       const cached = renderedEventsStableRef.current;
       if (idKey === cached.idKey) return cached.events;
@@ -14408,6 +14871,89 @@ export default function CREPDashboardPage({
     enabled: infraFetchEnabled,
   });
 
+  useEffect(() => {
+    if (!mapBounds || auditAllOffMode || assetIsolationMode) return;
+    const plantsEnabled =
+      layers.find((layer) => layer.id === "powerPlantsG")?.enabled ??
+      layers.find((layer) => layer.id === "powerPlants")?.enabled ??
+      true;
+    const datacentersEnabled =
+      layers.find((layer) => layer.id === "dataCentersG")?.enabled ??
+      layers.find((layer) => layer.id === "dataCenters")?.enabled ??
+      true;
+    if (!plantsEnabled && !datacentersEnabled) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({
+        bbox: [
+          mapBounds.west,
+          mapBounds.south,
+          mapBounds.east,
+          mapBounds.north,
+        ].join(","),
+        plantLimit: mapZoom <= 4.5 ? "2500" : mapZoom <= 7 ? "5000" : "9000",
+        datacenterLimit: mapZoom <= 4.5 ? "750" : "2000",
+      });
+      fetch(`/api/crep/infra/viewport-stats?${params.toString()}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data?.ok) return;
+          const plants = Array.isArray(data.plants) ? data.plants : [];
+          const datacenters = Array.isArray(data.datacenters) ? data.datacenters : [];
+          setPowerPlants(plants);
+          setViewportInfraDatacenters(datacenters);
+          setViewportInfraStats({
+            plantStats: data.plantStats ?? null,
+            counts: {
+              plants: data.counts?.plants,
+              datacenters: data.counts?.datacenters,
+              transmissionLines: infraTransmissionLines.length,
+              substations: infraSubstations.length,
+              cableRoutes: infraCableRoutes.length,
+            },
+            generatedAt: data.generatedAt,
+            sampled: data.sampled,
+          });
+          if (typeof window !== "undefined") {
+            (window as any).__crep_infra_viewport_stats = {
+              bbox: data.bbox,
+              counts: data.counts,
+              plantStats: data.plantStats,
+              sampled: data.sampled,
+              generatedAt: data.generatedAt,
+              zoom: mapZoom,
+            };
+          }
+        })
+        .catch((error) => {
+          if ((error as Error)?.name !== "AbortError") {
+            console.warn("[CREP/Infra] viewport stats failed", error);
+          }
+        });
+    }, 320);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    auditAllOffMode,
+    assetIsolationMode,
+    infraCableRoutes.length,
+    infraSubstations.length,
+    infraTransmissionLines.length,
+    layers,
+    mapBounds?.east,
+    mapBounds?.north,
+    mapBounds?.south,
+    mapBounds?.west,
+    mapZoom,
+  ]);
+
   // Cell towers for signal heatmap
   const cellTowerPoints = useMemo(() =>
     infraFeatures
@@ -14525,6 +15071,13 @@ export default function CREPDashboardPage({
       const isPleasure = (shipType >= 36 && shipType <= 39) || shipTypeStr.includes("pleasure");
       const isOther = !isCargo && !isTanker && !isPassenger && !isFishing && !isTug && !isMilitary && !isPleasure; // shipType 0 or unmapped
 
+      // AIS position reports (msg types 1/2/3) carry no ship type, so most live
+      // targets have shipType null -> isOther. Show those whenever ANY vessel
+      // category is enabled, otherwise boats never paint at all (Jun 12, 2026 fix).
+      const anyVesselCategoryOn =
+        vesselFilter.showCargo || vesselFilter.showTanker || vesselFilter.showPassenger ||
+        vesselFilter.showFishing || vesselFilter.showTug || vesselFilter.showMilitary ||
+        vesselFilter.showPleasure;
       const matchesEnabledCategory =
         (vesselFilter.showCargo && isCargo) ||
         (vesselFilter.showTanker && isTanker) ||
@@ -14532,7 +15085,8 @@ export default function CREPDashboardPage({
         (vesselFilter.showFishing && isFishing) ||
         (vesselFilter.showTug && isTug) ||
         (vesselFilter.showMilitary && isMilitary) ||
-        (vesselFilter.showPleasure && (isPleasure || isOther));
+        (vesselFilter.showPleasure && isPleasure) ||
+        (isOther && anyVesselCategoryOn);
 
       if (!matchesEnabledCategory) return false;
 
@@ -15603,7 +16157,7 @@ export default function CREPDashboardPage({
         if (milSrc?.setData) {
           const fc = {
             type: "FeatureCollection" as const,
-            features: milLayerEnabled ? militaryBases.filter((f: any) => f.lat != null && f.lng != null && Math.abs(f.lat) <= 90 && Math.abs(f.lng) <= 180).map((f: any) => ({
+            features: milLayerEnabled ? militaryBases.filter((f: any) => !f.hasPolygon && f.lat != null && f.lng != null && Math.abs(f.lat) <= 90 && Math.abs(f.lng) <= 180).map((f: any) => ({
               type: "Feature" as const,
               properties: {
                 id: f.id,
@@ -15768,15 +16322,15 @@ export default function CREPDashboardPage({
       cellTowers:       ["crep-celltowers-circle", "crep-celltowers-global-circle", "crep-celltowers-bbox-dot"],
       cellTowersG:      ["crep-celltowers-bbox-dot", "crep-celltowers-global-circle"],
       radioStations:    ["crep-radio-dot"],
-      powerPlantsG:     ["crep-pp-global-dot", "crep-plants-global-dot", "crep-plants-global-label"],
+      powerPlantsG:     ["crep-pp-global-dot", "crep-plants-global-glow", "crep-plants-global-dot", "crep-plants-global-label"],
       signalHeatmap:    ["crep-signal-heatmap-layer"],
       // Power grid
-      powerPlants:      ["crep-plants-glow", "crep-plants-circle", "crep-plants-label", "crep-plants-global-dot", "crep-plants-global-label"],
+      powerPlants:      ["crep-plants-glow", "crep-plants-circle", "crep-plants-label", "crep-plants-global-glow", "crep-plants-global-dot", "crep-plants-global-label"],
       substations:      ["crep-subs-glow", "crep-subs-circle", "crep-subs-label", "crep-substations-label"],
-      transmissionLines: ["crep-txlines-glow", "crep-txlines-line", "crep-txlines-sub-line", "crep-txlines-global-line", "crep-txlines-bbox-line", "crep-txlines-full-line", "crep-txlines-full-label"],
+      transmissionLines: ["crep-txlines-glow", "crep-txlines-line", "crep-txlines-sub-glow", "crep-txlines-sub-line", "crep-txlines-global-line", "crep-txlines-bbox-line", "crep-txlines-full-line", "crep-txlines-full-label"],
       txLinesGlobal:    ["crep-txlines-global-line", "crep-txlines-bbox-line"],
       txLinesFull:      ["crep-txlines-full-line", "crep-txlines-full-label"],
-      txLinesSub:       ["crep-txlines-sub-line"],
+      txLinesSub:       ["crep-txlines-sub-glow", "crep-txlines-sub-line"],
       // Transport / Vehicles
       ports:            ["crep-static-ports-circle", "crep-ports-global-dot"],
       buoys:            ["crep-live-buoys-glow", "crep-live-buoys-dot"],
@@ -15887,7 +16441,7 @@ export default function CREPDashboardPage({
   }, []);
 
   useEffect(() => {
-    if (auditAllOffMode || assetIsolationMode || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
+    if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
       entityStreamClientRef.current?.disconnect();
       entityStreamClientRef.current = null;
       return;
@@ -15939,12 +16493,12 @@ export default function CREPDashboardPage({
       entityStreamClientRef.current?.disconnect();
       entityStreamClientRef.current = null;
     };
-  }, [auditAllOffMode, assetIsolationMode, embeddedAllowsLiveEntityStream, isSearchEmbedded, isStreaming]);
+  }, [auditAllOffMode, assetIsolationMode, embeddedAllowsLiveEntityStream, isEarthSimulatorRoute, isSearchEmbedded, isStreaming]);
 
   useEffect(() => {
-    if (auditAllOffMode || assetIsolationMode || !entityStreamClientRef.current || !mapBounds) return;
+    if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || !entityStreamClientRef.current || !mapBounds) return;
     entityStreamClientRef.current.updateViewport(mapBounds, mapZoom);
-  }, [auditAllOffMode, assetIsolationMode, mapBounds, mapZoom]);
+  }, [auditAllOffMode, assetIsolationMode, isEarthSimulatorRoute, mapBounds, mapZoom]);
 
   const liveOverlayBbox = useMemo<[number, number, number, number] | null>(() => {
     if (!mapBounds) return null;
@@ -16076,8 +16630,10 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("aviation", true);
-        setLayerEnabled("aviationRoutes", true);
+        // false = enable the layer for rendering/pump WITHOUT cascading every
+        // category on, so toggling one aircraft category stays independent.
+        setLayerEnabled("aviation", true, false);
+        setLayerEnabled("aviationRoutes", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
@@ -16089,11 +16645,11 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("ships", true);
-        if (key === "showFishing") setLayerEnabled("fishing", true);
-        if (key === "showShippingLanes") setLayerEnabled("shipRoutes", true);
-        if (key === "showPortAreas" || key === "showAnchorages") setLayerEnabled("ports", true);
-        if (key === "showCargo" || key === "showTanker" || key === "showPassenger") setLayerEnabled("containers", true);
+        setLayerEnabled("ships", true, false);
+        if (key === "showFishing") setLayerEnabled("fishing", true, false);
+        if (key === "showShippingLanes") setLayerEnabled("shipRoutes", true, false);
+        if (key === "showPortAreas" || key === "showAnchorages") setLayerEnabled("ports", true, false);
+        if (key === "showCargo" || key === "showTanker" || key === "showPassenger") setLayerEnabled("containers", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
@@ -16105,7 +16661,7 @@ export default function CREPDashboardPage({
       const nextEnabled = !prev[key];
       if (nextEnabled) {
         setIsStreaming(true);
-        setLayerEnabled("satellites", true);
+        setLayerEnabled("satellites", true, false);
       }
       return { ...prev, [key]: nextEnabled };
     });
@@ -16160,7 +16716,9 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasAM", color: "#22c55e", label: "AM Fungi", icon: <span className="font-bold">AM</span>, title: "Arbuscular mycorrhizal fungi" },
     { id: "fungalAtlasECM", color: "#d946ef", label: "EcM Fungi", icon: <span className="font-bold">Ec</span>, title: "Ectomycorrhizal fungi" },
     { id: "fungalAtlasRare", color: "#f59e0b", label: "Rare / Endemic", icon: <Target className="h-2.5 w-2.5" /> },
-    { id: "fungalAtlasProtected", color: "#60a5fa", label: "Protected Areas", icon: <Shield className="h-2.5 w-2.5" /> },
+    // Protected Areas hidden until WDPA / Protected Planet polygon data is loaded.
+    // The source is status:"missing" locally and the layer would render nothing —
+    // no mock data, so we don't surface a dead toggle. (Jun 12, 2026)
     { id: "fungalAtlasUncertainty", color: "#d4d4d8", label: "High Uncertainty", icon: <AlertTriangle className="h-2.5 w-2.5" /> },
     { id: "fungalAtlasFci", color: "#fb7185", label: "FCI Priority", icon: <Crosshair className="h-2.5 w-2.5" />, title: "Pending real MYCA/MINDEX FCI model; no mock output" },
     { id: "fungalAtlasSamples", color: "#fbbf24", label: "Sequence Samples", icon: <Database className="h-2.5 w-2.5" /> },
@@ -16402,6 +16960,7 @@ export default function CREPDashboardPage({
     if (typeof document === "undefined") return;
 
     const applyImmediateButtonState = (button: HTMLElement, pressed: boolean, key: string) => {
+      if (key === "master:all-on" || key === "master:all-off") return;
       if (key === "layer:fungalAtlasAM" || key === "layer:fungalAtlasECM") {
         setExclusiveMycorrhizalButtonPressed(key.replace("layer:", ""), pressed);
       } else {
@@ -16432,6 +16991,11 @@ export default function CREPDashboardPage({
 
       const [kind, rawKey] = key.split(":", 2);
       if (!kind || !rawKey) return;
+      if (kind === "master") {
+        if (rawKey === "all-on") enableAllAuditFilters();
+        if (rawKey === "all-off") disableAllAuditFilters();
+        return;
+      }
       if (kind === "ground") toggleGroundFilterKey(rawKey as keyof GroundFilter);
       if (kind === "space") toggleSpaceWeatherFilterKey(rawKey as keyof SpaceWeatherFilter);
       if (kind === "aircraft") toggleAircraftFilterKey(rawKey as keyof AircraftFilter);
@@ -16463,7 +17027,39 @@ export default function CREPDashboardPage({
     toggleSatelliteFilterKey,
     toggleSpaceWeatherFilterKey,
     toggleVesselFilterKey,
+    enableAllAuditFilters,
+    disableAllAuditFilters,
   ]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const onLeftPanelTabInput = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      const primary = target?.closest?.("[data-crep-left-tab]") as HTMLButtonElement | null;
+      const secondary = target?.closest?.("[data-crep-left-secondary-tab]") as HTMLButtonElement | null;
+      const button = primary ?? secondary;
+      if (!button || button.disabled) return;
+
+      if (primary) {
+        const next = primary.dataset.crepLeftTab;
+        if (next === "fungal" || next === "infra" || next === "myca") {
+          switchLeftPanelTab(next);
+        }
+        return;
+      }
+
+      const nextSecondary = secondary?.dataset.crepLeftSecondaryTab;
+      if (nextSecondary === "events" || nextSecondary === "devices") {
+        setLeftSecondaryTab(nextSecondary);
+      }
+    };
+
+    document.addEventListener("click", onLeftPanelTabInput, false);
+    return () => {
+      document.removeEventListener("click", onLeftPanelTabInput, false);
+    };
+  }, [switchLeftPanelTab]);
 
   if (!mounted) {
     return (
@@ -16554,6 +17150,7 @@ export default function CREPDashboardPage({
             <Button
               size="sm"
               onClick={enableAllAuditFilters}
+              data-crep-native-key="master:all-on"
               className="h-7 px-2 gap-1 bg-emerald-500/20 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-500/30"
               title="Turn ON every nature, infrastructure, event, project, and asset filter at once"
             >
@@ -16564,6 +17161,7 @@ export default function CREPDashboardPage({
               size="sm"
               variant="outline"
               onClick={disableAllAuditFilters}
+              data-crep-native-key="master:all-off"
               className="h-7 px-2 gap-1 border-red-500/35 bg-red-950/20 text-red-200 hover:bg-red-500/20"
               title="Turn OFF every layer and asset for a clean filter audit baseline"
             >
@@ -16627,7 +17225,11 @@ export default function CREPDashboardPage({
             {rightPanelOpen ? <PanelRightClose className="w-4 h-4 text-cyan-400" /> : <PanelRightOpen className="w-4 h-4 text-cyan-400" />}
           </Button>
           {/* Globe/Map Projection Toggle (Apr 2026 â€” OpenGridWorks-style) */}
-          <GlobeToggle mode={projectionMode} onChange={setProjectionMode} />
+          <GlobeToggle
+            mode={projectionMode}
+            onChange={handleProjectionModeChange}
+            globeDisabled={!globeProjectionAvailable}
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -16690,8 +17292,10 @@ export default function CREPDashboardPage({
         <div
           data-panel="left"
           data-mobile-open={leftPanelOpen ? "true" : "false"}
+          data-left-panel-tab={leftPanelTab}
+          data-left-secondary-tab={leftSecondaryTab ?? "none"}
           className={cn(
-          "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
+          "absolute left-3 top-3 bottom-3 z-[90] transition-all duration-300 ease-in-out",
           leftPanelOpen ? "w-72 opacity-100 translate-x-0" : "-translate-x-80 opacity-0 pointer-events-none"
           )}
         >
@@ -16738,7 +17342,20 @@ export default function CREPDashboardPage({
               <div className="px-2 pb-2">
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_74px] grid-rows-2 gap-1">
                   <button
-                    onClick={() => switchLeftPanelTab("fungal")}
+                    type="button"
+                    data-crep-left-tab="fungal"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("fungal");
+                    }}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("fungal");
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("fungal");
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-1.5 rounded text-[10px] font-semibold transition-all min-h-[34px]",
                       leftPanelTab === "fungal"
@@ -16750,7 +17367,20 @@ export default function CREPDashboardPage({
                     NATURE
                   </button>
                   <button
-                    onClick={() => switchLeftPanelTab("infra")}
+                    type="button"
+                    data-crep-left-tab="infra"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("infra");
+                    }}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("infra");
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("infra");
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-1.5 rounded text-[10px] font-semibold transition-all min-h-[34px]",
                       leftPanelTab === "infra"
@@ -16762,7 +17392,20 @@ export default function CREPDashboardPage({
                     INFRA
                   </button>
                   <button
-                    onClick={() => switchLeftPanelTab("myca")}
+                    type="button"
+                    data-crep-left-tab="myca"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("myca");
+                    }}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("myca");
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      switchLeftPanelTab("myca");
+                    }}
                     className={cn(
                       "row-span-2 col-start-3 row-start-1 flex flex-col items-center justify-center gap-1 rounded text-[10px] font-semibold transition-all min-h-[72px] px-1",
                       leftPanelTab === "myca"
@@ -16775,7 +17418,20 @@ export default function CREPDashboardPage({
                   </button>
 
                   <button
-                    onClick={() => setLeftSecondaryTab("events")}
+                    type="button"
+                    data-crep-left-secondary-tab="events"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("events");
+                    }}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("events");
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("events");
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-1 rounded text-[9px] font-semibold transition-all min-h-[28px]",
                       leftSecondaryTab === "events"
@@ -16787,7 +17443,20 @@ export default function CREPDashboardPage({
                     EVENTS
                   </button>
                   <button
-                    onClick={() => setLeftSecondaryTab("devices")}
+                    type="button"
+                    data-crep-left-secondary-tab="devices"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("devices");
+                    }}
+                    onMouseDown={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("devices");
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setLeftSecondaryTab("devices");
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-1 rounded text-[9px] font-semibold transition-all min-h-[28px]",
                       leftSecondaryTab === "devices"
@@ -16964,7 +17633,7 @@ export default function CREPDashboardPage({
                         Zoom in to see observations
                       </div>
                     ) : (
-                      visibleFungalObservations.slice(0, 220).map((obs) => {
+                      visibleFungalObservations.slice(0, EARTH_SIM_NATURE_PANEL_LIST_CAP).map((obs) => {
                         const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
                         const isResearchGrade = obs.quality_grade === "research";
                         const isSelected = selectedFungal?.id === obs.id;
@@ -17216,7 +17885,10 @@ export default function CREPDashboardPage({
                   plants={powerPlants}
                   transmissionLines={infraTransmissionLines}
                   substations={infraSubstations}
+                  datacenters={viewportInfraDatacenters}
                   cableRoutes={infraCableRoutes}
+                  statsOverride={viewportInfraStats?.plantStats ?? null}
+                  countsOverride={viewportInfraStats?.counts ?? null}
                   zoom={mapZoom}
                   bubbleScale={bubbleScale}
                   onBubbleScaleChange={setBubbleScale}
@@ -18140,7 +18812,9 @@ export default function CREPDashboardPage({
                 milCtx.lineTo(19, 20); milCtx.lineTo(21, 26); milCtx.lineTo(16, 22);
                 milCtx.lineTo(11, 26); milCtx.lineTo(13, 20); milCtx.lineTo(8, 16);
                 milCtx.lineTo(14, 16); milCtx.closePath(); milCtx.fill();
-                safeAddImage("military-shield", milCtx.getImageData(0, 0, 32, 32), { sdf: true });
+                const militaryShieldImage = milCtx.getImageData(0, 0, 32, 32);
+                pendingIconData.set("military-shield", { data: militaryShieldImage, options: { sdf: true } });
+                safeAddImage("military-shield", militaryShieldImage, { sdf: true });
                 // Shield icon for point-only bases (no OSM polygon); fixed size â€” no zoom-scaling circles
                 map.addLayer({ id: "crep-live-military-dot", type: "symbol", source: "crep-live-military",
                   layout: {
@@ -18264,14 +18938,19 @@ export default function CREPDashboardPage({
                   paint: {
                     "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 4, 6, 6, 10, 9, 14, 14],
                     "circle-color": [
-                      "match", ["get", "device_type"],
-                      "mushroom1",   "#a855f7",
-                      "hyphae1",     "#f97316",
-                      "sporebase",   "#10b981",
-                      "myconode",    "#06b6d4",
-                      "alarm",       "#ef4444",
-                      "psathyrella", "#38bdf8",
-                      "#22c55e",
+                      "case",
+                      ["in", ["coalesce", ["get", "status"], ""], ["literal", ["offline", "stale", "inactive", "unknown", "error"]]],
+                      "#ef4444",
+                      [
+                        "match", ["get", "device_type"],
+                        "mushroom1",   "#a855f7",
+                        "hyphae1",     "#f97316",
+                        "sporebase",   "#10b981",
+                        "myconode",    "#06b6d4",
+                        "alarm",       "#ef4444",
+                        "psathyrella", "#38bdf8",
+                        "#22c55e",
+                      ],
                     ],
                     "circle-opacity": 0.22,
                     "circle-blur": 0.9,
@@ -18285,14 +18964,19 @@ export default function CREPDashboardPage({
                   paint: {
                     "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.6, 6, 2.5, 10, 4, 14, 6.5],
                     "circle-color": [
-                      "match", ["get", "device_type"],
-                      "mushroom1",   "#a855f7",
-                      "hyphae1",     "#f97316",
-                      "sporebase",   "#10b981",
-                      "myconode",    "#06b6d4",
-                      "alarm",       "#ef4444",
-                      "psathyrella", "#38bdf8",
-                      "#22c55e",
+                      "case",
+                      ["in", ["coalesce", ["get", "status"], ""], ["literal", ["offline", "stale", "inactive", "unknown", "error"]]],
+                      "#ef4444",
+                      [
+                        "match", ["get", "device_type"],
+                        "mushroom1",   "#a855f7",
+                        "hyphae1",     "#f97316",
+                        "sporebase",   "#10b981",
+                        "myconode",    "#06b6d4",
+                        "alarm",       "#ef4444",
+                        "psathyrella", "#38bdf8",
+                        "#22c55e",
+                      ],
                     ],
                     "circle-opacity": 0.95,
                     "circle-stroke-width": 1.2,
@@ -19122,10 +19806,11 @@ export default function CREPDashboardPage({
                       source: result.sourceId,
                       ...sourceLayerSpec,
                       paint: {
-                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 5, 9, 8, 12, 13],
+                        // OpenGridWorks parity: visible at continental zoom (was z6-floored). (Jun 12, 2026)
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4, 6, 7, 9, 11, 12, 16],
                         "circle-color": ["interpolate", ["linear"], voltageKvExpr,
                           0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
-                        "circle-opacity": 0.22,
+                        "circle-opacity": 0.3,
                         "circle-blur": 1.0,
                       },
                       minzoom: INFRA_COUNTRY_REVEAL_MIN_ZOOM,
@@ -19136,7 +19821,7 @@ export default function CREPDashboardPage({
                       source: result.sourceId,
                       ...sourceLayerSpec,
                       paint: {
-                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 9, 3.5, 12, 6],
+                        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.4, 6, 3.4, 9, 5, 12, 8],
                         "circle-color": ["interpolate", ["linear"], voltageKvExpr,
                           0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
                         "circle-opacity": 0.95,
@@ -19389,7 +20074,9 @@ export default function CREPDashboardPage({
                 // File is baked by scripts/etl/crep/bake-osm-sub-
                 // transmission.mjs and refreshed weekly by GHA cron.
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                if (!isEarthSimulatorRoute) {
+                const loadSubTransmissionLines = () => {
+                  if ((map as any).__crepSubTransmissionLoadStarted) return
+                  ;(map as any).__crepSubTransmissionLoadStarted = true
                   idleLoad(async () => {
                   const subTxOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesSub")?.enabled ?? true
                   if (!subTxOn) { console.log("[CREP/Static] sub-transmission disabled"); return }
@@ -19415,6 +20102,23 @@ export default function CREPDashboardPage({
                     }))
                     if (features.length && mapReady()) {
                       safeAddSource("crep-txlines-sub", { type: "geojson", data: { type: "FeatureCollection", features } })
+                      safeAddLayer({
+                        id: "crep-txlines-sub-glow", type: "line", source: "crep-txlines-sub",
+                        paint: {
+                          "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                            0,  "#6b7280",
+                            31, "#f97316",
+                            69, "#eab308",
+                            115, "#f43f5e"],
+                          "line-width": ["interpolate", ["linear"], ["zoom"],
+                            5, 1.8, 8, 3.0, 12, 4.4],
+                          "line-opacity": ["interpolate", ["linear"], ["zoom"],
+                            5, 0.18, 9, 0.28, 13, 0.36],
+                          "line-blur": 2.5,
+                          "line-dasharray": [2, 1.5],
+                        },
+                        minzoom: 5,
+                      })
                       safeAddLayer({
                         id: "crep-txlines-sub-line", type: "line", source: "crep-txlines-sub",
                         paint: {
@@ -19464,9 +20168,30 @@ export default function CREPDashboardPage({
                       console.log(`[CREP/Static] ${features.length} OSM sub-transmission lines rendered (dashed, zoom>=5)`)
                     }
                   } catch (e) {
+                    ;(map as any).__crepSubTransmissionLoadStarted = false
                     console.warn("[CREP/Static] sub-transmission load failed:", (e as Error)?.message)
                   }
                 })
+                }
+
+                const scheduleSubTransmissionLines = () => {
+                  try {
+                    const currentZoom = Number(map.getZoom?.() ?? 0)
+                    if (isEarthSimulatorRoute && currentZoom < 5) return
+                    loadSubTransmissionLines()
+                    if (isEarthSimulatorRoute) {
+                      map.off("zoomend", scheduleSubTransmissionLines)
+                      map.off("moveend", scheduleSubTransmissionLines)
+                    }
+                  } catch {
+                    loadSubTransmissionLines()
+                  }
+                }
+                scheduleSubTransmissionLines()
+                if (isEarthSimulatorRoute) {
+                  map.on("zoomend", scheduleSubTransmissionLines)
+                  map.on("moveend", scheduleSubTransmissionLines)
+                }
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // STATIC TRANSMISSION LINES â€” 22,760 US lines >=345kV.
@@ -19519,8 +20244,8 @@ export default function CREPDashboardPage({
                   } catch (e) {
                     console.warn("[CREP/Static] transmission-lines load failed:", (e as Error)?.message);
                   }
-                  });
-                } else {
+                  })();
+                else {
                   console.log("[CREP/Static] Earth Simulator uses bundled transmission PMTiles; raw major-line GeoJSON load skipped");
                 }
 
@@ -19548,7 +20273,7 @@ export default function CREPDashboardPage({
                 // existing geojson path stays minzoom:4 (22k lines would
                 // render-storm at world view), but PMTiles carries the
                 // pre-cluster from tippecanoe so z2â€“z3 is fast.
-                if (!isEarthSimulatorRoute) void (async () => {
+                void (async () => {
                   // Apr 21, 2026 OOM audit: gate on txLinesGlobal enabled.
                   const txgOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesGlobal")?.enabled ?? (isEarthSimulatorRoute ? true : false)
                   if (!txgOn) { console.log("[CREP/Infra] txLinesGlobal disabled â€” skipping"); return }
@@ -19594,10 +20319,10 @@ export default function CREPDashboardPage({
                 // by scripts/etl/crep/fetch-transmission-full.mjs. Paints ONLY if
                 // the PMTiles / geojson file has been generated and shipped â€”
                 // addInfraSourceWithFallback gracefully skips when neither exists.
-                if (!isEarthSimulatorRoute) void (async () => {
+                void (async () => {
                   // Apr 21, 2026 OOM audit: gate on txLinesFull enabled.
                   // This is the BIGGEST single offender â€” 52k lines / 78 MB.
-                  const txfOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesFull")?.enabled ?? false
+                  const txfOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesFull")?.enabled ?? (isEarthSimulatorRoute ? true : false)
                   if (!txfOn) { console.log("[CREP/Infra] txLinesFull disabled â€” skipping 52k-line / 78MB load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionFull);
@@ -19711,6 +20436,158 @@ export default function CREPDashboardPage({
                 })();
 
                 // â”€â”€â”€ Global data centers (Apr 19, 2026) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // Global power plants (WRI). This source already exists as
+                // PMTiles; render it directly so US/global flyover gets the
+                // OpenGridWorks-style plant field without parsing the large
+                // raw GeoJSON on the UI thread.
+                void (async () => {
+                  const plantsOn =
+                    (window as any).__crep_layers?.()?.find((l: any) => l.id === "powerPlantsG")?.enabled ??
+                    (window as any).__crep_layers?.()?.find((l: any) => l.id === "powerPlants")?.enabled ??
+                    (isEarthSimulatorRoute ? true : false);
+                  if (!plantsOn) {
+                    console.log("[CREP/Infra] powerPlantsG disabled - skipping global power plant tiles");
+                    return;
+                  }
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.powerPlantsGlobal);
+                    if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
+                    const spec = layerSpecForMode(result.mode, INFRA_LAYERS.powerPlantsGlobal);
+                    const sourceLayer = spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {};
+                    const plantCapacityExpr = [
+                      "max",
+                      1,
+                      ["coalesce", ["to-number", ["get", "capacity_mw"]], ["to-number", ["get", "capacity"]], 10],
+                    ] as any;
+                    const plantFuelExpr = ["coalesce", ["get", "fuel"], ["get", "primary_fuel"], ["get", "technology"], "Other"] as any;
+                    const plantColorExpr = [
+                      "match",
+                      plantFuelExpr,
+                      "Solar", "#facc15",
+                      "Wind", "#22d3ee",
+                      "Offshore Wind", "#38bdf8",
+                      "Hydro", "#0ea5e9",
+                      "Pumped Storage", "#0284c7",
+                      "Nuclear", "#34d399",
+                      "Gas", "#a78bfa",
+                      "Coal", "#9ca3af",
+                      "Oil", "#fb7185",
+                      "Storage", "#f472b6",
+                      "Battery", "#f472b6",
+                      "Geothermal", "#2dd4bf",
+                      "Biomass", "#84cc16",
+                      "Waste", "#eab308",
+                      "#64748b",
+                    ] as any;
+
+                    safeAddLayer({
+                      id: "crep-plants-global-glow",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...sourceLayer,
+                      minzoom: POWER_PLANT_MIN_ZOOM,
+                      paint: {
+                        "circle-radius": [
+                          "interpolate", ["linear"], ["zoom"],
+                          3, ["min", 17, ["+", 5, ["*", ["sqrt", plantCapacityExpr], 0.22]]],
+                          6, ["min", 24, ["+", 6, ["*", ["sqrt", plantCapacityExpr], 0.36]]],
+                          10, ["min", 38, ["+", 7, ["*", ["sqrt", plantCapacityExpr], 0.58]]],
+                          14, ["min", 52, ["+", 9, ["*", ["sqrt", plantCapacityExpr], 0.9]]],
+                        ],
+                        "circle-color": plantColorExpr,
+                        "circle-opacity": 0.42,
+                        "circle-blur": 1.0,
+                      },
+                    });
+                    safeAddLayer({
+                      id: "crep-plants-global-dot",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...sourceLayer,
+                      minzoom: POWER_PLANT_MIN_ZOOM,
+                      paint: {
+                        // OpenGridWorks-parity capacity bubbles: bigger + brighter at
+                        // global/continental zoom so the grid reads worldwide. (Jun 12, 2026)
+                        "circle-radius": [
+                          "interpolate", ["linear"], ["zoom"],
+                          3, ["min", 9, ["max", 2.8, ["*", ["sqrt", plantCapacityExpr], 0.07]]],
+                          6, ["min", 15, ["max", 3.4, ["*", ["sqrt", plantCapacityExpr], 0.12]]],
+                          10, ["min", 24, ["max", 4.4, ["*", ["sqrt", plantCapacityExpr], 0.2]]],
+                          14, ["min", 34, ["max", 6, ["*", ["sqrt", plantCapacityExpr], 0.3]]],
+                        ],
+                        "circle-color": plantColorExpr,
+                        "circle-opacity": 0.95,
+                        "circle-stroke-width": [
+                          "interpolate", ["linear"], ["zoom"],
+                          3, 0.45, 8, 0.8, 12, 1.1,
+                        ],
+                        "circle-stroke-color": "rgba(255,255,255,0.9)",
+                        "circle-stroke-opacity": 0.86,
+                      },
+                    });
+                    safeAddLayer({
+                      id: "crep-plants-global-label",
+                      type: "symbol",
+                      source: result.sourceId,
+                      ...sourceLayer,
+                      minzoom: 10,
+                      layout: {
+                        "text-field": [
+                          "case",
+                          [">", plantCapacityExpr, 0],
+                          ["concat", ["coalesce", ["get", "name"], "Power Plant"], " - ", ["to-string", ["round", plantCapacityExpr]], " MW"],
+                          ["coalesce", ["get", "name"], "Power Plant"],
+                        ],
+                        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 11, 18, 13],
+                        "text-offset": [0, 1.05],
+                        "text-anchor": "top",
+                        "text-allow-overlap": false,
+                        "text-optional": true,
+                        "text-max-width": 10,
+                      } as any,
+                      paint: {
+                        "text-color": "#fde68a",
+                        "text-halo-color": "rgba(0,0,0,0.9)",
+                        "text-halo-width": 1.5,
+                        "text-halo-blur": 0.5,
+                      },
+                    });
+
+                    map.on("click", "crep-plants-global-dot", (e: any) => {
+                      const f = e.features?.[0];
+                      if (!f) return;
+                      const p = f.properties || {};
+                      const c = e.lngLat;
+                      lastEntityPickTimeRef.current = Date.now();
+                      highlightFromEvent(map, e);
+                      setSelectedInfraAsset({
+                        type: "plant",
+                        id: p.id || p.plant_id || `${c?.lat}-${c?.lng}`,
+                        name: p.name || p.plant_name || "Power Plant",
+                        lat: c?.lat ?? 0,
+                        lng: c?.lng ?? 0,
+                        properties: {
+                          capacity_mw: p.capacity_mw,
+                          fuel: p.fuel || p.primary_fuel || p.technology,
+                          owner: p.owner,
+                          country: p.country_long || p.country,
+                          source: p.source || "WRI Global Power Plant Database",
+                          ...p,
+                        },
+                      });
+                      setSelectedPlant(null);
+                    });
+                    bindFeatureHoverPreview("crep-plants-global-dot", {
+                      type: "power plant",
+                      labelKeys: ["name", "plant_name", "id"],
+                      detailKeys: ["fuel", "primary_fuel", "technology", "capacity_mw", "country_long", "owner"],
+                    });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.powerPlantsGlobal.label}: ${result.mode} active -> crep-plants-global-dot`);
+                  } catch (e) {
+                    console.warn("[CREP/Infra] power-plants-global PMTiles path failed (file not generated yet?):", (e as Error)?.message);
+                  }
+                })();
+
                 // OSM + PeeringDB + MINDEX. OpenGridWorks-style glowing squares.
                 // Generated by scripts/etl/crep/fetch-datacenters-global.mjs.
                 // Falls through silently if the file hasn't been generated yet.
@@ -19772,13 +20649,13 @@ export default function CREPDashboardPage({
                         // shows data centers as hero icons, not pinpricks.
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          2, 3, 5, 4.5, 8, 6, 12, 9, 16, 14,
+                          2, 4.5, 5, 6.5, 8, 9, 12, 13, 16, 18,
                         ],
                         "circle-color": "#60a5fa",  // blue-400
                         "circle-opacity": 1.0,
-                        "circle-stroke-width": 1.6,
+                        "circle-stroke-width": 2,
                         "circle-stroke-color": "#ffffff",
-                        "circle-stroke-opacity": 0.95,
+                        "circle-stroke-opacity": 1.0,
                       },
                     });
                     // Apr 19, 2026 (Morgan OpenGridView parity: "larger
@@ -19999,9 +20876,18 @@ export default function CREPDashboardPage({
                   if (!valid.length) return;
                   if (!mapReady()) return; // map torn down between fetch and callback
 
+                  const militaryGeometry = (e: any) => {
+                    const g = e.geometry;
+                    if (g?.type === "Polygon" || g?.type === "MultiPolygon") return g;
+                    if (e.polygon && e.polygon.length > 2) {
+                      return { type: "Polygon" as const, coordinates: [e.polygon] };
+                    }
+                    return null;
+                  };
+
                   // Split: facilities with polygon vs point-only
-                  const withPolygon = valid.filter((e: any) => e.polygon && e.polygon.length > 2);
-                  const pointOnly = valid.filter((e: any) => !e.polygon || e.polygon.length <= 2);
+                  const withPolygon = valid.filter((e: any) => Boolean(militaryGeometry(e)));
+                  const pointOnly = valid.filter((e: any) => !militaryGeometry(e));
 
                   // Push point-only facilities to crep-live-military source (shield icon)
                   const pointFeatures = pointOnly.map((e: any) => ({
@@ -20028,7 +20914,7 @@ export default function CREPDashboardPage({
                       type: e.properties?.military || e.type || "base",
                       operator: e.properties?.operator || e.operator || "",
                     },
-                    geometry: { type: "Polygon" as const, coordinates: [e.polygon] },
+                    geometry: militaryGeometry(e),
                   }));
                   if (polyFeatures.length > 0 && mapReady()) {
                     try {
@@ -20043,6 +20929,7 @@ export default function CREPDashboardPage({
                   setMilitaryBases(valid.map((e: any) => ({
                     id: e.id, name: e.name || "Military Facility", lat: e.lat, lng: e.lng,
                     type: e.properties?.military || e.type || "base", operator: e.properties?.operator || e.operator,
+                    hasPolygon: Boolean(militaryGeometry(e)),
                   })));
                   console.log(`[CREP/Infra] ${valid.length} military facilities â†’ MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
@@ -20063,7 +20950,7 @@ export default function CREPDashboardPage({
                   ctState.instantRendered = false;
                 };
 
-                if (!isEarthSimulatorRoute) void (async () => {
+                void (async () => {
                   try {
                     // Apr 22, 2026 â€” Morgan: "no cell towers are there".
                     // cell-towers-us-tw-instant.geojson was a 43-byte stub
@@ -20150,7 +21037,9 @@ export default function CREPDashboardPage({
                         type: "circle",
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
-                        minzoom: TELECOM_DETAIL_MIN_ZOOM,
+                        // Show at continental/US flyover, not just state level — the
+                        // global tileset has data down to z0. (Jun 12, 2026)
+                        minzoom: 3.5,
                         paint: {
                           // Apr 19, 2026 (final fix after two bad attempts):
                           //   1. First version nested TWO interpolates inside a case â†’ rejected
@@ -20166,11 +21055,11 @@ export default function CREPDashboardPage({
                           // kept big enough to stay clickable.
                           "circle-radius": [
                             "interpolate", ["linear"], ["zoom"],
-                            2,  ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 1],
-                            5,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.25],
-                            8,  ["case", ["boolean", ["feature-state", "hover"], false], 2.75, 1.5],
-                            12, ["case", ["boolean", ["feature-state", "hover"], false], 3.5,  2],
-                            16, ["case", ["boolean", ["feature-state", "hover"], false], 5,    3],
+                            3,  ["case", ["boolean", ["feature-state", "hover"], false], 2,   1.4],
+                            5,  ["case", ["boolean", ["feature-state", "hover"], false], 2.6, 1.8],
+                            8,  ["case", ["boolean", ["feature-state", "hover"], false], 3.4, 2.4],
+                            12, ["case", ["boolean", ["feature-state", "hover"], false], 4.5, 3.2],
+                            16, ["case", ["boolean", ["feature-state", "hover"], false], 6,   4.5],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
@@ -20315,13 +21204,13 @@ export default function CREPDashboardPage({
                 // it hits the browser HTTP cache instantly on re-visits.
                 // idleLoad lets the map paint first; a 7 MB GeoJSON parse
                 // would otherwise block the first frame.
-                idleLoad(async () => {
+                const loadMilitaryGeoJson = async (url: string, label: string) => {
                   try {
-                    const res = await fetch("/data/military-bases.geojson", { cache: "default" });
-                    if (!res.ok) return;
+                    const res = await fetch(url, { cache: "default" });
+                    if (!res.ok) return 0;
                     const gj = await res.json();
                     const feats = gj.features || [];
-                    if (!feats.length) return;
+                    if (!feats.length) return 0;
                     // Convert GeoJSON features to the shape renderMilitary expects
                     const facilities = feats.map((f: any, i: number) => {
                       const p = f.properties || {};
@@ -20352,14 +21241,26 @@ export default function CREPDashboardPage({
                         type: p.military ?? p.type ?? "base",
                         operator: p.operator ?? p.COMPONENT ?? "",
                         lat, lng, polygon,
+                        geometry: (g?.type === "Polygon" || g?.type === "MultiPolygon") ? g : undefined,
                         properties: p,
                       };
                     });
-                    if (mapReady()) renderMilitary(facilities, "static-file");
+                    if (mapReady()) renderMilitary(facilities, label);
+                    console.log(`[CREP/Infra] ${facilities.length} military facilities loaded (${label})`);
+                    return facilities.length;
                   } catch (err) {
-                    console.warn("[CREP/Infra] Military static load failed:", err);
+                    console.warn(`[CREP/Infra] Military ${label} load failed:`, err);
+                    return 0;
                   }
-                });
+                };
+                window.setTimeout(() => {
+                  void loadMilitaryGeoJson("/data/military-bases-seed.geojson", "seed");
+                }, 250);
+                window.setTimeout(() => {
+                  idleLoad(() => {
+                    void loadMilitaryGeoJson("/data/military-bases.geojson", "full-static");
+                  });
+                }, isEarthSimulatorRoute ? 2_500 : 0);
 
                 // â”€â”€ Highlight layers (OpenGridWorks-style selection glow) â”€â”€
                 // Must be last so they render on top of all infra
@@ -20372,15 +21273,11 @@ export default function CREPDashboardPage({
                 }, 2000);
               };
 
-              if (!isEmbeddedEarthquakeSearch && !auditAllOffMode) {
+              if (!isEmbeddedEarthquakeSearch && !auditAllOffMode && !assetIsolationMode) {
                 if (isEarthSimulatorRoute) {
                   let permanentInfraStarted = false;
                   const startPermanentInfraWhenIdle = () => {
                     if (permanentInfraStarted) return;
-                    if (mapInteractionActiveRef.current) {
-                      window.setTimeout(startPermanentInfraWhenIdle, 2_500);
-                      return;
-                    }
                     permanentInfraStarted = true;
                     loadPermanentInfra();
                   };
@@ -20422,29 +21319,47 @@ export default function CREPDashboardPage({
               // Globe: live bounds during move; commit panel + marker bounds on moveend (not idle-only).
               let viewportRaf: number | null = null;
               const isGlobeRoute = isGlobeCrepRoute();
+              const publishViewportState = (
+                reason: string,
+                zoom: number,
+                bounds: { north: number; south: number; east: number; west: number },
+              ) => {
+                try {
+                  (window as any).__crep_map = map;
+                  (window as any).__crep_live_viewport = {
+                    reason,
+                    zoom,
+                    bounds,
+                    center: map.getCenter?.() ?? null,
+                    moving: typeof map.isMoving === "function" ? map.isMoving() : false,
+                    at: Date.now(),
+                  };
+                } catch {
+                  /* debug only */
+                }
+              };
+              const boundsNearlyEqual = (
+                a: { north: number; south: number; east: number; west: number } | null | undefined,
+                b: { north: number; south: number; east: number; west: number },
+                epsilon = 0.0002,
+              ) => Boolean(
+                a &&
+                  Math.abs(a.north - b.north) < epsilon &&
+                  Math.abs(a.south - b.south) < epsilon &&
+                  Math.abs(a.east - b.east) < epsilon &&
+                  Math.abs(a.west - b.west) < epsilon,
+              );
               const commitBoundsState = (
                 setter: Dispatch<SetStateAction<{ north: number; south: number; east: number; west: number } | null>>,
                 committedRef: MutableRefObject<{ north: number; south: number; east: number; west: number } | null>,
                 nextBounds: { north: number; south: number; east: number; west: number },
               ) => {
                 const prevCommitted = committedRef.current;
-                const committedUnchanged = Boolean(
-                  prevCommitted &&
-                    Math.abs(prevCommitted.north - nextBounds.north) < 0.0002 &&
-                    Math.abs(prevCommitted.south - nextBounds.south) < 0.0002 &&
-                    Math.abs(prevCommitted.east - nextBounds.east) < 0.0002 &&
-                    Math.abs(prevCommitted.west - nextBounds.west) < 0.0002,
-                );
-                if (committedUnchanged) return;
+                if (boundsNearlyEqual(prevCommitted, nextBounds)) return;
                 committedRef.current = nextBounds;
                 setter((prev) => {
                   if (!prev) return nextBounds;
-                  const unchanged =
-                    Math.abs(prev.north - nextBounds.north) < 0.0002 &&
-                    Math.abs(prev.south - nextBounds.south) < 0.0002 &&
-                    Math.abs(prev.east - nextBounds.east) < 0.0002 &&
-                    Math.abs(prev.west - nextBounds.west) < 0.0002;
-                  return unchanged ? prev : nextBounds;
+                  return boundsNearlyEqual(prev, nextBounds) ? prev : nextBounds;
                 });
               };
               const scheduleViewportRefRefresh = () => {
@@ -20463,6 +21378,10 @@ export default function CREPDashboardPage({
                   lastViewportRef.current = { zoom: newZoom, bounds: nextBounds };
                   mapZoomRef.current = newZoom;
                   mapBoundsRef.current = nextBounds;
+                  publishViewportState("live", newZoom, nextBounds);
+                  if (isGlobeRoute) {
+                    setLiveMarkerBounds((prev) => (boundsNearlyEqual(prev, nextBounds, 0.001) ? prev : nextBounds));
+                  }
                 });
               };
               const updateViewport = (commitPanelBounds: boolean, commitMarkerBounds = false) => {
@@ -20481,14 +21400,13 @@ export default function CREPDashboardPage({
                   lastViewportRef.current = { zoom: newZoom, bounds: nextBounds };
                   mapZoomRef.current = newZoom;
                   mapBoundsRef.current = nextBounds;
+                  publishViewportState(commitMarkerBounds ? "commit-marker" : "commit-panel", newZoom, nextBounds);
                   if (!commitPanelBounds && !commitMarkerBounds) return;
                   {
                     if (commitPanelBounds) {
                       commitBoundsState(setMapBounds, committedPanelBoundsRef, nextBounds);
-                    // Globe: marker LOD uses mapZoom â€” defer zoom commit until idle with marker bounds.
-                      if (!isGlobeRoute || commitMarkerBounds) {
-                        setMapZoom((prev) => (Math.abs(prev - newZoom) > 0.02 ? newZoom : prev));
-                    }
+                      // Keep viewport-backed layers in sync with the actual globe after pan/zoom.
+                      setMapZoom((prev) => (Math.abs(prev - newZoom) > 0.02 ? newZoom : prev));
                     }
                     if (commitMarkerBounds) {
                       commitBoundsState(setMarkerMapBounds, committedMarkerBoundsRef, nextBounds);
@@ -20712,6 +21630,49 @@ export default function CREPDashboardPage({
                 }
                 return false;
               };
+              const openFungalMarkerFromCanvasClick = (event: any) => {
+                const point = event?.point ?? (event?.lngLat ? map.project(event.lngLat) : null);
+                if (!point) return false;
+                const rendered = renderedNatureStableRef.current.list;
+                const fallback = lastRenderedFungalForPanRef.current;
+                const source = rendered.length > 0 ? rendered : fallback;
+                if (!source.length) return false;
+
+                let closest: FungalObservation | null = null;
+                let closestDistanceSq = Number.POSITIVE_INFINITY;
+                const zoom = typeof map.getZoom === "function" ? Number(map.getZoom()) : 0;
+                const maxDistance = zoom >= 10 ? 24 : 18;
+
+                for (const obs of source) {
+                  const lng = Number(obs.longitude);
+                  const lat = Number(obs.latitude);
+                  if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+                  let projected: { x: number; y: number };
+                  try {
+                    projected = map.project([lng, lat]);
+                  } catch {
+                    continue;
+                  }
+                  const dx = projected.x - point.x;
+                  const dy = projected.y - point.y;
+                  const distanceSq = dx * dx + dy * dy;
+                  if (distanceSq < closestDistanceSq) {
+                    closestDistanceSq = distanceSq;
+                    closest = obs;
+                  }
+                }
+
+                if (!closest || closestDistanceSq > maxDistance * maxDistance) return false;
+                try {
+                  (window as any).__crep_last_canvas_fungal_pick = {
+                    id: closest.id,
+                    distance: Math.sqrt(closestDistanceSq),
+                    at: Date.now(),
+                  };
+                } catch { /* debug only */ }
+                handleSelectFungal(closest);
+                return true;
+              };
 
               // MAP CLICK-AWAY HANDLER: Direct MapLibre click event for reliable popup dismissal
               // This fires when clicking directly on the map canvas, not on markers/popups
@@ -20719,7 +21680,7 @@ export default function CREPDashboardPage({
               // map "click" with target=canvas. We use lastEntityPickTimeRef to avoid
               // dismissing immediately after an entity pick (deck.gl onClick fires first).
               map.on("click", (e: any) => {
-                if (openInteractiveFeatureFromClick(e)) {
+                if (openInteractiveFeatureFromClick(e) || openFungalMarkerFromCanvasClick(e)) {
                   e.preventDefault?.();
                   e.originalEvent?.stopPropagation?.();
                   return;
@@ -20805,6 +21766,7 @@ export default function CREPDashboardPage({
 
             <VoiceMapControls
               {...mapCommandHandlers}
+              enableWebSocket={!isEarthSimulatorRoute}
               websocketUrl={VOICE_ENDPOINTS.CREP_BRIDGE_WS}
               className={cn("hidden md:block absolute top-4 z-20", rightPanelOpen ? "right-[340px]" : "right-4")}
             />
@@ -21285,7 +22247,10 @@ export default function CREPDashboardPage({
             signalType="cellular"
           />}
 
-          {!auditAllOffMode && assetIsolationMode !== "funga" && (isEarthSimulatorRoute || hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET)) && <FungalAtlasLayer
+          {!auditAllOffMode &&
+            assetIsolationMode !== "funga" &&
+            hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET) &&
+            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
             map={mapRef}
             enabled={{
               // May 21 2026 (Morgan): every fungal atlas toggle is wired to its
@@ -21323,27 +22288,27 @@ export default function CREPDashboardPage({
               â€¢ Factories (Climate TRACE + OSM + GEM + MINDEX)
               â€¢ Orbital debris catalogued + 1.2M statistical cloud
               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-          {assetIsolationMode !== "funga" && <ProposalOverlays
+          {assetIsolationMode !== "funga" && (!isEarthSimulatorRoute || stableEarthOverlayAssetsReady || proposalOverlayAssetsReady || satelliteImageryOverlayReady) && <ProposalOverlays
             map={mapRef || mapNativeRef.current}
             enabled={{
-              ports:          earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
-              radar:          earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
-              radioStations:  earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
-              powerPlantsG:   earthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
-              factories:      earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
-              orbitalDebris:  earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
-              debrisCloud:    earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
-              txLinesGlobal:  earthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
-              cellTowersG:    earthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
+              ports:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
+              radar:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
+              radioStations:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
+              powerPlantsG:   stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
+              factories:      proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
+              orbitalDebris:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
+              debrisCloud:    proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
+              txLinesGlobal:  stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
+              cellTowersG:    stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
               // Default these to true while layer state hydrates so they
               // load immediately on refresh as required.
-              bathymetry:     layers.find(l => l.id === "bathymetry")?.enabled ?? true,
-              topography:     layers.find(l => l.id === "topography")?.enabled ?? true,
-              satImagery:     layers.find(l => l.id === "satImagery")?.enabled ?? true,
-              railwayTracks:  earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
-              railwayTrains:  earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
-              droneNoFly:     earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
-              cctv:           earthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
+              bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
+              topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
+              satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
+              railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
+              railwayTrains:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
+              droneNoFly:     proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
+              cctv:           proposalOverlayAssetsReady && !assetIsolationMode && !isEarthSimulatorRoute && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
             }}
             bbox={detailedOverlayBbox}
             searchContextMode={isEmbeddedEarthquakeSearch}
@@ -21430,8 +22395,9 @@ export default function CREPDashboardPage({
               pollution showcase (Apr 20, 2026). Federated overlay of
               IBWC river discharge + SDAPCD Hâ‚‚S hotspot + beach closures
               + Navy training waters + oyster restoration sites. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthProjectDetails && oysterProjectInViewport && shouldRenderHeavyOverlays && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
+            liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
             enabled={{
               tijuanaEstuary:         layers.find(l => l.id === "tijuanaEstuary")?.enabled ?? false,
               projectOysterPerimeter: layers.find(l => l.id === "projectOysterPerimeter")?.enabled ?? false,
@@ -21460,7 +22426,7 @@ export default function CREPDashboardPage({
             }}
           />}
           {/* Tijuana station detail widget â€” legacy crep:tijuana:station-click handler. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaStationWidget />}
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaStationWidget />}
           {/* Apr 21, 2026 v2 â€” OysterSiteWidget mirrors MojaveSiteWidget.
               Listens for crep:oyster:site-click from the v2 anchor + 11
               new sub-layer click handlers. Shows project thesis metadata
@@ -21507,7 +22473,7 @@ export default function CREPDashboardPage({
               with san diego missing data". Pulls OSM Overpass into 7
               category-specific geojsons refreshed weekly by
               .github/workflows/sdtj-coverage-weekly.yml. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mountSdtjCoverageLayers && (
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && mountSdtjCoverageLayers && (
             <SdtjCoverageLayer
               map={mapRef}
               enabled={sdtjCoverageEnabled}
@@ -21521,7 +22487,7 @@ export default function CREPDashboardPage({
           {/* Live Transit â€” Apr 23 2026 (Morgan: "still no trains rendering").
               Aggregates MTA/WMATA/BART/MBTA/511-Bay/CTA/TriMet/MARTA/Amtrak/
               SEPTA/Metrolink/DART into a single MapLibre circle layer. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= RAILWAY_MIN_ZOOM && (layers.find(l => l.id === "liveTransit")?.enabled ?? false) && (
+          {liveAuxiliaryLayersReady && !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= RAILWAY_MIN_ZOOM && (layers.find(l => l.id === "liveTransit")?.enabled ?? false) && (
             <LiveTransitLayer
               map={mapRef}
               visible={layers.find(l => l.id === "liveTransit")?.enabled ?? false}
@@ -21532,7 +22498,7 @@ export default function CREPDashboardPage({
           {/* Live AQI â€” Apr 23 2026 (Morgan: "all aqi live feeds not working
               fix them"). AIRNOW_API_KEY synced to sandbox; this paints every
               monitor in viewport color-coded by EPA AQI category. */}
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 5.5 && (layers.find(l => l.id === "liveAqi")?.enabled ?? false) && (
+          {liveAqiLayerReady && !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mapZoom >= 5.5 && (layers.find(l => l.id === "liveAqi")?.enabled ?? false) && (
             <LiveAqiLayer
               map={mapRef}
               visible={layers.find(l => l.id === "liveAqi")?.enabled ?? false}
@@ -21540,7 +22506,7 @@ export default function CREPDashboardPage({
             />
           )}
 
-          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && mountMetroProjectLayers && (
+          {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && mountMetroProjectLayers && (
             <ProjectNycDcLayer
               map={mapRef}
               enabled={metroProjectLayerEnabled}
@@ -21551,57 +22517,60 @@ export default function CREPDashboardPage({
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 â€”
               canonical US infra datasets, ~40k features total. See
               components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md. */}
-          {!isEarthSimulatorRoute && !auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, EIA_IM3_LAYER_IDS) && <EiaIm3Overlays
+          {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, EIA_IM3_LAYER_IDS) && <EiaIm3Overlays
             map={mapRef}
+            zoom={mapZoom}
+            bounds={mapBounds}
+            earthSimulator={isEarthSimulatorRoute}
             enabled={{
               im3DataCenters:          layers.find(l => l.id === "im3DataCenters")?.enabled ?? true,
               im3DataCenterFootprints: layers.find(l => l.id === "im3DataCenterFootprints")?.enabled ?? false,
-              eiaOperating:            layers.find(l => l.id === "eiaOperating")?.enabled   ?? false,
-              eiaPlanned:              layers.find(l => l.id === "eiaPlanned")?.enabled     ?? false,
-              eiaRetired:              layers.find(l => l.id === "eiaRetired")?.enabled     ?? false,
-              eiaCanceled:             layers.find(l => l.id === "eiaCanceled")?.enabled    ?? false,
+              eiaOperating:            layers.find(l => l.id === "eiaOperating")?.enabled   ?? isEarthSimulatorRoute,
+              eiaPlanned:              layers.find(l => l.id === "eiaPlanned")?.enabled     ?? isEarthSimulatorRoute,
+              eiaRetired:              layers.find(l => l.id === "eiaRetired")?.enabled     ?? isEarthSimulatorRoute,
+              eiaCanceled:             layers.find(l => l.id === "eiaCanceled")?.enabled    ?? isEarthSimulatorRoute,
             }}
           />}
 
           {/* V3 orphan layers â€” events / facilities / pollution / military
               sub-types / transport sub-types / biodiversity / heatmaps.
               See components/crep/layers/v3-overlays.tsx (Apr 19, 2026). */}
-          {!auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, V3_OVERLAY_LAYER_IDS) && <V3Overlays
+          {(!isEarthSimulatorRoute || viewportDataPrefetchReady) && !auditAllOffMode && !assetIsolationMode && hasEnabledLayer(layers, V3_OVERLAY_LAYER_IDS) && <V3Overlays
             map={mapRef}
             facilities={viewportOverlayFacilities}
             enabled={{
-              earthquakes:     layers.find(l => l.id === "earthquakes")?.enabled ?? false,
-              volcanoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "volcanoes")?.enabled ?? false),
-              wildfires:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "wildfires")?.enabled ?? false),
-              storms:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "storms")?.enabled ?? false),
-              floods:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "floods")?.enabled ?? false),
-              lightning:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "lightning")?.enabled ?? false),
-              tornadoes:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tornadoes")?.enabled ?? false),
+              earthquakes:     (!isEarthSimulatorRoute || earthSimDeferredDataReady) && (layers.find(l => l.id === "earthquakes")?.enabled ?? false),
+              volcanoes:       (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "volcanoes")?.enabled ?? false),
+              wildfires:       (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "wildfires")?.enabled ?? false),
+              storms:          (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "storms")?.enabled ?? false),
+              floods:          (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "floods")?.enabled ?? false),
+              lightning:       (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "lightning")?.enabled ?? false),
+              tornadoes:       (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tornadoes")?.enabled ?? false),
               hospitals:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "hospitals")?.enabled ?? false),
               fireStations:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fireStations")?.enabled ?? false),
               universities:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "universities")?.enabled ?? false),
-              policeStations:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "policeStations")?.enabled ?? false),
-              libraries:        !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "libraries")?.enabled ?? false),
-              civicFacilities:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "civicFacilities")?.enabled ?? false),
-              oilGas:          (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "oilGas")?.enabled ?? false),
-              methaneSources:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "methaneSources")?.enabled ?? false),
-              metalOutput:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "metalOutput")?.enabled ?? false),
-              waterPollution:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "waterPollution")?.enabled ?? false),
-              population:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "population")?.enabled ?? false),
-              humanMovement:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "humanMovement")?.enabled ?? false),
-              events_human:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "events_human")?.enabled ?? false),
-              signalHeatmap:   !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? false),
-              militaryAir:     !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryAir")?.enabled ?? false),
-              militaryNavy:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryNavy")?.enabled ?? false),
-              tanks:           !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tanks")?.enabled ?? false),
-              militaryDrones:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryDrones")?.enabled ?? false),
-              aviationRoutes:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "aviationRoutes")?.enabled ?? false),
-              shipRoutes:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "shipRoutes")?.enabled ?? false),
-              fishing:         !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fishing")?.enabled ?? false),
-              containers:      !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "containers")?.enabled ?? false),
-              vehicles:        !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "vehicles")?.enabled ?? false),
-              drones:          !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "drones")?.enabled ?? false),
-              biodiversity:    !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "biodiversity")?.enabled ?? false),
+              policeStations:  !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "policeStations")?.enabled ?? false),
+              libraries:       !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "libraries")?.enabled ?? false),
+              civicFacilities: !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "civicFacilities")?.enabled ?? false),
+              oilGas:          (!isEarthSimulatorRoute || earthSimDeferredDataReady) && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "oilGas")?.enabled ?? false),
+              methaneSources:  (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "methaneSources")?.enabled ?? false),
+              metalOutput:     (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "metalOutput")?.enabled ?? false),
+              waterPollution:  (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "waterPollution")?.enabled ?? false),
+              population:      (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "population")?.enabled ?? false),
+              humanMovement:   (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "humanMovement")?.enabled ?? false),
+              events_human:    (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "events_human")?.enabled ?? false),
+              signalHeatmap:   (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "signalHeatmap")?.enabled ?? false),
+              militaryAir:     (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryAir")?.enabled ?? false),
+              militaryNavy:    (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryNavy")?.enabled ?? false),
+              tanks:           (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "tanks")?.enabled ?? false),
+              militaryDrones:  (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "militaryDrones")?.enabled ?? false),
+              aviationRoutes:  (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "aviationRoutes")?.enabled ?? false),
+              shipRoutes:      (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "shipRoutes")?.enabled ?? false),
+              fishing:         (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "fishing")?.enabled ?? false),
+              containers:      (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "containers")?.enabled ?? false),
+              vehicles:        (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "vehicles")?.enabled ?? false),
+              drones:          (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "drones")?.enabled ?? false),
+              biodiversity:    (!isEarthSimulatorRoute || earthSimDeferredDataReady) && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "biodiversity")?.enabled ?? false),
             }}
             bbox={regionalOverlayBbox}
           />}
@@ -21611,7 +22580,7 @@ export default function CREPDashboardPage({
               Live solar flares, CMEs, aurora ovals, subsolar earthspot,
               and hypothesis correlation lines to active tropical cyclones.
               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-          {!auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false) && <SunEarthImpactLayer
+          {(!isEarthSimulatorRoute || earthSimDeferredDataReady) && !auditAllOffMode && !assetIsolationMode && (layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false) && <SunEarthImpactLayer
             map={mapRef}
             enabled={layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false}
             showCorrelationLines={true}
@@ -21709,7 +22678,7 @@ export default function CREPDashboardPage({
               a fully-painted view.
               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {!embedded && <div data-panel="fly-to" className={cn(
-            "absolute top-14 z-40 transition-all duration-300 flex flex-col gap-2",
+          "absolute top-14 z-[95] transition-all duration-300 flex flex-col gap-2",
             rightPanelOpen ? "right-[356px]" : "right-4"
           )}>
             <FlyToButtons
@@ -21810,7 +22779,7 @@ export default function CREPDashboardPage({
                     }}
                   >
                     <TreePine className="w-3 h-3 inline-block mr-1" />
-                    {fungalSpeciesFilter ? visibleFungalObservations.length : fungalObservations.length} FUNGI
+                    {fungalSpeciesFilter ? visibleFungalObservations.length : fungalObservations.length} NATURE
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -21907,8 +22876,8 @@ export default function CREPDashboardPage({
           data-panel="right"
           data-mobile-open={rightPanelOpen ? "true" : "false"}
           className={cn(
-          "absolute right-3 top-3 bottom-3 w-80 z-30 transition-all duration-300 ease-in-out border border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden",
-          rightPanelOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
+          "absolute right-3 top-3 bottom-3 w-80 z-[90] transition-all duration-300 ease-in-out border border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden",
+          rightPanelOpen ? "translate-x-0 opacity-100" : "translate-x-[calc(100%+1rem)] opacity-0 pointer-events-none"
           )}
         >
           <div className="h-full flex flex-col">
@@ -21922,7 +22891,7 @@ export default function CREPDashboardPage({
              * controls and producing duplicate filter authorities. Now
              * 3 tabs: myca (viewport intelligence) / intel / environment.
             */}
-            <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
+            {shouldMountRightPanelContent && <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
               <button
                 type="button"
                 aria-label="Close MYCA panel"
@@ -22025,7 +22994,7 @@ export default function CREPDashboardPage({
                   </div>
                 </TabsContent>
             </div>
-            </Tabs>
+            </Tabs>}
           </div>
         </div>
         )}
@@ -22111,7 +23080,7 @@ export default function CREPDashboardPage({
         </div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-gray-500">
           <span>{clientDate || "Loading..."}</span>
-          <span className="text-cyan-400 tabular-nums">{new Date().toLocaleTimeString()}</span>
+          <span className="text-cyan-400 tabular-nums">{clientTime || "--:--:--"}</span>
         </div>
       </div>}
 

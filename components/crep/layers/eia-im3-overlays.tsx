@@ -54,6 +54,16 @@ export interface EiaIm3Enabled {
 interface Props {
   map: MapLibreMap | null
   enabled: EiaIm3Enabled
+  zoom?: number
+  bounds?: ViewportBounds | null
+  earthSimulator?: boolean
+}
+
+interface ViewportBounds {
+  north: number
+  south: number
+  east: number
+  west: number
 }
 
 const DATASETS: Array<{
@@ -157,8 +167,166 @@ function mapReady(map: MapLibreMap): boolean {
   return !!(map && (map as any).style && typeof map.getSource === "function")
 }
 
-export default function EiaIm3Overlays({ map, enabled }: Props) {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function waitForBrowserIdle(timeout = 900): Promise<void> {
+  const requestIdleCallback = (window as any).requestIdleCallback
+  if (typeof requestIdleCallback === "function") {
+    return new Promise((resolve) => requestIdleCallback(() => resolve(), { timeout }))
+  }
+  return delay(80)
+}
+
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] } as const
+const RAW_OVERVIEW_POINT_MIN_ZOOM = 11.5
+const RAW_FOOTPRINT_DETAIL_MIN_ZOOM = 11
+const RAW_DETAIL_MAX_SPAN_DEG = 0.85
+const EIA_IM3_DATASET_CACHE = new Map<string, Promise<any>>()
+
+function loadCachedDataset(file: string): Promise<any> {
+  const cached = EIA_IM3_DATASET_CACHE.get(file)
+  if (cached) return cached
+  const pending = fetch(file, { cache: "force-cache" }).then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  })
+  EIA_IM3_DATASET_CACHE.set(file, pending)
+  return pending
+}
+
+function normalizedLng(lng: number): number {
+  if (!Number.isFinite(lng)) return 0
+  let next = lng
+  while (next > 180) next -= 360
+  while (next < -180) next += 360
+  return next
+}
+
+function lngSpan(bounds: ViewportBounds): number {
+  const west = normalizedLng(bounds.west)
+  const east = normalizedLng(bounds.east)
+  return east >= west ? east - west : 360 - west + east
+}
+
+function expandBounds(bounds: ViewportBounds, factor = 0.18): ViewportBounds {
+  const latDelta = Math.max(0.05, Math.abs(bounds.north - bounds.south) * factor)
+  const lonDelta = Math.max(0.05, lngSpan(bounds) * factor)
+  return {
+    north: Math.min(90, bounds.north + latDelta),
+    south: Math.max(-90, bounds.south - latDelta),
+    east: bounds.east + lonDelta,
+    west: bounds.west - lonDelta,
+  }
+}
+
+function shouldLoadRawDetail(
+  earthSimulator: boolean | undefined,
+  zoom: number | undefined,
+  bounds: ViewportBounds | null | undefined,
+  minZoom = RAW_OVERVIEW_POINT_MIN_ZOOM,
+  allowSmallViewportOverride = true,
+): boolean {
+  if (!earthSimulator) return true
+  if (!bounds || !Number.isFinite(zoom)) return false
+  if ((zoom ?? 0) >= minZoom) return true
+  if (!allowSmallViewportOverride) return false
+  return Math.abs(bounds.north - bounds.south) <= RAW_DETAIL_MAX_SPAN_DEG && lngSpan(bounds) <= RAW_DETAIL_MAX_SPAN_DEG
+}
+
+function coordInBounds(lng: number, lat: number, bounds: ViewportBounds): boolean {
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false
+  if (lat < bounds.south || lat > bounds.north) return false
+  const west = normalizedLng(bounds.west)
+  const east = normalizedLng(bounds.east)
+  const value = normalizedLng(lng)
+  return east >= west ? value >= west && value <= east : value >= west || value <= east
+}
+
+function geometryTouchesBounds(geometry: any, bounds: ViewportBounds): boolean {
+  if (!geometry) return false
+  if (geometry.type === "Point") {
+    return coordInBounds(Number(geometry.coordinates?.[0]), Number(geometry.coordinates?.[1]), bounds)
+  }
+  if (geometry.type === "MultiPoint" || geometry.type === "LineString") {
+    return (geometry.coordinates || []).some((coord: any) => coordInBounds(Number(coord?.[0]), Number(coord?.[1]), bounds))
+  }
+  if (geometry.type === "MultiLineString" || geometry.type === "Polygon") {
+    return (geometry.coordinates || []).some((line: any[]) =>
+      (line || []).some((coord: any) => coordInBounds(Number(coord?.[0]), Number(coord?.[1]), bounds)),
+    )
+  }
+  if (geometry.type === "MultiPolygon") {
+    return (geometry.coordinates || []).some((poly: any[]) =>
+      (poly || []).some((line: any[]) =>
+        (line || []).some((coord: any) => coordInBounds(Number(coord?.[0]), Number(coord?.[1]), bounds)),
+      ),
+    )
+  }
+  return false
+}
+
+function scopeGeojsonToBounds(data: any, bounds: ViewportBounds | null | undefined): any {
+  if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
+    return EMPTY_FEATURE_COLLECTION
+  }
+  if (!bounds) return data
+  const padded = expandBounds(bounds)
+  return {
+    ...data,
+    features: data.features.filter((feature: any) => geometryTouchesBounds(feature?.geometry, padded)),
+  }
+}
+
+function setGeojsonSourceData(map: MapLibreMap, sourceId: string, data: any): boolean {
+  const source = map.getSource(sourceId) as any
+  if (source && typeof source.setData === "function") {
+    source.setData(data)
+    return true
+  }
+  return false
+}
+
+function hideLayers(map: MapLibreMap, layerIds: string[]) {
+  if (!mapReady(map)) return
+  for (const lid of layerIds) {
+    try {
+      if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", "none")
+    } catch { /* ignore */ }
+  }
+}
+
+function showLayers(map: MapLibreMap, layerIds: string[]) {
+  if (!mapReady(map)) return
+  for (const lid of layerIds) {
+    try {
+      if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", "visible")
+    } catch { /* ignore */ }
+  }
+}
+
+function clearSource(map: MapLibreMap, sourceId: string) {
+  if (!mapReady(map)) return
+  try {
+    setGeojsonSourceData(map, sourceId, EMPTY_FEATURE_COLLECTION)
+  } catch { /* ignore */ }
+}
+
+function boundsKey(bounds: ViewportBounds | null | undefined): string {
+  if (!bounds) return "global"
+  const precision = 2
+  return [
+    bounds.north.toFixed(precision),
+    bounds.south.toFixed(precision),
+    bounds.east.toFixed(precision),
+    bounds.west.toFixed(precision),
+  ].join(":")
+}
+
+export default function EiaIm3Overlays({ map, enabled, zoom, bounds, earthSimulator }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
+  const loadKeyRef = useRef<Record<string, string>>({})
 
   // ─── IM3 footprint POLYGONS (building + campus) ──────────────────────
   // Apr 20, 2026 (Morgan OpenGridView parity: building-level DC shapes).
@@ -171,31 +339,37 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
     const fillId = "crep-im3-footprint-fill"
     const lineId = "crep-im3-footprint-line"
     const on = !!enabled.im3DataCenterFootprints
-    if (!on) {
+    const active = on && shouldLoadRawDetail(earthSimulator, zoom, bounds, RAW_FOOTPRINT_DETAIL_MIN_ZOOM, false)
+    if (!active) {
       if (!mapReady(map)) return
       try {
-        if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "none")
-        if (map.getLayer(lineId)) map.setLayoutProperty(lineId, "visibility", "none")
+        hideLayers(map, [fillId, lineId])
+        clearSource(map, sourceId)
       } catch { /* ignore */ }
       return
     }
-    if (loadedRef.current[sourceId]) {
+    const loadKey = `${sourceId}:${earthSimulator ? boundsKey(bounds) : "global"}:${Math.floor((zoom ?? 0) * 2) / 2}`
+    if (loadedRef.current[sourceId] && loadKeyRef.current[sourceId] === loadKey) {
       if (!mapReady(map)) return
       try {
-        if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "visible")
-        if (map.getLayer(lineId)) map.setLayoutProperty(lineId, "visibility", "visible")
+        showLayers(map, [fillId, lineId])
       } catch { /* ignore */ }
       return
     }
-    loadedRef.current[sourceId] = true
+    loadKeyRef.current[sourceId] = loadKey
+    let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch("/data/crep/im3-datacenter-footprints.geojson")
-        if (!res.ok) return
-        const data = await res.json()
-        if (!mapReady(map)) return
+        await waitForBrowserIdle(700)
+        const data = await loadCachedDataset("/data/crep/im3-datacenter-footprints.geojson")
+        const scopedData = earthSimulator ? scopeGeojsonToBounds(data, bounds) : data
+        if (cancelled || !mapReady(map)) return
+        if (setGeojsonSourceData(map, sourceId, scopedData)) {
+          showLayers(map, [fillId, lineId])
+          return
+        }
         if (!map.getSource(sourceId)) {
-          map.addSource(sourceId, { type: "geojson", data })
+          map.addSource(sourceId, { type: "geojson", data: scopedData })
           map.addLayer({
             id: fillId,
             type: "fill",
@@ -246,57 +420,69 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
           })
           map.on("mouseenter", fillId, () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", fillId, () => { map.getCanvas().style.cursor = "" })
-          console.log(`[EiaIm3] IM3 footprints: ${(data.features || []).length} polygons loaded → ${sourceId}`)
+          loadedRef.current[sourceId] = true
+          console.log(`[EiaIm3] IM3 footprints: ${(scopedData.features || []).length} viewport polygons loaded -> ${sourceId}`)
         }
       } catch (e: any) {
         console.warn("[EiaIm3/footprints]", e?.message)
       }
     })()
-  }, [map, enabled.im3DataCenterFootprints])
+    return () => { cancelled = true }
+  }, [map, enabled.im3DataCenterFootprints, earthSimulator, zoom, bounds?.north, bounds?.south, bounds?.east, bounds?.west])
 
   // ─── Attach each dataset lazily on first enable ────────────────────────
   useEffect(() => {
     if (!map) return
-    for (const ds of DATASETS) {
+    let cancelled = false
+    for (const [datasetIndex, ds] of DATASETS.entries()) {
       const on = !!enabled[ds.key]
-      if (!on) {
-        // Hide existing layers when disabled
+      const active = on && shouldLoadRawDetail(earthSimulator, zoom, bounds)
+      if (!active) {
+        // Hide and clear raw detail when disabled or outside viewport LOD.
         if (!mapReady(map)) continue
-        for (const lid of ds.layerIds) {
-          try {
-            if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", "none")
-          } catch { /* ignore */ }
-        }
+        hideLayers(map, ds.layerIds)
+        clearSource(map, ds.sourceId)
         continue
       }
 
-      // Flip visibility back if already attached
-      if (loadedRef.current[ds.sourceId]) {
+      const loadKey = `${ds.sourceId}:${earthSimulator ? boundsKey(bounds) : "global"}:${Math.floor((zoom ?? 0) * 2) / 2}`
+
+      // Flip visibility back if the already attached source is scoped to
+      // the current viewport. Otherwise refetch and replace with the new
+      // bounded slice so off-viewport features leave the render source.
+      if (loadedRef.current[ds.sourceId] && loadKeyRef.current[ds.sourceId] === loadKey) {
         if (!mapReady(map)) continue
-        for (const lid of ds.layerIds) {
-          try {
-            if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", "visible")
-            if (lid === ds.layerIds[2] && map.getLayer(lid) && ds.labelMinzoom != null) {
-              map.setLayerZoomRange(lid, ds.labelMinzoom, 24)
-            }
-          } catch { /* ignore */ }
-        }
+        showLayers(map, ds.layerIds)
+        try {
+          const labelLayerId = ds.layerIds[2]
+          if (ds.labelMinzoom != null && map.getLayer(labelLayerId)) {
+            map.setLayerZoomRange(labelLayerId, ds.labelMinzoom, 24)
+          }
+        } catch { /* ignore */ }
         continue
       }
 
-      loadedRef.current[ds.sourceId] = true
+      loadKeyRef.current[ds.sourceId] = loadKey
 
       ;(async () => {
         try {
-          const res = await fetch(ds.file)
-          if (!res.ok) {
-            console.warn(`[EiaIm3] ${ds.label}: HTTP ${res.status}`)
+          await delay(datasetIndex * 90)
+          await waitForBrowserIdle(ds.key === "eiaOperating" ? 300 : 180)
+          const data = await loadCachedDataset(ds.file)
+          const scopedData = earthSimulator ? scopeGeojsonToBounds(data, bounds) : data
+          if (cancelled || !mapReady(map)) return
+          if (setGeojsonSourceData(map, ds.sourceId, scopedData)) {
+            showLayers(map, ds.layerIds)
+            try {
+              const labelLayerId = ds.layerIds[2]
+              if (ds.labelMinzoom != null && map.getLayer(labelLayerId)) {
+                map.setLayerZoomRange(labelLayerId, ds.labelMinzoom, 24)
+              }
+            } catch { /* ignore */ }
             return
           }
-          const data = await res.json()
-          if (!mapReady(map)) return
           if (!map.getSource(ds.sourceId)) {
-            map.addSource(ds.sourceId, { type: "geojson", data, generateId: true })
+            map.addSource(ds.sourceId, { type: "geojson", data: scopedData, generateId: true })
 
             // OUTER GLOW — soft halo, scales with capacity/sqft
             map.addLayer({
@@ -396,6 +582,7 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
             map.on("mouseenter", ds.layerIds[1], () => { map.getCanvas().style.cursor = "pointer" })
             map.on("mouseleave", ds.layerIds[1], () => { map.getCanvas().style.cursor = "" })
 
+            loadedRef.current[ds.sourceId] = true
             console.log(
               `[EiaIm3] ${ds.label}: ${(data.features || []).length} features loaded → ${ds.sourceId}`,
             )
@@ -405,7 +592,21 @@ export default function EiaIm3Overlays({ map, enabled }: Props) {
         }
       })()
     }
-  }, [map, enabled.im3DataCenters, enabled.eiaOperating, enabled.eiaPlanned, enabled.eiaRetired, enabled.eiaCanceled])
+    return () => { cancelled = true }
+  }, [
+    map,
+    enabled.im3DataCenters,
+    enabled.eiaOperating,
+    enabled.eiaPlanned,
+    enabled.eiaRetired,
+    enabled.eiaCanceled,
+    earthSimulator,
+    zoom,
+    bounds?.north,
+    bounds?.south,
+    bounds?.east,
+    bounds?.west,
+  ])
 
   return null
 }

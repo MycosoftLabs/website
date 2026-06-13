@@ -115,6 +115,7 @@ export const EARTH_SIM_INSTANT_LIVE_LAYER_IDS = [
 
 /** Ground/network devices that stay ON at boot. Live movers start OFF until the user enables them. */
 export const EARTH_SIM_DEVICE_BOOT_LAYER_IDS = [
+  "liveAqi",
   "buoys",
   "liveTransit",
   "railwayTrains",
@@ -141,7 +142,6 @@ export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "auroraOverlay",
   "sunEarthImpact",
   "realisticClouds",
-  "liveAqi",
   "earth2Forecast",
   "earth2Nowcast",
   "earth2Spore",
@@ -220,7 +220,7 @@ export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_INSTANT_LIVE_LAYER_IDS,
 ])
 
-/** Nature kingdom fetch allowed; non-fungi kingdoms off at boot. */
+/** Earth Simulator first paint keeps fungi as the focus species; other kingdoms are opt-in. */
 export const EARTH_SIM_FUNGI_ONLY_GROUND_FILTER = {
   showFungi: true,
   showPlants: false,
@@ -266,13 +266,13 @@ export function getEarthSimulatorEventDomCap(zoom: number): number {
 }
 
 /** Browser-memory cap only. MINDEX remains the source of truth for full iNat history. */
-export const EARTH_SIM_NATURE_STORE_CAP = 12_000
+export const EARTH_SIM_NATURE_STORE_CAP = 36_000
 
 /** Fast live nature paint budget. MINDEX/local files can refill the capped browser store. */
-export const EARTH_SIM_NATURE_INSTANT_LIMIT = 1_600
+export const EARTH_SIM_NATURE_INSTANT_LIMIT = 2_400
 
 /** Live aircraft/vessel/satellite pump should start fast without blocking first paint. */
-export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 2_500
+export const EARTH_SIM_LIVE_STREAM_DELAY_MS = 1_200
 
 export interface EarthSimBootDebugSnapshot {
   stagedBoot: boolean

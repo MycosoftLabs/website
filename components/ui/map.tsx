@@ -20,7 +20,7 @@ import {
   type HTMLAttributes,
   type SyntheticEvent,
 } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -54,77 +54,6 @@ const stopPopupEvent = (event: SyntheticEvent | Event) => {
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-type IsolatedRootRecord = {
-  root: Root;
-  mountNode: HTMLElement;
-  refCount: number;
-  unmountTimer: number | null;
-};
-
-const isolatedMapPortalRoots = new WeakMap<HTMLElement, IsolatedRootRecord>();
-
-const acquireIsolatedMapPortalRoot = (container: HTMLElement) => {
-  const existing = isolatedMapPortalRoots.get(container);
-  if (existing) {
-    existing.refCount += 1;
-    if (existing.unmountTimer !== null && typeof window !== "undefined") {
-      window.clearTimeout(existing.unmountTimer);
-      existing.unmountTimer = null;
-    }
-    if (!existing.mountNode.parentElement) {
-      container.appendChild(existing.mountNode);
-    }
-    return existing.root;
-  }
-
-  const mountNode = document.createElement("div");
-  mountNode.setAttribute("data-maplibre-react-mount", "1");
-  container.appendChild(mountNode);
-
-  const record: IsolatedRootRecord = {
-    root: createRoot(mountNode),
-    mountNode,
-    refCount: 1,
-    unmountTimer: null,
-  };
-  isolatedMapPortalRoots.set(container, record);
-  return record.root;
-};
-
-const releaseIsolatedMapPortalRoot = (container: HTMLElement) => {
-  const record = isolatedMapPortalRoots.get(container);
-  if (!record) return;
-
-  record.refCount = Math.max(0, record.refCount - 1);
-  if (record.refCount > 0) return;
-
-  const unmount = () => {
-    const latest = isolatedMapPortalRoots.get(container);
-    if (!latest || latest.refCount > 0) return;
-    isolatedMapPortalRoots.delete(container);
-    try {
-      latest.root.unmount();
-    } catch {
-      /* React may already be tearing down this detached root during hot reload. */
-    }
-    try {
-      latest.mountNode.remove();
-    } catch {
-      /* The MapLibre shell may already be detached. */
-    }
-  };
-
-  if (typeof window === "undefined") {
-    unmount();
-    return;
-  }
-
-  if (record.unmountTimer !== null) {
-    window.clearTimeout(record.unmountTimer);
-  }
-  record.unmountTimer = window.setTimeout(unmount, 32);
-};
-
 function IsolatedMapPortal({
   container,
   children,
@@ -132,28 +61,8 @@ function IsolatedMapPortal({
   container: HTMLElement | null | undefined;
   children: ReactNode;
 }) {
-  const rootRef = useRef<Root | null>(null);
-  const containerRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!container) return;
-
-    containerRef.current = container;
-    rootRef.current = acquireIsolatedMapPortalRoot(container);
-
-    return () => {
-      rootRef.current = null;
-      containerRef.current = null;
-      releaseIsolatedMapPortalRoot(container);
-    };
-  }, [container]);
-
-  useEffect(() => {
-    if (!container || containerRef.current !== container) return;
-    rootRef.current?.render(<>{children}</>);
-  }, [children, container]);
-
-  return null;
+  if (!container) return null;
+  return createPortal(<>{children}</>, container);
 }
 
 const parkReactPortalNode = (node: HTMLElement | null | undefined) => {
@@ -731,9 +640,15 @@ function MapMarker({
     // Use refs in handlers so they always call the LATEST callback
     const handleMouseEnter = (e: MouseEvent) => onMouseEnterRef.current?.(e);
     const handleMouseLeave = (e: MouseEvent) => onMouseLeaveRef.current?.(e);
+    const handleNativeClick = (e: MouseEvent) => {
+      if ((e as any).__crepMarkerClickHandled) return;
+      (e as any).__crepMarkerClickHandled = true;
+      triggerMarkerClick(e);
+    };
 
     markerDom.markerElement.addEventListener("mouseenter", handleMouseEnter);
     markerDom.markerElement.addEventListener("mouseleave", handleMouseLeave);
+    markerDom.markerElement.addEventListener("click", handleNativeClick, true);
 
     const handleDragStart = () => {
       const lngLat = markerInstance.getLngLat();
@@ -751,6 +666,15 @@ function MapMarker({
     markerInstance.on("dragstart", handleDragStart);
     markerInstance.on("drag", handleDrag);
     markerInstance.on("dragend", handleDragEnd);
+
+    (markerInstance as any).__crepCleanupMarkerEvents = () => {
+      markerDom.markerElement.removeEventListener("mouseenter", handleMouseEnter);
+      markerDom.markerElement.removeEventListener("mouseleave", handleMouseLeave);
+      markerDom.markerElement.removeEventListener("click", handleNativeClick, true);
+      try { markerInstance.off("dragstart", handleDragStart); } catch { /* ignore */ }
+      try { markerInstance.off("drag", handleDrag); } catch { /* ignore */ }
+      try { markerInstance.off("dragend", handleDragEnd); } catch { /* ignore */ }
+    };
 
     return markerInstance;
 
@@ -883,9 +807,9 @@ function MapMarker({
         debug.netActive = Math.max(0, debug.netActive - 1);
         debug.lastMapId = (map as any).__debugMapId || "unknown";
       }
-      // MarkerContent renders into an isolated React root inside MapLibre's
-      // native marker element. Hide immediately, then remove the native shell
-      // after React's cleanup pass so stale markers do not accumulate.
+      // MarkerContent renders through a React portal into MapLibre's native
+      // marker element. Hide immediately, then remove the native shell after
+      // React's cleanup pass so stale markers do not accumulate.
       try {
         const element = marker.getElement?.();
         if (element) {
@@ -899,6 +823,11 @@ function MapMarker({
       const removeNativeMarker = () => {
         if (markerMountTokenRef.current !== mountToken) return;
         let markerElement: HTMLElement | null = null;
+        try {
+          (marker as any).__crepCleanupMarkerEvents?.();
+        } catch {
+          /* marker event cleanup is best effort */
+        }
         try {
           markerElement = marker.getElement();
         } catch {
@@ -1004,9 +933,7 @@ function MarkerContent({
 
     markerElement.setAttribute("data-marker-root", dataMarker);
     markerElement.style.pointerEvents = "auto";
-    if (dataMarker === "device") {
-      markerElement.style.zIndex = "25";
-    }
+    markerElement.style.zIndex = dataMarker === "device" ? "35" : "30";
 
     return () => {
       parkReactPortalNode(portalElement);
@@ -1047,7 +974,10 @@ function MarkerContent({
       onClick={(e) => {
         e.stopPropagation();
         e.nativeEvent.stopImmediatePropagation?.();
-        triggerClick?.(e.nativeEvent as MouseEvent);
+        const nativeEvent = e.nativeEvent as MouseEvent & { __crepMarkerClickHandled?: boolean };
+        if (nativeEvent.__crepMarkerClickHandled) return;
+        nativeEvent.__crepMarkerClickHandled = true;
+        triggerClick?.(nativeEvent);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();

@@ -17,8 +17,12 @@ interface EagleLiveStreamResolveOptions {
   allowResolver?: boolean
 }
 
+const STREAM_API_RESOLVE_TTL_MS = 60_000
+const streamApiResolveCache = new Map<string, { expires: number; value: EagleLiveStreamResolved | null }>()
+const streamApiResolveInflight = new Map<string, Promise<EagleLiveStreamResolved | null>>()
+
 function isHls(url: string) {
-  return /\.m3u8(\?|$)/i.test(url)
+  return /\.m3u8(\?|$|%3f)/i.test(url) || /\/api\/eagle\/hls-proxy(?:\?|$)/i.test(url)
 }
 
 function isWhep(url: string) {
@@ -33,6 +37,41 @@ function isStillImage(url: string) {
   return /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) || /\/api\/eagle\/cam-image/i.test(url)
 }
 
+const STILL_IMAGE_PROXY_HOSTS = new Set([
+  "hpwren.ucsd.edu",
+  "www.hpwren.ucsd.edu",
+  "firemap.sdsc.edu",
+  "www.alertcalifornia.org",
+  "cameras.alertcalifornia.org",
+  "www.alertwildfire.org",
+  "cameras.alertwildfire.org",
+  "www.nps.gov",
+  "webcams.nps.gov",
+  "volcanoes.usgs.gov",
+  "hvo-api.wr.usgs.gov",
+  "cdn.skylinewebcams.com",
+  "camsecure.co",
+  "cams.cdn-surfline.com",
+  "511ny.org",
+  "www.511ny.org",
+  "wsdot.wa.gov",
+  "www.wsdot.wa.gov",
+  "fl511.com",
+  "www.fl511.com",
+  "www.drivetexas.org",
+  "drivetexas.org",
+  "its.dot.ny.gov",
+  "cwwp2.dot.ca.gov",
+  "www.dot.ny.gov",
+  "511va.org",
+  "www.511va.org",
+  "chart.maryland.gov",
+  "ddot.dc.gov",
+  "dc.gov",
+  "webcams.nyctmc.org",
+  "nyctmc.org",
+])
+
 function proxiedHlsUrl(url: string): string {
   if (!isHls(url) || url.startsWith("/api/eagle/hls-proxy")) return url
   try {
@@ -40,7 +79,16 @@ function proxiedHlsUrl(url: string): string {
     const host = parsed.hostname.toLowerCase()
     const isLocalProxy = parsed.pathname === "/api/eagle/hls-proxy"
     if (isLocalProxy) return url
-    if (host.endsWith("dot.ca.gov") || host.includes("dot.ca.gov")) {
+    if (
+      host.endsWith("dot.ca.gov") ||
+      host.includes("dot.ca.gov") ||
+      /videos-\d+\.earthcam\.com/i.test(host) ||
+      host === "live.hdontap.com" ||
+      host === "d1wse1.its.nv.gov" ||
+      host.endsWith(".its.nv.gov") ||
+      host === "nysdot.skyvdn.com" ||
+      host.endsWith(".nysdot.skyvdn.com")
+    ) {
       return `/api/eagle/hls-proxy?url=${encodeURIComponent(parsed.toString())}`
     }
   } catch {
@@ -59,6 +107,13 @@ export function normalizeEagleStillImageUrl(url?: string | null): string | null 
         return `/api/eagle/cam-image?url=${encodeURIComponent(upstream)}`
       }
       return null
+    }
+    if (
+      parsed.pathname !== "/api/eagle/cam-image" &&
+      isStillImage(parsed.toString()) &&
+      STILL_IMAGE_PROXY_HOSTS.has(parsed.hostname.toLowerCase())
+    ) {
+      return `/api/eagle/cam-image?url=${encodeURIComponent(parsed.toString())}`
     }
   } catch {
     /* keep original URL */
@@ -95,7 +150,6 @@ const SNAPSHOT_VIEWER_HOSTS = [
   "hpwren.ucsd.edu",
   "www.surfline.com",
   "cams.cdn-surfline.com",
-  "www.earthcam.com",
   "www.skylinewebcams.com",
   "www.webcamtaxi.com",
   "www.windy.com",
@@ -121,7 +175,13 @@ function shouldResolveBeforeStill(
 ) {
   const provider = (source.provider || "").toLowerCase()
   const urls = `${source.stream_url || ""} ${source.embed_url || ""} ${source.media_url || ""}`.toLowerCase()
-  return provider === "caltrans" || provider.startsWith("511") || /caltrans|dot\.ca\.gov|cwwp2\.dot\.ca\.gov/.test(urls)
+  return (
+    provider === "caltrans" ||
+    provider === "earthcam" ||
+    provider === "nysdot" ||
+    provider.startsWith("511") ||
+    /caltrans|dot\.ca\.gov|cwwp2\.dot\.ca\.gov|earthcam\.com|511ny\.org|nysdot\.skyvdn\.com/.test(urls)
+  )
 }
 
 function looksLikeVideoEmbed(url: string) {
@@ -170,32 +230,46 @@ async function resolveYouTubeFromUrls(
 }
 
 async function resolveEagleLiveStreamFromApi(sourceId: string): Promise<EagleLiveStreamResolved | null> {
+  const cached = streamApiResolveCache.get(sourceId)
+  if (cached && cached.expires > Date.now()) return cached.value
+  const inflight = streamApiResolveInflight.get(sourceId)
+  if (inflight) return inflight
+  const resolvePromise: Promise<EagleLiveStreamResolved | null> = (async (): Promise<EagleLiveStreamResolved | null> => {
+    try {
+      const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}`, {
+        signal: AbortSignal.timeout(6_000),
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      if (data.stream_type === "hls" && data.stream_url) {
+        return { stream_type: "hls", url: data.stream_url }
+      }
+      if (data.stream_type === "mjpeg" && data.stream_url) {
+        return { stream_type: "mjpeg", url: data.stream_url }
+      }
+      if (data.stream_type === "webrtc" && data.stream_url) {
+        return { stream_type: "webrtc", url: data.stream_url }
+      }
+      const fromYouTube = await resolveYouTubeFromUrls(data.stream_url, data.embed_url)
+      if (fromYouTube) return fromYouTube
+      const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
+      if (fromApi) return fromApi
+      if (data.stream_type === "iframe" && data.embed_url) {
+        return { stream_type: "iframe", url: data.embed_url }
+      }
+    } catch {
+      /* fall through */
+    }
+    return null
+  })()
+  streamApiResolveInflight.set(sourceId, resolvePromise)
   try {
-    const res = await fetch(`/api/eagle/stream/${encodeURIComponent(sourceId)}`, {
-      signal: AbortSignal.timeout(6_000),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    if (data.stream_type === "hls" && data.stream_url) {
-      return { stream_type: "hls", url: data.stream_url }
-    }
-    if (data.stream_type === "mjpeg" && data.stream_url) {
-      return { stream_type: "mjpeg", url: data.stream_url }
-    }
-    if (data.stream_type === "webrtc" && data.stream_url) {
-      return { stream_type: "webrtc", url: data.stream_url }
-    }
-    const fromYouTube = await resolveYouTubeFromUrls(data.stream_url, data.embed_url)
-    if (fromYouTube) return fromYouTube
-    const fromApi = pickLiveFromUrls(data.stream_url, data.embed_url)
-    if (fromApi) return fromApi
-    if (data.stream_type === "iframe" && data.embed_url) {
-      return { stream_type: "iframe", url: data.embed_url }
-    }
-  } catch {
-    /* fall through */
+    const value = await resolvePromise
+    streamApiResolveCache.set(sourceId, { expires: Date.now() + STREAM_API_RESOLVE_TTL_MS, value })
+    return value
+  } finally {
+    streamApiResolveInflight.delete(sourceId)
   }
-  return null
 }
 
 export async function resolveEagleLiveStream(
@@ -217,6 +291,7 @@ export async function resolveEagleLiveStream(
 
   const viewerUrl = source.embed_url || source.stream_url
   if (viewerUrl && !isStillImage(viewerUrl)) {
+    if ((source.provider || "").toLowerCase() === "earthcam" && options.allowResolver === false) return null
     if (!isCbpSource(source) && isSnapshotViewerUrl(viewerUrl)) {
       return { stream_type: "snapshot", url: viewerUrl }
     }
@@ -255,12 +330,14 @@ export function HlsLivePlayer({
   fallbackAfterMs = 5_500,
   className = "h-full w-full bg-black object-contain",
   muted = true,
+  preview = false,
 }: {
   url: string
   fallbackUrl?: string
   fallbackAfterMs?: number
   className?: string
   muted?: boolean
+  preview?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
@@ -312,7 +389,22 @@ export function HlsLivePlayer({
           kickPlay()
           return
         }
-        const hls = new H({ ...hlsLivePlayerConfig() })
+        const hls = new H({
+          ...hlsLivePlayerConfig(),
+          ...(preview
+            ? {
+                backBufferLength: 0,
+                lowLatencyMode: false,
+                maxBufferLength: 8,
+                maxLiveSyncPlaybackRate: 1,
+                liveSyncDurationCount: 5,
+                liveMaxLatencyDurationCount: 15,
+                manifestLoadingTimeOut: 20_000,
+                levelLoadingTimeOut: 20_000,
+                fragLoadingTimeOut: 20_000,
+              }
+            : {}),
+        })
         hls.loadSource(playbackUrl)
         hls.attachMedia(video)
         hls.on(H.Events.MANIFEST_PARSED, () => {
@@ -329,12 +421,14 @@ export function HlsLivePlayer({
           }
           if (retryNonce < 3) setRetryNonce((n) => n + 1)
         })
-        const driftTimer = window.setInterval(() => {
-          if (disposed) return
-          if (video.duration === Infinity) seekVideoToLiveEdge(video, hls)
-        }, 12_000)
+        const driftTimer = preview
+          ? null
+          : window.setInterval(() => {
+              if (disposed) return
+              if (video.duration === Infinity) seekVideoToLiveEdge(video, hls)
+            }, 12_000)
         hlsCleanup = () => {
-          window.clearInterval(driftTimer)
+          if (driftTimer !== null) window.clearInterval(driftTimer)
           try {
             hls.destroy()
           } catch {
@@ -367,7 +461,7 @@ export function HlsLivePlayer({
         /* video may already be detached */
       }
     }
-  }, [url, retryNonce, fallbackUrl, fallbackAfterMs, useFallback])
+  }, [url, retryNonce, fallbackUrl, fallbackAfterMs, useFallback, preview])
 
   if (useFallback && fallbackUrl) {
     return <MjpegLivePlayer url={fallbackUrl} className={className} />
@@ -505,10 +599,22 @@ export function SnapshotLivePlayer({
   )
 }
 
-export function MjpegLivePlayer({ url, className }: { url: string; className?: string }) {
+export function MjpegLivePlayer({
+  url,
+  className,
+  maxRetries = 3,
+  refreshIntervalMs = 12_000,
+}: {
+  url: string
+  className?: string
+  maxRetries?: number
+  refreshIntervalMs?: number
+}) {
   const [retryNonce, setRetryNonce] = useState(0)
   const [failed, setFailed] = useState(false)
   const retryTimersRef = useRef<number[]>([])
+  const refreshTimerRef = useRef<number | null>(null)
+  const autoRefreshStill = isStillImage(url) || /\/api\/eagle\/cam-(?:image|snapshot)/i.test(url)
 
   useEffect(() => {
     setRetryNonce(0)
@@ -516,12 +622,31 @@ export function MjpegLivePlayer({ url, className }: { url: string; className?: s
     return () => {
       retryTimersRef.current.forEach((timer) => window.clearTimeout(timer))
       retryTimersRef.current = []
+      if (refreshTimerRef.current !== null) {
+        window.clearInterval(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
     }
   }, [url])
 
+  useEffect(() => {
+    if (!autoRefreshStill) return
+    if (refreshTimerRef.current !== null) window.clearInterval(refreshTimerRef.current)
+    refreshTimerRef.current = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      setRetryNonce((n) => n + 1)
+    }, refreshIntervalMs)
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearInterval(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
+    }
+  }, [autoRefreshStill, refreshIntervalMs, url])
+
   const src = withRetryParam(url, retryNonce)
   const retry = () => {
-    if (retryNonce >= 3) {
+    if (retryNonce >= maxRetries) {
       setFailed(true)
       return
     }
@@ -555,18 +680,36 @@ export function EagleLiveStreamPlayer({
   muted = true,
   provider,
   fallbackUrl,
+  preview = false,
 }: {
   resolved: EagleLiveStreamResolved
   className?: string
   muted?: boolean
   provider?: string
   fallbackUrl?: string
+  preview?: boolean
 }) {
   switch (resolved.stream_type) {
     case "hls":
-      return <HlsLivePlayer url={resolved.url} fallbackUrl={fallbackUrl} className={className} muted={muted} />
+      return (
+        <HlsLivePlayer
+          url={resolved.url}
+          fallbackUrl={fallbackUrl}
+          fallbackAfterMs={preview ? 12_000 : 5_500}
+          className={className}
+          muted={muted}
+          preview={preview}
+        />
+      )
     case "mjpeg":
-      return <MjpegLivePlayer url={resolved.url} className={className} />
+      return (
+        <MjpegLivePlayer
+          url={resolved.url}
+          className={className}
+          maxRetries={preview ? 0 : 3}
+          refreshIntervalMs={preview ? 60_000 : 12_000}
+        />
+      )
     case "snapshot":
       return <SnapshotLivePlayer viewerUrl={resolved.url} provider={provider} className={className} />
     case "iframe":
@@ -594,31 +737,43 @@ export function EagleLiveStreamPlayer({
 export function EagleLivePreviewTile({
   source,
   className,
+  deferMs = 0,
 }: {
   source: EagleViewportSource
   className?: string
+  deferMs?: number
 }) {
   const [resolved, setResolved] = useState<EagleLiveStreamResolved | null>(null)
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading")
   const { id, stream_url, embed_url, media_url, provider } = source
+  const fallbackMediaUrl = normalizeEagleStillImageUrl(source.thumbnail_url || source.media_url)
 
   useEffect(() => {
     let cancelled = false
+    let timer: number | null = null
     setPhase("loading")
     setResolved(null)
-    void resolveEagleLiveStream({ id, stream_url, embed_url, media_url, provider }, { allowResolver: true }).then((next) => {
-      if (cancelled) return
-      if (next) {
-        setResolved(next)
-        setPhase("ready")
-      } else {
-        setPhase("error")
-      }
-    })
+    const runResolve = () => {
+      void resolveEagleLiveStream({ id, stream_url, embed_url, media_url, provider }, { allowResolver: true }).then((next) => {
+        if (cancelled) return
+        if (next) {
+          setResolved(next)
+          setPhase("ready")
+        } else {
+          setPhase("error")
+        }
+      })
+    }
+    if (deferMs > 0) {
+      timer = window.setTimeout(runResolve, deferMs)
+    } else {
+      runResolve()
+    }
     return () => {
       cancelled = true
+      if (timer !== null) window.clearTimeout(timer)
     }
-  }, [id, stream_url, embed_url, media_url, provider])
+  }, [id, stream_url, embed_url, media_url, provider, deferMs])
 
   if (phase === "loading") {
     return (
@@ -638,14 +793,10 @@ export function EagleLivePreviewTile({
   }
 
   if (resolved.stream_type === "snapshot") {
-    const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
-    if (mediaUrl && isStillImage(mediaUrl)) {
-      return <MjpegLivePlayer url={mediaUrl} className={className} />
-    }
     return (
       <div className={`flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-slate-950 to-black px-1 text-center ${className || ""}`}>
         <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-300/80">Live feed</span>
-        <span className="text-[6px] text-gray-500">Tap to open stream</span>
+        <span className="text-[6px] text-gray-500">Open player</span>
       </div>
     )
   }
@@ -657,6 +808,7 @@ export function EagleLivePreviewTile({
           resolved={resolved}
           provider={source.provider}
           muted
+          preview
           className="pointer-events-none h-full w-full object-cover"
         />
         <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[6px] font-mono uppercase tracking-wide text-cyan-300">
@@ -680,11 +832,9 @@ export function EagleLivePreviewTile({
       <EagleLiveStreamPlayer
         resolved={resolved}
         provider={source.provider}
-        fallbackUrl={(() => {
-          const mediaUrl = normalizeEagleStillImageUrl(source.media_url)
-          return mediaUrl && isStillImage(mediaUrl) ? mediaUrl : undefined
-        })()}
+        fallbackUrl={fallbackMediaUrl && isStillImage(fallbackMediaUrl) ? fallbackMediaUrl : undefined}
         muted
+        preview
         className="h-full w-full object-cover"
       />
       <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[6px] font-mono uppercase tracking-wide text-cyan-300">
