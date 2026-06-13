@@ -347,6 +347,7 @@ All notable changes to this project will be documented in this file.
 - *(earth)* Stabilize species filters and startup [fast]
 - *(earth)* Stabilize simulator and MycoBrain release [fast]
 - *(search)* Rich flight widget details + global planes on Earth map
+- *(security)* Prevent command injection in network-diagnostics (#189)
 
 ### CREP
 
@@ -573,6 +574,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Codex deploy handoff for field MycoBrain device controls
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
