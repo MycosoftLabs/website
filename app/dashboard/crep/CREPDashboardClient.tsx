@@ -2351,8 +2351,17 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   if (typeof window === "undefined") return "desktop";
   const width = window.innerWidth || 1440;
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  if (width <= 767 || (coarsePointer && width <= 900)) return "phone";
-  if (width <= 1180 || coarsePointer) return "tablet";
+  // iPadOS Safari requests desktop sites by default and, with a Magic Keyboard /
+  // trackpad attached, reports (pointer: fine). So an iPad Pro in landscape
+  // (1366px on 12.9", 1194px on 11" — both > 1180) was classified "desktop" and
+  // handed the full desktop budget (all overlays + 900 DOM markers + full-density
+  // GeoJSON infra), which a tablet-class GPU cannot survive → immediate freeze.
+  // maxTouchPoints is the one signal iPadOS does NOT spoof (it reports 5), so use
+  // it to force any genuine multi-touch device to AT MOST "tablet" regardless of
+  // width or pointer type. (Jun 13, 2026 — iPad Pro freeze P0 from live QA audit.)
+  const touch = typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1;
+  if (width <= 767 || ((coarsePointer || touch) && width <= 900)) return "phone";
+  if (width <= 1180 || coarsePointer || touch) return "tablet";
   return "desktop";
 }
 
@@ -7904,9 +7913,13 @@ export default function CREPDashboardPage({
     }
     setEarthSimDeferredDataReady(false);
     if (auditAllOffMode || assetIsolationMode) return;
+    // Stage heavy overlays in for weaker GPUs. Desktop paints fast (750ms); tablet
+    // and phone get real breathing room so the base map + light data settle before
+    // the heavier layers hydrate (the 1.75s/2.5s values removed that safety valve
+    // and compounded the iPad freeze). Not the old 35-55s — a survivable middle.
     const delayMs =
-      earthSimViewportPerfClass === "phone" ? 2_500 :
-      earthSimViewportPerfClass === "tablet" ? 1_750 :
+      earthSimViewportPerfClass === "phone" ? 8_000 :
+      earthSimViewportPerfClass === "tablet" ? 5_000 :
       750;
     const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
     return () => window.clearTimeout(timer);
