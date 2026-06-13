@@ -15,6 +15,9 @@ export interface MindexLibraryCategorySummary {
 
 export interface MindexLibraryBlob {
   id: string
+  analysis_id?: string
+  remote_id?: string
+  file_id?: string
   name: string
   title?: string
   filename?: string
@@ -306,6 +309,11 @@ function inferCategory(relativePath: string, extension: string): MindexLibraryCa
   return "bioelectric"
 }
 
+function isAcousticManifestSidecar(relativePath: string, category: MindexLibraryCategoryId): boolean {
+  const normalized = relativePath.toLowerCase()
+  return category === "acoustic" && (normalized.endsWith(".manifest.json") || normalized.endsWith(".wav.json"))
+}
+
 function inferSensorType(relativePath: string, category: MindexLibraryCategoryId): string {
   const segments = relativePath.split("/").filter(Boolean)
   const first = segments[0]?.toLowerCase()
@@ -525,6 +533,7 @@ export async function buildMindexLibraryCatalog(options?: {
     const relativePath = path.relative(root, absolutePath).replace(/\\/g, "/")
     const extension = path.extname(absolutePath).toLowerCase()
     const category = inferCategory(relativePath, extension)
+    if (isAcousticManifestSidecar(relativePath, category)) continue
     const summary = byCategory.get(category)
 
     if (summary) {
@@ -543,6 +552,7 @@ export async function buildMindexLibraryCatalog(options?: {
 
     blobs.push({
       id,
+      file_id: id,
       name: path.basename(absolutePath),
       relative_path: relativePath,
       category,

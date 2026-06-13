@@ -10,19 +10,23 @@ export const dynamic = "force-dynamic"
 const ALLOW_HOSTS = new Set([
   "cwwp2.dot.ca.gov",
   "wzmedia.dot.ca.gov",
+  "nysdot.skyvdn.com",
   "media.mycosoft.com",
   "cams.cdn-surfline.com",
   "hpwren.ucsd.edu",
   "www.hpwren.ucsd.edu",
+  "live.hdontap.com",
+  "d1wse1.its.nv.gov",
 ])
+const ALLOW_HOST_SUFFIXES = [".nysdot.skyvdn.com", ".its.nv.gov"]
+const ALLOW_EARTHCAM_HOST = /^videos-\d+\.earthcam\.com$/i
 
 function allowed(url: URL): boolean {
   const h = url.hostname.toLowerCase()
-  return ALLOW_HOSTS.has(h)
+  return ALLOW_HOSTS.has(h) || ALLOW_HOST_SUFFIXES.some((suffix) => h.endsWith(suffix)) || ALLOW_EARTHCAM_HOST.test(h)
 }
 
-function rewriteManifest(body: string, base: URL, req: NextRequest): string {
-  const origin = req.nextUrl.origin
+function rewriteManifest(body: string, base: URL, _req: NextRequest): string {
   return body
     .split("\n")
     .map((line) => {
@@ -31,12 +35,16 @@ function rewriteManifest(body: string, base: URL, req: NextRequest): string {
       try {
         const abs = new URL(trimmed, base)
         if (!allowed(abs)) return line
-        return `${origin}/api/eagle/hls-proxy?url=${encodeURIComponent(abs.toString())}`
+        return `/api/eagle/hls-proxy?url=${encodeURIComponent(abs.toString())}`
       } catch {
         return line
       }
     })
     .join("\n")
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export async function GET(req: NextRequest) {
@@ -54,25 +62,37 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `host not allowlisted: ${target.hostname}` }, { status: 403 })
   }
 
-  try {
-    const upstream = await fetch(target.toString(), {
+  const targetLooksLikeManifest = /\.m3u8/i.test(target.pathname)
+  const isEarthCamHost = ALLOW_EARTHCAM_HOST.test(target.hostname)
+  const isHdontapHost = target.hostname.toLowerCase() === "live.hdontap.com"
+  const fetchUpstream = () =>
+    fetch(target.toString(), {
       headers: {
         Accept: "*/*",
         "User-Agent": "MycosoftCREP/1.0",
+        ...(isEarthCamHost ? { Referer: "https://www.earthcam.com/", Origin: "https://www.earthcam.com" } : {}),
+        ...(isHdontapHost ? { Referer: "https://portal.hdontap.com/s/embed/", Origin: "https://portal.hdontap.com" } : {}),
       },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(targetLooksLikeManifest ? 5_000 : 10_000),
       cache: "no-store",
     })
+
+  try {
+    let upstream = await fetchUpstream()
+    if (!upstream.ok && !targetLooksLikeManifest) {
+      await sleep(250)
+      upstream = await fetchUpstream()
+    }
     if (!upstream.ok) {
       return NextResponse.json({ error: `upstream ${upstream.status}` }, { status: 502 })
     }
     const ct = upstream.headers.get("content-type") || ""
     const buf = await upstream.arrayBuffer()
-    const text = new TextDecoder().decode(buf)
-    const isManifest =
-      /\.m3u8/i.test(target.pathname) || /mpegurl/i.test(ct) || text.includes("#EXTM3U")
+    const isManifestByHeader = /mpegurl/i.test(ct)
+    const isManifest = targetLooksLikeManifest || isManifestByHeader
 
     if (isManifest) {
+      const text = new TextDecoder().decode(buf)
       const rewritten = rewriteManifest(text, target, req)
       return new NextResponse(rewritten, {
         status: 200,

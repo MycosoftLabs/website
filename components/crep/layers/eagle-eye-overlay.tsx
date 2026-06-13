@@ -90,6 +90,7 @@ const PROVIDER_COLOR: Record<string, string> = {
   txdot: VIDEO_CAMERA_COLOR,
   windy: VIDEO_CAMERA_COLOR,
   earthcam: VIDEO_CAMERA_COLOR,
+  hdontap: VIDEO_CAMERA_COLOR,
   webcamtaxi: VIDEO_CAMERA_COLOR,
   nps: VIDEO_CAMERA_COLOR,
   usgs: VIDEO_CAMERA_COLOR,
@@ -98,6 +99,11 @@ const PROVIDER_COLOR: Record<string, string> = {
 
 let bakedCameraSeedPromise: Promise<{ sources: any[]; counts: Record<string, number> }> | null = null
 let bakedCameraSeedCache: { sources: any[]; counts: Record<string, number> } | null = null
+const EAGLE_CAMERA_SEED_VERSION = "20260608-vegas-camera-data-fix"
+
+function eagleCameraSeedUrl(file: string): string {
+  return `/data/crep/${file}?v=${EAGLE_CAMERA_SEED_VERSION}`
+}
 
 function projectBakedCameraFeature(f: any) {
   return {
@@ -108,7 +114,7 @@ function projectBakedCameraFeature(f: any) {
     stream_url: f?.properties?.stream_url,
     embed_url: f?.properties?.embed_url,
     media_url: f?.properties?.media_url,
-    source_status: f?.properties?.status,
+    source_status: f?.properties?.source_status ?? f?.properties?.status,
     lat: f?.geometry?.coordinates?.[1],
     lng: f?.geometry?.coordinates?.[0],
   }
@@ -119,13 +125,13 @@ async function loadBakedCameraSeedSources() {
   if (bakedCameraSeedPromise) return bakedCameraSeedPromise
   bakedCameraSeedPromise = (async () => {
     const [rReg, rSeed, rCaltransSd, rBorder, rNycDc, rVegas, rDeploy] = await Promise.all([
-      fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-border-supplement.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-nyc-dc-seed.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
-      fetch("/data/crep/eagle-cameras-deployment-sites-seed.geojson", { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-registry.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-manual-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-caltrans-san-diego-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-border-supplement.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-nyc-dc-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-vegas-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+      fetch(eagleCameraSeedUrl("eagle-cameras-deployment-sites-seed.geojson"), { cache: "force-cache" }).catch(() => null),
     ])
     const bakedFeats = rReg?.ok ? ((await rReg.json())?.features || []) : []
     const seedFeats = rSeed?.ok ? ((await rSeed.json())?.features || []) : []
@@ -200,6 +206,8 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
   const eventHoverLastRef = useRef<{ key: string; ts: number } | null>(null)
   const bboxKey = bbox ? bbox.map((n) => n.toFixed(6)).join(",") : ""
   const cameraLodVisible = mapZoom >= 7
+  const isEarthSimulatorSurface =
+    typeof window !== "undefined" && window.location.pathname.includes("/natureos/earth-simulator")
 
   // ─── Permanent camera plane ─────────────────────────────────────────
   useEffect(() => {
@@ -256,6 +264,32 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
     // First mount: paint the baked registry geojson (instant — 10s of ms,
     // ~3 900 cameras with id + provider + lat/lng + stream_url snapshot).
     // Then API delta for stream_url changes + new cameras only.
+    const cameraPaintLimitForZoom = (zoom: number) => {
+      if (!isEarthSimulatorSurface) return 260
+      if (zoom >= 14) return 120
+      if (zoom >= 12) return 104
+      if (zoom >= 10) return 88
+      if (zoom >= 8) return 72
+      return 48
+    }
+    const sortNearestToBboxCenter = (features: any[], activeBbox: [number, number, number, number] | undefined) => {
+      if (!activeBbox) return features
+      const [west, south, east, north] = activeBbox
+      const lngSpan = west <= east ? east - west : 360 - west + east
+      const centerLng = ((west + lngSpan / 2 + 540) % 360) - 180
+      const centerLat = (north + south) / 2
+      const longitudeDelta = (lng: number) => {
+        const diff = Math.abs(lng - centerLng)
+        return Math.min(diff, 360 - diff)
+      }
+      return features.slice().sort((a, b) => {
+        const ac = a?.geometry?.coordinates || []
+        const bc = b?.geometry?.coordinates || []
+        const ad = Math.hypot(longitudeDelta(Number(ac[0])), Number(ac[1]) - centerLat)
+        const bd = Math.hypot(longitudeDelta(Number(bc[0])), Number(bc[1]) - centerLat)
+        return ad - bd
+      })
+    }
     const paintFromSources = (sources: any[], activeBbox: [number, number, number, number] | undefined = bbox) => {
       const providerFilter = (p: string): boolean => {
         if (p === "shinobi") return enabled.eagleEyeShinobi !== false
@@ -269,7 +303,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
           p === "txdot"
         ) return enabled.eagleEye511Traffic !== false
         if (p === "windy") return enabled.eagleEyeWeatherCams !== false
-        if (p === "earthcam" || p === "webcamtaxi") return enabled.eagleEyeWebcams !== false
+        if (p === "earthcam" || p === "webcamtaxi" || p === "hdontap") return enabled.eagleEyeWebcams !== false
         if (p === "nps" || p === "usgs") return enabled.eagleEyeNpsUsgs !== false
         return true
       }
@@ -295,7 +329,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
           },
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
         }))
-      return { type: "FeatureCollection" as const, features }
+      const limit = cameraPaintLimitForZoom(Number(map.getZoom?.() ?? mapZoom ?? 0))
+      return {
+        type: "FeatureCollection" as const,
+        features: features.length > limit
+          ? sortNearestToBboxCenter(features, activeBbox).slice(0, limit)
+          : features,
+      }
     }
 
     const mergeFeatureCollections = (...collections: any[]) => {
@@ -335,6 +375,11 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
       const hoverCamera = (e: any) => {
         try {
           if ((map as any).isMoving?.() || (map as any).isZooming?.() || (map as any).isRotating?.()) {
+            cameraHoverLastRef.current = null
+            try {
+              const hook = (window as any).__crep_hoverAsset
+              if (typeof hook === "function") hook(null)
+            } catch { /* ignore */ }
             map.getCanvas().style.cursor = ""
             return
           }
@@ -480,29 +525,29 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         console.log(`[EagleEye] ${cachedFc.features.length} cameras painted from registry+seeds (baked=${cachedSeed.counts.baked} sd=${cachedSeed.counts.sd} caltrans-sd=${cachedSeed.counts.caltransSd} border=${cachedSeed.counts.border || 0} nyc-dc=${cachedSeed.counts.nycDc} vegas=${cachedSeed.counts.vegas} deploy-sites=${cachedSeed.counts.deploy})`)
         return true
         const [rReg, rSeed, rCaltransSd, rBorder, rNycDc, rVegas, rDeploy] = await Promise.all([
-          fetch("/data/crep/eagle-cameras-registry.geojson", { cache: "force-cache" }).catch(() => null),
-          fetch("/data/crep/eagle-cameras-manual-seed.geojson", { cache: "force-cache" }).catch(() => null),
-          fetch("/data/crep/eagle-cameras-caltrans-san-diego-seed.geojson", { cache: "force-cache" }).catch(() => null),
-          fetch("/data/crep/eagle-cameras-border-supplement.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-registry.geojson"), { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-manual-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-caltrans-san-diego-seed.geojson"), { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-border-supplement.geojson"), { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan: "fix all nydot in nyc new york cameras
           // need to work" + DC cams. NYC + DC seed (NYSDOT bridges,
           // EarthCam landmarks, VDOT 511, MDOT CHART, White House/Capitol
           // viewers, NOAA tide/buoy refs).
-          fetch("/data/crep/eagle-cameras-nyc-dc-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-nyc-dc-seed.geojson"), { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan (going to Vegas): "i want massive extra
           // las vegas data icons real live on the las vegas strip and
           // fremont street". Curated seed of EarthCam + YouTube Live
           // channels for the Strip, Fremont, Bellagio fountains, Sphere,
           // Hoover Dam, Lake Mead, Red Rock Canyon, Harry Reid airport,
           // City Hall live stream, NDOT traffic cams on I-15/US-95/I-215.
-          fetch("/data/crep/eagle-cameras-vegas-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-vegas-seed.geojson"), { cache: "force-cache" }).catch(() => null),
           // Apr 23, 2026 — Morgan (2026 deployment sites): "the same for,
           // Yosemite, Zion National Park, Yellowstone, Mendocino Forest
           // and Starbase, tx". NPS webcams (Half Dome, El Cap, Yos Falls,
           // Zion Canyon, Old Faithful, Upper Geyser Basin, Mammoth),
           // ALERTWildfire (Mendocino lookouts), YouTube Live (SpaceX NSF,
           // Yellowstone wolf cam), EarthCam (South Padre).
-          fetch("/data/crep/eagle-cameras-deployment-sites-seed.geojson", { cache: "force-cache" }).catch(() => null),
+          fetch(eagleCameraSeedUrl("eagle-cameras-deployment-sites-seed.geojson"), { cache: "force-cache" }).catch(() => null),
         ])
         const projFeat = (f: any) => ({
           id: f?.properties?.id,
@@ -512,7 +557,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
           stream_url: f?.properties?.stream_url,
           embed_url: f?.properties?.embed_url,
           media_url: f?.properties?.media_url,
-          source_status: f?.properties?.status,
+          source_status: f?.properties?.source_status ?? f?.properties?.status,
           lat: f?.geometry?.coordinates?.[1],
           lng: f?.geometry?.coordinates?.[0],
         })
@@ -586,14 +631,18 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         // stream_url changes, offline status). If registry is missing
         // (fresh clone without `npm run etl:bake-cameras`), fall back to
         // the prior fast-then-full API fan-out.
-        const bakedPainted = !loadedRef.current.cams && await paintBakedRegistry(activeBbox)
+        const bakedPainted = !isEarthSimulatorSurface && !loadedRef.current.cams && await paintBakedRegistry(activeBbox)
         if (bakedPainted && bakedCameraFcRef.current?.features?.length) {
           await ensureCameraSourceAndLayers(bakedCameraFcRef.current)
         }
         // After baked paint: use full mode so API deltas include Caltrans
         // + Shinobi. Without baked: use fast-then-full for first mount.
         const fastMode = !loadedRef.current.cams && !bakedPainted
-        const cameraQuery = new URLSearchParams({ limit: activeBboxKey ? "1200" : "300", live: "0" })
+        const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
+        const cameraQuery = new URLSearchParams({
+          limit: String(isTabletViewport ? 96 : 180),
+          live: fastMode || isTabletViewport ? "0" : "1",
+        })
         if (activeBboxKey) cameraQuery.set("bbox", activeBboxKey)
         if (fastMode) cameraQuery.set("fast", "1")
         const bboxParam = `?${cameraQuery.toString()}`
@@ -677,7 +726,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
           }
           attachCameraHandlers()
           console.log(`[EagleEye] ${initialFc.features.length} permanent cameras loaded (api=${fc.features.length}, baked=${bakedCameraFcRef.current?.features?.length || 0})`)
-        } else {
+        } else if (!painted) {
           ;(map.getSource("crep-eagle-cams") as any).setData(mergedFc.features.length ? mergedFc : fc)
         }
         // Broadcast counts for Intel Feed panel subscribers.
@@ -769,8 +818,10 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         // overlay's color ramp (0.8+ native, 0.5-0.8 platform, <0.5
         // text/OCR/visual) renders correctly per tier.
         const hoursBack = (window as any).__crep_eagle_time_window?.hoursBack ?? 6
+        const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
+        const eventLimit = isTabletViewport ? 120 : 260
         const [mindexRes, ytRes, blueskyRes, mastodonRes] = await Promise.all([
-          fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000${bboxParam}`).catch(() => null),
+          fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=${eventLimit}${bboxParam}`).catch(() => null),
           enabled.eagleEyeYoutubeLive !== false && bboxKey
             ? fetch(`/api/oei/youtube-live?bbox=${bboxKey}&maxResults=50`).catch(() => null)
             : Promise.resolve(null),
@@ -942,6 +993,11 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
           map.on("mousemove", "crep-eagle-events-core", (e: any) => {
             try {
               if ((map as any).isMoving?.() || (map as any).isZooming?.() || (map as any).isRotating?.()) {
+                eventHoverLastRef.current = null
+                try {
+                  const hook = (window as any).__crep_hoverAsset
+                  if (typeof hook === "function") hook(null)
+                } catch { /* ignore */ }
                 map.getCanvas().style.cursor = ""
                 return
               }

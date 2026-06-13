@@ -610,6 +610,16 @@ function MycaViewportPanel({
     }
   }, [revisionKey, mapBounds, mapZoom, useParentEnvPrefetch, prefetchedEnvironment])
 
+  const displayAirQuality = useMemo<AirQualityCurrent | null>(() => {
+    if (airQuality?.us_aqi != null) return airQuality
+    const aqiSensors = (prefetchedSensors ?? [])
+      .filter((sensor) => sensor.kind === "aqi" && Number.isFinite(sensor.live?.value))
+      .sort((a, b) => b.live.value - a.live.value)
+    const dominant = aqiSensors[0]
+    if (!dominant) return null
+    return { us_aqi: Math.round(dominant.live.value) }
+  }, [airQuality, prefetchedSensors])
+
   useEffect(() => {
     if (useParentEaglePrefetch) return
     if (!mapBounds || !revisionKey || !assetsReady) return
@@ -807,7 +817,7 @@ function MycaViewportPanel({
               temp: current?.temperature_2m != null ? `${formatMetric(current.temperature_2m, 0, tempUnit)}` : null,
               humidity: current?.relative_humidity_2m != null ? `${formatMetric(current.relative_humidity_2m, 0, "%")}` : null,
               cloud_cover: cloudCover != null ? `${cloudCover}%` : null,
-              aqi: airQuality?.us_aqi ?? null,
+              aqi: displayAirQuality?.us_aqi ?? null,
               wind: current?.wind_speed_10m != null ? `${formatMetric(current.wind_speed_10m, 0, windUnitSuffix)}` : null,
             },
           },
@@ -849,7 +859,7 @@ function MycaViewportPanel({
     topSpecies,
     environment,
     cloudCover,
-    airQuality,
+    displayAirQuality,
     tempUnit,
     windUnitSuffix,
     viewportIntel,
@@ -1215,14 +1225,14 @@ function MycaViewportPanel({
       id: "sensors",
       title: "Sensors",
       metric: String((prefetchedSensors?.length ?? 0) + eagleSources.length),
-      detail: `${eagleSources.length} cameras, ${prefetchedSensors?.length ?? 0} sensors, AQI ${airQuality?.us_aqi ?? "-"}.`,
+      detail: `${eagleSources.length} cameras, ${prefetchedSensors?.length ?? 0} sensors, AQI ${displayAirQuality?.us_aqi ?? "-"}.`,
       tone: "sensor",
       Icon: Camera,
       action: analysisMentions.find((mention) => mention.kind === "camera") ?? centerAction,
       facts: [
         { label: "Cameras", value: String(eagleSources.length) },
         { label: "Sensors", value: String(prefetchedSensors?.length ?? 0) },
-        airQuality?.us_aqi != null ? { label: "AQI", value: String(airQuality.us_aqi) } : null,
+        displayAirQuality?.us_aqi != null ? { label: "AQI", value: String(displayAirQuality.us_aqi) } : null,
       ].filter((fact): fact is AnalysisFact => Boolean(fact)),
     })
 
@@ -1242,7 +1252,7 @@ function MycaViewportPanel({
     analysisMentions,
     prefetchedSensors?.length,
     eagleSources.length,
-    airQuality?.us_aqi,
+    displayAirQuality?.us_aqi,
   ])
 
   const visibleAnalysisSections = useMemo(() => {

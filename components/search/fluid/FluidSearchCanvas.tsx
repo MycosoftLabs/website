@@ -3062,7 +3062,7 @@ function WidgetContent({
       return <EmptyWidgetState type="food" label={WIDGET_REGISTRY.food.label} />
     case "flights":
       if (!aircraft?.length) return <EmptyWidgetState type="flights" label={WIDGET_REGISTRY.flights.label} />
-      return <FallbackWidget bucketKey="aircraft" title="Flights" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+      return <FallbackWidget bucketKey="aircraft" title="Flights" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "stocks":
       return <EmptyWidgetState type="stocks" label={WIDGET_REGISTRY.stocks.label} />
     case "sports":
@@ -3077,13 +3077,13 @@ function WidgetContent({
       return <EmptyWidgetState type="recipe" label={WIDGET_REGISTRY.recipe.label} />
     case "transport":
       if (!aircraft?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.transport.label} searchContext={searchContext} />
-      return <FallbackWidget bucketKey="aircraft" title="Transport" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+      return <FallbackWidget bucketKey="aircraft" title="Transport" items={aircraft} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "marine":
       if (!vessels?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.marine.label} searchContext={searchContext} />
-      return <FallbackWidget bucketKey="vessels" title="Marine" items={vessels} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+      return <FallbackWidget bucketKey="vessels" title="Marine" items={vessels} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "space_assets":
       if (!satellites?.length) return <StrategicContextWidget type={type} label={WIDGET_REGISTRY.space_assets.label} searchContext={searchContext} />
-      return <FallbackWidget bucketKey="satellites" title="Space Assets" items={satellites} onViewOnMap={onViewOnMap} focusedId={focusedId} />
+      return <FallbackWidget bucketKey="satellites" title="Space Assets" items={satellites} onViewOnMap={onViewOnMap} focusedId={focusedItemId} />
     case "risk":
     case "power_grid":
     case "supply_chain":

@@ -85,6 +85,9 @@ const RESPONSE_HEADERS = {
 const DAY_MS = 86400_000;
 const DEFAULT_GLOBAL_EVENT_DAYS = 3;
 const MAX_GLOBAL_EVENT_DAYS = 7;
+const DEBUG_GLOBAL_EVENTS = process.env.NATUREOS_GLOBAL_EVENTS_DEBUG === "1";
+let lastEonetWarningAt = 0;
+let lastNwsWarningAt = 0;
 type GlobalEventsCacheEntry = {
   events: GlobalEvent[];
   fetchedAt: number;
@@ -93,6 +96,7 @@ type GlobalEventsCacheEntry = {
     noaa: "online" | "degraded";
     nasa_eonet: "online" | "offline";
     nws: "online" | "offline";
+    nifc_wfigs: "online" | "offline";
   };
 };
 const globalEventsCache = new Map<string, GlobalEventsCacheEntry>();
@@ -388,13 +392,76 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
     })
     .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
   } catch (error) {
-    // May 21 2026 (Morgan): downgraded from console.error to console.warn.
-    // The Next.js dev error overlay treats console.error() as a runtime
-    // error and pops a "1 error" badge on the page, even when the calling
-    // route swallows the failure and returns []. EONET is a single source
-    // among many — its 5xx / timeout is the upstream's problem, not a
-    // dashboard bug. Same goes for the other upstream catches below.
-    console.warn("[global-events] NASA EONET upstream unavailable:", error instanceof Error ? error.message : error);
+    // EONET is optional for Earth Simulator boot. Keep expected upstream
+    // timeouts silent unless debugging this source directly.
+    const now = Date.now();
+    if (DEBUG_GLOBAL_EVENTS && now - lastEonetWarningAt > 5 * 60_000) {
+      lastEonetWarningAt = now;
+      console.warn("[global-events] NASA EONET upstream unavailable:", error instanceof Error ? error.message : error);
+    }
+    return [];
+  }
+}
+
+// NIFC WFIGS — the authoritative US active-wildfire incident feed (keyless
+// ArcGIS). NASA EONET only tracks a curated handful of "notable" fires (~1 at
+// a time), so on its own the wildfire layer looks empty. WFIGS publishes every
+// current incident with point geometry + acreage. Jun 12, 2026 (Morgan: "I
+// don't see any fires, wildfire data anywhere"). Probed live: ~hundreds of WF
+// incidents, ordered by size.
+async function fetchNIFCWildfires(): Promise<GlobalEvent[]> {
+  try {
+    const params = new URLSearchParams({
+      where: "IncidentTypeCategory = 'WF' AND IncidentSize > 0",
+      outFields: "IncidentName,IncidentSize,POOState,FireCause,FireDiscoveryDateTime,PercentContained",
+      f: "geojson",
+      returnGeometry: "true",
+      orderByFields: "IncidentSize DESC",
+      resultRecordCount: "800",
+    });
+    const res = await fetch(
+      `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Incident_Locations_Current/FeatureServer/0/query?${params.toString()}`,
+      { signal: AbortSignal.timeout(5000), cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(`NIFC WFIGS error: ${res.status}`);
+    const data = await res.json();
+    const features = Array.isArray(data?.features) ? data.features : [];
+    return features
+      .map((feature: any): GlobalEvent | null => {
+        const coords = feature?.geometry?.coordinates;
+        const lng = Number(coords?.[0]);
+        const lat = Number(coords?.[1]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const p = feature.properties || {};
+        const acres = Number(p.IncidentSize) || 0;
+        const severity: GlobalEvent["severity"] =
+          acres >= 25_000 ? "high" : acres >= 500 ? "medium" : "low";
+        const contained = Number(p.PercentContained);
+        const state = p.POOState ? String(p.POOState).replace(/^US-/, "") : "";
+        const name = p.IncidentName ? `${p.IncidentName} Fire` : "Active wildfire";
+        return {
+          id: `nifc-${feature.id ?? `${lat.toFixed(4)},${lng.toFixed(4)}`}`,
+          type: "wildfire",
+          title: name,
+          description:
+            `${acres.toLocaleString()} acres` +
+            (Number.isFinite(contained) ? `, ${contained}% contained` : "") +
+            (state ? ` — ${state}` : "") +
+            ". Source: NIFC WFIGS.",
+          // Every row in the *Current* incident feed is active now, so stamp it
+          // current — discovery dates can be weeks old and would be age-pruned.
+          severity,
+          timestamp: new Date().toISOString(),
+          location: { latitude: lat, longitude: lng, name },
+          source: "NIFC WFIGS",
+          sourceUrl: "https://data-nifc.opendata.arcgis.com",
+        };
+      })
+      .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
+  } catch (error) {
+    if (DEBUG_GLOBAL_EVENTS) {
+      console.warn("[global-events] NIFC WFIGS unavailable:", error instanceof Error ? error.message : error);
+    }
     return [];
   }
 }
@@ -456,7 +523,11 @@ async function fetchNWSActiveWeatherAlerts(): Promise<GlobalEvent[]> {
       })
       .filter((event: GlobalEvent | null): event is GlobalEvent => Boolean(event));
   } catch (error) {
-    console.error("NWS alerts fetch error:", error);
+    const now = Date.now();
+    if (DEBUG_GLOBAL_EVENTS && now - lastNwsWarningAt > 5 * 60_000) {
+      lastNwsWarningAt = now;
+      console.warn("[global-events] NWS alerts upstream unavailable:", error instanceof Error ? error.message : error);
+    }
     return [];
   }
 }
@@ -498,13 +569,14 @@ export async function GET(request: NextRequest) {
     inFlight = (async () => {
       // Fetch from all sources in parallel. Earthquake search embeds use a deeper,
       // earthquake-only feed so the globe never waits on unrelated layers.
-      const [earthquakes, spaceWeather, eonetEvents, nwsWeather] = earthquakeOnly
-        ? [await fetchUSGSEarthquakes(days), [], [], []]
+      const [earthquakes, spaceWeather, eonetEvents, nwsWeather, wildfires] = earthquakeOnly
+        ? [await fetchUSGSEarthquakes(days), [], [], [], []]
         : await Promise.all([
             fetchUSGSEarthquakes(days),
             fetchNOAASpaceWeather(),
             fetchNASAEONET(),
             fetchNWSActiveWeatherAlerts(),
+            fetchNIFCWildfires(),
           ]);
 
       // Combine, prune for map display, and sort. MINDEX can retain history, but
@@ -514,6 +586,7 @@ export async function GET(request: NextRequest) {
         ...spaceWeather,
         ...eonetEvents,
         ...nwsWeather,
+        ...wildfires,
       ], maxAgeMs, Date.now());
 
       allEvents.sort((a, b) =>
@@ -528,6 +601,7 @@ export async function GET(request: NextRequest) {
           noaa: spaceWeather.length > 0 ? "online" : "degraded",
           nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
           nws: nwsWeather.length > 0 ? "online" : "offline",
+          nifc_wfigs: wildfires.length > 0 ? "online" : "offline",
         },
       };
       globalEventsCache.set(cacheKey, entry);

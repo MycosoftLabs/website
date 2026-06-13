@@ -86,6 +86,11 @@ const SOURCE_TIMEOUT_MS =
 
 const ENABLE_WEBSITE_MINDEX_WRITEBACK =
   process.env.CREP_ENABLE_WEBSITE_MINDEX_WRITEBACK === "1"
+const DEBUG_MOVING_REGISTRY = process.env.CREP_DEBUG_MOVING_REGISTRY === "1"
+
+function logMovingRegistryDebug(...args: unknown[]) {
+  if (DEBUG_MOVING_REGISTRY) console.log(...args)
+}
 
 // AISHub rate limit: max 1 request per minute
 let lastAISHubFetch = 0
@@ -204,7 +209,7 @@ async function fetchFromBarentsWatch(): Promise<VesselRecord[]> {
     },
   })
   if (!res.ok) {
-    console.warn(`[VesselRegistry/BarentsWatch] status=${res.status}`)
+    logMovingRegistryDebug(`[VesselRegistry/BarentsWatch] status=${res.status}`)
     return []
   }
   const data = await res.json()
@@ -245,7 +250,7 @@ async function fetchFromDMA(): Promise<VesselRecord[]> {
     },
   })
   if (!res.ok) {
-    console.warn(`[VesselRegistry/DMA] status=${res.status}`)
+    logMovingRegistryDebug(`[VesselRegistry/DMA] status=${res.status}`)
     return []
   }
   const data = await res.json()
@@ -554,7 +559,8 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
     sourceFetchers.map(async ({ name, fn }): Promise<SourceResult> => {
       const start = Date.now()
       try {
-        const vessels = await fn()
+        const fetched = await fn()
+        const vessels = Array.isArray(fetched) ? fetched : []
         const dur = Date.now() - start
         if (vessels.length > 0) {
           console.log(`[VesselRegistry] ${name}: ${vessels.length} vessels (${dur}ms)`)
@@ -562,7 +568,7 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
         return { source: name, vessels, durationMs: dur }
       } catch (err) {
         const dur = Date.now() - start
-        console.warn(`[VesselRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
+        logMovingRegistryDebug(`[VesselRegistry] ${name} failed (${dur}ms):`, (err as Error).message)
         return { source: name, vessels: [], error: (err as Error).message, durationMs: dur }
       }
     })

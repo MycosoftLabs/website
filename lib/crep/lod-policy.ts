@@ -89,23 +89,23 @@ export const UNCAPPED_RENDER_LIMIT = Number.POSITIVE_INFINITY
  *
  * Telecom uses tiered floors via getInfraLayerMinZoom (May 24, 2026):
  *   INFRA_COUNTRY_REVEAL_MIN_ZOOM — country/state overview
- *   DATA_CENTER_MIN_ZOOM / POWER_PLANT_MIN_ZOOM — three zoom steps past US fly-to
+ *   DATA_CENTER_MIN_ZOOM / POWER_PLANT_MIN_ZOOM — US fly-to overview
  *   TELECOM_DETAIL_MIN_ZOOM — state+ (cell towers, radio, signal heatmap)
  *   TELECOM_CITY_MIN_ZOOM — city (bbox-scoped / regional tower detail)
  */
 export const INFRA_POINT_ICON_MIN_ZOOM = 5
 
-/** Infrastructure begins painting once the user is at country/state scale. */
-export const INFRA_COUNTRY_REVEAL_MIN_ZOOM = 3
+/** Infrastructure begins painting once the user is at US flyover / country scale. */
+export const INFRA_COUNTRY_REVEAL_MIN_ZOOM = 2.7
 
-/** Heavy point families stay hidden until three zoom steps past the z4 US fly-to view. */
+/** Heavy point families default to the generic point floor unless explicitly lowered. */
 export const INFRA_HEAVY_POINT_MIN_ZOOM = INFRA_POINT_ICON_MIN_ZOOM
 
-/** Data centers (global + IM3 + regional DC points) — hidden at US fly-to/reload zoom. */
-export const DATA_CENTER_MIN_ZOOM = 5.5
+/** Data centers (global + IM3 + regional DC points) — visible at US fly-to/reload zoom. */
+export const DATA_CENTER_MIN_ZOOM = INFRA_COUNTRY_REVEAL_MIN_ZOOM
 
-/** Power plants (local + global + EIA) — hidden at US fly-to/reload zoom. */
-export const POWER_PLANT_MIN_ZOOM = INFRA_HEAVY_POINT_MIN_ZOOM
+/** Power plants (local + global + EIA) — visible at US fly-to/reload zoom. */
+export const POWER_PLANT_MIN_ZOOM = INFRA_COUNTRY_REVEAL_MIN_ZOOM
 
 /** Data-center names stay hidden until street-close zoom; icons remain visible. */
 export const DATA_CENTER_LABEL_MIN_ZOOM = 12
@@ -173,7 +173,7 @@ export const LOD_TIERS: LODPolicy[] = [
     // 0 rendered features from any other layer because the main thread
     // was busy). Per-tier caps here bound DOM marker count; spatial grid
     // sampling downstream still distributes them evenly.
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 3500 },
+    nature: { timeWindow: "30d", qualityGrade: "all", maxRendered: 3500 },
   },
   // ─── Continent view: last day, medium+ severity ─────────────────────
   {
@@ -191,7 +191,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
     movers: { aircraft: 1200, vessels: 2200, satellites: 1000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 9000 },
+    nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 9000 },
   },
   // ─── State/metro view: last month, all severity, full infra ────────
   {
@@ -200,7 +200,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 3200 },
     movers: { aircraft: 1500, vessels: 2500, satellites: 1200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 12000 },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 12000 },
   },
   // ─── City view: uncapped count but 7d events / 1y nature max age ───
   {
@@ -209,7 +209,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
     movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
   // ─── Street view: same display-age caps, uncapped render budget ────
   {
@@ -218,7 +218,7 @@ export const LOD_TIERS: LODPolicy[] = [
     events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
     movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
-    nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
+    nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
 ]
 
@@ -308,7 +308,7 @@ export function applyLODToNature<T extends { observed_on?: string | null; qualit
   const tierCutoff = timeWindowToCutoffMs(lod.nature.timeWindow)
   const displayCutoff = Date.now() - MAP_DISPLAY_MAX_NATURE_AGE_MS
   const cutoff =
-    tierCutoff === null ? displayCutoff : Math.max(tierCutoff, displayCutoff)
+    tierCutoff === null ? Number.NEGATIVE_INFINITY : Math.max(tierCutoff, displayCutoff)
   let filtered: T[] = observations
   if (lod.nature.qualityGrade === "research") {
     filtered = filtered.filter((o) => o.quality_grade === "research")

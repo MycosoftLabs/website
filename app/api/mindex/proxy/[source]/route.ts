@@ -26,6 +26,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 const MINDEX_URL = resolveMindexServerBaseUrl()
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY?.trim() || ""
 const INATURALIST_API = "https://api.inaturalist.org/v1"
+const GBIF_API = "https://api.gbif.org/v1"
 const configuredMindexTimeout = Number(process.env.CREP_MINDEX_PROXY_TIMEOUT_MS)
 const MINDEX_PROXY_TIMEOUT_MS =
   Number.isFinite(configuredMindexTimeout) && configuredMindexTimeout > 0
@@ -42,6 +43,7 @@ const FALLBACK_TIMEOUT_MS =
       : 12000
 const PROXY_CACHE_TTL_MS = Number(process.env.CREP_PROXY_CACHE_TTL_MS || 3000)
 const PROXY_CACHE_STALE_MS = Number(process.env.CREP_PROXY_CACHE_STALE_MS || 30000)
+const DEBUG_MINDEX_PROXY = process.env.CREP_DEBUG_MINDEX_PROXY === "1"
 
 type ProxyCacheEntry = {
   body: any
@@ -49,6 +51,8 @@ type ProxyCacheEntry = {
   expiresAt: number
   staleUntil: number
 }
+
+type SpeciesBounds = { lat_min: string; lat_max: string; lng_min: string; lng_max: string }
 
 const proxyResponseCache = new Map<string, ProxyCacheEntry>()
 
@@ -370,6 +374,24 @@ function cacheKeyFor(source: string, limit: string, bounds: { lat_min: number; l
   return `${source}|${limit}|${bounds.lat_min.toFixed(4)}|${bounds.lat_max.toFixed(4)}|${bounds.lng_min.toFixed(4)}|${bounds.lng_max.toFixed(4)}`
 }
 
+function parseBboxParam(value: string | null) {
+  if (!value) return { bounds: null, invalid: false }
+  const parts = value.split(",").map((part) => Number(part.trim()))
+  if (parts.length < 4 || parts.slice(0, 4).some((part) => !Number.isFinite(part))) {
+    return { bounds: null, invalid: true }
+  }
+  const [west, south, east, north] = parts
+  return {
+    bounds: {
+      lat_min: String(south),
+      lat_max: String(north),
+      lng_min: String(west),
+      lng_max: String(east),
+    },
+    invalid: false,
+  }
+}
+
 function cacheHeaders(sourceLabel: "live" | "fallback" | "unavailable", layer: string, status: "hit" | "stale" | "miss") {
   return {
     "X-MINDEX-Source": sourceLabel,
@@ -379,8 +401,31 @@ function cacheHeaders(sourceLabel: "live" | "fallback" | "unavailable", layer: s
   }
 }
 
-function normalizeSpeciesFallback(data: any, bounds: { lat_min: string; lat_max: string; lng_min: string; lng_max: string }) {
-  const observations = Array.isArray(data?.observations) ? data.observations : []
+function normalizeSpeciesFallback(data: any, bounds: SpeciesBounds) {
+  const numericBounds = {
+    lat_min: Number(bounds.lat_min),
+    lat_max: Number(bounds.lat_max),
+    lng_min: Number(bounds.lng_min),
+    lng_max: Number(bounds.lng_max),
+  }
+  const rawObservations = Array.isArray(data?.observations) ? data.observations : []
+  const observations = rawObservations.filter((obs: any) => {
+    const lat = Number(obs?.lat ?? obs?.latitude)
+    const lng = Number(obs?.lng ?? obs?.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false
+    return lat >= numericBounds.lat_min &&
+      lat <= numericBounds.lat_max &&
+      lng >= numericBounds.lng_min &&
+      lng <= numericBounds.lng_max
+  })
+  const timestamp = new Date().toISOString()
+  const dataSource = typeof data?.meta?.dataSource === "string"
+    ? data.meta.dataSource
+    : typeof data?.dataSource === "string"
+      ? data.dataSource
+      : typeof data?.source === "string"
+        ? data.source
+        : "live_inaturalist_proxy_fallback"
   return {
     layer: "species",
     entities: observations.map((obs: any) => ({
@@ -392,55 +437,203 @@ function normalizeSpeciesFallback(data: any, bounds: { lat_min: string; lat_max:
     })),
     observations,
     total: observations.length,
-    bounds: {
-      lat_min: Number(bounds.lat_min),
-      lat_max: Number(bounds.lat_max),
-      lng_min: Number(bounds.lng_min),
-      lng_max: Number(bounds.lng_max),
-    },
+    bounds: numericBounds,
     source: "live_api_fallback",
+    dataSource,
+    timestamp,
+    freshness: { timestamp, stale: false, maxAgeMs: 10 * 60 * 1000 },
+    lineage: { primary: "mindex", activeSource: "fallback", fallback: true },
     upstream: data?.meta || null,
   }
 }
 
-async function fetchLiveSpeciesFallback(bounds: { lat_min: string; lat_max: string; lng_min: string; lng_max: string }, limit: string) {
-  const requested = Math.min(Math.max(Number(limit) || 200, 1), 1000)
-  const pages = Math.max(1, Math.ceil(requested / 200))
-  const observations: any[] = []
+function inaturalistIconicTaxaParam(kingdom: string | null): string | null {
+  const normalized = (kingdom || "").trim().toLowerCase()
+  if (!normalized || normalized === "all") return null
+  if (normalized === "marine") return "Actinopterygii"
+  if (normalized === "actinopterygii") return "Actinopterygii"
+  if (normalized === "fungi") return "Fungi"
+  if (normalized === "plantae" || normalized === "plants") return "Plantae"
+  if (normalized === "aves" || normalized === "birds") return "Aves"
+  if (normalized === "mammalia" || normalized === "mammals") return "Mammalia"
+  if (normalized === "reptilia" || normalized === "reptiles") return "Reptilia"
+  if (normalized === "insecta" || normalized === "insects") return "Insecta"
+  return null
+}
 
-  for (let page = 1; page <= pages && observations.length < requested; page++) {
+type GbifSpeciesQuery = {
+  label: string
+  params: Record<string, string>
+  kingdom: string
+  iconicTaxon: string
+}
+
+const GBIF_SPECIES_QUERIES: Record<string, GbifSpeciesQuery[]> = {
+  Fungi: [{ label: "Fungi", params: { kingdomKey: "5" }, kingdom: "Fungi", iconicTaxon: "Fungi" }],
+  Plantae: [{ label: "Plantae", params: { kingdomKey: "6" }, kingdom: "Plantae", iconicTaxon: "Plantae" }],
+  Aves: [{ label: "Aves", params: { classKey: "212" }, kingdom: "Animalia", iconicTaxon: "Aves" }],
+  Mammalia: [{ label: "Mammalia", params: { classKey: "359" }, kingdom: "Animalia", iconicTaxon: "Mammalia" }],
+  Actinopterygii: [{ label: "Actinopterygii", params: { classKey: "204" }, kingdom: "Animalia", iconicTaxon: "Actinopterygii" }],
+  Amphibia: [{ label: "Amphibia", params: { classKey: "131" }, kingdom: "Animalia", iconicTaxon: "Amphibia" }],
+  Insecta: [{ label: "Insecta", params: { classKey: "216" }, kingdom: "Animalia", iconicTaxon: "Insecta" }],
+  Arachnida: [{ label: "Arachnida", params: { classKey: "367" }, kingdom: "Animalia", iconicTaxon: "Arachnida" }],
+}
+
+const GBIF_ALL_LIFE_QUERIES = [
+  ...GBIF_SPECIES_QUERIES.Fungi,
+  ...GBIF_SPECIES_QUERIES.Plantae,
+  ...GBIF_SPECIES_QUERIES.Aves,
+  ...GBIF_SPECIES_QUERIES.Mammalia,
+  ...GBIF_SPECIES_QUERIES.Actinopterygii,
+  ...GBIF_SPECIES_QUERIES.Amphibia,
+  ...GBIF_SPECIES_QUERIES.Insecta,
+  ...GBIF_SPECIES_QUERIES.Arachnida,
+]
+
+function gbifSpeciesQueriesForTaxon(kingdom: string | null): GbifSpeciesQuery[] {
+  const iconic = inaturalistIconicTaxaParam(kingdom)
+  if (!iconic) return GBIF_ALL_LIFE_QUERIES
+  return GBIF_SPECIES_QUERIES[iconic] || []
+}
+
+function numericSpeciesBounds(bounds: SpeciesBounds) {
+  return {
+    lat_min: Number(bounds.lat_min),
+    lat_max: Number(bounds.lat_max),
+    lng_min: Number(bounds.lng_min),
+    lng_max: Number(bounds.lng_max),
+  }
+}
+
+function isWideSpeciesBounds(bounds: SpeciesBounds): boolean {
+  const numeric = numericSpeciesBounds(bounds)
+  if (![numeric.lat_min, numeric.lat_max, numeric.lng_min, numeric.lng_max].every(Number.isFinite)) return false
+  return Math.abs(numeric.lat_max - numeric.lat_min) >= 12 &&
+    Math.abs(numeric.lng_max - numeric.lng_min) >= 20
+}
+
+function speciesObservationKey(obs: any): string {
+  return String(
+    obs?.externalId ??
+    obs?.id ??
+    `${obs?.scientificName ?? obs?.species}:${obs?.latitude ?? obs?.lat}:${obs?.longitude ?? obs?.lng}:${obs?.timestamp ?? ""}`,
+  )
+}
+
+async function fetchGbifSpeciesFallback(
+  bounds: SpeciesBounds,
+  limit: number,
+  kingdom: string | null,
+): Promise<any[]> {
+  const queries = gbifSpeciesQueriesForTaxon(kingdom)
+  if (queries.length === 0) return []
+  const perTaxon = Math.max(12, Math.ceil(limit / queries.length))
+  const batches = await Promise.allSettled(
+    queries.map(async (query) => {
+      const params = new URLSearchParams({
+        ...query.params,
+        decimalLatitude: `${bounds.lat_min},${bounds.lat_max}`,
+        decimalLongitude: `${bounds.lng_min},${bounds.lng_max}`,
+        hasCoordinate: "true",
+        hasGeospatialIssue: "false",
+        limit: String(Math.min(perTaxon, 120)),
+      })
+      const res = await fetch(`${GBIF_API}/occurrence/search?${params}`, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(Math.min(FALLBACK_TIMEOUT_MS, 5_000)),
+        cache: "no-store",
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      const results = Array.isArray(data?.results) ? data.results : []
+      return results
+        .map((obs: any) => {
+          const lat = Number(obs?.decimalLatitude)
+          const lng = Number(obs?.decimalLongitude)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+          const key = obs?.key ?? obs?.gbifID
+          return {
+            id: `gbif-${key}`,
+            externalId: String(key),
+            species: obs?.vernacularName || obs?.species || obs?.scientificName || "Unknown",
+            scientificName: obs?.scientificName || obs?.species || "Unknown",
+            commonName: obs?.vernacularName,
+            latitude: lat,
+            longitude: lng,
+            timestamp: obs?.eventDate || obs?.dateIdentified || obs?.lastInterpreted || new Date().toISOString(),
+            source: "GBIF",
+            verified: !Array.isArray(obs?.issues) || obs.issues.length === 0,
+            observer: obs?.recordedBy || "Unknown",
+            imageUrl: undefined,
+            thumbnailUrl: undefined,
+            location: obs?.locality || obs?.stateProvince || obs?.country,
+            hasGps: true,
+            geocodeStatus: "complete",
+            kingdom: obs?.kingdom || query.kingdom,
+            iconicTaxon: query.iconicTaxon,
+            taxonId: obs?.taxonKey,
+            sourceUrl: key ? `https://www.gbif.org/occurrence/${key}` : undefined,
+          }
+        })
+        .filter(Boolean)
+    }),
+  )
+
+  return batches.flatMap((batch) => batch.status === "fulfilled" ? batch.value : [])
+}
+
+async function fetchLiveSpeciesFallback(
+  bounds: SpeciesBounds,
+  limit: string,
+  kingdom: string | null,
+) {
+  const wideBounds = isWideSpeciesBounds(bounds)
+  const requested = Math.min(Math.max(Number(limit) || 200, 1), wideBounds ? 360 : 1000)
+  const observations: any[] = []
+  const seen = new Set<string>()
+  const iconicTaxa = inaturalistIconicTaxaParam(kingdom)
+
+  const fetchPage = async (
+    queryBounds: SpeciesBounds,
+    perPage: number,
+    page: number,
+    requirePhotos: boolean,
+    iconicTaxaOverride: string | null = iconicTaxa,
+  ) => {
     const params = new URLSearchParams({
       quality_grade: "research,needs_id",
-      per_page: String(Math.min(200, requested - observations.length)),
+      per_page: String(Math.max(1, Math.min(200, perPage))),
       page: String(page),
       order: "desc",
       order_by: "observed_on",
       geo: "true",
-      photos: "true",
-      swlat: bounds.lat_min,
-      nelat: bounds.lat_max,
-      swlng: bounds.lng_min,
-      nelng: bounds.lng_max,
+      swlat: queryBounds.lat_min,
+      nelat: queryBounds.lat_max,
+      swlng: queryBounds.lng_min,
+      nelng: queryBounds.lng_max,
     })
+    if (requirePhotos) params.set("photos", "true")
+    if (iconicTaxaOverride) params.set("iconic_taxa", iconicTaxaOverride)
 
     const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
       headers: {
         Accept: "application/json",
         "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
       },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(wideBounds ? 4_000 : Math.min(FALLBACK_TIMEOUT_MS, requirePhotos ? 10_000 : 7_000)),
       cache: "no-store",
     })
-    if (!res.ok) break
+    if (!res.ok) return []
 
     const data = await res.json()
     const results = Array.isArray(data?.results) ? data.results : []
+    const rows: any[] = []
     for (const obs of results) {
       const coords = obs.geojson?.coordinates
       const lng = Number(coords?.[0] ?? obs.location?.split(",")?.[1])
       const lat = Number(coords?.[1] ?? obs.location?.split(",")?.[0])
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
-      observations.push({
+      rows.push({
         id: `inat-${obs.id}`,
         externalId: String(obs.id),
         species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
@@ -463,16 +656,59 @@ async function fetchLiveSpeciesFallback(bounds: { lat_min: string; lat_max: stri
         sourceUrl: obs.uri || `https://www.inaturalist.org/observations/${obs.id}`,
       })
     }
-    if (results.length < 200) break
+    return rows
   }
+
+  const addRows = (rows: any[]) => {
+    for (const row of rows) {
+      if (observations.length >= requested) break
+      const key = speciesObservationKey(row)
+      if (seen.has(key)) continue
+      seen.add(key)
+      observations.push(row)
+    }
+  }
+
+  if (wideBounds) {
+    const requests = [fetchPage(bounds, Math.max(80, Math.min(160, Math.ceil(requested / 3))), 1, false)]
+    if (!iconicTaxa) {
+      const supplementalTaxa = ["Fungi", "Plantae", "Aves", "Mammalia", "Actinopterygii"]
+      const perTaxon = Math.max(20, Math.min(45, Math.ceil(requested / supplementalTaxa.length / 3)))
+      requests.push(...supplementalTaxa.map((taxon) => fetchPage(bounds, perTaxon, 1, false, taxon)))
+    }
+    const batches = await Promise.allSettled(requests)
+    for (const batch of batches) {
+      if (batch.status === "fulfilled") addRows(batch.value)
+    }
+  } else {
+    const pages = Math.max(1, Math.ceil((requested - observations.length) / 200))
+    for (let page = 1; page <= pages && observations.length < requested; page++) {
+      const remaining = requested - observations.length
+      const rows = await fetchPage(bounds, Math.min(200, remaining), page, true)
+      addRows(rows)
+      if (rows.length < Math.min(200, remaining)) break
+    }
+  }
+
+  if (observations.length < Math.min(requested, wideBounds ? 120 : 80)) {
+    const gbifRows = await fetchGbifSpeciesFallback(
+      bounds,
+      Math.max(80, requested - observations.length),
+      kingdom,
+    )
+    addRows(gbifRows)
+  }
+
+  const inaturalistCount = observations.filter((obs) => obs.source === "iNaturalist").length
+  const gbifCount = observations.filter((obs) => obs.source === "GBIF").length
 
   return normalizeSpeciesFallback(
     {
       observations: observations.slice(0, requested),
       meta: {
         total: observations.length,
-        sources: { mindex: 0, iNaturalist: observations.length, gbif: 0 },
-        dataSource: "live_inaturalist_proxy_fallback",
+        sources: { mindex: 0, iNaturalist: inaturalistCount, gbif: gbifCount },
+        dataSource: gbifCount > 0 ? "live_inaturalist_gbif_proxy_fallback" : "live_inaturalist_proxy_fallback",
       },
     },
     bounds,
@@ -490,9 +726,13 @@ export async function GET(
   if (source === "devices") {
     try {
       const baseUrl = new URL(request.url).origin
-      const res = await fetch(new URL("/api/mycobrain", baseUrl).toString(), {
+      const devicesUrl = new URL("/api/earth-simulator/devices", baseUrl)
+      devicesUrl.searchParams.set("refresh", "1")
+      devicesUrl.searchParams.set("wait", "1")
+      const res = await fetch(devicesUrl.toString(), {
         cache: "no-store",
-        signal: AbortSignal.timeout(4000),
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(6500),
       })
       const body = res.ok ? await res.json() : { devices: [] }
       return NextResponse.json(
@@ -504,7 +744,7 @@ export async function GET(
           entities: Array.isArray(body?.devices) ? body.devices : [],
           devices: Array.isArray(body?.devices) ? body.devices : [],
           freshness: { timestamp: new Date().toISOString(), stale: false, maxAgeMs: 120000 },
-          lineage: { primary: "local-device-service", activeSource: "live", fallback: false },
+          lineage: { primary: "earth-simulator-devices", activeSource: "live", fallback: false },
         },
         { headers: cacheHeaders("live", "devices", "miss") },
       )
@@ -518,7 +758,7 @@ export async function GET(
           entities: [],
           devices: [],
           freshness: { timestamp: new Date().toISOString(), stale: true, maxAgeMs: 120000 },
-          lineage: { primary: "local-device-service", activeSource: "unavailable", fallback: true },
+          lineage: { primary: "earth-simulator-devices", activeSource: "unavailable", fallback: true },
         },
         { headers: cacheHeaders("unavailable", "devices", "miss") },
       )
@@ -534,29 +774,62 @@ export async function GET(
   }
 
   // Build MINDEX earth/map/bbox query params
-  const lat_min = searchParams.get("lat_min") || searchParams.get("south") || "-90"
-  const lat_max = searchParams.get("lat_max") || searchParams.get("north") || "90"
-  const lng_min = searchParams.get("lng_min") || searchParams.get("west") || "-180"
-  const lng_max = searchParams.get("lng_max") || searchParams.get("east") || "180"
+  const bbox = parseBboxParam(searchParams.get("bbox"))
+  const lat_min = searchParams.get("lat_min") || searchParams.get("south") || bbox.bounds?.lat_min || "-90"
+  const lat_max = searchParams.get("lat_max") || searchParams.get("north") || bbox.bounds?.lat_max || "90"
+  const lng_min = searchParams.get("lng_min") || searchParams.get("west") || bbox.bounds?.lng_min || "-180"
+  const lng_max = searchParams.get("lng_max") || searchParams.get("east") || bbox.bounds?.lng_max || "180"
   const limitNum = Math.max(1, Math.min(50000, Number(searchParams.get("limit") || "500") || 500))
   const limit = String(limitNum)
-  const bounds = parseAndClampBounds(lat_min, lat_max, lng_min, lng_max)
+  const bounds = bbox.invalid ? null : parseAndClampBounds(lat_min, lat_max, lng_min, lng_max)
   if (!bounds) {
     return NextResponse.json(
       { error: "Invalid bounding box or limit parameters", source, layer: mindexLayer },
       { status: 400, headers: { "Cache-Control": "no-store" } },
     )
   }
-  const proxyKey = cacheKeyFor(source, limit, bounds)
+  const fallbackParam = searchParams.get("liveFallback") ?? searchParams.get("fallbackLive")
+  const liveFallbackEnabled =
+    mindexLayer === "species"
+      ? fallbackParam !== "false" && process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK !== "0"
+      : fallbackParam === "true" || process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK === "1"
+  const kingdomKey = (searchParams.get("kingdom") || "all").trim().toLowerCase()
+  const preferLiveSpecies =
+    mindexLayer === "species" &&
+    liveFallbackEnabled &&
+    searchParams.get("preferLive") === "true"
+  const proxyKey = `${cacheKeyFor(source, limit, bounds)}|kingdom:${kingdomKey}|fallback:${liveFallbackEnabled ? "1" : "0"}|preferLive:${preferLiveSpecies ? "1" : "0"}`
   const cached = proxyResponseCache.get(proxyKey)
   const now = Date.now()
   if (cached && cached.expiresAt > now) {
     return NextResponse.json(cached.body, { headers: cacheHeaders(cached.sourceLabel, mindexLayer, "hit") })
   }
-  const liveFallbackEnabled =
-    searchParams.get("liveFallback") === "true" ||
-    searchParams.get("fallbackLive") === "true" ||
-    process.env.CREP_ENABLE_LIVE_NATURE_FALLBACK === "1"
+
+  if (preferLiveSpecies) {
+    try {
+      const body = await fetchLiveSpeciesFallback(
+        {
+          lat_min: String(bounds.lat_min),
+          lat_max: String(bounds.lat_max),
+          lng_min: String(bounds.lng_min),
+          lng_max: String(bounds.lng_max),
+        },
+        limit,
+        searchParams.get("kingdom"),
+      )
+      const liveSpeciesCacheTtlMs = Math.max(PROXY_CACHE_TTL_MS, 60_000)
+      const liveSpeciesStaleMs = Math.max(PROXY_CACHE_STALE_MS, 10 * 60_000)
+      proxyResponseCache.set(proxyKey, {
+        body,
+        sourceLabel: "fallback",
+        expiresAt: now + liveSpeciesCacheTtlMs,
+        staleUntil: now + liveSpeciesStaleMs,
+      })
+      return NextResponse.json(body, { headers: cacheHeaders("fallback", mindexLayer, "miss") })
+    } catch (err) {
+      if (DEBUG_MINDEX_PROXY) console.warn("[MINDEX/Proxy] Live species preference failed; falling back to MINDEX", err)
+    }
+  }
 
   try {
     // Primary: Query MINDEX earth/map/bbox endpoint (PostGIS spatial query + Redis cache)
@@ -574,13 +847,20 @@ export async function GET(
         entityCount(data) === 0 &&
         (mindexLayer === "species" || ["aircraft", "vessels", "satellites"].includes(source))
       if (emptyLiveLayer) {
-        console.warn(
+        if (DEBUG_MINDEX_PROXY) console.warn(
           `[MINDEX/Proxy] MINDEX ${mindexLayer} returned 0 entities for bbox; using live OEI fallback`,
         )
       } else {
         const payload = ["aircraft", "vessels", "satellites"].includes(source)
           ? formatMoverPayload(source, mindexLayer, data, "live", bounds)
-          : data
+          : mindexLayer === "species"
+            ? {
+                ...data,
+                source: data?.source || "mindex",
+                dataSource: data?.dataSource || "mindex",
+                lineage: data?.lineage || { primary: "mindex", activeSource: "mindex", fallback: false },
+              }
+            : data
         proxyResponseCache.set(proxyKey, {
           body: payload,
           sourceLabel: "live",
@@ -591,9 +871,9 @@ export async function GET(
       }
     }
 
-    console.warn(`[MINDEX/Proxy] MINDEX returned ${res.status} for layer=${mindexLayer}`)
+    if (DEBUG_MINDEX_PROXY) console.warn(`[MINDEX/Proxy] MINDEX returned ${res.status} for layer=${mindexLayer}`)
   } catch (err) {
-    console.warn(`[MINDEX/Proxy] MINDEX unreachable for layer=${mindexLayer}:`, err)
+    if (DEBUG_MINDEX_PROXY) console.warn(`[MINDEX/Proxy] MINDEX unreachable for layer=${mindexLayer}:`, err)
   }
 
   // Fallback: Try internal API routes (no MINDEX caching, no persistence)
@@ -611,7 +891,10 @@ export async function GET(
               observations: [],
               features: [],
               total: 0,
-              message: "MINDEX species cache unavailable; live fallback disabled for low-latency map loading",
+              dataSource: "mindex_empty_live_fallback_disabled",
+              lineage: { primary: "mindex", activeSource: "unavailable", fallback: false },
+              freshness: { timestamp: new Date().toISOString(), stale: true, maxAgeMs: 0 },
+              message: "MINDEX species cache empty and live fallback disabled",
             },
             {
               headers: {
@@ -622,7 +905,7 @@ export async function GET(
             },
           )
         }
-        const body = await fetchLiveSpeciesFallback({ lat_min, lat_max, lng_min, lng_max }, limit)
+        const body = await fetchLiveSpeciesFallback({ lat_min, lat_max, lng_min, lng_max }, limit, searchParams.get("kingdom"))
         if (body.total > 0) {
           return NextResponse.json(body, {
             status: 200,
@@ -644,7 +927,14 @@ export async function GET(
       fallbackUrl.searchParams.set("west", lng_min)
       fallbackUrl.searchParams.set("east", lng_max)
       fallbackUrl.searchParams.set("limit", limit)
-      if (mindexLayer === "species") fallbackUrl.searchParams.set("nocache", "true")
+      if (mindexLayer === "species") {
+        fallbackUrl.searchParams.set("nocache", "true")
+        fallbackUrl.searchParams.set("quick", "true")
+        fallbackUrl.searchParams.set("fallbackLive", "true")
+        fallbackUrl.searchParams.set("source", "all")
+        const requestedKingdom = searchParams.get("kingdom")
+        if (requestedKingdom) fallbackUrl.searchParams.set("kingdom", requestedKingdom)
+      }
       if (source === "vessels") {
         fallbackUrl.searchParams.set("lamin", lat_min)
         fallbackUrl.searchParams.set("lamax", lat_max)
@@ -705,6 +995,9 @@ export async function GET(
       observations: [],
       features: [],
       total: 0,
+      dataSource: "mindex_and_fallback_unavailable",
+      lineage: { primary: "mindex", activeSource: "unavailable", fallback: Boolean(fallbackRoute) },
+      freshness: { timestamp: new Date().toISOString(), stale: true, maxAgeMs: 0 },
       message: `MINDEX and fallback APIs are unreachable for ${source}`,
     },
     {

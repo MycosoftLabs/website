@@ -10,9 +10,9 @@ const DEFAULT_OPERATOR_URLS = (
   .map((u) => u.trim().replace(/\/+$/, ""))
   .filter(Boolean)
 
-/** Mushroom 1 (123) often responds in ~2s; 1s timeout caused false offline on Earth Simulator. */
+/** Keep LAN probes bounded so a hanging agent endpoint cannot stall map refresh. */
 const OPERATOR_PROBE_TIMEOUT_MS = Number(
-  process.env.MYCOBRAIN_OPERATOR_PROBE_TIMEOUT_MS || 5000
+  process.env.MYCOBRAIN_OPERATOR_PROBE_TIMEOUT_MS || 4500
 )
 
 export interface OperatorProbeResult {

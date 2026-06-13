@@ -51,6 +51,7 @@ const CCTV_CLICK_LAYER_IDS = eagleCameraClickLayerIds(CCTV_LAYER_PREFIX)
 const CCTV_MIN_ZOOM = 7
 const CCTV_FAST_LIMIT = "160"
 const CCTV_FULL_LIMIT = "600"
+const DEBUG_OVERLAY_LOGS = process.env.NEXT_PUBLIC_CREP_DEBUG_OVERLAYS === "1"
 let railwayLiveCache: { ts: number; data: any } | null = null
 let railwayLiveInFlight: Promise<any> | null = null
 let railwayLiveAbortController: AbortController | null = null
@@ -213,6 +214,12 @@ function bboxFromUrl(zoom = 0): [number, number, number, number] | null {
   } catch {
     return null
   }
+}
+
+function shouldSkipEarthSimulatorTabletBboxDetail() {
+  if (typeof window === "undefined") return false
+  if (!window.location.pathname.includes("/natureos/earth-simulator")) return false
+  return window.innerWidth <= 1180 || window.innerHeight <= 820 || Boolean(window.matchMedia?.("(pointer: coarse)")?.matches)
 }
 
 export default function ProposalOverlays({ map, enabled, bbox, searchContextMode = false, mapZoom = 0 }: Props) {
@@ -798,7 +805,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
-    if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5) {
+    if (!enabled.txLinesGlobal || !effectiveBbox || mapZoom < 5 || shouldSkipEarthSimulatorTabletBboxDetail()) {
       txBboxKeyRef.current = ""
       txInFlightKeyRef.current = ""
       txAbortRef.current?.abort()
@@ -824,10 +831,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const abortController = new AbortController()
     txAbortRef.current = abortController
 
+    const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
     txFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 9 ? 900 : mapZoom >= 7 ? 600 : 350
+          const limit = isTabletViewport
+            ? mapZoom >= 9 ? 240 : mapZoom >= 7 ? 180 : 120
+            : mapZoom >= 9 ? 480 : mapZoom >= 7 ? 320 : 220
           const res = await fetch(`/api/oei/transmission-lines-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
@@ -914,7 +924,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (txInFlightKeyRef.current === bboxKey) txInFlightKeyRef.current = ""
         }
       })()
-    }, 650)
+    }, isTabletViewport ? 2_500 : 1_200)
 
     return () => {
       if (txFetchTimerRef.current != null) window.clearTimeout(txFetchTimerRef.current)
@@ -936,7 +946,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { (map.getSource(sourceId) as any)?.setData?.(emptyFc) } catch { /* ignore style teardown */ }
     }
     const effectiveBbox = bboxFromMap(map, mapZoom) ?? bboxFromUrl(mapZoom) ?? bbox
-    if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM) {
+    if (!enabled.cellTowersG || !effectiveBbox || mapZoom < TELECOM_DETAIL_MIN_ZOOM || shouldSkipEarthSimulatorTabletBboxDetail()) {
       cellTowerBboxKeyRef.current = ""
       cellTowerInFlightKeyRef.current = ""
       cellTowerAbortRef.current?.abort()
@@ -963,10 +973,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     const abortController = new AbortController()
     cellTowerAbortRef.current = abortController
 
+    const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
     cellTowerFetchTimerRef.current = window.setTimeout(() => {
       void (async () => {
         try {
-          const limit = mapZoom >= 10 ? 450 : mapZoom >= 8 ? 300 : mapZoom >= 6 ? 180 : 100
+          const limit = isTabletViewport
+            ? mapZoom >= 10 ? 160 : mapZoom >= 8 ? 120 : mapZoom >= 6 ? 80 : 50
+            : mapZoom >= 10 ? 260 : mapZoom >= 8 ? 180 : mapZoom >= 6 ? 120 : 80
           const res = await fetch(`/api/oei/cell-towers-global?bbox=${encodeURIComponent(effectiveBbox.join(","))}&limit=${limit}`, {
             cache: "default",
             signal: abortController.signal,
@@ -1069,7 +1082,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
           if (cellTowerInFlightKeyRef.current === bboxKey) cellTowerInFlightKeyRef.current = ""
         }
       })()
-    }, 650)
+    }, isTabletViewport ? 2_500 : 1_200)
 
     return () => {
       if (cellTowerFetchTimerRef.current != null) window.clearTimeout(cellTowerFetchTimerRef.current)
@@ -1766,6 +1779,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       loadedRef.current.railwayTrains = true
     }
 
+    try {
+      const previousTimer = (window as any).__crepRailwayLiveTimer
+      if (previousTimer) window.clearInterval(previousTimer)
+    } catch {
+      /* ignore stale HMR timer cleanup */
+    }
+
     let cancelled = false
     let paintInFlight = false
 
@@ -1987,7 +2007,9 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         }
         const byOp = (j.operators || {}) as Record<string, number>
         const ops = Object.entries(byOp).filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(" ")
-        console.log(`[ProposalOverlays] railway live: ${features.length} vehicles (${ops || "—"})`)
+        if (DEBUG_OVERLAY_LOGS) {
+          console.log(`[ProposalOverlays] railway live: ${features.length} vehicles (${ops || "—"})`)
+        }
       } catch (e: any) { console.warn("[ProposalOverlays/railwayTrains]", e.message) }
       finally {
         paintInFlight = false
@@ -1996,10 +2018,20 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
 
     idleLoad(fetchAndPaint)
     // Re-poll every 30s while enabled
-    const timer = setInterval(() => { if (enabled.railwayTrains) fetchAndPaint() }, 30_000)
+    const timer = window.setInterval(() => { if (enabled.railwayTrains) fetchAndPaint() }, 30_000)
+    try {
+      ;(window as any).__crepRailwayLiveTimer = timer
+    } catch {
+      /* ignore debug timer registry failures */
+    }
     return () => {
       cancelled = true
-      clearInterval(timer)
+      window.clearInterval(timer)
+      try {
+        if ((window as any).__crepRailwayLiveTimer === timer) delete (window as any).__crepRailwayLiveTimer
+      } catch {
+        /* ignore stale HMR timer cleanup */
+      }
     }
   }, [map, styleReadyTick, enabled.railwayTrains])
 

@@ -22,23 +22,40 @@ function isLocalDevHost() {
   return process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
 }
 
+let localDevUserCache: { at: number; user: User | null } | null = null
+let localDevUserInFlight: Promise<User | null> | null = null
+const LOCAL_DEV_USER_CACHE_TTL_MS = 60_000
+
 async function getLocalDevUser(): Promise<User | null> {
   if (!isLocalDevHost()) return null
+  if (localDevUserCache && Date.now() - localDevUserCache.at < LOCAL_DEV_USER_CACHE_TTL_MS) {
+    return localDevUserCache.user
+  }
+  if (localDevUserInFlight) return localDevUserInFlight
+  localDevUserInFlight = (async () => {
+    try {
+      const response = await fetch("/api/auth/session", { cache: "no-store" })
+      if (!response.ok) return null
+      const data = await response.json()
+      if (data?.ok !== true || data?.user?.localDev !== true || !data.user.email) return null
+      return {
+        id: data.user.id || "local-dev-morgan",
+        email: data.user.email,
+        app_metadata: { provider: "local-dev", localDev: true },
+        user_metadata: { full_name: "Morgan", localDev: true },
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as User
+    } catch {
+      return null
+    }
+  })()
   try {
-    const response = await fetch("/api/auth/session", { cache: "no-store" })
-    if (!response.ok) return null
-    const data = await response.json()
-    if (data?.ok !== true || data?.user?.localDev !== true || !data.user.email) return null
-    return {
-      id: data.user.id || "local-dev-morgan",
-      email: data.user.email,
-      app_metadata: { provider: "local-dev", localDev: true },
-      user_metadata: { full_name: "Morgan", localDev: true },
-      aud: "authenticated",
-      created_at: new Date().toISOString(),
-    } as User
-  } catch {
-    return null
+    const user = await localDevUserInFlight
+    localDevUserCache = { at: Date.now(), user }
+    return user
+  } finally {
+    localDevUserInFlight = null
   }
 }
 

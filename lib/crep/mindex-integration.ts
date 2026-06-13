@@ -18,7 +18,7 @@
  * Uses centralized API_URLS config.
  */
 
-import { API_URLS, MINDEX_ENDPOINTS } from "@/lib/config/api-urls"
+import { API_URLS } from "@/lib/config/api-urls"
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema"
 import { makePoint, isValidCoordinate } from "@/lib/crep/entities/entity-converters"
 import type { GeoBounds } from "@/types/oei"
@@ -97,11 +97,11 @@ export async function fetchMINDEXObservations(
   params: MINDEXSearchParams
 ): Promise<MINDEXSearchResult> {
   try {
-    const url = new URL(`${API_URLS.LOCAL_BASE}/api/crep/fungal`)
+    const url = new URL(`${API_URLS.LOCAL_BASE}/api/mindex/proxy/species`)
 
     if (params.query) url.searchParams.set("q", params.query)
     if (params.species) url.searchParams.set("species", params.species)
-    if (params.source) url.searchParams.set("source", params.source)
+    url.searchParams.set("fallbackLive", params.source === "mindex" ? "false" : "true")
     if (params.limit) url.searchParams.set("limit", String(params.limit))
     if (params.offset) url.searchParams.set("offset", String(params.offset))
     if (params.quality) url.searchParams.set("quality", params.quality)
@@ -124,28 +124,54 @@ export async function fetchMINDEXObservations(
     }
 
     const data = await response.json()
+    const rows = Array.isArray(data.observations)
+      ? data.observations
+      : Array.isArray(data.entities)
+        ? data.entities
+        : Array.isArray(data.results)
+          ? data.results
+          : Array.isArray(data.data)
+            ? data.data
+            : []
 
     // Normalize response format
-    const observations: MINDEXObservation[] = (data.observations || data.results || []).map(
-      (obs: Record<string, unknown>) => ({
-        id: obs.id || obs.uuid || `obs-${Math.random().toString(36).slice(2)}`,
-        species_name: obs.species_name || obs.species || obs.taxon_name || "Unknown",
-        scientific_name: obs.scientific_name || obs.scientificName || obs.species_name || "Unknown",
-        common_name: obs.common_name || obs.commonName,
-        latitude: Number(obs.latitude || obs.lat || 0),
-        longitude: Number(obs.longitude || obs.lng || obs.lon || 0),
-        observed_on: obs.observed_on || obs.observedOn || obs.observed_at || new Date().toISOString(),
-        observer: obs.observer || obs.user_name,
-        image_url: obs.image_url || obs.imageUrl,
-        thumbnail_url: obs.thumbnail_url || obs.thumbnailUrl,
-        source: obs.source || "mindex",
-        source_url: obs.source_url || obs.sourceUrl,
-        quality_grade: obs.quality_grade || obs.qualityGrade,
-        is_toxic: obs.is_toxic || obs.isToxic,
-        habitat: obs.habitat,
-        notes: obs.notes,
+    const observations: MINDEXObservation[] = rows.map(
+      (obs: Record<string, unknown>) => {
+        const props = typeof obs.properties === "object" && obs.properties ? obs.properties as Record<string, unknown> : {}
+        const coords = Array.isArray((obs.geometry as { coordinates?: unknown[] } | undefined)?.coordinates)
+          ? (obs.geometry as { coordinates: unknown[] }).coordinates
+          : []
+        const latitude = Number(obs.latitude ?? obs.lat ?? props.latitude ?? props.lat ?? coords[1] ?? 0)
+        const longitude = Number(obs.longitude ?? obs.lng ?? obs.lon ?? props.longitude ?? props.lng ?? props.lon ?? coords[0] ?? 0)
+        const observedOn = String(obs.observed_on ?? obs.observedOn ?? obs.observed_at ?? obs.timestamp ?? props.observed_on ?? props.timestamp ?? "")
+        const scientificName = String(obs.scientific_name ?? obs.scientificName ?? obs.species_name ?? props.scientific_name ?? props.scientificName ?? props.species_name ?? obs.name ?? "Unknown")
+        const sourceText = String(obs.source ?? props.source ?? data.dataSource ?? "mindex").toLowerCase()
+        const source: MINDEXObservation["source"] = sourceText.includes("inat")
+          ? "inaturalist"
+          : sourceText.includes("gbif")
+            ? "gbif"
+            : "mindex"
+        const id = String(obs.id ?? obs.uuid ?? obs.externalId ?? props.id ?? props.uuid ?? `${source}:${scientificName}:${latitude.toFixed(5)}:${longitude.toFixed(5)}:${observedOn}`)
+        return {
+          id,
+          species_name: String(obs.species_name ?? obs.species ?? obs.taxon_name ?? props.species_name ?? props.species ?? scientificName),
+          scientific_name: scientificName,
+          common_name: (obs.common_name ?? obs.commonName ?? props.common_name ?? props.commonName) as string | undefined,
+          latitude,
+          longitude,
+          observed_on: observedOn,
+          observer: (obs.observer ?? obs.user_name ?? props.observer ?? props.user_name) as string | undefined,
+          image_url: (obs.image_url ?? obs.imageUrl ?? props.image_url ?? props.imageUrl) as string | undefined,
+          thumbnail_url: (obs.thumbnail_url ?? obs.thumbnailUrl ?? props.thumbnail_url ?? props.thumbnailUrl) as string | undefined,
+          source,
+          source_url: (obs.source_url ?? obs.sourceUrl ?? props.source_url ?? props.sourceUrl) as string | undefined,
+          quality_grade: (obs.quality_grade ?? obs.qualityGrade ?? props.quality_grade ?? props.qualityGrade) as MINDEXObservation["quality_grade"],
+          is_toxic: Boolean(obs.is_toxic ?? obs.isToxic ?? props.is_toxic ?? props.isToxic ?? false),
+          habitat: (obs.habitat ?? props.habitat) as string | undefined,
+          notes: (obs.notes ?? props.notes) as string | undefined,
+        }
       })
-    )
+      .filter((obs) => Number.isFinite(obs.latitude) && Number.isFinite(obs.longitude) && !(obs.latitude === 0 && obs.longitude === 0))
 
     return {
       observations,

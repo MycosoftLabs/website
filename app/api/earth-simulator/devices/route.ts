@@ -56,7 +56,7 @@ type EarthSimDevicesPayload = {
 }
 
 const MAS_API_URL = resolveMasServerBaseUrl();
-const DEVICES_CACHE_TTL_MS = 8_000;
+const DEVICES_CACHE_TTL_MS = 25_000;
 const DEVICE_ONLINE_GRACE_MS = 10 * 60_000;
 const FIELD_OPERATOR_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1", "psathyrella-buoy-com4"]);
 
@@ -92,6 +92,11 @@ const lastConnectedDevices = new Map<
   }
 >();
 
+function boundedTimeoutMs(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 250 ? Math.min(n, 10_000) : fallback;
+}
+
 async function fetchNetworkTelemetrySnapshot(deviceId: string): Promise<Record<string, unknown> | null> {
   try {
     const res = await fetch(`${MAS_API_URL}/api/devices/${encodeURIComponent(deviceId)}/telemetry`, {
@@ -108,7 +113,18 @@ async function fetchNetworkTelemetrySnapshot(deviceId: string): Promise<Record<s
   }
 }
 
-const LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS = 10_000
+const LOCAL_MYCOBRAIN_TELEMETRY_TIMEOUT_MS = boundedTimeoutMs(
+  process.env.EARTH_SIM_DEVICES_TELEMETRY_TIMEOUT_MS,
+  4_500
+);
+const LOCAL_MYCOBRAIN_SENSOR_COMMAND_TIMEOUT_MS = boundedTimeoutMs(
+  process.env.EARTH_SIM_DEVICES_SENSOR_COMMAND_TIMEOUT_MS,
+  3_500
+);
+const LOCAL_MYCOBRAIN_DEVICE_LIST_TIMEOUT_MS = boundedTimeoutMs(
+  process.env.EARTH_SIM_DEVICES_LIST_TIMEOUT_MS,
+  1_200
+);
 
 async function fetchLocalMycoBrainTelemetrySnapshot(
   baseUrl: string,
@@ -118,7 +134,7 @@ async function fetchLocalMycoBrainTelemetrySnapshot(
     const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices/${encodeURIComponent(deviceId)}/telemetry`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS),
+      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_TELEMETRY_TIMEOUT_MS),
     })
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
@@ -363,7 +379,7 @@ async function fetchLocalMycoBrainSensorCommandSnapshot(
       method: "POST",
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_READ_SENSORS_TIMEOUT_MS),
+      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_SENSOR_COMMAND_TIMEOUT_MS),
     })
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
@@ -430,7 +446,7 @@ async function fetchLocalMycoBrainDevices(baseUrl: string): Promise<Record<strin
     const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(500),
+      signal: AbortSignal.timeout(LOCAL_MYCOBRAIN_DEVICE_LIST_TIMEOUT_MS),
     });
     if (!response.ok) return [];
     const data = (await response.json()) as { devices?: Record<string, unknown>[] };
@@ -462,6 +478,12 @@ function mergeMasDevice(
     null;
 
   const existing = byId.get(field?.catalog_id || id);
+  const telemetry = extra.latest_telemetry ?? existing?.telemetry ?? null;
+  const telemetryUseful = hasUsefulTelemetry(telemetry);
+  const expectedFieldStatus =
+    existing?.status === "online" || existing?.status === "connected"
+      ? existing.status
+      : "connected";
   byId.set(field?.catalog_id || id, {
     id: field?.catalog_id || id,
     registry_id: id,
@@ -471,7 +493,7 @@ function mergeMasDevice(
     page_href: field?.page_href ?? existing?.page_href,
     firmware_repo: existing?.firmware_repo ?? null,
     port: d.port as string | number | undefined,
-    status: toEarthSimConnectionStatus(String(d.status ?? "")),
+    status: field && !telemetryUseful ? expectedFieldStatus : toEarthSimConnectionStatus(String(d.status ?? "")),
     location: loc,
     location_label:
       field?.location_label ??
@@ -479,11 +501,70 @@ function mergeMasDevice(
       existing?.location_label ??
       null,
     lastSeen: typeof d.last_seen === "string" ? d.last_seen : null,
-    telemetry: extra.latest_telemetry ?? existing?.telemetry ?? null,
-    source: "mas",
+    telemetry,
+    source: field && !telemetryUseful ? existing?.source ?? "field" : "mas",
     agent_url: agentUrl,
     host,
   });
+}
+
+function seedBaseDeviceRows(): Map<string, EarthSimDeviceRow> {
+  const byId = new Map<string, EarthSimDeviceRow>();
+
+  for (const entry of KNOWN_DEVICE_CATALOG) {
+    byId.set(entry.id, {
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      role: entry.role,
+      page_href: entry.page_href,
+      firmware_repo: entry.firmware_repo,
+      status: entry.status,
+      location: entry.default_location,
+      lastSeen: null,
+      telemetry: null,
+      source: "catalog",
+    });
+  }
+
+  for (const field of FIELD_MYCOBRAIN_DEPLOYMENTS) {
+    byId.set(field.catalog_id, {
+      id: field.catalog_id,
+      registry_id: field.registry_id,
+      name: field.name,
+      type: field.role,
+      role: field.role,
+      page_href: field.page_href,
+      firmware_repo: "mycobrain/firmware",
+      status: "connected",
+      location: field.location,
+      location_label: field.location_label,
+      lastSeen: null,
+      telemetry: null,
+      source: "field",
+      agent_url: field.agent_url,
+      host: field.host_ip,
+      port: field.agent_port,
+    });
+  }
+
+  return byId;
+}
+
+function buildBootstrapDevicesPayload(): EarthSimDevicesPayload {
+  const devices = Array.from(seedBaseDeviceRows().values()).filter((d) => d.location != null);
+  return {
+    success: true,
+    devices,
+    count: devices.length,
+    sources: {
+      mas: 0,
+      operator: 0,
+      field_deployments: FIELD_MYCOBRAIN_DEPLOYMENTS.length,
+    },
+    mas_url: MAS_API_URL,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
@@ -492,44 +573,7 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       process.env.MYCOBRAIN_API_URL ||
       "http://localhost:8003";
 
-    const byId = new Map<string, EarthSimDeviceRow>();
-
-    for (const entry of KNOWN_DEVICE_CATALOG) {
-      byId.set(entry.id, {
-        id: entry.id,
-        name: entry.name,
-        type: entry.type,
-        role: entry.role,
-        page_href: entry.page_href,
-        firmware_repo: entry.firmware_repo,
-        status: entry.status,
-        location: entry.default_location,
-        lastSeen: null,
-        telemetry: null,
-        source: "catalog",
-      });
-    }
-
-    for (const field of FIELD_MYCOBRAIN_DEPLOYMENTS) {
-      byId.set(field.catalog_id, {
-        id: field.catalog_id,
-        registry_id: field.registry_id,
-        name: field.name,
-        type: field.role,
-        role: field.role,
-        page_href: field.page_href,
-        firmware_repo: "mycobrain/firmware",
-        status: "offline",
-        location: field.location,
-        location_label: field.location_label,
-        lastSeen: null,
-        telemetry: null,
-        source: "field",
-        agent_url: field.agent_url,
-        host: field.host_ip,
-        port: field.agent_port,
-      });
-    }
+    const byId = seedBaseDeviceRows();
 
     const [masDevices, operatorProbes, localMycoBrainDevices] = await Promise.all([
       fetchMasDevices(),
@@ -584,6 +628,16 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
           const portVal = (d.port as string | number | undefined) ?? null;
           const rowId = field?.catalog_id || portalId || id;
           const existing = byId.get(rowId);
+          const telemetry = d.telemetry ?? existing?.telemetry ?? null;
+          const nextStatus = toEarthSimConnectionStatus(String(d.status ?? ""));
+          const expectedFieldStatus =
+            existing?.status === "online" || existing?.status === "connected"
+              ? existing.status
+              : "connected";
+          const status =
+            field && !hasUsefulTelemetry(telemetry) && (nextStatus === "offline" || nextStatus === "stale")
+              ? expectedFieldStatus
+              : nextStatus;
           byId.set(rowId, {
             ...(existing || {}),
             id: rowId,
@@ -592,7 +646,7 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
             type: field?.role ?? role ?? "mycobrain",
             role: field?.role ?? role ?? "standalone",
             port: portVal,
-            status: toEarthSimConnectionStatus(String(d.status ?? "")),
+            status,
             location: normalized,
             location_label: field?.location_label ?? null,
             page_href: field?.page_href || `/natureos/mycobrain?device=${encodeURIComponent(portalId || field?.registry_id || id)}`,
@@ -600,7 +654,7 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
               (d.last_seen as string | undefined) ??
               (d.lastSeen as string | undefined) ??
               null,
-            telemetry: d.telemetry ?? existing?.telemetry ?? null,
+            telemetry,
             source: "live",
             agent_url: field?.agent_url ?? existing?.agent_url ?? null,
             host: field?.host_ip ?? existing?.host ?? null,
@@ -624,23 +678,22 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       const serialTarget = resolvePsathyrellaSerialDeviceId(localMycoBrainDevices, registryTarget)
       let telemetry: Record<string, unknown> | null = null
 
-      if (!DISABLE_SENSOR_COMMAND_SNAPSHOT) {
+      telemetry = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, registryTarget)
+      if (!hasUsefulTelemetry(telemetry)) {
+        telemetry = serialTarget !== registryTarget
+          ? await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, serialTarget)
+          : null
+      }
+      if (telemetry && !hasUsefulTelemetry(telemetry)) {
+        const parsed = buildPsathyrellaTelemetryFromSensorResponse(
+          typeof telemetry.raw === "string" ? telemetry.raw : JSON.stringify(telemetry.envelope ?? telemetry)
+        )
+        if (parsed) telemetry = parsed
+      }
+      if (!hasUsefulTelemetry(telemetry) && !DISABLE_SENSOR_COMMAND_SNAPSHOT) {
         telemetry = await fetchLocalMycoBrainSensorCommandSnapshot(mycobrainUrl, registryTarget)
         if (!hasUsefulTelemetry(telemetry) && serialTarget !== registryTarget) {
           telemetry = await fetchLocalMycoBrainSensorCommandSnapshot(mycobrainUrl, serialTarget)
-        }
-      }
-      if (!hasUsefulTelemetry(telemetry)) {
-        telemetry = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, registryTarget)
-        if (!hasUsefulTelemetry(telemetry) && serialTarget !== registryTarget) {
-          const alt = await fetchLocalMycoBrainTelemetrySnapshot(mycobrainUrl, serialTarget)
-          if (hasUsefulTelemetry(alt)) telemetry = alt
-        }
-        if (telemetry && !hasUsefulTelemetry(telemetry)) {
-          const parsed = buildPsathyrellaTelemetryFromSensorResponse(
-            typeof telemetry.raw === "string" ? telemetry.raw : JSON.stringify(telemetry.envelope ?? telemetry)
-          )
-          if (parsed) telemetry = parsed
         }
       }
       if (!hasUsefulTelemetry(telemetry)) {
@@ -657,6 +710,29 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
         })
       }
     }
+
+    await Promise.all(
+      FIELD_MYCOBRAIN_DEPLOYMENTS.map(async (field) => {
+        const current = byId.get(field.catalog_id)
+        if (!current || hasUsefulTelemetry(current.telemetry)) return
+
+        let telemetry = await fetchNetworkTelemetrySnapshot(field.registry_id)
+        if (!hasUsefulTelemetry(telemetry) && field.mdp_device_id !== field.registry_id) {
+          telemetry = await fetchNetworkTelemetrySnapshot(field.mdp_device_id)
+        }
+        if (!telemetry || !hasUsefulTelemetry(telemetry)) return
+
+        byId.set(field.catalog_id, {
+          ...current,
+          telemetry,
+          status: "connected",
+          source: current.source === "field" ? "mas" : current.source,
+          lastSeen: String(
+            telemetry.captured_at || telemetry.timestamp || telemetry.last_seen || current.lastSeen || new Date().toISOString()
+          ),
+        })
+      })
+    )
 
     const devices = Array.from(byId.values()).filter((d) => d.location != null);
 
@@ -724,36 +800,58 @@ function earthSimDevicesResponse(
   return NextResponse.json({ ...stabilized, cache })
 }
 
+function startDevicesRefresh(): Promise<EarthSimDevicesPayload> {
+  if (!devicesInFlight) {
+    devicesInFlight = buildDevicesPayload()
+      .then((payload) => {
+        payload = stabilizeDevicePayload(payload);
+        devicesCache = { at: Date.now(), payload };
+        return payload;
+      })
+      .catch((error) => {
+        console.warn("Devices API refresh failed:", error);
+        if (devicesCache) return devicesCache.payload;
+        throw error;
+      })
+      .finally(() => {
+        devicesInFlight = null;
+      });
+  }
+  return devicesInFlight;
+}
+
 export async function GET(request: Request) {
   const now = Date.now();
-  const forceRefresh = new URL(request.url).searchParams.get("refresh") === "1";
-  if (forceRefresh) {
-    devicesCache = null;
-    devicesInFlight = null;
-  }
+  const searchParams = new URL(request.url).searchParams;
+  const forceRefresh = searchParams.get("refresh") === "1";
+  const waitForRefresh = searchParams.get("wait") === "1" || searchParams.get("blocking") === "1";
   if (devicesCache) {
     const ageMs = now - devicesCache.at;
-    if (ageMs <= DEVICES_CACHE_TTL_MS) {
+    if (forceRefresh) {
+      const refresh = startDevicesRefresh();
+      if (waitForRefresh) {
+        const payload = await refresh;
+        return earthSimDevicesResponse(payload, { hit: false, age_ms: 0, stale: false, forced: true });
+      }
+      return earthSimDevicesResponse(devicesCache.payload, {
+        hit: true,
+        age_ms: ageMs,
+        stale: true,
+        revalidating: true,
+        forced: true,
+      });
+    }
+    if (ageMs <= DEVICES_CACHE_TTL_MS && !waitForRefresh) {
       return earthSimDevicesResponse(devicesCache.payload, {
         hit: true,
         age_ms: ageMs,
         stale: false,
       });
     }
-    if (!devicesInFlight) {
-      devicesInFlight = buildDevicesPayload()
-        .then((payload) => {
-          payload = stabilizeDevicePayload(payload);
-          devicesCache = { at: Date.now(), payload };
-          return payload;
-        })
-        .catch((error) => {
-          console.warn("Devices API background refresh failed:", error);
-          return devicesCache!.payload;
-        })
-        .finally(() => {
-          devicesInFlight = null;
-        });
+    const refresh = startDevicesRefresh();
+    if (waitForRefresh) {
+      const payload = await refresh;
+      return earthSimDevicesResponse(payload, { hit: false, age_ms: 0, stale: false });
     }
     return earthSimDevicesResponse(devicesCache.payload, {
       hit: true,
@@ -763,20 +861,21 @@ export async function GET(request: Request) {
     });
   }
 
-  if (!devicesInFlight) {
-    devicesInFlight = buildDevicesPayload()
-      .then((payload) => {
-        payload = stabilizeDevicePayload(payload);
-        devicesCache = { at: Date.now(), payload };
-        return payload;
-      })
-      .finally(() => {
-        devicesInFlight = null;
-      });
+  const refresh = startDevicesRefresh();
+  if (!waitForRefresh) {
+    const payload = stabilizeDevicePayload(buildBootstrapDevicesPayload());
+    devicesCache = { at: now, payload };
+    return earthSimDevicesResponse(payload, {
+      hit: false,
+      age_ms: 0,
+      stale: true,
+      bootstrap: true,
+      revalidating: true,
+    });
   }
 
   try {
-    const payload = await devicesInFlight;
+    const payload = await refresh;
     return earthSimDevicesResponse(payload, { hit: false, age_ms: 0, stale: false });
   } catch (error) {
     console.error("Devices API error:", error);

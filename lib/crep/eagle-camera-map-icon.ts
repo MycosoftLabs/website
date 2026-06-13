@@ -6,9 +6,11 @@
 import type { Map as MapLibreMap } from "maplibre-gl"
 
 export const EAGLE_CAMERA_ICON_ID = "crep-eagle-camera-neon"
+export const EAGLE_CAMERA_UNAVAILABLE_ICON_ID = "crep-eagle-camera-unavailable"
 /** Electric neon cyan — distinct from cell towers (#c084fc) and power plants (#fbbf24). */
 export const EAGLE_CAMERA_NEON = "#00f3ff"
 export const EAGLE_CAMERA_GLOW = "rgba(0, 243, 255, 0.35)"
+export const EAGLE_CAMERA_UNAVAILABLE = "#ef4444"
 
 export const EAGLE_CAMERA_LAYER_PREFIX = "crep-eagle-cams"
 
@@ -30,7 +32,7 @@ export function eagleCameraLayerIds(prefix = EAGLE_CAMERA_LAYER_PREFIX) {
 
 export function eagleCameraClickLayerIds(prefix = EAGLE_CAMERA_LAYER_PREFIX) {
   const ids = eagleCameraLayerIds(prefix)
-  return [ids.hit, ids.icon, ids.glow] as const
+  return [ids.hit, ids.icon, ids.glow, ids.label] as const
 }
 
 function roundRect(
@@ -54,24 +56,22 @@ function roundRect(
   ctx.closePath()
 }
 
-export async function ensureEagleCameraMapIcon(map: MapLibreMap): Promise<void> {
-  if (map.hasImage(EAGLE_CAMERA_ICON_ID)) return
-
+function buildCameraIcon(color: string, glow: string): ImageData | null {
   const size = 128
   const canvas = document.createElement("canvas")
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext("2d")
-  if (!ctx) return
+  if (!ctx) return null
 
   const gradient = ctx.createRadialGradient(size / 2, size / 2, 4, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, "rgba(0, 243, 255, 0.55)")
-  gradient.addColorStop(0.55, "rgba(0, 243, 255, 0.12)")
-  gradient.addColorStop(1, "rgba(0, 243, 255, 0)")
+  gradient.addColorStop(0, glow)
+  gradient.addColorStop(0.55, glow.replace(/,\s*0\.\d+\)/, ", 0.12)"))
+  gradient.addColorStop(1, glow.replace(/,\s*0\.\d+\)/, ", 0)"))
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, size, size)
 
-  ctx.strokeStyle = EAGLE_CAMERA_NEON
+  ctx.strokeStyle = color
   ctx.lineWidth = 5
   ctx.fillStyle = "#021018"
   roundRect(ctx, 26, 44, 76, 50, 10)
@@ -79,24 +79,34 @@ export async function ensureEagleCameraMapIcon(map: MapLibreMap): Promise<void> 
   ctx.stroke()
 
   roundRect(ctx, 44, 28, 40, 18, 5)
-  ctx.fillStyle = EAGLE_CAMERA_NEON
+  ctx.fillStyle = color
   ctx.fill()
 
   ctx.beginPath()
   ctx.arc(64, 69, 17, 0, Math.PI * 2)
   ctx.fillStyle = "#002833"
   ctx.fill()
-  ctx.strokeStyle = EAGLE_CAMERA_NEON
+  ctx.strokeStyle = color
   ctx.lineWidth = 4
   ctx.stroke()
 
   ctx.beginPath()
   ctx.arc(64, 69, 7, 0, Math.PI * 2)
-  ctx.fillStyle = EAGLE_CAMERA_NEON
+  ctx.fillStyle = color
   ctx.fill()
 
-  const imageData = ctx.getImageData(0, 0, size, size)
-  map.addImage(EAGLE_CAMERA_ICON_ID, imageData, { pixelRatio: 2 })
+  return ctx.getImageData(0, 0, size, size)
+}
+
+export async function ensureEagleCameraMapIcon(map: MapLibreMap): Promise<void> {
+  if (!map.hasImage(EAGLE_CAMERA_ICON_ID)) {
+    const imageData = buildCameraIcon(EAGLE_CAMERA_NEON, "rgba(0, 243, 255, 0.55)")
+    if (imageData) map.addImage(EAGLE_CAMERA_ICON_ID, imageData, { pixelRatio: 2 })
+  }
+  if (!map.hasImage(EAGLE_CAMERA_UNAVAILABLE_ICON_ID)) {
+    const imageData = buildCameraIcon(EAGLE_CAMERA_UNAVAILABLE, "rgba(239, 68, 68, 0.55)")
+    if (imageData) map.addImage(EAGLE_CAMERA_UNAVAILABLE_ICON_ID, imageData, { pixelRatio: 2 })
+  }
 }
 
 /** Invisible enlarged hit target — easier tap than cell-tower dots. */
@@ -112,10 +122,10 @@ export function eagleCameraHitLayer(sourceId: string, prefix = EAGLE_CAMERA_LAYE
         "interpolate",
         ["linear"],
         ["zoom"],
-        7, 6,
-        10, 10,
-        12, 13,
-        16, 18,
+        7, 10,
+        10, 16,
+        12, 22,
+        16, 30,
       ],
       "circle-color": EAGLE_CAMERA_NEON,
       "circle-opacity": 0.001,
@@ -126,6 +136,7 @@ export function eagleCameraHitLayer(sourceId: string, prefix = EAGLE_CAMERA_LAYE
 /** Soft neon halo — larger than cell-tower purple dots at every zoom. */
 export function eagleCameraGlowLayer(sourceId: string, prefix = EAGLE_CAMERA_LAYER_PREFIX) {
   const ids = eagleCameraLayerIds(prefix)
+  const status = ["coalesce", ["get", "status"], ["get", "source_status"], ""]
   return {
     id: ids.glow,
     type: "circle" as const,
@@ -141,8 +152,20 @@ export function eagleCameraGlowLayer(sourceId: string, prefix = EAGLE_CAMERA_LAY
         13, 7,
         16, 10,
       ],
-      "circle-color": EAGLE_CAMERA_NEON,
-      "circle-opacity": 0.16,
+      "circle-color": [
+        "match",
+        status,
+        ["offline", "unavailable", "retired", "disabled", "blocked", "deprecated", "temporarily_unavailable"],
+        EAGLE_CAMERA_UNAVAILABLE,
+        EAGLE_CAMERA_NEON,
+      ],
+      "circle-opacity": [
+        "match",
+        status,
+        ["offline", "unavailable", "retired", "disabled", "blocked", "deprecated", "temporarily_unavailable"],
+        0.42,
+        0.16,
+      ],
       "circle-blur": 0.85,
     },
   }
@@ -150,13 +173,20 @@ export function eagleCameraGlowLayer(sourceId: string, prefix = EAGLE_CAMERA_LAY
 
 export function eagleCameraIconLayer(sourceId: string, prefix = EAGLE_CAMERA_LAYER_PREFIX) {
   const ids = eagleCameraLayerIds(prefix)
+  const status = ["coalesce", ["get", "status"], ["get", "source_status"], ""]
   return {
     id: ids.icon,
     type: "symbol" as const,
     source: sourceId,
     minzoom: 8,
     layout: {
-      "icon-image": EAGLE_CAMERA_ICON_ID,
+      "icon-image": [
+        "match",
+        status,
+        ["offline", "unavailable", "retired", "disabled", "blocked", "deprecated", "temporarily_unavailable"],
+        EAGLE_CAMERA_UNAVAILABLE_ICON_ID,
+        EAGLE_CAMERA_ICON_ID,
+      ],
       "icon-size": [
         "interpolate",
         ["linear"],
@@ -174,6 +204,7 @@ export function eagleCameraIconLayer(sourceId: string, prefix = EAGLE_CAMERA_LAY
 
 export function eagleCameraLabelLayer(sourceId: string, prefix = EAGLE_CAMERA_LAYER_PREFIX) {
   const ids = eagleCameraLayerIds(prefix)
+  const status = ["coalesce", ["get", "status"], ["get", "source_status"], ""]
   return {
     id: ids.label,
     type: "symbol" as const,
@@ -190,7 +221,13 @@ export function eagleCameraLabelLayer(sourceId: string, prefix = EAGLE_CAMERA_LA
       "text-letter-spacing": 0.06,
     } as Record<string, unknown>,
     paint: {
-      "text-color": "#e0fdff",
+      "text-color": [
+        "match",
+        status,
+        ["offline", "unavailable", "retired", "disabled", "blocked", "deprecated", "temporarily_unavailable"],
+        "#fecaca",
+        "#e0fdff",
+      ],
       "text-halo-color": "rgba(0,0,0,0.85)",
       "text-halo-width": 1.3,
     },
