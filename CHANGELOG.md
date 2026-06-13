@@ -575,6 +575,7 @@ All notable changes to this project will be documented in this file.
 - Add Codex deploy handoff for field MycoBrain device controls
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -756,6 +757,7 @@ All notable changes to this project will be documented in this file.
 - Add search intelligence orchestration
 - *(natureos/devices)* Live OpenClaw control + COM7-style command console
 - *(natureos/devices)* MQTT live fleet mirror
+- *(earth-simulator)* Ship Earth Simulator improvements to production (#188)
 
 ### Fix
 
