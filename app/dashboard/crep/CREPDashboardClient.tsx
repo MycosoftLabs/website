@@ -2848,6 +2848,26 @@ const PROPOSAL_OVERLAY_LAYER_IDS = new Set<string>([
   "cctv",
 ]);
 
+// Multi-MB GeoJSON layers that mount thousands of features at once. On tablet /
+// phone, mounting these synchronously starves the main thread and freezes the
+// iPad — so ALL ON must NOT switch them on at sub-desktop perf tiers, and the
+// proposal-overlay heavy gates fall back to the desktop-only budget. (35k power
+// plants, 76k substations, 40k factories, cell towers, TX lines, 1.2M debris.)
+const HEAVY_TABLET_OFF_LAYER_IDS = new Set<string>([
+  "powerPlants",
+  "powerPlantsG",
+  "substations",
+  "factories",
+  "factoriesG",
+  "txLines",
+  "txLinesGlobal",
+  "cellTowersG",
+  "dataCentersG",
+  "orbitalDebris",
+  "debrisCloud",
+  "oilGas",
+]);
+
 const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
   "photorealistic3D",
   "mapbox3dBuildings",
@@ -7908,6 +7928,13 @@ export default function CREPDashboardPage({
   );
   const earthSimDesktopOverlayBudget =
     !isEarthSimulatorRoute || earthSimViewportPerfClass === "desktop";
+  // Light overlays (small point counts: radio stations, drone no-fly zones,
+  // rail trains, SDTJ/civic coverage) are cheap enough for tablets — only phones
+  // need them held back. Heavy multi-MB GeoJSON (global power plants 35k,
+  // substations 76k, factories, cell towers, TX lines, debris cloud) keeps using
+  // the desktop-only budget so weaker tablet GPUs don't starve the main thread.
+  const earthSimLightOverlayBudget =
+    !isEarthSimulatorRoute || earthSimViewportPerfClass !== "phone";
   const shouldMountRightPanelContent =
     !isEarthSimulatorRoute || rightPanelOpen;
   const isGlobeCrepMapRoute = isGlobeCrepRoute();
@@ -12448,16 +12475,30 @@ export default function CREPDashboardPage({
     setAuditAllOffMode(false);
     setAssetIsolationMode(null);
     setIsStreaming(true);
+    // Tablet/phone ALL ON must stay survivable: switching on the multi-MB
+    // GeoJSON layers (35k power plants, 76k substations, 1.2M debris cloud …)
+    // synchronously starves the mobile main thread and freezes the iPad. Hold
+    // those off at sub-desktop perf tiers; everything light still turns on.
+    const heavyPerf = isEarthSimulatorRoute && earthSimViewportPerfClass !== "desktop";
     startTransition(() => {
       setAuditAllOffMode(false);
       setAssetIsolationMode(null);
       persistFungaSelection(null);
       setIsStreaming(true);
-      setLayers(prev => applyForceOffToLayers(prev.map(layer => layer.enabled ? layer : { ...layer, enabled: true })));
+      setLayers(prev => applyForceOffToLayers(prev.map(layer => {
+        if (heavyPerf && HEAVY_TABLET_OFF_LAYER_IDS.has(layer.id)) {
+          return layer.enabled ? { ...layer, enabled: false } : layer;
+        }
+        return layer.enabled ? layer : { ...layer, enabled: true };
+      })));
       setGroundFilter(prev => {
         const next: typeof prev = { ...prev };
         for (const key of Object.keys(next) as Array<keyof typeof next>) {
           if (key === "showAmFungi") {
+            (next as any)[key] = false;
+            continue;
+          }
+          if (heavyPerf && (key === "showPowerPlants" || key === "showFactories" || key === "showSubstations")) {
             (next as any)[key] = false;
             continue;
           }
@@ -12527,7 +12568,7 @@ export default function CREPDashboardPage({
       setShowInfraLayers(true);
     });
     return true;
-  }, []);
+  }, [isEarthSimulatorRoute, earthSimViewportPerfClass]);
 
   const disableAllAuditFilters = useCallback(() => {
     groundFilterUserControlRef.current = true;
@@ -14384,6 +14425,8 @@ export default function CREPDashboardPage({
     !isEarthSimulatorRoute ||
     (!auditAllOffMode && !assetIsolationMode && earthProjectViewportReady);
   const proposalOverlayAssetsReady = earthOverlayAssetsReady && earthSimDesktopOverlayBudget;
+  // Lighter proposal overlays render on tablet too (phones still excluded).
+  const proposalOverlayLightAssetsReady = earthOverlayAssetsReady && earthSimLightOverlayBudget;
   const stableEarthOverlayAssetsReady =
     !isEarthSimulatorRoute ||
     (!auditAllOffMode && !assetIsolationMode);
@@ -22316,21 +22359,21 @@ export default function CREPDashboardPage({
             enabled={{
               ports:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
               radar:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
-              radioStations:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
-              powerPlantsG:   stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
+              radioStations:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
+              powerPlantsG:   stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
               factories:      proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
               orbitalDebris:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
               debrisCloud:    proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
-              txLinesGlobal:  stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
-              cellTowersG:    stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
+              txLinesGlobal:  stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
+              cellTowersG:    stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
               // Default these to true while layer state hydrates so they
               // load immediately on refresh as required.
               bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
               topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
               satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
               railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
-              railwayTrains:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
-              droneNoFly:     proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
+              railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
+              droneNoFly:     proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
               cctv:           proposalOverlayAssetsReady && !assetIsolationMode && !isEarthSimulatorRoute && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
             }}
             bbox={detailedOverlayBbox}
