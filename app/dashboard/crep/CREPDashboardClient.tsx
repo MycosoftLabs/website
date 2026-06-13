@@ -7809,10 +7809,10 @@ export default function CREPDashboardPage({
     };
   }, []);
   const [leftPanelOpen, setLeftPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
   );
   const [rightPanelOpen, setRightPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
   );
   const [rightPanelTab, setRightPanelTab] = useState("myca");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
@@ -22266,7 +22266,7 @@ export default function CREPDashboardPage({
           {!auditAllOffMode &&
             assetIsolationMode !== "funga" &&
             hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET) &&
-            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
+            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || earthSimViewportPerfClass === "tablet" || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
             map={mapRef}
             enabled={{
               // May 21 2026 (Morgan): every fungal atlas toggle is wired to its
