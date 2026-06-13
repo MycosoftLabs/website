@@ -1191,8 +1191,14 @@ export default function VideoWallWidget() {
       const sourceStatus = isKnownUnavailableFeedId(d.id) ? "temporarily_unavailable" : d.source_status || d.status || undefined
       const providerLc = String(d.provider || "").toLowerCase()
       const hasYouTubeUrl = isYouTubeUrl(streamUrl || "") || isYouTubeUrl(embedUrl || "")
+      // hdontap (e.g. Hotel del Coronado) ships only an embed_url to its
+      // domain-locked portal player, which rejects off-site iframes ("Oops, the
+      // livestream is unavailable on this website"). The THUMBNAIL plays fine
+      // because its resolver falls back to /api/eagle/stream/[id], which scrapes
+      // the real HLS. Route the full player through that same resolver so it
+      // plays the identical stream instead of the dead iframe. (Jun 13, 2026.)
       const resolveViaStreamApi =
-        (providerLc === "earthcam" || providerLc === "skylinewebcams" || providerLc === "surfline") &&
+        (providerLc === "earthcam" || providerLc === "skylinewebcams" || providerLc === "surfline" || providerLc === "hdontap") &&
         !hasYouTubeUrl &&
         !isHlsUrl(streamUrl)
       const directEmbed =
