@@ -40,6 +40,9 @@ const CATEGORY_META: Record<string, { label: string; accent: string; ring: strin
 
 export default function MojaveSiteWidget() {
   const [site, setSite] = useState<ClickDetail | null>(null)
+  // Anchor the card over its map icon and follow the map, above the panels
+  // (Jun 13, 2026) — same fix as OysterSiteWidget.
+  const [anchor, setAnchor] = useState<{ x: number; y: number; visible: boolean } | null>(null)
 
   useEffect(() => {
     const onClick = (e: Event) => {
@@ -49,6 +52,27 @@ export default function MojaveSiteWidget() {
     window.addEventListener("crep:mojave:site-click", onClick as any)
     return () => window.removeEventListener("crep:mojave:site-click", onClick as any)
   }, [])
+
+  useEffect(() => {
+    if (!site || typeof site.lat !== "number" || typeof site.lng !== "number") { setAnchor(null); return }
+    const map = (window as any).__crep_map
+    if (!map?.project) { setAnchor(null); return }
+    const update = () => {
+      try {
+        const p = map.project([site.lng as number, site.lat as number])
+        const canvas = map.getCanvas?.()
+        const w = canvas?.clientWidth ?? window.innerWidth
+        const h = canvas?.clientHeight ?? window.innerHeight
+        const visible = p.x >= -40 && p.y >= -40 && p.x <= w + 40 && p.y <= h + 40
+        setAnchor({ x: p.x, y: p.y, visible })
+      } catch { setAnchor(null) }
+    }
+    update()
+    map.on("move", update); map.on("zoom", update); map.on("rotate", update); map.on("pitch", update)
+    return () => {
+      try { map.off("move", update); map.off("zoom", update); map.off("rotate", update); map.off("pitch", update) } catch { /* map gone */ }
+    }
+  }, [site?.lat, site?.lng])
 
   if (!site) return null
 
@@ -68,7 +92,14 @@ export default function MojaveSiteWidget() {
 
   return (
     <div
-      className={`fixed right-4 top-24 z-[60] w-[360px] rounded-xl backdrop-blur-xl ${meta.accent} ring-1 ${meta.ring} shadow-2xl p-4 text-sm`}
+      className={`fixed z-[2100] w-[360px] rounded-xl backdrop-blur-xl ${meta.accent} ring-1 ${meta.ring} shadow-2xl p-4 text-sm ${anchor ? "" : "right-4 top-24"}`}
+      style={anchor ? {
+        left: anchor.x,
+        top: anchor.y,
+        transform: anchor.x > (typeof window !== "undefined" ? window.innerWidth - 380 : 1200) ? "translate(-372px, -50%)" : "translate(16px, -50%)",
+        opacity: anchor.visible ? 1 : 0,
+        pointerEvents: anchor.visible ? "auto" : "none",
+      } : undefined}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-2 mb-3">

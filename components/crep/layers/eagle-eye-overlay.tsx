@@ -640,7 +640,7 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
         const fastMode = !loadedRef.current.cams && !bakedPainted
         const isTabletViewport = window.innerWidth <= 1100 || window.innerHeight <= 820
         const cameraQuery = new URLSearchParams({
-          limit: String(isTabletViewport ? 96 : 180),
+          limit: String(isTabletViewport ? 600 : 1500),
           live: fastMode || isTabletViewport ? "0" : "1",
         })
         if (activeBboxKey) cameraQuery.set("bbox", activeBboxKey)
