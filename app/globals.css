@@ -197,6 +197,15 @@ body {
   overflow: hidden;
 }
 
+/* iPad / tablet pan-freeze: while a gesture is active the markers' per-frame
+   _update is detached (see freezeNativeMarkerUpdates in components/ui/map.tsx),
+   so they would otherwise sit frozen at their last screen position. Hide them
+   during the pan; they are re-projected and revealed on gesture settle.
+   Toggled on the map container only on heavy perf classes. */
+.crep-pan-hide-markers .maplibregl-marker {
+  visibility: hidden;
+}
+
 /* MapLibre control styling */
 .maplibregl-ctrl-group {
   background: var(--color-background) !important;

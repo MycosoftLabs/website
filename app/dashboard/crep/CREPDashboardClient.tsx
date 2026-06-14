@@ -21,7 +21,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo, startTransition, type ReactNode, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
+import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup, freezeNativeMarkerUpdates, thawNativeMarkerUpdates } from "@/components/ui/map";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -8993,6 +8993,9 @@ export default function CREPDashboardPage({
     const map = mapRef;
     if (!map) return;
     const clearMapInteractionState = (reason: string) => {
+      // Re-attach native marker per-frame _update + snap markers back to their
+      // correct positions once the gesture settles (no-op if not frozen).
+      thawNativeMarkerUpdates(map);
       if (mapInteractionClearTimerRef.current != null) {
         window.clearTimeout(mapInteractionClearTimerRef.current);
         mapInteractionClearTimerRef.current = null;
@@ -9054,6 +9057,16 @@ export default function CREPDashboardPage({
       }
       mapInteractionActiveRef.current = true;
       mapInteractionStartedAtRef.current = Date.now();
+      // iPad/tablet freeze fix: detach native marker per-frame _update (project +
+      // setTransform + occlusion + frameAsync alloc, per marker per frame) so the
+      // map pans at full frame rate. Heavy perf classes only — desktop keeps live
+      // marker tracking during pan. Markers re-attach + snap on clearMapInteractionState.
+      if (
+        (earthStrictPerfMode || isGlobeCrepMapRoute) &&
+        getEarthSimViewportPerfClass() !== "desktop"
+      ) {
+        freezeNativeMarkerUpdates(map);
+      }
       try {
         (window as any).__crep_map_interaction_state = {
           active: true,
@@ -9105,6 +9118,8 @@ export default function CREPDashboardPage({
       /* map can be mid-teardown during hot reload */
     }
     return () => {
+      // Never leave markers detached if this effect re-runs mid-pan.
+      thawNativeMarkerUpdates(map);
       if (mapInteractionClearTimerRef.current != null) {
         window.clearTimeout(mapInteractionClearTimerRef.current);
         mapInteractionClearTimerRef.current = null;
@@ -9127,7 +9142,7 @@ export default function CREPDashboardPage({
       try { map.off?.("pitchend", onMoveEnd); } catch {}
       try { map.off?.("idle", onIdle); } catch {}
     };
-  }, [isGlobeCrepMapRoute, mapRef, requestViewportNatureFetch]);
+  }, [earthStrictPerfMode, isGlobeCrepMapRoute, mapRef, requestViewportNatureFetch]);
 
   useEffect(() => {
     if (!earthStrictPerfMode || !mapRef) return;
@@ -13795,18 +13810,14 @@ export default function CREPDashboardPage({
     return natureObsOn || (mapZoom ?? 0) >= EARTH_SIM_FUNGAL_DOM_MIN_ZOOM;
   }, [earthStrictPerfMode, layers, mapZoom, markerBounds, natureFiltersEnabled, natureSpeciesFiltersActive]);
 
-  // May 23 2026 regression lock (docs/codex-handoffs/2026-05-23-earth-simulator-handoff.md):
-  // kept Event/Nature DOM markers mounted through pan (update positions only) to
-  // avoid blink. That is right on desktop — but on a tablet/phone GPU, MapLibre
-  // re-projects + occlusion-tests (map.tsx Marker._update + setOccludedOpacity)
-  // every mounted DOM marker on EVERY move frame; at the tablet cap (~760) that
-  // starves the main thread and FREEZES the iPad on pan. CSS hiding doesn't help
-  // (the project() cost is JS, independent of display). So on non-desktop only,
-  // unmount the regular DOM markers during the pan/zoom gesture (the selected
-  // marker stays via the fallback below; a brief blink beats a frozen map) and
-  // remount on settle. Desktop keeps the no-blink behavior. (Jun 13, 2026 — iPad
-  // freeze P0 from live QA.)
-  const shouldRenderDomMarkers = !(isMapAnimationActive && earthSimViewportPerfClass !== "desktop");
+  // May 23 2026 regression lock: keep Event/Nature DOM markers MOUNTED through
+  // pan (update positions only) — never unmount (that caused a blink + portal
+  // churn). The iPad pan-freeze is instead handled WITHOUT unmounting by
+  // freezeNativeMarkerUpdates() (components/ui/map.tsx): on move-start for
+  // non-desktop perf classes it detaches each marker's per-frame _update
+  // (project + setTransform + occlusion + frameAsync) so the canvas pans at full
+  // frame rate, then re-attaches + snaps them back on settle. No blink.
+  const shouldRenderDomMarkers = true;
   const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const shouldRenderHeavyOverlays =
     !earthStrictPerfMode || (earthSimDeferredDataReady && !isMapAnimationActive);
