@@ -58,6 +58,11 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const ADSBX_API_KEY = process.env.ADSBX_API_KEY || ""
 
+// OpenSky OAuth2 client-credentials (Apr 2026). Anonymous /states/all is heavily
+// rate-limited; set both vars to restore the broad global aircraft feed.
+const OPENSKY_CLIENT_ID = process.env.OPENSKY_CLIENT_ID || ""
+const OPENSKY_CLIENT_SECRET = process.env.OPENSKY_CLIENT_SECRET || ""
+
 const configuredMovingSourceTimeout = Number(process.env.CREP_MOVING_SOURCE_TIMEOUT_MS)
 const SOURCE_TIMEOUT_MS =
   Number.isFinite(configuredMovingSourceTimeout) && configuredMovingSourceTimeout > 0
@@ -108,16 +113,49 @@ async function fetchFromMINDEX(): Promise<AircraftRecord[]> {
   return entities.map((a) => normaliseGeneric(a, "mindex"))
 }
 
+// OpenSky OAuth2 client-credentials token, cached until just before expiry.
+let openSkyToken: { value: string; expiresAt: number } | null = null
+
+async function getOpenSkyToken(): Promise<string | null> {
+  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null
+  const now = Date.now()
+  if (openSkyToken && now < openSkyToken.expiresAt) return openSkyToken.value
+  try {
+    const res = await fetch(
+      "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: OPENSKY_CLIENT_ID,
+          client_secret: OPENSKY_CLIENT_SECRET,
+        }),
+        signal: AbortSignal.timeout(8_000),
+      },
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as { access_token?: string; expires_in?: number }
+    if (!data?.access_token) return null
+    const ttlSec = Number(data.expires_in) || 1800
+    openSkyToken = { value: data.access_token, expiresAt: now + (ttlSec - 60) * 1000 }
+    return data.access_token
+  } catch {
+    return null
+  }
+}
+
 /**
- * Source 3 — OpenSky Network (free, no key, 10 s cache)
+ * Source 3 — OpenSky Network
  *
- * Returns all aircraft with active transponders worldwide.
- * Free tier: ~1 req/10 s, ~6000-10000 aircraft per response.
+ * Returns all aircraft with active transponders worldwide (~6000-10000).
+ * Authenticated via OAuth2 when OPENSKY_CLIENT_ID/SECRET are set.
  *
  * Response shape: { time: number, states: [icao24, callsign, origin_country, ...] }
  */
 async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
   const url = "https://opensky-network.org/api/states/all"
+  const token = await getOpenSkyToken()
   // OpenSky payload is ~2-4MB globally, can take 5-12s. Use a longer timeout
   // specifically for this source since it's our largest single-source returns
   // (~6500 global aircraft vs FR24's ~1500).
@@ -129,6 +167,7 @@ async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
       // Some upstream CDNs block default Node fetch UA with 403. Identify
       // ourselves so OpenSky doesn't rate-limit us as a scraper.
       "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
   if (!res.ok) return []

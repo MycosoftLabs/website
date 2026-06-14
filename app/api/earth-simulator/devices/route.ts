@@ -11,6 +11,7 @@ import {
 import { probeAllOperatorAgents } from "@/lib/devices/operator-probe"
 import { resolveDevBenchLocation, DEV_BENCH_LOCATION_LABEL } from "@/lib/devices/dev-bench-location";
 import { resolveMasServerBaseUrl } from "@/lib/mas-server-url";
+import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url";
 
 /**
  * Device Locations API — Earth Simulator map markers.
@@ -30,7 +31,7 @@ interface EarthSimDeviceRow {
   role?: string
   page_href?: string
   firmware_repo?: string | null
-  source: "live" | "catalog" | "field" | "mas" | "operator"
+  source: "live" | "catalog" | "field" | "mas" | "operator" | "mindex"
   port?: string | number | null
   status?: string
   location: { lat: number; lon: number } | null
@@ -48,6 +49,7 @@ type EarthSimDevicesPayload = {
   count: number
   sources: {
     mas: number
+    mindex: number
     operator: number
     field_deployments: number
   }
@@ -56,6 +58,9 @@ type EarthSimDevicesPayload = {
 }
 
 const MAS_API_URL = resolveMasServerBaseUrl();
+const MINDEX_API_URL = resolveMindexServerBaseUrl();
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key";
+const MINDEX_INTERNAL_TOKEN = process.env.MINDEX_INTERNAL_TOKEN || "";
 const DEVICES_CACHE_TTL_MS = 25_000;
 const DEVICE_ONLINE_GRACE_MS = 10 * 60_000;
 const FIELD_OPERATOR_DEVICE_IDS = new Set(["mushroom-1", "hyphae-1", "psathyrella-buoy-com4"]);
@@ -441,6 +446,98 @@ async function fetchMasDevices(): Promise<Record<string, unknown>[]> {
   }
 }
 
+function parseMindexGeoLocation(location: unknown): { lat: number; lon: number } | null {
+  if (!location || typeof location !== "object") return null;
+  const geo = location as Record<string, unknown>;
+  const coords = geo.coordinates;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const lon = Number(coords[0]);
+  const lat = Number(coords[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
+}
+
+async function fetchMindexDevices(): Promise<Record<string, unknown>[]> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "X-API-Key": MINDEX_API_KEY,
+    };
+    if (MINDEX_INTERNAL_TOKEN) {
+      headers["X-Internal-Token"] = MINDEX_INTERNAL_TOKEN;
+    }
+    const res = await fetch(`${MINDEX_API_URL}/api/mindex/devices?limit=200`, {
+      cache: "no-store",
+      headers,
+      signal: AbortSignal.timeout(1500),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { data?: Record<string, unknown>[]; devices?: Record<string, unknown>[] };
+    return data.data || data.devices || [];
+  } catch {
+    return [];
+  }
+}
+
+function mergeMindexDevice(
+  byId: Map<string, EarthSimDeviceRow>,
+  d: Record<string, unknown>
+) {
+  const serial = String(d.serial_number ?? d.serialNumber ?? "");
+  const id = String(d.id ?? serial ?? "");
+  if (!id) return;
+
+  const registryId = serial || id;
+  const field = deploymentByRegistryId(registryId) || deploymentByRegistryId(id);
+  const metadata =
+    d.metadata && typeof d.metadata === "object"
+      ? (d.metadata as Record<string, unknown>)
+      : {};
+  const loc =
+    field?.location ||
+    parseMindexGeoLocation(d.location) ||
+    parseLocation(metadata.location) ||
+    null;
+  if (!loc) return;
+
+  const connectivity = String(d.connectivity_status ?? d.connectivityStatus ?? "").toLowerCase();
+  const status =
+    connectivity === "online"
+      ? "connected"
+      : connectivity === "stale"
+        ? "stale"
+        : toEarthSimConnectionStatus(String(d.status ?? "offline"));
+
+  const rowId = field?.catalog_id || registryId;
+  const existing = byId.get(rowId);
+
+  byId.set(rowId, {
+    id: rowId,
+    registry_id: registryId,
+    name: field?.name ?? String(d.name ?? existing?.name ?? registryId),
+    type: field?.role ?? String(d.device_type ?? d.deviceType ?? existing?.type ?? "mycobrain"),
+    role: field?.role ?? String(d.device_type ?? existing?.role ?? "standalone"),
+    page_href:
+      field?.page_href ??
+      existing?.page_href ??
+      `/natureos/mycobrain?device=${encodeURIComponent(registryId)}`,
+    firmware_repo: existing?.firmware_repo ?? "mycobrain/firmware",
+    status,
+    location: loc,
+    location_label: field?.location_label ?? String(d.location_name ?? existing?.location_label ?? ""),
+    lastSeen:
+      typeof d.last_seen_at === "string"
+        ? d.last_seen_at
+        : typeof d.lastSeenAt === "string"
+          ? d.lastSeenAt
+          : existing?.lastSeen ?? null,
+    telemetry: existing?.telemetry ?? metadata.latest_telemetry ?? null,
+    source: "mindex",
+    agent_url: existing?.agent_url ?? null,
+    host: existing?.host ?? null,
+  });
+}
+
 async function fetchLocalMycoBrainDevices(baseUrl: string): Promise<Record<string, unknown>[]> {
   try {
     const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/devices`, {
@@ -559,6 +656,7 @@ function buildBootstrapDevicesPayload(): EarthSimDevicesPayload {
     count: devices.length,
     sources: {
       mas: 0,
+      mindex: 0,
       operator: 0,
       field_deployments: FIELD_MYCOBRAIN_DEPLOYMENTS.length,
     },
@@ -575,13 +673,15 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
 
     const byId = seedBaseDeviceRows();
 
-    const [masDevices, operatorProbes, localMycoBrainDevices] = await Promise.all([
+    const [masDevices, mindexDevices, operatorProbes, localMycoBrainDevices] = await Promise.all([
       fetchMasDevices(),
+      fetchMindexDevices(),
       probeAllOperatorAgents(),
       fetchLocalMycoBrainDevices(mycobrainUrl),
     ]);
 
     for (const d of masDevices) mergeMasDevice(byId, d);
+    for (const d of mindexDevices) mergeMindexDevice(byId, d);
 
     for (const probe of operatorProbes) {
       const field = deploymentByHost(probe.host);
@@ -742,6 +842,7 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       count: devices.length,
       sources: {
         mas: masDevices.length,
+        mindex: mindexDevices.length,
         operator: operatorProbes.filter((p) => p.reachable && p.online).length,
         field_deployments: FIELD_MYCOBRAIN_DEPLOYMENTS.length,
       },

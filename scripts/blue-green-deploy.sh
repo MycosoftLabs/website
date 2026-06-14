@@ -61,7 +61,7 @@ load_deploy_env() {
     set +a
   fi
   CF_ZONE_ID="${CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID_PRODUCTION:-${CLOUDFLARE_ZONE_ID:-}}}"
-  CF_API_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-}}"
+  CF_API_TOKEN="${CF_API_TOKEN:-${CLOUDFLARE_API_TOKEN:-${CLOUDFLARE_API_TOKEN_MYCODAO:-}}}"
 }
 
 # Production website secrets live in DEPLOY_DIR/.env — MUST be sourced before
