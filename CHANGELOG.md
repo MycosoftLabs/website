@@ -347,6 +347,14 @@ All notable changes to this project will be documented in this file.
 - *(earth)* Stabilize species filters and startup [fast]
 - *(earth)* Stabilize simulator and MycoBrain release [fast]
 - *(search)* Rich flight widget details + global planes on Earth map
+- *(earth-simulator)* Cut first-paint data delays and broaden biodiversity zoom
+- *(earth-sim)* Cut deferred-data delay to <=2.5s, ungate live movers, seed field devices connected
+- *(earth-sim)* Mover filters — decouple category cascade, identity-rich aircraft, paint unknown vessels
+- *(earth-sim)* Restore biodiversity + V3 overlays, enlarge infra dots, hide empty Protected Areas
+- *(earth-sim)* Dedupe event icons, cell-tower flyover zoom, dense infra tiles
+- *(earth-sim)* Real wildfire feed, mid-US cameras, full-density power infra
+- *(earth-sim)* Viewport-windowed species LOD - cull off-screen markers, kill San Diego freeze
+- *(docs)* Repair Mermaid architecture diagram for GitHub rendering
 - *(security)* Prevent command injection in network-diagnostics (#189)
 - *(earth-sim)* Stop iPad Pro freeze - reclassify touch devices as tablet (#192)
 - *(earth-sim)* Always-globe + AIS cap + FDOT migration + Hotel del Coronado player (#193)
@@ -354,6 +362,9 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* IPad/tablet starts like desktop - open panels + fungal atlas on (#195)
 - *(earth-sim)* MYCA/country fly-to resets pitch+bearing so tilted-globe jumps are visible (#196)
 - *(earth-sim)* Tablet-safe heavy layers - ungate light overlays, hold heavy GeoJSON off iPad (#197)
+- *(earth-sim)* Vessels P0 + iPad freeze/perf-class P0 + satellites-on-desktop (#198)
+- *(earth-sim)* IPad pan-freeze via native marker _update detach (no blink) (#200)
+- *(aisstream)* Self-healing reconnect so the live vessel feed never dies permanently (#202)
 
 ### CREP
 
@@ -582,12 +593,17 @@ All notable changes to this project will be documented in this file.
 - Add Codex deploy handoff for field MycoBrain device controls
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- *(earth-simulator)* Add Fable 5 continuation handoff for local Codex session
+- *(earth-simulator)* Add auto-generated cloud-session handoff summary
+- *(earth-simulator)* Add public README and sanitized technical reference
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(earth-simulator)* Comprehensive technical feature reference & capability index (#190) [skip ci]
 - *(earth-simulator)* Live production QA audit 2026-06-13 (#191) [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Publish sanitized Earth Simulator technical reference + README to main (#199)
 
 ### Features
 
@@ -769,7 +785,9 @@ All notable changes to this project will be documented in this file.
 - Add search intelligence orchestration
 - *(natureos/devices)* Live OpenClaw control + COM7-style command console
 - *(natureos/devices)* MQTT live fleet mirror
+- *(sine)* Ship acoustic player and mindex library [fast]
 - *(earth-simulator)* Ship Earth Simulator improvements to production (#188)
+- *(aircraft)* Wire OpenSky OAuth2 client-credentials (graceful, creds-later) (#201)
 
 ### Fix
 
@@ -1001,6 +1019,10 @@ All notable changes to this project will be documented in this file.
 ### Ux
 
 - Mobile devices page - sticky tab strip replaces scroll-up-scroll-down picker
+
+### Wip
+
+- *(earth-sim)* Snapshot Codex local working tree (first-paint, eagle eye, infra, devices, movers)
 
 ### Worldview
 
