@@ -9811,8 +9811,10 @@ export default function CREPDashboardPage({
 
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>(() => {
-    const filtersOff = getInitialFiltersOffMode();
-    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
+    // Aircraft start ON at boot on Earth Sim (like vessels): OpenSky is live
+    // (~6k aircraft incl. the Gulf) and the categories classify by callsign, so
+    // users see air traffic immediately at reload. (Jun 14, 2026 — movers on.)
+    const moversOffAtBoot = getInitialFiltersOffMode();
     return {
       showAirborne: !moversOffAtBoot,
       showGround: !moversOffAtBoot,
@@ -9850,15 +9852,18 @@ export default function CREPDashboardPage({
   });
 
   const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>(() => {
-    const filtersOff = getInitialFiltersOffMode();
-    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
+    // Satellites start ON at boot on Earth Sim — EXCEPT debris (Morgan: all sat
+    // filters on at reload except debris). Categories classify by name; SGP4
+    // render is desktop-only so tablet/phone carry no satellite cost.
+    // (Jun 14, 2026 — movers on at reload.)
+    const moversOffAtBoot = getInitialFiltersOffMode();
     return {
       showStations: !moversOffAtBoot,
       showWeather: !moversOffAtBoot,
       showComms: !moversOffAtBoot,
       showGPS: !moversOffAtBoot,
       showStarlink: !moversOffAtBoot,
-      showDebris: !moversOffAtBoot,
+      showDebris: false, // debris stays OFF at boot per request
       showActive: !moversOffAtBoot,
       orbitTypes: [],
     };

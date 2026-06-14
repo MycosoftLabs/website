@@ -129,14 +129,14 @@ export const EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS = [
 
 /** Movers, space weather, Earth-2, AQI/transit, devices, projects — OFF at refresh. */
 export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
-  "aviation",
+  // aviation (live aircraft), ships, and satellites are NOT off-at-boot: their
+  // feeds are live (OpenSky ~6k, AISstream 44k, TLE/SGP4) and the categories
+  // classify correctly, so air/sea/space traffic paints at reload. aviationRoutes
+  // (flight paths) and orbitalDebris/debrisCloud stay off (debris excluded per
+  // request). Jun 13-14, 2026 — movers on at reload.
   "aviationRoutes",
-  // ships / shipRoutes intentionally NOT off-at-boot: vessels start ON so ocean
-  // traffic paints at load (the AIS feed is live; gating them off left the layer
-  // hidden + the mover pump never fetching). Jun 13, 2026 — vessels P0.
   "fishing",
   "containers",
-  "satellites",
   "orbitalDebris",
   "debrisCloud",
   "solar",
@@ -208,11 +208,24 @@ export const EARTH_SIM_TELECOM_BOOT_LAYER_IDS = [
   "signalHeatmap",
 ] as const
 
+/** Live movers (air / sea / space) ON at first paint. Their feeds are live
+ *  (OpenSky ~6k aircraft, AISstream ~44k vessels, TLE/SGP4 satellites) and the
+ *  categories classify correctly. Routes (aviationRoutes/shipRoutes) + debris
+ *  stay off. These MUST be in the profile-ON allowlist — otherwise
+ *  applyEarthSimulatorBootToLayers forces the mover layers off even after they
+ *  are removed from the OFF-at-boot list. (Jun 14, 2026 — movers on at reload.) */
+export const EARTH_SIM_MOVER_BOOT_LAYER_IDS = [
+  "aviation",
+  "ships",
+  "satellites",
+] as const
+
 export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BASE_LAYER_IDS,
   ...EARTH_SIM_INSTANT_INFRA_LINE_IDS,
   ...EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS,
   ...EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
+  ...EARTH_SIM_MOVER_BOOT_LAYER_IDS,
   ...EARTH_SIM_DEVICE_BOOT_LAYER_IDS,
   ...EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
