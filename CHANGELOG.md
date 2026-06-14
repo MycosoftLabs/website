@@ -365,6 +365,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Vessels P0 + iPad freeze/perf-class P0 + satellites-on-desktop (#198)
 - *(earth-sim)* IPad pan-freeze via native marker _update detach (no blink) (#200)
 - *(aisstream)* Self-healing reconnect so the live vessel feed never dies permanently (#202)
+- *(earth-sim)* Raise MAS device-list fetch timeout 1.2s -> 4s (no more intermittent mas:0) (#205)
 
 ### CREP
 
@@ -604,6 +605,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Publish sanitized Earth Simulator technical reference + README to main (#199)
+- Update changelog [skip ci]
 
 ### Features
 
