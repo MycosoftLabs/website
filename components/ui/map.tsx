@@ -738,6 +738,10 @@ function MapMarker({
       // off the map during pan/zoom because project() coords ≠ canvas transforms.
       marker.addTo(map);
       added = true;
+      // Track this marker so pan-freeze can detach its per-frame _update during
+      // gestures (see freezeNativeMarkerUpdates). If a pan is already frozen, the
+      // marker is detached immediately inside registerPanMarker.
+      registerPanMarker(map, marker);
       try {
         const element = marker.getElement?.();
         if (element) {
@@ -789,6 +793,9 @@ function MapMarker({
 
     return () => {
       if (!added) return;
+      // Drop from the pan-freeze registry synchronously so a thaw firing in the
+      // 96ms removal window never re-attaches `move` to a marker being removed.
+      unregisterPanMarker(map, marker);
       if (typeof window !== "undefined") {
         const debug = ((window as any).__map_marker_debug ||= {
           addToCalls: 0,
@@ -2388,6 +2395,166 @@ function MapClusterLayer<
   return null;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Tablet / iPad pan-freeze for native DOM markers
+ *
+ * Root cause (verified against maplibre-gl 5.x): every Marker subscribes to the
+ * map's `move` event in addTo() (`map.on('move', this._update)`). During a pan
+ * the map fires `move` continuously, so for EACH mounted marker `_update` runs
+ * every frame:
+ *   - map.project(lngLat)                          (globe matrix projection)
+ *   - DOM.setTransform(element, ...)               (style write per marker)
+ *   - browser.frameAsync(new AbortController())    (Promise + RAF alloc/marker)
+ *       .then(() => _updateOpacity())
+ *         -> transform.isLocationOccluded(lngLat)  (globe occlusion test)
+ *
+ * With ~760 markers at the tablet cap that is ~760 projections + style writes +
+ * AbortController/Promise/RAF allocations + occlusion tests PER FRAME — which is
+ * what freezes the iPad. None of it is gated by the element's CSS `display`, so
+ * hiding markers via CSS removes paint but leaves 100% of the per-frame JS.
+ *
+ * Fix: during a pan, detach each marker's `_update` from the map's `move` event
+ * so zero per-frame marker JS runs and the map canvas pans at full frame rate.
+ * Each marker's `moveend` subscription is left intact (and we also call _update()
+ * on thaw) so markers snap back to their correct geographic position when the
+ * gesture settles. This is the surgical equivalent of marker.remove()/re-add
+ * around the pan, but without detaching the DOM element or tearing down the
+ * React portal. A container class hides the (briefly static) markers during the
+ * pan so they are not seen frozen at their last screen position.
+ *
+ * Engaged only on heavy (phone/tablet) perf classes by the caller — desktop
+ * keeps live marker tracking during pan.
+ * ────────────────────────────────────────────────────────────────────────── */
+type PanFreezableMap = MapLibreGL.Map & {
+  __crepPanMarkerRegistry?: Set<MapLibreGL.Marker>;
+  __crepPanFrozen?: boolean;
+};
+
+function getPanMarkerRegistry(map: PanFreezableMap): Set<MapLibreGL.Marker> {
+  if (!map.__crepPanMarkerRegistry) map.__crepPanMarkerRegistry = new Set();
+  return map.__crepPanMarkerRegistry;
+}
+
+function registerPanMarker(
+  map: MapLibreGL.Map | null,
+  marker: MapLibreGL.Marker,
+): void {
+  if (!map) return;
+  const panMap = map as PanFreezableMap;
+  try {
+    getPanMarkerRegistry(panMap).add(marker);
+    // If a pan is already frozen when this marker mounts, immediately detach its
+    // per-frame _update so a marker added mid-pan does not reintroduce the cost.
+    if (panMap.__crepPanFrozen) {
+      const update = (marker as any)._update;
+      if (typeof update === "function") panMap.off("move", update);
+    }
+  } catch {
+    /* registry is a best-effort perf optimization */
+  }
+}
+
+function unregisterPanMarker(
+  map: MapLibreGL.Map | null,
+  marker: MapLibreGL.Marker,
+): void {
+  if (!map) return;
+  try {
+    (map as PanFreezableMap).__crepPanMarkerRegistry?.delete(marker);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Detach every registered marker's per-frame `_update` from the map's `move`
+ * event for the duration of a pan/zoom gesture. Idempotent. Returns the number
+ * of markers frozen. Engage only on heavy perf classes (phone/tablet).
+ */
+function freezeNativeMarkerUpdates(map: MapLibreGL.Map | null): number {
+  const panMap = map as PanFreezableMap | null;
+  if (!panMap || panMap.__crepPanFrozen) return 0;
+  panMap.__crepPanFrozen = true;
+  let frozen = 0;
+  try {
+    panMap.__crepPanMarkerRegistry?.forEach((marker) => {
+      try {
+        const update = (marker as any)._update;
+        if (typeof update === "function") {
+          panMap.off("move", update);
+          frozen += 1;
+        }
+      } catch {
+        /* per-marker best effort */
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+  // Cosmetic: hide the now-static markers so they are not seen frozen at their
+  // last screen position while the map pans underneath them.
+  try {
+    panMap.getContainer?.()?.classList.add("crep-pan-hide-markers");
+  } catch {
+    /* ignore */
+  }
+  try {
+    (window as any).__crep_pan_marker_freeze = {
+      active: true,
+      frozen,
+      at: Date.now(),
+    };
+  } catch {
+    /* debug hook only */
+  }
+  return frozen;
+}
+
+/**
+ * Re-attach every registered marker's `_update` to the map's `move` event and
+ * snap each marker to its correct geographic position. Idempotent. Returns the
+ * number of markers thawed. Always safe to call — no-op when not frozen.
+ */
+function thawNativeMarkerUpdates(map: MapLibreGL.Map | null): number {
+  const panMap = map as PanFreezableMap | null;
+  if (!panMap || !panMap.__crepPanFrozen) return 0;
+  panMap.__crepPanFrozen = false;
+  let thawed = 0;
+  try {
+    panMap.__crepPanMarkerRegistry?.forEach((marker) => {
+      try {
+        const update = (marker as any)._update;
+        if (typeof update === "function") {
+          panMap.off("move", update); // guard against double-subscribe
+          panMap.on("move", update);
+          update(); // snap to correct geo position (still hidden by the class)
+          thawed += 1;
+        }
+      } catch {
+        /* per-marker best effort */
+      }
+    });
+  } catch {
+    /* ignore */
+  }
+  // Reveal markers only AFTER positions are corrected, so there is no visible jump.
+  try {
+    panMap.getContainer?.()?.classList.remove("crep-pan-hide-markers");
+  } catch {
+    /* ignore */
+  }
+  try {
+    (window as any).__crep_pan_marker_freeze = {
+      active: false,
+      frozen: thawed,
+      at: Date.now(),
+    };
+  } catch {
+    /* debug hook only */
+  }
+  return thawed;
+}
+
 export {
   Map,
   useMap,
@@ -2400,6 +2567,8 @@ export {
   MapControls,
   MapRoute,
   MapClusterLayer,
+  freezeNativeMarkerUpdates,
+  thawNativeMarkerUpdates,
 };
 
 export type { MapRef };
