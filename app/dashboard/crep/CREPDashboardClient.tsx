@@ -855,7 +855,9 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
   events: 220,
   aircraft: 700,
   vessels: 900,
-  satellites: 240,
+  // Fetch more satellites so the globe isn't sparse — they're cheap GPU symbols
+  // propagated in a worker, and the SGP4 loop only runs on desktop. (Jun 14, 2026)
+  satellites: 1_000,
   streamed: 180,
   lastKnown: 900,
 };
@@ -863,11 +865,15 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
 function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zoom: number): number {
   const z = Number.isFinite(zoom) ? zoom : 0;
   if (kind === "satellite") {
-    if (z < 3) return 60;
-    if (z < 5) return 80;
-    if (z < 7) return 110;
-    if (z < 10) return 140;
-    return 180;
+    // Satellites render as cheap GPU symbols (not DOM markers) and SGP4 runs in
+    // a worker, so the globe can carry far more than the old 60-180. The loop is
+    // off entirely on tablet/phone, so this only adds desktop symbols. (Jun 14,
+    // 2026 — "almost no satellites seen anywhere" at globe zoom.)
+    if (z < 3) return 400;
+    if (z < 5) return 500;
+    if (z < 7) return 650;
+    if (z < 10) return 800;
+    return 1000;
   }
   if (kind === "vessel") {
     if (z < 3) return 120;
