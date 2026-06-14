@@ -84,6 +84,12 @@ function ensureAISStream(): void {
   aisState.streamCleanup = client.connectRealtime(
     { north: 90, south: -90, east: 180, west: -180 },
     (_vessel) => {
+      // Live data is flowing — clear the failure counter + backoff so a stream
+      // that recovers doesn't carry a stale count toward the stop threshold.
+      if (aisState.reconnectAttempts !== 0) {
+        aisState.reconnectAttempts = 0
+        aisState.reconnectDelay = RECONNECT_BASE_MS
+      }
       // Vessel is automatically added to the client's internal cache
     },
     (err) => {
@@ -92,8 +98,18 @@ function ensureAISStream(): void {
       aisState.reconnectAttempts++
 
       if (aisState.reconnectAttempts >= MAX_RETRIES) {
-        console.warn(`[AISStream] Stopped after ${MAX_RETRIES} failures. Service may be down.`)
-        return // Stop retrying — no more log spam
+        // Don't die permanently: after the fast-retry budget is spent, fall back
+        // to a slow keepalive at the max delay so a prolonged AISstream outage
+        // self-heals instead of serving only the stale disk cache until the
+        // process restarts. Reset the counter so the keepalive gets a fresh
+        // fast-retry budget each cycle. (Jun 14, 2026 — live feed stuck at 0.)
+        console.warn(`[AISStream] ${MAX_RETRIES} fast retries exhausted — slow keepalive every ${MAX_RECONNECT_MS / 1000}s`)
+        setTimeout(() => {
+          aisState.reconnectAttempts = 0
+          aisState.reconnectDelay = RECONNECT_BASE_MS
+          ensureAISStream()
+        }, MAX_RECONNECT_MS)
+        return
       }
 
       aisState.reconnectDelay = Math.min(aisState.reconnectDelay * 2, MAX_RECONNECT_MS)
