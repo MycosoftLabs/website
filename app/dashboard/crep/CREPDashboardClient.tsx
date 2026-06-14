@@ -339,6 +339,8 @@ import { MAJOR_PORTS, MAJOR_DATACENTERS } from "@/lib/crep/static-infra";
 import { usePowerPlantLayers, type PlantStats, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
 import type { Datacenter } from "@/components/crep/layers/datacenter-diamonds";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
+import { IconLayer as SatIconLayer } from "@deck.gl/layers";
+import { MapboxOverlay as SatMapboxOverlay } from "@deck.gl/mapbox";
 import { PlantPopup } from "@/components/crep/popups/plant-popup";
 import { InfraDetailWidget, type InfraAsset, type InfraAssetType } from "@/components/crep/popups/infra-detail-widget";
 import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
@@ -16534,8 +16536,11 @@ export default function CREPDashboardPage({
     }));
 
     if (!isSatelliteAnimationRunning()) {
-      // First start â€” launch the animation loop
-      startSatelliteAnimation(map, satInputs);
+      // First start â€” launch the animation loop. Orbit rings (computeOrbitPaths)
+      // only on desktop, where the elevated-satellite deck overlay renders them.
+      startSatelliteAnimation(map, satInputs, {
+        computeOrbitPaths: earthSimViewportPerfClass === "desktop",
+      });
     } else {
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
@@ -16548,6 +16553,125 @@ export default function CREPDashboardPage({
       stopSatelliteAnimation();
     };
   }, []);
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ELEVATED 3D SATELLITES (Step 2) â€” desktop + globe only.
+  // Native crep-live-satellites layers are surface-clamped (can't elevate). A
+  // dedicated deck.gl overlay reads the SAME SGP4-populated source and floats the
+  // satellite icons + their orbit rings to (exaggerated) orbital altitude so they
+  // read as "in the atmosphere at an angle" on the tilted globe. deck.gl honours
+  // the 3rd (Z) coordinate as radial elevation on the MapLibre globe. The native
+  // flat layers are hidden ONLY while the overlay has data (so satellites never
+  // vanish), and restored on teardown â€” tablet/phone/flat-map are untouched.
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  useEffect(() => {
+    if (!isEarthSimulatorRoute) return;
+    if (earthSimViewportPerfClass !== "desktop") return;
+    if (projectionMode !== "globe") return;
+    const map = mapNativeRef.current as any;
+    if (!map || typeof map.getSource !== "function") return;
+
+    const EARTH_R_M = 6_371_000;
+    // Exaggerate altitude: true 400km LEO is only ~6% of Earth's radius, too flat
+    // to read. EXAG=6 makes LEO clearly hover; clamp so GEO (~35,786km) doesn't
+    // shoot far off-screen.
+    const EXAG = 6;
+    const visualZ = (altMeters: number) =>
+      Math.min((Number(altMeters) || 0) * EXAG, EARTH_R_M * 1.5);
+    const tierColor = (altKm: number): [number, number, number, number] =>
+      altKm >= 20000 ? [251, 191, 36, 255] : altKm >= 2000 ? [168, 85, 247, 255] : [34, 211, 238, 255];
+
+    const satFeatures = () => ((map.getSource("crep-live-satellites") as any)?._data?.features ?? []) as any[];
+    const orbitFeatures = () => ((map.getSource("crep-live-satellite-orbits") as any)?._data?.features ?? []) as any[];
+    const setNativeVisible = (vis: "visible" | "none") => {
+      for (const id of ["crep-live-satellites-dot", "crep-live-satellites-glow", "crep-live-satellite-orbits-line"]) {
+        try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis); } catch {}
+      }
+    };
+    const buildLayers = () => {
+      const sats = satFeatures();
+      const orbits = orbitFeatures();
+      // Hide native flat satellites ONLY when the overlay actually has data to
+      // render (so a transient empty source never leaves the globe blank).
+      setNativeVisible(sats.length > 0 ? "none" : "visible");
+      const posOf = (f: any) => {
+        const c = f.geometry?.coordinates ?? [0, 0, 0];
+        return [c[0], c[1], visualZ(c[2] ?? 0)] as [number, number, number];
+      };
+      return [
+        new InfraPathLayer({
+          id: "crep-sat-elev-orbits", data: orbits,
+          getPath: (f: any) => (f.geometry?.coordinates ?? []).map((c: any[]) => [c[0], c[1], visualZ(c[2])]),
+          getColor: [192, 132, 252, 90], getWidth: 1, widthUnits: "pixels", widthMinPixels: 1,
+          parameters: { depthTest: false }, pickable: false,
+        } as any),
+        // Guaranteed-render elevated dot (base): satellites never vanish even if
+        // the icon sprite fails to load.
+        new InfraScatterplotLayer({
+          id: "crep-sat-elev-dots", data: sats, getPosition: posOf,
+          getRadius: 4, radiusUnits: "pixels", radiusMinPixels: 3, radiusMaxPixels: 14,
+          getFillColor: (f: any) => tierColor(Number(f.properties?.altitude_km) || 0),
+          getLineColor: [255, 255, 255, 220], lineWidthMinPixels: 1, stroked: true,
+          parameters: { depthTest: false }, pickable: false,
+        } as any),
+        // The satellite SPRITE (icons, not dots â€” to match planes/boats),
+        // billboarded at altitude on top of the dot.
+        new SatIconLayer({
+          id: "crep-sat-elev-icons", data: sats, getPosition: posOf,
+          getIcon: () => ({ url: "/crep/icons/satellite.svg", width: 64, height: 64, anchorX: 32, anchorY: 32, mask: false }),
+          getSize: 26, sizeUnits: "pixels", billboard: true,
+          parameters: { depthTest: false }, pickable: false,
+        } as any),
+      ];
+    };
+
+    let overlay: any = null;
+    let disposed = false;
+    let rebuildQueued = false;
+    try {
+      overlay = new SatMapboxOverlay({ interleaved: false, layers: buildLayers() });
+      map.addControl(overlay as any);
+      const rebuild = () => {
+        rebuildQueued = false;
+        if (disposed || !overlay) return;
+        try { overlay.setProps({ layers: buildLayers() }); } catch {}
+      };
+      const onData = (e: any) => {
+        if (e?.sourceId === "crep-live-satellites" || e?.sourceId === "crep-live-satellite-orbits") {
+          if (!rebuildQueued) { rebuildQueued = true; requestAnimationFrame(rebuild); }
+        }
+      };
+      map.on("data", onData);
+      // QA probe (no screenshots needed): __crep_deckSat.probe() returns the
+      // screen-Y delta between a ground point and the same point at LEO altitude.
+      // A clearly negative deltaY (elevated point higher on screen) under a tilted
+      // camera proves the overlay floats above the surface; ~0 means Z is ignored.
+      (window as any).__crep_deckSat = {
+        overlay, visualZ, sampleCount: () => satFeatures().length,
+        probe: (lng = 0, lat = 0) => {
+          try {
+            const vp = overlay?._deck?.getViewports?.()?.[0];
+            if (!vp) return { error: "no viewport" };
+            const g = vp.project([lng, lat, 0]); const h = vp.project([lng, lat, visualZ(800_000)]);
+            return { groundY: g?.[1], highY: h?.[1], deltaY: (h?.[1] ?? 0) - (g?.[1] ?? 0), sats: satFeatures().length };
+          } catch (err) { return { error: String((err as any)?.message || err) }; }
+        },
+      };
+      return () => {
+        disposed = true;
+        try { map.off("data", onData); } catch {}
+        try { setNativeVisible("visible"); } catch {}
+        try { if (overlay) map.removeControl(overlay); } catch {}
+        overlay = null;
+        try { delete (window as any).__crep_deckSat; } catch {}
+      };
+    } catch {
+      // Overlay failed â€” restore the native flat satellites so nothing is lost.
+      try { setNativeVisible("visible"); } catch {}
+      try { if (overlay) map.removeControl(overlay); } catch {}
+      return;
+    }
+  }, [isEarthSimulatorRoute, earthSimViewportPerfClass, projectionMode, mapRef]);
 
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
