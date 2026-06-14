@@ -58,9 +58,8 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const ADSBX_API_KEY = process.env.ADSBX_API_KEY || ""
 
-// OpenSky moved to OAuth2 client-credentials; anonymous /states/all is now
-// heavily rate-limited (often returns nothing). Set both to restore the broad
-// ~6500-aircraft global feed (incl. regions adsb.lol's free sample misses).
+// OpenSky OAuth2 client-credentials (Apr 2026). Anonymous /states/all is heavily
+// rate-limited; set both vars to restore the broad global aircraft feed.
 const OPENSKY_CLIENT_ID = process.env.OPENSKY_CLIENT_ID || ""
 const OPENSKY_CLIENT_SECRET = process.env.OPENSKY_CLIENT_SECRET || ""
 
@@ -114,10 +113,9 @@ async function fetchFromMINDEX(): Promise<AircraftRecord[]> {
   return entities.map((a) => normaliseGeneric(a, "mindex"))
 }
 
-// OpenSky OAuth2 client-credentials token, cached until just before expiry
-// (~30 min). Returns null when no credentials are configured, in which case
-// fetchFromOpenSky falls back to (rate-limited) anonymous access unchanged.
+// OpenSky OAuth2 client-credentials token, cached until just before expiry.
 let openSkyToken: { value: string; expiresAt: number } | null = null
+
 async function getOpenSkyToken(): Promise<string | null> {
   if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null
   const now = Date.now()
@@ -151,8 +149,7 @@ async function getOpenSkyToken(): Promise<string | null> {
  * Source 3 — OpenSky Network
  *
  * Returns all aircraft with active transponders worldwide (~6000-10000).
- * Authenticated via OAuth2 client-credentials when OPENSKY_CLIENT_ID/SECRET are
- * set — anonymous access is now heavily rate-limited and often returns nothing.
+ * Authenticated via OAuth2 when OPENSKY_CLIENT_ID/SECRET are set.
  *
  * Response shape: { time: number, states: [icao24, callsign, origin_country, ...] }
  */
@@ -170,8 +167,6 @@ async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
       // Some upstream CDNs block default Node fetch UA with 403. Identify
       // ourselves so OpenSky doesn't rate-limit us as a scraper.
       "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
-      // OAuth2 bearer when credentials are configured (raises the rate limit
-      // from near-zero anonymous to the authenticated tier).
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })

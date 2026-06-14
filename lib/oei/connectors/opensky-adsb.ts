@@ -15,6 +15,46 @@ import { getEventBus } from "../event-bus"
 
 const OPENSKY_API_BASE = "https://opensky-network.org/api"
 
+let openSkyOAuthToken: { value: string; expiresAt: number } | null = null
+
+async function getOpenSkyOAuthBearer(): Promise<string | null> {
+  const clientId = process.env.OPENSKY_CLIENT_ID || ""
+  const clientSecret = process.env.OPENSKY_CLIENT_SECRET || ""
+  if (!clientId || !clientSecret) return null
+
+  const now = Date.now()
+  if (openSkyOAuthToken && now < openSkyOAuthToken.expiresAt) {
+    return openSkyOAuthToken.value
+  }
+
+  try {
+    const res = await fetch(
+      "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+        signal: AbortSignal.timeout(8_000),
+      },
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as { access_token?: string; expires_in?: number }
+    if (!data?.access_token) return null
+    const ttlSec = Number(data.expires_in) || 1800
+    openSkyOAuthToken = {
+      value: data.access_token,
+      expiresAt: now + (ttlSec - 60) * 1000,
+    }
+    return data.access_token
+  } catch {
+    return null
+  }
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -198,12 +238,19 @@ export class OpenSkyClient {
 
     const url = `${OPENSKY_API_BASE}/states/all?${params.toString()}`
     
-    const headers: Record<string, string> = {}
-    if (this.credentials) {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+    }
+
+    const oauthBearer = await getOpenSkyOAuthBearer()
+    if (oauthBearer) {
+      headers.Authorization = `Bearer ${oauthBearer}`
+    } else if (this.credentials) {
       const auth = Buffer.from(
         `${this.credentials.username}:${this.credentials.password}`
       ).toString("base64")
-      headers["Authorization"] = `Basic ${auth}`
+      headers.Authorization = `Basic ${auth}`
     }
 
     const response = await fetch(url, { headers })

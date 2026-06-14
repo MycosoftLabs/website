@@ -61,6 +61,11 @@ type LibraryCategorySummary = {
 
 type LibraryBlob = {
   id: string
+  analysis_id?: string | null
+  remote_id?: string | null
+  file_id?: string | null
+  blob_id?: string | null
+  uuid?: string | null
   name: string
   title?: string
   filename?: string
@@ -622,6 +627,32 @@ function compactHash(value: string | null | undefined) {
   return value.length > 16 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value
 }
 
+function isUuidLike(value: string | null | undefined): value is string {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))
+}
+
+function streamRemoteId(blob: LibraryBlob | null): string | null {
+  if (!blob?.stream_url) return null
+  try {
+    const url = new URL(blob.stream_url, "http://mindex.local")
+    return url.searchParams.get("remote_id")
+  } catch {
+    return null
+  }
+}
+
+function blobAnalysisId(blob: LibraryBlob | null): string | null {
+  if (!blob) return null
+  return [
+    blob.analysis_id,
+    blob.blob_id,
+    blob.uuid,
+    blob.remote_id,
+    streamRemoteId(blob),
+    blob.id,
+  ].find(isUuidLike) ?? null
+}
+
 function labelForFileSource(blob: LibraryBlob) {
   return blob.source_name || blob.origin_dataset_id || blob.source_id || blob.recording_group || blob.sensor_type || "library"
 }
@@ -805,13 +836,18 @@ function temperatureChartData(samples: number[], sourceUnit: TemperatureUnit, ta
     .map((temperature, index) => ({ index, temperature }))
 }
 
-function inferAcousticEnvironment(blob: LibraryBlob | null): "water" | "air" {
+type AcousticEnvironment = "water" | "air" | "ground"
+
+function inferAcousticEnvironment(blob: LibraryBlob | null): AcousticEnvironment {
   const declared = blob?.acoustic_environment?.toLowerCase()
-  if (declared === "water" || declared === "air") return declared
+  if (declared === "water" || declared === "air" || declared === "ground") return declared
 
   const text = [blob?.relative_path, blob?.sensor_type, blob?.recording_group, blob?.name].filter(Boolean).join(" ").toLowerCase()
   if (["hydrophone", "underwater", "ocean", "marine", "reef", "river", "lake", "aquatic"].some((term) => text.includes(term))) {
     return "water"
+  }
+  if (["ground", "soil", "seismic", "earthquake", "geophone", "underground", "subsurface", "tremor"].some((term) => text.includes(term))) {
+    return "ground"
   }
   return "air"
 }
@@ -882,6 +918,50 @@ function normalizeAcousticArray(value: unknown, detectorFallback?: string): Acou
   return Array.isArray(value) ? value.map((item) => normalizeAcousticEvent(item, detectorFallback)) : []
 }
 
+function unknownArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function objectArrayHasRows(value: unknown) {
+  return unknownArray(value).some((item) => Boolean(objectFromUnknown(item)))
+}
+
+function deepSignalRowsHaveEvidence(value: unknown) {
+  return unknownArray(value).some((item) => {
+    const row = objectFromUnknown(item)
+    if (!row) return false
+    const hasScore = Number.isFinite(Number(row.score)) || Number.isFinite(Number(row.confidence)) || Number.isFinite(Number(row.distance))
+    const hasPrototypeIdentity = Boolean(
+      stringFromUnknown(row.prototype_id) ||
+        stringFromUnknown(row.prototype_match_id) ||
+        stringFromUnknown(row.matched_prototype_id) ||
+        stringFromUnknown(row.nearest_prototype_id) ||
+        stringFromUnknown(row.embedding_id) ||
+        stringFromUnknown(row.vector_checksum) ||
+        stringFromUnknown(row.embedding_checksum),
+    )
+    const hasModelProof = Boolean(stringFromUnknown(row.model_id) || stringFromUnknown(row.model) || Number.isFinite(Number(row.embedding_dim)))
+    return hasScore && hasPrototypeIdentity && hasModelProof
+  })
+}
+
+function transcriptRowsHaveEvidence(value: unknown) {
+  return unknownArray(value).some((item) => {
+    const row = objectFromUnknown(item)
+    if (!row) return false
+    return unknownArray(row.model_output_ids).length > 0 || unknownArray(row.fusion_evidence_ids).length > 0 || unknownArray(row.prototype_ids).length > 0
+  })
+}
+
+function classificationPayloadHasSemanticEvidence(source: Record<string, unknown>) {
+  return (
+    objectArrayHasRows(source.model_outputs) ||
+    objectArrayHasRows(source.fusion_evidence) ||
+    deepSignalRowsHaveEvidence(source.deep_signal_matches) ||
+    transcriptRowsHaveEvidence(source.sound_transcripts)
+  )
+}
+
 function classificationPatchFromPayload(payload: unknown): Partial<LibraryBlob> {
   const root = objectFromUnknown(payload) ?? {}
   const source =
@@ -891,10 +971,15 @@ function classificationPatchFromPayload(payload: unknown): Partial<LibraryBlob> 
     root
   const summary = source.identification_summary ?? source.summary
   const status = stringFromUnknown(source.identification_status) || stringFromUnknown(source.status)
+  const hasSemanticEvidence = classificationPayloadHasSemanticEvidence(source)
   const patch: Partial<LibraryBlob> = {}
 
   if (status) patch.identification_status = status
-  if (objectFromUnknown(summary)) patch.identification_summary = summary as AudioIdentificationSummary
+  if (objectFromUnknown(summary) && hasSemanticEvidence) {
+    patch.identification_summary = summary as AudioIdentificationSummary
+  } else if (objectFromUnknown(summary) && !status) {
+    patch.identification_status = "model_evidence_pending"
+  }
   if (stringFromUnknown(source.analysis_engine) || stringFromUnknown(source.engine)) {
     patch.analysis_engine = stringFromUnknown(source.analysis_engine) || stringFromUnknown(source.engine)
   }
@@ -951,7 +1036,7 @@ function identificationEngineLabel(blob: LibraryBlob | null, summary: AudioIdent
   return summary?.engine || summary?.model || blob?.analysis_engine || null
 }
 
-function acousticPatternMatchesEnvironment(pattern: AcousticPatternMatch, environment: "water" | "air") {
+function acousticPatternMatchesEnvironment(pattern: AcousticPatternMatch, environment: AcousticEnvironment) {
   const matchEnvironment = pattern.environment?.toLowerCase()
   return !matchEnvironment || matchEnvironment === "unknown" || matchEnvironment === environment
 }
@@ -1062,7 +1147,7 @@ function SineVisualAnalysisStack({
     if (!samples.length) {
       context.fillStyle = "rgba(148, 163, 184, 0.88)"
       context.font = "13px sans-serif"
-      context.fillText("Select an acoustic file to render layered SINE analysis.", 18, height / 2)
+      context.fillText("Select an acoustic file to render layered SINE evidence.", 18, height / 2)
       return
     }
 
@@ -1163,7 +1248,7 @@ function SineAcousticPanel({
   onClassified?: (blobId: string, payload: unknown) => void
 }) {
   const inferredEnvironment = inferAcousticEnvironment(blob)
-  const [environment, setEnvironment] = useState<"water" | "air">(inferredEnvironment)
+  const [environment, setEnvironment] = useState<AcousticEnvironment>(inferredEnvironment)
   const [classifying, setClassifying] = useState(false)
   const [classifyMessage, setClassifyMessage] = useState<string | null>(null)
 
@@ -1174,11 +1259,11 @@ function SineAcousticPanel({
   const extension = blob?.extension.toLowerCase() ?? ""
   const mimeType = blob?.mime_type.toLowerCase() ?? ""
   const isAudio = mimeType.startsWith("audio/") || ["wav", "mp3", "flac", "ogg", "m4a", "aac"].some((ext) => extension.includes(ext))
-  const frequencyDetections = blob?.frequency_detections ?? []
-  const activitySegments = blob?.activity_segments ?? []
-  const birdDetections = blob?.bird_detections ?? []
-  const uavDetections = blob?.uav_detections ?? []
-  const npsDetections = blob?.nps_detections ?? []
+  const frequencyDetections = useMemo(() => blob?.frequency_detections ?? [], [blob?.frequency_detections])
+  const activitySegments = useMemo(() => blob?.activity_segments ?? [], [blob?.activity_segments])
+  const birdDetections = useMemo(() => blob?.bird_detections ?? [], [blob?.bird_detections])
+  const uavDetections = useMemo(() => blob?.uav_detections ?? [], [blob?.uav_detections])
+  const npsDetections = useMemo(() => blob?.nps_detections ?? [], [blob?.nps_detections])
   const rawSpikes = useMemo(() => detectAcousticSpikes(blob), [blob])
   const confirmedMatches = useMemo(() => {
     const matches = [
@@ -1210,6 +1295,7 @@ function SineAcousticPanel({
   const identificationEngine = identificationEngineLabel(blob, identificationSummary)
   const identificationConfidence = identificationSummary?.confidence
   const topFrequency = frequencyDetections[0]?.frequency_hz
+  const analysisId = blobAnalysisId(blob)
   const detectorCounts = [
     { label: "frequency", count: frequencyDetections.length, detail: topFrequency ? frequencyLabel(topFrequency) : "peaks" },
     { label: "activity", count: activitySegments.length, detail: "regions" },
@@ -1221,10 +1307,14 @@ function SineAcousticPanel({
 
   const runServerClassification = useCallback(async () => {
     if (!blob?.id) return
+    if (!analysisId) {
+      setClassifyMessage("This recording can play from storage, but it needs a MINDEX database record before SINE can run an evidence check.")
+      return
+    }
     setClassifying(true)
     setClassifyMessage(null)
     try {
-      const response = await fetch(`/api/natureos/mindex/library/classify?id=${encodeURIComponent(blob.id)}`, {
+      const response = await fetch(`/api/natureos/mindex/library/classify?id=${encodeURIComponent(analysisId)}`, {
         method: "POST",
         cache: "no-store",
       })
@@ -1235,17 +1325,22 @@ function SineAcousticPanel({
             ? payload.error
             : typeof payload?.detail === "string"
               ? payload.detail
-              : `SINE classification returned HTTP ${response.status}`
+              : `SINE evidence check returned HTTP ${response.status}`
         throw new Error(message)
       }
       onClassified?.(blob.id, payload)
-      setClassifyMessage("SINE classification returned server detector results for this file.")
+      const patch = classificationPatchFromPayload(payload)
+      setClassifyMessage(
+        patch.identification_summary
+          ? "SINE returned evidence-backed identification for this file."
+          : "SINE returned detector output. Confirmed meaning still needs model, prototype, or transcript evidence.",
+      )
     } catch (error) {
-      setClassifyMessage(error instanceof Error ? error.message : "SINE classification could not run.")
+      setClassifyMessage(error instanceof Error ? error.message : "SINE evidence check could not run.")
     } finally {
       setClassifying(false)
     }
-  }, [blob?.id, onClassified])
+  }, [analysisId, blob?.id, onClassified])
 
   return (
     <div className="space-y-3">
@@ -1262,7 +1357,7 @@ function SineAcousticPanel({
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
             <div className="flex rounded-md border border-white/10 bg-black/40 p-1">
-              {(["water", "air"] as const).map((mode) => (
+              {(["water", "air", "ground"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -1271,26 +1366,27 @@ function SineAcousticPanel({
                     environment === mode ? "bg-emerald-400/20 text-emerald-100" : "text-gray-400 hover:bg-white/[0.05] hover:text-white"
                   }`}
                 >
-                  {mode === "water" ? "Water" : "Air"}
+                  {mode === "water" ? "Water" : mode === "air" ? "Air" : "Ground"}
                 </button>
               ))}
             </div>
             <Button
               type="button"
               variant="outline"
-              disabled={!blob || classifying}
+              disabled={!blob || !analysisId || classifying}
+              title={analysisId ? "Run a SINE evidence check against the registered MINDEX acoustic record." : "This file needs a MINDEX database record before SINE can run an evidence check."}
               onClick={() => void runServerClassification()}
               className="min-h-[42px] border-emerald-400/25 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-45"
             >
               <AudioLines className={`mr-2 h-4 w-4 ${classifying ? "animate-pulse" : ""}`} />
-              {classifying ? "Classifying" : "Run SINE classification"}
+              {classifying ? "Checking evidence" : "Run SINE evidence check"}
             </Button>
           </div>
         </div>
 
         {classifyMessage ? (
           <p className={`mt-3 rounded-md border px-3 py-2 text-xs leading-5 ${
-            classifyMessage.includes("returned server")
+            classifyMessage.includes("evidence-backed")
               ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
               : "border-amber-400/20 bg-amber-400/10 text-amber-100"
           }`}>
@@ -1699,7 +1795,7 @@ function ThermalPlaybackPanel({
   isVideo: boolean
 }) {
   const [unit, setUnit] = useState<TemperatureUnit>("fahrenheit")
-  const channels = blob?.preview_channels ?? []
+  const channels = useMemo(() => blob?.preview_channels ?? [], [blob?.preview_channels])
   const temperatureChannels = useMemo(
     () =>
       filterChannels(channels, [
@@ -1776,6 +1872,7 @@ function ThermalPlaybackPanel({
         <div className="mt-3 grid gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="space-y-3">
             {blob && isVideo ? <video controls src={blob.stream_url} className="max-h-[380px] w-full rounded-md border border-white/10" /> : null}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {blob && isImage ? <img src={blob.stream_url} alt={blob.name} className="max-h-[380px] w-full rounded-md border border-white/10 object-contain" /> : null}
             {!isVideo && !isImage ? (
               <div className="flex h-16 items-center justify-center rounded-md border border-white/10 bg-black text-center text-sm leading-6 text-gray-500">
@@ -2129,7 +2226,7 @@ function TactilePlaybackPanel({ blob, color }: { blob: LibraryBlob | null; color
 }
 
 function ChemicalPlaybackPanel({ blob, color }: { blob: LibraryBlob | null; color: string }) {
-  const channels = blob?.preview_channels ?? []
+  const channels = useMemo(() => blob?.preview_channels ?? [], [blob?.preview_channels])
   const gasChannels = useMemo(
     () => filterChannels(channels, ["voc", "vsc", "gas", "bme688", "bme690", "humidity", "moisture", "temperature", "pressure"]),
     [channels],
@@ -2331,7 +2428,7 @@ function SpectralPlaybackPanel({
   isImage: boolean
   isVideo: boolean
 }) {
-  const channels = blob?.preview_channels ?? []
+  const channels = useMemo(() => blob?.preview_channels ?? [], [blob?.preview_channels])
   const spatialChannels = useMemo(() => filterChannels(channels, ["lidar", "radar", "depth", "point", "range", "distance"]), [channels])
   const radioChannels = useMemo(() => filterChannels(channels, ["wifi", "wi-fi", "bluetooth", "radio", "rf", "rssi", "ble"]), [channels])
   const radiationChannels = useMemo(() => filterChannels(channels, ["radiation", "geiger", "cpm", "sievert", "gamma"]), [channels])
@@ -2363,6 +2460,7 @@ function SpectralPlaybackPanel({
 
         <div className="mt-3 grid gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="space-y-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {blob && isImage ? <img src={blob.stream_url} alt={blob.name} className="max-h-[360px] w-full rounded-md border border-white/10 object-contain" /> : null}
             {blob && isVideo ? <video controls src={blob.stream_url} className="max-h-[360px] w-full rounded-md border border-white/10" /> : null}
             <SpectralFieldCanvas blob={blob} features={features} />
@@ -2506,7 +2604,7 @@ function LibraryPlayer({
       <div className="mt-3 space-y-3">
         {!blob ? (
           <div className="flex min-h-[360px] items-center justify-center rounded-md border border-white/10 bg-black px-4 text-center text-sm leading-6 text-gray-500">
-            Select a file from the {activeCategory.label.toLowerCase()} library to load real playback, analysis, metadata, and visualizations.
+            Select a file from the {activeCategory.label.toLowerCase()} library to load real playback, evidence, metadata, and visualizations.
           </div>
         ) : (
           <>
@@ -2551,6 +2649,7 @@ function LibraryPlayer({
               <>
                 {isAudio ? <audio controls src={blob.stream_url} className="w-full" preload="metadata" /> : null}
                 {isVideo ? <video controls src={blob.stream_url} className="max-h-[360px] w-full rounded-md border border-white/10" /> : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 {isImage ? <img src={blob.stream_url} alt={blob.name} className="max-h-[360px] w-full rounded-md border border-white/10 object-contain" /> : null}
                 {!isAudio && !isVideo && !isImage && !blob.preview_samples?.length ? (
                   <div className="flex h-14 items-center justify-center rounded-md border border-white/10 bg-black text-sm text-gray-500">
@@ -3066,9 +3165,9 @@ export function LibrarySection({ fieldDevices: _fieldDevices }: { fieldDevices?:
         </aside>
 
         {isSineCategory ? (
-          <main className="min-h-[820px] min-w-0 bg-black/20 xl:col-span-2">
-            <SineAcousticPlayer embedded />
-          </main>
+              <main className="h-[680px] min-h-0 min-w-0 overflow-hidden bg-black/20 xl:col-span-2">
+                <SineAcousticPlayer embedded compact />
+              </main>
         ) : (
           <>
         <main className="flex min-h-[680px] min-w-0 flex-col border-b border-white/10 bg-black/20 xl:border-b-0 xl:border-r xl:border-white/10">

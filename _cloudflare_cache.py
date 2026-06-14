@@ -12,6 +12,13 @@ import requests
 
 def _load_dotenv_into_os(dir_path: Path, filenames: tuple[str, ...] = (".env.local", ".env")) -> None:
     """Load KEY=VALUE lines from .env.local / .env into os.environ (only if not already set)."""
+    skip_keys = {
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_API_TOKEN_MYCODAO",
+        "CLOUDFLARE_ZONE_ID",
+        "CLOUDFLARE_ZONE_ID_PRODUCTION",
+        "CLOUDFLARE_ACCOUNT_ID",
+    }
     for name in filenames:
         fpath = dir_path / name
         if not fpath.is_file():
@@ -24,6 +31,8 @@ def _load_dotenv_into_os(dir_path: Path, filenames: tuple[str, ...] = (".env.loc
                         continue
                     key, _, value = line.partition("=")
                     key = key.strip()
+                    if key in skip_keys:
+                        continue
                     value = value.strip().strip('"').strip("'")
                     if key and key not in os.environ:
                         os.environ[key] = value
@@ -54,6 +63,15 @@ def _override_cloudflare_from_credentials(script_dir: Path, cwd: Path) -> None:
             pass
 
 
+def _resolve_cloudflare_api_token() -> Optional[str]:
+    """Primary CLOUDFLARE_API_TOKEN is used for cache purge (verify endpoint can lie)."""
+    for key in ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_API_TOKEN_MYCODAO"):
+        value = os.getenv(key, "").strip()
+        if value:
+            return value
+    return None
+
+
 def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     # Try loading from .env in the same directory as this script (website repo root when run from website/)
     script_dir = Path(__file__).resolve().parent
@@ -68,7 +86,7 @@ def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str
 
     _override_cloudflare_from_credentials(script_dir, cwd)
 
-    token = os.getenv("CLOUDFLARE_API_TOKEN")
+    token = _resolve_cloudflare_api_token()
     zone_id = os.getenv("CLOUDFLARE_ZONE_ID")
     account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
     return token, zone_id, account_id

@@ -15,6 +15,19 @@ import { resolveMasServerBaseUrl } from "@/lib/mas-server-url"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const CREP_PROBE_UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
+
+function resolveDefaultQdrantUrl(): string {
+  const fromEnv = process.env.QDRANT_URL?.trim()
+  if (fromEnv) return fromEnv
+  try {
+    const mindex = new URL(resolveMindexServerBaseUrl())
+    return `http://${mindex.hostname}:6333`
+  } catch {
+    return "http://192.168.0.189:6333"
+  }
+}
+
 interface ServiceStatus {
   name: string;
   url: string;
@@ -40,13 +53,13 @@ const SERVICES = [
   { name: "n8n Workflows", url: process.env.N8N_URL || "http://localhost:5678", healthPath: "/healthz" },
   { name: "Redis", url: process.env.REDIS_URL || "redis://localhost:6379", healthPath: "", tcp: true },
   { name: "Postgres", url: process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgres://localhost:5432", healthPath: "", tcp: true },
-  { name: "Qdrant Vector DB", url: process.env.QDRANT_URL || "http://localhost:6333", healthPath: "/healthz" },
+  { name: "Qdrant Vector DB", url: resolveDefaultQdrantUrl(), healthPath: "/healthz" },
   { name: "FlightRadar24", url: "https://data-cloud.flightradar24.com", healthPath: "/zones/fcgi/feed.js?faa=1&bounds=33,-117,34,-116", external: true },
   { name: "NOAA SWPC", url: "https://services.swpc.noaa.gov", healthPath: "/products/noaa-scales.json", external: true },
   { name: "iNaturalist", url: "https://api.inaturalist.org", healthPath: "/v1/observations?per_page=1&quality_grade=research", external: true },
   { name: "NASA GIBS", url: "https://gibs.earthdata.nasa.gov", healthPath: "/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml", external: true, method: "HEAD", accept: "text/xml", timeoutMs: 10000 },
-  { name: "Overpass API", url: "https://overpass.kumi.systems", healthPath: "/api/status", external: true, accept: "text/plain", timeoutMs: 10000 },
-  { name: "CelesTrak", url: "https://celestrak.org", healthPath: "/NORAD/elements/gp.php?GROUP=stations&FORMAT=json", external: true, timeoutMs: 12000 },
+  { name: "Overpass API", url: "https://overpass-api.de", healthPath: "/api/status", external: true, accept: "text/plain", timeoutMs: 10000 },
+  { name: "CelesTrak", url: "https://celestrak.org", healthPath: "/NORAD/elements/gp.php?GROUP=stations&FORMAT=2-line", external: true, timeoutMs: 15000 },
 ] satisfies ServiceProbe[];
 
 function tcpProbe(url: string, timeoutMs = 3000): Promise<ServiceStatus> {
@@ -90,7 +103,7 @@ function tcpProbe(url: string, timeoutMs = 3000): Promise<ServiceStatus> {
   });
 }
 
-async function pingService(
+async function pingServiceOnce(
   svc: ServiceProbe,
 ): Promise<ServiceStatus> {
   const start = Date.now();
@@ -103,8 +116,11 @@ async function pingService(
     const url = svc.healthPath ? `${svc.url}${svc.healthPath}` : svc.url;
     const res = await fetch(url, {
       method: svc.method || "GET",
-      signal: AbortSignal.timeout(svc.timeoutMs || (svc.external ? 10000 : 5000)),
-      headers: { Accept: svc.accept || "application/json, text/plain, */*" },
+      signal: AbortSignal.timeout(svc.timeoutMs || (svc.external ? 10000 : 8000)),
+      headers: {
+        Accept: svc.accept || "application/json, text/plain, */*",
+        "User-Agent": CREP_PROBE_UA,
+      },
     });
     const elapsed = Date.now() - start;
 
@@ -133,6 +149,22 @@ async function pingService(
       details: (err as Error).message?.slice(0, 80),
     };
   }
+}
+
+async function pingService(
+  svc: ServiceProbe,
+): Promise<ServiceStatus> {
+  const primary = await pingServiceOnce(svc);
+  if (primary.status !== "offline" || svc.name !== "CelesTrak") {
+    return primary;
+  }
+
+  return pingServiceOnce({
+    ...svc,
+    url: "https://celestrak.com",
+    healthPath: "/NORAD/elements/stations.txt",
+    timeoutMs: 15_000,
+  });
 }
 
 // Cache for 30 seconds

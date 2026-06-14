@@ -23,10 +23,33 @@ export async function GET(request: NextRequest) {
   })
 
   if (!upstream) {
-    return NextResponse.json({ error: "Human training tags could not be loaded yet." }, { status: 502 })
+    return NextResponse.json({
+      ok: false,
+      status: "human_training_tags_unavailable",
+      message: "Human training tags could not be loaded yet.",
+      items: [],
+      total: 0,
+      limit: Number.parseInt(limit, 10) || 100,
+      offset: Number.parseInt(offset, 10) || 0,
+    })
   }
 
   const body = await upstream.text()
+
+  if (!upstream.ok) {
+    return NextResponse.json({
+      ok: false,
+      status: "human_training_tags_unavailable",
+      upstream_status: upstream.status,
+      upstream_excerpt: body.slice(0, 500),
+      message: "MINDEX has not returned the human training tag queue yet.",
+      items: [],
+      total: 0,
+      limit: Number.parseInt(limit, 10) || 100,
+      offset: Number.parseInt(offset, 10) || 0,
+    })
+  }
+
   return new NextResponse(body, {
     status: upstream.status,
     headers: {

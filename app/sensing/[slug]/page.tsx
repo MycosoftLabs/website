@@ -33,6 +33,7 @@ import {
   NeuCard,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { SineAcousticPlayer } from "@/components/sensing/sine-acoustic-player"
 
 type SensingPageConfig = {
   title: string
@@ -520,6 +521,11 @@ export default async function SensingPage({ params }: { params: Promise<{ slug: 
   if (!page) notFound()
 
   const Icon = page.icon
+  const isSinePage = slug === "sine"
+
+  if (isSinePage) {
+    return <SineAcousticPlayer />
+  }
 
   return (
     <NeuromorphicProvider>
