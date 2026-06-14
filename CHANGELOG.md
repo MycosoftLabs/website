@@ -344,6 +344,16 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Stop POSTing disabled website iNat ETL in delta sync workflow
 - *(earth)* Stabilize Bay Area intel and camera playback
 - *(earth)* Stabilize camera playback and secure device controls
+- *(earth)* Stabilize species filters and startup [fast]
+- *(earth)* Stabilize simulator and MycoBrain release [fast]
+- *(search)* Rich flight widget details + global planes on Earth map
+- *(security)* Prevent command injection in network-diagnostics (#189)
+- *(earth-sim)* Stop iPad Pro freeze - reclassify touch devices as tablet (#192)
+- *(earth-sim)* Always-globe + AIS cap + FDOT migration + Hotel del Coronado player (#193)
+- *(earth-sim)* Eagle Eye camera coverage + map-anchored sensor widgets (#194)
+- *(earth-sim)* IPad/tablet starts like desktop - open panels + fungal atlas on (#195)
+- *(earth-sim)* MYCA/country fly-to resets pitch+bearing so tilted-globe jumps are visible (#196)
+- *(earth-sim)* Tablet-safe heavy layers - ungate light overlays, hold heavy GeoJSON off iPad (#197)
 
 ### CREP
 
@@ -571,6 +581,13 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Add Codex deploy handoff for field MycoBrain device controls
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(earth-simulator)* Comprehensive technical feature reference & capability index (#190) [skip ci]
+- *(earth-simulator)* Live production QA audit 2026-06-13 (#191) [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -752,6 +769,7 @@ All notable changes to this project will be documented in this file.
 - Add search intelligence orchestration
 - *(natureos/devices)* Live OpenClaw control + COM7-style command console
 - *(natureos/devices)* MQTT live fleet mirror
+- *(earth-simulator)* Ship Earth Simulator improvements to production (#188)
 
 ### Fix
 
@@ -824,6 +842,7 @@ All notable changes to this project will be documented in this file.
 - *(website)* Lint and production build on push/PR
 - *(terms)* Publish 2026-05-11 Terms of Service (#151)
 - Fast deploy search earth fixes [fast]
+- Parse iNat report geojson safely [skip ci]
 
 ### Performance
 

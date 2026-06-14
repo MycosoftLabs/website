@@ -21,7 +21,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo, startTransition, type ReactNode, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
+import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup, freezeNativeMarkerUpdates, thawNativeMarkerUpdates } from "@/components/ui/map";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -2351,8 +2351,25 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   if (typeof window === "undefined") return "desktop";
   const width = window.innerWidth || 1440;
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  if (width <= 767 || (coarsePointer && width <= 900)) return "phone";
-  if (width <= 1180 || coarsePointer) return "tablet";
+  // iPadOS Safari requests desktop sites by default and, with a Magic Keyboard /
+  // trackpad attached, reports (pointer: fine). So an iPad Pro in landscape
+  // (1366px on 12.9", 1194px on 11" — both > 1180) was classified "desktop" and
+  // handed the full desktop budget (all overlays + 900 DOM markers + full-density
+  // GeoJSON infra), which a tablet-class GPU cannot survive → immediate freeze.
+  // maxTouchPoints is the one signal iPadOS does NOT spoof (it reports 5), so use
+  // it to force any genuine multi-touch device to AT MOST "tablet" regardless of
+  // width or pointer type. (Jun 13, 2026 — iPad Pro freeze P0 from live QA audit.)
+  const touch = typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1;
+  // iPhones report maxTouchPoints=5 too, so touch+width alone can't tell an iPad
+  // from a phone — and the old `(touch) && width<=900` clause misclassified iPad
+  // mini portrait (768) and iPad Pro 11" portrait (834) as "phone", which closed
+  // the panels and withheld the ECM atlas. A phone's SHORTER edge is <=430 even
+  // in landscape; the smallest iPad (mini) is 768 on its short edge. So gate the
+  // phone branch on the short edge, not innerWidth: every iPad -> "tablet", real
+  // phones (incl. landscape ~932x430) -> "phone". (Jun 13, 2026 — iPad Pro QA.)
+  const shortEdge = Math.min(width, window.innerHeight || width);
+  if (shortEdge <= 540 || (!touch && width <= 767)) return "phone";
+  if (width <= 1180 || coarsePointer || touch) return "tablet";
   return "desktop";
 }
 
@@ -2369,10 +2386,13 @@ function getInitialProjectionMode(): ProjectionMode {
 }
 
 function shouldStartInGlobeProjection(): boolean {
-  if (typeof window === "undefined") return true;
-  const width = window.innerWidth || 1440;
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
-  return width > 1180 && !coarsePointer;
+  // The Earth Simulator must ALWAYS open in the globe projection, never the flat
+  // mercator map — on every device including iPad. The earlier width/pointer gate
+  // downgraded touch/tablet/narrow viewports to mercator for GPU safety, but that
+  // is the wrong default: globe is the intended experience everywhere, and the
+  // user can still switch to map via the GlobeToggle. (Jun 13, 2026 — Morgan:
+  // "should always open in the globe, never open in the map.")
+  return true;
 }
 
 function isGlobeProjectionSafeForViewport(): boolean {
@@ -2834,6 +2854,26 @@ const PROPOSAL_OVERLAY_LAYER_IDS = new Set<string>([
   "railwayTrains",
   "droneNoFly",
   "cctv",
+]);
+
+// Multi-MB GeoJSON layers that mount thousands of features at once. On tablet /
+// phone, mounting these synchronously starves the main thread and freezes the
+// iPad — so ALL ON must NOT switch them on at sub-desktop perf tiers, and the
+// proposal-overlay heavy gates fall back to the desktop-only budget. (35k power
+// plants, 76k substations, 40k factories, cell towers, TX lines, 1.2M debris.)
+const HEAVY_TABLET_OFF_LAYER_IDS = new Set<string>([
+  "powerPlants",
+  "powerPlantsG",
+  "substations",
+  "factories",
+  "factoriesG",
+  "txLines",
+  "txLinesGlobal",
+  "cellTowersG",
+  "dataCentersG",
+  "orbitalDebris",
+  "debrisCloud",
+  "oilGas",
 ]);
 
 const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
@@ -7345,6 +7385,12 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
         map?.flyTo?.({
           center: [target.lng, target.lat],
           zoom: target.zoom,
+          // Reset tilt so a far jump is always visible. On a tilted globe a
+          // flyTo that inherits the current pitch can leave the destination
+          // behind the horizon — looking like the map didn't move. The working
+          // FlyToProjects chips already pass pitch:0/bearing:0. (Jun 13, 2026.)
+          pitch: 0,
+          bearing: 0,
           duration: 900,
           essential: true,
         });
@@ -7797,10 +7843,10 @@ export default function CREPDashboardPage({
     };
   }, []);
   const [leftPanelOpen, setLeftPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
   );
   const [rightPanelOpen, setRightPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() !== "desktop"),
+    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
   );
   const [rightPanelTab, setRightPanelTab] = useState("myca");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
@@ -7836,7 +7882,12 @@ export default function CREPDashboardPage({
     const earthTabletMq = window.matchMedia("(max-width: 1180px), (pointer: coarse)");
     const applyResponsivePanelDefaults = () => {
       const earthSimulator = isEarthSimulatorPath();
-      const earthTablet = isEarthSimulatorPath() && earthTabletMq.matches;
+      // Only genuine phones (perf-class) auto-collapse the Earth Sim panels.
+      // earthTabletMq = "(max-width:1180px),(pointer:coarse)" matched EVERY iPad
+      // (coarse pointer) and re-closed the panels the init opened — defeating the
+      // "iPad starts like desktop" requirement. Now iPads ("tablet") fall into the
+      // panels-open branch. (Jun 13, 2026 — iPad QA.)
+      const earthTablet = isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone";
       if (phoneMq.matches || earthTablet) {
         setLeftPanelOpen(false);
         setRightPanelOpen(false);
@@ -7890,6 +7941,13 @@ export default function CREPDashboardPage({
   );
   const earthSimDesktopOverlayBudget =
     !isEarthSimulatorRoute || earthSimViewportPerfClass === "desktop";
+  // Light overlays (small point counts: radio stations, drone no-fly zones,
+  // rail trains, SDTJ/civic coverage) are cheap enough for tablets — only phones
+  // need them held back. Heavy multi-MB GeoJSON (global power plants 35k,
+  // substations 76k, factories, cell towers, TX lines, debris cloud) keeps using
+  // the desktop-only budget so weaker tablet GPUs don't starve the main thread.
+  const earthSimLightOverlayBudget =
+    !isEarthSimulatorRoute || earthSimViewportPerfClass !== "phone";
   const shouldMountRightPanelContent =
     !isEarthSimulatorRoute || rightPanelOpen;
   const isGlobeCrepMapRoute = isGlobeCrepRoute();
@@ -7904,9 +7962,13 @@ export default function CREPDashboardPage({
     }
     setEarthSimDeferredDataReady(false);
     if (auditAllOffMode || assetIsolationMode) return;
+    // Stage heavy overlays in for weaker GPUs. Desktop paints fast (750ms); tablet
+    // and phone get real breathing room so the base map + light data settle before
+    // the heavier layers hydrate (the 1.75s/2.5s values removed that safety valve
+    // and compounded the iPad freeze). Not the old 35-55s — a survivable middle.
     const delayMs =
-      earthSimViewportPerfClass === "phone" ? 2_500 :
-      earthSimViewportPerfClass === "tablet" ? 1_750 :
+      earthSimViewportPerfClass === "phone" ? 8_000 :
+      earthSimViewportPerfClass === "tablet" ? 5_000 :
       750;
     const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
     return () => window.clearTimeout(timer);
@@ -8372,7 +8434,8 @@ export default function CREPDashboardPage({
       const zoom = Number.isFinite(Number(d.zoom)) ? Number(d.zoom) : 11;
       try {
         const m = mapNativeRef.current as any;
-        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, duration: 1200 });
+        // pitch:0/bearing:0 — a tilted globe can hide the destination over the horizon.
+        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, pitch: 0, bearing: 0, duration: 1200 });
       } catch { /* ignore */ }
     };
     window.addEventListener("crep:flyto", onFlyTo as any);
@@ -8930,6 +8993,9 @@ export default function CREPDashboardPage({
     const map = mapRef;
     if (!map) return;
     const clearMapInteractionState = (reason: string) => {
+      // Re-attach native marker per-frame _update + snap markers back to their
+      // correct positions once the gesture settles (no-op if not frozen).
+      thawNativeMarkerUpdates(map);
       if (mapInteractionClearTimerRef.current != null) {
         window.clearTimeout(mapInteractionClearTimerRef.current);
         mapInteractionClearTimerRef.current = null;
@@ -8991,6 +9057,16 @@ export default function CREPDashboardPage({
       }
       mapInteractionActiveRef.current = true;
       mapInteractionStartedAtRef.current = Date.now();
+      // iPad/tablet freeze fix: detach native marker per-frame _update (project +
+      // setTransform + occlusion + frameAsync alloc, per marker per frame) so the
+      // map pans at full frame rate. Heavy perf classes only — desktop keeps live
+      // marker tracking during pan. Markers re-attach + snap on clearMapInteractionState.
+      if (
+        (earthStrictPerfMode || isGlobeCrepMapRoute) &&
+        getEarthSimViewportPerfClass() !== "desktop"
+      ) {
+        freezeNativeMarkerUpdates(map);
+      }
       try {
         (window as any).__crep_map_interaction_state = {
           active: true,
@@ -9042,6 +9118,8 @@ export default function CREPDashboardPage({
       /* map can be mid-teardown during hot reload */
     }
     return () => {
+      // Never leave markers detached if this effect re-runs mid-pan.
+      thawNativeMarkerUpdates(map);
       if (mapInteractionClearTimerRef.current != null) {
         window.clearTimeout(mapInteractionClearTimerRef.current);
         mapInteractionClearTimerRef.current = null;
@@ -9064,7 +9142,7 @@ export default function CREPDashboardPage({
       try { map.off?.("pitchend", onMoveEnd); } catch {}
       try { map.off?.("idle", onIdle); } catch {}
     };
-  }, [isGlobeCrepMapRoute, mapRef, requestViewportNatureFetch]);
+  }, [earthStrictPerfMode, isGlobeCrepMapRoute, mapRef, requestViewportNatureFetch]);
 
   useEffect(() => {
     if (!earthStrictPerfMode || !mapRef) return;
@@ -9707,8 +9785,12 @@ export default function CREPDashboardPage({
   });
 
   const [vesselFilter, setVesselFilter] = useState<VesselFilter>(() => {
-    const filtersOff = getInitialFiltersOffMode();
-    const moversOffAtBoot = filtersOff || isEarthSimulatorPath();
+    // Vessels start ON on Earth Sim (unlike the other movers): the AIS feed is
+    // live and the user expects ocean traffic to paint. Gating the categories
+    // off-at-boot here (via isEarthSimulatorPath()) left moverVesselPool empty
+    // so nothing rendered even with the Ships layer enabled. (Jun 13, 2026 —
+    // "I don't see any vessels in the Strait of Hormuz".)
+    const moversOffAtBoot = getInitialFiltersOffMode();
     return {
       showCargo: !moversOffAtBoot,
       showTanker: !moversOffAtBoot,
@@ -12425,16 +12507,30 @@ export default function CREPDashboardPage({
     setAuditAllOffMode(false);
     setAssetIsolationMode(null);
     setIsStreaming(true);
+    // Tablet/phone ALL ON must stay survivable: switching on the multi-MB
+    // GeoJSON layers (35k power plants, 76k substations, 1.2M debris cloud …)
+    // synchronously starves the mobile main thread and freezes the iPad. Hold
+    // those off at sub-desktop perf tiers; everything light still turns on.
+    const heavyPerf = isEarthSimulatorRoute && earthSimViewportPerfClass !== "desktop";
     startTransition(() => {
       setAuditAllOffMode(false);
       setAssetIsolationMode(null);
       persistFungaSelection(null);
       setIsStreaming(true);
-      setLayers(prev => applyForceOffToLayers(prev.map(layer => layer.enabled ? layer : { ...layer, enabled: true })));
+      setLayers(prev => applyForceOffToLayers(prev.map(layer => {
+        if (heavyPerf && HEAVY_TABLET_OFF_LAYER_IDS.has(layer.id)) {
+          return layer.enabled ? { ...layer, enabled: false } : layer;
+        }
+        return layer.enabled ? layer : { ...layer, enabled: true };
+      })));
       setGroundFilter(prev => {
         const next: typeof prev = { ...prev };
         for (const key of Object.keys(next) as Array<keyof typeof next>) {
           if (key === "showAmFungi") {
+            (next as any)[key] = false;
+            continue;
+          }
+          if (heavyPerf && (key === "showPowerPlants" || key === "showFactories" || key === "showSubstations")) {
             (next as any)[key] = false;
             continue;
           }
@@ -12504,7 +12600,7 @@ export default function CREPDashboardPage({
       setShowInfraLayers(true);
     });
     return true;
-  }, []);
+  }, [isEarthSimulatorRoute, earthSimViewportPerfClass]);
 
   const disableAllAuditFilters = useCallback(() => {
     groundFilterUserControlRef.current = true;
@@ -13714,8 +13810,13 @@ export default function CREPDashboardPage({
     return natureObsOn || (mapZoom ?? 0) >= EARTH_SIM_FUNGAL_DOM_MIN_ZOOM;
   }, [earthStrictPerfMode, layers, mapZoom, markerBounds, natureFiltersEnabled, natureSpeciesFiltersActive]);
 
-  // May 23 2026 regression lock (docs/codex-handoffs/2026-05-23-earth-simulator-handoff.md):
-  // NEVER unmount Event/Nature DOM markers during pan - update positions only (map.tsx batch sync).
+  // May 23 2026 regression lock: keep Event/Nature DOM markers MOUNTED through
+  // pan (update positions only) — never unmount (that caused a blink + portal
+  // churn). The iPad pan-freeze is instead handled WITHOUT unmounting by
+  // freezeNativeMarkerUpdates() (components/ui/map.tsx): on move-start for
+  // non-desktop perf classes it detaches each marker's per-frame _update
+  // (project + setTransform + occlusion + frameAsync) so the canvas pans at full
+  // frame rate, then re-attaches + snaps them back on settle. No blink.
   const shouldRenderDomMarkers = true;
   const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const shouldRenderHeavyOverlays =
@@ -14361,6 +14462,8 @@ export default function CREPDashboardPage({
     !isEarthSimulatorRoute ||
     (!auditAllOffMode && !assetIsolationMode && earthProjectViewportReady);
   const proposalOverlayAssetsReady = earthOverlayAssetsReady && earthSimDesktopOverlayBudget;
+  // Lighter proposal overlays render on tablet too (phones still excluded).
+  const proposalOverlayLightAssetsReady = earthOverlayAssetsReady && earthSimLightOverlayBudget;
   const stableEarthOverlayAssetsReady =
     !isEarthSimulatorRoute ||
     (!auditAllOffMode && !assetIsolationMode);
@@ -16391,8 +16494,14 @@ export default function CREPDashboardPage({
       return;
     }
 
-    // Earth Simulator idle perf: static satellite markers only (no SGP4 rAF loop).
-    if (earthStrictPerfMode) {
+    // Earth Simulator: the SGP4 rAF loop is held off on tablet/phone for idle
+    // perf (DOM/GPU budget), but desktop has the headroom. Run it on desktop —
+    // gated behind the first-paint stagger (earthSimDeferredDataReady) so it
+    // never competes with the initial globe paint — so that enabling the
+    // satellites layer actually shows live, moving satellites (previously the
+    // source stayed empty on Earth Sim and nothing rendered). Tablet/phone keep
+    // the static-markers-only behavior.
+    if (earthStrictPerfMode && (earthSimViewportPerfClass !== "desktop" || !earthSimDeferredDataReady)) {
       stopSatelliteAnimation();
       return;
     }
@@ -16431,7 +16540,7 @@ export default function CREPDashboardPage({
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
-  }, [filteredSatellites, earthStrictPerfMode]);
+  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimDeferredDataReady]);
 
   // Cleanup: stop satellite animation on unmount
   useEffect(() => {
@@ -22250,7 +22359,7 @@ export default function CREPDashboardPage({
           {!auditAllOffMode &&
             assetIsolationMode !== "funga" &&
             hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET) &&
-            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
+            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || earthSimViewportPerfClass === "tablet" || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
             map={mapRef}
             enabled={{
               // May 21 2026 (Morgan): every fungal atlas toggle is wired to its
@@ -22293,21 +22402,21 @@ export default function CREPDashboardPage({
             enabled={{
               ports:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
               radar:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
-              radioStations:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
-              powerPlantsG:   stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
+              radioStations:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radioStations")?.enabled ?? true),
+              powerPlantsG:   stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "powerPlantsG")?.enabled ?? false),
               factories:      proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "factoriesG")?.enabled ?? false),
               orbitalDebris:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "orbitalDebris")?.enabled ?? false),
               debrisCloud:    proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "debrisCloud")?.enabled ?? false),
-              txLinesGlobal:  stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
-              cellTowersG:    stableEarthOverlayAssetsReady && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
+              txLinesGlobal:  stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false),
+              cellTowersG:    stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
               // Default these to true while layer state hydrates so they
               // load immediately on refresh as required.
               bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
               topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
               satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
               railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
-              railwayTrains:  proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
-              droneNoFly:     proposalOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
+              railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
+              droneNoFly:     proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
               cctv:           proposalOverlayAssetsReady && !assetIsolationMode && !isEarthSimulatorRoute && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
             }}
             bbox={detailedOverlayBbox}
@@ -22684,7 +22793,7 @@ export default function CREPDashboardPage({
             <FlyToButtons
               onFlyTo={(center, zoom) => {
                 GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
-                mapRef?.flyTo({ center, zoom, duration: 1200 });
+                mapRef?.flyTo({ center, zoom, pitch: 0, bearing: 0, duration: 1200 });
               }}
               compact
             />

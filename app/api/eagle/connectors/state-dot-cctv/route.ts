@@ -215,30 +215,40 @@ async function pullWSDOT(): Promise<Cam[]> {
 }
 
 // ─── FDOT (Florida) ─────────────────────────────────────────────────────
+// Jun 13, 2026 (P1-4): fl511.com migrated to the Castle Rock "OneStop"
+// platform. The old /map/data/cctvs.json now 404s, so pullFDOT silently
+// returned [] and Florida showed zero cameras. The keyless camera index now
+// lives at /map/mapIcons/Cameras (item2:[{itemId, location:[lat,lng], title,
+// expando:{videoEnabled}}], ~4,800 cams) with the live JPEG snapshot at
+// /map/Cctv/{itemId} — the same contract pullCastleRock511() uses for GA/WI/PA.
 async function pullFDOT(): Promise<Cam[]> {
   try {
-    const res = await fetch("https://fl511.com/map/data/cctvs.json", {
+    const res = await fetch("https://fl511.com/map/mapIcons/Cameras", {
       headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
       signal: AbortSignal.timeout(15_000),
     })
     if (!res.ok) return []
+    const ct = res.headers.get("content-type") || ""
+    if (!/json/i.test(ct)) return []
     const j = await res.json()
-    const items: any[] = j?.data || j?.features || (Array.isArray(j) ? j : [])
+    const items: any[] = Array.isArray(j?.item2) ? j.item2 : []
     return items
-      .map((c: any): Cam | null => {
-        const lat = Number(c.latitude ?? c.lat ?? c.geometry?.coordinates?.[1])
-        const lng = Number(c.longitude ?? c.lng ?? c.geometry?.coordinates?.[0])
+      .map((it: any): Cam | null => {
+        const loc = it?.location
+        const lat = Number(Array.isArray(loc) ? loc[0] : it?.latitude ?? it?.lat)
+        const lng = Number(Array.isArray(loc) ? loc[1] : it?.longitude ?? it?.lng)
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-        const rawImg = c.imageUrl || c.snapshotUrl || null
-        const proxiedImg = rawImg ? `/api/eagle/cam-image?url=${encodeURIComponent(rawImg)}` : null
+        const itemId = it?.itemId ?? `${lat},${lng}`
+        const snapshot = `https://fl511.com/map/Cctv/${encodeURIComponent(String(itemId))}`
+        const proxiedImg = `/api/eagle/cam-image?url=${encodeURIComponent(snapshot)}`
         return {
-          id: `fdot-${c.id || c.camId || `${lat},${lng}`}`,
+          id: `fdot-${itemId}`,
           provider: "fdot",
-          name: c.description || c.roadway || c.location || "FDOT cam",
+          name: it?.title || it?.tooltip || it?.roadway || "FDOT cam",
           lat,
           lng,
-          stream_url: c.hlsUrl || null,
-          embed_url: c.url || c.videoUrl || null,
+          stream_url: null,
+          embed_url: `https://fl511.com/map/Cctv/${encodeURIComponent(String(itemId))}`,
           media_url: proxiedImg,
           category: "traffic",
         }

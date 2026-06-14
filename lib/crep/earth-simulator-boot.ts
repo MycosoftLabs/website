@@ -131,8 +131,9 @@ export const EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS = [
 export const EARTH_SIM_OFF_AT_BOOT_LAYER_IDS = [
   "aviation",
   "aviationRoutes",
-  "ships",
-  "shipRoutes",
+  // ships / shipRoutes intentionally NOT off-at-boot: vessels start ON so ocean
+  // traffic paints at load (the AIS feed is live; gating them off left the layer
+  // hidden + the mover pump never fetching). Jun 13, 2026 — vessels P0.
   "fishing",
   "containers",
   "satellites",

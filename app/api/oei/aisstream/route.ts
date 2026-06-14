@@ -84,6 +84,12 @@ function ensureAISStream(): void {
   aisState.streamCleanup = client.connectRealtime(
     { north: 90, south: -90, east: 180, west: -180 },
     (_vessel) => {
+      // Live data is flowing — clear the failure counter + backoff so a stream
+      // that recovers doesn't carry a stale count toward the stop threshold.
+      if (aisState.reconnectAttempts !== 0) {
+        aisState.reconnectAttempts = 0
+        aisState.reconnectDelay = RECONNECT_BASE_MS
+      }
       // Vessel is automatically added to the client's internal cache
     },
     (err) => {
@@ -92,8 +98,18 @@ function ensureAISStream(): void {
       aisState.reconnectAttempts++
 
       if (aisState.reconnectAttempts >= MAX_RETRIES) {
-        console.warn(`[AISStream] Stopped after ${MAX_RETRIES} failures. Service may be down.`)
-        return // Stop retrying — no more log spam
+        // Don't die permanently: after the fast-retry budget is spent, fall back
+        // to a slow keepalive at the max delay so a prolonged AISstream outage
+        // self-heals instead of serving only the stale disk cache until the
+        // process restarts. Reset the counter so the keepalive gets a fresh
+        // fast-retry budget each cycle. (Jun 14, 2026 — live feed stuck at 0.)
+        console.warn(`[AISStream] ${MAX_RETRIES} fast retries exhausted — slow keepalive every ${MAX_RECONNECT_MS / 1000}s`)
+        setTimeout(() => {
+          aisState.reconnectAttempts = 0
+          aisState.reconnectDelay = RECONNECT_BASE_MS
+          ensureAISStream()
+        }, MAX_RECONNECT_MS)
+        return
       }
 
       aisState.reconnectDelay = Math.min(aisState.reconnectDelay * 2, MAX_RECONNECT_MS)
@@ -129,7 +145,15 @@ export async function GET(request: NextRequest) {
   const lomax = searchParams.get("lomax")
   const mmsi = searchParams.get("mmsi")
   const publish = searchParams.get("publish") === "true"
-  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : undefined
+  // Hard default + max cap so an uncapped GET can never serialize the entire
+  // global vessel set (~43k objects = 5.3s, the audit's worst route). The client
+  // sends limit=earthMoverLimits.vessels (2500/900) when zoomed in; external /
+  // world-zoom callers that omit it now get a sane ceiling instead of everything.
+  // (Jun 13, 2026 — P1-2 AIS over-SLA fix.)
+  const AIS_DEFAULT_LIMIT = 4000
+  const AIS_MAX_LIMIT = 8000
+  const rawLimit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : AIS_DEFAULT_LIMIT
+  const limit = Math.min(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : AIS_DEFAULT_LIMIT, AIS_MAX_LIMIT)
   const forceRefresh = searchParams.get("refresh") === "true"
 
   const cacheKey = `vessels_${lamin}_${lamax}_${lomin}_${lomax}_${mmsi}_${limit}_${publish}`

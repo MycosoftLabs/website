@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+// SECURITY (Jun 13, 2026): use execFile, NOT exec. exec() spawns a shell, so any
+// user-controlled value interpolated into the command string is a command-injection
+// vector (CodeQL js/command-line-injection, critical). The old `dns` action did
+// `exec(`nslookup ${domains} 8.8.8.8`)` with a user-supplied `domains` query param —
+// `?domains=x;rm -rf /` or `$(...)` would execute arbitrary commands on the server.
+// execFile passes arguments as a literal argv array with no shell, so shell
+// metacharacters are inert. We additionally validate the hostname.
+const execFileAsync = promisify(execFile);
 
 export const dynamic = 'force-dynamic';
+
+// RFC-1123 hostname: labels of [A-Za-z0-9-] separated by dots, each <=63 chars,
+// total <=253. No shell metacharacters, whitespace, or slashes can pass.
+const HOSTNAME_RE =
+  /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(?:\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,10 +34,10 @@ export async function GET(request: NextRequest) {
           uptime: process.uptime()
         });
       }
-      
+
       case 'latency': {
         // Run a real ping test against a known reliable host or local gateway
-        const { stdout } = await execAsync('ping -c 4 8.8.8.8');
+        const { stdout } = await execFileAsync('ping', ['-c', '4', '8.8.8.8']);
         return NextResponse.json({
           timestamp: new Date().toISOString(),
           target: '8.8.8.8',
@@ -38,7 +50,7 @@ export async function GET(request: NextRequest) {
       case 'connectivity': {
         // We can do a quick broad network scan to see active internal hosts
         // Use a safe subnet or localhost if not isolated
-        const { stdout } = await execAsync('nmap -sn 192.168.0.0/24 --host-timeout 5s');
+        const { stdout } = await execFileAsync('nmap', ['-sn', '192.168.0.0/24', '--host-timeout', '5s']);
         return NextResponse.json({
           timestamp: new Date().toISOString(),
           scan_type: 'ping_sweep',
@@ -47,10 +59,17 @@ export async function GET(request: NextRequest) {
       }
 
       case 'dns': {
-        const domains = searchParams.get('domains') || 'mycosoft.com';
-        const { stdout } = await execAsync(`nslookup ${domains.split(',')[0]} 8.8.8.8`);
+        const domain = (searchParams.get('domains') || 'mycosoft.com').split(',')[0].trim();
+        // Reject anything that is not a bare hostname before it ever reaches argv.
+        if (!HOSTNAME_RE.test(domain)) {
+          return NextResponse.json(
+            { error: 'Invalid domain', details: 'domains must be a single valid hostname' },
+            { status: 400 },
+          );
+        }
+        const { stdout } = await execFileAsync('nslookup', [domain, '8.8.8.8']);
         return NextResponse.json({
-          query: domains,
+          query: domain,
           raw_output: stdout
         });
       }
@@ -58,7 +77,7 @@ export async function GET(request: NextRequest) {
       case 'diagnostics':
       default: {
         // Perform a highly-detailed Nmap scan against the local network stack or known good ip
-        const { stdout, stderr } = await execAsync('nmap -sV -F 127.0.0.1');
+        const { stdout, stderr } = await execFileAsync('nmap', ['-sV', '-F', '127.0.0.1']);
         return NextResponse.json({
           timestamp: new Date().toISOString(),
           engine: 'Nmap Core',
