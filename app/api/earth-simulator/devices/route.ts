@@ -436,7 +436,10 @@ async function fetchMasDevices(): Promise<Record<string, unknown>[]> {
     const res = await fetch(`${MAS_API_URL}/api/devices?include_offline=true`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(1200),
+      // MAS /api/devices measured ~2.1s on the lab VM; 1.2s timed out and
+      // intermittently dropped the device list to mas:0 ("was working before").
+      // (Jun 14, 2026 — live device QA.)
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { devices?: Record<string, unknown>[] };
