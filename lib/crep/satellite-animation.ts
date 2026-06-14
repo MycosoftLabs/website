@@ -51,6 +51,11 @@ const MAX_ORBIT_PATHS = 200
 let animationFrameId: number | null = null
 let mapRef: any = null
 let propagator: SGP4Propagator | null = null
+// Dedicated main-thread propagator for orbit-path rings. The SGP4 worker only
+// returns positions, so when orbit rings are enabled (desktop) we load the
+// top-N satellites here and compute their tracks on the main thread every 60s.
+let orbitPropagator: SGP4Propagator | null = null
+let computeOrbitPaths = false
 let lastTickTime = 0
 let lastOrbitPathTime = 0
 let running = false
@@ -82,7 +87,10 @@ function positionsToFeatureCollection(positions: SatellitePosition[]) {
       },
       geometry: {
         type: "Point" as const,
-        coordinates: [p.lng, p.lat],
+        // 3rd coord = altitude in METERS. Native MapLibre circle/symbol layers
+        // ignore it (they clamp to the surface), but the elevated-satellite deck
+        // overlay reads it to float the icon at orbital altitude on the globe.
+        coordinates: [p.lng, p.lat, Math.round(p.altitude_km) * 1000],
       },
     })),
   }
@@ -94,7 +102,7 @@ function positionsToFeatureCollection(positions: SatellitePosition[]) {
  * across the map when orbits cross from 180 to -180.
  */
 function orbitPathsToFeatureCollection(
-  paths: Array<{ id: string; path: [number, number][] }>
+  paths: Array<{ id: string; path: [number, number, number][] }>
 ) {
   const features: any[] = []
 
@@ -102,7 +110,7 @@ function orbitPathsToFeatureCollection(
     if (!path || path.length < 2) continue
 
     // Split at antimeridian crossings
-    const segments: [number, number][][] = [[]]
+    const segments: [number, number, number][][] = [[]]
     for (let i = 0; i < path.length; i++) {
       const current = path[i]
       segments[segments.length - 1].push(current)
@@ -125,7 +133,10 @@ function orbitPathsToFeatureCollection(
         properties: { id, type: "orbit-path" },
         geometry: {
           type: "LineString",
-          coordinates: segment,
+          // [lng, lat, altitude_m] — altitude in METERS so the deck overlay can
+          // lift the ring to the same height as the dot (native line layer
+          // ignores the 3rd coord and draws the ground track).
+          coordinates: segment.map((p) => [p[0], p[1], (p[2] || 0) * 1000]),
         },
       })
     }
@@ -191,12 +202,16 @@ function tick(timestamp: number) {
     if (satSource?.setData) {
       satSource.setData(positionsToFeatureCollection(positions))
     }
-    // Orbit paths (only when using main-thread propagator — worker doesn't
-    // compute orbit tracks yet; they're recomputed every 60s on main thread
-    // anyway so they don't block the render tick.)
-    if (timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS) {
+  }
+
+  // Orbit rings (desktop only — gated by computeOrbitPaths). Recomputed every
+  // 60s so they never block the render tick. Worker mode uses the dedicated
+  // top-N orbitPropagator; fallback mode reuses the full main-thread propagator.
+  if (computeOrbitPaths && timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS) {
+    const orbitProp = useWorker ? orbitPropagator : propagator
+    if (orbitProp && orbitProp.size > 0) {
       lastOrbitPathTime = timestamp
-      updateOrbitPaths(prop, now, map)
+      updateOrbitPaths(orbitProp, now, map)
     }
   }
 
@@ -211,7 +226,7 @@ function updateOrbitPaths(prop: SGP4Propagator, now: Date, map: any) {
 
   // Only compute paths for a subset to avoid excessive computation
   const satellitesToPath = currentSatellites.slice(0, MAX_ORBIT_PATHS)
-  const paths: Array<{ id: string; path: [number, number][] }> = []
+  const paths: Array<{ id: string; path: [number, number, number][] }> = []
 
   for (const sat of satellitesToPath) {
     const path = prop.propagateOrbitPath(
@@ -239,13 +254,15 @@ function updateOrbitPaths(prop: SGP4Propagator, now: Date, map: any) {
  */
 export function startSatelliteAnimation(
   map: any,
-  satellites: SatelliteInput[]
+  satellites: SatelliteInput[],
+  options?: { computeOrbitPaths?: boolean }
 ): void {
   // Stop any existing animation first
   stopSatelliteAnimation()
 
   mapRef = map
   currentSatellites = satellites
+  computeOrbitPaths = options?.computeOrbitPaths ?? false
 
   // Fix E (Apr 18, 2026): try the Web Worker first. If it's supported we
   // hand the TLEs to the worker and SGP4 math runs off the main thread.
@@ -283,6 +300,14 @@ export function startSatelliteAnimation(
     )
   }
 
+  // Orbit rings in worker mode: the worker returns positions only, so load the
+  // top-N into a main-thread propagator to compute their tracks. (Fallback mode
+  // already has a full main-thread propagator and reuses it.)
+  if (computeOrbitPaths && useWorker) {
+    orbitPropagator = new SGP4Propagator()
+    orbitPropagator.loadSatellites(satellites.slice(0, MAX_ORBIT_PATHS))
+  }
+
   running = true
   lastTickTime = 0
   lastOrbitPathTime = 0
@@ -301,6 +326,9 @@ export function stopSatelliteAnimation(): void {
   }
   propagator?.clear()
   propagator = null
+  orbitPropagator?.clear()
+  orbitPropagator = null
+  computeOrbitPaths = false
   if (worker) {
     try { worker.clear() } catch {}
     // Don't terminate — keep singleton for next start
@@ -318,6 +346,9 @@ export function stopSatelliteAnimation(): void {
  */
 export function updateSatelliteAnimation(satellites: SatelliteInput[]): void {
   currentSatellites = satellites
+  if (computeOrbitPaths && orbitPropagator) {
+    orbitPropagator.loadSatellites(satellites.slice(0, MAX_ORBIT_PATHS))
+  }
   if (useWorker && worker) {
     const tles: WorkerSatInput[] = satellites
       .map((s) => {
