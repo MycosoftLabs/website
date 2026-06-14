@@ -8828,6 +8828,7 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (!trackedAssetLock) return;
+    let opened = false; // becomes true after the first tick opens the popup
     const tick = () => {
       const latest =
         trackedAssetLock.type === "aircraft" ? findLockedAsset(aircraft, trackedAssetLock) :
@@ -8840,9 +8841,17 @@ export default function CREPDashboardPage({
       );
       if (!coord) return;
       if (latest) {
-        if (trackedAssetLock.type === "aircraft") setSelectedAircraft(latest as AircraftEntity);
-        if (trackedAssetLock.type === "vessel") setSelectedVessel(latest as VesselEntity);
-        if (trackedAssetLock.type === "satellite") setSelectedSatellite(latest as SatelliteEntity);
+        // Open the popup on the FIRST tick of this lock, then only UPDATE it —
+        // never RE-open one the user has since closed (so it stays dismissible
+        // during a lock/piggyback). `opened` resets each time the lock changes
+        // (this effect re-runs). Without this, the follow loop re-asserted the
+        // selection every tick and the user got trapped with no way to close it.
+        // (Jun 14, 2026 — piggyback can't-disengage bug.)
+        const force = !opened;
+        opened = true;
+        if (trackedAssetLock.type === "aircraft") setSelectedAircraft((prev) => (force || prev ? (latest as AircraftEntity) : prev));
+        if (trackedAssetLock.type === "vessel") setSelectedVessel((prev) => (force || prev ? (latest as VesselEntity) : prev));
+        if (trackedAssetLock.type === "satellite") setSelectedSatellite((prev) => (force || prev ? (latest as SatelliteEntity) : prev));
       }
       const map = mapNativeRef.current || mapRef;
       if (map?.easeTo) {
@@ -8859,6 +8868,32 @@ export default function CREPDashboardPage({
     const id = window.setInterval(tick, trackedAssetLock.type === "satellite" ? 700 : 1200);
     return () => window.clearInterval(id);
   }, [aircraft, mapRef, satellites, trackedAssetLock, vessels]);
+
+  // Click anywhere on the map to disengage a lock / space-piggyback chase. The
+  // chase-cam comment promised "click the map to disengage" but it was never
+  // wired — so the ONLY exit was Esc (undiscoverable), trapping the user with a
+  // camera that kept snapping back to the satellite and a popup that re-opened.
+  // (Jun 14, 2026 — piggyback can't-disengage bug.)
+  useEffect(() => {
+    const map = mapNativeRef.current || mapRef;
+    if (!map?.on) return;
+    const disengage = () => {
+      setPiggybackSatelliteId((cur) => (cur ? null : cur));
+      setTrackedAssetLock((cur) => (cur ? null : cur));
+    };
+    map.on("click", disengage);
+    return () => { try { map.off("click", disengage); } catch { /* ignore */ } };
+  }, [mapRef]);
+
+  // Closing the satellite popup during a space-piggyback fully disengages the
+  // chase-cam (not just the popup). Safe: piggyback always starts from the
+  // already-open satellite detail, so there is no startup null-gap to race.
+  useEffect(() => {
+    if (piggybackSatelliteId && !selectedSatellite) {
+      setPiggybackSatelliteId(null);
+      setTrackedAssetLock(null);
+    }
+  }, [piggybackSatelliteId, selectedSatellite]);
 
   const navigationPauseUntilRef = useRef(0);
   const mapInteractionActiveRef = useRef(false);
