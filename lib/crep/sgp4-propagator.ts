@@ -299,11 +299,13 @@ export class SGP4Propagator {
     startDate: Date,
     minutes = 90,
     stepMinutes = 1
-  ): [number, number][] | null {
+  ): [number, number, number][] | null {
     const satrec = this.satrecCache.get(id)
     if (!satrec) return null
 
-    const points: [number, number][] = []
+    // [lng, lat, altitude_km] — the altitude is carried so the orbit ring can be
+    // elevated to the same height as the satellite dot in the 3D globe overlay.
+    const points: [number, number, number][] = []
     const steps = Math.ceil(minutes / stepMinutes)
 
     for (let i = 0; i <= steps; i++) {
@@ -319,7 +321,7 @@ export class SGP4Propagator {
         const lng = satellite.radiansToDegrees(geo.longitude)
 
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          points.push([lng, lat])
+          points.push([lng, lat, Number.isFinite(geo.height) ? geo.height : 0])
         }
       } catch {
         // Skip invalid points
