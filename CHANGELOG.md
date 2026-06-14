@@ -366,6 +366,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* IPad pan-freeze via native marker _update detach (no blink) (#200)
 - *(aisstream)* Self-healing reconnect so the live vessel feed never dies permanently (#202)
 - *(earth-sim)* Raise MAS device-list fetch timeout 1.2s -> 4s (no more intermittent mas:0) (#205)
+- *(earth-sim)* Space-piggyback can now be disengaged (was trapping the user) (#206)
 
 ### CREP
 
@@ -607,6 +608,7 @@ All notable changes to this project will be documented in this file.
 - Publish sanitized Earth Simulator technical reference + README to main (#199)
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -792,6 +794,8 @@ All notable changes to this project will be documented in this file.
 - *(earth-simulator)* Ship Earth Simulator improvements to production (#188)
 - *(aircraft)* Wire OpenSky OAuth2 client-credentials (graceful, creds-later) (#201)
 - *(earth-sim)* Elevated 3D satellites + orbit rings (deck overlay, desktop) (#204)
+- *(earth-sim)* Many more satellites on the globe (was capped at 60-80) (#207)
+- *(earth-sim)* Aircraft + vessels + satellites (no debris) ON at reload (#208)
 
 ### Fix
 
