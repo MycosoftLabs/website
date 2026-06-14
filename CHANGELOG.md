@@ -606,6 +606,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Publish sanitized Earth Simulator technical reference + README to main (#199)
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -790,6 +791,7 @@ All notable changes to this project will be documented in this file.
 - *(sine)* Ship acoustic player and mindex library [fast]
 - *(earth-simulator)* Ship Earth Simulator improvements to production (#188)
 - *(aircraft)* Wire OpenSky OAuth2 client-credentials (graceful, creds-later) (#201)
+- *(earth-sim)* Elevated 3D satellites + orbit rings (deck overlay, desktop) (#204)
 
 ### Fix
 
