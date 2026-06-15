@@ -853,40 +853,51 @@ const RESOURCE_LIMITS: Record<BrowserMemoryPressure, {
 const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
   nature: 30_000,
   events: 220,
-  aircraft: 700,
-  vessels: 900,
-  // Fetch more satellites so the globe isn't sparse — they're cheap GPU symbols
-  // propagated in a worker, and the SGP4 loop only runs on desktop. (Jun 14, 2026)
-  satellites: 1_000,
+  // Fetch thousands of movers so the globe isn't sparse. Aircraft/vessels render
+  // as native GPU symbols that are bbox-culled to ~2x the viewport before the
+  // per-zoom render cap, so a big fetch pool only ever paints in-view targets.
+  // (Jun 14, 2026 — "almost no planes/vessels, thousands missing, gate by lod + viewport".)
+  aircraft: 2_500,
+  vessels: 2_500,
+  // Satellites are worker-propagated GPU symbols (dots+icons; orbit rings capped
+  // at MAX_ORBIT_PATHS=200) and the SGP4 loop only runs on desktop, so a large
+  // pool just blankets the globe at altitude without touching tablet/phone.
+  satellites: 1_600,
   streamed: 180,
   lastKnown: 900,
 };
 
 function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zoom: number): number {
   const z = Number.isFinite(zoom) ? zoom : 0;
+  // Desktop carries far more than tablet/phone. Aircraft/vessels are native GPU
+  // symbols bbox-culled to ~2x the viewport at z>=tier (so high-zoom caps only
+  // ever paint in-view targets), and satellites are worker-propagated GPU symbols
+  // with the SGP4 loop OFF on tablet/phone — so high desktop caps just blanket the
+  // globe or the viewport without straining smaller devices. (Jun 14, 2026 —
+  // "almost no satellites/planes/vessels, thousands missing, gate by lod + viewport".)
+  const desktop = getEarthSimViewportPerfClass() === "desktop";
   if (kind === "satellite") {
-    // Satellites render as cheap GPU symbols (not DOM markers) and SGP4 runs in
-    // a worker, so the globe can carry far more than the old 60-180. The loop is
-    // off entirely on tablet/phone, so this only adds desktop symbols. (Jun 14,
-    // 2026 — "almost no satellites seen anywhere" at globe zoom.)
-    if (z < 3) return 400;
-    if (z < 5) return 500;
-    if (z < 7) return 650;
-    if (z < 10) return 800;
-    return 1000;
+    if (!desktop) { if (z < 5) return 350; if (z < 10) return 500; return 650; }
+    if (z < 3) return 1000;
+    if (z < 5) return 1200;
+    if (z < 7) return 1400;
+    return 1600;
   }
   if (kind === "vessel") {
-    if (z < 3) return 120;
-    if (z < 5) return 160;
-    if (z < 7) return 220;
-    if (z < 10) return 280;
-    return 340;
+    if (!desktop) { if (z < 3) return 120; if (z < 5) return 160; if (z < 7) return 240; if (z < 10) return 320; return 400; }
+    if (z < 3) return 320;
+    if (z < 5) return 550;
+    if (z < 7) return 950;
+    if (z < 10) return 1500;
+    return 2200;
   }
-  if (z < 3) return 140;
-  if (z < 5) return 180;
-  if (z < 7) return 240;
-  if (z < 10) return 300;
-  return 360;
+  // aircraft
+  if (!desktop) { if (z < 3) return 140; if (z < 5) return 180; if (z < 7) return 260; if (z < 10) return 340; return 420; }
+  if (z < 3) return 320;
+  if (z < 5) return 550;
+  if (z < 7) return 950;
+  if (z < 10) return 1500;
+  return 2200;
 }
 
 function observationTimeMs(obs: Pick<FungalObservation, "observed_on">) {
@@ -8819,6 +8830,30 @@ export default function CREPDashboardPage({
     }
   }, [mapRef]);
 
+  // Bridge: the elevated deck satellite overlay (and future deck movers) dispatch a
+  // window "crep:asset:select" event on click; resolve the id to the live entity and
+  // open its detail widget. Decouples the once-mounted deck overlay from React
+  // selection state. (Jun 14, 2026 — elevated satellites are clickable again.)
+  useEffect(() => {
+    const onSelect = (e: Event) => {
+      const detail = ((e as CustomEvent).detail || {}) as { kind?: string; id?: string };
+      const id = detail.id ? String(detail.id) : "";
+      if (!id) return;
+      if (detail.kind === "satellite") {
+        const ent = (satellites as any[]).find((s) => String(s?.id) === id || String(s?.noradId ?? s?.norad_id) === id);
+        if (ent) setSelectedSatellite(ent as any);
+      } else if (detail.kind === "aircraft") {
+        const ent = (aircraft as any[]).find((a) => String(a?.id) === id || String(a?.icao24) === id);
+        if (ent) setSelectedAircraft(ent as any);
+      } else if (detail.kind === "vessel") {
+        const ent = (vessels as any[]).find((v) => String(v?.id) === id || String(v?.mmsi) === id);
+        if (ent) setSelectedVessel(ent as any);
+      }
+    };
+    window.addEventListener("crep:asset:select", onSelect as any);
+    return () => window.removeEventListener("crep:asset:select", onSelect as any);
+  }, [satellites, aircraft, vessels]);
+
   useEffect(() => {
     if (!embedded || !focusAsset?.type) return;
     setTrackedAssetLock({
@@ -12159,6 +12194,12 @@ export default function CREPDashboardPage({
       // Check if click is inside Intel Feed event cards
       const isInsideEventCard = target.closest('[data-event-card]') !== null;
 
+      // A native mover pick (satellite/plane/vessel symbol click) sets
+      // lastEntityPickTimeRef; skip this dismiss so the SAME click that selected it
+      // doesn't instantly close the widget (canvas picks aren't [data-marker] DOM
+      // nodes, so the isInsideMarker check below can't catch them). (Jun 14, 2026)
+      if (Date.now() - (lastEntityPickTimeRef.current || 0) < 400) return;
+
       // If clicking outside popup, marker, panel, and event cards - dismiss all
       if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
         console.log("[CREP] Click-away (doc): dismissing popups");
@@ -12166,6 +12207,12 @@ export default function CREPDashboardPage({
         setSelectedFungal(null);
         setSelectedInfraAsset(null);
         setSelectedOther(null);
+        // Click-away also closes mover widgets (sats/planes/vessels), matching Esc.
+        // (Jun 14, 2026 — "click away must close sat widgets", + vessels/planes.)
+        setSelectedAircraft(null);
+        setSelectedVessel(null);
+        setSelectedSatellite(null);
+        setSelectedPlant(null);
       }
     };
 
@@ -16611,6 +16658,18 @@ export default function CREPDashboardPage({
   // vanish), and restored on teardown â€” tablet/phone/flat-map are untouched.
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
+    // DISABLED (Jun 14, 2026 — "surface now, 3D next"): deck.gl's GlobeViewport
+    // does NOT support pitch/bearing, so this elevated overlay detached from the
+    // globe the instant the user tilted/rotated (right-click drag) — orbits floated
+    // off into space. Satellites now render via the native maplibre symbol layers
+    // (crep-live-satellites-glow/-dot + orbit line) which track the globe's
+    // pitch/rotate perfectly, show the detailed satellite icon (not dots), are
+    // selectable, and are tier-coloured. True 3D elevation will return as a CUSTOM
+    // maplibre WebGL globe layer that honours pitch/bearing (the deck approach is a
+    // dead end on the globe). Gated OFF via a runtime window flag (not a const, so
+    // the build never trips unreachable-code / constant-condition). Set
+    // window.__crep_enableDeckSatElevation = true only for v2 custom-layer probing.
+    if (!(window as any).__crep_enableDeckSatElevation) return;
     if (!isEarthSimulatorRoute) return;
     if (earthSimViewportPerfClass !== "desktop") return;
     if (projectionMode !== "globe") return;
@@ -16618,12 +16677,18 @@ export default function CREPDashboardPage({
     if (!map || typeof map.getSource !== "function") return;
 
     const EARTH_R_M = 6_371_000;
-    // Exaggerate altitude: true 400km LEO is only ~6% of Earth's radius, too flat
-    // to read. EXAG=6 makes LEO clearly hover; clamp so GEO (~35,786km) doesn't
-    // shoot far off-screen.
-    const EXAG = 6;
-    const visualZ = (altMeters: number) =>
-      Math.min((Number(altMeters) || 0) * EXAG, EARTH_R_M * 1.5);
+    // Hug the globe: compress real altitude into a thin shell so LEO sits just
+    // above the surface and even GEO (~35,786km) stays close — the constellation
+    // reads as layered atmosphere without ballooning off-screen (you never have to
+    // zoom way out). Log curve: 400km->~0.05R, 2,000km->~0.09R, 20,000km->~0.15R,
+    // GEO clamps at 0.16R. Tunable live via window.__crep_satShell.
+    // (Jun 14, 2026 — "way too exaggerated and ugly, way closer to the globe".)
+    const SHELL = Number((window as any).__crep_satShell) || 0.06;
+    const SHELL_MAX = EARTH_R_M * 0.16;
+    const visualZ = (altMeters: number) => {
+      const a = Math.max(0, Number(altMeters) || 0);
+      return Math.min(EARTH_R_M * SHELL * Math.log10(1 + a / 60_000), SHELL_MAX);
+    };
     const tierColor = (altKm: number): [number, number, number, number] =>
       altKm >= 20000 ? [251, 191, 36, 255] : altKm >= 2000 ? [168, 85, 247, 255] : [34, 211, 238, 255];
 
@@ -16656,22 +16721,33 @@ export default function CREPDashboardPage({
           getColor: [192, 132, 252, 90], getWidth: 1, widthUnits: "pixels", widthMinPixels: 1,
           parameters: { depthTest: false }, pickable: false,
         } as any),
-        // Guaranteed-render elevated dot (base): satellites never vanish even if
-        // the icon sprite fails to load.
+        // Minimal insurance base: a tiny faint tier-coloured pixel so a satellite
+        // never fully vanishes mid icon-atlas load. Kept small + low-alpha so the
+        // ICON is the visual, not a dot. (Jun 14, 2026 — "I don't want dots".)
         new InfraScatterplotLayer({
           id: "crep-sat-elev-dots", data: sats, getPosition: posOf,
-          getRadius: 4, radiusUnits: "pixels", radiusMinPixels: 3, radiusMaxPixels: 14,
-          getFillColor: (f: any) => tierColor(Number(f.properties?.altitude_km) || 0),
-          getLineColor: [255, 255, 255, 220], lineWidthMinPixels: 1, stroked: true,
+          getRadius: 2, radiusUnits: "pixels", radiusMinPixels: 1.5, radiusMaxPixels: 4,
+          getFillColor: (f: any) => { const c = tierColor(Number(f.properties?.altitude_km) || 0); return [c[0], c[1], c[2], 110]; },
+          stroked: false,
           parameters: { depthTest: false }, pickable: false,
         } as any),
-        // The satellite SPRITE (icons, not dots â€” to match planes/boats),
-        // billboarded at altitude on top of the dot.
+        // The satellite SPRITE (PNG icon — deck rasterises PNGs reliably where the
+        // SVG silently failed, leaving only dots). Billboarded at altitude, PICKABLE
+        // so satellites are clickable again; a pick dispatches crep:asset:select.
+        // (Jun 14, 2026 — "make them icons + selectable, click away to close".)
         new SatIconLayer({
           id: "crep-sat-elev-icons", data: sats, getPosition: posOf,
-          getIcon: () => ({ url: "/crep/icons/satellite.svg", width: 64, height: 64, anchorX: 32, anchorY: 32, mask: false }),
-          getSize: 26, sizeUnits: "pixels", billboard: true,
-          parameters: { depthTest: false }, pickable: false,
+          getIcon: () => ({ url: "/crep/icons/satellite.png", width: 64, height: 64, anchorX: 32, anchorY: 32, mask: false }),
+          getSize: 30, sizeUnits: "pixels", billboard: true, sizeMinPixels: 14, sizeMaxPixels: 46,
+          pickable: true,
+          onClick: (info: any) => {
+            const id = info?.object?.properties?.id;
+            if (!id) return false;
+            (window as any).__crep_justPickedAt = Date.now();
+            try { window.dispatchEvent(new CustomEvent("crep:asset:select", { detail: { kind: "satellite", id: String(id) } })); } catch {}
+            return true;
+          },
+          parameters: { depthTest: false },
         } as any),
       ];
     };
@@ -16680,7 +16756,7 @@ export default function CREPDashboardPage({
     let disposed = false;
     let rebuildQueued = false;
     try {
-      overlay = new SatMapboxOverlay({ interleaved: false, layers: buildLayers() });
+      overlay = new SatMapboxOverlay({ interleaved: false, pickingRadius: 8, layers: buildLayers() });
       map.addControl(overlay as any);
       const rebuild = () => {
         rebuildQueued = false;
