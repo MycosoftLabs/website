@@ -16912,6 +16912,29 @@ export default function CREPDashboardPage({
     return () => { cancelled = true; cleanup(); };
   }, [isEarthSimulatorRoute, projectionMode, mapRef]);
 
+  // ───────────────────────────────────────────────────────────────────────
+  // BlueSite v2 — MOVER-ALTITUDE LAYER (gated ?bluesite=1&es3d=1 / __es_v2_on()).
+  // Live satellites as elevated, SCREEN-SIZED icons locked to the globe (the real
+  // payoff of the spike). Dynamic-imports the module + three so v1/prod is untouched.
+  // ───────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isEarthSimulatorRoute || projectionMode !== "globe") return;
+    if (!getBlueSiteFlags().moverAltitude) return;
+    const map = mapNativeRef.current as any;
+    if (!map || typeof map.addLayer !== "function") return;
+
+    let cancelled = false;
+    let handle: { dispose: () => void } | null = null;
+    (async () => {
+      const { mountMoverAltitudeLayer } = await import("@/lib/crep/bluesite/mover-altitude-layer");
+      if (cancelled) return;
+      handle = mountMoverAltitudeLayer(map);
+      console.log("[bluesite] mover-altitude layer mounted");
+    })();
+
+    return () => { cancelled = true; try { handle?.dispose(); } catch {} };
+  }, [isEarthSimulatorRoute, projectionMode, mapRef]);
+
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
       entityStreamClientRef.current?.disconnect();
