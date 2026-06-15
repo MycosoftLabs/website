@@ -66,15 +66,28 @@ export function getBlueSiteFlags(): BlueSiteFlags {
 
   if (typeof window === "undefined") return out;
 
-  // 2) URL query params
+  // 2) persisted localStorage toggle (survives reloads + navigation, so v2 can be
+  //    flipped on/off once and stick — see window.__es_v2_on()/__es_v2_off()).
   try {
-    const sp = new URLSearchParams(window.location.search);
-    for (const k of keys) {
-      if (sp.has(QUERY_KEY[k]) && truthy(sp.get(QUERY_KEY[k]) ?? "1")) out[k] = true;
+    const master = window.localStorage.getItem("es_v2");
+    if (master === "1") out.bluesite = true;
+    else if (master === "0") out.bluesite = false;
+    const sub = window.localStorage.getItem("es_v2_flags");
+    if (sub) {
+      const parsed = JSON.parse(sub) as Record<string, unknown>;
+      for (const k of keys) { if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean; }
     }
   } catch { /* ignore */ }
 
-  // 3) runtime override (highest priority; can also force-OFF)
+  // 3) URL query params (explicit one-off; `?key=1` force-ON, `?key=0` force-OFF)
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    for (const k of keys) {
+      if (sp.has(QUERY_KEY[k])) out[k] = truthy(sp.get(QUERY_KEY[k]) ?? "1");
+    }
+  } catch { /* ignore */ }
+
+  // 4) runtime override (highest priority; can also force-OFF)
   const ov = (window as unknown as { __es_v2?: Partial<BlueSiteFlags> }).__es_v2;
   if (ov && typeof ov === "object") {
     for (const k of keys) {

@@ -16818,6 +16818,30 @@ export default function CREPDashboardPage({
   // (v1, prod) NOTHING here loads — the bundle is untouched. QA via screenshot
   // + window.__bluesite_spike. (Jun 15, 2026)
   // ───────────────────────────────────────────────────────────────────────
+  // Easy v1 <-> v2 switch from the browser console (persists across reloads):
+  //   __es_v2_on()                 -> v2 (bluesite + mover altitude)
+  //   __es_v2_on({ smoke:true })   -> v2 with specific sub-layers on
+  //   __es_v2_off()                -> v1 (production behaviour)
+  //   __es_v2_status()             -> current resolved flags
+  // (URL ?bluesite=1&es3d=1… still works for one-off and overrides this.)
+  useEffect(() => {
+    if (!isEarthSimulatorRoute || typeof window === "undefined") return;
+    const w = window as any;
+    w.__es_v2_on = (subflags?: Record<string, boolean>) => {
+      try {
+        window.localStorage.setItem("es_v2", "1");
+        window.localStorage.setItem("es_v2_flags", JSON.stringify(subflags ?? { moverAltitude: true }));
+      } catch {}
+      window.location.href = window.location.pathname; // strip one-off ?flags; localStorage governs
+    };
+    w.__es_v2_off = () => {
+      try { window.localStorage.setItem("es_v2", "0"); window.localStorage.removeItem("es_v2_flags"); } catch {}
+      window.location.href = window.location.pathname; // back to a clean v1 URL
+    };
+    w.__es_v2_status = () => getBlueSiteFlags();
+    return () => { try { delete w.__es_v2_on; delete w.__es_v2_off; delete w.__es_v2_status; } catch {} };
+  }, [isEarthSimulatorRoute]);
+
   useEffect(() => {
     if (!isEarthSimulatorRoute || projectionMode !== "globe") return;
     if (!getBlueSiteFlags().spike) return;
