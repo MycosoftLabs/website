@@ -93,6 +93,18 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const group = new THREE.Group();
   group.add(points);
 
+  // Elevated 3D orbit trajectories — the orbit paths rendered AT ALTITUDE (x/y/z),
+  // not flat ground-tracks, so each satellite flies along its real trajectory arc.
+  const orbitGeom = new THREE.BufferGeometry();
+  orbitGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(0), 3));
+  orbitGeom.setAttribute("color", new THREE.BufferAttribute(new Float32Array(0), 3));
+  const orbitMat = new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0.35, depthTest: true, depthWrite: false,
+  });
+  const orbitLines = new THREE.LineSegments(orbitGeom, orbitMat);
+  orbitLines.frustumCulled = false;
+  group.add(orbitLines);
+
   // id -> last world position (for prev/current matching across ticks)
   let prevById = new Map<string, [number, number, number]>();
   // pick list: parallel to draw range, current world pos + id + meta
@@ -135,6 +147,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     curAttr.needsUpdate = true; prevAttr.needsUpdate = true; colAttr.needsUpdate = true;
     lastTickMs = Date.now();
     material.uniforms.uF.value = 0;
+    rebuildOrbits();
     try { map.triggerRepaint?.(); } catch { /* */ }
   };
 
@@ -153,6 +166,35 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
       pick[i].x = v.x; pick[i].y = v.y; pick[i].z = v.z;
     }
     curAttr.needsUpdate = true; prevAttr.needsUpdate = true;
+    try { map.triggerRepaint?.(); } catch { /* */ }
+  };
+
+  // Build elevated 3D orbit arcs from the SGP4 orbit paths (the ~200 sats with
+  // computed tracks), at altitude via the same visualZ shell. One LineSegments draw.
+  const rebuildOrbits = () => {
+    const feats: any[] = (window as any).__crep_sat_orbit_fc?.features ?? [];
+    const pos: number[] = [];
+    const colArr: number[] = [];
+    const tc = new Float32Array(3);
+    for (const f of feats) {
+      const coords = f?.geometry?.coordinates;
+      if (!coords || coords.length < 2) continue;
+      let px = 0, py = 0, pz = 0, has = false;
+      for (let i = 0; i < coords.length; i++) {
+        const pt = coords[i];
+        const mm = stack.modelMatrixFor(pt[0], pt[1], visualZ(pt[2] ?? 0));
+        if (!mm) { has = false; continue; }
+        v.setFromMatrixPosition(tmp.fromArray(mm));
+        if (has) {
+          tierColor(Number(pt[2] ?? 0) / 1000, tc, 0);
+          pos.push(px, py, pz, v.x, v.y, v.z);
+          colArr.push(tc[0], tc[1], tc[2], tc[0], tc[1], tc[2]);
+        }
+        px = v.x; py = v.y; pz = v.z; has = true;
+      }
+    }
+    orbitGeom.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    orbitGeom.setAttribute("color", new THREE.Float32BufferAttribute(colArr, 3));
     try { map.triggerRepaint?.(); } catch { /* */ }
   };
 
@@ -176,7 +218,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   for (const id of beforeCandidates) { try { if (map.getLayer(id)) { beforeId = id; break; } } catch { /* */ } }
   try { map.addLayer(stack.layer, beforeId); } catch (e) { console.warn("[bluesite-movers] addLayer", e); }
 
-  const nativeIds = ["crep-live-satellites-dot", "crep-live-satellites-glow"];
+  const nativeIds = ["crep-live-satellites-dot", "crep-live-satellites-glow", "crep-live-satellite-orbits-line"];
   const setNative = (vis: "visible" | "none") => {
     for (const id of nativeIds) {
       try { if (map.getLayer(id) && (map.getLayoutProperty(id, "visibility") ?? "visible") !== vis) map.setLayoutProperty(id, "visibility", vis); } catch { /* */ }
@@ -219,7 +261,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     const hit = projectNearest(e.point.x, e.point.y, 14);
     try { map.getCanvas().style.cursor = hit ? "pointer" : ""; } catch { /* */ }
   };
-  const onMoveEnd = () => recomputeWorld();
+  const onMoveEnd = () => { recomputeWorld(); rebuildOrbits(); };
 
   let timer = 0;
   let hideTimer = 0;
@@ -254,7 +296,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
       try { map.getCanvas().style.cursor = ""; } catch { /* */ }
       try { setNative("visible"); } catch { /* */ }
       try { if (map.getLayer("bluesite-movers")) map.removeLayer("bluesite-movers"); } catch { /* */ }
-      try { geom.dispose(); material.dispose(); tex.dispose(); } catch { /* */ }
+      try { geom.dispose(); material.dispose(); tex.dispose(); orbitGeom.dispose(); orbitMat.dispose(); } catch { /* */ }
       try { delete (window as any).__crep_movers; } catch { /* */ }
     },
   };
