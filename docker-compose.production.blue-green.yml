@@ -55,6 +55,36 @@ services:
     labels:
       - "com.mycosoft.service=website-proxy"
       - "com.mycosoft.critical=true"
+      - "autoheal=true"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # AUTOHEAL — restarts ANY container labelled autoheal=true that Docker has
+  # marked `unhealthy`. THIS is the piece that was missing in the Jun 15 2026
+  # outage: the app slots already have an /api/health healthcheck, but Docker
+  # never restarts an UNHEALTHY (vs exited) container, so a HUNG app served 504
+  # indefinitely until a human redeployed (~50 min down). With autoheal a hung
+  # slot self-recovers in ~30-90s, no human. It only ACTS on already-unhealthy
+  # containers (can't disturb healthy ones); start_period gives a freshly
+  # cutover slot time to finish booting before it's eligible.
+  # ───────────────────────────────────────────────────────────────────────────
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: mycosoft-autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10          # poll unhealthy state every 10s
+      - AUTOHEAL_START_PERIOD=120     # ignore containers younger than 120s (booting)
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=20
+      - DOCKER_SOCK=/var/run/docker.sock
+      - TZ=UTC
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=autoheal"
+      - "com.mycosoft.critical=true"
 
   # ───────────────────────────────────────────────────────────────────────────
   # BLUE slot — steady-state production. No host port. Only the proxy talks to it.
@@ -121,6 +151,7 @@ services:
     labels:
       - "com.mycosoft.service=website"
       - "com.mycosoft.slot=blue"
+      - "autoheal=true" # autoheal restarts this slot if /api/health goes unhealthy
 
   # ───────────────────────────────────────────────────────────────────────────
   # GREEN slot — idle most of the time. Deploy script pulls new image into
@@ -190,6 +221,7 @@ services:
     labels:
       - "com.mycosoft.service=website"
       - "com.mycosoft.slot=green"
+      - "autoheal=true" # autoheal restarts this slot if /api/health goes unhealthy
 
   # ───────────────────────────────────────────────────────────────────────────
   # The legacy `website` service from the base compose file is intentionally
