@@ -186,7 +186,11 @@ async function loadBakedSeed(): Promise<HdontapCam[]> {
 export async function getHdontapCatalogCached(): Promise<HdontapCam[]> {
   if (!seeded && cache.cams.length === 0) {
     seeded = true
-    cache = { ts: 0, cams: await loadBakedSeed() } // ts:0 → first request triggers a background refresh
+    // Seed from the baked file AND mark it fresh, so a heavy 205-page crawl never
+    // fires at boot (which can stall a busy dev machine). The background refresh
+    // only runs once the cache is older than the TTL; re-run
+    // scripts/eagle/crawl-hdontap.mjs any time for an immediate refresh.
+    cache = { ts: Date.now(), cams: await loadBakedSeed() }
   }
   if (Date.now() - cache.ts > TTL_MS && !refreshing) {
     refreshing = true
