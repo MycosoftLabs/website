@@ -76,6 +76,10 @@ const ALLOW_HOSTS = new Set([
   "web.mta.info",
   "mta.info",
   "www.amtrak.com",
+  // HDOnTap wowza snapshots — HDOnTap blocks third-party VIDEO (token HLS +
+  // embed CSP), but their public stream-thumbnail JPEGs are fetchable; we serve
+  // them as an auto-refreshing live frame. (Jun 15 2026.)
+  "storage.hdontap.com",
 ])
 
 // Hosts with known certificate issues — we fetch them with lenient TLS.

@@ -83,12 +83,7 @@ const ADD = [
   ytFeature("youtube-sd-shelter-island-pier", "Shelter Island Pier — San Diego Bay channel entrance", 32.7080, -117.2330, "UnTDO-7BV1k", "marine", "SunDiegoLive atop Fathom Bistro, Shelter Island Pier — bay channel entrance; vessels transiting to/from downtown pass through frame. Verified LIVE 2026-06-15."),
   {
     type: "Feature",
-    properties: { id: "redideo-sd-gaslamp-quarter-hls", provider: "redideo", kind: "permanent", name: "Gaslamp Quarter — Fifth Ave toward Convention Center / Petco Park", stream_url: "https://redideostudio.com/hls/stream_1080p.m3u8", embed_url: null, media_url: null, category: "landmark", status: "online", location_confidence: 1, source: "sd-harvest-jun15-2026", notes: "Direct HLS (#EXTM3U verified, growing media sequence) — Gaslamp Quarter, Fifth Avenue looking SE. Proxied for CORS." },
-    geometry: { type: "Point", coordinates: [-117.1601, 32.7113] },
-  },
-  {
-    type: "Feature",
-    properties: { id: "ipcamlive-altitude-sky-lounge-downtown", provider: "ipcamlive", kind: "permanent", name: "Altitude Sky Lounge (Marriott Gaslamp, 22nd fl) — Downtown skyline + Petco Park + Bay", stream_url: null, embed_url: null, media_url: "/api/eagle/cam-image?url=" + encodeURIComponent("https://www.ipcamlive.com/player/snapshot.php?alias=6183ebf49a06f"), category: "landmark", status: "online", location_confidence: 1, source: "sd-harvest-jun15-2026", notes: "22nd-floor rooftop (660 K St) panorama: downtown skyline, Petco Park, Coronado, San Diego Bay. Auto-updating JPEG (HLS is token-gated)." },
+    properties: { id: "ipcamlive-altitude-sky-lounge-downtown", provider: "ipcamlive", kind: "permanent", name: "Altitude Sky Lounge (Marriott Gaslamp, 22nd fl) — Downtown skyline + Petco Park + Bay", stream_url: null, embed_url: "https://www.ipcamlive.com/player/player.php?alias=6183ebf49a06f&autoplay=1", media_url: null, category: "landmark", status: "online", location_confidence: 1, source: "sd-harvest-jun15-2026", notes: "22nd-floor rooftop (660 K St) panorama: downtown skyline, Petco Park, Coronado, San Diego Bay. ipcamlive VIDEO player embed (iframable; no frame restriction)." },
     geometry: { type: "Point", coordinates: [-117.1572, 32.7095] },
   },
   {
@@ -103,8 +98,13 @@ const ADD = [
   },
 ]
 
-// ids to delete (superseded — e.g. now covered by a fixed entry on the same stream).
-const REMOVE = new Set(["youtube-sd-harbor-island-south"])
+// ids to delete: superseded (covered by a fixed entry), broken, or being re-added
+// with corrected props below.
+const REMOVE = new Set([
+  "youtube-sd-harbor-island-south",        // same stream as the Cabrillo fix
+  "redideo-sd-gaslamp-quarter-hls",        // HLS no longer a valid manifest (black screen)
+  "ipcamlive-altitude-sky-lounge-downtown", // re-added below as a VIDEO embed (was a broken snapshot)
+])
 
 const fc = JSON.parse(await readFile(SEED, "utf8"))
 const removedCount = fc.features.filter((f) => REMOVE.has(f.properties.id)).length
