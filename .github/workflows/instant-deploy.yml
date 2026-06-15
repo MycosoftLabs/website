@@ -283,6 +283,9 @@ jobs:
             mkdir -p "\$LOCK_DIR"
             ./scripts/blue-green-deploy.sh
 
+            echo "=== Ensure autoheal sidecar is running (self-heal for hung app slots) ==="
+            docker compose -f docker-compose.production.yml -f docker-compose.production.blue-green.yml --env-file .env up -d autoheal || echo "::warning::autoheal start failed (non-fatal)"
+
             echo "=== Verifying deployed search QA route on origin ==="
             curl -fsS --max-time 20 http://localhost:3000/api/search/qa/artifact?limit=1 >/tmp/search-qa-artifact.json
             grep -q '"scenarioCount":1' /tmp/search-qa-artifact.json
