@@ -368,6 +368,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Raise MAS device-list fetch timeout 1.2s -> 4s (no more intermittent mas:0) (#205)
 - *(earth-sim)* Space-piggyback can now be disengaged (was trapping the user) (#206)
 - *(earth-sim)* Elevated satellites now actually have data (window-var feed) (#209)
+- *(earth-sim)* Native satellites (icons/selectable/tier-color, tracks globe) + raised mover caps + click-away (#210)
 
 ### CREP
 
@@ -607,6 +608,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Publish sanitized Earth Simulator technical reference + README to main (#199)
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
