@@ -112,12 +112,20 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const geoOf: Array<{ lng: number; lat: number; alt: number }> = []; // for moveend recompute
   let count = 0;
   let lastTickMs = Date.now();
-  let lastInterval = TICK_MS; // measured ms between SGP4 updates (uF window)
+  let lastInterval = TICK_MS; // ms between SGP4 updates (uF interpolation window)
+  let lastBuiltFc: unknown = null; // dedup: last FeatureCollection we rebuilt from
   const tmp = new THREE.Matrix4();
   const v = new THREE.Vector3();
 
-  const rebuild = () => {
-    const feats: any[] = (window as any).__crep_sat_fc?.features ?? [];
+  const rebuild = (force = false) => {
+    const fc = (window as any).__crep_sat_fc;
+    const feats: any[] = fc?.features ?? [];
+    // Dedup: only rebuild (which RESETS the interpolation) when the SGP4 positions
+    // actually change — a new FeatureCollection reference. Without this, the
+    // fallback timer reset uF mid-flight with unchanged positions, which is the
+    // flow→freeze→jump stutter. (Jun 15 2026.)
+    if (!force && fc === lastBuiltFc && count > 0) return;
+    lastBuiltFc = fc;
     const n = Math.min(feats.length, MAX_SATS);
     const nextById = new Map<string, [number, number, number]>();
     pick.length = 0; geoOf.length = 0;
@@ -147,7 +155,11 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     geom.setDrawRange(0, w);
     curAttr.needsUpdate = true; prevAttr.needsUpdate = true; colAttr.needsUpdate = true;
     const nowMs = Date.now();
-    if (lastTickMs) lastInterval = Math.min(2000, Math.max(150, nowMs - lastTickMs));
+    // Interpolate over AT LEAST the SGP4 tick interval, so uF never reaches 1
+    // before the next update arrives — the old Math.min(2000,…) clamp was SHORTER
+    // than the 2500 ms tick, freezing the sat for ~500 ms every cycle. Allow a bit
+    // more when a tick runs late so the motion still flows.
+    lastInterval = Math.max(TICK_MS, Math.min(TICK_MS * 2, nowMs - lastTickMs));
     lastTickMs = nowMs;
     material.uniforms.uF.value = 0;
     rebuildOrbits();
@@ -206,7 +218,9 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     group,
     animated: () => count > 0,
     onFrame: () => {
-      const f = Math.min(1, (Date.now() - lastTickMs) / lastInterval);
+      // Allow slight extrapolation past 1 so a late SGP4 tick keeps the motion
+      // flowing instead of freezing; the next rebuild seamlessly continues it.
+      const f = Math.min(1.2, (Date.now() - lastTickMs) / lastInterval);
       material.uniforms.uF.value = f;
     },
   });
@@ -264,10 +278,11 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   let fallbackTimer = 0;
   let hideTimer = 0;
   let started = false;
-  // Rebuild on each accelerated SGP4 update so the interpolation window matches the
-  // actual tick cadence (no stale lerp across mismatched intervals).
+  // rebuild() dedups on the FeatureCollection reference itself, so the 'data'
+  // handler and the fallback timer can both just call it — only an actual new SGP4
+  // tick resets the interpolation window.
   const onSatData = (e: any) => {
-    if (e?.sourceId === "crep-live-satellites" && (window as any).__crep_sat_fc?.features) rebuild();
+    if (e?.sourceId === "crep-live-satellites") rebuild();
   };
   const start = () => {
     if (started) return;
@@ -278,10 +293,12 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     // satellites never freeze mid-spin (esp. when following one).
     (window as any).__crep_satTimeScale = 1;
     (window as any).__crep_satPropagateWhileMoving = true;
-    rebuild();
+    rebuild(true);
     setNative("none");
     map.on("data", onSatData);
-    fallbackTimer = window.setInterval(rebuild, 1500); // safety if 'data' is quiet
+    // Safety only — rebuild() dedups, so this is a no-op unless a 'data' event was
+    // missed. Long interval so it never competes with the ~2.5s SGP4 cadence.
+    fallbackTimer = window.setInterval(() => rebuild(), 4000);
     // The v1 layer system re-asserts the native sat layers visible on its own
     // re-renders; keep re-hiding (no-op when already hidden) so we never show two
     // satellite sets. (Jun 15 2026 — "I'm seeing both of them".)

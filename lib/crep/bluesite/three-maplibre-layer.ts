@@ -134,7 +134,12 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
       // v5: the globe/mercator view-projection matrix lives on the render args.
       const mainMatrix = (args as { defaultProjectionData?: { mainMatrix?: number[] } })
         ?.defaultProjectionData?.mainMatrix;
-      if (!mainMatrix) return; // older signature / not ready — skip this frame
+      if (!mainMatrix) {
+        // Skip this frame, but keep the continuous-repaint loop alive so animated
+        // sub-layers (satellites) don't freeze if one frame lacks the matrix.
+        if (anyAnimating()) map.triggerRepaint();
+        return;
+      }
       camera.projectionMatrix = new THREE.Matrix4().fromArray(mainMatrix as number[]);
 
       const ctx: BlueSiteFrameContext = {
