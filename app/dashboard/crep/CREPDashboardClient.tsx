@@ -16627,8 +16627,13 @@ export default function CREPDashboardPage({
     const tierColor = (altKm: number): [number, number, number, number] =>
       altKm >= 20000 ? [251, 191, 36, 255] : altKm >= 2000 ? [168, 85, 247, 255] : [34, 211, 238, 255];
 
-    const satFeatures = () => ((map.getSource("crep-live-satellites") as any)?._data?.features ?? []) as any[];
-    const orbitFeatures = () => ((map.getSource("crep-live-satellite-orbits") as any)?._data?.features ?? []) as any[];
+    // Read the live SGP4 FeatureCollections from window vars published by the
+    // satellite-animation loop. maplibre v5 GeoJSONSource does NOT expose
+    // .features on ._data, so reading the source returned 0 satellites — the
+    // overlay mounted + Z worked (deltaY -36px) but had no data to elevate.
+    // (Jun 14, 2026 — elevation data feed fix.)
+    const satFeatures = () => (((window as any).__crep_sat_fc?.features) ?? []) as any[];
+    const orbitFeatures = () => (((window as any).__crep_sat_orbit_fc?.features) ?? []) as any[];
     const setNativeVisible = (vis: "visible" | "none") => {
       for (const id of ["crep-live-satellites-dot", "crep-live-satellites-glow", "crep-live-satellite-orbits-line"]) {
         try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis); } catch {}
@@ -16688,6 +16693,12 @@ export default function CREPDashboardPage({
         }
       };
       map.on("data", onData);
+      // Robustness: also rebuild on a timer aligned with the SGP4 tick. The
+      // window-var feed is independent of the maplibre 'data' event, so this
+      // guarantees the overlay refreshes even if that event is throttled/missed.
+      const rebuildTimer = window.setInterval(() => {
+        if (!rebuildQueued) { rebuildQueued = true; requestAnimationFrame(rebuild); }
+      }, 2500);
       // QA probe (no screenshots needed): __crep_deckSat.probe() returns the
       // screen-Y delta between a ground point and the same point at LEO altitude.
       // A clearly negative deltaY (elevated point higher on screen) under a tilted
@@ -16705,6 +16716,7 @@ export default function CREPDashboardPage({
       };
       return () => {
         disposed = true;
+        try { window.clearInterval(rebuildTimer); } catch {}
         try { map.off("data", onData); } catch {}
         try { setNativeVisible("visible"); } catch {}
         try { if (overlay) map.removeControl(overlay); } catch {}
