@@ -68,6 +68,7 @@ const BAKED_GEOJSON_FILES = [
   "eagle-cameras-vegas-seed.geojson",
   "eagle-cameras-deployment-sites-seed.geojson",
   "eagle-cameras-hdontap-seed.geojson",
+  "eagle-cameras-youtube-live-seed.geojson",
 ] as const
 
 let bakedSourcesPromise: Promise<VideoSource[]> | null = null
