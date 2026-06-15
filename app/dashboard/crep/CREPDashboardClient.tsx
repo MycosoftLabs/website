@@ -341,6 +341,9 @@ import type { Datacenter } from "@/components/crep/layers/datacenter-diamonds";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
 import { IconLayer as SatIconLayer } from "@deck.gl/layers";
 import { MapboxOverlay as SatMapboxOverlay } from "@deck.gl/mapbox";
+// Earth Simulator v2 (BlueSite) — feature flags. Tiny + three-free; the heavy
+// harness/three are dynamic-imported only when a v2 flag is on. (Jun 15, 2026)
+import { getBlueSiteFlags } from "@/lib/crep/bluesite/flags";
 import { PlantPopup } from "@/components/crep/popups/plant-popup";
 import { InfraDetailWidget, type InfraAsset, type InfraAssetType } from "@/components/crep/popups/infra-detail-widget";
 import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
@@ -16806,6 +16809,84 @@ export default function CREPDashboardPage({
       return;
     }
   }, [isEarthSimulatorRoute, earthSimViewportPerfClass, projectionMode, mapRef]);
+
+  // ───────────────────────────────────────────────────────────────────────
+  // BlueSite v2 — Phase 1 POSITIONING SPIKE (gated ?bluesite=1&es3dspike=1).
+  // Mounts test markers via the new Three.js custom-layer harness to PROVE 3D
+  // content locks to the pitched globe at true altitude (the thing deck.gl
+  // couldn't do). Dynamic-imports three + the harness, so when the flag is OFF
+  // (v1, prod) NOTHING here loads — the bundle is untouched. QA via screenshot
+  // + window.__bluesite_spike. (Jun 15, 2026)
+  // ───────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isEarthSimulatorRoute || projectionMode !== "globe") return;
+    if (!getBlueSiteFlags().spike) return;
+    const map = mapNativeRef.current as any;
+    if (!map || typeof map.addLayer !== "function") return;
+
+    let cancelled = false;
+    let cleanup = () => {};
+    (async () => {
+      const THREE = await import("three");
+      const { createBlueSiteStack } = await import("@/lib/crep/bluesite/three-maplibre-layer");
+      if (cancelled) return;
+      const stack = createBlueSiteStack("bluesite-spike");
+      let scale = 60000; // model-unit→size; calibrated live via __bluesite_spike.setScale
+
+      // 4 surface markers at global cities (verify globe-correct placement across the
+      // sphere) + an altitude stack over San Diego (verify true elevation).
+      const markers: Array<{ name: string; lng: number; lat: number; alt: number; hex: number }> = [
+        { name: "San Diego", lng: -117.16, lat: 32.72, alt: 0, hex: 0x22ff66 },
+        { name: "New York", lng: -74.0, lat: 40.71, alt: 0, hex: 0x22ff66 },
+        { name: "London", lng: -0.13, lat: 51.51, alt: 0, hex: 0x22ff66 },
+        { name: "Tokyo", lng: 139.69, lat: 35.69, alt: 0, hex: 0x22ff66 },
+        { name: "SD cruise 11km", lng: -117.16, lat: 32.72, alt: 11_000, hex: 0x22d3ee },
+        { name: "SD LEO 550km", lng: -117.16, lat: 32.72, alt: 550_000, hex: 0xff44ff },
+      ];
+      const group = new THREE.Group();
+      const meshes = markers.map((m) => {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(1, 20, 20),
+          new THREE.MeshBasicMaterial({ color: m.hex, depthTest: false, transparent: true, opacity: 0.95 }),
+        );
+        group.add(mesh);
+        return mesh;
+      });
+      const apply = () => {
+        for (let i = 0; i < markers.length; i++) {
+          const arr = stack.modelMatrixFor(markers[i].lng, markers[i].lat, markers[i].alt);
+          if (!arr) continue;
+          const m = new THREE.Matrix4()
+            .fromArray(arr)
+            .multiply(new THREE.Matrix4().makeScale(scale, scale, scale));
+          m.decompose(meshes[i].position, meshes[i].quaternion, meshes[i].scale);
+        }
+      };
+      stack.register({ group, onFrame: apply });
+      try { map.addLayer(stack.layer); } catch (e) { console.warn("[bluesite-spike] addLayer", e); }
+      map.triggerRepaint();
+
+      (window as any).__bluesite_spike = {
+        setScale: (s: number) => { scale = s; map.triggerRepaint(); },
+        getScale: () => scale,
+        markers,
+        mounted: () => stack.isMounted(),
+        probe: () => ({
+          surfaceMatrix: !!stack.modelMatrixFor(-117.16, 32.72, 0),
+          leoMatrix: !!stack.modelMatrixFor(-117.16, 32.72, 550_000),
+          pitch: map.getPitch(), bearing: map.getBearing(), zoom: Math.round(map.getZoom() * 10) / 10,
+        }),
+      };
+      console.log(`[bluesite-spike] mounted ${markers.length} markers (scale=${scale})`);
+
+      cleanup = () => {
+        try { if (map.getLayer("bluesite-spike")) map.removeLayer("bluesite-spike"); } catch {}
+        try { delete (window as any).__bluesite_spike; } catch {}
+      };
+    })();
+
+    return () => { cancelled = true; cleanup(); };
+  }, [isEarthSimulatorRoute, projectionMode, mapRef]);
 
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
