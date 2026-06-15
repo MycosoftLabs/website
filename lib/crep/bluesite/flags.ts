@@ -75,7 +75,9 @@ export function getBlueSiteFlags(): BlueSiteFlags {
     const sub = window.localStorage.getItem("es_v2_flags");
     if (sub) {
       const parsed = JSON.parse(sub) as Record<string, unknown>;
-      for (const k of keys) { if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean; }
+      // `spike` is a DEBUG-ONLY visual (giant test spheres) — it must NEVER be
+      // persisted/enabled by default; only the explicit ?es3dspike=1 URL turns it on.
+      for (const k of keys) { if (k === "spike") continue; if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean; }
     }
   } catch { /* ignore */ }
 
