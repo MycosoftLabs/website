@@ -12201,7 +12201,7 @@ export default function CREPDashboardPage({
       // lastEntityPickTimeRef; skip this dismiss so the SAME click that selected it
       // doesn't instantly close the widget (canvas picks aren't [data-marker] DOM
       // nodes, so the isInsideMarker check below can't catch them). (Jun 14, 2026)
-      if (Date.now() - (lastEntityPickTimeRef.current || 0) < 400) return;
+      if (Date.now() - Math.max(lastEntityPickTimeRef.current || 0, Number((window as any).__crep_justPickedAt) || 0) < 400) return;
 
       // If clicking outside popup, marker, panel, and event cards - dismiss all
       if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
