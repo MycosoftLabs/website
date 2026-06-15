@@ -112,6 +112,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const geoOf: Array<{ lng: number; lat: number; alt: number }> = []; // for moveend recompute
   let count = 0;
   let lastTickMs = Date.now();
+  let lastInterval = TICK_MS; // measured ms between SGP4 updates (uF window)
   const tmp = new THREE.Matrix4();
   const v = new THREE.Vector3();
 
@@ -145,7 +146,9 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     count = w;
     geom.setDrawRange(0, w);
     curAttr.needsUpdate = true; prevAttr.needsUpdate = true; colAttr.needsUpdate = true;
-    lastTickMs = Date.now();
+    const nowMs = Date.now();
+    if (lastTickMs) lastInterval = Math.min(2000, Math.max(150, nowMs - lastTickMs));
+    lastTickMs = nowMs;
     material.uniforms.uF.value = 0;
     rebuildOrbits();
     try { map.triggerRepaint?.(); } catch { /* */ }
@@ -203,7 +206,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     group,
     animated: () => count > 0,
     onFrame: () => {
-      const f = Math.min(1, (Date.now() - lastTickMs) / TICK_MS);
+      const f = Math.min(1, (Date.now() - lastTickMs) / lastInterval);
       material.uniforms.uF.value = f;
     },
   });
@@ -263,15 +266,22 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   };
   const onMoveEnd = () => { recomputeWorld(); rebuildOrbits(); };
 
-  let timer = 0;
+  let fallbackTimer = 0;
   let hideTimer = 0;
   let started = false;
+  // Rebuild on each accelerated SGP4 update so the interpolation window matches the
+  // actual tick cadence (no stale lerp across mismatched intervals).
+  const onSatData = (e: any) => {
+    if (e?.sourceId === "crep-live-satellites" && (window as any).__crep_sat_fc?.features) rebuild();
+  };
   const start = () => {
     if (started) return;
     started = true;
+    (window as any).__crep_satTimeScale = 20; // accelerate the SGP4 clock so the whole constellation visibly sweeps (v2 only)
     rebuild();
     setNative("none");
-    timer = window.setInterval(rebuild, TICK_MS);
+    map.on("data", onSatData);
+    fallbackTimer = window.setInterval(rebuild, 1500); // safety if 'data' is quiet
     // The v1 layer system re-asserts the native sat layers visible on its own
     // re-renders; keep re-hiding (no-op when already hidden) so we never show two
     // satellite sets. (Jun 15 2026 — "I'm seeing both of them".)
@@ -290,9 +300,10 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
 
   return {
     dispose: () => {
-      try { window.clearInterval(timer); } catch { /* */ }
+      try { (window as any).__crep_satTimeScale = 1; } catch { /* */ }
+      try { window.clearInterval(fallbackTimer); } catch { /* */ }
       try { window.clearInterval(hideTimer); } catch { /* */ }
-      try { map.off("data", onData); map.off("click", onClick); map.off("mousemove", onMove); map.off("moveend", onMoveEnd); } catch { /* */ }
+      try { map.off("data", onData); map.off("data", onSatData); map.off("click", onClick); map.off("mousemove", onMove); map.off("moveend", onMoveEnd); } catch { /* */ }
       try { map.getCanvas().style.cursor = ""; } catch { /* */ }
       try { setNative("visible"); } catch { /* */ }
       try { if (map.getLayer("bluesite-movers")) map.removeLayer("bluesite-movers"); } catch { /* */ }
