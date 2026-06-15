@@ -215,7 +215,7 @@ function tick(timestamp: number) {
   // Orbit rings (desktop only — gated by computeOrbitPaths). Recomputed every
   // 60s so they never block the render tick. Worker mode uses the dedicated
   // top-N orbitPropagator; fallback mode reuses the full main-thread propagator.
-  if (computeOrbitPaths && timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS) {
+  if (computeOrbitPaths && (lastOrbitPathTime === 0 || timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS)) {
     const orbitProp = useWorker ? orbitPropagator : propagator
     if (orbitProp && orbitProp.size > 0) {
       lastOrbitPathTime = timestamp
