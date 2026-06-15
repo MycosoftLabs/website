@@ -17,7 +17,7 @@ const BUS_VP  = "https://api.wmata.com/gtfs/bus-gtfsrt-vehiclepositions.pb"
 
 export async function GET(req: NextRequest) {
   const key = process.env.WMATA_API_KEY?.trim()
-  if (!key) return NextResponse.json({ ok: false, error: "WMATA_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ ok: false, error: "WMATA_API_KEY not configured" }, { status: 503 })
 
   const modes = (req.nextUrl.searchParams.get("modes") || "rail,bus")
     .split(",").map((s) => s.trim().toLowerCase())

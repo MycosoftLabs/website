@@ -1,11 +1,35 @@
 /**
  * PersonaPlex Bridge + Moshi — shared HTTP URL resolution
- * (May 24, 2026) Dev PC 241 uses remote GPU host 249; no localhost GPU on dev machine.
+ * (June 15, 2026) Provider switch: aws | legion | nvidia-dev
  */
 import { GPU_LEGION_DEFAULTS } from "./api-urls"
 
+export type GpuVoiceProvider = "aws" | "legion" | "nvidia-dev"
+
+export function resolveGpuVoiceProvider(): GpuVoiceProvider {
+  const raw = (
+    process.env.GPU_VOICE_PROVIDER ||
+    process.env.NEXT_PUBLIC_GPU_VOICE_PROVIDER ||
+    "legion"
+  ).toLowerCase()
+  if (raw === "aws" || raw === "nvidia-dev" || raw === "legion") return raw
+  return "legion"
+}
+
 function resolveRemoteGpuVoiceHost(): string {
   return process.env.GPU_VOICE_IP || GPU_LEGION_DEFAULTS.VOICE
+}
+
+function resolveAwsVoiceBridgeBase(): string {
+  const url = process.env.AWS_VOICE_BRIDGE_URL || process.env.AWS_PERSONAPLEX_BRIDGE_URL
+  if (url) return url.replace(/\/$/, "")
+  return "https://voice-gpu.mycosoft.internal:8999"
+}
+
+function resolveNvidiaDevBridgeBase(): string {
+  const url = process.env.NVIDIA_DEV_BRIDGE_URL || process.env.NVIDIA_DEV_PERSONAPLEX_BRIDGE_URL
+  if (url) return url.replace(/\/$/, "")
+  return `http://${process.env.NVIDIA_DEV_HOST || "nvidia-dev"}:8999`
 }
 
 /** Prefer IPv4 loopback on Windows — Moshi/Bridge bind 127.0.0.1; ::1 probes false-fail. */
@@ -38,6 +62,10 @@ export function resolvePersonaplexBridgeBaseUrl(): string {
   if (isUseLocalVoiceForBridge()) {
     return `http://${resolveLocalLoopbackHost()}:8999`
   }
+  const provider = resolveGpuVoiceProvider()
+  if (provider === "aws") return resolveAwsVoiceBridgeBase()
+  if (provider === "nvidia-dev") return resolveNvidiaDevBridgeBase()
+
   const fromEnv =
     process.env.PERSONAPLEX_BRIDGE_URL || process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
   if (fromEnv) {
@@ -61,10 +89,21 @@ export function resolveMoshiHostForProbe(): string {
   }
 }
 
-/** Default WebSocket base for the bridge from env or Voice Legion. */
+/** Default WebSocket base for the bridge from env or provider. */
 export function resolvePersonaplexBridgeWsBaseDefault(): string {
   if (isUseLocalVoiceForBridge()) {
     return `ws://${resolveLocalLoopbackHost()}:8999`
+  }
+  const provider = resolveGpuVoiceProvider()
+  if (provider === "aws") {
+    const ws = process.env.AWS_VOICE_BRIDGE_WS_URL || process.env.AWS_PERSONAPLEX_BRIDGE_WS_URL
+    if (ws) return ws.replace(/\/$/, "")
+    return resolveAwsVoiceBridgeBase().replace(/^http/i, "ws")
+  }
+  if (provider === "nvidia-dev") {
+    const ws = process.env.NVIDIA_DEV_BRIDGE_WS_URL
+    if (ws) return ws.replace(/\/$/, "")
+    return resolveNvidiaDevBridgeBase().replace(/^http/i, "ws")
   }
   if (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL) {
     return process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL.replace(/\/$/, "")
@@ -90,6 +129,10 @@ export function resolveVoiceOllamaTagsUrl(): string {
  * Earth-2 API health URL. Default host 249; services stay off until MYCOSOFT_EARTH2_ENABLED on GPU host.
  */
 export function resolveEarth2HealthUrl(): string {
+  const provider = resolveGpuVoiceProvider()
+  if (provider === "aws" && process.env.AWS_EARTH2_API_URL?.trim()) {
+    return `${process.env.AWS_EARTH2_API_URL.replace(/\/$/, "")}/health`
+  }
   if (process.env.EARTH2_API_URL?.trim()) {
     return `${process.env.EARTH2_API_URL.replace(/\/$/, "")}/health`
   }

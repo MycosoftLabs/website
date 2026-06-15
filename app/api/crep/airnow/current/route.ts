@@ -109,7 +109,7 @@ const PARAM_LABELS: Record<string, string> = {
 export async function GET(req: NextRequest) {
   const key = getAirNowApiKey()
   if (!key) {
-    return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 501 })
+    return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 503 })
   }
 
   const lat = coordinateParam(req, ["lat", "latitude"])

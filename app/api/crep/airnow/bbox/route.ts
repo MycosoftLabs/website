@@ -76,7 +76,7 @@ function normalizeAirNowBboxes(parts: number[]): AirNowBbox[] {
 
 export async function GET(req: NextRequest) {
   const key = getAirNowApiKey()
-  if (!key) return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ error: "AIRNOW_API_KEY not configured" }, { status: 503 })
 
   const bboxRaw = req.nextUrl.searchParams.get("bbox") || ""
   const parts = bboxRaw.split(",").map(Number)

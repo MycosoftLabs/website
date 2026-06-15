@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const key = process.env.DART_API_KEY?.trim()
-  if (!key) return NextResponse.json({ ok: false, error: "DART_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ ok: false, error: "DART_API_KEY not configured" }, { status: 503 })
   const bbox = parseBbox(req.nextUrl.searchParams.get("bbox"))
   const url = "https://dartgtfsrealtime.azure-api.net/vehiclepositions.pb"
   const result = await fetchVehiclePositions(url, {

@@ -31,7 +31,7 @@ const OP_TYPE: Record<string, "bus" | "rail" | "subway" | "ferry" | "tram"> = {
 
 export async function GET(req: NextRequest) {
   const key = process.env.TRANSIT_511_API_KEY?.trim()
-  if (!key) return NextResponse.json({ ok: false, error: "TRANSIT_511_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ ok: false, error: "TRANSIT_511_API_KEY not configured" }, { status: 503 })
 
   const ops = (req.nextUrl.searchParams.get("operators") || DEFAULT_OPS.join(","))
     .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)

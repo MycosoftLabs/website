@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
   const key = process.env.SHODAN_API_KEY?.trim() || ""
   if (!key) {
     return NextResponse.json(
-      { error: "SHODAN_API_KEY not configured", hint: "set env var on the deployment" },
-      { status: 501 }, // Not Implemented — service unavailable by config
+      { error: "SHODAN_API_KEY not configured", config_missing: true, hint: "set env var on the deployment" },
+      { status: 503 }, // Not Implemented — service unavailable by config
     )
   }
 

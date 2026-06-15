@@ -76,20 +76,28 @@ export class EntityStreamClient {
   private messageCount = 0
   private lastMessageAt = 0
   private disabledReason: string | null = null
+  /** SSE BFF via /api/stream/entities on public HTTPS origins */
+  private useSseBff = false
+  private eventSource: EventSource | null = null
   /** Avoid flooding console when MAS stream is down or CSP blocked (notify once until reconnect succeeds). */
   private userErrorNotified = false
 
   constructor(endpointBase?: string) {
-    // Use centralized API_URLS config with env var override — no hard-coded IPs
     const masUrl = endpointBase || API_URLS.MAS
-    if (isPublicBrowserOrigin() && resolvesToLocalMachine(masUrl)) {
+    // Public browsers must use SSE BFF — never direct ws:// to private MAS IP
+    if (isPublicBrowserOrigin()) {
+      this.endpointBase = ""
+      this.useSseBff = true
+      return
+    }
+    if (resolvesToLocalMachine(masUrl)) {
       this.endpointBase = ""
       this.disabledReason =
         "disabled on public origin because the MAS entity WebSocket resolves to a local/private host"
       return
     }
-    // Convert http(s) to ws(s)
     this.endpointBase = masUrl.replace(/^http/, "ws")
+    this.useSseBff = false
   }
 
   get connectionState(): ConnectionState {
@@ -126,6 +134,10 @@ export class EntityStreamClient {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
+    }
+    if (this.eventSource) {
+      this.eventSource.close()
+      this.eventSource = null
     }
     if (this.ws) {
       this.ws.onclose = null // Prevent reconnect on intentional close
@@ -166,6 +178,11 @@ export class EntityStreamClient {
         this.userErrorNotified = true
         console.warn(`[EntityStream] MAS entity stream ${this.disabledReason}. Direct API layers remain active.`)
       }
+      return
+    }
+
+    if (this.useSseBff) {
+      this.openSseBff()
       return
     }
 
@@ -255,6 +272,58 @@ export class EntityStreamClient {
       console.log(
         `[EntityStream] Connection closed (code: ${event.code}, reason: ${event.reason || "none"})`
       )
+      this.scheduleReconnect()
+    }
+  }
+
+  private buildSseBffUrl(): string {
+    const params = new URLSearchParams()
+    if (this.cells.size > 0) params.set("cells", [...this.cells].join(","))
+    if (this.options.types?.length) params.set("types", this.options.types.join(","))
+    if (this.options.timeFrom) params.set("time_from", this.options.timeFrom)
+    const qs = params.toString()
+    return `/api/stream/entities${qs ? `?${qs}` : ""}`
+  }
+
+  private openSseBff(): void {
+    this.setConnectionState("connecting")
+    try {
+      const url = this.buildSseBffUrl()
+      this.eventSource = new EventSource(url)
+
+      this.eventSource.onopen = () => {
+        this.reconnectAttempts = 0
+        this.userErrorNotified = false
+        this.setConnectionState("connected")
+        console.log("[EntityStream] Connected via SSE BFF")
+      }
+
+      this.eventSource.onmessage = (event) => {
+        if (!this.onEntityHandler) return
+        this.messageCount++
+        this.lastMessageAt = Date.now()
+        try {
+          const parsed = JSON.parse(event.data) as UnifiedEntity & { type?: string; entity?: UnifiedEntity }
+          const entity = (parsed.entity ?? parsed) as UnifiedEntity
+          if (entity && typeof entity === "object" && "id" in entity) {
+            this.onEntityHandler(entity)
+          }
+        } catch {
+          // Non-entity heartbeat/control messages are ignored
+        }
+      }
+
+      this.eventSource.onerror = () => {
+        if (!this.userErrorNotified) {
+          this.userErrorNotified = true
+          this.onError?.(new Error("SSE BFF entity stream error"))
+        }
+        this.eventSource?.close()
+        this.eventSource = null
+        this.scheduleReconnect()
+      }
+    } catch (error) {
+      this.onError?.(error instanceof Error ? error : new Error(String(error)))
       this.scheduleReconnect()
     }
   }

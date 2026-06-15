@@ -1,9 +1,8 @@
 "use client"
 
 /**
- * Simple Topology WebSocket hook for MYCA Live Activity Panel
- * Connects to MAS ws/topology endpoint, returns agent status map
- * Lightweight alternative to full useTopologyWebSocket
+ * Simple Topology stream hook for MYCA Live Activity Panel
+ * Prefers SSE BFF (/api/stream/agents) on public HTTPS; direct WS on local dev.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
@@ -11,9 +10,36 @@ import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url"
 
 const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"])
+
+function isPublicOrigin(): boolean {
+  if (typeof window === "undefined") return false
+  return !LOCAL_HOSTS.has(window.location.hostname)
+}
+
 function getWsUrl(): string {
   const base = getSecureWebSocketUrl(MAS_API_URL.replace(/^https?:\/\//, "ws://"))
   return `${base.replace(/\/$/, "")}/ws/topology`
+}
+
+function applyTopologyMessage(
+  msg: Record<string, unknown>,
+  setAgentStatus: React.Dispatch<React.SetStateAction<Record<string, AgentStatus>>>
+) {
+  if (msg.type === "agent_status" && msg.data) {
+    const data = msg.data as { agent_id?: string; agentId?: string; status?: string }
+    const id = data.agent_id || data.agentId || (msg.source as string)
+    const status = (data.status || "idle") as AgentStatus
+    if (id) setAgentStatus((prev) => ({ ...prev, [id]: status }))
+  }
+  if (msg.type === "snapshot" && msg.nodes) {
+    const next: Record<string, AgentStatus> = {}
+    for (const node of msg.nodes as Array<{ id: string; label?: string; status?: string }>) {
+      const id = node.id || node.label
+      if (id) next[id] = (node.status || "idle") as AgentStatus
+    }
+    setAgentStatus(next)
+  }
 }
 
 export type AgentStatus = "active" | "busy" | "idle" | "healthy" | "degraded" | "error" | "offline"
@@ -32,6 +58,7 @@ const HEARTBEAT_INTERVAL = 25000
 
 export function useTopologyWebSocketSimple(enabled = true): UseTopologyWebSocketSimpleResult {
   const wsRef = useRef<WebSocket | null>(null)
+  const esRef = useRef<EventSource | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const intentionalCloseRef = useRef(false)
@@ -51,10 +78,45 @@ export function useTopologyWebSocketSimple(enabled = true): UseTopologyWebSocket
   const connect = useCallback(() => {
     if (!enabled) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (esRef.current) return
 
     intentionalCloseRef.current = false
     setConnecting(true)
     setError(null)
+
+    if (isPublicOrigin()) {
+      try {
+        const es = new EventSource("/api/stream/agents")
+        es.onopen = () => {
+          setConnected(true)
+          setConnecting(false)
+          setError(null)
+        }
+        es.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data) as Record<string, unknown>
+            applyTopologyMessage(msg, setAgentStatus)
+          } catch {
+            // ignore
+          }
+        }
+        es.onerror = () => {
+          setError("SSE stream failed")
+          setConnected(false)
+          setConnecting(false)
+          es.close()
+          esRef.current = null
+          if (!intentionalCloseRef.current) {
+            reconnectRef.current = setTimeout(() => connect(), RECONNECT_DELAY)
+          }
+        }
+        esRef.current = es
+      } catch {
+        setConnecting(false)
+        setError("SSE unavailable")
+      }
+      return
+    }
 
     try {
       const ws = new WebSocket(getWsUrl())
@@ -73,23 +135,8 @@ export function useTopologyWebSocketSimple(enabled = true): UseTopologyWebSocket
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data)
-          if (msg.type === "agent_status" && msg.data) {
-            const data = msg.data as { agent_id?: string; agentId?: string; status?: string }
-            const id = data.agent_id || data.agentId || msg.source
-            const status = (data.status || "idle") as AgentStatus
-            if (id) {
-              setAgentStatus((prev) => ({ ...prev, [id]: status }))
-            }
-          }
-          if (msg.type === "snapshot" && msg.nodes) {
-            const next: Record<string, AgentStatus> = {}
-            for (const node of msg.nodes as Array<{ id: string; label?: string; status?: string }>) {
-              const id = node.id || node.label
-              if (id) next[id] = (node.status || "idle") as AgentStatus
-            }
-            setAgentStatus(next)
-          }
+          const msg = JSON.parse(event.data) as Record<string, unknown>
+          applyTopologyMessage(msg, setAgentStatus)
         } catch {
           // Ignore parse errors
         }
@@ -123,6 +170,10 @@ export function useTopologyWebSocketSimple(enabled = true): UseTopologyWebSocket
       reconnectRef.current = null
     }
     stopHeartbeat()
+    if (esRef.current) {
+      esRef.current.close()
+      esRef.current = null
+    }
     if (wsRef.current) {
       wsRef.current.close(1000, "Client disconnect")
       wsRef.current = null
