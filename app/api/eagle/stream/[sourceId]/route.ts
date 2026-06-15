@@ -62,16 +62,16 @@ const UNAVAILABLE_SOURCE_STATUSES = new Set([
   "temporarily_unavailable",
 ])
 
+// Cameras CONFIRMED dead at the source with NO working replacement found (these
+// render red/off on the map). A camera lands here ONLY when the upstream source
+// is verified unavailable — NEVER automatically because our player failed to
+// render an existing feed. YouTube/website embeds always attempt (see below), so
+// "our system isn't rendering it" never blocks a feed that is actually live.
+// (Morgan, Jun 15 2026.) The Jun 15 SD harvest cleared the rest with verified
+// live replacements (see eagle-cameras-manual-seed.geojson).
 const KNOWN_UNAVAILABLE_SOURCE_IDS = new Set([
-  "earthcam-san-diego-bay",
-  "earthcam-sd-bay",
   "earthcam-imperial-beach-pier",
-  "nps-cabrillo-ref",
-  "caltrans-d11-sr75-silverstrand",
-  "caltrans-d11-sr75-coronado-bridge",
-  "caltrans-d11-sr75-orange-ave",
   "caltrans-d11-sr75-palm-ave",
-  "scripps-pier-sio-cam",
 ])
 
 const SOURCE_ID_ALIASES = new Map<string, string>([
@@ -595,7 +595,8 @@ function shouldProxyHls(provider: string, url: string): boolean {
     /videos-\d+\.earthcam\.com/i.test(url) ||
     /live\.hdontap\.com/i.test(url) ||
     /d1wse1\.its\.nv\.gov/i.test(url) ||
-    /nysdot\.skyvdn\.com/i.test(url)
+    /nysdot\.skyvdn\.com/i.test(url) ||
+    /redideostudio\.com/i.test(url)
   )
 }
 
@@ -748,12 +749,10 @@ export async function GET(
     const directYouTube = normalizeYouTubeEmbedUrlSync(String(src.stream_url || "")) ||
       normalizeYouTubeEmbedUrlSync(String(src.embed_url || ""))
     if (directYouTube) {
-      if (sourceKnownUnavailable) {
-        return NextResponse.json(
-          { error: "youtube live stream unavailable", id: sourceId, provider, kind, source_status: sourceStatus || "temporarily_unavailable" },
-          { status: 503 },
-        )
-      }
+      // ALWAYS serve the YouTube iframe — never hard-block a YouTube/website feed
+      // because it was flagged or our player failed to render it before. YouTube's
+      // own player is the source of truth: it shows "video unavailable" only if the
+      // video is genuinely dead. (Morgan, Jun 15 2026 red-status policy.)
       return NextResponse.json({
         id: sourceId,
         provider,

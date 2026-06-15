@@ -76,6 +76,12 @@ function mapReady(map: MapLibreMap): boolean {
 // yellow (#fbbf24). All permanent camera feeds share one cyan video color
 // so they read as CCTV, not EIA/WRI power plants.
 const VIDEO_CAMERA_COLOR = EAGLE_CAMERA_NEON
+// Red = camera CONFIRMED dead at the source (deliberate status set in the seed),
+// rendered red/off on the map. NEVER auto-applied from a client render failure or
+// a transient "temporarily_unavailable" — those keep the normal video color
+// because the feed may just not be rendering yet. (Morgan, Jun 15 2026.)
+const EAGLE_CAMERA_OFFLINE_RED = "#ef4444"
+const CONFIRMED_DEAD_STATUS = new Set(["offline", "unavailable", "retired", "dead", "disabled", "blocked", "deprecated"])
 
 const PROVIDER_COLOR: Record<string, string> = {
   shinobi: VIDEO_CAMERA_COLOR,
@@ -325,7 +331,9 @@ export default function EagleEyeOverlay({ map, enabled, bbox, mapZoom = 0 }: Pro
             // path picks these up ONLY if media_url travels with the click.
             media_url: s.media_url,
             status: s.source_status ?? s.status,
-            color: PROVIDER_COLOR[s.provider] || EAGLE_CAMERA_NEON,
+            color: CONFIRMED_DEAD_STATUS.has(String(s.source_status ?? s.status ?? "").toLowerCase())
+              ? EAGLE_CAMERA_OFFLINE_RED
+              : (PROVIDER_COLOR[s.provider] || EAGLE_CAMERA_NEON),
           },
           geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] },
         }))
