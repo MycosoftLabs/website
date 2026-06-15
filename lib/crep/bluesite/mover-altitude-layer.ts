@@ -177,7 +177,11 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   try { map.addLayer(stack.layer, beforeId); } catch (e) { console.warn("[bluesite-movers] addLayer", e); }
 
   const nativeIds = ["crep-live-satellites-dot", "crep-live-satellites-glow"];
-  const setNative = (vis: "visible" | "none") => { for (const id of nativeIds) { try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis); } catch { /* */ } } };
+  const setNative = (vis: "visible" | "none") => {
+    for (const id of nativeIds) {
+      try { if (map.getLayer(id) && (map.getLayoutProperty(id, "visibility") ?? "visible") !== vis) map.setLayoutProperty(id, "visibility", vis); } catch { /* */ }
+    }
+  };
 
   // ── picking: project current world pos to screen, match cursor ──
   const projectNearest = (px: number, py: number, thresholdPx: number): { id: string } | null => {
@@ -218,6 +222,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const onMoveEnd = () => recomputeWorld();
 
   let timer = 0;
+  let hideTimer = 0;
   let started = false;
   const start = () => {
     if (started) return;
@@ -225,6 +230,10 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     rebuild();
     setNative("none");
     timer = window.setInterval(rebuild, TICK_MS);
+    // The v1 layer system re-asserts the native sat layers visible on its own
+    // re-renders; keep re-hiding (no-op when already hidden) so we never show two
+    // satellite sets. (Jun 15 2026 — "I'm seeing both of them".)
+    hideTimer = window.setInterval(() => setNative("none"), 1000);
     map.on("click", onClick);
     map.on("mousemove", onMove);
     map.on("moveend", onMoveEnd);
@@ -240,6 +249,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   return {
     dispose: () => {
       try { window.clearInterval(timer); } catch { /* */ }
+      try { window.clearInterval(hideTimer); } catch { /* */ }
       try { map.off("data", onData); map.off("click", onClick); map.off("mousemove", onMove); map.off("moveend", onMoveEnd); } catch { /* */ }
       try { map.getCanvas().style.cursor = ""; } catch { /* */ }
       try { setNative("visible"); } catch { /* */ }
