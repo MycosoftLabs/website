@@ -185,8 +185,14 @@ function tick(timestamp: number) {
         // coerce id field in case it changed.
         lastWorkerPositions = positions as unknown as SatellitePosition[]
         const satSource = map.getSource?.("crep-live-satellites") as any
+        // Publish the live SGP4 FeatureCollection (incl. altitude in the 3rd
+        // coord) to a window var so the elevated-satellite deck overlay can read
+        // it directly — maplibre v5 GeoJSONSource does not expose .features on
+        // ._data, so the overlay can't reliably read it from the source.
+        const fc = positionsToFeatureCollection(lastWorkerPositions)
+        if (typeof window !== "undefined") (window as any).__crep_sat_fc = fc
         if (satSource?.setData) {
-          satSource.setData(positionsToFeatureCollection(lastWorkerPositions))
+          satSource.setData(fc)
         }
       }).catch(() => { workerPropagationInFlight = false })
     }
@@ -199,8 +205,10 @@ function tick(timestamp: number) {
     }
     const positions = prop.propagateAll(now)
     const satSource = map.getSource?.("crep-live-satellites") as any
+    const fc = positionsToFeatureCollection(positions)
+    if (typeof window !== "undefined") (window as any).__crep_sat_fc = fc
     if (satSource?.setData) {
-      satSource.setData(positionsToFeatureCollection(positions))
+      satSource.setData(fc)
     }
   }
 
@@ -240,7 +248,9 @@ function updateOrbitPaths(prop: SGP4Propagator, now: Date, map: any) {
     }
   }
 
-  orbitSource.setData(orbitPathsToFeatureCollection(paths))
+  const ofc = orbitPathsToFeatureCollection(paths)
+  if (typeof window !== "undefined") (window as any).__crep_sat_orbit_fc = ofc
+  orbitSource.setData(ofc)
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
