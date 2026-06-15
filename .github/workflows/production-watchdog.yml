@@ -1,0 +1,89 @@
+# Production Watchdog — external backstop for the in-VM autoheal.
+# ============================================================================
+# Jun 15 2026, after the ~50-min outage where the app slot HUNG (504) and
+# nothing restarted it. Defense-in-depth recovery + alerting:
+#
+#   Layer 1 (fast, primary): the `autoheal` sidecar restarts an unhealthy app
+#            slot in ~30-90s — see docker-compose.production.blue-green.yml.
+#   Layer 2 (this file, backstop): every 5 min an external GitHub runner probes
+#            the REAL app route /api/health (NOT the nginx /healthz, which stayed
+#            green while the app served 504 and is why nobody was alerted). On a
+#            SUSTAINED failure it (a) opens a 🔴 incident issue and (b) re-fires
+#            the known-good Instant-Deploy restart in case autoheal didn't catch it.
+#
+# GH cron min granularity is 5 min (and can lag) — that's why autoheal is primary
+# and this is the safety net. Tune the cron up if you want faster external checks,
+# or front this with a Cloudflare Health Check / UptimeRobot for sub-minute paging.
+# ============================================================================
+
+name: Production Watchdog
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      auto_restart:
+        description: "Auto-fire Instant Deploy restart on sustained failure"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+
+concurrency:
+  group: production-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  actions: write # to dispatch Instant Deploy
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Probe real app health (3× over ~45s)
+        id: probe
+        run: |
+          set +e
+          healthy=false
+          for i in 1 2 3; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 25 https://mycosoft.com/api/health)
+            echo "attempt $i → HTTP $code"
+            if [ "$code" = "200" ]; then healthy=true; break; fi
+            sleep 15
+          done
+          echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
+          if [ "$healthy" = "true" ]; then echo "✅ prod healthy"; else echo "::warning::prod /api/health failing 3×"; fi
+
+      - name: Auto-restart prod (known-good image)
+        if: steps.probe.outputs.healthy == 'false' && (github.event_name == 'schedule' || inputs.auto_restart == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Sustained failure — firing Instant Deploy (skip_build, known-good production-latest)…"
+          gh workflow run "Instant Deploy" --repo "${{ github.repository }}" -f ref=main -f skip_build=true \
+            || echo "::error::Could not dispatch Instant Deploy (GITHUB_TOKEN may lack actions:write to trigger workflows — add a PAT secret WATCHDOG_PAT and use it here)"
+
+      - name: Open incident issue
+        if: steps.probe.outputs.healthy == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔴 PROD DOWN — /api/health failing (${new Date().toISOString().slice(0,16)}Z)`;
+            const body = [
+              `The production watchdog saw **3 consecutive failures** of \`https://mycosoft.com/api/health\`.`,
+              ``,
+              `- Auto-remediation: re-fired **Instant Deploy** (skip_build → known-good \`production-latest\`).`,
+              `- If this recurs, autoheal (in-VM) is not catching it → check the app slot container logs on the prod VM (\`docker logs mycosoft-website-blue\`).`,
+              ``,
+              `Run: ${context.runId}`,
+            ].join("\n");
+            // de-dupe: reuse an open incident if one exists in the last hour
+            const { data: open } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: "open", labels: "prod-down", per_page: 5 });
+            if (open.length) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ["prod-down", "incident"] });
+            }
