@@ -49,6 +49,7 @@ const BAKED_GEOJSON_FILES = [
   "eagle-cameras-nyc-dc-seed.geojson",
   "eagle-cameras-vegas-seed.geojson",
   "eagle-cameras-deployment-sites-seed.geojson",
+  "eagle-cameras-hdontap-seed.geojson",
 ]
 
 const UNAVAILABLE_SOURCE_STATUSES = new Set([
@@ -800,8 +801,17 @@ export async function GET(
     }
 
     if (provider === "hdontap" && !isHls) {
-      const resolved = await resolveHdontapHls(src.embed_url)
+      // portal.hdontap.com embeds resolve via the embed backend; full-catalog
+      // hdontap.com/stream/{id}/ seed pages are scraped for their live HLS.
+      const resolved = (await resolveHdontapHls(src.embed_url)) || (await resolveHdontapPageHls(src.embed_url))
       if (resolved) streamUrl = resolved
+      else if (/hdontap\.com\/stream\//i.test(String(src.embed_url || ""))) {
+        // HLS scrape missed (token/markup change) → HDOnTap's official
+        // embeddable player iframe, which handles the live token itself.
+        const page = String(src.embed_url).replace(/\/+$/, "")
+        const embed = /\/embed$/i.test(page) ? `${page}/` : `${page}/embed/`
+        return NextResponse.json({ id: sourceId, provider, kind, embed_url: embed, stream_url: embed, stream_type: "iframe" })
+      }
     }
 
     if (provider === "skylinewebcams" && !isHls) {
