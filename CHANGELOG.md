@@ -613,6 +613,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -1009,6 +1010,7 @@ All notable changes to this project will be documented in this file.
 ### Ops
 
 - ETL_CRON_TOKEN sandbox sync, UTF-8 env read, inat backfill launcher
+- *(prod)* Self-heal — autoheal + watchdog (fix the Jun 15 hung-app outage) (#211)
 
 ### Security
 
