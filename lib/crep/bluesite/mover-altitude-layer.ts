@@ -210,16 +210,11 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
       material.uniforms.uF.value = f;
     },
   });
-  // Insert BELOW the surface event/species/device markers so elevated satellites
-  // never cover the priority surface data (the user: "can't cause harm to the
-  // events or species icons"). DOM markers are already above the WebGL canvas.
-  const beforeCandidates = [
-    "crep-mycosoft-devices-glow", "crep-earthquakes-dot", "crep-volcanoes-dot",
-    "crep-wildfires-dot", "crep-events_human-heat", "crep-live-satellites-glow",
-  ];
-  let beforeId: string | undefined;
-  for (const id of beforeCandidates) { try { if (map.getLayer(id)) { beforeId = id; break; } } catch { /* */ } }
-  try { map.addLayer(stack.layer, beforeId); } catch (e) { console.warn("[bluesite-movers] addLayer", e); }
+  // Satellites are at ALTITUDE — they must render ABOVE the surface WebGL layers
+  // (sea cables, transmission lines, rasters). A satellite can never appear "under"
+  // a sea cable. depthTest still hides far-side sats behind the globe; DOM
+  // event/species markers stay above the canvas (their labels remain readable).
+  try { map.addLayer(stack.layer); } catch (e) { console.warn("[bluesite-movers] addLayer", e); }
 
   const nativeIds = ["crep-live-satellites-dot", "crep-live-satellites-glow", "crep-live-satellite-orbits-line"];
   const setNative = (vis: "visible" | "none") => {
@@ -277,7 +272,12 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const start = () => {
     if (started) return;
     started = true;
-    (window as any).__crep_satTimeScale = 20; // accelerate the SGP4 clock so the whole constellation visibly sweeps (v2 only)
+    // REAL-TIME, accurate positions (NOT a simulation — the user wants live, real
+    // movement). Smoothness comes from the per-frame GPU interpolation, not from
+    // speeding up the clock. Also keep propagating while the user pans/rotates so
+    // satellites never freeze mid-spin (esp. when following one).
+    (window as any).__crep_satTimeScale = 1;
+    (window as any).__crep_satPropagateWhileMoving = true;
     rebuild();
     setNative("none");
     map.on("data", onSatData);
@@ -300,7 +300,7 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
 
   return {
     dispose: () => {
-      try { (window as any).__crep_satTimeScale = 1; } catch { /* */ }
+      try { (window as any).__crep_satTimeScale = 1; (window as any).__crep_satPropagateWhileMoving = false; } catch { /* */ }
       try { window.clearInterval(fallbackTimer); } catch { /* */ }
       try { window.clearInterval(hideTimer); } catch { /* */ }
       try { map.off("data", onData); map.off("data", onSatData); map.off("click", onClick); map.off("mousemove", onMove); map.off("moveend", onMoveEnd); } catch { /* */ }

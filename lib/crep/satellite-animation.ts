@@ -180,7 +180,13 @@ function tick(timestamp: number) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
-  if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) {
+  // Normally skip heavy propagation during camera interaction to keep pan smooth.
+  // But the Earth Sim v2 elevated-mover layer needs satellites to KEEP moving while
+  // the user pans/rotates (so they never freeze mid-spin / mid-follow), so it sets
+  // window.__crep_satPropagateWhileMoving to bypass this. (Jun 15 2026)
+  const propagateWhileMoving = typeof window !== "undefined" &&
+    (window as { __crep_satPropagateWhileMoving?: boolean }).__crep_satPropagateWhileMoving === true
+  if (!propagateWhileMoving && (map.isMoving?.() || map.isZooming?.() || map.isRotating?.())) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
