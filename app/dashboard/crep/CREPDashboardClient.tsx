@@ -272,6 +272,10 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 // Apr 20, 2026 â€” Morgan: "realistic clouds over the crep map and globe in both
 // 2d and 3d realistically with altitude on 3d and density on both".
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
+// BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
+import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
+import { FireLayer } from "@/components/crep/earth2/fire-layer";
+import { SporeDispersalLayer } from "@/components/crep/earth2/spore-dispersal-layer";
 // Right-click â†’ waypoint / places-saving system. Apr 20, 2026 (Morgan:
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
@@ -17018,12 +17022,14 @@ export default function CREPDashboardPage({
       (() => { try { return map.getProjection?.()?.type === "globe"; } catch { return false; } })();
     const doMount = (map: any) => {
       if (cancelled || handle) return Promise.resolve(handle);
-      return import("@/lib/crep/bluesite/mover-3d-layer").then(({ mountMover3DLayer }) => {
+      return import("@/lib/crep/bluesite/mover-3d-layer").then((mod) => {
         if (cancelled) return null;
-        handle = mountMover3DLayer(map);
+        // mount all three mover classes as true-3D meshes: planes + boats + satellites
+        const handles = [mod.mountMover3DLayer(map), mod.mountVessel3DLayer(map), mod.mountSatellite3DLayer(map)];
+        handle = { dispose: () => { for (const h of handles) { try { h?.dispose(); } catch { /* */ } } } };
         (window as any).__crep_movers3d = handle;
-        const present = !!((map.getStyle?.()?.layers) || []).find((l: any) => l.id === "bluesite-movers3d");
-        console.log("[bluesite] true-3D mesh movers (aircraft) mounted; layerPresent=" + present);
+        const present = !!map.getLayer?.("bluesite-movers3d-aircraft");
+        console.log("[bluesite] true-3D mesh movers (aircraft + vessels + satellites) mounted; aircraftLayerPresent=" + present);
         return handle;
       }).catch((e) => { console.warn("[bluesite] 3D movers mount failed", e); return null; });
     };
@@ -22975,6 +22981,19 @@ export default function CREPDashboardPage({
             resolutionDeg={earth2ApiResolutionDeg}
             gpuMode={earth2Filter.gpuMode !== "off"}
           />}
+
+          {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
+              SPORE DISPERSAL. These were built but dormant (unimported); wired here and
+              gated OFF by default — ?bluesite=1&smoke=1 / &spores3d=1. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().smoke && (
+            <>
+              <FireLayer map={mapRef.current} visible opacity={0.9} showAnimation showHeatShimmer />
+              <SmokeLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.75} showAnimation />
+            </>
+          )}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().spores3d && (
+            <SporeDispersalLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.7} showConcentrationGradient />
+          )}
 
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
               Right-click the map â†’ context menu â†’ save / drop pin / copy
