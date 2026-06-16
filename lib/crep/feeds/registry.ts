@@ -121,9 +121,9 @@ export const FEED_REGISTRY: FeedConfig[] = [
     items_path: "results", lat_path: "decimalLatitude", lng_path: "decimalLongitude",
     geometry: "point",
     props: ["scientificName", "family", "eventDate", "recordedBy", "license"],
-    render: "circle", color: "#84cc16", min_zoom: 7, refresh_s: 0, coverage: "global",
+    render: "circle", color: "#84cc16", min_zoom: 4, refresh_s: 0, coverage: "global",
     default_on: false,
-    notes: "GBIF kingdom Fungi (taxon_key=5) georeferenced occurrences, bbox-scoped at zoom≥7.",
+    notes: "GBIF kingdom Fungi (taxon_key=5) georeferenced occurrences, bbox-scoped (capped 300), visible from zoom≥4.",
   },
   // NOTE: iNaturalist fungi (taxon_id=47170) was evaluated but persistently 429s this
   // server IP; GBIF (gbif-fungi above) already ingests iNat research-grade records, so it's
@@ -137,9 +137,9 @@ export const FEED_REGISTRY: FeedConfig[] = [
     items_path: "results", lat_path: "decimalLatitude", lng_path: "decimalLongitude",
     geometry: "point",
     props: ["scientificName", "family", "eventDate", "depth"],
-    render: "circle", color: "#06b6d4", min_zoom: 7, refresh_s: 0, coverage: "global",
+    render: "circle", color: "#06b6d4", min_zoom: 4, refresh_s: 0, coverage: "global",
     default_on: false,
-    notes: "OBIS marine biodiversity occurrences (WKT-polygon bbox), bbox-scoped at zoom≥7.",
+    notes: "OBIS marine biodiversity occurrences (WKT-polygon bbox, capped 200), visible from zoom≥4.",
   },
 
   // ── Wildfire (vector incidents + perimeters; distinct from FIRMS smoke raster) ──
@@ -240,7 +240,7 @@ export const FEED_REGISTRY: FeedConfig[] = [
     items_path: "value.timeSeries", lat_path: "sourceInfo.geoLocation.geogLocation.latitude", lng_path: "sourceInfo.geoLocation.geogLocation.longitude",
     geometry: "point",
     props: ["sourceInfo.siteName", "values.0.value.0.value", "variable.variableName"],
-    render: "circle", color: "#38bdf8", min_zoom: 7, refresh_s: 0, coverage: "us", timeout_ms: 25000,
+    render: "circle", color: "#38bdf8", min_zoom: 6, refresh_s: 0, coverage: "us", timeout_ms: 25000,
     default_on: false,
     notes: "USGS NWIS instantaneous streamflow (discharge ft³/s, param 00060) at active gauges. bBox W,S,E,N (≤25° span → zoom≥7). Value at values.0.value.0.value.",
   },

@@ -77,8 +77,8 @@ export default function FeedLayer({ map, config, enabled }: Props) {
       } else { // circle | symbol → circle
         const id = `${base}-circle`; layerIds.push(id)
         map.addLayer({ id, type: "circle", source: SRC, paint: {
-          "circle-radius": 4.5, "circle-color": config.color, "circle-opacity": 0.85,
-          "circle-stroke-color": "rgba(0,0,0,0.5)", "circle-stroke-width": 0.6,
+          "circle-radius": 6, "circle-color": config.color, "circle-opacity": 0.9,
+          "circle-stroke-color": "rgba(255,255,255,0.6)", "circle-stroke-width": 1,
         } })
         bindClick(id)
       }
