@@ -34,6 +34,7 @@ import {
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
 import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM, TELECOM_DETAIL_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import { getBlueSiteFlags } from "@/lib/crep/bluesite/flags"
 import { getNexradStations } from "@/lib/crep/registries/radar-registry"
 import {
   eagleCameraClickLayerIds,
@@ -1569,6 +1570,62 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       }
     })()
   }, [map, styleReadyTick, enabled.topography])
+
+  // ─── 9b-2. BlueSite v2 — native 3D terrain (depth + altitude shell) ────
+  // Gated by the BlueSite `bathymetry` flag (?bluesite=1&bathymetry=1). The
+  // terrarium DEM (crep-topo-dem) encodes ocean depth as NEGATIVE elevation, so
+  // map.setTerrain raises mountains AND sinks the seafloor on tilt — the true-3D
+  // depth+altitude shell over the existing GEBCO colour + hillshade. Perf:
+  // terrain ~halves FPS at world view, so it's LOD-gated to zoom ≥ TERRAIN_MIN_ZOOM
+  // (flat globe when zoomed out; relief fades in regionally). OFF → setTerrain(null)
+  // = byte-for-byte the flat v1 globe. Exaggeration tunable via window.__es_v2.
+  useEffect(() => {
+    if (!map) return
+    let on = false
+    try { on = getBlueSiteFlags().bathymetry } catch { /* off */ }
+    if (!on) {
+      try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
+      return
+    }
+    const TERRAIN_MIN_ZOOM = 5
+    const exaggeration = (() => {
+      try { const v = (window as any).__es_v2?.terrainExaggeration; return Number.isFinite(v) ? Number(v) : 1.5 } catch { return 1.5 }
+    })()
+    // Dedicated, lighter terrain DEM (maxzoom 11 → far fewer/coarser tiles than the
+    // z15 hillshade source = much smaller transient FPS dip while terrain streams;
+    // coarse relief is plenty for mountain ranges + ocean basins).
+    const TERRAIN_SRC = "crep-bluesite-terrain-dem"
+    const ensureDem = () => {
+      if (map.getSource(TERRAIN_SRC)) return true
+      try {
+        map.addSource(TERRAIN_SRC, {
+          type: "raster-dem",
+          tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+          tileSize: 256, encoding: "terrarium", maxzoom: 11,
+          attribution: "© Mapzen / AWS Terrain Tiles",
+        })
+        return true
+      } catch { return false }
+    }
+    const apply = () => {
+      try {
+        if (!isMapStyleReady(map)) return
+        const z = map.getZoom?.() ?? 0
+        const want = z >= TERRAIN_MIN_ZOOM
+        const active = !!(map.getTerrain?.())
+        if (want && !active) { if (ensureDem()) map.setTerrain({ source: TERRAIN_SRC, exaggeration }) }
+        else if (!want && active) { map.setTerrain(null) }
+      } catch { /* ignore */ }
+    }
+    apply()
+    const onZoom = () => apply()
+    const onStyle = () => apply()
+    try { map.on("zoomend", onZoom); map.on("styledata", onStyle) } catch { /* ignore */ }
+    return () => {
+      try { map.off("zoomend", onZoom); map.off("styledata", onStyle) } catch { /* ignore */ }
+      try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
+    }
+  }, [map, styleReadyTick])
 
   // ─── 9c. Satellite Imagery HD — ESRI World Imagery ─────────────────────
   // Morgan: "we need google earth maps level high detail images of the
