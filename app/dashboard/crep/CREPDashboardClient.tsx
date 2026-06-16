@@ -8875,6 +8875,8 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (!trackedAssetLock) return;
+    // v2 BlueSite cinematic chase-cam gate. OFF → byte-for-byte the v1 follow-cam.
+    const cinematic = getBlueSiteFlags().moverAltitude;
     let opened = false; // becomes true after the first tick opens the popup
     const tick = () => {
       const latest =
@@ -8902,17 +8904,35 @@ export default function CREPDashboardPage({
       }
       const map = mapNativeRef.current || mapRef;
       if (map?.easeTo) {
-        map.easeTo({
+        const isSat = trackedAssetLock.type === "satellite";
+        // Cinematic mode: dramatic pitch + bearing-lead (camera faces the mover's
+        // direction of travel) + continuous easing (duration == tick interval).
+        const ease: Record<string, unknown> = {
           center: [coord.lng, coord.lat],
-          zoom: trackedAssetLock.zoom ?? (trackedAssetLock.type === "satellite" ? 5 : 9),
-          pitch: trackedAssetLock.type === "satellite" ? 45 : 35,
-          duration: 650,
+          zoom: trackedAssetLock.zoom ?? (isSat ? 5 : 9),
+          duration: cinematic ? (isSat ? 700 : 900) : 650,
           essential: true,
-        });
+        };
+        if (cinematic) {
+          ease.pitch = isSat ? 50 : 58;
+          // bearing-lead only for low-altitude movers (rotating the whole globe to
+          // chase a satellite is disorienting); skip heading==0 (missing-data default).
+          if (!isSat && latest) {
+            const a = latest as any;
+            const hd = Number(a.heading ?? a.properties?.heading ?? a.track ?? a.properties?.track ?? a.cog ?? a.course ?? NaN);
+            if (Number.isFinite(hd) && hd !== 0) ease.bearing = hd;
+          }
+        } else {
+          ease.pitch = isSat ? 45 : 35;
+        }
+        map.easeTo(ease as any);
       }
     };
     tick();
-    const id = window.setInterval(tick, trackedAssetLock.type === "satellite" ? 700 : 1200);
+    const tickMs = cinematic
+      ? (trackedAssetLock.type === "satellite" ? 700 : 900)
+      : (trackedAssetLock.type === "satellite" ? 700 : 1200);
+    const id = window.setInterval(tick, tickMs);
     return () => window.clearInterval(id);
   }, [aircraft, mapRef, satellites, trackedAssetLock, vessels]);
 
