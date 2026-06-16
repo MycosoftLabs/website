@@ -7721,10 +7721,13 @@ const MOVING_OBJECT_LAYER_STACK = [
   "crep-live-transit-dot",
   "crep-live-vessels-glow",
   "crep-live-vessels-dot",
-  "crep-live-satellites-glow",
-  "crep-live-satellites-dot",
+  // Jun 16 — aircraft BELOW satellites: promoteMovingObjectLayers replays this
+  // array with moveLayer(no beforeId) so the LAST id wins the top. Aircraft must
+  // sit above ground/vessels but below satellites (which are higher altitude).
   "crep-live-aircraft-glow",
   "crep-live-aircraft-dot",
+  "crep-live-satellites-glow",
+  "crep-live-satellites-dot",
 ] as const;
 
 function promoteMovingObjectLayers(map: any) {
@@ -15719,12 +15722,15 @@ export default function CREPDashboardPage({
     let intervalId: any = null;
     let lastTickAt = 0;
     const getTickMs = () => {
-      if (earthStrictPerfMode) return 2500;
+      // Jun 16 — tighter cadence so planes glide smoothly instead of stepping
+      // every ~0.5–1s. The setData coalescer caps GPU uploads at one per frame,
+      // so the only added cost is the (viewport-LOD'd) feature rebuild.
+      if (earthStrictPerfMode) return 1000;
       const zoom = mapZoomRef.current;
-      if (!Number.isFinite(zoom) || zoom < 3) return 1000;
-      if (zoom < 5) return 900;
-      if (zoom < 7) return 700;
-      return 500;
+      if (!Number.isFinite(zoom) || zoom < 3) return 400;
+      if (zoom < 5) return 350;
+      if (zoom < 7) return 280;
+      return 220;
     };
 
     // Apr 22, 2026 perf: one-rAF setData coalescer per source. Aircraft +
@@ -15753,7 +15759,11 @@ export default function CREPDashboardPage({
       if (shouldPauseMoverAnimation()) return;
       const map = mapNativeRef.current;
       if (!map || typeof map.getSource !== "function") return;
-      if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) return;
+      // Jun 16 — DON'T halt the pump during camera motion. On a globe isMoving()
+      // lingers through the inertial settle, so planes froze + detached from their
+      // tracks on every zoom/pan. The setData coalescer folds writes to one GPU
+      // upload per frame, so extrapolating through motion is cheap and keeps planes
+      // locked to their trajectories (terrain already pauses during motion).
       const lk = lastKnownRef.current;
       const nowMs = Date.now();
       try {
@@ -15771,11 +15781,11 @@ export default function CREPDashboardPage({
             ? "vessel"
             : null;
           if (!kind) continue;
-          const speed = Math.hypot(a.velLng, a.velLat);
-          const heading =
-            speed > 1e-9
-              ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360
-              : (a.heading ?? 0);
+          // Jun 16 — use the stored API heading (true compass bearing). Do NOT
+          // recompute from velLng/velLat: velLng carries a /cosLat correction for
+          // position extrapolation, so atan2(velLng,velLat) skews the angle and
+          // planes point "backwards"/wrong at non-equator latitudes.
+          const heading = a.heading ?? 0;
           // Apr 22, 2026 â€” is_helo flips the symbol layer to
           // helicopter-icon for rotorcraft (ICAO category 8 / aircraft
           // type regex). helicopterIdSetRef is rebuilt every pump poll
@@ -15894,11 +15904,8 @@ export default function CREPDashboardPage({
         const lng = anchor.lng + anchor.velLng * dtSec
         const lat = anchor.lat + anchor.velLat * dtSec
         if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
-        const speed = Math.hypot(anchor.velLng, anchor.velLat)
-        const heading =
-          speed > 1e-9
-            ? (Math.atan2(anchor.velLng, anchor.velLat) * 180 / Math.PI + 360) % 360
-            : (anchor.heading ?? 0)
+        // Jun 16 — stored API heading, not the cosLat-skewed velocity recompute.
+        const heading = anchor.heading ?? 0
         const feat = {
           type: "Feature",
           id,
