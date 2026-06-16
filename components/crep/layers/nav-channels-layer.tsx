@@ -26,7 +26,10 @@ const SRC = "crep-nav-channels"
 const FILL = "crep-nav-channels-fill"
 const LINE = "crep-nav-channels-line"
 const LABEL = "crep-nav-channels-label"
-const MIN_ZOOM = 8 // channels are local features — only paint at coastal detail
+const CUR_SRC = "crep-ocean-currents"
+const CUR_ARROW = "crep-ocean-currents-arrow"
+const CUR_LABEL = "crep-ocean-currents-label"
+const MIN_ZOOM = 8 // channels/currents are local features — only paint at coastal detail
 
 export default function NavChannelsLayer({ map, enabled }: Props) {
   const popupRef = useRef<maplibregl.Popup | null>(null)
@@ -37,9 +40,51 @@ export default function NavChannelsLayer({ map, enabled }: Props) {
     let cancelled = false
 
     const removeAll = () => {
-      for (const id of [LABEL, LINE, FILL]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
+      for (const id of [LABEL, LINE, FILL, CUR_LABEL, CUR_ARROW]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
       try { if (map.getSource(SRC)) map.removeSource(SRC) } catch { /* */ }
+      try { if (map.getSource(CUR_SRC)) map.removeSource(CUR_SRC) } catch { /* */ }
       lastBboxRef.current = ""
+    }
+
+    // ── Tidal current arrows (NOAA CO-OPS): "↑" glyph rotated to the current set,
+    // sized by speed, cyan=flood / amber=ebb, with a "0.9 kn flood" label. ──
+    const ensureCurrents = (data: any) => {
+      if (cancelled) return
+      try {
+        const existing = map.getSource(CUR_SRC) as any
+        if (existing) { existing.setData(data); return }
+        map.addSource(CUR_SRC, { type: "geojson", data })
+        map.addLayer({
+          id: CUR_ARROW, type: "symbol", source: CUR_SRC,
+          layout: {
+            "text-field": "↑",
+            "text-rotate": ["coalesce", ["get", "direction_deg"], 0],
+            "text-rotation-alignment": "map",
+            "text-size": ["interpolate", ["linear"], ["coalesce", ["get", "velocity_knots"], 0], 0, 16, 3, 34],
+            "text-allow-overlap": true,
+          },
+          paint: { "text-color": ["match", ["get", "phase"], "ebb", "#fbbf24", "#22d3ee"], "text-halo-color": "#04212a", "text-halo-width": 1.4 },
+        })
+        map.addLayer({
+          id: CUR_LABEL, type: "symbol", source: CUR_SRC,
+          layout: { "text-field": ["coalesce", ["get", "label"], ""], "text-size": 9, "text-offset": [0, 1.7], "text-allow-overlap": true },
+          paint: { "text-color": "#a5f3fc", "text-halo-color": "#04212a", "text-halo-width": 1.2 },
+        })
+      } catch (e) { console.warn("[nav-channels] currents", e) }
+    }
+    const fetchCurrents = async () => {
+      if (cancelled || !enabled || !map) return
+      if ((map.getZoom?.() ?? 0) < MIN_ZOOM) return
+      try {
+        const res = await fetch(`/api/crep/ocean/currents`, { cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json()
+        const features = (data.features || []).map((f: any) => ({
+          ...f,
+          properties: { ...f.properties, label: `${Number(f.properties?.velocity_knots ?? 0).toFixed(1)} kn ${f.properties?.phase ?? ""}`.trim() },
+        }))
+        if (!cancelled && enabled) ensureCurrents({ type: "FeatureCollection", features })
+      } catch { /* */ }
     }
 
     const onChannelClick = (e: any) => {
@@ -103,6 +148,7 @@ export default function NavChannelsLayer({ map, enabled }: Props) {
     const onMoveEnd = () => { clearTimeout(t); t = setTimeout(fetchChannels, 600) }
     map.on("moveend", onMoveEnd)
     fetchChannels()
+    fetchCurrents()
 
     return () => {
       cancelled = true
