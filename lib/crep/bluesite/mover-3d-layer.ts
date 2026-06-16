@@ -246,7 +246,6 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
     const nowMs = Date.now();
     lastInterval = Math.max(TICK_MS, Math.min(TICK_MS * 2, nowMs - lastTickMs));
     lastTickMs = nowMs;
-    dataTick++;
     try { map.triggerRepaint?.(); } catch { /* */ }
   };
 
@@ -281,17 +280,19 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
   };
 
   let raf = 0, interval: any = 0;
-  const tick = () => { rebuild(); raf = requestAnimationFrame(tick); };
+  let disposed = false; // hard guard: no loop/callback may run work after dispose (stale-closure safety)
+  const tick = () => { if (disposed) return; rebuild(); raf = requestAnimationFrame(tick); };
   raf = requestAnimationFrame(tick);
-  interval = setInterval(() => rebuild(), 1000);
+  interval = setInterval(() => { if (!disposed) rebuild(); }, 1000);
   const onMoveEnd = () => { try { map.triggerRepaint?.(); } catch { /* */ } };
   try { map.on?.("moveend", onMoveEnd); } catch { /* */ }
-  const unregister = stack.register({ group, animated: () => count > 0, onFrame: () => place() });
+  const unregister = stack.register({ group, animated: () => !disposed && count > 0, onFrame: () => { if (!disposed) place(); } });
   try { map.addLayer?.(stack.layer); } catch (e) { console.warn(`[bluesite] ${cfg.layerId} addLayer`, e); }
   rebuild(true);
 
   return {
     dispose() {
+      disposed = true; // set FIRST so any in-flight rAF/interval/onFrame becomes a no-op
       try { if (iHidNative && classEnabled()) setNativeHidden(false); } catch { /* */ }
       try { cancelAnimationFrame(raf); } catch { /* */ }
       try { clearInterval(interval); } catch { /* */ }
