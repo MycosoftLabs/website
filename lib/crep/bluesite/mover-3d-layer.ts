@@ -108,7 +108,28 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
     inst.setColorAt(i, new THREE.Color(r, g, b));
   };
 
-  const SCALE = () => { try { const v = (window as any).__es_v2?.moverScale; return Number.isFinite(v) ? Number(v) : 1400; } catch { return 1400; } };
+  // ── Zoom-adaptive scale ──────────────────────────────────────────────────
+  // A plane is ~60 m — a sub-pixel speck over a continent. So we DON'T draw it at
+  // real size when zoomed out; we hold a ~constant on-screen PIXEL size (visible but
+  // small, not crowding the map). As you fly closer, real-world size eventually
+  // exceeds that pixel target and takes over — so the proportions become physically
+  // accurate the nearer you get. scaleFactor = clamp(targetPx · metresPerPixel /
+  // charLen, realFloor, max). (charLen = the geometry's characteristic size in m.)
+  const CHAR_LEN = 55; // ≈ airliner wingspan in metres (geometry is built ~real-size)
+  const TARGET_PX = () => { try { const v = (window as any).__es_v2?.moverTargetPx; return Number.isFinite(v) ? Number(v) : 14; } catch { return 14; } };
+  const SCALE_MULT = () => { try { const v = (window as any).__es_v2?.moverScale; return Number.isFinite(v) ? Number(v) : 1; } catch { return 1; } };
+  const SCALE_MAX = () => { try { const v = (window as any).__es_v2?.moverScaleMax; return Number.isFinite(v) ? Number(v) : 12000; } catch { return 12000; } };
+  const computeScale = (): number => {
+    let zoom = 3, lat = 0;
+    try { zoom = map.getZoom?.() ?? 3; lat = map.getCenter?.()?.lat ?? 0; } catch { /* */ }
+    // Web-Mercator ground resolution (good approximation for on-screen size near the
+    // viewport centre on the globe); shrinks as you zoom in.
+    const mpp = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+    const kScreen = (TARGET_PX() * mpp) / CHAR_LEN;
+    // floor at 1 = real size (so close-up = accurate proportions); cap keeps the
+    // flat tangent-plane geometry from spanning enough of the globe to look wrong.
+    return Math.max(1, Math.min(SCALE_MAX(), kScreen * SCALE_MULT()));
+  };
   const HEAD_SIGN = () => { try { const v = (window as any).__es_v2?.moverHeadingSign; return v === 1 || v === -1 ? v : -1; } catch { return -1; } };
   const HEAD_OFFSET = () => { try { const v = (window as any).__es_v2?.moverHeadingOffsetDeg; return Number.isFinite(v) ? Number(v) * DEG2RAD : 0; } catch { return 0; } };
 
@@ -125,7 +146,25 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
   const yawTmp = new THREE.Matrix4();
   const scaleTmp = new THREE.Matrix4();
 
+  // ── Visibility gate ──────────────────────────────────────────────────────
+  // Two reasons to draw NOTHING (and do zero work):
+  //  1. Top-down / flat view (pitch < threshold) — 3D depth is imperceptible looking
+  //     straight down, and the v1 flat sprite/symbol layer already shows the planes.
+  //     So the heavy instanced 3D only "switches on" once the camera tilts to an angle.
+  //     This is the big resource saver on the common flat view.
+  //  2. The aircraft filter is OFF — mirror the v1 `crep-live-aircraft-dot` visibility so
+  //     toggling planes off in the UI also hides these meshes.
+  const PITCH_MIN = () => { try { const v = (window as any).__es_v2?.moverPitchMin; return Number.isFinite(v) ? Number(v) : 12; } catch { return 12; } };
+  const shouldRender = (): boolean => {
+    try {
+      if ((map.getPitch?.() ?? 0) < PITCH_MIN()) return false;
+      if (map.getLayer?.("crep-live-aircraft-dot") && map.getLayoutProperty?.("crep-live-aircraft-dot", "visibility") === "none") return false;
+    } catch { /* */ }
+    return true;
+  };
+
   const rebuild = (force = false) => {
+    if (!shouldRender()) { if (count !== 0) { count = 0; inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
     const ref = (window as unknown as { __crep_aircraft?: unknown }).__crep_aircraft;
     if (!force && ref === lastRef && count > 0) return; // dedup on the array ref (stutter-safe)
     lastRef = ref;
@@ -151,8 +190,9 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
 
   // place every instance at its (interpolated) geo position, oriented by heading
   const place = () => {
+    if (!shouldRender()) { if (inst.count !== 0) { inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
     const f = Math.min(1.2, (Date.now() - lastTickMs) / lastInterval);
-    const s = SCALE();
+    const s = computeScale();
     const sign = HEAD_SIGN();
     const off = HEAD_OFFSET();
     let w = 0;

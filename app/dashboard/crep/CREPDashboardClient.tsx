@@ -16968,27 +16968,38 @@ export default function CREPDashboardPage({
   // payoff of the spike). Dynamic-imports the module + three so v1/prod is untouched.
   // ───────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isEarthSimulatorRoute || projectionMode !== "globe") return;
+    if (!isEarthSimulatorRoute) return;
     if (!getBlueSiteFlags().moverAltitude) return;
-    const map = mapNativeRef.current as any;
-    if (!map || typeof map.addLayer !== "function") return;
-
     let cancelled = false;
     let handle: { dispose: () => void } | null = null;
     let aircraftHandle: { dispose: () => void } | null = null;
-    (async () => {
+    let tries = 0;
+    let t: any = 0;
+    // The map on this heavy route can take well over 40s to become globe-ready, and the
+    // `projectionMode` React state lags the actual map projection — gating on either makes
+    // the layer silently never mount. Poll the REAL map projection instead, re-reading the
+    // flag each tick, until it is genuinely ready.
+    const ready = (map: any) =>
+      !!map && typeof map.addLayer === "function" && !!map.isStyleLoaded?.() &&
+      (() => { try { return map.getProjection?.()?.type === "globe"; } catch { return false; } })();
+    const tryMount = async () => {
+      if (cancelled || handle) return;
+      const map = (mapNativeRef.current || (window as any).__crep_map) as any;
+      if (!ready(map)) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
       const [{ mountMoverAltitudeLayer }, { mountMoverAircraftLayer }] = await Promise.all([
         import("@/lib/crep/bluesite/mover-altitude-layer"),
         import("@/lib/crep/bluesite/mover-aircraft-layer"),
       ]);
       if (cancelled) return;
       handle = mountMoverAltitudeLayer(map);           // satellites — orbital shell
-      aircraftHandle = mountMoverAircraftLayer(map);   // aircraft — cruise shell (above surface, below sats)
-      console.log("[bluesite] mover-altitude (satellites) + mover-aircraft layers mounted");
-    })();
-
-    return () => { cancelled = true; try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
-  }, [isEarthSimulatorRoute, projectionMode, mapRef]);
+      // When the true-3D mesh movers are on, DON'T also mount the flat sprite aircraft
+      // (would double the planes); the 3D meshes replace them. Otherwise keep sprites.
+      if (!getBlueSiteFlags().movers3d) aircraftHandle = mountMoverAircraftLayer(map);
+      console.log("[bluesite] mover-altitude (satellites)" + (aircraftHandle ? " + sprite aircraft" : " [aircraft → 3D mesh]") + " mounted");
+    };
+    tryMount();
+    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
+  }, [isEarthSimulatorRoute]);
 
   // ── BlueSite v2 — TRUE-3D MESH MOVERS (planes as oriented 3D objects) ──
   // Gated by `movers3d` (?bluesite=1&movers3d=1). Renders aircraft as real 3D meshes
@@ -16996,32 +17007,40 @@ export default function CREPDashboardPage({
   // "wrong heading on tilt" problem. Separate flag from the sprite movers so they can be
   // A/B'd; dynamic-import so v1/prod is untouched.
   useEffect(() => {
-    // Gate on the FLAG only (off by default = prod-safe). Poll for the native map to
-    // be ready — the projectionMode/route state lags here, which is why the v1 sprite
-    // movers also fail to mount. Mount once the map is globe + style-loaded.
-    if (!getBlueSiteFlags().movers3d) return;
+    if (!isEarthSimulatorRoute) return;
     let cancelled = false;
     let handle: { dispose: () => void } | null = null;
     let tries = 0;
     let t: any = 0;
+    const getMap = () => (mapNativeRef.current || (window as any).__crep_map) as any;
+    const ready = (map: any) =>
+      !!map && typeof map.addLayer === "function" && !!map.isStyleLoaded?.() &&
+      (() => { try { return map.getProjection?.()?.type === "globe"; } catch { return false; } })();
+    const doMount = (map: any) => {
+      if (cancelled || handle) return Promise.resolve(handle);
+      return import("@/lib/crep/bluesite/mover-3d-layer").then(({ mountMover3DLayer }) => {
+        if (cancelled) return null;
+        handle = mountMover3DLayer(map);
+        (window as any).__crep_movers3d = handle;
+        const present = !!((map.getStyle?.()?.layers) || []).find((l: any) => l.id === "bluesite-movers3d");
+        console.log("[bluesite] true-3D mesh movers (aircraft) mounted; layerPresent=" + present);
+        return handle;
+      }).catch((e) => { console.warn("[bluesite] 3D movers mount failed", e); return null; });
+    };
+    // Manual QA / on-demand mount hook (mount regardless of the poll state).
+    (window as any).__crep_mount3d = () => { const m = getMap(); if (ready(m)) return doMount(m); console.warn("[bluesite] __crep_mount3d: map not ready"); return null; };
+    // Poll until the map is genuinely globe-ready (this heavy route can need >40s) AND
+    // the flag is on — re-reading the flag each tick so a runtime toggle also catches.
     const tryMount = () => {
       if (cancelled || handle) return;
-      const map = (mapNativeRef.current || (window as any).__crep_map) as any;
-      const ready = map && typeof map.addLayer === "function" && map.isStyleLoaded?.();
-      const proj = (() => { try { return map?.getProjection?.()?.type; } catch { return null; } })();
-      if (!ready || (proj && proj !== "globe")) {
-        if (tries++ < 80) t = setTimeout(tryMount, 500);
-        return;
-      }
-      import("@/lib/crep/bluesite/mover-3d-layer").then(({ mountMover3DLayer }) => {
-        if (cancelled) return;
-        handle = mountMover3DLayer(map);
-        console.log("[bluesite] true-3D mesh movers (aircraft) mounted");
-      }).catch((e) => console.warn("[bluesite] 3D movers mount failed", e));
+      if (!getBlueSiteFlags().movers3d) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
+      const map = getMap();
+      if (!ready(map)) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
+      doMount(map);
     };
     tryMount();
-    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} };
-  }, [mapRef]);
+    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} try { delete (window as any).__crep_mount3d; } catch {} };
+  }, [isEarthSimulatorRoute]);
 
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {

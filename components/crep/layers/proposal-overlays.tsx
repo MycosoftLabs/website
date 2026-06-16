@@ -1583,15 +1583,22 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // = byte-for-byte the flat v1 globe. Exaggeration tunable via window.__es_v2.
   useEffect(() => {
     if (!map) return
-    // Primary control is the "3D Terrain" layer toggle (enabled.terrain3d); the
-    // BlueSite bathymetry flag (?bluesite=1&bathymetry=1) is an alternative enable.
+    // The "3D Terrain" layer toggle (enabled.terrain3d) is the SOLE authority — when it
+    // is off, terrain is off, full stop. (Previously the bathymetry flag could force it
+    // on, which left relief draped even after the user turned the toggle off.)
     let on = false
-    try { on = (enabled as any).terrain3d === true || getBlueSiteFlags().bathymetry } catch { /* off */ }
+    try { on = (enabled as any).terrain3d === true } catch { /* off */ }
     if (!on) {
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
       return
     }
     const TERRAIN_MIN_ZOOM = 5
+    // Only drape terrain when the camera is TILTED to an angle — looking straight down,
+    // elevation relief is imperceptible and just burns FPS. Flat / top-down view stays the
+    // fast flat globe and never pops relief on zoom. Tunable via window.__es_v2.
+    const TERRAIN_MIN_PITCH = (() => {
+      try { const v = (window as any).__es_v2?.terrainMinPitch; return Number.isFinite(v) ? Number(v) : 12 } catch { return 12 }
+    })()
     const exaggeration = (() => {
       try { const v = (window as any).__es_v2?.terrainExaggeration; return Number.isFinite(v) ? Number(v) : 1.5 } catch { return 1.5 }
     })()
@@ -1615,7 +1622,8 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try {
         if (!isMapStyleReady(map)) return
         const z = map.getZoom?.() ?? 0
-        const want = z >= TERRAIN_MIN_ZOOM
+        const pitch = map.getPitch?.() ?? 0
+        const want = z >= TERRAIN_MIN_ZOOM && pitch >= TERRAIN_MIN_PITCH
         const active = !!(map.getTerrain?.())
         if (want && !active) { if (ensureDem()) map.setTerrain({ source: TERRAIN_SRC, exaggeration }) }
         else if (!want && active) { map.setTerrain(null) }
