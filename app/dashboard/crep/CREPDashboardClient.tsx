@@ -292,6 +292,8 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 import NavChannelsLayer from "@/components/crep/layers/nav-channels-layer";
+import FeedLayer from "@/components/crep/layers/feed-layer";
+import { FEED_REGISTRY, FEED_GROUP_CATEGORY } from "@/lib/crep/feeds/registry";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
@@ -10473,6 +10475,10 @@ export default function CREPDashboardPage({
     { id: "mojaveSensors",    name: "Goffs â€” Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
     { id: "mojaveHeatmap",    name: "Goffs â€” Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ], assetIsolationMode, isolatedFungalLayerIds), getRequestedFungalLayerIdsFromUrl());
+    // Config-driven feed layers (lib/crep/feeds/registry) — one toggle each, OFF by default.
+    for (const f of FEED_REGISTRY) {
+      initialLayers.push({ id: f.id, name: f.name, category: FEED_GROUP_CATEGORY[f.group], icon: <Activity className="w-3 h-3" />, enabled: f.default_on ?? false, opacity: 0.85, color: f.color, description: f.notes || "" } as LayerConfig);
+    }
     const layersWithInitialFilters =
       EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()
         ? initialLayers
@@ -22901,6 +22907,10 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={layers.find(l => l.id === "navChannels")?.enabled ?? false}
           />}
+          {/* Config-driven data feeds (lib/crep/feeds/registry) — one FeedLayer per config, OFF by default. */}
+          {!auditAllOffMode && !assetIsolationMode && FEED_REGISTRY.map((f) => (
+            <FeedLayer key={f.id} map={mapRef} config={f} enabled={layers.find(l => l.id === f.id)?.enabled ?? false} />
+          ))}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
