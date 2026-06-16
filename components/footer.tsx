@@ -264,9 +264,18 @@ export function Footer() {
               </p>
               <div className="pt-2 grid grid-cols-1 gap-y-1">
                 <p suppressHydrationWarning>
+                  <span className="font-semibold text-foreground">UEI:</span> GZRBSL3MTVZ6
+                  <span className="mx-2 text-muted-foreground/60">·</span>
+                  <span className="font-semibold text-foreground">CAGE Code:</span> Pending
+                  <span className="mx-2 text-muted-foreground/60">·</span>
+                  <span className="text-muted-foreground">(Mycosoft, Inc)</span>
+                </p>
+                <p suppressHydrationWarning>
                   <span className="font-semibold text-foreground">UEI:</span> YK3ARVKJ77S9
                   <span className="mx-2 text-muted-foreground/60">·</span>
                   <span className="font-semibold text-foreground">CAGE Code:</span> 9KR60
+                  <span className="mx-2 text-muted-foreground/60">·</span>
+                  <span className="text-muted-foreground">(Mycosoft, LLC)</span>
                 </p>
                 <p className="text-xs" suppressHydrationWarning>
                   Mycosoft, LLC is an active SAM.gov-registered supplier eligible for U.S. federal contracting.

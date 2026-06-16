@@ -121,7 +121,9 @@ function readFeatureCollection(windowVar: string, defaultAlt: number): MoverRow[
 }
 
 type Band = (altM: number) => [number, number, number];
-const aircraftBand: Band = (altM) => altM < 2500 ? [0.98, 0.75, 0.14] : altM < 8000 ? [0.49, 0.91, 0.47] : [0.13, 0.83, 0.93];
+// Aircraft = a single YELLOW, matching the v1 flat plane icons (Morgan: "yellow like they
+// were as icons"), not altitude bands — the green mid-band read wrong.
+const aircraftBand: Band = () => [0.98, 0.80, 0.20];
 const vesselBand: Band = () => [0.08, 0.72, 0.65]; // teal
 const satBand: Band = (altM) => { const km = altM / 1000; return km >= 20000 ? [0.98, 0.75, 0.14] : km >= 2000 ? [0.66, 0.33, 0.97] : [0.13, 0.83, 0.93]; };
 
@@ -310,9 +312,11 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
     read: () => readArray("__crep_aircraft", 10500),
     sourceRef: () => (window as any).__crep_aircraft,
     buildGeometry: buildAirlinerGeometry,
-    baseColor: 0x46e8ee, band: aircraftBand, charLen: 55,
+    baseColor: 0xf5c518, band: aircraftBand, charLen: 55,
     toggleLayerId: "aviation", nativeLayerIds: ["crep-live-aircraft-dot", "crep-live-aircraft-glow"],
-    maxInstances: 1200, minZoom: 0, headingFromMotion: false,
+    // minZoom 7: at world/continental view show the flat YELLOW v1 icons (small, not crowding);
+    // the true-3D meshes only switch in once you're zoomed to where you can fly up to a plane.
+    maxInstances: 1200, minZoom: 7, headingFromMotion: false,
   });
 }
 
@@ -325,7 +329,8 @@ export function mountVessel3DLayer(map: any): Mover3DHandle {
     buildGeometry: buildShipGeometry,
     baseColor: 0x16d6c0, band: vesselBand, charLen: 64,
     toggleLayerId: "ships", nativeLayerIds: ["crep-live-vessels-dot", "crep-live-vessels-glow"],
-    maxInstances: 1000, minZoom: 0, headingFromMotion: true,
+    // same as aircraft: flat dots at world view, 3D ship meshes once zoomed in close.
+    maxInstances: 1000, minZoom: 7, headingFromMotion: true,
   });
 }
 
