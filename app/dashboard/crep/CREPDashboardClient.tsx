@@ -16925,14 +16925,19 @@ export default function CREPDashboardPage({
 
     let cancelled = false;
     let handle: { dispose: () => void } | null = null;
+    let aircraftHandle: { dispose: () => void } | null = null;
     (async () => {
-      const { mountMoverAltitudeLayer } = await import("@/lib/crep/bluesite/mover-altitude-layer");
+      const [{ mountMoverAltitudeLayer }, { mountMoverAircraftLayer }] = await Promise.all([
+        import("@/lib/crep/bluesite/mover-altitude-layer"),
+        import("@/lib/crep/bluesite/mover-aircraft-layer"),
+      ]);
       if (cancelled) return;
-      handle = mountMoverAltitudeLayer(map);
-      console.log("[bluesite] mover-altitude layer mounted");
+      handle = mountMoverAltitudeLayer(map);           // satellites — orbital shell
+      aircraftHandle = mountMoverAircraftLayer(map);   // aircraft — cruise shell (above surface, below sats)
+      console.log("[bluesite] mover-altitude (satellites) + mover-aircraft layers mounted");
     })();
 
-    return () => { cancelled = true; try { handle?.dispose(); } catch {} };
+    return () => { cancelled = true; try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
   }, [isEarthSimulatorRoute, projectionMode, mapRef]);
 
   useEffect(() => {
