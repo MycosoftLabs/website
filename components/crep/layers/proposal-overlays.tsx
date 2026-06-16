@@ -1618,11 +1618,18 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       } catch { /* ignore */ }
     }
     apply()
-    const onZoom = () => apply()
+    // Pause terrain WHILE the camera is moving (pan/zoom/fly) — rendering the 3D mesh
+    // + streaming new terrain tiles mid-motion is what froze the map. Drop to the flat
+    // globe during movement (smooth), then re-apply 350ms after it settles. (Plan perf
+    // rule: pause heavy work during pan/zoom; this is the freeze fix.)
+    let resumeTimer: any = 0
+    const onMoveStart = () => { try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ } }
+    const onMoveEnd = () => { clearTimeout(resumeTimer); resumeTimer = setTimeout(apply, 350) }
     const onStyle = () => apply()
-    try { map.on("zoomend", onZoom); map.on("styledata", onStyle) } catch { /* ignore */ }
+    try { map.on("movestart", onMoveStart); map.on("moveend", onMoveEnd); map.on("styledata", onStyle) } catch { /* ignore */ }
     return () => {
-      try { map.off("zoomend", onZoom); map.off("styledata", onStyle) } catch { /* ignore */ }
+      clearTimeout(resumeTimer)
+      try { map.off("movestart", onMoveStart); map.off("moveend", onMoveEnd); map.off("styledata", onStyle) } catch { /* ignore */ }
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
     }
   }, [map, styleReadyTick])
