@@ -105,10 +105,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (!target) {
     return NextResponse.json({ type: "FeatureCollection", features: [], error: "missing key", id }, { status: 200 })
   }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), cfg.timeout_ms ?? 12_000)
   try {
     const res = await fetch(target, {
       headers: { Accept: "application/geo+json,application/json,*/*", "User-Agent": "MycosoftCREP/1.0 (support@mycosoft.com)" },
-      signal: AbortSignal.timeout(12_000),
+      signal: controller.signal,
       cache: "no-store",
     })
     if (!res.ok) {
@@ -122,5 +124,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     )
   } catch (err: any) {
     return NextResponse.json({ type: "FeatureCollection", features: [], error: err?.message || "fetch failed", id }, { status: 200 })
+  } finally {
+    clearTimeout(timer)
   }
 }

@@ -37,6 +37,8 @@ export interface FeedConfig {
   where?: { path: string; gte?: number; lte?: number }
   /** hard cap on emitted features (safety for huge grids) */
   max_features?: number
+  /** upstream fetch timeout ms (default 12000); bump for slow sources like Overpass / USGS NWIS */
+  timeout_ms?: number
 }
 
 /** feed group → existing CREP layer-panel category. */
@@ -221,33 +223,12 @@ export const FEED_REGISTRY: FeedConfig[] = [
     notes: "Public ThingSpeak IoT Geiger/dosimeter channels (tag=radiation). Station metadata (not live value); empty/null-island coords dropped.",
   },
 
-  // ── Power infrastructure (OSM/Overpass) ──
-  {
-    id: "power-substations-osm",
-    name: "Power Substations (OSM)",
-    group: "infrastructure",
-    endpoint: "https://overpass.kumi.systems/api/interpreter?data=[out:json][timeout:25];(node[power=substation]({minlat},{minlng},{maxlat},{maxlng});way[power=substation]({minlat},{minlng},{maxlat},{maxlng}););out center;",
-    auth: "none", bbox_scoped: true, is_geojson: false,
-    items_path: "elements", lat_path: "lat|center.lat", lng_path: "lon|center.lon",
-    geometry: "point",
-    props: ["tags.name", "tags.operator", "tags.voltage"],
-    render: "circle", color: "#f59e0b", min_zoom: 9, refresh_s: 86400, coverage: "global",
-    default_on: false,
-    notes: "OSM substations via Overpass (kumi mirror). Nodes lat/lon, ways center.lat/lon (fallback). Overpass bbox order S,W,N,E. Zoom≥9.",
-  },
-  {
-    id: "power-plants-osm",
-    name: "Power Plants & Generators (OSM)",
-    group: "infrastructure",
-    endpoint: "https://overpass.kumi.systems/api/interpreter?data=[out:json][timeout:25];(way[power=plant]({minlat},{minlng},{maxlat},{maxlng});node[power=generator]({minlat},{minlng},{maxlat},{maxlng});way[power=generator]({minlat},{minlng},{maxlat},{maxlng}););out center;",
-    auth: "none", bbox_scoped: true, is_geojson: false,
-    items_path: "elements", lat_path: "lat|center.lat", lng_path: "lon|center.lon",
-    geometry: "point",
-    props: ["tags.name", "tags.operator", "tags.plant:source", "tags.generator:source"],
-    render: "circle", color: "#ef4444", min_zoom: 9, refresh_s: 86400, coverage: "global",
-    default_on: false,
-    notes: "OSM power plants (ways→center) + generators (nodes) via Overpass kumi mirror. Tags under tags.*. Zoom≥9.",
-  },
+  // ── Power infrastructure (OSM/Overpass) — REMOVED for now ──
+  // power-substations-osm / power-plants-osm dropped: every public Overpass mirror
+  // (kumi, overpass-api.de, lz4, private.coffee) is unreachable/timeout from our network.
+  // Re-add as a Tier-B cached connector (pre-baked GeoJSON, or a server-side Overpass
+  // poller with caching) — see [[earth-sim-addendum-roadmap]]. The generic proxy now
+  // degrades gracefully (200 empty) on any upstream failure and never 500s.
 
   // ── Hydrology / flood (USGS stream gauges) ──
   {
@@ -259,7 +240,7 @@ export const FEED_REGISTRY: FeedConfig[] = [
     items_path: "value.timeSeries", lat_path: "sourceInfo.geoLocation.geogLocation.latitude", lng_path: "sourceInfo.geoLocation.geogLocation.longitude",
     geometry: "point",
     props: ["sourceInfo.siteName", "values.0.value.0.value", "variable.variableName"],
-    render: "circle", color: "#38bdf8", min_zoom: 7, refresh_s: 0, coverage: "us",
+    render: "circle", color: "#38bdf8", min_zoom: 7, refresh_s: 0, coverage: "us", timeout_ms: 25000,
     default_on: false,
     notes: "USGS NWIS instantaneous streamflow (discharge ft³/s, param 00060) at active gauges. bBox W,S,E,N (≤25° span → zoom≥7). Value at values.0.value.0.value.",
   },
