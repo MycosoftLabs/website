@@ -11,6 +11,7 @@
 export interface BlueSiteFlags {
   bluesite: boolean; // master v2 switch
   moverAltitude: boolean; // ?es3d
+  movers3d: boolean; // ?movers3d — true-3D mesh movers (planes/boats/sats as 3D objects, oriented by heading)
   smoke: boolean; // ?smoke
   clouds3d: boolean; // ?clouds3d
   spores3d: boolean; // ?spores3d
@@ -26,6 +27,7 @@ type FlagKey = keyof BlueSiteFlags;
 const QUERY_KEY: Record<FlagKey, string> = {
   bluesite: "bluesite",
   moverAltitude: "es3d",
+  movers3d: "movers3d",
   smoke: "smoke",
   clouds3d: "clouds3d",
   spores3d: "spores3d",
@@ -48,6 +50,7 @@ export function getBlueSiteFlags(): BlueSiteFlags {
   const out = {
     bluesite: false,
     moverAltitude: false,
+    movers3d: false,
     smoke: false,
     clouds3d: false,
     spores3d: false,

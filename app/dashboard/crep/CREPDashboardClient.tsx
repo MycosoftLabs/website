@@ -16990,6 +16990,39 @@ export default function CREPDashboardPage({
     return () => { cancelled = true; try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
   }, [isEarthSimulatorRoute, projectionMode, mapRef]);
 
+  // ── BlueSite v2 — TRUE-3D MESH MOVERS (planes as oriented 3D objects) ──
+  // Gated by `movers3d` (?bluesite=1&movers3d=1). Renders aircraft as real 3D meshes
+  // oriented by heading (nose along track from ANY angle) — the fix for the flat-sprite
+  // "wrong heading on tilt" problem. Separate flag from the sprite movers so they can be
+  // A/B'd; dynamic-import so v1/prod is untouched.
+  useEffect(() => {
+    // Gate on the FLAG only (off by default = prod-safe). Poll for the native map to
+    // be ready — the projectionMode/route state lags here, which is why the v1 sprite
+    // movers also fail to mount. Mount once the map is globe + style-loaded.
+    if (!getBlueSiteFlags().movers3d) return;
+    let cancelled = false;
+    let handle: { dispose: () => void } | null = null;
+    let tries = 0;
+    let t: any = 0;
+    const tryMount = () => {
+      if (cancelled || handle) return;
+      const map = (mapNativeRef.current || (window as any).__crep_map) as any;
+      const ready = map && typeof map.addLayer === "function" && map.isStyleLoaded?.();
+      const proj = (() => { try { return map?.getProjection?.()?.type; } catch { return null; } })();
+      if (!ready || (proj && proj !== "globe")) {
+        if (tries++ < 80) t = setTimeout(tryMount, 500);
+        return;
+      }
+      import("@/lib/crep/bluesite/mover-3d-layer").then(({ mountMover3DLayer }) => {
+        if (cancelled) return;
+        handle = mountMover3DLayer(map);
+        console.log("[bluesite] true-3D mesh movers (aircraft) mounted");
+      }).catch((e) => console.warn("[bluesite] 3D movers mount failed", e));
+    };
+    tryMount();
+    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} };
+  }, [mapRef]);
+
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
       entityStreamClientRef.current?.disconnect();
