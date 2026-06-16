@@ -155,12 +155,36 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
   //  2. The aircraft filter is OFF — mirror the v1 `crep-live-aircraft-dot` visibility so
   //     toggling planes off in the UI also hides these meshes.
   const PITCH_MIN = () => { try { const v = (window as any).__es_v2?.moverPitchMin; return Number.isFinite(v) ? Number(v) : 12; } catch { return 12; } };
-  const shouldRender = (): boolean => {
+  // Authoritative aircraft-filter state — the React layer registry, NOT the map layer's
+  // visibility (which we write ourselves below, so reading it back would be ambiguous).
+  const aircraftEnabled = (): boolean => {
     try {
-      if ((map.getPitch?.() ?? 0) < PITCH_MIN()) return false;
-      if (map.getLayer?.("crep-live-aircraft-dot") && map.getLayoutProperty?.("crep-live-aircraft-dot", "visibility") === "none") return false;
+      const ls = (window as any).__crep_layers?.();
+      if (Array.isArray(ls)) { const av = ls.find((l: any) => l && l.id === "aviation"); if (av) return av.enabled !== false; }
     } catch { /* */ }
     return true;
+  };
+  const shouldRender = (): boolean => {
+    try {
+      if ((map.getPitch?.() ?? 0) < PITCH_MIN()) return false; // flat/top-down → flat sprites handle it
+      if (!aircraftEnabled()) return false;                    // aircraft filter off → hide meshes
+    } catch { /* */ }
+    return true;
+  };
+
+  // Flat ↔ 3D handoff: while the 3D meshes are the active representation (tilted + aircraft
+  // on), HIDE the v1 flat aircraft symbols so we never double-draw planes. Restore them when
+  // we go flat again — but only if aircraft is still enabled (else the v1 toggle owns the
+  // "none" state and we must not un-hide what the user turned off).
+  const NATIVE_AC = ["crep-live-aircraft-dot", "crep-live-aircraft-glow"];
+  let iHidNative = false;
+  const setNativeHidden = (hide: boolean) => {
+    for (const id of NATIVE_AC) { try { if (map.getLayer?.(id)) map.setLayoutProperty(id, "visibility", hide ? "none" : "visible"); } catch { /* */ } }
+    iHidNative = hide;
+  };
+  const updateHandoff = (render3D: boolean) => {
+    if (render3D) { if (!iHidNative) setNativeHidden(true); }
+    else if (iHidNative) { if (aircraftEnabled()) setNativeHidden(false); else iHidNative = false; }
   };
 
   const rebuild = (force = false) => {
@@ -188,15 +212,49 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
     try { map.triggerRepaint?.(); } catch { /* */ }
   };
 
+  // ── FPS governor ─────────────────────────────────────────────────────────
+  // Perf contract: the 3D movers must NEVER drag the frame rate under ~30. We watch the
+  // page FPS (window.__crep_fps) and shed load progressively: shrink how many 3D planes we
+  // draw, and if even the minimum can't hold the floor, SUSPEND the meshes and fall back to
+  // the cheap flat v1 sprites (restored via the handoff) so planes still show. Recovery is
+  // gradual + hysteretic (needs sustained healthy FPS) to avoid oscillation.
+  const FPS_FLOOR = () => { try { const v = (window as any).__es_v2?.moverFpsFloor; return Number.isFinite(v) ? Number(v) : 33; } catch { return 33; } };
+  const FPS_HEALTHY = 50;
+  let renderBudget = MAX;     // adaptive cap on rendered instances
+  let suspended = false;      // hard fallback → flat sprites
+  let healthy = 0;            // consecutive healthy gov ticks
+  let lastGovMs = 0;
+  const readFps = () => { try { const f = (window as any).__crep_fps; return f && Number.isFinite(f.fps) ? f.fps : 60; } catch { return 60; } };
+  const governor = () => {
+    const now = Date.now();
+    if (now - lastGovMs < 500) return;   // re-tune at most ~2×/sec
+    lastGovMs = now;
+    const fps = readFps();
+    const floor = FPS_FLOOR();
+    healthy = fps >= FPS_HEALTHY ? healthy + 1 : 0;
+    if (fps < floor) {
+      renderBudget = Math.max(80, Math.floor(renderBudget * 0.6));
+      if (renderBudget <= 80 && fps < floor - 6) suspended = true;  // still drowning at min → flat fallback
+    } else if (fps >= FPS_HEALTHY) {
+      if (suspended) { if (healthy >= 4) { suspended = false; renderBudget = 120; } } // sustained healthy → resume gently
+      else renderBudget = Math.min(MAX, renderBudget + 120);
+    }
+    try { (window as any).__crep_movers3d_perf = { fps, renderBudget, suspended }; } catch { /* */ }
+  };
+
   // place every instance at its (interpolated) geo position, oriented by heading
   const place = () => {
-    if (!shouldRender()) { if (inst.count !== 0) { inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
+    governor();
+    const render3D = shouldRender() && !suspended;
+    updateHandoff(render3D);
+    if (!render3D) { if (inst.count !== 0) { inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
     const f = Math.min(1.2, (Date.now() - lastTickMs) / lastInterval);
     const s = computeScale();
     const sign = HEAD_SIGN();
     const off = HEAD_OFFSET();
+    const budget = Math.min(count, renderBudget);
     let w = 0;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < budget; i++) {
       const g = curGeo[i];
       const lng = g.plng + (g.lng - g.plng) * f;
       const lat = g.plat + (g.lat - g.plat) * f;
@@ -233,6 +291,9 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
 
   return {
     dispose() {
+      // restore the v1 flat aircraft layer if we hid it for the handoff (so turning the
+      // 3D movers off doesn't leave the planes invisible) — unless aircraft is filtered off.
+      try { if (iHidNative && aircraftEnabled()) setNativeHidden(false); } catch { /* */ }
       try { cancelAnimationFrame(raf); } catch { /* */ }
       try { clearInterval(interval); } catch { /* */ }
       try { map.off?.("moveend", onMoveEnd); } catch { /* */ }

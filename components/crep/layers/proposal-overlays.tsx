@@ -1618,18 +1618,36 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         return true
       } catch { return false }
     }
+    // FPS guard — terrain is the single heaviest effect (~halves FPS). If the page drops
+    // below the floor while terrain is draped, pull it (back to flat = instant recovery) and
+    // keep it off until FPS recovers comfortably (hysteresis). Enforces the perf contract.
+    let fpsBlocked = false
+    let healthyTicks = 0
+    const TERR_FPS_FLOOR = (() => { try { const v = (window as any).__es_v2?.terrainFpsFloor; return Number.isFinite(v) ? Number(v) : 36 } catch { return 36 } })()
     const apply = () => {
       try {
         if (!isMapStyleReady(map)) return
         const z = map.getZoom?.() ?? 0
         const pitch = map.getPitch?.() ?? 0
-        const want = z >= TERRAIN_MIN_ZOOM && pitch >= TERRAIN_MIN_PITCH
+        const want = z >= TERRAIN_MIN_ZOOM && pitch >= TERRAIN_MIN_PITCH && !fpsBlocked
         const active = !!(map.getTerrain?.())
         if (want && !active) { if (ensureDem()) map.setTerrain({ source: TERRAIN_SRC, exaggeration }) }
         else if (!want && active) { map.setTerrain(null) }
       } catch { /* ignore */ }
     }
     apply()
+    const fpsGuard = setInterval(() => {
+      try {
+        const fps = (window as any).__crep_fps?.fps
+        if (!Number.isFinite(fps)) return
+        if (fps < TERR_FPS_FLOOR) {
+          healthyTicks = 0
+          if (!fpsBlocked) { fpsBlocked = true; if (map.getTerrain?.()) map.setTerrain(null) }
+        } else if (fps >= TERR_FPS_FLOOR + 12) {           // recover only well above the floor
+          if (fpsBlocked && ++healthyTicks >= 3) { fpsBlocked = false; healthyTicks = 0; apply() }
+        }
+      } catch { /* ignore */ }
+    }, 1000)
     // Pause terrain WHILE the camera is moving (pan/zoom/fly) — rendering the 3D mesh
     // + streaming new terrain tiles mid-motion is what froze the map. Drop to the flat
     // globe during movement (smooth), then re-apply 350ms after it settles. (Plan perf
@@ -1641,6 +1659,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     try { map.on("movestart", onMoveStart); map.on("moveend", onMoveEnd); map.on("styledata", onStyle) } catch { /* ignore */ }
     return () => {
       clearTimeout(resumeTimer)
+      clearInterval(fpsGuard)
       try { map.off("movestart", onMoveStart); map.off("moveend", onMoveEnd); map.off("styledata", onStyle) } catch { /* ignore */ }
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
     }
