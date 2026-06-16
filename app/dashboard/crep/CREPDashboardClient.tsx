@@ -2757,6 +2757,20 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "weather",
   "liveAqi",
   "realisticClouds",
+  // Jun 16 — nature/environment filters pulled OUT of the infrastructure "Other Map
+  // Assets" bucket into "Environment / Conditions". This Set is BOTH the allowlist for
+  // that section AND part of the infra panel's skipIds, so each lands in exactly ONE
+  // place (Environment), never both.
+  "buoys",            // Ocean Buoys (NDBC)
+  "bathymetry",       // Ocean Bathymetry (GEBCO)
+  "topography",       // Land Topography (hillshade)
+  "terrain3d",        // 3D Terrain (elevation)
+  "swpc-aurora",      // Aurora Oval (SWPC OVATION)
+  "gbif-fungi",       // Fungi Occurrences (GBIF)
+  "obis-marine",      // Marine Life Occurrences (OBIS)
+  "safecast-radiation",
+  "thingspeak-radiation",
+  "usgs-streamflow",  // River Gauges / Streamflow (USGS)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
