@@ -10343,6 +10343,7 @@ export default function CREPDashboardPage({
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM â€” bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan â€” viewport-scoped tile render only keeps wide-area OOM at bay." },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
+    { id: "terrain3d", name: "3D Terrain (elevation)", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 1, color: "#4b5563", description: "Native 3D elevation — mountains rise + seafloor sinks on tilt (terrarium DEM). RESOURCE-HEAVY: viewport-LOD'd (zoom ≥5), pauses while you pan/zoom. Off by default." },
     { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap â€” global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace â€” CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan â€” the fill polygons block icon clicks underneath the zone." },
@@ -22839,6 +22840,7 @@ export default function CREPDashboardPage({
               // load immediately on refresh as required.
               bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
               topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
+              terrain3d:      stableEarthOverlayAssetsReady && (layers.find(l => l.id === "terrain3d")?.enabled ?? false),
               satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
               railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
               railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),

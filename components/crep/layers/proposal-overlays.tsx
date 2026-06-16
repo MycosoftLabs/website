@@ -100,6 +100,8 @@ interface Props {
     bathymetry?: boolean
     /** Land hillshade from AWS Terrain Tiles (Mapzen terrarium DEM → MapLibre native hillshade). 30 m res, free, no key. */
     topography?: boolean
+    /** Native 3D terrain (map.setTerrain on the terrarium DEM) — resource-heavy, LOD-gated to zoom≥5, pauses while moving. Off by default. */
+    terrain3d?: boolean
     /** ESRI World Imagery HD satellite basemap — Google-Earth-level detail to zoom 19, free, no key. */
     satImagery?: boolean
     railwayTracks?: boolean
@@ -1581,8 +1583,10 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
   // = byte-for-byte the flat v1 globe. Exaggeration tunable via window.__es_v2.
   useEffect(() => {
     if (!map) return
+    // Primary control is the "3D Terrain" layer toggle (enabled.terrain3d); the
+    // BlueSite bathymetry flag (?bluesite=1&bathymetry=1) is an alternative enable.
     let on = false
-    try { on = getBlueSiteFlags().bathymetry } catch { /* off */ }
+    try { on = (enabled as any).terrain3d === true || getBlueSiteFlags().bathymetry } catch { /* off */ }
     if (!on) {
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
       return
@@ -1632,7 +1636,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { map.off("movestart", onMoveStart); map.off("moveend", onMoveEnd); map.off("styledata", onStyle) } catch { /* ignore */ }
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
     }
-  }, [map, styleReadyTick])
+  }, [map, styleReadyTick, (enabled as any).terrain3d])
 
   // ─── 9c. Satellite Imagery HD — ESRI World Imagery ─────────────────────
   // Morgan: "we need google earth maps level high detail images of the
