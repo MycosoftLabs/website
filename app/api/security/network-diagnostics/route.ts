@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { requireAdmin } from "@/lib/auth/api-auth";
 
 // SECURITY (Jun 13, 2026): use execFile, NOT exec. exec() spawns a shell, so any
 // user-controlled value interpolated into the command string is a command-injection
@@ -19,6 +20,11 @@ const HOSTNAME_RE =
   /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(?:\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
 
 export async function GET(request: NextRequest) {
+  // SECURITY: this route shells out to ping/nmap/nslookup — including an internal-network
+  // sweep (nmap -sn 192.168.0.0/24) and a localhost port scan — so it must be admin-only.
+  // execFile already neutralizes command injection; this stops unauthenticated recon.
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'diagnostics';
 
