@@ -116,6 +116,28 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
     return false;
   };
 
+  // Throttle the SELF-DRIVEN animation repaint. Without this, an animated sub-layer
+  // (854 satellites, mover meshes) forces map.triggerRepaint() EVERY frame → the whole
+  // heavy map (incl. 23k+ DOM markers) re-renders at a continuous 60fps even when the
+  // user is idle, pinning CPU/GPU and crushing FPS headroom. Orbital/flight motion is
+  // slow, so ~22fps is visually identical and ~3x cheaper. During real camera motion
+  // MapLibre drives its own 60fps frames, so responsiveness is unaffected.
+  let lastRepaintMs = 0;
+  let pendingRepaint: ReturnType<typeof setTimeout> | 0 = 0;
+  const repaintMinMs = (): number => {
+    try { const v = (globalThis as { __es_v2?: { moverRepaintMs?: number } }).__es_v2?.moverRepaintMs; return Number.isFinite(v) ? Number(v) : 45; } catch { return 45; }
+  };
+  const scheduleRepaint = () => {
+    if (!map) return;
+    const t = nowMs();
+    const dt = t - lastRepaintMs;
+    const minMs = repaintMinMs();
+    if (dt >= minMs) { lastRepaintMs = t; map.triggerRepaint(); }
+    else if (!pendingRepaint) {
+      pendingRepaint = setTimeout(() => { pendingRepaint = 0; lastRepaintMs = nowMs(); map?.triggerRepaint(); }, minMs - dt);
+    }
+  };
+
   const layer: CustomLayerInterface = {
     id,
     type: "custom",
@@ -137,7 +159,7 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
       if (!mainMatrix) {
         // Skip this frame, but keep the continuous-repaint loop alive so animated
         // sub-layers (satellites) don't freeze if one frame lacks the matrix.
-        if (anyAnimating()) map.triggerRepaint();
+        if (anyAnimating()) scheduleRepaint();
         return;
       }
       camera.projectionMatrix = new THREE.Matrix4().fromArray(mainMatrix as number[]);
@@ -153,9 +175,11 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
 
       renderer.resetState();
       renderer.render(scene, camera);
-      if (anyAnimating()) map.triggerRepaint();
+      if (anyAnimating()) scheduleRepaint();
     },
     onRemove() {
+      try { if (pendingRepaint) clearTimeout(pendingRepaint); } catch { /* ignore */ }
+      pendingRepaint = 0;
       try { renderer?.dispose(); } catch { /* ignore */ }
       renderer = null;
       map = null;

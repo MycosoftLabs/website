@@ -226,6 +226,7 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
 
   const rebuild = (force = false) => {
     if (!shouldRender()) { if (count !== 0) { count = 0; inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
+    if (moving && !force) return; // don't re-read data / reset interpolation mid-camera-move
     const src = cfg.sourceRef();
     if (!force && src === lastSrc && count > 0) return; // dedup on the source ref — only a real new data tick rebuilds (cheap between ticks)
     lastSrc = src;
@@ -254,6 +255,7 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
     const render3D = shouldRender() && !suspended;
     updateHandoff(render3D);
     if (!render3D) { if (inst.count !== 0) { inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
+    if (moving) return; // camera in motion → hold last matrices, skip the per-instance recompute
     const f = Math.min(1.2, (Date.now() - lastTickMs) / lastInterval);
     const s = computeScale(), sign = HEAD_SIGN(), off = HEAD_OFFSET();
     const budget = Math.min(count, renderBudget);
@@ -281,11 +283,18 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
 
   let raf = 0, interval: any = 0;
   let disposed = false; // hard guard: no loop/callback may run work after dispose (stale-closure safety)
+  // Pause our per-frame matrix recompute WHILE the camera is moving. The meshes hold their
+  // last world matrices and still render correctly (the harness applies the moving camera
+  // matrix each frame); skipping the per-instance recompute removes our cost from the
+  // motion-transient FPS dip. Resume shortly after the camera settles.
+  let moving = false;
+  let moveSettleTimer: any = 0;
   const tick = () => { if (disposed) return; rebuild(); raf = requestAnimationFrame(tick); };
   raf = requestAnimationFrame(tick);
   interval = setInterval(() => { if (!disposed) rebuild(); }, 1000);
-  const onMoveEnd = () => { try { map.triggerRepaint?.(); } catch { /* */ } };
-  try { map.on?.("moveend", onMoveEnd); } catch { /* */ }
+  const onMoveStart = () => { moving = true; };
+  const onMoveEnd = () => { clearTimeout(moveSettleTimer); moveSettleTimer = setTimeout(() => { moving = false; try { map.triggerRepaint?.(); } catch { /* */ } }, 100); };
+  try { map.on?.("movestart", onMoveStart); map.on?.("moveend", onMoveEnd); } catch { /* */ }
   const unregister = stack.register({ group, animated: () => !disposed && count > 0, onFrame: () => { if (!disposed) place(); } });
   try { map.addLayer?.(stack.layer); } catch (e) { console.warn(`[bluesite] ${cfg.layerId} addLayer`, e); }
   rebuild(true);
@@ -296,7 +305,8 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
       try { if (iHidNative && classEnabled()) setNativeHidden(false); } catch { /* */ }
       try { cancelAnimationFrame(raf); } catch { /* */ }
       try { clearInterval(interval); } catch { /* */ }
-      try { map.off?.("moveend", onMoveEnd); } catch { /* */ }
+      try { clearTimeout(moveSettleTimer); } catch { /* */ }
+      try { map.off?.("movestart", onMoveStart); map.off?.("moveend", onMoveEnd); } catch { /* */ }
       try { unregister(); } catch { /* */ }
       try { if (map.getLayer?.(stack.layer.id)) map.removeLayer(stack.layer.id); } catch { /* */ }
       try { geometry.dispose(); material.dispose(); } catch { /* */ }
