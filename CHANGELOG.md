@@ -369,6 +369,20 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Space-piggyback can now be disengaged (was trapping the user) (#206)
 - *(earth-sim)* Elevated satellites now actually have data (window-var feed) (#209)
 - *(earth-sim)* Native satellites (icons/selectable/tier-color, tracks globe) + raised mover caps + click-away (#210)
+- *(earth-sim-v2)* Spike is debug-only (URL ?es3dspike=1), never persisted/default
+- *(earth-sim-v2)* Stop the duplicate satellite set — self-enforce native hide
+- *(earth-sim-v2)* Click-away guard honors mover picks (__crep_justPickedAt) so elevated-sat clicks hold
+- *(earth-sim-v2)* Real-time accurate satellites (no sim/accel), above cables, never freeze on spin
+- *(eagle-eye)* HDOnTap live snapshots, ipcamlive video, drop broken redideo
+- *(earth-sim-v2)* Satellites stop stuttering — flow continuously, no freeze/jump
+- *(earth-sim)* Pause 3D terrain during pan/zoom so navigation never freezes
+- *(earth-sim)* Aircraft heading, smooth animation, and z-order (above ground, below sats)
+- *(earth-sim)* Move nature/environment filters from infra "Other Map Assets" → Environment/Conditions
+- *(earth-sim)* Make nature feeds findable — lower zoom gates + bigger dots
+- *(earth-sim)* Zoom-adaptive mover scale + pitch-gated 3D + robust mount + terrain authority
+- *(earth-sim)* Remove undeclared dataTick++ (ReferenceError) + add disposed guard to mover engine
+- *(earth-sim)* 3D movers — grow-on-zoom sizing, never-disappear, selectable
+- *(earth-sim)* Stop satellites blinking off — reuse last projection matrix when a frame lacks one
 
 ### CREP
 
@@ -614,6 +628,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -801,6 +816,32 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Elevated 3D satellites + orbit rings (deck overlay, desktop) (#204)
 - *(earth-sim)* Many more satellites on the globe (was capped at 60-80) (#207)
 - *(earth-sim)* Aircraft + vessels + satellites (no debris) ON at reload (#208)
+- *(earth-sim-v2)* Phase 0 BlueSite foundations (harness, types, flags, perf governor)
+- *(earth-sim-v2)* Phase 1 positioning spike — Three.js LOCKED to the pitched globe (verified)
+- *(earth-sim-v2)* One-command v1<->v2 switch (persistent localStorage toggle)
+- *(earth-sim-v2)* Phase 1 mover-altitude layer — live satellites as elevated screen-sized icons
+- *(earth-sim-v2)* Mover layer — fluid GPU interpolation + screen-space picking + smaller icons + below-surface layering
+- *(earth-sim-v2)* Elevated 3D orbit trajectories — satellites fly along real altitude arcs
+- *(earth-sim-v2)* Time-accelerated satellite motion — whole constellation visibly sweeps
+- *(eagle-eye)* Ingest full HDOnTap webcam catalog (197 cams, global) onto Earth Simulator
+- *(eagle-eye)* HDOnTap live-refresh connector (auto-updates the full catalog)
+- *(eagle-eye)* Fix SD cams (Cabrillo/Bay/Coronado Bridge) + 10 new, red-status policy
+- *(eagle-eye)* Add remaining SanDiegoWebCam live streams (all 11 channel cams on map)
+- *(eagle-eye)* Add 72 global live YouTube webcams (10 channels + playlist)
+- *(earth-sim-v2)* Elevate + animate aircraft on the cruise shell (planes like satellites)
+- *(earth-sim)* NOAA ENC nav-channel proxy (/api/crep/ocean/channels) — SD Bay channels + depths
+- *(earth-sim)* Nav-channels map layer + click widget (Ocean & Coastal)
+- *(earth-sim)* CO-OPS tidal-currents proxy (/api/crep/ocean/currents)
+- *(earth-sim)* Tidal current arrows in the Channels & Currents layer
+- *(earth-sim)* Config-driven data-feed framework + 17 layers (flag-gated OFF)
+- *(crep)* Transit vehicles and shapes BFF for Earth Simulator
+- *(earth-sim)* Feed-proxy never-500 hardening + per-config timeout; drop flaky OSM power
+- *(earth-sim)* Phase-1 cinematic chase-cam for tracked-asset follow (gated)
+- *(earth-sim)* Phase-1 depth+altitude shell — native 3D terrain (gated, LOD'd)
+- *(earth-sim)* "3D Terrain" filter toggle — make the resource-heavy depth shell user-controllable
+- *(earth-sim)* True-3D mesh mover engine (foundation) — planes as oriented 3D objects
+- *(earth-sim)* Boats + satellites as true-3D meshes; wire dormant smoke/fire/spore
+- *(earth-sim)* Hard-disable 3D mesh movers (planes/boats/sats) in code; keep satellite altitude
 
 ### Fix
 
@@ -874,6 +915,7 @@ All notable changes to this project will be documented in this file.
 - *(terms)* Publish 2026-05-11 Terms of Service (#151)
 - Fast deploy search earth fixes [fast]
 - Parse iNat report geojson safely [skip ci]
+- *(section9)* Package Cursor's uncommitted Section 9 website changes for deploy bundle
 
 ### Performance
 
@@ -886,6 +928,10 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Land mask uses 1.6 MB NE_50m at low zoom (was 10 MB NE_10m)
 - *(crep)* PMTiles power plants + visibility-throttle overlay pollers
 - *(crep)* Wire viewport cull + rAF debounce into aircraft/vessel pump
+- *(eagle-eye)* HDOnTap connector seeds fresh at boot (no 205-page crawl burst on first request)
+- *(earth-sim)* FPS governors enforce the >=30 floor (movers + terrain)
+- *(earth-sim)* Throttle BlueSite repaint to ~22fps + pause mover meshes during camera motion
+- *(earth-sim)* Zoom-adaptive BlueSite repaint throttle (fixes ~3fps at street-zoom+tilt)
 
 ### Refactor
 
@@ -899,6 +945,7 @@ All notable changes to this project will be documented in this file.
 ### Security
 
 - Force SW v3 to take over + stop 474MB video eager-download
+- Drop NEXTAUTH_SECRET default in Dockerfile + admin-gate network-diagnostics
 
 ### Transit
 
@@ -1017,6 +1064,8 @@ All notable changes to this project will be documented in this file.
 - Purge hardcoded secrets from working tree and history
 - Remove hardcoded private IPs and fix dependency graph
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content)
+- *(deps)* Override patched transitive versions — 0 critical/high (109->60 vulns)
+- *(deps)* Clear the @vitessce/uuid chain + postcss — 109->14 vulns, 0 critical/high
 
 ### Sidebar
 
