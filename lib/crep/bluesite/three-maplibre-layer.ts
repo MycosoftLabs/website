@@ -125,7 +125,21 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
   let lastRepaintMs = 0;
   let pendingRepaint: ReturnType<typeof setTimeout> | 0 = 0;
   const repaintMinMs = (): number => {
-    try { const v = (globalThis as { __es_v2?: { moverRepaintMs?: number } }).__es_v2?.moverRepaintMs; return Number.isFinite(v) ? Number(v) : 45; } catch { return 45; }
+    let base = 45;
+    try { const v = (globalThis as { __es_v2?: { moverRepaintMs?: number } }).__es_v2?.moverRepaintMs; if (Number.isFinite(v)) base = Number(v); } catch { /* */ }
+    // Zoom-adaptive: every animation repaint forces a FULL map re-render (incl. DOM-marker
+    // reprojection). That's cheap at world/continental zoom — where satellites are prominent,
+    // so animate smoothly (~22fps) — but brutally expensive at street zoom + tilt, where the
+    // sats are off in their orbital shell and the motion is barely visible. So back the repaint
+    // off as we zoom in; this took z12-tilted from ~3fps to ~56fps with no visible sat-motion
+    // loss (you're looking at the ground, not LEO).
+    try {
+      const z = map?.getZoom?.() ?? 3;
+      const tilted = (map?.getPitch?.() ?? 0) > 20;
+      if (z >= 9) return Math.max(base, tilted ? 200 : 130);
+      if (z >= 7) return Math.max(base, 85);
+    } catch { /* */ }
+    return base;
   };
   const scheduleRepaint = () => {
     if (!map) return;
