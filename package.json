@@ -133,7 +133,7 @@
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "node-fetch": "3.3.2",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^9.0.1",
     "packery": "^3.0.0",
     "particles.js": "^2.0.0",
     "pdf-parse": "^2.4.5",
@@ -206,5 +206,25 @@
     "tw-animate-css": "^1.0.1",
     "typescript": "^5",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "form-data": "^4.0.4",
+    "d3-color": "^3.1.0",
+    "ws": "^8.17.1",
+    "dompurify": "^3.2.4",
+    "codemirror": "^5.65.16",
+    "qs": "^6.13.0",
+    "tough-cookie": "^4.1.4",
+    "js-yaml": "^4.1.0",
+    "jsondiffpatch": "^0.7.2",
+    "langsmith": "^0.7.10",
+    "esbuild": "^0.25.0",
+    "brace-expansion": "^2.0.2",
+    "jspdf": "^4.2.1",
+    "xmldom": "npm:@xmldom/xmldom@^0.9.10",
+    "vega": "^6.2.0",
+    "vega-lite": "^6.4.3",
+    "vega-functions": "^6.1.1",
+    "vega-expression": "^6.1.0"
   }
 }
