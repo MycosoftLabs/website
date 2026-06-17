@@ -135,6 +135,8 @@ export interface Mover3DConfig {
   baseColor: number;
   band: Band;
   charLen: number;            // characteristic geometry size in m (for the screen-size scale)
+  sizeMult: number;           // class size weight — boats < sats < planes (so boats render smaller)
+  selectKind: string;         // crep:asset:select kind on click (aircraft|vessel|satellite)
   toggleLayerId: string;      // the v1 layer-registry id for this class's filter (aviation/ships/satellites)
   nativeLayerIds: string[];   // flat representation(s) to hide while 3D is active
   maxInstances: number;
@@ -161,16 +163,26 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
   group.add(key, new THREE.AmbientLight(0xffffff, 0.55));
   const setBand = (i: number, altM: number) => { const [r, g, b] = cfg.band(altM); inst.setColorAt(i, new THREE.Color(r, g, b)); };
 
-  // ── zoom-adaptive scale (constant ~targetPx when far, real size when near) ──
-  const TARGET_PX = () => { try { const v = (window as any).__es_v2?.moverTargetPx; return Number.isFinite(v) ? Number(v) : 14; } catch { return 14; } };
+  // ── zoom-adaptive scale ──────────────────────────────────────────────────
+  // The mover holds a fixed WORLD size (cfg.charLen·cfg.sizeMult metres), so it GROWS on
+  // screen as you zoom in — real 3D perspective, the thing Morgan wanted ("they should
+  // become more accurate the closer we get; boats should be smaller"). We only clamp the
+  // resulting on-screen size to [MIN_PX, MAX_PX]: a floor so they stay visible (but small)
+  // when zoomed out, a cap so they don't fill the screen up close. Between the clamps the
+  // size tracks zoom. Per-class sizeMult makes boats render smaller than planes.
   const SCALE_MULT = () => { try { const v = (window as any).__es_v2?.moverScale; return Number.isFinite(v) ? Number(v) : 1; } catch { return 1; } };
-  const SCALE_MAX = () => { try { const v = (window as any).__es_v2?.moverScaleMax; return Number.isFinite(v) ? Number(v) : 12000; } catch { return 12000; } };
+  const MIN_PX = () => { try { const v = (window as any).__es_v2?.moverMinPx; return Number.isFinite(v) ? Number(v) : 7; } catch { return 7; } };
+  const MAX_PX = () => { try { const v = (window as any).__es_v2?.moverMaxPx; return Number.isFinite(v) ? Number(v) : 64; } catch { return 64; } };
   const computeScale = (): number => {
     let zoom = 3, lat = 0;
     try { zoom = map.getZoom?.() ?? 3; lat = map.getCenter?.()?.lat ?? 0; } catch { /* */ }
-    const mpp = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
-    const kScreen = (TARGET_PX() * mpp) / cfg.charLen;
-    return Math.max(1, Math.min(SCALE_MAX(), kScreen * SCALE_MULT()));
+    const mpp = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom); // metres/screen-pixel
+    let s = cfg.sizeMult * SCALE_MULT();           // fixed world size → on-screen px grows as you zoom in
+    const px = (cfg.charLen * s) / mpp;            // resulting on-screen size
+    const minP = MIN_PX(), maxP = MAX_PX();
+    if (px < minP) s = (minP * mpp) / cfg.charLen; // floor: small but visible when zoomed out
+    else if (px > maxP) s = (maxP * mpp) / cfg.charLen; // cap: don't fill the screen when right on top of it
+    return s;
   };
   const HEAD_SIGN = () => { try { const v = (window as any).__es_v2?.moverHeadingSign; return v === 1 || v === -1 ? v : -1; } catch { return -1; } };
   const HEAD_OFFSET = () => { try { const v = (window as any).__es_v2?.moverHeadingOffsetDeg; return Number.isFinite(v) ? Number(v) * DEG2RAD : 0; } catch { return 0; } };
@@ -203,24 +215,30 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
     else if (iHidNative) { if (classEnabled()) setNativeHidden(false); else iHidNative = false; }
   };
 
-  // ── FPS governor (never drag FPS under the floor) ──
+  // ── FPS governor — only ever SHRINKS the rendered-instance budget; it NEVER fully
+  // suspends (Morgan: the 3D boats/planes "disappear for a few seconds when I move — that
+  // cannot happen"). The disappear was the old suspend kicking in on the transient FPS dip
+  // during a camera move. Now: (a) the governor is skipped while the camera is moving, so a
+  // motion dip can't shed anything, and (b) there is no suspend — at worst the budget floors
+  // at MIN_BUDGET, so some meshes always remain on screen. ──
   const FPS_FLOOR = () => { try { const v = (window as any).__es_v2?.moverFpsFloor; return Number.isFinite(v) ? Number(v) : 33; } catch { return 33; } };
   const FPS_HEALTHY = 50;
-  let renderBudget = MAX, suspended = false, healthy = 0, lastGovMs = 0;
+  const MIN_BUDGET = 120;
+  let renderBudget = MAX, lastGovMs = 0;
   const readFps = () => { try { const f = (window as any).__crep_fps; return f && Number.isFinite(f.fps) ? f.fps : 60; } catch { return 60; } };
   const governor = () => {
+    if (moving) return;                          // ignore the transient motion FPS dip — never shed mid-move
     const now = Date.now();
     if (now - lastGovMs < 500) return;
     lastGovMs = now;
     const fps = readFps(), floor = FPS_FLOOR();
-    healthy = fps >= FPS_HEALTHY ? healthy + 1 : 0;
-    if (fps < floor) { renderBudget = Math.max(60, Math.floor(renderBudget * 0.6)); if (renderBudget <= 60 && fps < floor - 6) suspended = true; }
-    else if (fps >= FPS_HEALTHY) { if (suspended) { if (healthy >= 4) { suspended = false; renderBudget = 100; } } else renderBudget = Math.min(MAX, renderBudget + 100); }
+    if (fps < floor) renderBudget = Math.max(MIN_BUDGET, Math.floor(renderBudget * 0.75));
+    else if (fps >= FPS_HEALTHY) renderBudget = Math.min(MAX, renderBudget + 150);
   };
 
   // per-mover anchors for smooth interpolation between ~2.5s ticks
   let prevGeo = new Map<string, { lng: number; lat: number }>();
-  let curGeo: Array<{ lng: number; lat: number; alt: number; heading: number; plng: number; plat: number }> = [];
+  let curGeo: Array<{ id: string; lng: number; lat: number; alt: number; heading: number; plng: number; plat: number }> = [];
   let lastTickMs = Date.now(), lastInterval = TICK_MS, lastSrc: unknown = -1, count = 0;
   const mTmp = new THREE.Matrix4(), yawTmp = new THREE.Matrix4(), scaleTmp = new THREE.Matrix4();
 
@@ -237,7 +255,7 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
     for (let i = 0; i < n; i++) {
       const r = rows[i];
       const p = prevGeo.get(r.id);
-      curGeo.push({ lng: r.lng, lat: r.lat, alt: r.alt, heading: r.heading, plng: p ? p.lng : r.lng, plat: p ? p.lat : r.lat });
+      curGeo.push({ id: r.id, lng: r.lng, lat: r.lat, alt: r.alt, heading: r.heading, plng: p ? p.lng : r.lng, plat: p ? p.lat : r.lat });
       next.set(r.id, { lng: r.lng, lat: r.lat });
       setBand(i, r.alt);
     }
@@ -252,7 +270,7 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
 
   const place = () => {
     governor();
-    const render3D = shouldRender() && !suspended;
+    const render3D = shouldRender();
     updateHandoff(render3D);
     if (!render3D) { if (inst.count !== 0) { inst.count = 0; inst.instanceMatrix.needsUpdate = true; } return; }
     if (moving) return; // camera in motion → hold last matrices, skip the per-instance recompute
@@ -278,7 +296,7 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
     }
     inst.count = w;
     inst.instanceMatrix.needsUpdate = true;
-    try { (window as any).__crep_movers3d_perf = { fps: readFps(), renderBudget, suspended, count: w, layer: cfg.layerId }; } catch { /* */ }
+    try { (window as any).__crep_movers3d_perf = { fps: readFps(), renderBudget, count: w, layer: cfg.layerId }; } catch { /* */ }
   };
 
   let raf = 0, interval: any = 0;
@@ -295,6 +313,49 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
   const onMoveStart = () => { moving = true; };
   const onMoveEnd = () => { clearTimeout(moveSettleTimer); moveSettleTimer = setTimeout(() => { moving = false; try { map.triggerRepaint?.(); } catch { /* */ } }, 100); };
   try { map.on?.("movestart", onMoveStart); map.on?.("moveend", onMoveEnd); } catch { /* */ }
+
+  // ── picking ── The 3D meshes are WebGL, not maplibre features, so a normal layer click
+  // can't hit them. Instead we project each rendered instance's interpolated world origin to
+  // screen with the globe matrix and match the cursor (same technique as the sprite sat
+  // layer). A hit dispatches `crep:asset:select` — the existing bridge opens the detail widget.
+  const projectNearest = (px: number, py: number, thr: number): string | null => {
+    let mat: number[] | undefined;
+    try { mat = map.transform?.getProjectionData?.({ applyGlobeMatrix: true })?.mainMatrix; } catch { /* */ }
+    if (!mat || !shouldRender() || count === 0) return null;
+    let cv: any; try { cv = map.getCanvas(); } catch { return null; }
+    const W = cv.clientWidth, H = cv.clientHeight;
+    const f = Math.min(1.2, (Date.now() - lastTickMs) / lastInterval);
+    let best: string | null = null, bestD = thr * thr;
+    for (let i = 0; i < count; i++) {
+      const g = curGeo[i];
+      const lng = g.plng + (g.lng - g.plng) * f, lat = g.plat + (g.lat - g.plat) * f;
+      const mm = stack.modelMatrixFor(lng, lat, visualZ(g.alt));
+      if (!mm) continue;
+      const x = mm[12], y = mm[13], z = mm[14]; // object world origin (matrix translation)
+      const cw = mat[3] * x + mat[7] * y + mat[11] * z + mat[15];
+      if (cw <= 0) continue; // behind camera
+      const cx = mat[0] * x + mat[4] * y + mat[8] * z + mat[12];
+      const cy = mat[1] * x + mat[5] * y + mat[9] * z + mat[13];
+      const sx = (cx / cw * 0.5 + 0.5) * W, sy = (1 - (cy / cw * 0.5 + 0.5)) * H;
+      const dx = sx - px, dy = sy - py, d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = g.id; }
+    }
+    return best;
+  };
+  const onClick = (e: any) => {
+    const hit = projectNearest(e.point.x, e.point.y, 18);
+    if (!hit) return;
+    try { (window as any).__crep_justPickedAt = Date.now(); } catch { /* */ }
+    try { window.dispatchEvent(new CustomEvent("crep:asset:select", { detail: { kind: cfg.selectKind, id: hit } })); } catch { /* */ }
+  };
+  let lastHoverMs = 0, iSetCursor = false;
+  const onHover = (e: any) => {
+    const now = Date.now(); if (now - lastHoverMs < 60) return; lastHoverMs = now;
+    const hit = projectNearest(e.point.x, e.point.y, 16);
+    try { const cv2 = map.getCanvas(); if (hit) { cv2.style.cursor = "pointer"; iSetCursor = true; } else if (iSetCursor) { cv2.style.cursor = ""; iSetCursor = false; } } catch { /* */ }
+  };
+  try { map.on?.("click", onClick); map.on?.("mousemove", onHover); } catch { /* */ }
+
   const unregister = stack.register({ group, animated: () => !disposed && count > 0, onFrame: () => { if (!disposed) place(); } });
   try { map.addLayer?.(stack.layer); } catch (e) { console.warn(`[bluesite] ${cfg.layerId} addLayer`, e); }
   rebuild(true);
@@ -307,6 +368,8 @@ export function mountMover3D(map: any, cfg: Mover3DConfig): Mover3DHandle {
       try { clearInterval(interval); } catch { /* */ }
       try { clearTimeout(moveSettleTimer); } catch { /* */ }
       try { map.off?.("movestart", onMoveStart); map.off?.("moveend", onMoveEnd); } catch { /* */ }
+      try { map.off?.("click", onClick); map.off?.("mousemove", onHover); } catch { /* */ }
+      try { if (iSetCursor) map.getCanvas().style.cursor = ""; } catch { /* */ }
       try { unregister(); } catch { /* */ }
       try { if (map.getLayer?.(stack.layer.id)) map.removeLayer(stack.layer.id); } catch { /* */ }
       try { geometry.dispose(); material.dispose(); } catch { /* */ }
@@ -323,7 +386,7 @@ export function mountMover3DLayer(map: any): Mover3DHandle {
     read: () => readArray("__crep_aircraft", 10500),
     sourceRef: () => (window as any).__crep_aircraft,
     buildGeometry: buildAirlinerGeometry,
-    baseColor: 0xf5c518, band: aircraftBand, charLen: 55,
+    baseColor: 0xf5c518, band: aircraftBand, charLen: 55, sizeMult: 7, selectKind: "aircraft",
     toggleLayerId: "aviation", nativeLayerIds: ["crep-live-aircraft-dot", "crep-live-aircraft-glow"],
     // minZoom 7: at world/continental view show the flat YELLOW v1 icons (small, not crowding);
     // the true-3D meshes only switch in once you're zoomed to where you can fly up to a plane.
@@ -338,7 +401,7 @@ export function mountVessel3DLayer(map: any): Mover3DHandle {
     read: () => readArray("__crep_vessels", 0),
     sourceRef: () => (window as any).__crep_vessels,
     buildGeometry: buildShipGeometry,
-    baseColor: 0x16d6c0, band: vesselBand, charLen: 64,
+    baseColor: 0x16d6c0, band: vesselBand, charLen: 64, sizeMult: 3, selectKind: "vessel",
     toggleLayerId: "ships", nativeLayerIds: ["crep-live-vessels-dot", "crep-live-vessels-glow"],
     // same as aircraft: flat dots at world view, 3D ship meshes once zoomed in close.
     maxInstances: 1000, minZoom: 7, headingFromMotion: true,
@@ -354,7 +417,7 @@ export function mountSatellite3DLayer(map: any): Mover3DHandle {
     read: () => readFeatureCollection("__crep_sat_fc", 550_000),
     sourceRef: () => (window as any).__crep_sat_fc,
     buildGeometry: buildSatelliteGeometry,
-    baseColor: 0x8a5cf6, band: satBand, charLen: 44,
+    baseColor: 0x8a5cf6, band: satBand, charLen: 44, sizeMult: 6, selectKind: "satellite",
     toggleLayerId: "satellites", nativeLayerIds: ["bluesite-movers"],
     maxInstances: 800, minZoom: 3.5, headingFromMotion: true,
   });
