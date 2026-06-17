@@ -104,5 +104,13 @@ export function getBlueSiteFlags(): BlueSiteFlags {
   if (!out.bluesite) {
     for (const k of keys) { if (k !== "bluesite") out[k] = false; }
   }
+
+  // ── HARD-OFF: true-3D mesh movers (planes / boats / satellite meshes) are DISABLED in
+  // code (Jun 17 2026). Morgan: "the 3D sats/planes/boats are ugly — turn them off so they
+  // don't work or waste resources or interfere with Earth Sim." This forces the flag off
+  // regardless of URL/localStorage/window, so the InstancedMesh layers never mount or run.
+  // The es3d SATELLITES-at-altitude sprite layer (moverAltitude) is unaffected and stays.
+  // Re-enable by deleting this line once the 3D meshes are reworked.
+  out.movers3d = false;
   return out;
 }

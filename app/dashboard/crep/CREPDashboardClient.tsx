@@ -16990,16 +16990,13 @@ export default function CREPDashboardPage({
       if (cancelled || handle) return;
       const map = (mapNativeRef.current || (window as any).__crep_map) as any;
       if (!ready(map)) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
-      const [{ mountMoverAltitudeLayer }, { mountMoverAircraftLayer }] = await Promise.all([
-        import("@/lib/crep/bluesite/mover-altitude-layer"),
-        import("@/lib/crep/bluesite/mover-aircraft-layer"),
-      ]);
+      const { mountMoverAltitudeLayer } = await import("@/lib/crep/bluesite/mover-altitude-layer");
       if (cancelled) return;
-      handle = mountMoverAltitudeLayer(map);           // satellites — orbital shell
-      // When the true-3D mesh movers are on, DON'T also mount the flat sprite aircraft
-      // (would double the planes); the 3D meshes replace them. Otherwise keep sprites.
-      if (!getBlueSiteFlags().movers3d) aircraftHandle = mountMoverAircraftLayer(map);
-      console.log("[bluesite] mover-altitude (satellites)" + (aircraftHandle ? " + sprite aircraft" : " [aircraft → 3D mesh]") + " mounted");
+      handle = mountMoverAltitudeLayer(map);           // satellites at orbital altitude (kept — Morgan wants this)
+      // 3D plane/boat objects are DISABLED in code (Jun 17 2026); planes/boats stay as the normal
+      // v1 flat layers. We don't mount the elevated sprite aircraft either, so planes look normal.
+      void aircraftHandle;
+      console.log("[bluesite] mover-altitude (satellites only) mounted; 3D plane/boat objects disabled");
     };
     tryMount();
     return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
@@ -17012,6 +17009,9 @@ export default function CREPDashboardPage({
   // A/B'd; dynamic-import so v1/prod is untouched.
   useEffect(() => {
     if (!isEarthSimulatorRoute) return;
+    // 3D mesh movers (planes/boats/sats) are hard-disabled in code (flags.ts forces movers3d
+    // off) — bail immediately so we never even start the mount poll or import the module.
+    if (!getBlueSiteFlags().movers3d) return;
     let cancelled = false;
     let handle: { dispose: () => void } | null = null;
     let tries = 0;
