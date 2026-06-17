@@ -25,7 +25,7 @@ function ensureMindexApiKey(): string {
  * - taxa get <id>: Get specific taxon
  * - observations list: List recent observations
  * - etl status: Get ETL pipeline status
- * - etl run: Not implemented here (returns 501; use upstream admin workflow when available)
+ * - etl run: Proxy POST to MINDEX /etl/run (registered job name required)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -234,14 +234,30 @@ async function executeETL(args: string[]): Promise<unknown | NextResponse> {
   }
 
   if (subcommand === "run") {
-    return NextResponse.json(
-      {
-        error: "MINDEX_ETL_RUN_NOT_IMPLEMENTED",
-        message:
-          "Manual ETL trigger is not implemented in this shell proxy. Use an upstream MINDEX operator workflow or admin API when one is configured and documented.",
+    const job = args[1] || "inat_taxa"
+    const apiKey = ensureMindexApiKey()
+    const response = await fetch(`${MINDEX_API_URL}/etl/run`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
       },
-      { status: 501 }
-    )
+      body: JSON.stringify({ job, full_sync: false }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!response.ok) {
+      const snippet = await response.text().catch(() => "")
+      return NextResponse.json(
+        {
+          error: "MINDEX_ETL_RUN_FAILED",
+          message: "MINDEX ETL run request failed. Check MINDEX_API_KEY and upstream job registry.",
+          upstream_status: response.status,
+          upstream_body_preview: snippet.slice(0, 500),
+        },
+        { status: response.status >= 500 ? 503 : response.status }
+      )
+    }
+    return await response.json()
   }
 
   return { error: "Usage: etl status | etl run" }

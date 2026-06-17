@@ -57,6 +57,7 @@ let propagator: SGP4Propagator | null = null
 let orbitPropagator: SGP4Propagator | null = null
 let computeOrbitPaths = false
 let lastTickTime = 0
+let virtualMs = 0 // accelerated virtual clock (ms) used when __crep_satTimeScale > 1
 let lastOrbitPathTime = 0
 let running = false
 let currentSatellites: SatelliteInput[] = []
@@ -150,15 +151,28 @@ function orbitPathsToFeatureCollection(
 
 // ─── Animation Loop ──────────────────────────────────────────────────────────
 
+/** Time-acceleration factor. 1 = real time (v1, unchanged). Earth Sim v2 sets
+ *  window.__crep_satTimeScale (e.g. 20) so the whole constellation visibly sweeps;
+ *  the elevated-mover layer interpolates smoothly between the faster ticks. */
+function getSatTimeScale(): number {
+  if (typeof window === "undefined") return 1
+  const t = Number((window as { __crep_satTimeScale?: number }).__crep_satTimeScale)
+  return Number.isFinite(t) && t >= 1 ? Math.min(t, 200) : 1
+}
+
 /** The main animation tick, called by requestAnimationFrame */
 function tick(timestamp: number) {
   if (!running) return
 
-  // Throttle to the tick interval
-  if (timestamp - lastTickTime < TICK_INTERVAL_MS) {
+  // Throttle. When accelerated, tick faster (600ms) so each interpolation segment
+  // stays a small orbital arc (smooth); real time (scale 1) keeps the 2.5s cadence.
+  const ts = getSatTimeScale()
+  const interval = ts > 1 ? 600 : TICK_INTERVAL_MS
+  if (timestamp - lastTickTime < interval) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
+  const realDelta = timestamp - lastTickTime
   lastTickTime = timestamp
 
   const map = mapRef
@@ -166,12 +180,28 @@ function tick(timestamp: number) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
-  if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) {
+  // Normally skip heavy propagation during camera interaction to keep pan smooth.
+  // But the Earth Sim v2 elevated-mover layer needs satellites to KEEP moving while
+  // the user pans/rotates (so they never freeze mid-spin / mid-follow), so it sets
+  // window.__crep_satPropagateWhileMoving to bypass this. (Jun 15 2026)
+  const propagateWhileMoving = typeof window !== "undefined" &&
+    (window as { __crep_satPropagateWhileMoving?: boolean }).__crep_satPropagateWhileMoving === true
+  if (!propagateWhileMoving && (map.isMoving?.() || map.isZooming?.() || map.isRotating?.())) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
 
-  const now = new Date()
+  // Accelerated virtual clock when ts>1 (gated by window.__crep_satTimeScale);
+  // otherwise real time, so v1 satellites are byte-for-byte unchanged.
+  let now: Date
+  if (ts > 1) {
+    if (virtualMs === 0) virtualMs = Date.now()
+    else virtualMs += Math.min(realDelta, 2000) * ts
+    now = new Date(virtualMs)
+  } else {
+    virtualMs = 0
+    now = new Date()
+  }
 
   if (useWorker && worker) {
     // Worker path: request propagation off-main-thread. Only fire a new

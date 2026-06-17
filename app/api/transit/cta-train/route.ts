@@ -18,7 +18,7 @@ const LINES = ["red", "blue", "brn", "g", "org", "p", "pink", "y"] as const
 
 export async function GET(req: NextRequest) {
   const key = process.env.CTA_TRAIN_TRACKER_API_KEY?.trim()
-  if (!key) return NextResponse.json({ ok: false, error: "CTA_TRAIN_TRACKER_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ ok: false, error: "CTA_TRAIN_TRACKER_API_KEY not configured" }, { status: 503 })
 
   const routesParam = (req.nextUrl.searchParams.get("routes") || "")
     .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)

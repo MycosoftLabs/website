@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (!key) {
     return NextResponse.json(
       { ok: false, error: "MARTA_API_KEY not configured" },
-      { status: 501 },
+      { status: 503 },
     )
   }
   const url = `${MARTA_VP}?apiKey=${encodeURIComponent(key)}`

@@ -23,7 +23,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     role: "mushroom1",
     page_href: "/devices/mushroom-1",
     firmware_repo: "mycobrain/firmware",
-    status: "Development",
+    status: "In production",
     default_location: { lat: 32.640278, lon: -117.085833 },
   },
   {
@@ -63,7 +63,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     role: "psathyrella",
     page_href: "/devices/psathyrella",
     firmware_repo: "mycobrain/firmware",
-    status: "Program",
+    status: "In production",
     default_location: null,
   },
   {
@@ -93,7 +93,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     role: "agaric_mini",
     page_href: "/devices/agaric",
     firmware_repo: "mycobrain/firmware/features/mycodrone",
-    status: "Development",
+    status: "In production",
     default_location: null,
   },
   {
@@ -103,7 +103,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     role: "agaric_standard",
     page_href: "/devices/agaric",
     firmware_repo: "mycobrain/firmware/features/mycodrone",
-    status: "Development",
+    status: "In production",
     default_location: null,
   },
   {
@@ -113,7 +113,7 @@ export const KNOWN_DEVICE_CATALOG: CatalogDevice[] = [
     role: "agaric_heavy",
     page_href: "/devices/agaric",
     firmware_repo: "mycobrain/firmware/features/mycodrone",
-    status: "Development",
+    status: "In production",
     default_location: null,
   },
 ]

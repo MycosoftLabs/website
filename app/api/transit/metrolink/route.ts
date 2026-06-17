@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
   const key = process.env.METROLINK_API_KEY?.trim()
-  if (!key) return NextResponse.json({ ok: false, error: "METROLINK_API_KEY not configured" }, { status: 501 })
+  if (!key) return NextResponse.json({ ok: false, error: "METROLINK_API_KEY not configured" }, { status: 503 })
   const bbox = parseBbox(req.nextUrl.searchParams.get("bbox"))
   const url = `https://api.simplifytransit.com/metrolink/vehicles/vehicles.pb?key=${encodeURIComponent(key)}`
   const result = await fetchVehiclePositions(url, {

@@ -400,7 +400,7 @@ export async function POST(
 
 /**
  * GET /api/mindex/ingest/[type]
- * Historical stub pointed at a non-existent MINDEX path — return explicit not-implemented.
+ * Write-only route — reads use MINDEX Worldview/earth endpoints.
  */
 export async function GET(
   _request: NextRequest,
@@ -417,10 +417,11 @@ export async function GET(
 
   return NextResponse.json(
     {
-      error: "Query via this route is not implemented",
-      hint: "Use MINDEX Worldview or earth map endpoints for reads; this route is write-only.",
+      error: "Method not allowed",
+      message: "This route accepts POST only. Use MINDEX Worldview or earth map endpoints for reads.",
       type,
+      read_endpoints: ["/api/mindex/worldview", "/api/mindex/earth"],
     },
-    { status: 501 },
+    { status: 405 },
   )
 }

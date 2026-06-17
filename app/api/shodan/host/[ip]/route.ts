@@ -14,7 +14,10 @@ export const dynamic = "force-dynamic"
 export async function GET(req: NextRequest, { params }: { params: { ip: string } }) {
   const key = process.env.SHODAN_API_KEY?.trim() || ""
   if (!key) {
-    return NextResponse.json({ error: "SHODAN_API_KEY not configured" }, { status: 501 })
+    return NextResponse.json(
+      { error: "SHODAN_API_KEY not configured", config_missing: true },
+      { status: 503 }
+    )
   }
 
   const ip = (params.ip || "").trim()

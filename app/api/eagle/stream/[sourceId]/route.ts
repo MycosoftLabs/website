@@ -49,6 +49,8 @@ const BAKED_GEOJSON_FILES = [
   "eagle-cameras-nyc-dc-seed.geojson",
   "eagle-cameras-vegas-seed.geojson",
   "eagle-cameras-deployment-sites-seed.geojson",
+  "eagle-cameras-hdontap-seed.geojson",
+  "eagle-cameras-youtube-live-seed.geojson",
 ]
 
 const UNAVAILABLE_SOURCE_STATUSES = new Set([
@@ -61,16 +63,16 @@ const UNAVAILABLE_SOURCE_STATUSES = new Set([
   "temporarily_unavailable",
 ])
 
+// Cameras CONFIRMED dead at the source with NO working replacement found (these
+// render red/off on the map). A camera lands here ONLY when the upstream source
+// is verified unavailable — NEVER automatically because our player failed to
+// render an existing feed. YouTube/website embeds always attempt (see below), so
+// "our system isn't rendering it" never blocks a feed that is actually live.
+// (Morgan, Jun 15 2026.) The Jun 15 SD harvest cleared the rest with verified
+// live replacements (see eagle-cameras-manual-seed.geojson).
 const KNOWN_UNAVAILABLE_SOURCE_IDS = new Set([
-  "earthcam-san-diego-bay",
-  "earthcam-sd-bay",
   "earthcam-imperial-beach-pier",
-  "nps-cabrillo-ref",
-  "caltrans-d11-sr75-silverstrand",
-  "caltrans-d11-sr75-coronado-bridge",
-  "caltrans-d11-sr75-orange-ave",
   "caltrans-d11-sr75-palm-ave",
-  "scripps-pier-sio-cam",
 ])
 
 const SOURCE_ID_ALIASES = new Map<string, string>([
@@ -508,6 +510,34 @@ async function resolveHdontapPageHls(pageUrl: string | null | undefined): Promis
   }
 }
 
+// HDOnTap blocks third-party VIDEO (token-gated HLS 403s even server-side; their
+// embed player CSP allows only *.hdontap.com). But the public wowza snapshot JPEG
+// on storage.hdontap.com is fetchable — we serve it as an auto-refreshing live
+// frame. The stream-page JSON-LD carries the thumbnailUrl. (Jun 15 2026.)
+const hdontapSnapshotCache = new Map<string, { url: string | null; expiresAt: number }>()
+async function resolveHdontapSnapshot(pageUrl: string | null | undefined): Promise<string | null> {
+  if (!pageUrl || !/hdontap\.com\/stream\//i.test(pageUrl)) return null
+  const cached = hdontapSnapshotCache.get(pageUrl)
+  if (cached && cached.expiresAt > Date.now()) return cached.url
+  let url: string | null = null
+  try {
+    const res = await fetch(pageUrl, {
+      headers: { Accept: "text/html,application/xhtml+xml", "User-Agent": "Mozilla/5.0 MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(6_000),
+      cache: "no-store",
+    })
+    if (res.ok) {
+      const html = await res.text()
+      const m =
+        /"thumbnailUrl"\s*:\s*\[?\s*"(https:\/\/storage\.hdontap\.com\/[^"\\]+\.jpg)"/i.exec(html) ||
+        /(https:\/\/storage\.hdontap\.com\/wowza_stream_thumbnails\/[^"'\\ ]+\.jpg)/i.exec(html)
+      if (m) url = m[1]
+    }
+  } catch { /* keep null */ }
+  hdontapSnapshotCache.set(pageUrl, { url, expiresAt: Date.now() + 5 * 60_000 })
+  return url
+}
+
 function extract511NyCameraKey(sourceId: string, embedUrl: string | null | undefined): string | null {
   const stripped = sourceId.replace(/^nysdot-/i, "")
   if (/^Skyline-\d+$/i.test(stripped)) return stripped
@@ -594,7 +624,8 @@ function shouldProxyHls(provider: string, url: string): boolean {
     /videos-\d+\.earthcam\.com/i.test(url) ||
     /live\.hdontap\.com/i.test(url) ||
     /d1wse1\.its\.nv\.gov/i.test(url) ||
-    /nysdot\.skyvdn\.com/i.test(url)
+    /nysdot\.skyvdn\.com/i.test(url) ||
+    /redideostudio\.com/i.test(url)
   )
 }
 
@@ -747,12 +778,10 @@ export async function GET(
     const directYouTube = normalizeYouTubeEmbedUrlSync(String(src.stream_url || "")) ||
       normalizeYouTubeEmbedUrlSync(String(src.embed_url || ""))
     if (directYouTube) {
-      if (sourceKnownUnavailable) {
-        return NextResponse.json(
-          { error: "youtube live stream unavailable", id: sourceId, provider, kind, source_status: sourceStatus || "temporarily_unavailable" },
-          { status: 503 },
-        )
-      }
+      // ALWAYS serve the YouTube iframe — never hard-block a YouTube/website feed
+      // because it was flagged or our player failed to render it before. YouTube's
+      // own player is the source of truth: it shows "video unavailable" only if the
+      // video is genuinely dead. (Morgan, Jun 15 2026 red-status policy.)
       return NextResponse.json({
         id: sourceId,
         provider,
@@ -800,8 +829,22 @@ export async function GET(
     }
 
     if (provider === "hdontap" && !isHls) {
-      const resolved = await resolveHdontapHls(src.embed_url)
-      if (resolved) streamUrl = resolved
+      const embed = String(src.embed_url || "")
+      if (/hdontap\.com\/stream\//i.test(embed)) {
+        // Full-catalog hdontap.com/stream pages: HDOnTap blocks third-party VIDEO
+        // (token-gated HLS 403s; embed CSP is *.hdontap.com only), so serve the
+        // public wowza snapshot as an auto-refreshing live frame; the widget links
+        // out to the full stream via embed_url. (Jun 15 2026.)
+        const thumb = isStillImageUrl(src.media_url) ? String(src.media_url) : await resolveHdontapSnapshot(embed)
+        const snap = proxiedStillImageUrl(thumb)
+        if (snap) {
+          return NextResponse.json({ id: sourceId, provider, kind, stream_url: snap, embed_url: embed, stream_type: "snapshot" })
+        }
+      } else {
+        // portal.hdontap.com/s/embed (Hotel del, etc.) resolve via the embed backend.
+        const resolved = await resolveHdontapHls(embed)
+        if (resolved) streamUrl = resolved
+      }
     }
 
     if (provider === "skylinewebcams" && !isHls) {

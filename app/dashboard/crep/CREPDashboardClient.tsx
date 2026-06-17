@@ -272,6 +272,10 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 // Apr 20, 2026 â€” Morgan: "realistic clouds over the crep map and globe in both
 // 2d and 3d realistically with altitude on 3d and density on both".
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
+// BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
+import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
+import { FireLayer } from "@/components/crep/earth2/fire-layer";
+import { SporeDispersalLayer } from "@/components/crep/earth2/spore-dispersal-layer";
 // Right-click â†’ waypoint / places-saving system. Apr 20, 2026 (Morgan:
 // "right click should be able to open up a widget for markers to add
 // waypoints check what this is and places saving").
@@ -291,6 +295,9 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 // Renders Project Oyster perimeter + Hâ‚‚S hotspot + river flow line +
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
+import NavChannelsLayer from "@/components/crep/layers/nav-channels-layer";
+import FeedLayer from "@/components/crep/layers/feed-layer";
+import { FEED_REGISTRY, FEED_GROUP_CATEGORY } from "@/lib/crep/feeds/registry";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
@@ -341,6 +348,9 @@ import type { Datacenter } from "@/components/crep/layers/datacenter-diamonds";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
 import { IconLayer as SatIconLayer } from "@deck.gl/layers";
 import { MapboxOverlay as SatMapboxOverlay } from "@deck.gl/mapbox";
+// Earth Simulator v2 (BlueSite) — feature flags. Tiny + three-free; the heavy
+// harness/three are dynamic-imported only when a v2 flag is on. (Jun 15, 2026)
+import { getBlueSiteFlags } from "@/lib/crep/bluesite/flags";
 import { PlantPopup } from "@/components/crep/popups/plant-popup";
 import { InfraDetailWidget, type InfraAsset, type InfraAssetType } from "@/components/crep/popups/infra-detail-widget";
 import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
@@ -2751,6 +2761,20 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "weather",
   "liveAqi",
   "realisticClouds",
+  // Jun 16 — nature/environment filters pulled OUT of the infrastructure "Other Map
+  // Assets" bucket into "Environment / Conditions". This Set is BOTH the allowlist for
+  // that section AND part of the infra panel's skipIds, so each lands in exactly ONE
+  // place (Environment), never both.
+  "buoys",            // Ocean Buoys (NDBC)
+  "bathymetry",       // Ocean Bathymetry (GEBCO)
+  "topography",       // Land Topography (hillshade)
+  "terrain3d",        // 3D Terrain (elevation)
+  "swpc-aurora",      // Aurora Oval (SWPC OVATION)
+  "gbif-fungi",       // Fungi Occurrences (GBIF)
+  "obis-marine",      // Marine Life Occurrences (OBIS)
+  "safecast-radiation",
+  "thingspeak-radiation",
+  "usgs-streamflow",  // River Gauges / Streamflow (USGS)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -7715,10 +7739,13 @@ const MOVING_OBJECT_LAYER_STACK = [
   "crep-live-transit-dot",
   "crep-live-vessels-glow",
   "crep-live-vessels-dot",
-  "crep-live-satellites-glow",
-  "crep-live-satellites-dot",
+  // Jun 16 — aircraft BELOW satellites: promoteMovingObjectLayers replays this
+  // array with moveLayer(no beforeId) so the LAST id wins the top. Aircraft must
+  // sit above ground/vessels but below satellites (which are higher altitude).
   "crep-live-aircraft-glow",
   "crep-live-aircraft-dot",
+  "crep-live-satellites-glow",
+  "crep-live-satellites-dot",
 ] as const;
 
 function promoteMovingObjectLayers(map: any) {
@@ -8869,6 +8896,8 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (!trackedAssetLock) return;
+    // v2 BlueSite cinematic chase-cam gate. OFF → byte-for-byte the v1 follow-cam.
+    const cinematic = getBlueSiteFlags().moverAltitude;
     let opened = false; // becomes true after the first tick opens the popup
     const tick = () => {
       const latest =
@@ -8896,17 +8925,35 @@ export default function CREPDashboardPage({
       }
       const map = mapNativeRef.current || mapRef;
       if (map?.easeTo) {
-        map.easeTo({
+        const isSat = trackedAssetLock.type === "satellite";
+        // Cinematic mode: dramatic pitch + bearing-lead (camera faces the mover's
+        // direction of travel) + continuous easing (duration == tick interval).
+        const ease: Record<string, unknown> = {
           center: [coord.lng, coord.lat],
-          zoom: trackedAssetLock.zoom ?? (trackedAssetLock.type === "satellite" ? 5 : 9),
-          pitch: trackedAssetLock.type === "satellite" ? 45 : 35,
-          duration: 650,
+          zoom: trackedAssetLock.zoom ?? (isSat ? 5 : 9),
+          duration: cinematic ? (isSat ? 700 : 900) : 650,
           essential: true,
-        });
+        };
+        if (cinematic) {
+          ease.pitch = isSat ? 50 : 58;
+          // bearing-lead only for low-altitude movers (rotating the whole globe to
+          // chase a satellite is disorienting); skip heading==0 (missing-data default).
+          if (!isSat && latest) {
+            const a = latest as any;
+            const hd = Number(a.heading ?? a.properties?.heading ?? a.track ?? a.properties?.track ?? a.cog ?? a.course ?? NaN);
+            if (Number.isFinite(hd) && hd !== 0) ease.bearing = hd;
+          }
+        } else {
+          ease.pitch = isSat ? 45 : 35;
+        }
+        map.easeTo(ease as any);
       }
     };
     tick();
-    const id = window.setInterval(tick, trackedAssetLock.type === "satellite" ? 700 : 1200);
+    const tickMs = cinematic
+      ? (trackedAssetLock.type === "satellite" ? 700 : 900)
+      : (trackedAssetLock.type === "satellite" ? 700 : 1200);
+    const id = window.setInterval(tick, tickMs);
     return () => window.clearInterval(id);
   }, [aircraft, mapRef, satellites, trackedAssetLock, vessels]);
 
@@ -10177,6 +10224,7 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasSamples", name: "Fungal Sequence Samples", category: "environment", icon: <Database className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f59e0b", description: "Zoom-gated GlobalFungi/GlobalAMFungi/GSMc sample points; raw sequences stay server-side." },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
     { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
+    { id: "navChannels", name: "Channels & Currents", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#22d3ee", description: "NOAA ENC maintained nav channels + fairways (charted depth) + CO-OPS tidal-current arrows (flood/ebb, knots). San Diego Bay + coastal; zoom in. Click a channel for name + depth." },
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
     // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
@@ -10313,6 +10361,7 @@ export default function CREPDashboardPage({
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM â€” bbox-scoped via PMTiles. Apr 22 2026 flipped ON per Morgan â€” viewport-scoped tile render only keeps wide-area OOM at bay." },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
+    { id: "terrain3d", name: "3D Terrain (elevation)", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: false, opacity: 1, color: "#4b5563", description: "Native 3D elevation — mountains rise + seafloor sinks on tilt (terrarium DEM). RESOURCE-HEAVY: viewport-LOD'd (zoom ≥5), pauses while you pan/zoom. Off by default." },
     { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap â€” global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace â€” CTR red / TRA amber / parks green. Apr 22 2026 OFF by default per Morgan â€” the fill polygons block icon clicks underneath the zone." },
@@ -10468,6 +10517,10 @@ export default function CREPDashboardPage({
     { id: "mojaveSensors",    name: "Goffs â€” Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
     { id: "mojaveHeatmap",    name: "Goffs â€” Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ], assetIsolationMode, isolatedFungalLayerIds), getRequestedFungalLayerIdsFromUrl());
+    // Config-driven feed layers (lib/crep/feeds/registry) — one toggle each, OFF by default.
+    for (const f of FEED_REGISTRY) {
+      initialLayers.push({ id: f.id, name: f.name, category: FEED_GROUP_CATEGORY[f.group], icon: <Activity className="w-3 h-3" />, enabled: f.default_on ?? false, opacity: 0.85, color: f.color, description: f.notes || "" } as LayerConfig);
+    }
     const layersWithInitialFilters =
       EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()
         ? initialLayers
@@ -12198,7 +12251,7 @@ export default function CREPDashboardPage({
       // lastEntityPickTimeRef; skip this dismiss so the SAME click that selected it
       // doesn't instantly close the widget (canvas picks aren't [data-marker] DOM
       // nodes, so the isInsideMarker check below can't catch them). (Jun 14, 2026)
-      if (Date.now() - (lastEntityPickTimeRef.current || 0) < 400) return;
+      if (Date.now() - Math.max(lastEntityPickTimeRef.current || 0, Number((window as any).__crep_justPickedAt) || 0) < 400) return;
 
       // If clicking outside popup, marker, panel, and event cards - dismiss all
       if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
@@ -15688,12 +15741,15 @@ export default function CREPDashboardPage({
     let intervalId: any = null;
     let lastTickAt = 0;
     const getTickMs = () => {
-      if (earthStrictPerfMode) return 2500;
+      // Jun 16 — tighter cadence so planes glide smoothly instead of stepping
+      // every ~0.5–1s. The setData coalescer caps GPU uploads at one per frame,
+      // so the only added cost is the (viewport-LOD'd) feature rebuild.
+      if (earthStrictPerfMode) return 1000;
       const zoom = mapZoomRef.current;
-      if (!Number.isFinite(zoom) || zoom < 3) return 1000;
-      if (zoom < 5) return 900;
-      if (zoom < 7) return 700;
-      return 500;
+      if (!Number.isFinite(zoom) || zoom < 3) return 400;
+      if (zoom < 5) return 350;
+      if (zoom < 7) return 280;
+      return 220;
     };
 
     // Apr 22, 2026 perf: one-rAF setData coalescer per source. Aircraft +
@@ -15722,7 +15778,11 @@ export default function CREPDashboardPage({
       if (shouldPauseMoverAnimation()) return;
       const map = mapNativeRef.current;
       if (!map || typeof map.getSource !== "function") return;
-      if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) return;
+      // Jun 16 — DON'T halt the pump during camera motion. On a globe isMoving()
+      // lingers through the inertial settle, so planes froze + detached from their
+      // tracks on every zoom/pan. The setData coalescer folds writes to one GPU
+      // upload per frame, so extrapolating through motion is cheap and keeps planes
+      // locked to their trajectories (terrain already pauses during motion).
       const lk = lastKnownRef.current;
       const nowMs = Date.now();
       try {
@@ -15740,11 +15800,11 @@ export default function CREPDashboardPage({
             ? "vessel"
             : null;
           if (!kind) continue;
-          const speed = Math.hypot(a.velLng, a.velLat);
-          const heading =
-            speed > 1e-9
-              ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360
-              : (a.heading ?? 0);
+          // Jun 16 — use the stored API heading (true compass bearing). Do NOT
+          // recompute from velLng/velLat: velLng carries a /cosLat correction for
+          // position extrapolation, so atan2(velLng,velLat) skews the angle and
+          // planes point "backwards"/wrong at non-equator latitudes.
+          const heading = a.heading ?? 0;
           // Apr 22, 2026 â€” is_helo flips the symbol layer to
           // helicopter-icon for rotorcraft (ICAO category 8 / aircraft
           // type regex). helicopterIdSetRef is rebuilt every pump poll
@@ -15863,11 +15923,8 @@ export default function CREPDashboardPage({
         const lng = anchor.lng + anchor.velLng * dtSec
         const lat = anchor.lat + anchor.velLat * dtSec
         if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue
-        const speed = Math.hypot(anchor.velLng, anchor.velLat)
-        const heading =
-          speed > 1e-9
-            ? (Math.atan2(anchor.velLng, anchor.velLat) * 180 / Math.PI + 360) % 360
-            : (anchor.heading ?? 0)
+        // Jun 16 — stored API heading, not the cosLat-skewed velocity recompute.
+        const heading = anchor.heading ?? 0
         const feat = {
           type: "Feature",
           id,
@@ -16806,6 +16863,190 @@ export default function CREPDashboardPage({
       return;
     }
   }, [isEarthSimulatorRoute, earthSimViewportPerfClass, projectionMode, mapRef]);
+
+  // ───────────────────────────────────────────────────────────────────────
+  // BlueSite v2 — Phase 1 POSITIONING SPIKE (gated ?bluesite=1&es3dspike=1).
+  // Mounts test markers via the new Three.js custom-layer harness to PROVE 3D
+  // content locks to the pitched globe at true altitude (the thing deck.gl
+  // couldn't do). Dynamic-imports three + the harness, so when the flag is OFF
+  // (v1, prod) NOTHING here loads — the bundle is untouched. QA via screenshot
+  // + window.__bluesite_spike. (Jun 15, 2026)
+  // ───────────────────────────────────────────────────────────────────────
+  // Easy v1 <-> v2 switch from the browser console (persists across reloads):
+  //   __es_v2_on()                 -> v2 (bluesite + mover altitude)
+  //   __es_v2_on({ smoke:true })   -> v2 with specific sub-layers on
+  //   __es_v2_off()                -> v1 (production behaviour)
+  //   __es_v2_status()             -> current resolved flags
+  // (URL ?bluesite=1&es3d=1… still works for one-off and overrides this.)
+  useEffect(() => {
+    if (!isEarthSimulatorRoute || typeof window === "undefined") return;
+    const w = window as any;
+    w.__es_v2_on = (subflags?: Record<string, boolean>) => {
+      try {
+        window.localStorage.setItem("es_v2", "1");
+        window.localStorage.setItem("es_v2_flags", JSON.stringify(subflags ?? { moverAltitude: true }));
+      } catch {}
+      window.location.href = window.location.pathname; // strip one-off ?flags; localStorage governs
+    };
+    w.__es_v2_off = () => {
+      try { window.localStorage.setItem("es_v2", "0"); window.localStorage.removeItem("es_v2_flags"); } catch {}
+      window.location.href = window.location.pathname; // back to a clean v1 URL
+    };
+    w.__es_v2_status = () => getBlueSiteFlags();
+    return () => { try { delete w.__es_v2_on; delete w.__es_v2_off; delete w.__es_v2_status; } catch {} };
+  }, [isEarthSimulatorRoute]);
+
+  useEffect(() => {
+    if (!isEarthSimulatorRoute || projectionMode !== "globe") return;
+    if (!getBlueSiteFlags().spike) return;
+    const map = mapNativeRef.current as any;
+    if (!map || typeof map.addLayer !== "function") return;
+
+    let cancelled = false;
+    let cleanup = () => {};
+    (async () => {
+      const THREE = await import("three");
+      const { createBlueSiteStack } = await import("@/lib/crep/bluesite/three-maplibre-layer");
+      if (cancelled) return;
+      const stack = createBlueSiteStack("bluesite-spike");
+      let scale = 60000; // model-unit→size; calibrated live via __bluesite_spike.setScale
+
+      // 4 surface markers at global cities (verify globe-correct placement across the
+      // sphere) + an altitude stack over San Diego (verify true elevation).
+      const markers: Array<{ name: string; lng: number; lat: number; alt: number; hex: number }> = [
+        { name: "San Diego", lng: -117.16, lat: 32.72, alt: 0, hex: 0x22ff66 },
+        { name: "New York", lng: -74.0, lat: 40.71, alt: 0, hex: 0x22ff66 },
+        { name: "London", lng: -0.13, lat: 51.51, alt: 0, hex: 0x22ff66 },
+        { name: "Tokyo", lng: 139.69, lat: 35.69, alt: 0, hex: 0x22ff66 },
+        { name: "SD cruise 11km", lng: -117.16, lat: 32.72, alt: 11_000, hex: 0x22d3ee },
+        { name: "SD LEO 550km", lng: -117.16, lat: 32.72, alt: 550_000, hex: 0xff44ff },
+      ];
+      const group = new THREE.Group();
+      const meshes = markers.map((m) => {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(1, 20, 20),
+          new THREE.MeshBasicMaterial({ color: m.hex, depthTest: false, transparent: true, opacity: 0.95 }),
+        );
+        group.add(mesh);
+        return mesh;
+      });
+      const apply = () => {
+        for (let i = 0; i < markers.length; i++) {
+          const arr = stack.modelMatrixFor(markers[i].lng, markers[i].lat, markers[i].alt);
+          if (!arr) continue;
+          const m = new THREE.Matrix4()
+            .fromArray(arr)
+            .multiply(new THREE.Matrix4().makeScale(scale, scale, scale));
+          m.decompose(meshes[i].position, meshes[i].quaternion, meshes[i].scale);
+        }
+      };
+      stack.register({ group, onFrame: apply });
+      try { map.addLayer(stack.layer); } catch (e) { console.warn("[bluesite-spike] addLayer", e); }
+      map.triggerRepaint();
+
+      (window as any).__bluesite_spike = {
+        setScale: (s: number) => { scale = s; map.triggerRepaint(); },
+        getScale: () => scale,
+        markers,
+        mounted: () => stack.isMounted(),
+        probe: () => ({
+          surfaceMatrix: !!stack.modelMatrixFor(-117.16, 32.72, 0),
+          leoMatrix: !!stack.modelMatrixFor(-117.16, 32.72, 550_000),
+          pitch: map.getPitch(), bearing: map.getBearing(), zoom: Math.round(map.getZoom() * 10) / 10,
+        }),
+      };
+      console.log(`[bluesite-spike] mounted ${markers.length} markers (scale=${scale})`);
+
+      cleanup = () => {
+        try { if (map.getLayer("bluesite-spike")) map.removeLayer("bluesite-spike"); } catch {}
+        try { delete (window as any).__bluesite_spike; } catch {}
+      };
+    })();
+
+    return () => { cancelled = true; cleanup(); };
+  }, [isEarthSimulatorRoute, projectionMode, mapRef]);
+
+  // ───────────────────────────────────────────────────────────────────────
+  // BlueSite v2 — MOVER-ALTITUDE LAYER (gated ?bluesite=1&es3d=1 / __es_v2_on()).
+  // Live satellites as elevated, SCREEN-SIZED icons locked to the globe (the real
+  // payoff of the spike). Dynamic-imports the module + three so v1/prod is untouched.
+  // ───────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isEarthSimulatorRoute) return;
+    if (!getBlueSiteFlags().moverAltitude) return;
+    let cancelled = false;
+    let handle: { dispose: () => void } | null = null;
+    let aircraftHandle: { dispose: () => void } | null = null;
+    let tries = 0;
+    let t: any = 0;
+    // The map on this heavy route can take well over 40s to become globe-ready, and the
+    // `projectionMode` React state lags the actual map projection — gating on either makes
+    // the layer silently never mount. Poll the REAL map projection instead, re-reading the
+    // flag each tick, until it is genuinely ready.
+    const ready = (map: any) =>
+      !!map && typeof map.addLayer === "function" && !!map.isStyleLoaded?.() &&
+      (() => { try { return map.getProjection?.()?.type === "globe"; } catch { return false; } })();
+    const tryMount = async () => {
+      if (cancelled || handle) return;
+      const map = (mapNativeRef.current || (window as any).__crep_map) as any;
+      if (!ready(map)) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
+      const { mountMoverAltitudeLayer } = await import("@/lib/crep/bluesite/mover-altitude-layer");
+      if (cancelled) return;
+      handle = mountMoverAltitudeLayer(map);           // satellites at orbital altitude (kept — Morgan wants this)
+      // 3D plane/boat objects are DISABLED in code (Jun 17 2026); planes/boats stay as the normal
+      // v1 flat layers. We don't mount the elevated sprite aircraft either, so planes look normal.
+      void aircraftHandle;
+      console.log("[bluesite] mover-altitude (satellites only) mounted; 3D plane/boat objects disabled");
+    };
+    tryMount();
+    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} try { aircraftHandle?.dispose(); } catch {} };
+  }, [isEarthSimulatorRoute]);
+
+  // ── BlueSite v2 — TRUE-3D MESH MOVERS (planes as oriented 3D objects) ──
+  // Gated by `movers3d` (?bluesite=1&movers3d=1). Renders aircraft as real 3D meshes
+  // oriented by heading (nose along track from ANY angle) — the fix for the flat-sprite
+  // "wrong heading on tilt" problem. Separate flag from the sprite movers so they can be
+  // A/B'd; dynamic-import so v1/prod is untouched.
+  useEffect(() => {
+    if (!isEarthSimulatorRoute) return;
+    // 3D mesh movers (planes/boats/sats) are hard-disabled in code (flags.ts forces movers3d
+    // off) — bail immediately so we never even start the mount poll or import the module.
+    if (!getBlueSiteFlags().movers3d) return;
+    let cancelled = false;
+    let handle: { dispose: () => void } | null = null;
+    let tries = 0;
+    let t: any = 0;
+    const getMap = () => (mapNativeRef.current || (window as any).__crep_map) as any;
+    const ready = (map: any) =>
+      !!map && typeof map.addLayer === "function" && !!map.isStyleLoaded?.() &&
+      (() => { try { return map.getProjection?.()?.type === "globe"; } catch { return false; } })();
+    const doMount = (map: any) => {
+      if (cancelled || handle) return Promise.resolve(handle);
+      return import("@/lib/crep/bluesite/mover-3d-layer").then((mod) => {
+        if (cancelled) return null;
+        // mount all three mover classes as true-3D meshes: planes + boats + satellites
+        const handles = [mod.mountMover3DLayer(map), mod.mountVessel3DLayer(map), mod.mountSatellite3DLayer(map)];
+        handle = { dispose: () => { for (const h of handles) { try { h?.dispose(); } catch { /* */ } } } };
+        (window as any).__crep_movers3d = handle;
+        const present = !!map.getLayer?.("bluesite-movers3d-aircraft");
+        console.log("[bluesite] true-3D mesh movers (aircraft + vessels + satellites) mounted; aircraftLayerPresent=" + present);
+        return handle;
+      }).catch((e) => { console.warn("[bluesite] 3D movers mount failed", e); return null; });
+    };
+    // Manual QA / on-demand mount hook (mount regardless of the poll state).
+    (window as any).__crep_mount3d = () => { const m = getMap(); if (ready(m)) return doMount(m); console.warn("[bluesite] __crep_mount3d: map not ready"); return null; };
+    // Poll until the map is genuinely globe-ready (this heavy route can need >40s) AND
+    // the flag is on — re-reading the flag each tick so a runtime toggle also catches.
+    const tryMount = () => {
+      if (cancelled || handle) return;
+      if (!getBlueSiteFlags().movers3d) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
+      const map = getMap();
+      if (!ready(map)) { if (tries++ < 600) t = setTimeout(tryMount, 600); return; }
+      doMount(map);
+    };
+    tryMount();
+    return () => { cancelled = true; try { clearTimeout(t); } catch {} try { handle?.dispose(); } catch {} try { delete (window as any).__crep_mount3d; } catch {} };
+  }, [isEarthSimulatorRoute]);
 
   useEffect(() => {
     if (auditAllOffMode || assetIsolationMode || isEarthSimulatorRoute || isSearchEmbedded || !isStreaming || !embeddedAllowsLiveEntityStream) {
@@ -22671,6 +22912,7 @@ export default function CREPDashboardPage({
               // load immediately on refresh as required.
               bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
               topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
+              terrain3d:      stableEarthOverlayAssetsReady && (layers.find(l => l.id === "terrain3d")?.enabled ?? false),
               satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
               railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
               railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
@@ -22740,6 +22982,19 @@ export default function CREPDashboardPage({
             gpuMode={earth2Filter.gpuMode !== "off"}
           />}
 
+          {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
+              SPORE DISPERSAL. These were built but dormant (unimported); wired here and
+              gated OFF by default — ?bluesite=1&smoke=1 / &spores3d=1. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().smoke && (
+            <>
+              <FireLayer map={mapRef.current} visible opacity={0.9} showAnimation showHeatShimmer />
+              <SmokeLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.75} showAnimation />
+            </>
+          )}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && getBlueSiteFlags().spores3d && (
+            <SporeDispersalLayer map={mapRef.current} visible forecastHours={earth2Filter.forecastHours} opacity={0.7} showConcentrationGradient />
+          )}
+
           {/* Right-click waypoint / places-saving system (Apr 20, 2026).
               Right-click the map â†’ context menu â†’ save / drop pin / copy
               lat-lng / "what's here" lookup. Persists to localStorage +
@@ -22762,6 +23017,14 @@ export default function CREPDashboardPage({
               pollution showcase (Apr 20, 2026). Federated overlay of
               IBWC river discharge + SDAPCD Hâ‚‚S hotspot + beach closures
               + Navy training waters + oyster restoration sites. */}
+          {!auditAllOffMode && !assetIsolationMode && <NavChannelsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "navChannels")?.enabled ?? false}
+          />}
+          {/* Config-driven data feeds (lib/crep/feeds/registry) — one FeedLayer per config, OFF by default. */}
+          {!auditAllOffMode && !assetIsolationMode && FEED_REGISTRY.map((f) => (
+            <FeedLayer key={f.id} map={mapRef} config={f} enabled={layers.find(l => l.id === f.id)?.enabled ?? false} />
+          ))}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}

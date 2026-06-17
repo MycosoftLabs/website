@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   if (!key) {
     return NextResponse.json(
       { ok: false, error: "CTA_BUS_TRACKER_API_KEY not configured" },
-      { status: 501 },
+      { status: 503 },
     )
   }
 

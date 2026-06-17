@@ -34,6 +34,7 @@ import {
 } from "@/lib/crep/static-infra-loader"
 import { applyInfraPointIconMinZoom } from "@/lib/crep/production-first-load"
 import { POWER_PLANT_MIN_ZOOM, RAILWAY_MIN_ZOOM, TELECOM_DETAIL_MIN_ZOOM } from "@/lib/crep/lod-policy"
+import { getBlueSiteFlags } from "@/lib/crep/bluesite/flags"
 import { getNexradStations } from "@/lib/crep/registries/radar-registry"
 import {
   eagleCameraClickLayerIds,
@@ -99,6 +100,8 @@ interface Props {
     bathymetry?: boolean
     /** Land hillshade from AWS Terrain Tiles (Mapzen terrarium DEM → MapLibre native hillshade). 30 m res, free, no key. */
     topography?: boolean
+    /** Native 3D terrain (map.setTerrain on the terrarium DEM) — resource-heavy, LOD-gated to zoom≥5, pauses while moving. Off by default. */
+    terrain3d?: boolean
     /** ESRI World Imagery HD satellite basemap — Google-Earth-level detail to zoom 19, free, no key. */
     satImagery?: boolean
     railwayTracks?: boolean
@@ -1569,6 +1572,98 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       }
     })()
   }, [map, styleReadyTick, enabled.topography])
+
+  // ─── 9b-2. BlueSite v2 — native 3D terrain (depth + altitude shell) ────
+  // Gated by the BlueSite `bathymetry` flag (?bluesite=1&bathymetry=1). The
+  // terrarium DEM (crep-topo-dem) encodes ocean depth as NEGATIVE elevation, so
+  // map.setTerrain raises mountains AND sinks the seafloor on tilt — the true-3D
+  // depth+altitude shell over the existing GEBCO colour + hillshade. Perf:
+  // terrain ~halves FPS at world view, so it's LOD-gated to zoom ≥ TERRAIN_MIN_ZOOM
+  // (flat globe when zoomed out; relief fades in regionally). OFF → setTerrain(null)
+  // = byte-for-byte the flat v1 globe. Exaggeration tunable via window.__es_v2.
+  useEffect(() => {
+    if (!map) return
+    // The "3D Terrain" layer toggle (enabled.terrain3d) is the SOLE authority — when it
+    // is off, terrain is off, full stop. (Previously the bathymetry flag could force it
+    // on, which left relief draped even after the user turned the toggle off.)
+    let on = false
+    try { on = (enabled as any).terrain3d === true } catch { /* off */ }
+    if (!on) {
+      try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
+      return
+    }
+    const TERRAIN_MIN_ZOOM = 5
+    // Only drape terrain when the camera is TILTED to an angle — looking straight down,
+    // elevation relief is imperceptible and just burns FPS. Flat / top-down view stays the
+    // fast flat globe and never pops relief on zoom. Tunable via window.__es_v2.
+    const TERRAIN_MIN_PITCH = (() => {
+      try { const v = (window as any).__es_v2?.terrainMinPitch; return Number.isFinite(v) ? Number(v) : 12 } catch { return 12 }
+    })()
+    const exaggeration = (() => {
+      try { const v = (window as any).__es_v2?.terrainExaggeration; return Number.isFinite(v) ? Number(v) : 1.5 } catch { return 1.5 }
+    })()
+    // Dedicated, lighter terrain DEM (maxzoom 11 → far fewer/coarser tiles than the
+    // z15 hillshade source = much smaller transient FPS dip while terrain streams;
+    // coarse relief is plenty for mountain ranges + ocean basins).
+    const TERRAIN_SRC = "crep-bluesite-terrain-dem"
+    const ensureDem = () => {
+      if (map.getSource(TERRAIN_SRC)) return true
+      try {
+        map.addSource(TERRAIN_SRC, {
+          type: "raster-dem",
+          tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+          tileSize: 256, encoding: "terrarium", maxzoom: 11,
+          attribution: "© Mapzen / AWS Terrain Tiles",
+        })
+        return true
+      } catch { return false }
+    }
+    // FPS guard — terrain is the single heaviest effect (~halves FPS). If the page drops
+    // below the floor while terrain is draped, pull it (back to flat = instant recovery) and
+    // keep it off until FPS recovers comfortably (hysteresis). Enforces the perf contract.
+    let fpsBlocked = false
+    let healthyTicks = 0
+    const TERR_FPS_FLOOR = (() => { try { const v = (window as any).__es_v2?.terrainFpsFloor; return Number.isFinite(v) ? Number(v) : 36 } catch { return 36 } })()
+    const apply = () => {
+      try {
+        if (!isMapStyleReady(map)) return
+        const z = map.getZoom?.() ?? 0
+        const pitch = map.getPitch?.() ?? 0
+        const want = z >= TERRAIN_MIN_ZOOM && pitch >= TERRAIN_MIN_PITCH && !fpsBlocked
+        const active = !!(map.getTerrain?.())
+        if (want && !active) { if (ensureDem()) map.setTerrain({ source: TERRAIN_SRC, exaggeration }) }
+        else if (!want && active) { map.setTerrain(null) }
+      } catch { /* ignore */ }
+    }
+    apply()
+    const fpsGuard = setInterval(() => {
+      try {
+        const fps = (window as any).__crep_fps?.fps
+        if (!Number.isFinite(fps)) return
+        if (fps < TERR_FPS_FLOOR) {
+          healthyTicks = 0
+          if (!fpsBlocked) { fpsBlocked = true; if (map.getTerrain?.()) map.setTerrain(null) }
+        } else if (fps >= TERR_FPS_FLOOR + 12) {           // recover only well above the floor
+          if (fpsBlocked && ++healthyTicks >= 3) { fpsBlocked = false; healthyTicks = 0; apply() }
+        }
+      } catch { /* ignore */ }
+    }, 1000)
+    // Pause terrain WHILE the camera is moving (pan/zoom/fly) — rendering the 3D mesh
+    // + streaming new terrain tiles mid-motion is what froze the map. Drop to the flat
+    // globe during movement (smooth), then re-apply 350ms after it settles. (Plan perf
+    // rule: pause heavy work during pan/zoom; this is the freeze fix.)
+    let resumeTimer: any = 0
+    const onMoveStart = () => { try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ } }
+    const onMoveEnd = () => { clearTimeout(resumeTimer); resumeTimer = setTimeout(apply, 350) }
+    const onStyle = () => apply()
+    try { map.on("movestart", onMoveStart); map.on("moveend", onMoveEnd); map.on("styledata", onStyle) } catch { /* ignore */ }
+    return () => {
+      clearTimeout(resumeTimer)
+      clearInterval(fpsGuard)
+      try { map.off("movestart", onMoveStart); map.off("moveend", onMoveEnd); map.off("styledata", onStyle) } catch { /* ignore */ }
+      try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
+    }
+  }, [map, styleReadyTick, (enabled as any).terrain3d])
 
   // ─── 9c. Satellite Imagery HD — ESRI World Imagery ─────────────────────
   // Morgan: "we need google earth maps level high detail images of the

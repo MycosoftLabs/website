@@ -67,6 +67,8 @@ const BAKED_GEOJSON_FILES = [
   "eagle-cameras-nyc-dc-seed.geojson",
   "eagle-cameras-vegas-seed.geojson",
   "eagle-cameras-deployment-sites-seed.geojson",
+  "eagle-cameras-hdontap-seed.geojson",
+  "eagle-cameras-youtube-live-seed.geojson",
 ] as const
 
 let bakedSourcesPromise: Promise<VideoSource[]> | null = null
@@ -256,6 +258,8 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined, fast
     `${origin}/api/eagle/connectors/traffic-511${qp}`,
     `${origin}/api/eagle/connectors/border-crossing${qp}`,
     `${origin}/api/eagle/connectors/webcamtaxi${qp}`,
+    // Full HDOnTap catalog — cached + background-refreshed (lib/crep/hdontap-catalog).
+    `${origin}/api/eagle/connectors/hdontap${qp}`,
   ]
   const SLOW_ENDPOINTS = [
     `${origin}/api/eagle/connectors/shinobi${qp}`,
