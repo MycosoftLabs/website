@@ -152,6 +152,9 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
     }
   };
 
+  // last good projection matrix — reused when a frame hands us none, so animated sub-layers
+  // (satellites) never blink off for a frame during load / projection transitions.
+  let lastMainMatrix: number[] | null = null;
   const layer: CustomLayerInterface = {
     id,
     type: "custom",
@@ -168,14 +171,18 @@ export function createBlueSiteStack(id = "bluesite-3d"): BlueSiteStack {
     render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: unknown) {
       if (!renderer || !map) return;
       // v5: the globe/mercator view-projection matrix lives on the render args.
-      const mainMatrix = (args as { defaultProjectionData?: { mainMatrix?: number[] } })
+      let mainMatrix = (args as { defaultProjectionData?: { mainMatrix?: number[] } })
         ?.defaultProjectionData?.mainMatrix;
+      // Some frames during heavy load / projection transitions arrive with NO matrix. Reusing
+      // the last good one keeps the satellites DRAWN at their last position instead of blinking
+      // off for that frame (the "satellites ticking on and off" flicker). Only truly skip if we
+      // have never received a matrix yet.
+      if (!mainMatrix) mainMatrix = lastMainMatrix ?? undefined;
       if (!mainMatrix) {
-        // Skip this frame, but keep the continuous-repaint loop alive so animated
-        // sub-layers (satellites) don't freeze if one frame lacks the matrix.
         if (anyAnimating()) scheduleRepaint();
         return;
       }
+      lastMainMatrix = mainMatrix;
       camera.projectionMatrix = new THREE.Matrix4().fromArray(mainMatrix as number[]);
 
       const ctx: BlueSiteFrameContext = {
