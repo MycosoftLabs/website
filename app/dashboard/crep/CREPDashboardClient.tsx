@@ -23003,7 +23003,7 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && (layers.find(l => l.id === "stormLightning")?.enabled ?? false) && <StormLightningLayer
             map={mapRef}
             enabled={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
-            sound={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
+            sound={false}
           />}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
