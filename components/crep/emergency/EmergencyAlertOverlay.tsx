@@ -1,30 +1,33 @@
 "use client";
 
 /**
- * Emergency Alert Overlay — GPS-geofenced life-safety warnings for the Earth Simulator.
+ * Emergency Alert Overlay — life-safety weather warnings for the Earth Simulator.
  *
- * When a user is physically inside an active NWS warning area (tornado, flash flood,
- * severe thunderstorm, etc.) this surfaces an unmissable banner with the official
- * protective-action instruction plus direct links to 911, live radar, the local
- * forecast, all nearby alerts, and preparedness info. Data is the authoritative
- * National Weather Service point query (`/api/crep/emergency-alerts`).
+ * Bottom-docked pop-up (desktop) that surfaces active NWS hazards with the official
+ * protective-action instruction + links to 911, live radar, the local forecast, all
+ * nearby alerts, and preparedness info. Data: the authoritative National Weather
+ * Service point query (`/api/crep/emergency-alerts`).
  *
- * Location: prefers the browser GPS ("YOUR LOCATION"); if GPS is denied/unavailable
- * it falls back to the current map center ("MAP AREA") so anyone *looking at* a
- * disaster zone still sees the warning.
+ * DUAL TRIGGER: it polls BOTH the browser GPS ("Your location") AND the current map
+ * center ("Map area"), so it fires whether you're physically in a warning OR you pan
+ * the map into one. Alerts from both points are merged + de-duped.
  *
- * FAIL-SAFE: it never shows a green "all clear". A verified location with no alerts
- * shows nothing; a location it could NOT verify (network/NWS error) shows an amber
- * "couldn't verify — here are direct links" bar instead of implying safety.
+ * ONLY POPS for genuine hazards (warnings, watches, emergencies, anything Severe/Extreme,
+ * and hazard statements like Special Weather / Beach Hazards) — routine advisories
+ * (Wind Advisory, Small Craft Advisory, etc.) are suppressed. Threshold is `isPopupWorthy`.
+ *
+ * Docked at the BOTTOM, above the stats bar; tuck it away with the chevron. Never a
+ * green "all clear"; a real alert persists through a transient fetch error.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle, Radio, CloudRain, Phone, ExternalLink, MapPin, X, ChevronUp, ShieldAlert, Navigation,
+  AlertTriangle, Radio, CloudRain, Phone, ExternalLink, MapPin, X, ChevronUp, ChevronDown, ShieldAlert, Navigation,
 } from "lucide-react";
 
 type Tier = "warning" | "watch" | "advisory" | "statement";
+type LocSource = "gps" | "map";
 
 interface EmergencyAlert {
   id: string;
@@ -43,13 +46,22 @@ interface EmergencyAlert {
   web: string | null;
   tier: Tier;
   lifeThreatening: boolean;
+  _source?: LocSource;
 }
 
 type LatLng = { lat: number; lng: number };
-type LocSource = "gps" | "map";
-type Status = "pending" | "ok" | "unsupported" | "error";
 
 const POLL_MS = 45_000;
+
+/** Pop up only for genuine hazards — not routine advisories. Easy to tighten/loosen. */
+function isPopupWorthy(a: EmergencyAlert): boolean {
+  if (a.lifeThreatening) return true;
+  if (/emergency/i.test(a.event)) return true;
+  if (a.severity === "Severe" || a.severity === "Extreme") return true;
+  if (a.tier === "warning" || a.tier === "watch") return true;
+  if (a.tier === "statement") return true;          // Special Weather / Beach Hazards / Coastal, etc.
+  return false;                                      // tier === "advisory" → suppressed
+}
 
 function radarUrl(p: LatLng) { return `https://www.windy.com/?radar,${p.lat.toFixed(3)},${p.lng.toFixed(3)},8`; }
 function forecastUrl(p: LatLng) { return `https://forecast.weather.gov/MapClick.php?lat=${p.lat.toFixed(4)}&lon=${p.lng.toFixed(4)}`; }
@@ -64,6 +76,7 @@ function prepUrl(event: string) {
   if (e.includes("winter") || e.includes("blizzard") || e.includes("ice") || e.includes("snow")) return "https://www.ready.gov/winter-weather";
   if (e.includes("heat")) return "https://www.ready.gov/extreme-heat";
   if (e.includes("fire") || e.includes("red flag")) return "https://www.ready.gov/wildfires";
+  if (e.includes("beach") || e.includes("rip current") || e.includes("surf") || e.includes("marine")) return "https://www.weather.gov/safety/ripcurrent";
   return "https://www.ready.gov/be-informed";
 }
 
@@ -81,7 +94,7 @@ const TIER_STYLE: Record<Tier, { bar: string; chip: string; label: string }> = {
   warning: { bar: "from-red-700 to-red-600 border-red-300", chip: "bg-red-950 text-red-100 border-red-400", label: "WARNING" },
   watch: { bar: "from-orange-600 to-amber-600 border-amber-300", chip: "bg-amber-950 text-amber-100 border-amber-400", label: "WATCH" },
   advisory: { bar: "from-yellow-600 to-yellow-500 border-yellow-300", chip: "bg-yellow-900 text-yellow-100 border-yellow-400", label: "ADVISORY" },
-  statement: { bar: "from-sky-700 to-sky-600 border-sky-300", chip: "bg-sky-950 text-sky-100 border-sky-400", label: "INFO" },
+  statement: { bar: "from-sky-700 to-sky-600 border-sky-300", chip: "bg-sky-950 text-sky-100 border-sky-400", label: "ADVISORY" },
 };
 
 export default function EmergencyAlertOverlay() {
@@ -89,18 +102,16 @@ export default function EmergencyAlertOverlay() {
   const [gpsState, setGpsState] = useState<"pending" | "granted" | "denied" | "unavailable">("pending");
   const [mapCenter, setMapCenter] = useState<LatLng | null>(null);
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
-  const [status, setStatus] = useState<Status>("pending");
   const [lastChecked, setLastChecked] = useState<number>(0);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [minimized, setMinimized] = useState(false);
   const [, force] = useState(0); // re-render for countdown ticking
   const announced = useRef<Set<string>>(new Set());
 
-  const loc = gps ?? mapCenter;
-  const locSource: LocSource | null = gps ? "gps" : mapCenter ? "map" : null;
-  const locKey = loc ? `${loc.lat.toFixed(2)},${loc.lng.toFixed(2)}` : null;
+  const gpsKey = gps ? `${gps.lat.toFixed(2)},${gps.lng.toFixed(2)}` : null;
+  const mapKey = mapCenter ? `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}` : null;
 
-  // ── GPS (preferred) ──────────────────────────────────────────────────────
+  // ── GPS watch ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) { setGpsState("unavailable"); return; }
     let id: number | null = null;
@@ -114,9 +125,9 @@ export default function EmergencyAlertOverlay() {
     return () => { try { if (id != null) navigator.geolocation.clearWatch(id); } catch { /* */ } };
   }, []);
 
-  // ── Map-center fallback (only when GPS is unavailable) ───────────────────
+  // ── Track the map center ALWAYS (not just as a GPS fallback) so panning into an
+  //    area shows that area's alerts. ─────────────────────────────────────────
   useEffect(() => {
-    if (gps) return;
     const read = () => {
       try {
         const m = (window as unknown as { __crep_map?: any }).__crep_map;
@@ -125,38 +136,47 @@ export default function EmergencyAlertOverlay() {
       } catch { /* */ }
     };
     read();
-    const iv = window.setInterval(read, 20_000);
+    const iv = window.setInterval(read, 15_000);
     let m: any;
     try { m = (window as unknown as { __crep_map?: any }).__crep_map; m?.on?.("moveend", read); } catch { /* */ }
     return () => { window.clearInterval(iv); try { m?.off?.("moveend", read); } catch { /* */ } };
-  }, [gps]);
+  }, []);
 
-  // ── Poll NWS for the active location ─────────────────────────────────────
+  // ── Poll NWS for BOTH the GPS point and the map center; merge + de-dupe ──────
   useEffect(() => {
-    if (!loc || !locKey) return;
+    const points: Array<LatLng & { source: LocSource }> = [];
+    if (gps) points.push({ ...gps, source: "gps" });
+    if (mapCenter && mapKey !== gpsKey) points.push({ ...mapCenter, source: "map" });
+    if (points.length === 0) return;
     let cancelled = false;
     const check = async () => {
-      try {
-        const r = await fetch(`/api/crep/emergency-alerts?lat=${loc.lat.toFixed(4)}&lng=${loc.lng.toFixed(4)}`, { cache: "no-store" });
-        const d = await r.json().catch(() => null);
-        if (cancelled) return;
-        if (d && d.ok) {
-          setAlerts(Array.isArray(d.alerts) ? d.alerts : []);
-          setStatus(d.supported === false ? "unsupported" : "ok");
-        } else {
-          setAlerts([]);
-          setStatus("error");
-        }
-        setLastChecked(Date.now());
-      } catch {
-        if (!cancelled) { setStatus("error"); setLastChecked(Date.now()); }
+      const results = await Promise.all(points.map(async (pt) => {
+        try {
+          const r = await fetch(`/api/crep/emergency-alerts?lat=${pt.lat.toFixed(4)}&lng=${pt.lng.toFixed(4)}`, { cache: "no-store" });
+          const d = await r.json().catch(() => null);
+          if (d && d.ok && Array.isArray(d.alerts)) return (d.alerts as EmergencyAlert[]).map((a) => ({ ...a, _source: pt.source }));
+          return null; // upstream error / unsupported → don't treat as "clear"
+        } catch { return null; }
+      }));
+      if (cancelled) return;
+      const anyError = results.some((r) => r === null);
+      const merged: EmergencyAlert[] = [];
+      const seen = new Set<string>();
+      for (const list of results) {
+        if (!list) continue;
+        for (const a of list) { if (seen.has(a.id)) continue; seen.add(a.id); merged.push(a); }
       }
+      // Never drop a known alert because of a transient blip: keep the last set if every
+      // point errored and we have nothing new.
+      if (anyError && merged.length === 0) { setLastChecked(Date.now()); return; }
+      setAlerts(merged);
+      setLastChecked(Date.now());
     };
     check();
     const iv = window.setInterval(check, POLL_MS);
     return () => { cancelled = true; window.clearInterval(iv); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locKey]);
+  }, [gpsKey, mapKey]);
 
   // ── Tick once a minute so the countdown stays fresh ──────────────────────
   useEffect(() => {
@@ -164,8 +184,11 @@ export default function EmergencyAlertOverlay() {
     return () => window.clearInterval(iv);
   }, []);
 
-  const active = alerts.filter((a) => !dismissed.has(a.id));
-  const lifeThreat = active.some((a) => a.lifeThreatening) || active.some((a) => a.tier === "warning");
+  const active = alerts.filter((a) => !dismissed.has(a.id) && isPopupWorthy(a));
+  // most urgent first
+  const rank = (a: EmergencyAlert) => (a.lifeThreatening ? 0 : a.tier === "warning" ? 1 : a.tier === "watch" ? 2 : a.tier === "statement" ? 3 : 4);
+  active.sort((a, b) => rank(a) - rank(b));
+  const lifeThreat = active.some((a) => a.lifeThreatening || a.tier === "warning");
 
   // ── Audible cue once per new life-threatening alert (best-effort) ────────
   useEffect(() => {
@@ -194,21 +217,21 @@ export default function EmergencyAlertOverlay() {
   }, [active.map((a) => a.id).join("|")]);
 
   if (typeof document === "undefined") return null;
-
-  const showError = status === "error" && active.length === 0;
-  if (active.length === 0 && !showError) return null; // verified clear OR still pending → render nothing
+  if (active.length === 0) return null; // verified clear OR still pending → render nothing
 
   const top = active[0];
-  const ts = top ? TIER_STYLE[top.tier] : TIER_STYLE.warning;
+  const ts = TIER_STYLE[top.tier];
+  const topLoc: LatLng | null = (top._source === "gps" ? gps : mapCenter) ?? gps ?? mapCenter;
   const updatedAgo = lastChecked ? Math.max(0, Math.round((Date.now() - lastChecked) / 1000)) : null;
 
-  // ── Minimized pill ───────────────────────────────────────────────────────
-  if (minimized && active.length > 0) {
+  // ── Tucked-away pill (bottom, above the stats bar) ───────────────────────
+  if (minimized) {
     return createPortal(
       <button
         onClick={() => setMinimized(false)}
-        className={`fixed top-3 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "animate-pulse" : ""}`}
+        className={`fixed bottom-2 md:bottom-10 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "animate-pulse" : ""}`}
         style={{ pointerEvents: "auto" }}
+        aria-label="Show emergency alert"
       >
         <ShieldAlert className="w-4 h-4" />
         {active.length === 1 ? top.event : `${active.length} active alerts`}
@@ -229,90 +252,66 @@ export default function EmergencyAlertOverlay() {
     </a>
   );
 
+  // Docked at the BOTTOM, lifted above the md+ stats bar via bottom padding so it never
+  // overlaps it. Slides up on appear (no-op if tailwindcss-animate isn't present).
   return createPortal(
-    <div className="fixed top-0 left-0 right-0 z-[100000] flex justify-center px-2 pt-2" style={{ pointerEvents: "none" }}>
+    <div className="fixed bottom-0 left-0 right-0 z-[100000] flex justify-center px-2 pb-2 md:pb-10" style={{ pointerEvents: "none" }}>
       <div
-        className={`w-full max-w-3xl rounded-xl border-2 shadow-2xl bg-gradient-to-r ${showError ? "from-amber-700 to-amber-600 border-amber-300" : ts.bar} ${lifeThreat ? "ring-4 ring-red-400/60 animate-pulse" : ""}`}
+        className={`w-full max-w-3xl rounded-xl border-2 shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "ring-4 ring-red-400/60 animate-pulse" : ""} animate-in fade-in slide-in-from-bottom-4 duration-300`}
         style={{ pointerEvents: "auto" }}
         role="alert"
         aria-live="assertive"
       >
-        {showError ? (
-          <div className="p-3 text-white">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <div className="font-bold text-sm">Couldn't verify local emergency alerts</div>
-                <div className="text-xs text-white/90 mt-0.5">The alert service is unreachable right now. Do not assume you are clear — use these official sources directly:</div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <LinkBtn href="tel:911" icon={<Phone className="w-3.5 h-3.5" />} strong>Call 911</LinkBtn>
-                  {loc && <LinkBtn href={radarUrl(loc)} icon={<Radio className="w-3.5 h-3.5" />}>Live Radar</LinkBtn>}
-                  {loc && <LinkBtn href={forecastUrl(loc)} icon={<CloudRain className="w-3.5 h-3.5" />}>Local Forecast</LinkBtn>}
-                  <LinkBtn href={ALL_ALERTS_URL} icon={<ExternalLink className="w-3.5 h-3.5" />}>All NWS Alerts</LinkBtn>
-                </div>
+        <div className="p-3 text-white">
+          {/* header */}
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="w-6 h-6 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight uppercase">{top.event}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${ts.chip}`}>{ts.label}</span>
+                {top.lifeThreatening && <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-red-700">LIFE-THREATENING</span>}
+                {active.length > 1 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/30 border border-white/30">+{active.length - 1} more</span>}
               </div>
-              <button onClick={() => setMinimized(true)} className="text-white/70 hover:text-white" aria-label="Minimize"><X className="w-4 h-4" /></button>
+              <div className="flex items-center gap-2 text-[11px] text-white/90 mt-1">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span className="truncate">{top.areaDesc || "your area"}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => setMinimized(true)} className="text-white/70 hover:text-white p-1" aria-label="Tuck away"><ChevronDown className="w-4 h-4" /></button>
+              {!top.lifeThreatening && (
+                <button onClick={() => setDismissed((s) => new Set(s).add(top.id))} className="text-white/70 hover:text-white p-1" aria-label="Dismiss this alert"><X className="w-4 h-4" /></button>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="p-3 text-white">
-            {/* header */}
-            <div className="flex items-start gap-2">
-              <ShieldAlert className="w-6 h-6 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center flex-wrap gap-2">
-                  <span className="text-base sm:text-lg font-extrabold tracking-tight uppercase">{top.event}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${ts.chip}`}>{ts.label}</span>
-                  {top.lifeThreatening && <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-white text-red-700">LIFE-THREATENING</span>}
-                  {active.length > 1 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/30 border border-white/30">+{active.length - 1} more</span>}
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-white/90 mt-1">
-                  <MapPin className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{top.areaDesc || "your area"}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => setMinimized(true)} className="text-white/70 hover:text-white p-1" aria-label="Minimize"><ChevronUp className="w-4 h-4" /></button>
-                {!top.lifeThreatening && (
-                  <button onClick={() => setDismissed((s) => new Set(s).add(top.id))} className="text-white/70 hover:text-white p-1" aria-label="Dismiss this alert"><X className="w-4 h-4" /></button>
-                )}
-              </div>
+
+          {/* protective-action instruction (verbatim from NWS) */}
+          {(top.instruction || top.headline) && (
+            <div className="mt-2 rounded-md bg-black/25 p-2 max-h-24 overflow-y-auto text-xs leading-snug whitespace-pre-line">
+              <span className="font-bold">What to do: </span>{top.instruction || top.headline}
             </div>
+          )}
 
-            {/* protective-action instruction (verbatim from NWS) */}
-            {(top.instruction || top.headline) && (
-              <div className="mt-2 rounded-md bg-black/25 p-2 max-h-28 overflow-y-auto text-xs leading-snug whitespace-pre-line">
-                <span className="font-bold">What to do: </span>{top.instruction || top.headline}
-              </div>
-            )}
-
-            {/* links */}
-            <div className="flex flex-wrap gap-2 mt-2">
-              <LinkBtn href="tel:911" icon={<Phone className="w-3.5 h-3.5" />} strong>Call 911</LinkBtn>
-              {loc && <LinkBtn href={radarUrl(loc)} icon={<Radio className="w-3.5 h-3.5" />}>Live Radar</LinkBtn>}
-              {loc && <LinkBtn href={forecastUrl(loc)} icon={<CloudRain className="w-3.5 h-3.5" />}>Local Forecast</LinkBtn>}
-              {top.web && <LinkBtn href={top.web} icon={<ExternalLink className="w-3.5 h-3.5" />}>Full Alert</LinkBtn>}
-              <LinkBtn href={prepUrl(top.event)} icon={<ShieldAlert className="w-3.5 h-3.5" />}>What to do</LinkBtn>
-              <LinkBtn href={ALL_ALERTS_URL} icon={<ExternalLink className="w-3.5 h-3.5" />}>All Alerts</LinkBtn>
-            </div>
-
-            {/* footer / trust line */}
-            <div className="flex items-center justify-between gap-2 mt-2 text-[10px] text-white/80">
-              <span className="flex items-center gap-1">
-                {locSource === "gps" ? <Navigation className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
-                {locSource === "gps" ? "Your location" : "Map area"} · Source: NWS{updatedAgo != null ? ` · updated ${updatedAgo < 90 ? `${updatedAgo}s` : `${Math.round(updatedAgo / 60)}m`} ago` : ""}
-              </span>
-              {(() => { const c = fmtCountdown(top.expires || top.ends); return c ? <span>Expires in {c}</span> : null; })()}
-            </div>
-
-            {/* gps-denied nudge: we fell back to map area, offer to enable precise location */}
-            {locSource === "map" && (gpsState === "denied" || gpsState === "unavailable") && (
-              <div className="mt-1 text-[10px] text-white/70">
-                Showing alerts for the map area. Enable location access for warnings at your exact position.
-              </div>
-            )}
+          {/* links */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <LinkBtn href="tel:911" icon={<Phone className="w-3.5 h-3.5" />} strong>Call 911</LinkBtn>
+            {topLoc && <LinkBtn href={radarUrl(topLoc)} icon={<Radio className="w-3.5 h-3.5" />}>Live Radar</LinkBtn>}
+            {topLoc && <LinkBtn href={forecastUrl(topLoc)} icon={<CloudRain className="w-3.5 h-3.5" />}>Local Forecast</LinkBtn>}
+            {top.web && <LinkBtn href={top.web} icon={<ExternalLink className="w-3.5 h-3.5" />}>Full Alert</LinkBtn>}
+            <LinkBtn href={prepUrl(top.event)} icon={<ShieldAlert className="w-3.5 h-3.5" />}>What to do</LinkBtn>
+            <LinkBtn href={ALL_ALERTS_URL} icon={<ExternalLink className="w-3.5 h-3.5" />}>All Alerts</LinkBtn>
           </div>
-        )}
+
+          {/* footer / trust line */}
+          <div className="flex items-center justify-between gap-2 mt-2 text-[10px] text-white/80">
+            <span className="flex items-center gap-1">
+              {top._source === "gps" ? <Navigation className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+              {top._source === "gps" ? "Your location" : "Map area"} · Source: NWS{updatedAgo != null ? ` · updated ${updatedAgo < 90 ? `${updatedAgo}s` : `${Math.round(updatedAgo / 60)}m`} ago` : ""}
+            </span>
+            {(() => { const c = fmtCountdown(top.expires || top.ends); return c ? <span>Expires in {c}</span> : null; })()}
+          </div>
+        </div>
       </div>
     </div>,
     document.body,
