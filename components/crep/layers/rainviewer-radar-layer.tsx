@@ -81,10 +81,10 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
           if (!m.getLayer(lid)) {
             m.addLayer({
               id: lid, type: "raster", source: sid,
-              // Hard-cut frame swaps: only the single visible frame ever paints (MapLibre skips
-              // raster layers at opacity 0), and there is NO continuous opacity transition pinning
-              // the map in a repaint loop. Big FPS win + reads as more obviously animated.
-              paint: { "raster-opacity": i === idx ? opacity : 0, "raster-opacity-transition": { duration: 0 }, "raster-fade-duration": 0 },
+              // Smooth crossfade between frames (280ms over the 500ms cadence) so precipitation
+              // dissolves frame-to-frame instead of hard-cutting. Only ~2 of the 12 light raster
+              // layers paint during a transition, so the cost is trivial next to the movers.
+              paint: { "raster-opacity": i === idx ? opacity : 0, "raster-opacity-transition": { duration: 280 }, "raster-fade-duration": 0 },
             }, beforeId);
           }
           layerIds.push(lid);
