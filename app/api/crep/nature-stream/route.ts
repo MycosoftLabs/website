@@ -32,7 +32,7 @@ export const maxDuration = 300 // 5 min connection lifetime, then client reconne
 
 const INAT_API = "https://api.inaturalist.org/v1"
 const MINDEX_API = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 const POLL_MS = 60_000 // 1 minute
 const HEARTBEAT_MS = 30_000 // 30s
 const WEBSITE_NATURE_STREAM_ENABLED = process.env.CREP_WEBSITE_ALLOW_NATURE_STREAM === "1"

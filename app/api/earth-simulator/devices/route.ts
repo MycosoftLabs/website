@@ -59,7 +59,7 @@ type EarthSimDevicesPayload = {
 
 const MAS_API_URL = resolveMasServerBaseUrl();
 const MINDEX_API_URL = resolveMindexServerBaseUrl();
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key";
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "";
 const MINDEX_INTERNAL_TOKEN = process.env.MINDEX_INTERNAL_TOKEN || "";
 const DEVICES_CACHE_TTL_MS = 25_000;
 const DEVICE_ONLINE_GRACE_MS = 10 * 60_000;

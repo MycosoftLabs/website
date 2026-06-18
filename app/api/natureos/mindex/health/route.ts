@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   try {
     // Check MINDEX FastAPI backend
     const mindexUrl = env.mindexApiBaseUrl
-    const apiKey = env.mindexApiKey || "local-dev-key"
+    const apiKey = env.mindexApiKey || ""
     
     const mindexStart = Date.now()
     try {

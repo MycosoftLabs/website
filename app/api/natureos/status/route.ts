@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 async function fetchStatus() {
   const mindexUrl = env.mindexApiBaseUrl
   const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   const status: Record<string, unknown> = {
     status: "ok",

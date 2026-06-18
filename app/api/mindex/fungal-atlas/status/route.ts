@@ -9,7 +9,7 @@ async function getMindexHealth() {
   const base = resolveMindexServerBaseUrl()
   try {
     const res = await fetch(`${base}/api/mindex/health`, {
-      headers: { "Accept": "application/json", "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key" },
+      headers: { "Accept": "application/json", "X-API-Key": process.env.MINDEX_API_KEY || "" },
       signal: AbortSignal.timeout(4000),
       cache: "no-store",
     })

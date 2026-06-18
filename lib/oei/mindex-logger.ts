@@ -209,7 +209,7 @@ export async function flushLogs(): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.MINDEX_API_KEY || 'local-dev-key',
+        'X-API-Key': process.env.MINDEX_API_KEY || '',
       },
       body: JSON.stringify({ logs: logsToSend }),
     });

@@ -71,7 +71,7 @@ async function fromMindex(bbox?: string, limit = 1000): Promise<Camera[]> {
     const res = await fetch(`${MINDEX_BASE}/api/mindex/earth/map/bbox?${qp}`, {
       headers: {
         Accept: "application/json",
-        "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+        "X-API-Key": process.env.MINDEX_API_KEY || "",
       },
       signal: AbortSignal.timeout(1_500),
     })

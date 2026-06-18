@@ -392,7 +392,7 @@ async function fetchMINDEXObservations(
         signal: AbortSignal.timeout(timeoutMs),
         headers: { 
           "Accept": "application/json",
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+          "X-API-Key": process.env.MINDEX_API_KEY || "",
         },
       })
 
@@ -479,7 +479,7 @@ async function fetchTaxaForObservations(
       {
         headers: {
           "Accept": "application/json",
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+          "X-API-Key": process.env.MINDEX_API_KEY || "",
         },
         signal: AbortSignal.timeout(Math.min(timeoutMs, 3000)),
       }
@@ -1638,7 +1638,7 @@ function cloneToMINDEX(observations: FungalObservation[]): void {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+      "X-API-Key": process.env.MINDEX_API_KEY || "",
     },
     body: JSON.stringify({ observations: payload }),
     signal: AbortSignal.timeout(30000),

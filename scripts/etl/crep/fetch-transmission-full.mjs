@@ -213,7 +213,7 @@ async function harvestOSM() {
 async function harvestMindex() {
   if (!process.env.MINDEX_API_URL) return []
   const base = process.env.MINDEX_API_URL
-  const key = process.env.MINDEX_API_KEY || "local-dev-key"
+  const key = process.env.MINDEX_API_KEY || ""
   try {
     const url = `${base}/api/mindex/earth/map/bbox?layer=transmission_lines&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=500000`
     const res = await fetch(url, {

@@ -343,7 +343,7 @@ export async function GET(req: NextRequest) {
         headers: {
           Accept: "application/json",
           ...(internalToken ? { "X-Internal-Token": internalToken } : {}),
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+          "X-API-Key": process.env.MINDEX_API_KEY || "",
         },
         signal: AbortSignal.timeout(MINDEX_TIMEOUT_MS),
         next: { revalidate: 86400 },

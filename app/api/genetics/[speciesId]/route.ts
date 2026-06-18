@@ -8,7 +8,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
  */
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 // Region metadata for display (used only when we have real sequences)
 const REGION_INFO: Record<string, { name: string; description: string }> = {

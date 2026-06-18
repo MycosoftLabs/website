@@ -11,7 +11,7 @@ const VALID_REGIONS = ["ITS", "LSU", "SSU", "TEF1", "RPB1", "RPB2", "FASTA"] as 
 type GeneticRegion = (typeof VALID_REGIONS)[number]
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 interface GeneticSequence {
   speciesId: string

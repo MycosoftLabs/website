@@ -28,7 +28,7 @@ async function fetchExportData() {
   }
 
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   try {
     const res = await fetch(

@@ -14,7 +14,7 @@ const MINDEX_URL =
   process.env.NEXT_PUBLIC_MINDEX_URL ||
   "http://192.168.0.189:8000"
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 
 /** Simple in-memory cache: key -> { data, ts } */

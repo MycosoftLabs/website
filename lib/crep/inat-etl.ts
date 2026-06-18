@@ -32,7 +32,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const INAT_API = "https://api.inaturalist.org/v1"
 const MINDEX_API = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 const PAGE_SIZE = 200 // iNat max
 const INTER_PAGE_MS = 1200 // stay under 1 req/sec

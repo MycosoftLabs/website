@@ -1,6 +1,6 @@
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 /**
  * Unauthenticated read to MINDEX public / API-key surface (used by BFF routes).

@@ -11,7 +11,7 @@ import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 // MINDEX API Configuration
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 // Types matching MINDEX API responses
 export interface MINDEXTaxon {
