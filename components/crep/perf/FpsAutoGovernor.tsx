@@ -67,7 +67,10 @@ export default function FpsAutoGovernor() {
       const f = w.__crep_fps;
       const fps = typeof f?.fps === "number" ? f.fps : null;
       const frameMs = typeof f?.frameMs === "number" ? f.frameMs : null;
-      if (fps == null || frameMs == null || frameMs > 1500) return;   // throttled/idle tab — skip
+      // document.hidden (above) is the reliable "backgrounded" signal; this frameMs backstop only
+      // skips a truly frozen/paused tab (>5s/frame), NOT a genuinely slow-but-active map — a real
+      // 1–5 fps map is exactly when we most need to shed.
+      if (fps == null || frameMs == null || frameMs > 5000) return;
 
       if (fps < LOW) { lowStreak.current++; highStreak.current = 0; }
       else if (fps > RECOVER) { highStreak.current++; lowStreak.current = 0; }
