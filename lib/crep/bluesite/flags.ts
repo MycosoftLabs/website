@@ -48,8 +48,12 @@ function truthy(v: unknown): boolean {
 
 export function getBlueSiteFlags(): BlueSiteFlags {
   const out = {
-    bluesite: false,
-    moverAltitude: false,
+    // DEFAULT-ON for all users (Jun 17 2026): the elevated-satellite view ships live. Morgan
+    // confirmed it on production — sats at orbital altitude, fluid, selectable. Only the master
+    // + moverAltitude default on; everything else stays off and `movers3d` is force-disabled
+    // below, so the 3D meshes still can't appear. Users can still force-off via ?bluesite=0.
+    bluesite: true,
+    moverAltitude: true,
     movers3d: false,
     smoke: false,
     clouds3d: false,
