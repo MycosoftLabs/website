@@ -240,10 +240,10 @@ export default function RealisticCloudLayer({
                 tileSize: 256,
                 attribution: "© RainViewer.com",
                 minzoom: 0,
-                // maxzoom=12 tells MapLibre to overzoom (auto-stretch)
-                // instead of requesting non-existent tiles. Upstream
-                // RainViewer publishes through zoom 12.
-                maxzoom: 12,
+                // RainViewer radar data only exists through zoom 7; z8+ returns
+                // a literal "Zoom Level Not Supported" placeholder PNG. maxzoom: 7
+                // makes MapLibre upscale the z7 tile at higher zooms instead.
+                maxzoom: 7,
               })
               const style = map.getStyle()
               const beforeId = style.layers.find((l: any) => l.type === "symbol")?.id
