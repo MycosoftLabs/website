@@ -19203,9 +19203,13 @@ export default function CREPDashboardPage({
                 void loadDetailedIcon("/crep/icons/helicopter.svg", "helicopter-icon");
                 // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
+                  minzoom: 3.5,
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
                 // Aircraft ICON (symbol layer â€” rotates by heading, detailed plane sprite)
+                // minzoom 3.5: NO planes at all below this (Morgan, Jun 18 2026) — layer-level
+                // gate so it holds regardless of which source (LOD path or live pump) fed the data.
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
+                  minzoom: 3.5,
                   layout: {
                     // Helicopters: ICAO category 8 (Rotorcraft), OpenSky
                     // `category: 8`, or aircraft type strings that match
