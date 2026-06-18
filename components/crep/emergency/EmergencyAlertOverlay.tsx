@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle, Radio, CloudRain, Phone, ExternalLink, MapPin, X, ChevronUp, ChevronDown, ShieldAlert, Navigation,
+  AlertTriangle, Radio, CloudRain, Phone, ExternalLink, MapPin, X, ChevronUp, ChevronDown, ShieldAlert, Navigation, Wind,
 } from "lucide-react";
 
 type Tier = "warning" | "watch" | "advisory" | "statement";
@@ -52,6 +52,25 @@ interface EmergencyAlert {
 type LatLng = { lat: number; lng: number };
 
 const POLL_MS = 45_000;
+
+interface WxState {
+  loading?: boolean; error?: boolean;
+  tempF?: number | null; tempUnit?: string; shortForecast?: string | null;
+  windSpeed?: string | null; windDirection?: string | null;
+  place?: string | null; icon?: string | null; radarUrl?: string | null;
+}
+
+// 5-min live-weather cache keyed by rounded point — re-renders + the 60s tick + 45s poll reuse it.
+const WX_CACHE = new Map<string, { at: number; data: WxState }>();
+
+/** Slippy-map tile x/y for a lat/lng/zoom — picks one RainViewer tile for the thumbnail. */
+function tileXY(lat: number, lng: number, z: number): { x: number; y: number } {
+  const n = 2 ** z;
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
+  return { x: Math.max(0, Math.min(n - 1, x)), y: Math.max(0, Math.min(n - 1, y)) };
+}
 
 /** Pop up only for genuine hazards — not routine advisories. Easy to tighten/loosen. */
 function isPopupWorthy(a: EmergencyAlert): boolean {
@@ -105,6 +124,8 @@ export default function EmergencyAlertOverlay() {
   const [lastChecked, setLastChecked] = useState<number>(0);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [minimized, setMinimized] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [wx, setWx] = useState<WxState | null>(null);
   const [, force] = useState(0); // re-render for countdown ticking
   const announced = useRef<Set<string>>(new Set());
 
@@ -189,6 +210,44 @@ export default function EmergencyAlertOverlay() {
   const rank = (a: EmergencyAlert) => (a.lifeThreatening ? 0 : a.tier === "warning" ? 1 : a.tier === "watch" ? 2 : a.tier === "statement" ? 3 : 4);
   active.sort((a, b) => rank(a) - rank(b));
   const lifeThreat = active.some((a) => a.lifeThreatening || a.tier === "warning");
+
+  // Point for the live-weather panel — computed BEFORE the early returns so the fetch hook
+  // below can use it (hooks can't run after a conditional return).
+  const panelTop = active[0];
+  const panelLoc: LatLng | null = panelTop ? ((panelTop._source === "gps" ? gps : mapCenter) ?? gps ?? mapCenter) : null;
+  const panelKey = panelLoc ? `${panelLoc.lat.toFixed(2)},${panelLoc.lng.toFixed(2)}` : null;
+
+  // ── Live weather (radar thumbnail + current NWS conditions) — fetched only on expand ──
+  useEffect(() => {
+    if (!expanded || !panelLoc || !panelKey) return;
+    const cached = WX_CACHE.get(panelKey);
+    if (cached && Date.now() - cached.at < 5 * 60_000) { setWx(cached.data); return; }
+    let cancelled = false;
+    setWx({ loading: true });
+    (async () => {
+      try {
+        const [wxRes, rv] = await Promise.all([
+          fetch(`/api/crep/weather-now?lat=${panelLoc.lat.toFixed(4)}&lng=${panelLoc.lng.toFixed(4)}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+          fetch("https://api.rainviewer.com/public/weather-maps.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+        ]);
+        if (cancelled) return;
+        let radarUrl: string | null = null;
+        try {
+          const host = rv?.host || "https://tilecache.rainviewer.com";
+          const past = Array.isArray(rv?.radar?.past) ? rv.radar.past : [];
+          const path = past[past.length - 1]?.path;
+          if (path) { const z = 6; const { x, y } = tileXY(panelLoc.lat, panelLoc.lng, z); radarUrl = `${host}${path}/256/${z}/${x}/${y}/4/1_1.png`; }
+        } catch { /* */ }
+        const data: WxState = (wxRes && wxRes.ok)
+          ? { tempF: wxRes.tempF, tempUnit: wxRes.tempUnit, shortForecast: wxRes.shortForecast, windSpeed: wxRes.windSpeed, windDirection: wxRes.windDirection, place: wxRes.place, icon: wxRes.icon, radarUrl }
+          : { error: true, radarUrl };
+        WX_CACHE.set(panelKey, { at: Date.now(), data });
+        setWx(data);
+      } catch { if (!cancelled) setWx({ error: true }); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, panelKey]);
 
   // ── Audible cue once per new life-threatening alert (best-effort) ────────
   useEffect(() => {
@@ -290,6 +349,50 @@ export default function EmergencyAlertOverlay() {
           {(top.instruction || top.headline) && (
             <div className="mt-2 rounded-md bg-black/25 p-2 max-h-24 overflow-y-auto text-xs leading-snug whitespace-pre-line">
               <span className="font-bold">What to do: </span>{top.instruction || top.headline}
+            </div>
+          )}
+
+          {/* LIVE WEATHER — radar thumbnail + current NWS conditions, fetched on expand */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-2 w-full flex items-center justify-between rounded-md bg-black/25 px-2 py-1.5 text-xs font-bold hover:bg-black/35 transition-colors"
+          >
+            <span className="flex items-center gap-1.5"><CloudRain className="w-3.5 h-3.5" /> Live weather &amp; radar</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          </button>
+          {expanded && (
+            <div className="mt-1 rounded-md bg-black/25 p-2 flex gap-3">
+              {wx?.radarUrl && (
+                <div className="relative shrink-0 rounded overflow-hidden border border-white/20" style={{ width: 120, height: 120 }}>
+                  <img src={wx.radarUrl} alt="Radar" width={120} height={120} loading="lazy" decoding="async" className="block bg-slate-900" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-2 h-2 rounded-full bg-white ring-2 ring-red-500" /></div>
+                  <div className="absolute bottom-0 inset-x-0 bg-black/50 text-[8px] text-center py-px">Radar · RainViewer</div>
+                </div>
+              )}
+              <div className="flex-1 min-w-0 text-xs">
+                {wx?.loading ? (
+                  <div className="text-white/70">Loading live weather…</div>
+                ) : (wx?.error || wx?.tempF == null) ? (
+                  <div className="text-white/70">Live conditions unavailable — use the Local Forecast / Live Radar links below.</div>
+                ) : (
+                  <div className="space-y-0.5">
+                    {wx?.place && <div className="font-semibold truncate">{wx.place}</div>}
+                    <div className="flex items-center gap-2">
+                      {wx?.icon && <img src={wx.icon} alt="" width={28} height={28} className="rounded" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
+                      <span className="text-2xl font-extrabold leading-none">{wx?.tempF != null ? `${wx.tempF}°${wx.tempUnit || "F"}` : "—"}</span>
+                    </div>
+                    {wx?.shortForecast && <div className="text-white/90">{wx.shortForecast}</div>}
+                    {wx?.windSpeed && <div className="flex items-center gap-1 text-white/80"><Wind className="w-3 h-3" />{wx.windSpeed}{wx.windDirection ? ` ${wx.windDirection}` : ""}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* full NWS alert text (verbatim) when expanded */}
+          {expanded && top.description && (
+            <div className="mt-1 rounded-md bg-black/25 p-2 max-h-40 overflow-y-auto text-[11px] leading-snug whitespace-pre-line text-white/90">
+              {top.description}
             </div>
           )}
 
