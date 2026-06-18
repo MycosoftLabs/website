@@ -2778,6 +2778,8 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "safecast-radiation",
   "thingspeak-radiation",
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
+  "weatherRadar",     // Live Weather Radar (animated RainViewer)
+  "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
