@@ -629,6 +629,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -842,6 +843,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* True-3D mesh mover engine (foundation) — planes as oriented 3D objects
 - *(earth-sim)* Boats + satellites as true-3D meshes; wire dormant smoke/fire/spore
 - *(earth-sim)* Hard-disable 3D mesh movers (planes/boats/sats) in code; keep satellite altitude
+- *(earth-sim)* Ship elevated satellites ON by default for all users
 
 ### Fix
 
