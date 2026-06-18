@@ -193,6 +193,7 @@ import { FungalMarker, type FungalObservation } from "@/components/crep/markers"
 
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
+import EmergencyAlertOverlay from "@/components/crep/emergency/EmergencyAlertOverlay";
 
 // Trajectory Lines for flight paths and ship routes
 import { TrajectoryLines } from "@/components/crep/trajectory-lines";
@@ -23025,6 +23026,12 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && FEED_REGISTRY.map((f) => (
             <FeedLayer key={f.id} map={mapRef} config={f} enabled={layers.find(l => l.id === f.id)?.enabled ?? false} />
           ))}
+          {/* LIFE-SAFETY: GPS-geofenced NWS emergency warnings (tornado / flash flood / severe
+              storms, etc.). ALWAYS mounted and NEVER gated off — it self-portals to <body> and
+              only appears when the user's GPS (or, if denied, the map area they're viewing) is
+              inside an active warning polygon. Shows the official protective-action instruction +
+              911 / live radar / forecast / preparedness links. Fail-safe: never a false all-clear. */}
+          <EmergencyAlertOverlay />
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
