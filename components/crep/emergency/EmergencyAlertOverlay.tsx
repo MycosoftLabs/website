@@ -123,11 +123,13 @@ export default function EmergencyAlertOverlay() {
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [lastChecked, setLastChecked] = useState<number>(0);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(true); // tucked/closed at start (Morgan)
+  const [hasNew, setHasNew] = useState(false); // blink the tucked pill when new alert info arrives
   const [expanded, setExpanded] = useState(false);
   const [wx, setWx] = useState<WxState | null>(null);
   const [, force] = useState(0); // re-render for countdown ticking
   const announced = useRef<Set<string>>(new Set());
+  const seenIds = useRef<Set<string>>(new Set());
 
   const gpsKey = gps ? `${gps.lat.toFixed(2)},${gps.lng.toFixed(2)}` : null;
   const mapKey = mapCenter ? `${mapCenter.lat.toFixed(2)},${mapCenter.lng.toFixed(2)}` : null;
@@ -254,7 +256,6 @@ export default function EmergencyAlertOverlay() {
     const fresh = active.filter((a) => (a.lifeThreatening || a.tier === "warning") && !announced.current.has(a.id));
     if (fresh.length === 0) return;
     fresh.forEach((a) => announced.current.add(a.id));
-    setMinimized(false);
     try {
       const Ctx = (window as unknown as { AudioContext?: any; webkitAudioContext?: any }).AudioContext
         || (window as unknown as { webkitAudioContext?: any }).webkitAudioContext;
@@ -275,6 +276,14 @@ export default function EmergencyAlertOverlay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.map((a) => a.id).join("|")]);
 
+  // ── Blink the tucked pill when a NEW alert appears (closed at start; blink on new info) ──
+  useEffect(() => {
+    let isNew = false;
+    for (const a of active) { if (!seenIds.current.has(a.id)) { seenIds.current.add(a.id); isNew = true; } }
+    if (isNew) setHasNew(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.map((a) => a.id).join("|")]);
+
   if (typeof document === "undefined") return null;
   if (active.length === 0) return null; // verified clear OR still pending → render nothing
 
@@ -287,13 +296,14 @@ export default function EmergencyAlertOverlay() {
   if (minimized) {
     return createPortal(
       <button
-        onClick={() => setMinimized(false)}
-        className={`fixed bottom-2 md:bottom-10 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "animate-pulse" : ""}`}
+        onClick={() => { setMinimized(false); setHasNew(false); }}
+        className={`fixed bottom-2 md:bottom-10 left-1/2 -translate-x-1/2 z-[100000] flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-white shadow-2xl bg-gradient-to-r ${ts.bar} ${(lifeThreat || hasNew) ? "animate-pulse" : ""} ${hasNew ? "ring-4 ring-yellow-300/80" : ""}`}
         style={{ pointerEvents: "auto" }}
         aria-label="Show emergency alert"
       >
         <ShieldAlert className="w-4 h-4" />
         {active.length === 1 ? top.event : `${active.length} active alerts`}
+        {hasNew && <span className="inline-flex h-2 w-2 rounded-full bg-yellow-300 ring-2 ring-yellow-100" aria-label="new" />}
         <ChevronUp className="w-4 h-4" />
       </button>,
       document.body,
