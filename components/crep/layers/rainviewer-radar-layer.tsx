@@ -72,12 +72,19 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
         const lid = `rainviewer-lyr-${i}`;
         const url = `${host}${f.path}/${TILE}/{z}/{x}/{y}/${COLOR_SCHEME}/${OPTIONS}.png`;
         try {
-          if (!m.getSource(sid)) m.addSource(sid, { type: "raster", tiles: [url], tileSize: TILE, maxzoom: 11, attribution: "RainViewer" } as never);
+          // RainViewer's radar mosaic only has data through zoom 7. Requesting z8+ returns a
+          // literal gray "Zoom Level Not Supported" placeholder PNG. Declaring maxzoom: 7 makes
+          // MapLibre upscale the z7 tile at every higher zoom (blurry-but-present radar, like all
+          // other weather maps) instead of fetching the placeholder. THIS is the fix for the boxes.
+          if (!m.getSource(sid)) m.addSource(sid, { type: "raster", tiles: [url], tileSize: TILE, maxzoom: 7, attribution: "RainViewer" } as never);
           sourceIds.push(sid);
           if (!m.getLayer(lid)) {
             m.addLayer({
               id: lid, type: "raster", source: sid,
-              paint: { "raster-opacity": i === idx ? opacity : 0, "raster-opacity-transition": { duration: 220 }, "raster-fade-duration": 0 },
+              // Hard-cut frame swaps: only the single visible frame ever paints (MapLibre skips
+              // raster layers at opacity 0), and there is NO continuous opacity transition pinning
+              // the map in a repaint loop. Big FPS win + reads as more obviously animated.
+              paint: { "raster-opacity": i === idx ? opacity : 0, "raster-opacity-transition": { duration: 0 }, "raster-fade-duration": 0 },
             }, beforeId);
           }
           layerIds.push(lid);

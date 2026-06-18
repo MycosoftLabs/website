@@ -109,33 +109,49 @@ export default function StormLightningLayer({ map, enabled, sound = false }: Pro
       } catch { /* */ }
     };
 
+    // ~30fps cap: bolts are brief flashes, so 60fps is wasteful. Critically, we ONLY call
+    // setData (which forces a full-map repaint) when the visible bolt set actually changes —
+    // a bolt spawned, one expired, or bolts are alive (flash circles grow each tick). With no
+    // storm cells in view the loop goes fully idle: the rAF just ticks a clock, the map never
+    // repaints. This is what keeps lightning from pinning the whole globe at <1 FPS.
+    let lastTick = 0;
+    const TICK_MS = 33;
     const frame = () => {
       if (cancelled) return;
       const now = Date.now();
-      const cells = cellsRef.current;
-      if (cells.length > 0 && now - lastSpawn > 90 && Math.random() < Math.min(0.9, 0.15 * cells.length)) {
-        lastSpawn = now;
-        const cell = cells[Math.floor(Math.random() * cells.length)];
-        let lng = cell.centroid[0], lat = cell.centroid[1];
-        for (let k = 0; k < 6; k++) {
-          const x = cell.bbox[0] + Math.random() * (cell.bbox[2] - cell.bbox[0]);
-          const y = cell.bbox[1] + Math.random() * (cell.bbox[3] - cell.bbox[1]);
-          if (inPoly(x, y, cell.polygon)) { lng = x; lat = y; break; }
+      if (now - lastTick >= TICK_MS) {
+        lastTick = now;
+        const cells = cellsRef.current;
+        let spawned = false;
+        if (cells.length > 0 && now - lastSpawn > 90 && Math.random() < Math.min(0.9, 0.15 * cells.length)) {
+          lastSpawn = now;
+          const cell = cells[Math.floor(Math.random() * cells.length)];
+          let lng = cell.centroid[0], lat = cell.centroid[1];
+          for (let k = 0; k < 6; k++) {
+            const x = cell.bbox[0] + Math.random() * (cell.bbox[2] - cell.bbox[0]);
+            const y = cell.bbox[1] + Math.random() * (cell.bbox[3] - cell.bbox[1]);
+            if (inPoly(x, y, cell.polygon)) { lng = x; lat = y; break; }
+          }
+          boltsRef.current.push({ line: makeBolt(lng, lat - 0.16), born: now, flash: [lng, lat] });
+          spawned = true;
+          try { const b = m.getBounds(); if (soundRef.current && b.contains([lng, lat]) && now - lastThunderRef.current > 2500) { lastThunderRef.current = now; thunder(); } } catch { /* */ }
         }
-        boltsRef.current.push({ line: makeBolt(lng, lat - 0.16), born: now, flash: [lng, lat] });
-        try { const b = m.getBounds(); if (soundRef.current && b.contains([lng, lat]) && now - lastThunderRef.current > 2500) { lastThunderRef.current = now; thunder(); } } catch { /* */ }
+        const before = boltsRef.current.length;
+        boltsRef.current = boltsRef.current.filter((b) => now - b.born < BOLT_LIFE);
+        const expired = boltsRef.current.length !== before;
+        if (spawned || expired || boltsRef.current.length > 0) {
+          try {
+            (m.getSource(BOLT_SRC) as { setData?: (d: unknown) => void } | undefined)?.setData?.({
+              type: "FeatureCollection",
+              features: boltsRef.current.map((b) => ({ type: "Feature", geometry: { type: "LineString", coordinates: b.line }, properties: {} })),
+            });
+            (m.getSource(FLASH_SRC) as { setData?: (d: unknown) => void } | undefined)?.setData?.({
+              type: "FeatureCollection",
+              features: boltsRef.current.map((b) => { const age = (now - b.born) / BOLT_LIFE; return { type: "Feature", geometry: { type: "Point", coordinates: b.flash }, properties: { r: 6 + age * 22 } }; }),
+            });
+          } catch { /* */ }
+        }
       }
-      boltsRef.current = boltsRef.current.filter((b) => now - b.born < BOLT_LIFE);
-      try {
-        (m.getSource(BOLT_SRC) as { setData?: (d: unknown) => void } | undefined)?.setData?.({
-          type: "FeatureCollection",
-          features: boltsRef.current.map((b) => ({ type: "Feature", geometry: { type: "LineString", coordinates: b.line }, properties: {} })),
-        });
-        (m.getSource(FLASH_SRC) as { setData?: (d: unknown) => void } | undefined)?.setData?.({
-          type: "FeatureCollection",
-          features: boltsRef.current.map((b) => { const age = (now - b.born) / BOLT_LIFE; return { type: "Feature", geometry: { type: "Point", coordinates: b.flash }, properties: { r: 6 + age * 22 } }; }),
-        });
-      } catch { /* */ }
       rafRef.current = requestAnimationFrame(frame);
     };
 
