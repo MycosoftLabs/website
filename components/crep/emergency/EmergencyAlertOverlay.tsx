@@ -256,6 +256,14 @@ export default function EmergencyAlertOverlay() {
     const fresh = active.filter((a) => (a.lifeThreatening || a.tier === "warning") && !announced.current.has(a.id));
     if (fresh.length === 0) return;
     fresh.forEach((a) => announced.current.add(a.id));
+    // Auto-open ONLY for a NEW life-threatening warning the user is physically INSIDE (the alert
+    // came from their GPS point) AND is currently LOOKING AT (their GPS point is in the map
+    // viewport). Anything else stays tucked and just blinks the pill. (Morgan, Jun 18 2026.)
+    try {
+      const m = (window as unknown as { __crep_map?: { getBounds?: () => { contains?: (p: [number, number]) => boolean } } }).__crep_map;
+      const inView = !!(gps && m?.getBounds?.()?.contains?.([gps.lng, gps.lat]));
+      if (inView && fresh.some((a) => a.lifeThreatening && a._source === "gps")) setMinimized(false);
+    } catch { /* */ }
     try {
       const Ctx = (window as unknown as { AudioContext?: any; webkitAudioContext?: any }).AudioContext
         || (window as unknown as { webkitAudioContext?: any }).webkitAudioContext;
