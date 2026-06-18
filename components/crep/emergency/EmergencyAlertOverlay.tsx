@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle, Radio, CloudRain, Phone, ExternalLink, MapPin, X, ChevronUp, ChevronDown, ShieldAlert, Navigation, Wind,
+  Radio, CloudRain, Phone, MapPin, X, ChevronUp, ChevronDown, ShieldAlert, Navigation, Wind,
 } from "lucide-react";
 
 type Tier = "warning" | "watch" | "advisory" | "statement";
@@ -80,22 +80,6 @@ function isPopupWorthy(a: EmergencyAlert): boolean {
   if (a.tier === "warning" || a.tier === "watch") return true;
   if (a.tier === "statement") return true;          // Special Weather / Beach Hazards / Coastal, etc.
   return false;                                      // tier === "advisory" → suppressed
-}
-
-function forecastUrl(p: LatLng) { return `https://forecast.weather.gov/MapClick.php?lat=${p.lat.toFixed(4)}&lon=${p.lng.toFixed(4)}`; }
-const ALL_ALERTS_URL = "https://alerts.weather.gov/";
-
-function prepUrl(event: string) {
-  const e = (event || "").toLowerCase();
-  if (e.includes("tornado")) return "https://www.ready.gov/tornadoes";
-  if (e.includes("flood")) return "https://www.ready.gov/floods";
-  if (e.includes("thunderstorm") || e.includes("lightning")) return "https://www.ready.gov/thunderstorms-lightning";
-  if (e.includes("hurricane") || e.includes("tropical")) return "https://www.ready.gov/hurricanes";
-  if (e.includes("winter") || e.includes("blizzard") || e.includes("ice") || e.includes("snow")) return "https://www.ready.gov/winter-weather";
-  if (e.includes("heat")) return "https://www.ready.gov/extreme-heat";
-  if (e.includes("fire") || e.includes("red flag")) return "https://www.ready.gov/wildfires";
-  if (e.includes("beach") || e.includes("rip current") || e.includes("surf") || e.includes("marine")) return "https://www.weather.gov/safety/ripcurrent";
-  return "https://www.ready.gov/be-informed";
 }
 
 function fmtCountdown(iso: string | null): string | null {
@@ -343,7 +327,7 @@ export default function EmergencyAlertOverlay() {
   return createPortal(
     <div className="fixed bottom-0 left-0 right-0 z-[100000] flex justify-center px-2 pb-2 md:pb-10" style={{ pointerEvents: "none" }}>
       <div
-        className={`w-full max-w-3xl rounded-xl border-2 shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "ring-4 ring-red-400/60 animate-pulse" : ""} animate-in fade-in slide-in-from-bottom-4 duration-300`}
+        className={`w-full max-w-lg rounded-xl border-2 shadow-2xl bg-gradient-to-r ${ts.bar} ${lifeThreat ? "ring-2 ring-red-400/70" : ""} animate-in fade-in slide-in-from-bottom-4 duration-300`}
         style={{ pointerEvents: "auto" }}
         role="alert"
         aria-live="assertive"
@@ -424,6 +408,10 @@ export default function EmergencyAlertOverlay() {
           )}
 
           {/* links */}
+          {/* Actions — on-platform only. 911 (a phone call) + turn on the Earth Simulator's own
+              live radar + open the Environment panel for the local forecast. No external data
+              links (Full Alert / What to do / All Alerts removed — that data lives in the sim and
+              the protective-action text is already shown inline above). */}
           <div className="flex flex-wrap gap-2 mt-2">
             <LinkBtn href="tel:911" icon={<Phone className="w-3.5 h-3.5" />} strong>Call 911</LinkBtn>
             <button
@@ -436,10 +424,16 @@ export default function EmergencyAlertOverlay() {
             >
               <Radio className="w-3.5 h-3.5" />Live Radar
             </button>
-            {topLoc && <LinkBtn href={forecastUrl(topLoc)} icon={<CloudRain className="w-3.5 h-3.5" />}>Local Forecast</LinkBtn>}
-            {top.web && <LinkBtn href={top.web} icon={<ExternalLink className="w-3.5 h-3.5" />}>Full Alert</LinkBtn>}
-            <LinkBtn href={prepUrl(top.event)} icon={<ShieldAlert className="w-3.5 h-3.5" />}>What to do</LinkBtn>
-            <LinkBtn href={ALL_ALERTS_URL} icon={<ExternalLink className="w-3.5 h-3.5" />}>All Alerts</LinkBtn>
+            <button
+              onClick={() => {
+                const open = (window as unknown as { __crep_openRightPanel?: (tab?: string) => unknown }).__crep_openRightPanel;
+                try { open?.("environment"); } catch { /* */ }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition-colors bg-black/30 text-white hover:bg-black/50 border border-white/30"
+              aria-label="Open the Environment panel with the local forecast"
+            >
+              <CloudRain className="w-3.5 h-3.5" />Local Forecast
+            </button>
           </div>
 
           {/* footer / trust line */}

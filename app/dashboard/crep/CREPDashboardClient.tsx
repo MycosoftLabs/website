@@ -194,6 +194,7 @@ import { FungalMarker, type FungalObservation } from "@/components/crep/markers"
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
 import EmergencyAlertOverlay from "@/components/crep/emergency/EmergencyAlertOverlay";
+import FpsAutoGovernor from "@/components/crep/perf/FpsAutoGovernor";
 
 // Trajectory Lines for flight paths and ship routes
 import { TrajectoryLines } from "@/components/crep/trajectory-lines";
@@ -12498,6 +12499,11 @@ export default function CREPDashboardPage({
       window.dispatchEvent(new CustomEvent("crep:layer", { detail: applied }));
       return applied;
     };
+    // Open the right-side panel to a given tab (e.g. "environment" for the local forecast).
+    // Used by the emergency overlay's "Local Forecast" button — keeps that data in-app.
+    (window as any).__crep_openRightPanel = (tab?: string) => {
+      try { setRightPanelOpen(true); if (tab) setRightPanelTab(tab); } catch { /* noop */ }
+    };
     (window as any).__crep_layers = () => layersRef.current.map(l => ({
       id: l.id,
       name: l.name,
@@ -12508,7 +12514,7 @@ export default function CREPDashboardPage({
     try {
       window.dispatchEvent(new CustomEvent("crep:qa-ready", { detail: { surface: "layers" } }));
     } catch { /* noop */ }
-  }, [setLayerEnabled]);
+  }, [setLayerEnabled, setRightPanelOpen, setRightPanelTab]);
 
   const setLayerOpacity = useCallback((layerId: string, opacity: number) => {
     const nextOpacity = Math.max(0, Math.min(1, opacity));
@@ -23055,6 +23061,10 @@ export default function CREPDashboardPage({
               inside an active warning polygon. Shows the official protective-action instruction +
               911 / live radar / forecast / preparedness links. Fail-safe: never a false all-clear. */}
           <EmergencyAlertOverlay />
+          {/* Auto-sheds the heaviest non-fungal layers (satellites → vessels → aircraft → dense
+              global infra) when live FPS stays below ~26, restores on recovery. Never touches
+              fungal/nature/emergency data. */}
+          <FpsAutoGovernor />
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
