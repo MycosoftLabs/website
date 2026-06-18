@@ -414,7 +414,7 @@ Add to `.env.local`:
 ```bash
 # MINDEX Configuration
 MINDEX_API_BASE_URL=http://localhost:8000
-MINDEX_API_KEY=local-dev-key
+MINDEX_API_KEY=<MINDEX_API_KEY>
 
 # Public (for client-side SDK)
 NEXT_PUBLIC_MINDEX_API_URL=/api/natureos/mindex

@@ -185,7 +185,7 @@ This ensures clicking a species card always opens the correct species, regardles
 # MINDEX API connection
 MINDEX_API_URL=http://localhost:8000
 MINDEX_API_BASE_URL=http://localhost:8000
-MINDEX_API_KEY=local-dev-key
+MINDEX_API_KEY=<MINDEX_API_KEY>
 
 # Fallback database (Neon)
 DATABASE_URL=postgresql://...
