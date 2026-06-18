@@ -15801,18 +15801,24 @@ export default function CREPDashboardPage({
       try {
         const acFeats: any[] = [];
         const vFeats: any[] = [];
+        // No aircraft pipeline below zoom 3.5 (Morgan, Jun 18 2026): planes are the heaviest
+        // mover (~150ms/frame, measured) and the cost is THIS per-frame dead-reckon + feature
+        // build, not the GPU paint. Skipping aircraft entirely below the floor is the real FPS
+        // win (and they're hidden there anyway). Determined kind-first so we skip before the math.
+        const hideAircraftBelowFloor = Number.isFinite(mapZoomRef.current) && mapZoomRef.current < 3.5;
         for (const id of Object.keys(lk)) {
           const a = lk[id];
           if (!a) continue;
-          const dtSec = Math.max(0, Math.min((nowMs - a.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000));
-          const lng = a.lng + a.velLng * dtSec;
-          const lat = a.lat + a.velLat * dtSec;
           const kind = aircraftIdSetRef.current.has(id)
             ? "aircraft"
             : vesselIdSetRef.current.has(id)
             ? "vessel"
             : null;
           if (!kind) continue;
+          if (kind === "aircraft" && hideAircraftBelowFloor) continue;
+          const dtSec = Math.max(0, Math.min((nowMs - a.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000));
+          const lng = a.lng + a.velLng * dtSec;
+          const lat = a.lat + a.velLat * dtSec;
           // Jun 16 — use the stored API heading (true compass bearing). Do NOT
           // recompute from velLng/velLat: velLng carries a /cosLat correction for
           // position extrapolation, so atan2(velLng,velLat) skews the angle and
