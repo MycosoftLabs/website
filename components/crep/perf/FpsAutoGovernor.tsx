@@ -36,9 +36,12 @@ const SHED_ORDER: Array<{ label: string; match: (id: string) => boolean }> = [
   { label: "dense global infra",   match: (id) => /^(txLines|submarineCables|cellTowersG|dataCentersG|powerPlantsG|substations|radioStations)/.test(id) },
 ];
 
-const LOW = 26;       // sustained below this → shed a step (target floor is 30)
-const RECOVER = 44;   // sustained above this → restore a step (gap from LOW avoids flapping)
+const LOW = 26;        // sustained below this → shed a step (target floor is 30)
+const RECOVER = 44;    // sustained above this → restore a step (gap from LOW avoids flapping)
 const CHECK_MS = 2000;
+const GRACE_MS = 20_000;   // ignore the chaotic load phase (FPS swings wildly while data streams init)
+const LOW_STREAK = 3;      // require ~6s of sustained-low before shedding (not a transient hitch)
+const HIGH_STREAK = 3;     // require ~6s of sustained-healthy before restoring
 
 type LayerState = { id: string; enabled: boolean };
 
@@ -57,8 +60,10 @@ export default function FpsAutoGovernor() {
     const setLayer = (id: string, on: boolean) => { try { w.__crep_setLayer?.(id, on); } catch { /* */ } };
     const layerState = () => { try { return w.__crep_layers?.() ?? []; } catch { return []; } };
 
+    const mountedAt = Date.now();
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return; // never shed a backgrounded tab
+      if (Date.now() - mountedAt < GRACE_MS) return;                  // let the page load + FPS settle first
       const f = w.__crep_fps;
       const fps = typeof f?.fps === "number" ? f.fps : null;
       const frameMs = typeof f?.frameMs === "number" ? f.frameMs : null;
@@ -69,7 +74,7 @@ export default function FpsAutoGovernor() {
       else { lowStreak.current = 0; highStreak.current = 0; }
 
       // Shed the next-heaviest group after 2 consecutive low samples.
-      if (lowStreak.current >= 2 && level.current < SHED_ORDER.length) {
+      if (lowStreak.current >= LOW_STREAK && level.current < SHED_ORDER.length) {
         const step = SHED_ORDER[level.current];
         const shed: string[] = [];
         for (const l of layerState()) {
@@ -83,7 +88,7 @@ export default function FpsAutoGovernor() {
       }
 
       // Restore one group after 3 consecutive healthy samples.
-      if (highStreak.current >= 3 && level.current > 0) {
+      if (highStreak.current >= HIGH_STREAK && level.current > 0) {
         level.current--;
         const shed = shedByUs.current[level.current] || [];
         for (const id of shed) setLayer(id, true);
