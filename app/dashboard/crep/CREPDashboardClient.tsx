@@ -194,7 +194,6 @@ import { FungalMarker, type FungalObservation } from "@/components/crep/markers"
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
 import EmergencyAlertOverlay from "@/components/crep/emergency/EmergencyAlertOverlay";
-import FpsAutoGovernor from "@/components/crep/perf/FpsAutoGovernor";
 
 // Trajectory Lines for flight paths and ship routes
 import { TrajectoryLines } from "@/components/crep/trajectory-lines";
@@ -23086,10 +23085,10 @@ export default function CREPDashboardPage({
               inside an active warning polygon. Shows the official protective-action instruction +
               911 / live radar / forecast / preparedness links. Fail-safe: never a false all-clear. */}
           <EmergencyAlertOverlay />
-          {/* Auto-sheds the heaviest non-fungal layers (satellites → vessels → aircraft → dense
-              global infra) when live FPS stays below ~26, restores on recovery. Never touches
-              fungal/nature/emergency data. */}
-          <FpsAutoGovernor />
+          {/* FpsAutoGovernor intentionally NOT mounted (Morgan, Jun 18 2026): it was a dev tool to
+              find the FPS hogs. Now that the mover LOD/zoom gates do the real work it must not run
+              or consume ANY resources. The component is kept at
+              components/crep/perf/FpsAutoGovernor.tsx — re-mount it only for dev profiling. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
