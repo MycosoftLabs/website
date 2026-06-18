@@ -15964,8 +15964,11 @@ export default function CREPDashboardPage({
       const { acFeats, vFeats } = buildFromAnchors()
       const bbox = mapBoundsRef.current
       const zoom = mapZoomRef.current
-      const acPicked = selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
-      const vPicked  = selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
+      // No plane/boat pipeline below zoom 3.5 (Morgan) — empty both sources so this pump-merge
+      // writer matches the rAF-loop gate: no compute, no render below the floor.
+      const hideMovers = Number.isFinite(zoom) && zoom < 3.5
+      const acPicked = hideMovers ? [] : selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
+      const vPicked  = hideMovers ? [] : selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
       ;(map.getSource("crep-live-aircraft") as any)?.setData?.({ type: "FeatureCollection", features: acPicked })
       ;(map.getSource("crep-live-vessels")  as any)?.setData?.({ type: "FeatureCollection", features: vPicked  })
       // Satellites: SGP4 animation owns crep-live-satellites (positions from TLE
@@ -19345,7 +19348,11 @@ export default function CREPDashboardPage({
                 // SGP4-propagated orbit ground tracks (next 90 min)
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-satellite-orbits", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
+                // minzoom 4: the ~376 orbit-ring polylines are the heaviest per-repaint satellite
+                // geometry AND visual clutter at globe scale. Hide them below 4 (sat DOTS still show
+                // + animate — the signature); rings reveal as you zoom in. (Morgan, Jun 18 2026.)
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
+                  minzoom: 4,
                   paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -19355,8 +19362,11 @@ export default function CREPDashboardPage({
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/vessel.svg", "vessel-icon");
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
+                  minzoom: 3.5,
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
+                // minzoom 3.5: no vessels below this (Morgan) — layer-level backstop to the pump gates.
                 map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
+                  minzoom: 3.5,
                   layout: {
                     "icon-image": "vessel-icon",
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.2, 6, 0.28, 10, 0.38, 14, 0.54],
