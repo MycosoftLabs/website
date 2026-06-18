@@ -72,7 +72,7 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
         const lid = `rainviewer-lyr-${i}`;
         const url = `${host}${f.path}/${TILE}/{z}/{x}/{y}/${COLOR_SCHEME}/${OPTIONS}.png`;
         try {
-          if (!m.getSource(sid)) m.addSource(sid, { type: "raster", tiles: [url], tileSize: TILE, attribution: "RainViewer" } as never);
+          if (!m.getSource(sid)) m.addSource(sid, { type: "raster", tiles: [url], tileSize: TILE, maxzoom: 11, attribution: "RainViewer" } as never);
           sourceIds.push(sid);
           if (!m.getLayer(lid)) {
             m.addLayer({
