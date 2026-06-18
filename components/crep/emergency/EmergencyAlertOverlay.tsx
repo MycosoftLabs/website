@@ -82,7 +82,6 @@ function isPopupWorthy(a: EmergencyAlert): boolean {
   return false;                                      // tier === "advisory" → suppressed
 }
 
-function radarUrl(p: LatLng) { return `https://www.windy.com/?radar,${p.lat.toFixed(3)},${p.lng.toFixed(3)},8`; }
 function forecastUrl(p: LatLng) { return `https://forecast.weather.gov/MapClick.php?lat=${p.lat.toFixed(4)}&lon=${p.lng.toFixed(4)}`; }
 const ALL_ALERTS_URL = "https://alerts.weather.gov/";
 
@@ -262,7 +261,17 @@ export default function EmergencyAlertOverlay() {
     try {
       const m = (window as unknown as { __crep_map?: { getBounds?: () => { contains?: (p: [number, number]) => boolean } } }).__crep_map;
       const inView = !!(gps && m?.getBounds?.()?.contains?.([gps.lng, gps.lat]));
-      if (inView && fresh.some((a) => a.lifeThreatening && a._source === "gps")) setMinimized(false);
+      // The user is physically INSIDE a new life-threatening warning (alert came from their GPS)
+      // AND is currently looking at that spot (GPS point in the viewport).
+      const insideEmergency = inView && fresh.some((a) => a.lifeThreatening && a._source === "gps");
+      if (insideEmergency) {
+        setMinimized(false);
+        // Auto-arm the live weather radar + lightning so the storm is immediately visible on the
+        // map. ONLY in this GPS-AND-viewport-in-emergency case (Morgan, Jun 18 2026) — never just
+        // from panning the map into a warning.
+        const setLayer = (window as unknown as { __crep_setLayer?: (id: string, on?: boolean) => unknown }).__crep_setLayer;
+        try { setLayer?.("weatherRadar", true); setLayer?.("stormLightning", true); } catch { /* */ }
+      }
     } catch { /* */ }
     try {
       const Ctx = (window as unknown as { AudioContext?: any; webkitAudioContext?: any }).AudioContext
@@ -417,7 +426,16 @@ export default function EmergencyAlertOverlay() {
           {/* links */}
           <div className="flex flex-wrap gap-2 mt-2">
             <LinkBtn href="tel:911" icon={<Phone className="w-3.5 h-3.5" />} strong>Call 911</LinkBtn>
-            {topLoc && <LinkBtn href={radarUrl(topLoc)} icon={<Radio className="w-3.5 h-3.5" />}>Live Radar</LinkBtn>}
+            <button
+              onClick={() => {
+                const setLayer = (window as unknown as { __crep_setLayer?: (id: string, on?: boolean) => unknown }).__crep_setLayer;
+                try { setLayer?.("weatherRadar", true); } catch { /* */ }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition-colors bg-cyan-600 text-white hover:bg-cyan-500 border border-cyan-300"
+              aria-label="Turn on the live weather radar on the map"
+            >
+              <Radio className="w-3.5 h-3.5" />Live Radar
+            </button>
             {topLoc && <LinkBtn href={forecastUrl(topLoc)} icon={<CloudRain className="w-3.5 h-3.5" />}>Local Forecast</LinkBtn>}
             {top.web && <LinkBtn href={top.web} icon={<ExternalLink className="w-3.5 h-3.5" />}>Full Alert</LinkBtn>}
             <LinkBtn href={prepUrl(top.event)} icon={<ShieldAlert className="w-3.5 h-3.5" />}>What to do</LinkBtn>

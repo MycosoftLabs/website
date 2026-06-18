@@ -99,7 +99,7 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
       }, Math.max(150, frameMs));
     };
 
-    (async () => {
+    const loadAndBuild = async () => {
       try {
         const res = await fetch(RAINVIEWER_API, { cache: "no-store" });
         if (!res.ok) return;
@@ -108,13 +108,20 @@ export default function RainViewerRadarLayer({ map, enabled, opacity = 0.7, fram
         const past = Array.isArray(d?.radar?.past) ? d.radar.past : [];
         const nowcast = Array.isArray(d?.radar?.nowcast) ? d.radar.nowcast : [];
         const frames = [...past, ...nowcast].slice(-12);
-        if (cancelled) return;
+        if (cancelled || frames.length === 0) return;
+        removeAll();   // drop the previous frame set, then rebuild with the fresh radar
+        idx = 0;
         const start = () => build(host, frames);
         if (m.isStyleLoaded?.()) start(); else m.once("idle", start);
       } catch { /* */ }
-    })();
+    };
 
-    return () => { cancelled = true; removeAll(); };
+    loadAndBuild();
+    // Pull fresh RainViewer frames every 5 min so a user who sits on the page keeps seeing NEW
+    // radar (RainViewer publishes a new past/nowcast frame every ~10 min) — not a frozen loop.
+    const refreshTimer = setInterval(loadAndBuild, 5 * 60_000);
+
+    return () => { cancelled = true; clearInterval(refreshTimer); removeAll(); };
   }, [map, enabled, opacity, frameMs]);
 
   return null;
