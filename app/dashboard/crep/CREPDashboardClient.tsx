@@ -274,6 +274,7 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 // 2d and 3d realistically with altitude on 3d and density on both".
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
 import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
+import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -10226,6 +10227,7 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasSamples", name: "Fungal Sequence Samples", category: "environment", icon: <Database className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f59e0b", description: "Zoom-gated GlobalFungi/GlobalAMFungi/GSMc sample points; raw sequences stay server-side." },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
     { id: "weatherRadar", name: "Live Weather Radar (animated)", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Animated RainViewer radar — past + nowcast precipitation frames cycle so weather visibly moves. Auto-enables during an active NWS warning." },
+    { id: "stormLightning", name: "Live Lightning + Thunder", category: "environment", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 1, color: "#a5b4fc", description: "Animated lightning bolts + thunder over active NWS thunderstorm/tornado warning cells (real storms)." },
     { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
     { id: "navChannels", name: "Channels & Currents", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#22d3ee", description: "NOAA ENC maintained nav channels + fairways (charted depth) + CO-OPS tidal-current arrows (flood/ebb, knots). San Diego Bay + coastal; zoom in. Click a channel for name + depth." },
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
@@ -22992,6 +22994,14 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={layers.find(l => l.id === "weatherRadar")?.enabled ?? false}
             opacity={layers.find(l => l.id === "weatherRadar")?.opacity ?? 0.7}
+          />}
+
+          {/* Live animated lightning bolts + thunder over real NWS storm-warning cells. Off by
+              default; toggle "Live Lightning + Thunder". Sound is gated to in-view strikes. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && (layers.find(l => l.id === "stormLightning")?.enabled ?? false) && <StormLightningLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
+            sound={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
           />}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
