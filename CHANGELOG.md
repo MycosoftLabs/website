@@ -383,6 +383,10 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Remove undeclared dataTick++ (ReferenceError) + add disposed guard to mover engine
 - *(earth-sim)* 3D movers — grow-on-zoom sizing, never-disappear, selectable
 - *(earth-sim)* Stop satellites blinking off — reuse last projection matrix when a frame lacks one
+- *(earth-sim)* Register weatherRadar + stormLightning in Environment panel allowlist
+- *(earth-sim)* Remove lightning thunder sound + cap radar maxzoom
+- *(earth-sim)* Kill 'Zoom Level Not Supported' radar tile + FPS killers
+- *(deploy)* Blue-green cutover robust to malformed prod .env lines (#217)
 
 ### CREP
 
@@ -630,6 +634,9 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -844,6 +851,14 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Boats + satellites as true-3D meshes; wire dormant smoke/fire/spore
 - *(earth-sim)* Hard-disable 3D mesh movers (planes/boats/sats) in code; keep satellite altitude
 - *(earth-sim)* Ship elevated satellites ON by default for all users
+- *(earth-sim)* GPS-geofenced life-safety emergency alerts (NWS)
+- *(earth-sim)* Emergency-weather widget WIP — bottom-docked popup + live radar layer + weather-now proxy
+- *(earth-sim)* Wire animated RainViewer radar layer + 'Live Weather Radar' toggle
+- *(earth-sim)* Live-weather panel inside the emergency popup
+- *(earth-sim)* Live lightning bolts + thunder over real NWS storm cells
+- *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
+- *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
+- *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
 
 ### Fix
 
@@ -934,6 +949,16 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* FPS governors enforce the >=30 floor (movers + terrain)
 - *(earth-sim)* Throttle BlueSite repaint to ~22fps + pause mover meshes during camera motion
 - *(earth-sim)* Zoom-adaptive BlueSite repaint throttle (fixes ~3fps at street-zoom+tilt)
+- *(earth-sim)* FPS auto-governor + smoother radar + lean emergency popup
+- *(earth-sim)* Broaden FPS governor to shed regional packs + dense infra
+- *(earth-sim)* Governor startup grace + longer streak (no load-phase thrash)
+- *(earth-sim)* Governor acts on genuinely-slow maps (frameMs guard 1500->5000)
+- *(earth-sim)* Heavy mover LOD + hide aircraft below zoom 3.5
+- *(earth-sim)* Layer-level minzoom 3.5 on aircraft (no planes below 3.5)
+- *(earth-sim)* Skip per-frame aircraft pipeline below zoom 3.5
+- *(earth-sim)* Gate vessels at pump too + turn off plane trajectory trails
+- *(earth-sim)* Gate vessels' 2nd writer + minzoom; hide sat orbit rings <4
+- *(earth-sim)* Remove FpsAutoGovernor from the tree (dev tool only)
 
 ### Refactor
 
