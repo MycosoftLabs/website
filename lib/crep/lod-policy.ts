@@ -122,6 +122,14 @@ export const INFRA_LINE_GLOBAL_MIN_ZOOM = 0
 /** Railway raster tiles — visible from state/region zoom (May 26, 2026). */
 export const RAILWAY_MIN_ZOOM = 5
 
+/**
+ * Aircraft stay COMPLETELY hidden below this zoom (Morgan, Jun 18 2026): "I don't want to see
+ * any planes at all on the map until I get to a zoom level that is more than three and a half."
+ * Planes are the single heaviest asset at globe scale (~0.5 ms/frame each — ~70% of the budget),
+ * so hiding them outright below the floor is both the look Morgan wants and a large FPS win.
+ */
+export const AIRCRAFT_MIN_ZOOM = 3.5
+
 export function isCityLevelZoom(
   zoom: number,
   bounds?: { north: number; south: number; east: number; west: number } | null,
@@ -163,7 +171,10 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "globe",
     zoomRange: [0, 3],
     events: { timeWindow: "7d", minSeverity: "high", maxRendered: 400 },
-    movers: { aircraft: 800, vessels: 1200, satellites: 800, bboxFilter: false },
+    // Heavy LOD at globe zoom — aircraft are ~0.5ms each (measured: 320 planes = ~150ms/frame,
+    // ~70% of the budget), vessels next, satellites cheap. You can't distinguish hundreds of
+    // movers at globe scale anyway; zoom in for full density. (Jun 18 2026, FPS audit.)
+    movers: { aircraft: 60, vessels: 120, satellites: 400, bboxFilter: false },
     infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 500 },
     // Apr 23, 2026 — Morgan: "green dots not selectable, masking cells".
     // Nature is DOM-marker rendered (FungalMarker → maplibregl.Marker per
@@ -180,7 +191,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "continent",
     zoomRange: [3, 5],
     events: { timeWindow: "14d", minSeverity: "medium", maxRendered: 800 },
-    movers: { aircraft: 1000, vessels: 1600, satellites: 900, bboxFilter: true },
+    movers: { aircraft: 120, vessels: 200, satellites: 450, bboxFilter: true },
     infra: { mindexEnabled: false, bundledEnabled: false, maxPerLayer: 1000 },
     nature: { timeWindow: "1y", qualityGrade: "all", maxRendered: 6000 },
   },
@@ -189,7 +200,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "region",
     zoomRange: [5, 7],
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 2400 },
-    movers: { aircraft: 1200, vessels: 2200, satellites: 1000, bboxFilter: true },
+    movers: { aircraft: 250, vessels: 400, satellites: 550, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 15000 },
     nature: { timeWindow: "5y", qualityGrade: "all", maxRendered: 9000 },
   },
@@ -198,7 +209,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "state",
     zoomRange: [7, 10],
     events: { timeWindow: "30d", minSeverity: "info", maxRendered: 3200 },
-    movers: { aircraft: 1500, vessels: 2500, satellites: 1200, bboxFilter: true },
+    movers: { aircraft: 500, vessels: 800, satellites: 700, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: 30000 },
     nature: { timeWindow: "all", qualityGrade: "all", maxRendered: 12000 },
   },
@@ -207,7 +218,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "city",
     zoomRange: [10, 13],
     events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
-    movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
+    movers: { aircraft: 900, vessels: 1_400, satellites: 900, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
     nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
@@ -216,7 +227,7 @@ export const LOD_TIERS: LODPolicy[] = [
     tier: "street",
     zoomRange: [13, 25],
     events: { timeWindow: "7d", minSeverity: "info", maxRendered: 4_000 },
-    movers: { aircraft: 2_000, vessels: 3_500, satellites: 1_200, bboxFilter: true },
+    movers: { aircraft: 1_200, vessels: 1_800, satellites: 1_000, bboxFilter: true },
     infra: { mindexEnabled: true, bundledEnabled: true, maxPerLayer: UNCAPPED_RENDER_LIMIT },
     nature: { timeWindow: "all", qualityGrade: "all", maxRendered: UNCAPPED_RENDER_LIMIT },
   },
@@ -348,6 +359,8 @@ export function applyLODToMovers<T>(
   zoom: number,
   bounds?: { north: number; south: number; east: number; west: number } | null,
 ): T[] {
+  // Hard floor: NO aircraft at all until past ~3.5 zoom (Morgan, Jun 18 2026).
+  if (kind === "aircraft" && zoom < AIRCRAFT_MIN_ZOOM) return []
   const lod = getLODForZoom(zoom)
   const cap = lod.movers[kind]
   if (!Number.isFinite(cap) || cap <= 0 || items.length <= cap) return items

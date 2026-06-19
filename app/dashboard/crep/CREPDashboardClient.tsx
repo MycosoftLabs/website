@@ -273,6 +273,8 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 // Apr 20, 2026 â€” Morgan: "realistic clouds over the crep map and globe in both
 // 2d and 3d realistically with altitude on 3d and density on both".
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
+import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
+import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -2776,6 +2778,8 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "safecast-radiation",
   "thingspeak-radiation",
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
+  "weatherRadar",     // Live Weather Radar (animated RainViewer)
+  "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -10224,6 +10228,8 @@ export default function CREPDashboardPage({
     { id: "fungalAtlasFci", name: "FCI Probe Priority", category: "environment", icon: <Crosshair className="w-3 h-3" />, enabled: false, opacity: 0.58, color: "#fb7185", description: "MYCA priority surface. Hidden until a real MINDEX-backed FCI model is available." },
     { id: "fungalAtlasSamples", name: "Fungal Sequence Samples", category: "environment", icon: <Database className="w-3 h-3" />, enabled: false, opacity: 1, color: "#f59e0b", description: "Zoom-gated GlobalFungi/GlobalAMFungi/GSMc sample points; raw sequences stay server-side." },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
+    { id: "weatherRadar", name: "Live Weather Radar (animated)", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Animated RainViewer radar — past + nowcast precipitation frames cycle so weather visibly moves. Auto-enables during an active NWS warning." },
+    { id: "stormLightning", name: "Live Lightning + Thunder", category: "environment", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 1, color: "#a5b4fc", description: "Animated lightning bolts + thunder over active NWS thunderstorm/tornado warning cells (real storms)." },
     { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
     { id: "navChannels", name: "Channels & Currents", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.75, color: "#22d3ee", description: "NOAA ENC maintained nav channels + fairways (charted depth) + CO-OPS tidal-current arrows (flood/ebb, knots). San Diego Bay + coastal; zoom in. Click a channel for name + depth." },
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
@@ -12492,6 +12498,11 @@ export default function CREPDashboardPage({
       window.dispatchEvent(new CustomEvent("crep:layer", { detail: applied }));
       return applied;
     };
+    // Open the right-side panel to a given tab (e.g. "environment" for the local forecast).
+    // Used by the emergency overlay's "Local Forecast" button — keeps that data in-app.
+    (window as any).__crep_openRightPanel = (tab?: string) => {
+      try { setRightPanelOpen(true); if (tab) setRightPanelTab(tab); } catch { /* noop */ }
+    };
     (window as any).__crep_layers = () => layersRef.current.map(l => ({
       id: l.id,
       name: l.name,
@@ -12502,7 +12513,7 @@ export default function CREPDashboardPage({
     try {
       window.dispatchEvent(new CustomEvent("crep:qa-ready", { detail: { surface: "layers" } }));
     } catch { /* noop */ }
-  }, [setLayerEnabled]);
+  }, [setLayerEnabled, setRightPanelOpen, setRightPanelTab]);
 
   const setLayerOpacity = useCallback((layerId: string, opacity: number) => {
     const nextOpacity = Math.max(0, Math.min(1, opacity));
@@ -15789,18 +15800,25 @@ export default function CREPDashboardPage({
       try {
         const acFeats: any[] = [];
         const vFeats: any[] = [];
+        // No plane OR vessel pump pipeline below zoom 3.5 (Morgan, Jun 18 2026): the per-frame
+        // dead-reckon + feature build for these movers is the FPS killer (planes ~150ms, vessels
+        // ~50ms), not the GPU paint. Skip them entirely below the floor (hidden there anyway).
+        // Code kept; they rebuild on zoom-in past the floor.
+        const zNow = mapZoomRef.current;
+        const hideMoversBelowFloor = Number.isFinite(zNow) && zNow < 3.5;
         for (const id of Object.keys(lk)) {
           const a = lk[id];
           if (!a) continue;
-          const dtSec = Math.max(0, Math.min((nowMs - a.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000));
-          const lng = a.lng + a.velLng * dtSec;
-          const lat = a.lat + a.velLat * dtSec;
           const kind = aircraftIdSetRef.current.has(id)
             ? "aircraft"
             : vesselIdSetRef.current.has(id)
             ? "vessel"
             : null;
           if (!kind) continue;
+          if (hideMoversBelowFloor) continue;
+          const dtSec = Math.max(0, Math.min((nowMs - a.ts) / 1000, MAX_EXTRAPOLATION_MS / 1000));
+          const lng = a.lng + a.velLng * dtSec;
+          const lat = a.lat + a.velLat * dtSec;
           // Jun 16 — use the stored API heading (true compass bearing). Do NOT
           // recompute from velLng/velLat: velLng carries a /cosLat correction for
           // position extrapolation, so atan2(velLng,velLat) skews the angle and
@@ -15945,8 +15963,11 @@ export default function CREPDashboardPage({
       const { acFeats, vFeats } = buildFromAnchors()
       const bbox = mapBoundsRef.current
       const zoom = mapZoomRef.current
-      const acPicked = selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
-      const vPicked  = selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
+      // No plane/boat pipeline below zoom 3.5 (Morgan) — empty both sources so this pump-merge
+      // writer matches the rAF-loop gate: no compute, no render below the floor.
+      const hideMovers = Number.isFinite(zoom) && zoom < 3.5
+      const acPicked = hideMovers ? [] : selectStableLiveMoverFeatures("aircraft", acFeats, bbox, zoom)
+      const vPicked  = hideMovers ? [] : selectStableLiveMoverFeatures("vessel", vFeats,  bbox, zoom)
       ;(map.getSource("crep-live-aircraft") as any)?.setData?.({ type: "FeatureCollection", features: acPicked })
       ;(map.getSource("crep-live-vessels")  as any)?.setData?.({ type: "FeatureCollection", features: vPicked  })
       // Satellites: SGP4 animation owns crep-live-satellites (positions from TLE
@@ -19191,9 +19212,13 @@ export default function CREPDashboardPage({
                 void loadDetailedIcon("/crep/icons/helicopter.svg", "helicopter-icon");
                 // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
+                  minzoom: 3.5,
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
                 // Aircraft ICON (symbol layer â€” rotates by heading, detailed plane sprite)
+                // minzoom 3.5: NO planes at all below this (Morgan, Jun 18 2026) — layer-level
+                // gate so it holds regardless of which source (LOD path or live pump) fed the data.
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
+                  minzoom: 3.5,
                   layout: {
                     // Helicopters: ICAO category 8 (Rotorcraft), OpenSky
                     // `category: 8`, or aircraft type strings that match
@@ -19322,7 +19347,11 @@ export default function CREPDashboardPage({
                 // SGP4-propagated orbit ground tracks (next 90 min)
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 map.addSource("crep-live-satellite-orbits", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
+                // minzoom 4: the ~376 orbit-ring polylines are the heaviest per-repaint satellite
+                // geometry AND visual clutter at globe scale. Hide them below 4 (sat DOTS still show
+                // + animate — the signature); rings reveal as you zoom in. (Morgan, Jun 18 2026.)
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
+                  minzoom: 4,
                   paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -19332,8 +19361,11 @@ export default function CREPDashboardPage({
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC, promoteId: "id" } as any);
                 void loadDetailedIcon("/crep/icons/vessel.svg", "vessel-icon");
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
+                  minzoom: 3.5,
                   paint: { "circle-radius": 0, "circle-opacity": 0 }});
+                // minzoom 3.5: no vessels below this (Morgan) — layer-level backstop to the pump gates.
                 map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
+                  minzoom: 3.5,
                   layout: {
                     "icon-image": "vessel-icon",
                     "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.2, 6, 0.28, 10, 0.38, 14, 0.54],
@@ -22397,9 +22429,13 @@ export default function CREPDashboardPage({
                 only show when one is selected like how seacable or
                 powerlines show when selected"). Passing selectedAircraftId
                 / selectedVesselId limits rendering to that single asset. */}
+          {/* Plane trajectory trails turned OFF entirely (Morgan, Jun 18 2026: "they shouldn't
+              even take a bit of resources … we can use them later, so don't delete them, just
+              turn them off"). Passing no aircraft = zero trail compute + zero render. Restore by
+              swapping `[]` back to `filteredAircraft` to re-enable. */}
           <TrajectoryLines
-              aircraft={isEmbeddedEarthquakeSearch ? [] : filteredAircraft}
-              vessels={isEmbeddedEarthquakeSearch ? [] : filteredVessels}
+              aircraft={[]}
+              vessels={[]}
               selectedAircraftId={selectedAircraft?.id ?? null}
               selectedVesselId={selectedVessel?.id ?? null}
             />
@@ -22983,6 +23019,23 @@ export default function CREPDashboardPage({
             gpuMode={earth2Filter.gpuMode !== "off"}
           />}
 
+          {/* Live animated weather radar (RainViewer) — past+nowcast frames cycle so weather
+              visibly moves. Same gating as RealisticCloudLayer; off by default (toggle "Live
+              Weather Radar"), auto-enabled during an active NWS alert. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && (layers.find(l => l.id === "weatherRadar")?.enabled ?? false) && <RainViewerRadarLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "weatherRadar")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "weatherRadar")?.opacity ?? 0.7}
+          />}
+
+          {/* Live animated lightning bolts + thunder over real NWS storm-warning cells. Off by
+              default; toggle "Live Lightning + Thunder". Sound is gated to in-view strikes. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && (layers.find(l => l.id === "stormLightning")?.enabled ?? false) && <StormLightningLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
+            sound={false}
+          />}
+
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
               SPORE DISPERSAL. These were built but dormant (unimported); wired here and
               gated OFF by default — ?bluesite=1&smoke=1 / &spores3d=1. */}
@@ -23032,6 +23085,10 @@ export default function CREPDashboardPage({
               inside an active warning polygon. Shows the official protective-action instruction +
               911 / live radar / forecast / preparedness links. Fail-safe: never a false all-clear. */}
           <EmergencyAlertOverlay />
+          {/* FpsAutoGovernor intentionally NOT mounted (Morgan, Jun 18 2026): it was a dev tool to
+              find the FPS hogs. Now that the mover LOD/zoom gates do the real work it must not run
+              or consume ANY resources. The component is kept at
+              components/crep/perf/FpsAutoGovernor.tsx — re-mount it only for dev profiling. */}
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && canRenderEarthStaticProjectDetails && oysterProjectInViewport && hasEnabledLayer(layers, OYSTER_PROJECT_LAYER_IDS) && <TijuanaEstuaryLayer
             map={mapRef}
             liveDataEnabled={canRenderEarthProjectDetails && shouldRenderHeavyOverlays}
