@@ -56,8 +56,9 @@ load_deploy_env() {
   local f="${DEPLOY_ENV_FILE:-/opt/mycosoft/deploy.env}"
   if [[ -f "$f" ]]; then
     set -a
+    # Robust source — see load_production_env: ignore malformed (non-KEY=VALUE) lines.
     # shellcheck disable=SC1090
-    source "$f"
+    source <(grep -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' "$f")
     set +a
   fi
   CF_ZONE_ID="${CF_ZONE_ID:-${CLOUDFLARE_ZONE_ID_PRODUCTION:-${CLOUDFLARE_ZONE_ID:-}}}"
@@ -70,8 +71,13 @@ load_production_env() {
   local env_file="${DEPLOY_DIR:-/opt/mycosoft/website}/.env"
   [[ -f "$env_file" ]] || { err "Missing production env: $env_file"; exit 8; }
   set -a
+  # Robust source: only well-formed KEY=VALUE assignment lines. A malformed line — e.g. a
+  # stray secret wrapped onto its own line without a KEY= prefix — would otherwise be run as
+  # a command under `source` and abort the whole deploy (exit 127) BEFORE any health/auth
+  # safety check, blocking every cutover. Filtering keeps all real vars, drops junk lines.
+  # (Jun 19 2026 — prod .env line-167 bare-token regression that blocked a deploy.)
   # shellcheck disable=SC1090
-  source "$env_file"
+  source <(grep -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' "$env_file")
   set +a
   # Never allow dev PC values on production VM
   if [[ "${NEXT_PUBLIC_BASE_URL:-}" == *localhost* ]]; then
