@@ -70,6 +70,38 @@ load_deploy_env() {
 load_production_env() {
   local env_file="${DEPLOY_DIR:-/opt/mycosoft/website}/.env"
   [[ -f "$env_file" ]] || { err "Missing production env: $env_file"; exit 8; }
+  # In-place sanitize: join KEY= + bare value line (Jun 19 2026 prod regression).
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$env_file" <<'PY' || true
+import sys
+from pathlib import Path
+p = Path(sys.argv[1])
+lines = p.read_text().splitlines()
+out, i, changed = [], 0, False
+while i < len(lines):
+    ln, s = lines[i], lines[i].strip()
+    if s and not s.startswith("#") and "=" not in s:
+        if out and out[-1].rstrip().endswith("="):
+            out[-1] = out[-1].rstrip() + s
+        else:
+            out.append("MINDEX_INTERNAL_TOKEN=" + s)
+        changed = True
+        i += 1
+        continue
+    if ln.rstrip().endswith("=") and i + 1 < len(lines):
+        nxt = lines[i + 1].strip()
+        if nxt and "=" not in nxt and not nxt.startswith("#"):
+            out.append(ln.rstrip() + nxt)
+            changed = True
+            i += 2
+            continue
+    out.append(ln)
+    i += 1
+if changed:
+    orig = p.read_text()
+    p.write_text("\n".join(out) + ("\n" if orig.endswith("\n") else ""))
+PY
+  fi
   set -a
   # Robust source: only well-formed KEY=VALUE assignment lines. A malformed line — e.g. a
   # stray secret wrapped onto its own line without a KEY= prefix — would otherwise be run as
