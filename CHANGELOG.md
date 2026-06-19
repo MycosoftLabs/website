@@ -386,6 +386,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Register weatherRadar + stormLightning in Environment panel allowlist
 - *(earth-sim)* Remove lightning thunder sound + cap radar maxzoom
 - *(earth-sim)* Kill 'Zoom Level Not Supported' radar tile + FPS killers
+- *(deploy)* Blue-green cutover robust to malformed prod .env lines (#217)
 
 ### CREP
 
@@ -625,6 +626,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Publish sanitized Earth Simulator technical reference + README to main (#199)
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
