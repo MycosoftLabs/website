@@ -18,7 +18,7 @@ interface BiodiversityMetrics {
 
 async function fetchBiodiversityMetrics(): Promise<BiodiversityMetrics> {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   const result: BiodiversityMetrics = {
     speciesCount: 0,

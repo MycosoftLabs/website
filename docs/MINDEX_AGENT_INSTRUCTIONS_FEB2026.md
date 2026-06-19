@@ -73,7 +73,7 @@ SQL
 docker restart mindex-api
 
 # Verify fix
-curl -H "X-API-Key: local-dev-key" http://localhost:8000/api/mindex/genetics?limit=1
+curl -H "X-API-Key: <MINDEX_API_KEY>" http://localhost:8000/api/mindex/genetics?limit=1
 ```
 
 ---
@@ -121,7 +121,7 @@ SQL
 docker restart mindex-api
 
 # Test fix
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/observations?limit=3"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/observations?limit=3"
 ```
 
 ---
@@ -185,7 +185,7 @@ cd /home/mycosoft/mycosoft/mindex
 docker exec mindex-api python -m mindex_etl.jobs.sync_observations --limit 500
 
 # OR trigger via API if endpoint exists
-curl -X POST -H "X-API-Key: local-dev-key" \
+curl -X POST -H "X-API-Key: <MINDEX_API_KEY>" \
   http://localhost:8000/api/mindex/observations/ingest \
   -H "Content-Type: application/json" \
   -d '{"source": "inaturalist", "taxa": ["Amanita", "Psilocybe", "Ganoderma", "Hericium"], "limit": 100}'
@@ -208,11 +208,11 @@ docker logs mindex-api --tail 100 2>&1 | grep -E "ERROR|500|exception" | tail -2
 curl http://localhost:8000/api/mindex/health
 
 # 4. Test each critical endpoint
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/taxa?limit=2"
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/genetics?limit=2"
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/compounds?limit=2"
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/observations?limit=2"
-curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/unified-search?q=Amanita&limit=3"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/taxa?limit=2"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/genetics?limit=2"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/compounds?limit=2"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/observations?limit=2"
+curl -H "X-API-Key: <MINDEX_API_KEY>" "http://localhost:8000/api/mindex/unified-search?q=Amanita&limit=3"
 
 # 5. Deploy updated code if needed
 cd /home/mycosoft/mycosoft/mindex
@@ -228,7 +228,7 @@ docker compose up -d mindex-api
 
 The website (`192.168.0.187`) connects to MINDEX via:
 - `MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000`
-- API key: `MINDEX_API_KEY` env var (fallback: `local-dev-key`)
+- API key: `MINDEX_API_KEY` env var (fallback: `<MINDEX_API_KEY>`)
 
 The unified search route (`app/api/search/unified/route.ts`) queries MINDEX with a 6s timeout. If MINDEX is slow, the website falls back to external APIs (iNaturalist, PubChem, NCBI, CrossRef).
 

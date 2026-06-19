@@ -48,7 +48,7 @@ interface DevicesResponse {
 
 export async function GET(request: NextRequest) {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   const searchParams = request.nextUrl.searchParams
   const type = searchParams.get("type") || ""
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   try {
     const body = await request.json()

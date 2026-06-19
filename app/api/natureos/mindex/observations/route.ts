@@ -50,7 +50,7 @@ interface ObservationResponse {
 
 export async function GET(request: NextRequest) {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   try {
     // Forward and normalize query parameters

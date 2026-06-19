@@ -145,7 +145,7 @@ async function harvestMindex() {
   try {
     const url = `${process.env.MINDEX_API_URL}/api/mindex/earth/map/bbox?layer=data_centers&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=100000`
     const res = await fetch(url, {
-      headers: { "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key", Accept: "application/json" },
+      headers: { "X-API-Key": process.env.MINDEX_API_KEY || "", Accept: "application/json" },
       signal: AbortSignal.timeout(60_000),
     })
     if (!res.ok) return []

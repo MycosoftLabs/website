@@ -114,7 +114,7 @@ async function fetchMindexOverlayCells(
     headers: {
       Accept: "application/json",
       ...(internalToken ? { "X-Internal-Token": internalToken } : {}),
-      "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+      "X-API-Key": process.env.MINDEX_API_KEY || "",
     },
     // Keep MINDEX-first, but fail over quickly so ECM appears immediately on refresh.
     signal: AbortSignal.timeout(1200),

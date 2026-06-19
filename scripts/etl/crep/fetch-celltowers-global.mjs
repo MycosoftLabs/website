@@ -52,7 +52,7 @@ const SKIP_MINDEX = flag("no-mindex")
 const SKIP_OCID = flag("no-ocid") || !process.env.OPENCELLID_KEY
 const SKIP_OSM = flag("no-osm")
 const MINDEX_URL = optVal("mindex-url", process.env.MINDEX_API_URL || "http://192.168.0.189:8000")
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 const OSM_STEP = parseInt(optVal("osm-step", "30"), 10)
 
 // Morgan (Apr 18, 2026): Taiwan + US hardcoded as the "instant-load" slice.

@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { resolveMindexServerBaseUrl } from "@/lib/mindex-base-url"
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 // Species-specific growth parameters (from scientific literature)
 const SPECIES_GROWTH_PARAMS: Record<string, SpeciesParams> = {

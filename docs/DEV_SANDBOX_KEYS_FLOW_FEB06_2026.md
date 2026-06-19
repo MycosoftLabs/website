@@ -78,7 +78,7 @@ Use the returned keys in the **website container** env on Sandbox (187) and in t
 
 If you do not use the internal keys API:
 
-1. **MINDEX_API_KEY:** Use a fixed value (e.g. `local-dev-key`) and ensure the MINDEX API, if it validates keys, accepts this value.
+1. **MINDEX_API_KEY:** Use a fixed value (e.g. `<MINDEX_API_KEY>`) and ensure the MINDEX API, if it validates keys, accepts this value.
 2. **Mycorrhizae keys:** Create keys in the Mycorrhizae API (e.g. via its admin/key endpoints) and paste the same values into `.env.local` as `MYCORRHIZAE_PUBLISH_KEY` and `MYCORRHIZAE_ADMIN_KEY`.
 
 ---

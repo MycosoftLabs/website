@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const upstream = await fetch(`${MINDEX_API}/api/mindex/fungal-overlays/deployment/land?${query.toString()}`, {
     headers: {
       Accept: "application/json",
-      "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+      "X-API-Key": process.env.MINDEX_API_KEY || "",
     },
     signal: AbortSignal.timeout(6000),
     cache: "no-store",

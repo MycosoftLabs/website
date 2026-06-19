@@ -58,7 +58,7 @@ const MINDEX_URL =
   process.env.NEXT_PUBLIC_MINDEX_URL ||
   "http://192.168.0.189:8000"
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 const MINDEX_INTERNAL_TOKEN =
   process.env.MINDEX_INTERNAL_TOKEN ||
   (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||

@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       `${MINDEX_API_URL}/api/mindex/crep/playback?${queryParams}`,
       {
         headers: {
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+          "X-API-Key": process.env.MINDEX_API_KEY || "",
         },
         signal: AbortSignal.timeout(30000),
       }
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+          "X-API-Key": process.env.MINDEX_API_KEY || "",
         },
         body: JSON.stringify({
           session_id: sessionId,

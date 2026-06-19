@@ -28,7 +28,7 @@ async function fetchTimeSeries(
   end?: string
 ): Promise<TimeSeriesResult> {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   const endDate = end ? new Date(end) : new Date()
   const startDate = start

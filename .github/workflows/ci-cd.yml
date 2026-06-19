@@ -569,6 +569,40 @@ jobs:
               scripts/blue-green-bootstrap.sh
             chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
 
+            echo "=== Sanitize production .env (drop/join malformed bare-token lines) ==="
+            python3 <<'SANITIZE'
+from pathlib import Path
+p = Path("/opt/mycosoft/website/.env")
+if not p.exists():
+    raise SystemExit("missing .env")
+lines = p.read_text().splitlines()
+out, i, changed = [], 0, False
+while i < len(lines):
+    ln, s = lines[i], lines[i].strip()
+    if s and not s.startswith("#") and "=" not in s:
+        if out and out[-1].rstrip().endswith("="):
+            out[-1] = out[-1].rstrip() + s
+        else:
+            out.append("MINDEX_INTERNAL_TOKEN=" + s)
+        changed = True
+        i += 1
+        continue
+    if ln.rstrip().endswith("=") and i + 1 < len(lines):
+        nxt = lines[i + 1].strip()
+        if nxt and "=" not in nxt and not nxt.startswith("#"):
+            out.append(ln.rstrip() + nxt)
+            changed = True
+            i += 2
+            continue
+    out.append(ln)
+    i += 1
+if changed:
+    p.write_text("\n".join(out) + ("\n" if p.read_text().endswith("\n") else ""))
+    print("sanitized .env")
+else:
+    print("no .env sanitization needed")
+SANITIZE
+
             echo "=== Authenticating with GHCR ==="
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 

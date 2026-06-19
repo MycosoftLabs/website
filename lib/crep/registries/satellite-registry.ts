@@ -67,7 +67,7 @@ const MINDEX_URL =
   process.env.NEXT_PUBLIC_MINDEX_URL ||
   "http://192.168.0.189:8000"
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 const SPACETRACK_USER = process.env.SPACETRACK_USER || ""
 const SPACETRACK_PASS = process.env.SPACETRACK_PASS || ""

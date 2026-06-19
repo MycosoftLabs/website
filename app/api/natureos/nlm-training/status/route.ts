@@ -9,7 +9,7 @@ const NLM_BASE_URL = (
   process.env.NLM_API_BASE_URL ||
   'http://192.168.0.188:8200'
 ).replace(/\/$/, '');
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || 'local-dev-key';
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || '';
 
 async function probeService(
   url: string,

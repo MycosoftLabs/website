@@ -5,7 +5,7 @@ import { resolveMindexServerBaseUrl } from '@/lib/mindex-base-url';
 export const dynamic = 'force-dynamic';
 
 const MINDEX_BASE_URL = resolveMindexServerBaseUrl();
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || 'local-dev-key';
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || '';
 
 let pool: Pool | null = null;
 

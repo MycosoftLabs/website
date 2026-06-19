@@ -126,7 +126,7 @@ All major pages tested and verified working after fixes.
 **Check**: `.env.local` should have:
 ```
 MINDEX_API_BASE_URL=http://localhost:8000/api/mindex
-MINDEX_API_KEY=local-dev-key
+MINDEX_API_KEY=<MINDEX_API_KEY>
 ```
 
 **Docker Mapping**: MINDEX runs on container port 8000, mapped to host 8000

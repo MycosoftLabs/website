@@ -7,7 +7,7 @@ Create a `.env.local` file in the website root with these variables:
 ```bash
 # MINDEX API Configuration
 MINDEX_API_URL=http://localhost:8000
-MINDEX_API_KEY=local-dev-key
+MINDEX_API_KEY=<MINDEX_API_KEY>
 
 # Database (Neon - optional fallback for ancestry data)
 # NEON_DATABASE_URL=[set from your local secret manager]
@@ -26,7 +26,7 @@ The website connects to MINDEX API for:
 
 **Default local configuration:**
 - URL: `http://localhost:8000`
-- API Key: `local-dev-key`
+- API Key: `<MINDEX_API_KEY>`
 
 ## Starting MINDEX
 
@@ -38,7 +38,7 @@ docker-compose up -d
 ## Verifying Connection
 
 ```bash
-curl -H "X-API-Key: local-dev-key" http://localhost:8000/api/mindex/health
+curl -H "X-API-Key: <MINDEX_API_KEY>" http://localhost:8000/api/mindex/health
 ```
 
 Expected response:

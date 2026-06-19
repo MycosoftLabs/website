@@ -21,7 +21,7 @@ interface Gene {
 }
 
 const MINDEX_API_URL = resolveMindexServerBaseUrl()
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 export async function GET(
   request: NextRequest,

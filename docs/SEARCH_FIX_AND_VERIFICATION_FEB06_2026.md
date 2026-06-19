@@ -43,7 +43,7 @@ Fixes and verification steps for the Revolutionary Search (fluid UI) at localhos
 |----------|---------|
 | `MINDEX_API_URL` | MINDEX API base URL (default: `http://${MINDEX_VM_HOST:-localhost}:8000`) |
 | `NEXT_PUBLIC_MINDEX_URL` | Same, for client if needed |
-| `MINDEX_API_KEY` | API key sent as `X-API-Key` (default: `local-dev-key`) |
+| `MINDEX_API_KEY` | API key sent as `X-API-Key` (default: `<MINDEX_API_KEY>`) |
 | `MINDEX_API_PREFIX` | Optional path prefix (e.g. `/api`) |
 | `MYCA_BRAIN_URL` | Optional; for AI answers in search (default: `http://${MAS_VM_HOST}:8000`) |
 

@@ -15,7 +15,7 @@ This document describes reliability enhancements made to the CREP fungal observa
 ### 1. MINDEX API Key Support
 
 - **File**: `app/api/crep/fungal/route.ts`
-- **Change**: Added `X-API-Key` header to all MINDEX requests using `process.env.MINDEX_API_KEY` (fallback: `local-dev-key`).
+- **Change**: Added `X-API-Key` header to all MINDEX requests using `process.env.MINDEX_API_KEY` (fallback: `<MINDEX_API_KEY>`).
 - **Config**: Documented `MINDEX_API_KEY` in `WEBSITE/website/.env.example`:
   - Match the key configured on MINDEX VM (189:8000).
   - Local dev: `MINDEX_API_KEY=dev-local-key` or same as MINDEX VM `API_KEYS`.
@@ -50,7 +50,7 @@ This document describes reliability enhancements made to the CREP fungal observa
 
 - **Dev server**: `npm run dev:next-only` on port 3010.
 - **MINDEX**: `MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000` (VM 189).
-- **MINDEX_API_KEY**: Set in `.env.local` (or fallback to `local-dev-key`).
+- **MINDEX_API_KEY**: Set in `.env.local` (or fallback to `<MINDEX_API_KEY>`).
 
 ### Test 1: Default Request
 

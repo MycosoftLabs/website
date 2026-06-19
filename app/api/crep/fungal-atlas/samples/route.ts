@@ -38,7 +38,7 @@ async function fetchMindexOverlaySamples(bounds: FungalAtlasBounds | undefined, 
   const response = await fetch(`${MINDEX_API}/api/mindex/fungal-overlays/samples?${params.toString()}`, {
     headers: {
       Accept: "application/json",
-      "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+      "X-API-Key": process.env.MINDEX_API_KEY || "",
     },
     signal: AbortSignal.timeout(5000),
     cache: "no-store",

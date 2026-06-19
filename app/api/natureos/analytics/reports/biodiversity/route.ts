@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
+  const apiKey = env.mindexApiKey || ""
 
   const report = {
     reportType: "biodiversity",
