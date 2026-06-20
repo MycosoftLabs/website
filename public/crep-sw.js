@@ -43,7 +43,7 @@
 // May 16, 2026: v5 bypasses video/range requests entirely. A root-scoped
 // cache-first worker must never answer MP4 Range requests; doing so can make
 // homepage/device videos stutter, restart, or play stale cached media.
-const CACHE_VERSION = "crep-v5"
+const CACHE_VERSION = "crep-v6"
 const CACHE_NAME = `mycosoft-${CACHE_VERSION}`
 const API_CACHE_NAME = `${CACHE_NAME}-api`
 

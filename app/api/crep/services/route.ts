@@ -59,7 +59,7 @@ const SERVICES = [
   { name: "iNaturalist", url: "https://api.inaturalist.org", healthPath: "/v1/observations?per_page=1&quality_grade=research", external: true },
   { name: "NASA GIBS", url: "https://gibs.earthdata.nasa.gov", healthPath: "/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml", external: true, method: "HEAD", accept: "text/xml", timeoutMs: 10000 },
   { name: "Overpass API", url: "https://overpass-api.de", healthPath: "/api/status", external: true, accept: "text/plain", timeoutMs: 10000 },
-  { name: "CelesTrak", url: "https://celestrak.org", healthPath: "/NORAD/elements/gp.php?GROUP=stations&FORMAT=2-line", external: true, timeoutMs: 15000 },
+  { name: "CelesTrak", url: "https://celestrak.org", healthPath: "/NORAD/elements/gp.php?GROUP=stations&FORMAT=2-line", external: true, timeoutMs: 8000 },
 ] satisfies ServiceProbe[];
 
 function tcpProbe(url: string, timeoutMs = 3000): Promise<ServiceStatus> {
@@ -154,17 +154,7 @@ async function pingServiceOnce(
 async function pingService(
   svc: ServiceProbe,
 ): Promise<ServiceStatus> {
-  const primary = await pingServiceOnce(svc);
-  if (primary.status !== "offline" || svc.name !== "CelesTrak") {
-    return primary;
-  }
-
-  return pingServiceOnce({
-    ...svc,
-    url: "https://celestrak.com",
-    healthPath: "/NORAD/elements/stations.txt",
-    timeoutMs: 15_000,
-  });
+  return pingServiceOnce(svc);
 }
 
 // Cache for 30 seconds

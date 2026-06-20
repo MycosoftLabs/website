@@ -37,6 +37,17 @@ export interface FetchOptions {
   signal?: AbortSignal
 }
 
+/** Default caps for /api/crep/unified global bundle (Jun 20 2026). */
+export const UNIFIED_DEFAULT_LIMITS = {
+  aircraft: 1500,
+  vessels: 2500,
+  satellites: 1200,
+  fungal: 800,
+  events: 500,
+} as const
+
+export type UnifiedLimits = typeof UNIFIED_DEFAULT_LIMITS
+
 export interface PaginatedResult<T> {
   data: T[]
   total: number
@@ -179,6 +190,70 @@ async function safeFetch<T>(
   }
 }
 
+function slimAircraftRecord(raw: Record<string, unknown>): Aircraft {
+  return {
+    id: String(raw.id ?? raw.icao ?? ""),
+    callsign: String(raw.callsign ?? raw.flight ?? ""),
+    lat: Number(raw.lat ?? 0),
+    lng: Number(raw.lng ?? raw.lon ?? 0),
+    altitude: Number(raw.altitude ?? raw.alt ?? 0),
+    speed: Number(raw.speed ?? raw.velocity ?? 0),
+    heading: Number(raw.heading ?? raw.track ?? 0),
+    type: raw.type ? String(raw.type) : undefined,
+    origin: raw.origin ? String(raw.origin) : undefined,
+    destination: raw.destination ? String(raw.destination) : undefined,
+  }
+}
+
+function slimVesselRecord(raw: Record<string, unknown>): Vessel {
+  return {
+    id: String(raw.id ?? raw.mmsi ?? ""),
+    mmsi: String(raw.mmsi ?? raw.id ?? ""),
+    name: String(raw.name ?? "Vessel"),
+    lat: Number(raw.lat ?? 0),
+    lng: Number(raw.lng ?? raw.lon ?? 0),
+    heading: Number(raw.heading ?? 0),
+    speed: Number(raw.speed ?? 0),
+    type: raw.type ? String(raw.type) : undefined,
+    destination: raw.destination ? String(raw.destination) : undefined,
+  }
+}
+
+function slimFungalRecord(raw: Record<string, unknown>): FungalObservation {
+  return {
+    id: String(raw.id ?? ""),
+    species: String(raw.species ?? raw.name ?? "Species"),
+    lat: Number(raw.lat ?? 0),
+    lng: Number(raw.lng ?? raw.lon ?? 0),
+    observedOn: raw.observedOn ? String(raw.observedOn) : raw.observed_on ? String(raw.observed_on) : undefined,
+    location: raw.location ? String(raw.location) : undefined,
+  }
+}
+
+function slimGlobalEventRecord(raw: Record<string, unknown>): GlobalEvent {
+  return {
+    id: String(raw.id ?? ""),
+    type: String(raw.type ?? "event"),
+    title: String(raw.title ?? raw.name ?? "Event"),
+    lat: Number(raw.lat ?? 0),
+    lng: Number(raw.lng ?? raw.lon ?? 0),
+    severity: raw.severity ? String(raw.severity) : undefined,
+    timestamp: raw.timestamp ? String(raw.timestamp) : undefined,
+  }
+}
+
+function slimDeviceRecord(raw: Record<string, unknown>): Device {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? "Device"),
+    type: String(raw.type ?? "device"),
+    lat: raw.lat != null ? Number(raw.lat) : undefined,
+    lng: raw.lng != null ? Number(raw.lng) : raw.lon != null ? Number(raw.lon) : undefined,
+    status: String(raw.status ?? "unknown"),
+    lastSeen: raw.lastSeen ? String(raw.lastSeen) : raw.last_seen ? String(raw.last_seen) : undefined,
+  }
+}
+
 // ============================================================================
 // Aircraft Data
 // ============================================================================
@@ -186,18 +261,21 @@ async function safeFetch<T>(
 export async function getAircraft(options?: FetchOptions): Promise<Aircraft[]> {
   if (options?.forceRefresh) invalidateCache("aircraft")
 
-  return getCachedData<Aircraft[]>("aircraft", async () => {
+  const cacheKey = options?.limit ? `aircraft:limit:${options.limit}` : "aircraft"
+
+  return getCachedData<Aircraft[]>(cacheKey, async () => {
     const baseUrl = getBaseUrl()
     const url = new URL(`${baseUrl}/api/oei/flightradar24`)
     if (options?.limit) url.searchParams.set("limit", String(options.limit))
 
-    const data = await safeFetch<{ aircraft?: Aircraft[] }>(
+    const data = await safeFetch<{ aircraft?: Record<string, unknown>[] }>(
       url.toString(),
       { aircraft: [] },
       options?.timeout || 15000,
       options?.signal
     )
-    return data.aircraft || []
+    const aircraft = (data.aircraft || []).map((a) => slimAircraftRecord(a))
+    return options?.limit ? aircraft.slice(0, options.limit) : aircraft
   })
 }
 
@@ -225,15 +303,21 @@ export async function getAircraftPaginated(
 export async function getVessels(options?: FetchOptions): Promise<Vessel[]> {
   if (options?.forceRefresh) invalidateCache("vessels")
 
-  return getCachedData<Vessel[]>("vessels", async () => {
+  const cacheKey = options?.limit ? `vessels:limit:${options.limit}` : "vessels"
+
+  return getCachedData<Vessel[]>(cacheKey, async () => {
     const baseUrl = getBaseUrl()
-    const data = await safeFetch<{ vessels?: Vessel[] }>(
-      `${baseUrl}/api/oei/aisstream`,
+    const url = new URL(`${baseUrl}/api/oei/aisstream`)
+    if (options?.limit) url.searchParams.set("limit", String(options.limit))
+
+    const data = await safeFetch<{ vessels?: Record<string, unknown>[] }>(
+      url.toString(),
       { vessels: [] },
       options?.timeout || 15000,
       options?.signal
     )
-    return data.vessels || []
+    const vessels = (data.vessels || []).map((v) => slimVesselRecord(v))
+    return options?.limit ? vessels.slice(0, options.limit) : vessels
   })
 }
 
@@ -260,17 +344,54 @@ export async function getVesselsPaginated(
 
 const SATELLITE_CATEGORIES = ["weather", "science", "gps-ops", "active"]
 
+function slimSatelliteRecord(raw: Record<string, unknown>): Satellite {
+  return {
+    id: String(raw.id ?? raw.noradId ?? raw.norad_id ?? ""),
+    name: String(raw.name ?? "Unknown"),
+    noradId: String(raw.noradId ?? raw.norad_id ?? raw.id ?? ""),
+    lat: Number(raw.lat ?? 0),
+    lng: Number(raw.lng ?? raw.lon ?? 0),
+    altitude: Number(raw.altitude ?? raw.alt ?? 0),
+    velocity: Number(raw.velocity ?? raw.speed ?? 0),
+    category: raw.category ? String(raw.category) : undefined,
+  }
+}
+
+function dedupeSatellites(satellites: Satellite[]): Satellite[] {
+  const seen = new Set<string>()
+  const out: Satellite[] = []
+  for (const sat of satellites) {
+    const key = sat.noradId || sat.id
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(sat)
+  }
+  return out
+}
+
 export async function getSatellites(options?: FetchOptions): Promise<Satellite[]> {
   if (options?.forceRefresh) invalidateCache("satellites")
 
-  return getCachedData<Satellite[]>("satellites", async () => {
-    const baseUrl = getBaseUrl()
-    const allSatellites: Satellite[] = []
+  const cacheKey = options?.limit ? `satellites:limit:${options.limit}` : "satellites"
 
-    // Fetch categories in parallel for faster load
+  return getCachedData<Satellite[]>(cacheKey, async () => {
+    const baseUrl = getBaseUrl()
+    const limit = options?.limit
+
+    if (limit) {
+      const data = await safeFetch<{ satellites?: Record<string, unknown>[] }>(
+        `${baseUrl}/api/oei/satellites?category=active&mode=registry&limit=${limit}`,
+        { satellites: [] },
+        options?.timeout || 20000,
+        options?.signal
+      )
+      const raw = data.satellites || []
+      return dedupeSatellites(raw.map((s) => slimSatelliteRecord(s))).slice(0, limit)
+    }
+
     const results = await Promise.allSettled(
       SATELLITE_CATEGORIES.map((category) =>
-        safeFetch<{ satellites?: Satellite[] }>(
+        safeFetch<{ satellites?: Record<string, unknown>[] }>(
           `${baseUrl}/api/oei/satellites?category=${category}`,
           { satellites: [] },
           options?.timeout || 20000,
@@ -279,13 +400,14 @@ export async function getSatellites(options?: FetchOptions): Promise<Satellite[]
       )
     )
 
+    const allSatellites: Satellite[] = []
     for (const result of results) {
       if (result.status === "fulfilled" && result.value.satellites) {
-        allSatellites.push(...result.value.satellites)
+        allSatellites.push(...result.value.satellites.map((s) => slimSatelliteRecord(s)))
       }
     }
 
-    return allSatellites
+    return dedupeSatellites(allSatellites)
   })
 }
 
@@ -314,15 +436,21 @@ export async function getSpaceWeather(options?: FetchOptions): Promise<SpaceWeat
 export async function getGlobalEvents(options?: FetchOptions): Promise<GlobalEvent[]> {
   if (options?.forceRefresh) invalidateCache("globalEvents")
 
-  return getCachedData<GlobalEvent[]>("globalEvents", async () => {
+  const cacheKey = options?.limit ? `globalEvents:limit:${options.limit}` : "globalEvents"
+
+  return getCachedData<GlobalEvent[]>(cacheKey, async () => {
     const baseUrl = getBaseUrl()
-    const data = await safeFetch<{ events?: GlobalEvent[] }>(
-      `${baseUrl}/api/natureos/global-events`,
+    const url = new URL(`${baseUrl}/api/natureos/global-events`)
+    if (options?.limit) url.searchParams.set("limit", String(options.limit))
+
+    const data = await safeFetch<{ events?: Record<string, unknown>[] }>(
+      url.toString(),
       { events: [] },
       options?.timeout || 15000,
       options?.signal
     )
-    return data.events || []
+    const events = (data.events || []).map((e) => slimGlobalEventRecord(e))
+    return options?.limit ? events.slice(0, options.limit) : events
   })
 }
 
@@ -333,18 +461,21 @@ export async function getGlobalEvents(options?: FetchOptions): Promise<GlobalEve
 export async function getFungalObservations(options?: FetchOptions): Promise<FungalObservation[]> {
   if (options?.forceRefresh) invalidateCache("fungalObservations")
 
-  return getCachedData<FungalObservation[]>("fungalObservations", async () => {
+  const cacheKey = options?.limit ? `fungalObservations:limit:${options.limit}` : "fungalObservations"
+
+  return getCachedData<FungalObservation[]>(cacheKey, async () => {
     const baseUrl = getBaseUrl()
     const url = new URL(`${baseUrl}/api/crep/fungal`)
     if (options?.limit) url.searchParams.set("limit", String(options.limit))
 
-    const data = await safeFetch<{ observations?: FungalObservation[] }>(
+    const data = await safeFetch<{ observations?: Record<string, unknown>[] }>(
       url.toString(),
       { observations: [] },
       options?.timeout || 20000,
       options?.signal
     )
-    return data.observations || []
+    const observations = (data.observations || []).map((o) => slimFungalRecord(o))
+    return options?.limit ? observations.slice(0, options.limit) : observations
   })
 }
 
@@ -357,13 +488,13 @@ export async function getDevices(options?: FetchOptions): Promise<Device[]> {
 
   return getCachedData<Device[]>("devices", async () => {
     const baseUrl = getBaseUrl()
-    const data = await safeFetch<{ devices?: Device[] }>(
+    const data = await safeFetch<{ devices?: Record<string, unknown>[] }>(
       `${baseUrl}/api/mycobrain/devices`,
       { devices: [] },
       options?.timeout || 10000,
       options?.signal
     )
-    return data.devices || []
+    return (data.devices || []).map((d) => slimDeviceRecord(d))
   })
 }
 
@@ -371,16 +502,22 @@ export async function getDevices(options?: FetchOptions): Promise<Device[]> {
 // Aggregated Data
 // ============================================================================
 
-export async function getDataSummary(signal?: AbortSignal): Promise<CREPDataSummary> {
-  const opts: FetchOptions = { signal }
+export async function getDataSummary(
+  signal?: AbortSignal,
+  limits: UnifiedLimits = UNIFIED_DEFAULT_LIMITS
+): Promise<CREPDataSummary> {
+  const opts: FetchOptions = {
+    signal,
+    limit: limits.aircraft,
+  }
   const [aircraft, vessels, satellites, fungalObservations, globalEvents, devices] =
     await Promise.all([
-      getAircraft(opts).catch(() => []),
-      getVessels(opts).catch(() => []),
-      getSatellites(opts).catch(() => []),
-      getFungalObservations(opts).catch(() => []),
-      getGlobalEvents(opts).catch(() => []),
-      getDevices(opts).catch(() => []),
+      getAircraft({ ...opts, limit: limits.aircraft }).catch(() => []),
+      getVessels({ signal, limit: limits.vessels }).catch(() => []),
+      getSatellites({ signal, limit: limits.satellites }).catch(() => []),
+      getFungalObservations({ signal, limit: limits.fungal }).catch(() => []),
+      getGlobalEvents({ signal, limit: limits.events }).catch(() => []),
+      getDevices({ signal }).catch(() => []),
     ])
 
   return {
@@ -400,7 +537,8 @@ export async function getDataSummary(signal?: AbortSignal): Promise<CREPDataSumm
  */
 export async function fetchAllData(
   onDataReady?: (type: string, data: unknown[]) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  limits: UnifiedLimits = UNIFIED_DEFAULT_LIMITS
 ): Promise<{
   aircraft: Aircraft[]
   vessels: Vessel[]
@@ -421,23 +559,23 @@ export async function fetchAllData(
 
   const fetchers = [
     async () => {
-      results.aircraft = await getAircraft(opts)
+      results.aircraft = await getAircraft({ ...opts, limit: limits.aircraft })
       onDataReady?.("aircraft", results.aircraft)
     },
     async () => {
-      results.vessels = await getVessels(opts)
+      results.vessels = await getVessels({ ...opts, limit: limits.vessels })
       onDataReady?.("vessels", results.vessels)
     },
     async () => {
-      results.satellites = await getSatellites(opts)
+      results.satellites = await getSatellites({ ...opts, limit: limits.satellites })
       onDataReady?.("satellites", results.satellites)
     },
     async () => {
-      results.fungalObservations = await getFungalObservations(opts)
+      results.fungalObservations = await getFungalObservations({ ...opts, limit: limits.fungal })
       onDataReady?.("fungalObservations", results.fungalObservations)
     },
     async () => {
-      results.globalEvents = await getGlobalEvents(opts)
+      results.globalEvents = await getGlobalEvents({ ...opts, limit: limits.events })
       onDataReady?.("globalEvents", results.globalEvents)
     },
     async () => {
@@ -537,56 +675,131 @@ export async function getEarthDataByBbox(options: EarthBboxOptions): Promise<{
     spaceWeather: [] as SpaceWeatherEvent[],
   }
 
-  // Try MINDEX spatial endpoint first
-  try {
-    const params = new URLSearchParams({
-      north: String(options.north),
-      south: String(options.south),
-      east: String(options.east),
-      west: String(options.west),
-    })
-    if (options.layers?.length) {
-      params.set("layers", options.layers.join(","))
-    }
-    if (options.limit) {
-      params.set("limit", String(options.limit))
-    }
+  // Try MINDEX spatial endpoint — one layer per request (API requires layer=)
+  const perLayerLimit = options.limit
+    ? Math.max(50, Math.ceil(options.limit / 4))
+    : 500
 
-    const mindexUrl = `${API_URLS.MINDEX}/api/earth/map/bbox?${params}`
-    const data = await safeFetch<Record<string, unknown[]>>(
-      mindexUrl,
-      {},
-      options.timeout || 8000,
-      options.signal
+  const layerMap: Array<{ key: keyof typeof emptyResult; layer: string; field: string }> = [
+    { key: "aircraft", layer: "aircraft", field: "aircraft" },
+    { key: "vessels", layer: "vessels", field: "vessels" },
+    { key: "satellites", layer: "satellites", field: "satellites" },
+    { key: "fungalObservations", layer: "species", field: "fungalObservations" },
+    { key: "globalEvents", layer: "earthquakes", field: "globalEvents" },
+    { key: "devices", layer: "facilities", field: "devices" },
+  ]
+
+  try {
+    const baseParams = new URLSearchParams({
+      lat_min: String(options.south),
+      lat_max: String(options.north),
+      lng_min: String(options.west),
+      lng_max: String(options.east),
+      limit: String(perLayerLimit),
+    })
+
+    const layerResults = await Promise.allSettled(
+      layerMap.map(async ({ layer }) => {
+        const params = new URLSearchParams(baseParams)
+        params.set("layer", layer)
+        const mindexUrl = `${API_URLS.MINDEX}/api/earth/map/bbox?${params}`
+        return safeFetch<{ entities?: Record<string, unknown>[] }>(
+          mindexUrl,
+          { entities: [] },
+          options.timeout || 8000,
+          options.signal
+        )
+      })
     )
 
-    if (data && Object.keys(data).length > 0) {
-      return {
-        aircraft: (data.aircraft as Aircraft[]) || [],
-        vessels: (data.vessels as Vessel[]) || [],
-        satellites: (data.satellites as Satellite[]) || [],
-        globalEvents: (data.events as GlobalEvent[]) || (data.globalEvents as GlobalEvent[]) || [],
-        fungalObservations: (data.observations as FungalObservation[]) || (data.fungalObservations as FungalObservation[]) || [],
-        devices: (data.devices as Device[]) || [],
-        weather: (data.weather as WeatherAlert[]) || [],
-        emissions: (data.emissions as EmissionSource[]) || [],
-        infrastructure: (data.infrastructure as InfrastructureItem[]) || [],
-        spaceWeather: (data.space_weather as SpaceWeatherEvent[]) || (data.spaceWeather as SpaceWeatherEvent[]) || [],
+    const merged = { ...emptyResult }
+    let anyData = false
+
+    for (let i = 0; i < layerMap.length; i++) {
+      const result = layerResults[i]
+      const { key } = layerMap[i]
+      if (result.status !== "fulfilled" || !result.value.entities?.length) continue
+      anyData = true
+      const entities = result.value.entities
+      if (key === "aircraft") {
+        merged.aircraft = entities.map((e) => ({
+          id: String(e.id ?? ""),
+          callsign: String((e.properties as Record<string, unknown>)?.callsign ?? e.name ?? ""),
+          lat: Number(e.lat ?? 0),
+          lng: Number(e.lng ?? 0),
+          altitude: Number((e.properties as Record<string, unknown>)?.altitude ?? 0),
+          speed: Number((e.properties as Record<string, unknown>)?.speed ?? 0),
+          heading: Number((e.properties as Record<string, unknown>)?.heading ?? 0),
+        }))
+      } else if (key === "vessels") {
+        merged.vessels = entities.map((e) => ({
+          id: String(e.id ?? ""),
+          mmsi: String((e.properties as Record<string, unknown>)?.mmsi ?? e.id ?? ""),
+          name: String(e.name ?? "Vessel"),
+          lat: Number(e.lat ?? 0),
+          lng: Number(e.lng ?? 0),
+          heading: Number((e.properties as Record<string, unknown>)?.heading ?? 0),
+          speed: Number((e.properties as Record<string, unknown>)?.speed ?? 0),
+        }))
+      } else if (key === "satellites") {
+        merged.satellites = entities.map((e) =>
+          slimSatelliteRecord({
+            id: e.id,
+            name: e.name,
+            lat: e.lat,
+            lng: e.lng,
+            altitude: (e.properties as Record<string, unknown>)?.altitude,
+          })
+        )
+      } else if (key === "fungalObservations") {
+        merged.fungalObservations = entities.map((e) => ({
+          id: String(e.id ?? ""),
+          species: String(e.name ?? "Species"),
+          lat: Number(e.lat ?? 0),
+          lng: Number(e.lng ?? 0),
+          observedOn: String(e.occurred_at ?? ""),
+        }))
+      } else if (key === "globalEvents") {
+        merged.globalEvents = entities.map((e) => ({
+          id: String(e.id ?? ""),
+          type: String(e.entity_type ?? "event"),
+          title: String(e.name ?? "Event"),
+          lat: Number(e.lat ?? 0),
+          lng: Number(e.lng ?? 0),
+          timestamp: String(e.occurred_at ?? ""),
+        }))
+      } else if (key === "devices") {
+        merged.devices = entities.map((e) => ({
+          id: String(e.id ?? ""),
+          name: String(e.name ?? "Device"),
+          type: String(e.entity_type ?? "facility"),
+          lat: Number(e.lat ?? 0),
+          lng: Number(e.lng ?? 0),
+          status: "online",
+        }))
       }
+    }
+
+    if (anyData) {
+      return merged
     }
   } catch {
     console.warn("[CREP Service] MINDEX earth/map/bbox unavailable, falling back to OEI")
   }
 
-  // Fallback: use existing OEI-based fetchers
-  const opts: FetchOptions = { signal: options.signal }
+  // Fallback: use existing OEI-based fetchers with limits
+  const perLimit = options.limit || UNIFIED_DEFAULT_LIMITS.aircraft
+  const opts: FetchOptions = {
+    signal: options.signal,
+    limit: perLimit,
+  }
   const [aircraft, vessels, satellites, fungalObservations, globalEvents, devices] =
     await Promise.all([
-      getAircraft(opts).catch(() => []),
-      getVessels(opts).catch(() => []),
-      getSatellites(opts).catch(() => []),
-      getFungalObservations(opts).catch(() => []),
-      getGlobalEvents(opts).catch(() => []),
+      getAircraft({ ...opts, limit: UNIFIED_DEFAULT_LIMITS.aircraft }).catch(() => []),
+      getVessels({ ...opts, limit: UNIFIED_DEFAULT_LIMITS.vessels }).catch(() => []),
+      getSatellites({ ...opts, limit: UNIFIED_DEFAULT_LIMITS.satellites }).catch(() => []),
+      getFungalObservations({ ...opts, limit: UNIFIED_DEFAULT_LIMITS.fungal }).catch(() => []),
+      getGlobalEvents({ ...opts, limit: UNIFIED_DEFAULT_LIMITS.events }).catch(() => []),
       getDevices(opts).catch(() => []),
     ])
 
@@ -632,7 +845,8 @@ export async function getEarthStats(signal?: AbortSignal): Promise<Record<string
  */
 export async function fetchAllEarthData(
   onDataReady?: (type: string, data: unknown[]) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  limits: UnifiedLimits = UNIFIED_DEFAULT_LIMITS
 ): Promise<{
   aircraft: Aircraft[]
   vessels: Vessel[]
@@ -645,41 +859,7 @@ export async function fetchAllEarthData(
   infrastructure: InfrastructureItem[]
   spaceWeather: SpaceWeatherEvent[]
 }> {
-  // Try MINDEX full earth sync first
-  try {
-    const data = await safeFetch<Record<string, unknown[]>>(
-      `${API_URLS.MINDEX}/api/earth/crep/sync`,
-      {},
-      12000,
-      signal
-    )
-    if (data && Object.keys(data).length > 0) {
-      const result = {
-        aircraft: (data.aircraft as Aircraft[]) || [],
-        vessels: (data.vessels as Vessel[]) || [],
-        satellites: (data.satellites as Satellite[]) || [],
-        fungalObservations: (data.observations as FungalObservation[]) || [],
-        globalEvents: (data.events as GlobalEvent[]) || [],
-        devices: (data.devices as Device[]) || [],
-        weather: (data.weather as WeatherAlert[]) || [],
-        emissions: (data.emissions as EmissionSource[]) || [],
-        infrastructure: (data.infrastructure as InfrastructureItem[]) || [],
-        spaceWeather: (data.space_weather as SpaceWeatherEvent[]) || [],
-      }
-      // Fire progressive callbacks
-      for (const [key, val] of Object.entries(result)) {
-        if (Array.isArray(val) && val.length > 0) {
-          onDataReady?.(key, val)
-        }
-      }
-      return result
-    }
-  } catch {
-    // Fall through to individual fetchers
-  }
-
-  // Fallback: use existing fetchAllData + empty new domains
-  const base = await fetchAllData(onDataReady, signal)
+  const base = await fetchAllData(onDataReady, signal, limits)
   return {
     ...base,
     weather: [],

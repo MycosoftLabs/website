@@ -431,7 +431,7 @@ export function OverviewSection({
 
     async function loadEarthFeed() {
       try {
-        const response = await fetch("/api/crep/unified", {
+        const response = await fetch("/api/crep/unified?countsOnly=true", {
           cache: "no-store",
           signal: controller.signal,
         })
