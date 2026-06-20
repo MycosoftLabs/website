@@ -80,7 +80,8 @@ ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 # Increase memory for large builds
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-RUN npm run build
+# Cache-bust token MUST change when routes must register on prod (BuildKit GHA cache).
+RUN echo "DEPLOY_CACHE_BUST=earth-sim-p0p2-jun20-r5 commit=${SOURCE_COMMIT}" && npm run build
 
 # Production image
 FROM base AS runner
