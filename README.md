@@ -25,6 +25,9 @@ Continuous environmental and infrastructure context layer. AVANI works alongside
 ### Defense — OEI & FUSARIUM
 Operational Environmental Intelligence (OEI) and FUSARIUM provide integrated defense and biosecurity capabilities, including threat assessment and global situational awareness through the CREP Dashboard.
 
+### Earth Simulator (NatureOS)
+Live environmental intelligence globe at **`/natureos/earth-simulator`**. Layers include aircraft (zoom ≥ 3.5), vessels, satellites, fungal/nature observations, infrastructure PMTiles, weather overlays, and MYCA LIVE chat (MAS LLM + fast local map commands). Key BFF routes: `/api/crep/unified` (capped bundle), `/api/stream/entities` (SSE), `/api/earth2/health`. See [Earth Simulator capabilities](https://github.com/MycosoftLabs/website/blob/main/docs/EARTH_SIMULATOR_REFERENCE.md) and MAS doc `EARTH_SIMULATOR_PUBLIC_CAPABILITIES_JUN20_2026.md`.
+
 ---
 
 ## Key Features

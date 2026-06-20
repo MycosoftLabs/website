@@ -52,6 +52,14 @@ on:
         options:
           - 'false'
           - 'true'
+      no_cache:
+        description: 'Force full Docker rebuild (disables GHA BuildKit cache — use when prod serves stale routes)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 concurrency:
   # Same group name as ci-cd.yml's instant-deploy job — so a manual
@@ -132,11 +140,12 @@ jobs:
           file: ./Dockerfile.production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          no-cache: ${{ inputs.no_cache == 'true' }}
           # Share the GHA cache with ci-cd.yml's instant-build so a
           # push-triggered deploy followed by an instant-deploy hits
-          # warm cache on the second run.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # warm cache on the second run. no_cache=true skips cache entirely.
+          cache-from: ${{ inputs.no_cache != 'true' && 'type=gha' || '' }}
+          cache-to: ${{ inputs.no_cache != 'true' && 'type=gha,mode=max' || '' }}
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_SHA=${{ steps.sha.outputs.sha }}
@@ -317,6 +326,28 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cache purged"
           fi
+
+      - name: Verify Earth Simulator routes on public origin
+        run: |
+          set -euo pipefail
+          echo "=== Entity stream BFF (mode=entities) ==="
+          stream_head=$(curl -sS --max-time 8 "https://mycosoft.com/api/stream/crep?mode=entities" | head -c 400 || true)
+          echo "$stream_head"
+          echo "$stream_head" | grep -q "Entity stream BFF connected" || {
+            echo "::error::Prod still serving old CREP stream handler — rebuild with no_cache=true"
+            exit 1
+          }
+          echo "=== Capped unified bundle size ==="
+          unified_bytes=$(curl -sS --max-time 120 -o /tmp/unified.json -w '%{size_download}' \
+            "https://mycosoft.com/api/crep/unified?refresh=true")
+          echo "unified bytes=$unified_bytes"
+          if [ "$unified_bytes" -gt 1200000 ]; then
+            echo "::error::Unified payload still oversized (${unified_bytes}B > 1.2MB) — slim caps not live"
+            exit 1
+          fi
+          echo "=== Earth Simulator page ==="
+          curl -fsS --max-time 20 -o /dev/null -w "earth-simulator HTTP %{http_code}\n" \
+            "https://mycosoft.com/natureos/earth-simulator"
 
       - name: Append deploy log
         continue-on-error: true

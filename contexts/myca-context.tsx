@@ -458,7 +458,7 @@ export function MYCAProvider({
           content: isTimeout
             ? "MYCA is taking longer than expected to respond. Please try again in a moment."
             : isNetwork
-            ? "MYCA is temporarily unable to connect. Please try again shortly."
+            ? "MAS orchestrator is unreachable — map commands still work locally; LLM chat resumes when MAS is back online."
             : `MYCA is briefly unavailable. Please try again in a moment.`,
           timestamp: new Date().toISOString(),
           agent: "myca-orchestrator",

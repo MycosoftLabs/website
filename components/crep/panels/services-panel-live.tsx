@@ -48,7 +48,7 @@ const STATUS_CONFIG = {
   offline: { icon: <XCircle className="w-3 h-3" />, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
 };
 
-export default function ServicesPanelLive() {
+export default function ServicesPanelLive({ active = true }: { active?: boolean }) {
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [summary, setSummary] = useState<ServicesSummary>({ online: 0, degraded: 0, offline: 0, total: 0 });
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,7 @@ export default function ServicesPanelLive() {
 
   const fetchServices = useCallback(async () => {
     try {
-      const res = await fetch("/api/crep/services", { signal: AbortSignal.timeout(10000) });
+      const res = await fetch("/api/crep/services", { signal: AbortSignal.timeout(40_000) });
       if (!res.ok) return;
       const data = await res.json();
       setServices(data.services || []);
@@ -70,10 +70,21 @@ export default function ServicesPanelLive() {
   }, []);
 
   useEffect(() => {
+    if (!active) return;
     fetchServices();
-    const interval = setInterval(fetchServices, 30000);
-    return () => clearInterval(interval);
-  }, [fetchServices]);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      fetchServices();
+    }, 30000);
+    const onVisibility = () => {
+      if (!document.hidden && active) fetchServices();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [active, fetchServices]);
 
   return (
     <div className="p-3 space-y-3 text-xs">

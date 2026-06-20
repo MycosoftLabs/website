@@ -104,19 +104,16 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     // ~1.1 MB of points — load the full set so every data center shows at
     // flyover zoom (the PMTiles decimate; user: "missing data centers ...
     // should be the neon blue icons everywhere").
-    preferGeoJSON: true,
+    preferGeoJSON: false,
     maxGeojsonFallbackBytes: 8 * MB,
     label: "Global data centers (OSM + PeeringDB + MINDEX)",
   },
   powerPlantsGlobal: {
     sourceId: "crep-plants-global",
     pmtilesLayerName: "power_plants",
-    pmtilesUrl: "/data/crep/tiles/power-plants-global.pmtiles",
+    pmtilesUrl: "/api/crep/tiles/power-plants-global.pmtiles",
     geojsonUrl: "/data/crep/power-plants-global.geojson",
-    // ~15.6 MB / 34,936 points. PMTiles base-zoom decimation shows only the
-    // biggest ~50 plants at z3-4; load the full GeoJSON so all plants paint at
-    // every zoom (capacity-sized via circle-radius LOD), like OpenGridWorks.
-    preferGeoJSON: true,
+    preferGeoJSON: false,
     maxGeojsonFallbackBytes: 20 * MB,
     label: "Global power plants (WRI)",
   },
@@ -357,6 +354,11 @@ export async function addInfraSourceWithFallback(
     }
     const res = await fetch(cfg.geojsonUrl, { cache: "force-cache" })
     if (!res.ok) throw new Error(`${cfg.geojsonUrl} → HTTP ${res.status}`)
+    const contentType = res.headers.get("content-type") || ""
+    if (!contentType.includes("json") && !contentType.includes("geo+json")) {
+      const preview = (await res.clone().text()).slice(0, 80)
+      throw new Error(`${cfg.geojsonUrl} returned non-JSON (${contentType || "unknown"}): ${preview}`)
+    }
     const fc = await res.json()
     try {
       map.addSource(cfg.sourceId, { type: "geojson", data: fc })

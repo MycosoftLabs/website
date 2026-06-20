@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, memo, startTransition, type ReactNode, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCrepPollScheduler } from "@/hooks/use-crep-poll-scheduler";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup, freezeNativeMarkerUpdates, thawNativeMarkerUpdates } from "@/components/ui/map";
@@ -7500,9 +7501,10 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
         showHeader={true}
         getContextText={getContextText}
         context={getStructuredContext}
-        enableFastIntent={false}
-        localOnly={true}
+        enableFastIntent={true}
+        localOnly={false}
         onLocalCommand={handleEarthSimulatorMycaCommand}
+        emptyMessage="Ask MYCA to fly the map, toggle layers, or query Earth intelligence. Full LLM replies route through MAS when online."
       />
     </div>
   );
@@ -8030,6 +8032,33 @@ export default function CREPDashboardPage({
     assetIsolationMode,
   ]);
   const fpsOverlayRef = useRef<HTMLElement>(null);
+  type FooterServiceState = "connected" | "degraded" | "offline" | "checking";
+  interface FooterServiceHealth {
+    system: FooterServiceState;
+    mycobrain: FooterServiceState;
+    mindex: FooterServiceState;
+    myca: FooterServiceState;
+    earth2: FooterServiceState;
+  }
+  const [footerServiceHealth, setFooterServiceHealth] = useState<FooterServiceHealth>({
+    system: "checking",
+    mycobrain: "checking",
+    mindex: "checking",
+    myca: "checking",
+    earth2: "checking",
+  });
+  const footerStatusClass = useCallback((state: FooterServiceState) => {
+    if (state === "connected") return "text-green-400";
+    if (state === "degraded") return "text-amber-400";
+    if (state === "checking") return "text-gray-400";
+    return "text-red-400";
+  }, []);
+  const footerStatusText = useCallback((state: FooterServiceState, labels: { connected: string; degraded: string; offline: string }) => {
+    if (state === "connected") return labels.connected;
+    if (state === "degraded") return labels.degraded;
+    if (state === "checking") return "CHECKING...";
+    return labels.offline;
+  }, []);
   const isSearchEmbedded = embedded || enabledLayerIds.length > 0;
   const isEmbeddedEarthquakeSearch = isSearchEmbedded && EARTHQUAKE_QUERY_RE.test(initialQuery);
   const embeddedLayerIdKey = enabledLayerIds.slice().sort().join("|");
@@ -9085,6 +9114,23 @@ export default function CREPDashboardPage({
     if (mapInteractionActiveRef.current) return true;
     return Date.now() < navigationPauseUntilRef.current;
   }, [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isMapAnimationActive]);
+
+  useCrepPollScheduler(
+    useMemo(
+      () => [
+        {
+          id: "crep-services-warm",
+          intervalMs: 120_000,
+          enabled: isEarthSimulatorRoute && !auditAllOffMode && !assetIsolationMode,
+          run: () => {
+            fetch("/api/crep/services", { signal: AbortSignal.timeout(45_000) }).catch(() => {})
+          },
+        },
+      ],
+      [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute],
+    ),
+    { shouldPause: shouldPauseLiveWork },
+  );
 
   useEffect(() => {
     if (!isEarthSimulatorPath()) return;
@@ -10770,15 +10816,112 @@ export default function CREPDashboardPage({
     [earth2Filter.resolution, earth2Filter.gpuMode],
   );
 
+  const [earth2Available, setEarth2Available] = useState(false);
   const [, setEarth2Alerts] = useState<unknown[]>([]);
   const [, setEarth2Loading] = useState(false);
-  const [, setEarth2Available] = useState(false);
+
+  // Earth-2 + platform health for status bar and cloud layer degrade
+  useEffect(() => {
+    if (shouldPauseLiveWork()) return;
+    let cancelled = false;
+
+    const mapServiceStatus = (name: string, status?: string): FooterServiceState => {
+      if (status === "up") return "connected";
+      if (status === "degraded") return "degraded";
+      if (status === "down") return "offline";
+      return "offline";
+    };
+
+    const pollFooterHealth = async () => {
+      const next: FooterServiceHealth = {
+        system: "checking",
+        mycobrain: "checking",
+        mindex: "checking",
+        myca: "checking",
+        earth2: "checking",
+      };
+
+      try {
+        const [healthRes, earth2Res, mycoRes] = await Promise.all([
+          fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(8_000) }).catch(() => null),
+          fetch("/api/earth2/health", { cache: "no-store", signal: AbortSignal.timeout(8_000) }).catch(() => null),
+          fetch("/api/mycobrain/health", { cache: "no-store", signal: AbortSignal.timeout(8_000) }).catch(() => null),
+        ]);
+
+        if (healthRes?.ok) {
+          const health = await healthRes.json().catch(() => null);
+          const services: { name: string; status?: string }[] = Array.isArray(health?.services) ? health.services : [];
+          const mas = services.find((s) => s.name === "mas-api");
+          const mindex = services.find((s) => s.name === "mindex-api");
+          const overall = String(health?.status ?? "");
+          next.system = overall === "healthy" ? "connected" : overall === "degraded" ? "degraded" : "offline";
+          next.myca = mapServiceStatus("mas-api", mas?.status);
+          next.mindex = mapServiceStatus("mindex-api", mindex?.status);
+        } else {
+          next.system = "offline";
+          next.myca = "offline";
+          next.mindex = "offline";
+        }
+
+        if (earth2Res?.ok) {
+          const earth2 = await earth2Res.json().catch(() => null);
+          const available = earth2?.available === true || earth2?.ok === true;
+          next.earth2 = available ? "connected" : "offline";
+          if (!cancelled) setEarth2Available(available);
+        } else {
+          next.earth2 = "offline";
+          if (!cancelled) setEarth2Available(false);
+        }
+
+        if (mycoRes?.ok) {
+          const myco = await mycoRes.json().catch(() => null);
+          const healthy = String(myco?.status ?? "").toLowerCase() === "healthy" || myco?.connected === true;
+          next.mycobrain = healthy ? "connected" : "degraded";
+        } else {
+          next.mycobrain = "offline";
+        }
+      } catch {
+        next.system = "offline";
+        next.myca = "offline";
+        next.mindex = "offline";
+        next.mycobrain = "offline";
+        next.earth2 = "offline";
+        if (!cancelled) setEarth2Available(false);
+      }
+
+      if (!cancelled) setFooterServiceHealth(next);
+    };
+
+    pollFooterHealth();
+    const interval = window.setInterval(() => {
+      if (!shouldPauseLiveWork()) pollFooterHealth();
+    }, 30_000);
+    const onVisibility = () => {
+      if (!document.hidden) pollFooterHealth();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [shouldPauseLiveWork]);
+
+  useEffect(() => {
+    if (earth2Available) return;
+    setLayers((prev) =>
+      prev.map((layer) =>
+        layer.id === "realisticClouds" && layer.enabled
+          ? { ...layer, enabled: false, description: `${layer.description ?? ""} Earth-2 offline — layer auto-disabled.`.trim() }
+          : layer,
+      ),
+    );
+  }, [earth2Available]);
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // EARTH-2 STATUS CHECK - Fetch status on mount
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   useEffect(() => {
-    return;
     if (!EARTH2_BACKEND_ENABLED) {
       setEarth2Available(false);
       setEarth2Loading(false);
@@ -17813,6 +17956,19 @@ export default function CREPDashboardPage({
             <span className={cn("text-[9px] font-mono", filteredAircraft.length === 0 ? "text-amber-400" : "text-sky-400")}>
               Planes: {filteredAircraft.length}
             </span>
+            {mapZoom < 3.5 &&
+              (layers.find((layer) => layer.id === "aviation")?.enabled ||
+                layers.find((layer) => layer.id === "aviationRoutes")?.enabled) && (
+              <>
+                <span className="text-gray-600">|</span>
+                <span
+                  className="text-[8px] font-mono text-amber-300/90"
+                  title="Live aircraft markers render at zoom 3.5 and above"
+                >
+                  Zoom in for aircraft
+                </span>
+              </>
+            )}
             <span className="text-gray-600">|</span>
             <span className={cn("text-[9px] font-mono", filteredVessels.length === 0 ? "text-amber-400" : "text-teal-400")}>
               Boats: {filteredVessels.length}
@@ -18296,7 +18452,7 @@ export default function CREPDashboardPage({
                                 </div>
                                 <div className="flex items-center justify-between mt-0.5">
                                   <span className="text-[8px] text-gray-500 truncate max-w-[100px]">
-                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : 'Ã¢â‚¬â€'}Ã‚Â°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : 'Ã¢â‚¬â€'}Ã‚Â°`}
+                                    {obs.location || `${typeof obs.latitude === "number" ? obs.latitude.toFixed(2) : "—"}°, ${typeof obs.longitude === "number" ? obs.longitude.toFixed(2) : "—"}°`}
                                   </span>
                                   <Badge
                                     variant="outline"
@@ -18307,7 +18463,14 @@ export default function CREPDashboardPage({
                                         : "border-yellow-500/50 text-yellow-400"
                                     )}
                                   >
-                                    {isResearchGrade ? "Ã¢Å“â€œ verified" : "needs ID"}
+                                    {isResearchGrade ? (
+                                      <span className="inline-flex items-center gap-0.5">
+                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                        verified
+                                      </span>
+                                    ) : (
+                                      "needs ID"
+                                    )}
                                   </Badge>
                                 </div>
                                 {obs.observed_on && (
@@ -18323,7 +18486,7 @@ export default function CREPDashboardPage({
                     )}
                     {visibleFungalObservations.length > 90 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 90 of {visibleFungalObservations.length} visible Ã¢â‚¬Â¢ Zoom in for more
+                        Showing 90 of {visibleFungalObservations.length} visible • Zoom in for more
                       </div>
                     )}
                   </div>
@@ -18736,6 +18899,17 @@ export default function CREPDashboardPage({
                       </details>
                     ))}
                   </div>
+                </details>
+
+                <details className="group border-t border-cyan-500/20 bg-black/20">
+                  <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <ChevronDown className="h-3 w-3 shrink-0 text-cyan-300 transition-transform group-open:rotate-180" />
+                      <Activity className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                      <span className="truncate text-[10px] font-semibold text-cyan-100">System Services</span>
+                    </div>
+                  </summary>
+                  <ServicesPanelLive active={leftSecondaryTab === "devices"} />
                 </details>
               </div>
             )}
@@ -23753,17 +23927,31 @@ export default function CREPDashboardPage({
       {/* Bottom Status Bar */}
       {!embedded && <div className="hidden md:flex flex-shrink-0 items-center justify-between px-4 py-1.5 bg-black/80 border-t border-cyan-500/20 z-50">
         <div className="flex items-center gap-4 text-[10px] font-mono">
-          <span className="text-green-400">SYSTEM OPERATIONAL</span>
+          <span className={footerStatusClass(footerServiceHealth.system)} title="Aggregate platform health from /api/health">
+            {footerStatusText(footerServiceHealth.system, {
+              connected: "SYSTEM OPERATIONAL",
+              degraded: "SYSTEM DEGRADED",
+              offline: "SYSTEM OFFLINE",
+            })}
+          </span>
           <span className="text-gray-600">|</span>
-          <span className="text-cyan-400">UPTIME: 99.9%</span>
+          <span className={footerStatusClass(footerServiceHealth.mycobrain)} title="MycoBrain service health">
+            MYCOBRAIN: {footerStatusText(footerServiceHealth.mycobrain, { connected: "CONNECTED", degraded: "DEGRADED", offline: "OFFLINE" })}
+          </span>
           <span className="text-gray-600">|</span>
-          <span className="text-cyan-400">MYCOBRAIN: CONNECTED</span>
+          <span className={footerStatusClass(footerServiceHealth.mindex)} title="MINDEX API health">
+            MINDEX: {footerStatusText(footerServiceHealth.mindex, { connected: "SYNCED", degraded: "DEGRADED", offline: "OFFLINE" })}
+          </span>
           <span className="text-gray-600">|</span>
-          <span className="text-cyan-400">MINDEX: SYNCED</span>
+          <span className={footerStatusClass(footerServiceHealth.myca)} title="MAS / MYCA orchestrator health">
+            MYCA: {footerStatusText(footerServiceHealth.myca, { connected: "ACTIVE", degraded: "DEGRADED", offline: "OFFLINE" })}
+          </span>
           <span className="text-gray-600">|</span>
-          <span className="text-purple-400">MYCA: ACTIVE</span>
+          <span className={footerStatusClass(footerServiceHealth.earth2)} title="Earth-2 GPU inference health">
+            EARTH-2: {footerStatusText(footerServiceHealth.earth2, { connected: "ONLINE", degraded: "DEGRADED", offline: "OFFLINE" })}
+          </span>
           <span className="text-gray-600">|</span>
-          <span ref={fpsOverlayRef} className="tabular-nums text-cyan-300" title="Live Earth Simulator FPS sample">â€” FPS</span>
+          <span ref={fpsOverlayRef} className="tabular-nums text-cyan-300" title="Live Earth Simulator FPS sample">— FPS</span>
           <span className="text-gray-600">|</span>
           <span
             className="tabular-nums text-cyan-300"
