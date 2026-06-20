@@ -400,6 +400,7 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Bust Docker BuildKit cache for stream/entities + unified caps [fast]
 - *(deploy)* Force npm run build cache bust for stream/entities route [fast]
 - *(earth-sim)* Route entity SSE via /api/stream/crep?mode=entities on prod [fast]
+- *(ops)* Vm cleanup bash syntax and instant-deploy workflow dup keys
 
 ### CREP
 
@@ -652,6 +653,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Earth Simulator section to README.
+- Update changelog [skip ci]
 
 ### Features
 
@@ -956,6 +958,8 @@ All notable changes to this project will be documented in this file.
 - Parse iNat report geojson safely [skip ci]
 - *(section9)* Package Cursor's uncommitted Section 9 website changes for deploy bundle
 - Add no_cache instant deploy and Earth Sim prod verification
+- Free GH runner disk before no_cache instant deploy builds
+- Free GH runner disk before no_cache instant deploy builds
 
 ### Performance
 
@@ -1118,6 +1122,7 @@ All notable changes to this project will be documented in this file.
 
 - ETL_CRON_TOKEN sandbox sync, UTF-8 env read, inat backfill launcher
 - *(prod)* Self-heal — autoheal + watchdog (fix the Jun 15 hung-app outage) (#211)
+- VM disk/memory cleanup before instant deploy
 
 ### Security
 
