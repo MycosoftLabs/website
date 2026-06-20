@@ -55,6 +55,7 @@ on:
       - 'Dockerfile'
       - 'Dockerfile.production'
       - 'scripts/blue-green-*.sh'
+      - 'scripts/vm-production-cleanup.sh'
       - 'scripts/deploy-*.sh'
       - 'deploy/**'
       - 'package.json'

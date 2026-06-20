@@ -48,15 +48,15 @@ done
 # Remove restart-loop / exited containers (not proxy, not active slot)
 while read -r name status; do
   [[ -z "$name" ]] && continue
-  case "$name" in
-    mycosoft-website-proxy) continue ;;
-    mycosoft-website-blue)
-      [[ "$ACTIVE_SLOT" == "blue" ]] && continue ;;
-      ;;
-    mycosoft-website-green)
-      [[ "$ACTIVE_SLOT" == "green" ]] && continue ;;
-      ;;
-  esac
+  if [[ "$name" == "mycosoft-website-proxy" ]]; then
+    continue
+  fi
+  if [[ "$name" == "mycosoft-website-blue" && "$ACTIVE_SLOT" == "blue" ]]; then
+    continue
+  fi
+  if [[ "$name" == "mycosoft-website-green" && "$ACTIVE_SLOT" == "green" ]]; then
+    continue
+  fi
   if [[ "$status" == *Restarting* || "$status" == *Exited* ]]; then
     log "Removing unhealthy container $name ($status)"
     dk rm -f "$name" || true

@@ -168,8 +168,6 @@ jobs:
           no-cache: ${{ inputs.no_cache == 'true' }}
           provenance: false
           sbom: false
-          provenance: false
-          sbom: false
           # Share the GHA cache with ci-cd.yml's instant-build so a
           # push-triggered deploy followed by an instant-deploy hits
           # warm cache on the second run. no_cache=true skips cache entirely.
