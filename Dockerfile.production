@@ -20,6 +20,8 @@
 # Jun 20, 2026 (r5): bust BuildKit cache — /api/stream/entities + capped
 # /api/crep/unified compiled locally but 404 / 3MB on prod after instant-deploy.
 # Force clean `npm run build` layer so manual-SHA image registers new routes.
+# Jun 20, 2026 (r7): instant-deploy no_cache=true — GHA cache still served stale
+# npm run build output despite r5/r6 bust strings; full rebuild required.
 
 FROM node:20-bookworm-slim AS base
 # SECURITY: no default — NEXTAUTH_SECRET must be supplied at build/runtime (docker-compose
@@ -81,7 +83,7 @@ ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Cache-bust token MUST change when routes must register on prod (BuildKit GHA cache).
-RUN echo "DEPLOY_CACHE_BUST=earth-sim-entities-via-crep-jun20-r6 commit=${SOURCE_COMMIT}" && npm run build
+RUN echo "DEPLOY_CACHE_BUST=earth-sim-entities-via-crep-jun20-r7 commit=${SOURCE_COMMIT}" && npm run build
 
 # Production image
 FROM base AS runner
