@@ -386,7 +386,20 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Register weatherRadar + stormLightning in Environment panel allowlist
 - *(earth-sim)* Remove lightning thunder sound + cap radar maxzoom
 - *(earth-sim)* Kill 'Zoom Level Not Supported' radar tile + FPS killers
+- *(earth-sim)* Register weatherRadar + stormLightning in Environment panel allowlist
+- *(earth-sim)* Remove lightning thunder sound + cap radar maxzoom
+- *(earth-sim)* Kill 'Zoom Level Not Supported' radar tile + FPS killers
 - *(deploy)* Blue-green cutover robust to malformed prod .env lines (#217)
+- *(deploy)* Sanitize prod .env before cutover [fast]
+- *(deploy)* In-place .env sanitize in cutover script
+- *(deploy)* Sanitize prod .env before cutover [fast]
+- *(ci)* Revert broken yaml sanitize block; cutover script handles .env [fast]
+- *(deploy)* Sanitize prod .env before cutover via GHA SSH [fast] (#219)
+- *(deploy)* Safe .env export via python; strip backticks [fast] (#221)
+- *(deploy)* Safe .env export via python; strip backticks [fast]
+- *(deploy)* Bust Docker BuildKit cache for stream/entities + unified caps [fast]
+- *(deploy)* Force npm run build cache bust for stream/entities route [fast]
+- *(earth-sim)* Route entity SSE via /api/stream/crep?mode=entities on prod [fast]
 
 ### CREP
 
@@ -637,6 +650,8 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Add Earth Simulator section to README.
 
 ### Features
 
@@ -859,6 +874,13 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
 - *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
 - *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
+- *(earth-sim)* Emergency-weather widget WIP — bottom-docked popup + live radar layer + weather-now proxy
+- *(earth-sim)* Wire animated RainViewer radar layer + 'Live Weather Radar' toggle
+- *(earth-sim)* Live-weather panel inside the emergency popup
+- *(earth-sim)* Live lightning bolts + thunder over real NWS storm cells
+- *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
+- *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
+- *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
 
 ### Fix
 
@@ -933,6 +955,7 @@ All notable changes to this project will be documented in this file.
 - Fast deploy search earth fixes [fast]
 - Parse iNat report geojson safely [skip ci]
 - *(section9)* Package Cursor's uncommitted Section 9 website changes for deploy bundle
+- Add no_cache instant deploy and Earth Sim prod verification
 
 ### Performance
 
@@ -949,6 +972,16 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* FPS governors enforce the >=30 floor (movers + terrain)
 - *(earth-sim)* Throttle BlueSite repaint to ~22fps + pause mover meshes during camera motion
 - *(earth-sim)* Zoom-adaptive BlueSite repaint throttle (fixes ~3fps at street-zoom+tilt)
+- *(earth-sim)* FPS auto-governor + smoother radar + lean emergency popup
+- *(earth-sim)* Broaden FPS governor to shed regional packs + dense infra
+- *(earth-sim)* Governor startup grace + longer streak (no load-phase thrash)
+- *(earth-sim)* Governor acts on genuinely-slow maps (frameMs guard 1500->5000)
+- *(earth-sim)* Heavy mover LOD + hide aircraft below zoom 3.5
+- *(earth-sim)* Layer-level minzoom 3.5 on aircraft (no planes below 3.5)
+- *(earth-sim)* Skip per-frame aircraft pipeline below zoom 3.5
+- *(earth-sim)* Gate vessels at pump too + turn off plane trajectory trails
+- *(earth-sim)* Gate vessels' 2nd writer + minzoom; hide sat orbit rings <4
+- *(earth-sim)* Remove FpsAutoGovernor from the tree (dev tool only)
 - *(earth-sim)* FPS auto-governor + smoother radar + lean emergency popup
 - *(earth-sim)* Broaden FPS governor to shed regional packs + dense infra
 - *(earth-sim)* Governor startup grace + longer streak (no load-phase thrash)
@@ -1093,6 +1126,8 @@ All notable changes to this project will be documented in this file.
 - Kill 'Not Secure' badge on https://mycosoft.com (mixed content)
 - *(deps)* Override patched transitive versions — 0 critical/high (109->60 vulns)
 - *(deps)* Clear the @vitessce/uuid chain + postcss — 109->14 vulns, 0 critical/high
+- Placeholder MINDEX key in docs
+- Remove MINDEX default key fallbacks
 
 ### Sidebar
 
