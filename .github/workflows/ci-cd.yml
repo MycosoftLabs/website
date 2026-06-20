@@ -483,30 +483,9 @@ jobs:
             set -euo pipefail
             cd /opt/mycosoft/website
             git fetch origin main
-            git checkout origin/main -- scripts/sanitize-production-env.sh 2>/dev/null || true
+            git checkout origin/main -- scripts/sanitize-production-env.sh scripts/sanitize-production-env.py 2>/dev/null || true
             chmod +x scripts/sanitize-production-env.sh 2>/dev/null || true
-            if [[ -x scripts/sanitize-production-env.sh ]]; then
-              ./scripts/sanitize-production-env.sh .env
-            else
-              python3 -c "
-          from pathlib import Path
-          p=Path('.env'); lines=p.read_text().splitlines(); out=[]; i=0; ch=False
-          while i<len(lines):
-            ln,s=lines[i],lines[i].strip()
-            if s and not s.startswith('#') and '=' not in s:
-              if out and out[-1].rstrip().endswith('='): out[-1]=out[-1].rstrip()+s
-              else: out.append('MINDEX_INTERNAL_TOKEN='+s)
-              ch=True; i+=1; continue
-            if ln.rstrip().endswith('=') and i+1<len(lines):
-              nxt=lines[i+1].strip()
-              if nxt and '=' not in nxt and not nxt.startswith('#'):
-                out.append(ln.rstrip()+nxt); ch=True; i+=2; continue
-            out.append(ln); i+=1
-          if ch: t=p.read_text(); p.write_text(chr(10).join(out)+(chr(10) if t.endswith(chr(10)) else ''))
-          "
-              set -a; source <(grep -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' .env); set +a
-              echo ENV_SOURCE_OK
-            fi
+            ./scripts/sanitize-production-env.sh .env
           SANITIZE
 
       # Apr 23, 2026 — Morgan: "you need to prevent data from building up
@@ -906,7 +885,9 @@ jobs:
               deploy/nginx/nginx.conf \
               deploy/nginx/conf.d/website.conf.template \
               scripts/blue-green-deploy.sh \
-              scripts/blue-green-bootstrap.sh 2>/dev/null || true
+              scripts/blue-green-bootstrap.sh \
+              scripts/sanitize-production-env.sh \
+              scripts/sanitize-production-env.py 2>/dev/null || true
             chmod +x scripts/blue-green-*.sh 2>/dev/null || true
             echo "Deploy scripts synced to $(git rev-parse --short origin/main)"
           SCRIPT
@@ -964,30 +945,9 @@ jobs:
             set -euo pipefail
             cd /opt/mycosoft/website
             git fetch origin main
-            git checkout origin/main -- scripts/sanitize-production-env.sh 2>/dev/null || true
+            git checkout origin/main -- scripts/sanitize-production-env.sh scripts/sanitize-production-env.py 2>/dev/null || true
             chmod +x scripts/sanitize-production-env.sh 2>/dev/null || true
-            if [[ -x scripts/sanitize-production-env.sh ]]; then
-              ./scripts/sanitize-production-env.sh .env
-            else
-              python3 -c "
-          from pathlib import Path
-          p=Path('.env'); lines=p.read_text().splitlines(); out=[]; i=0; ch=False
-          while i<len(lines):
-            ln,s=lines[i],lines[i].strip()
-            if s and not s.startswith('#') and '=' not in s:
-              if out and out[-1].rstrip().endswith('='): out[-1]=out[-1].rstrip()+s
-              else: out.append('MINDEX_INTERNAL_TOKEN='+s)
-              ch=True; i+=1; continue
-            if ln.rstrip().endswith('=') and i+1<len(lines):
-              nxt=lines[i+1].strip()
-              if nxt and '=' not in nxt and not nxt.startswith('#'):
-                out.append(ln.rstrip()+nxt); ch=True; i+=2; continue
-            out.append(ln); i+=1
-          if ch: t=p.read_text(); p.write_text(chr(10).join(out)+(chr(10) if t.endswith(chr(10)) else ''))
-          "
-              set -a; source <(grep -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' .env); set +a
-              echo ENV_SOURCE_OK
-            fi
+            ./scripts/sanitize-production-env.sh .env
           SANITIZE
 
       - name: Pull GHCR image + blue/green cutover (zero-downtime)
