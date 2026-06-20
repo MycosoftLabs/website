@@ -17,6 +17,10 @@
 # tag race with Cursor's docker compose --force-recreate). Comment edit
 # invalidates every downstream layer.
 
+# Jun 20, 2026 (r5): bust BuildKit cache — /api/stream/entities + capped
+# /api/crep/unified compiled locally but 404 / 3MB on prod after instant-deploy.
+# Force clean `npm run build` layer so manual-SHA image registers new routes.
+
 FROM node:20-bookworm-slim AS base
 # SECURITY: no default — NEXTAUTH_SECRET must be supplied at build/runtime (docker-compose
 # .env). Baking a known default ("change-me-before-prod") would let anyone forge sessions.
