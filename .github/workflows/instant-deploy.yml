@@ -228,14 +228,16 @@ jobs:
               deploy/nginx/nginx.conf \
               deploy/nginx/conf.d/website.conf.template \
               scripts/blue-green-deploy.sh \
-              scripts/blue-green-bootstrap.sh 2>/dev/null || \
+              scripts/blue-green-bootstrap.sh \
+              scripts/vm-production-cleanup.sh 2>/dev/null || \
             git checkout "$TARGET_REF" -- \
               docker-compose.production.yml \
               docker-compose.production.blue-green.yml \
               deploy/nginx/nginx.conf \
               deploy/nginx/conf.d/website.conf.template \
               scripts/blue-green-deploy.sh \
-              scripts/blue-green-bootstrap.sh 2>/dev/null || true
+              scripts/blue-green-bootstrap.sh \
+              scripts/vm-production-cleanup.sh 2>/dev/null || true
             chmod +x scripts/blue-green-*.sh 2>/dev/null || true
             echo "Deploy scripts synced to $(git rev-parse --short HEAD)"
           SCRIPT
@@ -286,6 +288,20 @@ jobs:
               echo 'DATABASE_URL=${{ secrets.DATABASE_URL }}' >> .env
             fi
           ENVSCRIPT2
+
+      - name: Clean production VM before deploy (disk + memory)
+        continue-on-error: true
+        run: |
+          ssh-retry production bash -s <<'CLEANUP'
+            set -euo pipefail
+            cd /opt/mycosoft/website
+            chmod +x scripts/vm-production-cleanup.sh 2>/dev/null || true
+            if [[ -x scripts/vm-production-cleanup.sh ]]; then
+              ./scripts/vm-production-cleanup.sh
+            else
+              echo "::warning::vm-production-cleanup.sh not found — skipping"
+            fi
+          CLEANUP
 
       - name: Pull GHCR image + blue/green cutover
         run: |

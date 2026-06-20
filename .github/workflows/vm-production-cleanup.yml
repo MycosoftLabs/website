@@ -1,0 +1,54 @@
+# Emergency VM cleanup — disk + memory before deploy (no production-deploy lock).
+name: VM Production Cleanup
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vm-production-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Clean production VM (187)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup SSH via Cloudflare Tunnel
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
+          cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
+
+      - name: Run vm-production-cleanup.sh on VM
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            set -euo pipefail
+            cd /opt/mycosoft/website
+            git fetch origin main
+            git checkout origin/main -- scripts/vm-production-cleanup.sh 2>/dev/null || true
+            chmod +x scripts/vm-production-cleanup.sh 2>/dev/null || true
+            if [[ -x scripts/vm-production-cleanup.sh ]]; then
+              ./scripts/vm-production-cleanup.sh
+            else
+              echo "::error::scripts/vm-production-cleanup.sh missing on VM"
+              exit 1
+            fi
+          SCRIPT
+
+      - name: Verify site still up
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 https://mycosoft.com/api/health)
+          echo "health HTTP $code"
+          [[ "$code" == "200" ]] || exit 1
