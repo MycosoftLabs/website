@@ -282,7 +282,7 @@ export class EntityStreamClient {
     if (this.options.types?.length) params.set("types", this.options.types.join(","))
     if (this.options.timeFrom) params.set("time_from", this.options.timeFrom)
     const qs = params.toString()
-    return `/api/stream/entities${qs ? `?${qs}` : ""}`
+    return `/api/stream/crep?mode=entities${qs ? `&${qs}` : ""}`
   }
 
   private openSseBff(): void {

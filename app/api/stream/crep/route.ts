@@ -28,7 +28,114 @@ export const dynamic = "force-dynamic"
 export async function GET(request: NextRequest) {
   const encoder = new TextEncoder()
   const { searchParams } = new URL(request.url)
+  const mode = searchParams.get("mode")
   const category = searchParams.get("category")
+
+  // Entity stream (Earth Simulator) — same BFF path as CREP for prod route registration
+  if (mode === "entities") {
+    const cells = searchParams.get("cells")
+    const types = searchParams.get("types")
+    const timeFrom = searchParams.get("time_from")
+    const wsParams = new URLSearchParams()
+    if (cells) wsParams.set("cells", cells)
+    if (types) wsParams.set("types", types)
+    if (timeFrom) wsParams.set("time_from", timeFrom)
+    const qs = wsParams.toString()
+    const wsUrl = `${MAS_WS_URL}/api/entities/stream${qs ? `?${qs}` : ""}`
+
+    const customReadable = new ReadableStream({
+      async start(controller) {
+        let heartbeatInterval: NodeJS.Timeout | null = null
+        let wsInstance: InstanceType<typeof import("ws").default> | null = null
+
+        const sendEvent = (eventType: string, payload: Record<string, unknown>) => {
+          controller.enqueue(
+            encoder.encode(`event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`)
+          )
+        }
+
+        const cleanup = () => {
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval)
+            heartbeatInterval = null
+          }
+          if (wsInstance && wsInstance.readyState === 1) {
+            wsInstance.close()
+          }
+          try {
+            controller.close()
+          } catch {
+            // already closed
+          }
+        }
+
+        try {
+          const WebSocketModule = await import("ws")
+          const WS = WebSocketModule.default
+          wsInstance = new WS(wsUrl)
+
+          sendEvent("connected", {
+            message: "Entity stream BFF connected",
+            masUrl: MAS_API_URL,
+            timestamp: new Date().toISOString(),
+          })
+
+          wsInstance.on("open", () => {
+            heartbeatInterval = setInterval(() => {
+              if (wsInstance && wsInstance.readyState === WS.OPEN) {
+                wsInstance.ping()
+              }
+            }, 30000)
+          })
+
+          wsInstance.on("message", (data: Buffer) => {
+            try {
+              const message = JSON.parse(data.toString())
+              sendEvent(message.type || "entity", message)
+            } catch (error) {
+              console.error("[Entity Stream] Message parse error:", error)
+            }
+          })
+
+          wsInstance.on("error", (error: Error) => {
+            sendEvent("error", {
+              error: "WebSocket error",
+              message: error.message || "Unknown error",
+              timestamp: new Date().toISOString(),
+            })
+          })
+
+          wsInstance.on("close", (code: number, reason: Buffer) => {
+            sendEvent("disconnected", {
+              message: "Entity stream disconnected",
+              code,
+              timestamp: new Date().toISOString(),
+            })
+            cleanup()
+          })
+
+          request.signal.addEventListener("abort", cleanup)
+        } catch (error) {
+          sendEvent("error", {
+            error: "Connection setup failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+            masUrl: MAS_API_URL,
+            timestamp: new Date().toISOString(),
+          })
+          cleanup()
+        }
+      },
+    })
+
+    return new Response(customReadable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    })
+  }
 
   const customReadable = new ReadableStream({
     async start(controller) {
