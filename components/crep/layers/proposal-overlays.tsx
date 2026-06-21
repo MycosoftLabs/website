@@ -27,6 +27,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import { isTabletLikeDevice } from "@/lib/client-motion"
 import {
   INFRA_LAYERS,
   addInfraSourceWithFallback,
@@ -1592,12 +1593,14 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
       try { if (map.getTerrain?.()) map.setTerrain(null) } catch { /* ignore */ }
       return
     }
-    const TERRAIN_MIN_ZOOM = 5
+    const touchTablet = typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1
+    const tabletLike = touchTablet || isTabletLikeDevice()
+    const TERRAIN_MIN_ZOOM = tabletLike ? 4 : 5
     // Only drape terrain when the camera is TILTED to an angle — looking straight down,
     // elevation relief is imperceptible and just burns FPS. Flat / top-down view stays the
     // fast flat globe and never pops relief on zoom. Tunable via window.__es_v2.
     const TERRAIN_MIN_PITCH = (() => {
-      try { const v = (window as any).__es_v2?.terrainMinPitch; return Number.isFinite(v) ? Number(v) : 12 } catch { return 12 }
+      try { const v = (window as any).__es_v2?.terrainMinPitch; return Number.isFinite(v) ? Number(v) : (tabletLike ? 8 : 12) } catch { return tabletLike ? 8 : 12 }
     })()
     const exaggeration = (() => {
       try { const v = (window as any).__es_v2?.terrainExaggeration; return Number.isFinite(v) ? Number(v) : 1.5 } catch { return 1.5 }
@@ -1623,7 +1626,13 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
     // keep it off until FPS recovers comfortably (hysteresis). Enforces the perf contract.
     let fpsBlocked = false
     let healthyTicks = 0
-    const TERR_FPS_FLOOR = (() => { try { const v = (window as any).__es_v2?.terrainFpsFloor; return Number.isFinite(v) ? Number(v) : 36 } catch { return 36 } })()
+    const TERR_FPS_FLOOR = (() => {
+      try {
+        const v = (window as any).__es_v2?.terrainFpsFloor
+        if (Number.isFinite(v)) return Number(v)
+      } catch { /* ignore */ }
+      return tabletLike ? 24 : 36
+    })()
     const apply = () => {
       try {
         if (!isMapStyleReady(map)) return
@@ -1643,7 +1652,7 @@ export default function ProposalOverlays({ map, enabled, bbox, searchContextMode
         if (fps < TERR_FPS_FLOOR) {
           healthyTicks = 0
           if (!fpsBlocked) { fpsBlocked = true; if (map.getTerrain?.()) map.setTerrain(null) }
-        } else if (fps >= TERR_FPS_FLOOR + 12) {           // recover only well above the floor
+        } else if (fps >= TERR_FPS_FLOOR + (tabletLike ? 8 : 12)) {           // recover only well above the floor
           if (fpsBlocked && ++healthyTicks >= 3) { fpsBlocked = false; healthyTicks = 0; apply() }
         }
       } catch { /* ignore */ }

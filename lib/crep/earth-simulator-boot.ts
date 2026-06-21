@@ -33,6 +33,7 @@ export const EARTH_SIM_BASE_LAYER_IDS = [
   "satImagery",
   "bathymetry",
   "topography",
+  "terrain3d",
   "fungalAtlasECM",
 ] as const
 
