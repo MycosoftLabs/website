@@ -142,6 +142,8 @@ interface AutoplayVideoProps {
   unloadWhenOutsideViewport?: boolean
   /** Prewarm a second copy near the loop seam so long-running hero videos do not visibly hitch at reset. */
   smoothLoop?: boolean
+  /** Skip the 1.25s progressWatch interval (saves CPU on iPad with multiple videos). */
+  disableProgressWatch?: boolean
   /**
    * When true (default), the video does not receive pointer events so full-bleed heroes
    * do not sit above the footer/header stack and eat the first tap/click.
@@ -167,6 +169,7 @@ export function AutoplayVideo({
   pauseWhenOutsideViewport = false,
   unloadWhenOutsideViewport = false,
   smoothLoop = false,
+  disableProgressWatch = false,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const loopCoverRef = useRef<HTMLVideoElement>(null)
@@ -185,6 +188,10 @@ export function AutoplayVideo({
   const [youtubeFallbackReady, setYoutubeFallbackReady] = useState(false)
   const [loopCoverVisible, setLoopCoverVisible] = useState(false)
   const activeSrc = list[index] ?? ""
+  const effectiveSmoothLoop =
+    smoothLoop &&
+    !disableProgressWatch &&
+    (typeof navigator === "undefined" || (navigator.maxTouchPoints ?? 0) <= 1)
   const listRef = useRef(list)
   const recoveryCountRef = useRef(0)
   const qualityIssueCountRef = useRef(0)
@@ -429,7 +436,7 @@ export function AutoplayVideo({
       }
     }
     const armLoopCover = () => {
-      if (!smoothLoop || loopCoverActiveRef.current || !shouldMaintainPlayback()) return
+      if (!effectiveSmoothLoop || loopCoverActiveRef.current || !shouldMaintainPlayback()) return
       if (!Number.isFinite(v.duration) || v.duration < 8) return
       if (v.duration - v.currentTime > 1.4) return
       const cover = loopCoverRef.current
@@ -449,7 +456,10 @@ export function AutoplayVideo({
       lastProgressAt = performance.now()
       armLoopCover()
     }
-    const progressWatch = window.setInterval(() => {
+    const progressWatch =
+      disableProgressWatch || (typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1)
+        ? null
+        : window.setInterval(() => {
       if (document.hidden) return
       if (!shouldMaintainPlayback()) return
       if (v.paused && !v.ended) {
@@ -502,7 +512,7 @@ export function AutoplayVideo({
     return () => {
       clearStall()
       clearLoopCover()
-      window.clearInterval(progressWatch)
+      if (progressWatch != null) window.clearInterval(progressWatch)
       document.removeEventListener("touchstart", onUserGesture)
       document.removeEventListener("pointerdown", onUserGesture)
       document.removeEventListener("visibilitychange", onVisibility)
@@ -517,7 +527,7 @@ export function AutoplayVideo({
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
       v.removeEventListener("timeupdate", onTimeUpdate)
     }
-  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, youtubeFallbackId, usingYoutubeFallback, fallbackAfterFreezeMs, pauseWhenOutsideViewport, smoothLoop])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, youtubeFallbackId, usingYoutubeFallback, fallbackAfterFreezeMs, pauseWhenOutsideViewport, smoothLoop, disableProgressWatch, effectiveSmoothLoop])
 
   if (!activeSrc) return null
   const derivedPoster = sidecarPosterForVideo(activeSrc)
@@ -590,7 +600,7 @@ export function AutoplayVideo({
       >
         <source src={activeSrc} type={mediaTypeForVideo(activeSrc)} />
       </video>
-      {smoothLoop ? (
+      {effectiveSmoothLoop ? (
         <video
           key={`${activeSrc}-loop-cover`}
           ref={loopCoverRef}

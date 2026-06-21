@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { useTabletLikeDevice } from "@/lib/client-motion"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -153,6 +154,7 @@ export function HeroSearch({
   onOpenMYCADemo,
 }: HeroSearchProps) {
   const router = useRouter()
+  const tabletLike = useTabletLikeDevice()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   /** Defer mounting hero <video> until after first paint + idle — avoids decode/network fighting hydration (OOM / tab crash). */
@@ -489,16 +491,22 @@ export function HeroSearch({
             "relative",
             embedded
               ? "myco-hero-search-card overflow-visible"
-              : "overflow-hidden rounded-3xl backdrop-blur-xl bg-background/20 dark:bg-background/30",
+              : tabletLike
+                ? "overflow-hidden rounded-3xl bg-background/85 dark:bg-background/90 border border-border/40"
+                : "overflow-hidden rounded-3xl backdrop-blur-xl bg-background/20 dark:bg-background/30",
             !embedded && isFocused && "ring-2 ring-primary/50"
           )}
         >
           {/* Animated Gradient Border */}
           {!embedded ? (
+            tabletLike ? (
+              <div className="absolute inset-[1px] rounded-[22px] bg-background/90 dark:bg-background/95" />
+            ) : (
             <>
               <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
               <div className="absolute inset-[2px] rounded-[22px] bg-background/10 dark:bg-background/20" />
             </>
+            )
           ) : null}
 
           {/* Content */}
@@ -570,7 +578,9 @@ export function HeroSearch({
                 "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
                 embedded
                   ? "myco-hero-input-glass border border-white/20"
-                  : "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20 shadow-2xl shadow-black/10 dark:shadow-black/20",
+                  : tabletLike
+                    ? "bg-background/95 dark:bg-neutral-900/90 border border-border dark:border-white/15 shadow-lg"
+                    : "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20 shadow-2xl shadow-black/10 dark:shadow-black/20",
                 "transition-all duration-300",
                 isFocused && (embedded
                   ? "border-white/25"

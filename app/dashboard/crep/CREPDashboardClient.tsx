@@ -2447,11 +2447,11 @@ function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 9 ? 180 :
-        zoom >= 7 ? 160 :
-        zoom >= 5 ? 140 :
-        zoom >= 3 ? 120 :
-        100;
+        zoom >= 9 ? 100 :
+        zoom >= 7 ? 90 :
+        zoom >= 5 ? 75 :
+        zoom >= 3 ? 65 :
+        55;
       return Math.min(baseCap, tabletCap);
     }
     return baseCap;
@@ -2489,13 +2489,13 @@ function getNatureDomMarkerCapForZoom(
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 11 ? 760 :
-        zoom >= 9 ? 660 :
-        zoom >= 7 ? 560 :
-        zoom >= 5 ? 460 :
-        zoom >= 3 ? 320 :
-        220;
-      return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(120, Math.floor(tabletCap * kingdomScale)));
+        zoom >= 11 ? 380 :
+        zoom >= 9 ? 330 :
+        zoom >= 7 ? 280 :
+        zoom >= 5 ? 220 :
+        zoom >= 3 ? 160 :
+        120;
+      return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(80, Math.floor(tabletCap * kingdomScale)));
     }
     const tierCap =
       zoom >= 11 ? 900 :
@@ -7896,10 +7896,18 @@ export default function CREPDashboardPage({
     };
   }, []);
   const [leftPanelOpen, setLeftPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
+    () => {
+      if (embedded) return false
+      if (!isEarthSimulatorPath()) return true
+      return getEarthSimViewportPerfClass() !== "phone"
+    },
   );
   const [rightPanelOpen, setRightPanelOpen] = useState(
-    () => !embedded && !(isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone"),
+    () => {
+      if (embedded) return false
+      if (!isEarthSimulatorPath()) return true
+      return getEarthSimViewportPerfClass() === "desktop"
+    },
   );
   const [rightPanelTab, setRightPanelTab] = useState("myca");
   const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "myca" | "infra">("fungal"); // DEFAULT TO FUNGAL
@@ -7934,24 +7942,25 @@ export default function CREPDashboardPage({
     const phoneMq = window.matchMedia("(max-width: 767px)");
     const earthTabletMq = window.matchMedia("(max-width: 1180px), (pointer: coarse)");
     const applyResponsivePanelDefaults = () => {
-      const earthSimulator = isEarthSimulatorPath();
-      // Only genuine phones (perf-class) auto-collapse the Earth Sim panels.
-      // earthTabletMq = "(max-width:1180px),(pointer:coarse)" matched EVERY iPad
-      // (coarse pointer) and re-closed the panels the init opened — defeating the
-      // "iPad starts like desktop" requirement. Now iPads ("tablet") fall into the
-      // panels-open branch. (Jun 13, 2026 — iPad QA.)
-      const earthTablet = isEarthSimulatorPath() && getEarthSimViewportPerfClass() === "phone";
-      if (phoneMq.matches || earthTablet) {
-        setLeftPanelOpen(false);
-        setRightPanelOpen(false);
+      const earthSimulator = isEarthSimulatorPath()
+      const perfClass = earthSimulator ? getEarthSimViewportPerfClass() : "desktop"
+      // Only genuine phones auto-collapse both panels. iPad/tablet keeps left open only
+      // so the map has GPU headroom (Jun 20, 2026 — iPad freeze fix).
+      const earthPhone = perfClass === "phone"
+      if (phoneMq.matches || earthPhone) {
+        setLeftPanelOpen(false)
+        setRightPanelOpen(false)
+      } else if (earthSimulator && perfClass === "tablet") {
+        setLeftPanelOpen(true)
+        setRightPanelOpen(false)
       } else if (earthSimulator) {
-        setLeftPanelOpen(true);
-        setRightPanelOpen(true);
+        setLeftPanelOpen(true)
+        setRightPanelOpen(true)
       } else {
-        setLeftPanelOpen(true);
-        setRightPanelOpen(true);
+        setLeftPanelOpen(true)
+        setRightPanelOpen(true)
       }
-    };
+    }
     applyResponsivePanelDefaults();
     phoneMq.addEventListener("change", applyResponsivePanelDefaults);
     earthTabletMq.addEventListener("change", applyResponsivePanelDefaults);
@@ -8020,9 +8029,9 @@ export default function CREPDashboardPage({
     // the heavier layers hydrate (the 1.75s/2.5s values removed that safety valve
     // and compounded the iPad freeze). Not the old 35-55s — a survivable middle.
     const delayMs =
-      earthSimViewportPerfClass === "phone" ? 8_000 :
-      earthSimViewportPerfClass === "tablet" ? 5_000 :
-      750;
+      earthSimViewportPerfClass === "phone" ? 10_000 :
+      earthSimViewportPerfClass === "tablet" ? 18_000 :
+      750
     const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
     return () => window.clearTimeout(timer);
   }, [
@@ -8669,7 +8678,8 @@ export default function CREPDashboardPage({
       }
     };
     installHoverBridge();
-    const repairTimer = window.setInterval(installHoverBridge, 2_000);
+    const repairMs = getEarthSimViewportPerfClass() === "desktop" ? 2_000 : 30_000;
+    const repairTimer = window.setInterval(installHoverBridge, repairMs);
     const onHover = (event: Event) => {
       const detail = (event as CustomEvent<MapAssetHoverPayload | null>).detail ?? null;
       handleMapAssetHover(detail);
@@ -9322,6 +9332,7 @@ export default function CREPDashboardPage({
 
   useEffect(() => {
     if (!earthStrictPerfMode || !mapRef) return;
+    if (getEarthSimViewportPerfClass() !== "desktop") return;
     const perfClass = getEarthSimViewportPerfClass();
     const sampleWindowMs = perfClass === "desktop" ? 1_000 : 250;
     const sampleIntervalMs = perfClass === "desktop" ? 2_000 : 8_000;
@@ -15895,11 +15906,14 @@ export default function CREPDashboardPage({
     let rafId: number | null = null;
     let intervalId: any = null;
     let lastTickAt = 0;
+    const moverPerfClass = earthStrictPerfMode ? getEarthSimViewportPerfClass() : "desktop";
+    const useIntervalOnly = earthStrictPerfMode && moverPerfClass !== "desktop";
     const getTickMs = () => {
-      // Jun 16 — tighter cadence so planes glide smoothly instead of stepping
-      // every ~0.5–1s. The setData coalescer caps GPU uploads at one per frame,
-      // so the only added cost is the (viewport-LOD'd) feature rebuild.
-      if (earthStrictPerfMode) return 1000;
+      if (earthStrictPerfMode) {
+        if (moverPerfClass === "tablet") return 2000;
+        if (moverPerfClass === "phone") return 2500;
+        return 1000;
+      }
       const zoom = mapZoomRef.current;
       if (!Number.isFinite(zoom) || zoom < 3) return 400;
       if (zoom < 5) return 350;
@@ -16010,6 +16024,14 @@ export default function CREPDashboardPage({
       }
     };
 
+    // Tablet/phone: interval-only pump — perpetual rAF starves iPad Safari main thread.
+    if (useIntervalOnly) {
+      const intervalMs = moverPerfClass === "tablet" ? 2000 : 2500;
+      intervalId = setInterval(() => {
+        lastTickAt = performance.now();
+        pumpOnce();
+      }, intervalMs);
+    } else {
     // rAF tick: runs at ~60 Hz when tab is visible; browser pauses when hidden.
     const rafTick = (ts: number) => {
       const nowPerf = performance.now();
@@ -16032,6 +16054,7 @@ export default function CREPDashboardPage({
       lastTickAt = performance.now();
       pumpOnce();
     }, 500);
+    }
 
     return () => {
       if (rafId != null) cancelAnimationFrame(rafId);
