@@ -401,6 +401,9 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Force npm run build cache bust for stream/entities route [fast]
 - *(earth-sim)* Route entity SSE via /api/stream/crep?mode=entities on prod [fast]
 - *(ops)* Vm cleanup bash syntax and instant-deploy workflow dup keys
+- *(tablet)* Reduce iPad freeze on home and Earth Simulator
+- *(ci)* Remove broken free-disk-space action from Instant Deploy
+- *(tablet)* Stop Earth Sim freeze on globe pan and poster-first home video
 
 ### CREP
 
@@ -653,6 +656,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Earth Simulator section to README.
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 
 ### Features
