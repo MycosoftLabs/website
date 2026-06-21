@@ -884,11 +884,9 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
 function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zoom: number): number {
   const z = Number.isFinite(zoom) ? zoom : 0;
   // Desktop carries far more than tablet/phone. Aircraft/vessels are native GPU
-  // symbols bbox-culled to ~2x the viewport at z>=tier (so high-zoom caps only
-  // ever paint in-view targets), and satellites are worker-propagated GPU symbols
-  // with the SGP4 loop OFF on tablet/phone — so high desktop caps just blanket the
-  // globe or the viewport without straining smaller devices. (Jun 14, 2026 —
-  // "almost no satellites/planes/vessels, thousands missing, gate by lod + viewport".)
+  // symbols bbox-culled to ~2x the viewport at z>=tier. Satellites use the SGP4
+  // worker on all devices after stagger; orbit rings are desktop-only.
+  // (Jun 14, 2026 — gate by lod + viewport, not device class.)
   const desktop = getEarthSimViewportPerfClass() === "desktop";
   if (kind === "satellite") {
     if (!desktop) { if (z < 5) return 350; if (z < 10) return 500; return 650; }
@@ -8027,12 +8025,17 @@ export default function CREPDashboardPage({
   const earthMoverLimits = earthStrictPerfMode ? EARTH_SIM_SAFE_RESOURCE_LIMITS : RESOURCE_LIMITS.normal;
   const [isMapAnimationActive, setIsMapAnimationActive] = useState(false);
   const [earthSimDeferredDataReady, setEarthSimDeferredDataReady] = useState(() => !isEarthSimulatorPath());
+  // SGP4 + elevated satellites use a shorter stagger than heavy DOM/GeoJSON overlays
+  // so iPad sees live sats within a few seconds, not after the full 18s defer.
+  const [earthSimSatellitePropReady, setEarthSimSatellitePropReady] = useState(() => !isEarthSimulatorPath());
   useEffect(() => {
     if (!isEarthSimulatorRoute) {
       setEarthSimDeferredDataReady(true);
+      setEarthSimSatellitePropReady(true);
       return;
     }
     setEarthSimDeferredDataReady(false);
+    setEarthSimSatellitePropReady(false);
     if (auditAllOffMode || assetIsolationMode) return;
     // Stage heavy overlays in for weaker GPUs. Desktop paints fast (750ms); tablet
     // and phone get real breathing room so the base map + light data settle before
@@ -8042,8 +8045,16 @@ export default function CREPDashboardPage({
       earthSimViewportPerfClass === "phone" ? 10_000 :
       earthSimViewportPerfClass === "tablet" ? 18_000 :
       750
-    const timer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
-    return () => window.clearTimeout(timer);
+    const satDelayMs =
+      earthSimViewportPerfClass === "phone" ? 6_000 :
+      earthSimViewportPerfClass === "tablet" ? 4_000 :
+      750
+    const heavyTimer = window.setTimeout(() => setEarthSimDeferredDataReady(true), delayMs);
+    const satTimer = window.setTimeout(() => setEarthSimSatellitePropReady(true), satDelayMs);
+    return () => {
+      window.clearTimeout(heavyTimer);
+      window.clearTimeout(satTimer);
+    };
   }, [
     isEarthSimulatorRoute,
     earthSimViewportPerfClass,
@@ -10007,9 +10018,8 @@ export default function CREPDashboardPage({
 
   const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>(() => {
     // Satellites start ON at boot on Earth Sim — EXCEPT debris (Morgan: all sat
-    // filters on at reload except debris). Categories classify by name; SGP4
-    // render is desktop-only so tablet/phone carry no satellite cost.
-    // (Jun 14, 2026 — movers on at reload.)
+    // filters on at reload except debris). SGP4 + elevated mover-altitude run on
+    // all devices after the first-paint stagger; orbit rings are desktop-only.
     const moversOffAtBoot = getInitialFiltersOffMode();
     return {
       showStations: !moversOffAtBoot,
@@ -16850,14 +16860,12 @@ export default function CREPDashboardPage({
       return;
     }
 
-    // Earth Simulator: the SGP4 rAF loop is held off on tablet/phone for idle
-    // perf (DOM/GPU budget), but desktop has the headroom. Run it on desktop —
-    // gated behind the first-paint stagger (earthSimDeferredDataReady) so it
-    // never competes with the initial globe paint — so that enabling the
-    // satellites layer actually shows live, moving satellites (previously the
-    // source stayed empty on Earth Sim and nothing rendered). Tablet/phone keep
-    // the static-markers-only behavior.
-    if (earthStrictPerfMode && (earthSimViewportPerfClass !== "desktop" || !earthSimDeferredDataReady)) {
+    // Earth Simulator: SGP4 runs on desktop + tablet/phone after the first-paint
+    // stagger so live satellites + the BlueSite mover-altitude layer get data.
+    // Orbit-path rings stay desktop-only (main-thread cost). Pan-freeze is handled
+    // separately — SGP4 uses a Web Worker and __crep_satPropagateWhileMoving for
+    // the elevated layer.
+    if (earthStrictPerfMode && !earthSimSatellitePropReady) {
       stopSatelliteAnimation();
       return;
     }
@@ -16890,8 +16898,8 @@ export default function CREPDashboardPage({
     }));
 
     if (!isSatelliteAnimationRunning()) {
-      // First start â€” launch the animation loop. Orbit rings (computeOrbitPaths)
-      // only on desktop, where the elevated-satellite deck overlay renders them.
+      // Orbit rings (computeOrbitPaths) are desktop-only; tablet/phone still get
+      // live SGP4 positions for native + mover-altitude layers.
       startSatelliteAnimation(map, satInputs, {
         computeOrbitPaths: earthSimViewportPerfClass === "desktop",
       });
@@ -16899,7 +16907,7 @@ export default function CREPDashboardPage({
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
-  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimDeferredDataReady]);
+  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimSatellitePropReady]);
 
   // Cleanup: stop satellite animation on unmount
   useEffect(() => {
