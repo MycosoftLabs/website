@@ -11,7 +11,7 @@ import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources, primaryHomeHeroPosterPath } from "@/lib/asset-video-sources"
 import { homeHeroYoutubeId } from "@/lib/hero-youtube"
 import { cn } from "@/lib/utils"
-import { useTabletLikeDevice } from "@/lib/client-motion"
+import { useAllowRichHomeMedia } from "@/lib/client-motion"
 import Image from "next/image"
 
 const HOME_HERO_SOURCES = homeHeroVideoSources()
@@ -135,10 +135,10 @@ const TILES: HomeTile[] = [
 ]
 
 function TileMedia({ tile, posterOnly }: { tile: HomeTile; posterOnly?: boolean }) {
-  const posterSrc = tile.poster
+  const posterSrc = tile.poster ?? HOME_HERO_POSTER
   return (
     <div className="absolute inset-0 overflow-hidden bg-neutral-950">
-      {posterOnly && posterSrc ? (
+      {posterOnly ? (
         <Image
           src={posterSrc}
           alt=""
@@ -167,7 +167,7 @@ function TileMedia({ tile, posterOnly }: { tile: HomeTile; posterOnly?: boolean 
 }
 
 export function HomeCommandPage() {
-  const tabletLike = useTabletLikeDevice()
+  const allowHomeVideo = useAllowRichHomeMedia()
   const [showMYCADemo, setShowMYCADemo] = useState(false)
   const [hasMountedMYCADemo, setHasMountedMYCADemo] = useState(false)
   const showMYCADemoRef = useRef(false)
@@ -221,21 +221,29 @@ export function HomeCommandPage() {
         className="home-hero-glass-field relative min-h-[calc(100dvh-3rem)] overflow-hidden border-b border-white/10"
       >
         <div className="absolute inset-0">
-          {HOME_HERO_SOURCES[0] ? (
+          {allowHomeVideo && HOME_HERO_SOURCES[0] ? (
             <AutoplayVideo
               src={HOME_HERO_SOURCES[0]}
               sources={HOME_HERO_SOURCES}
               poster={HOME_HERO_POSTER}
-              preload={tabletLike ? "metadata" : "auto"}
-              stallTimeoutMs={tabletLike ? 9000 : 6000}
-              fallbackAfterFreezeMs={tabletLike ? 12000 : 5000}
+              preload="auto"
+              stallTimeoutMs={6000}
+              fallbackAfterFreezeMs={5000}
               youtubeFallbackId={HOME_HERO_YOUTUBE_ID}
-              smoothLoop={!tabletLike}
-              disableProgressWatch={tabletLike}
+              smoothLoop
               className="absolute inset-0 h-full w-full object-cover"
               encodeSrc
             />
-          ) : null}
+          ) : (
+            <Image
+              src={HOME_HERO_POSTER}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/12 to-black/70" />
         </div>
 
@@ -329,7 +337,7 @@ export function HomeCommandPage() {
                   tile.span === 2 && "sm:col-span-2 sm:aspect-[2/1]"
                 )}
               >
-                <TileMedia tile={tile} posterOnly={tabletLike} />
+                <TileMedia tile={tile} posterOnly={!allowHomeVideo} />
                 <div className="relative z-10 flex h-full flex-col justify-between p-5 sm:p-6">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-2 border border-white/15 bg-black/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70 backdrop-blur">

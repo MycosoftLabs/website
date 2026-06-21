@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { useTabletLikeDevice } from "@/lib/client-motion"
+import { useAllowRichHomeMedia, useTabletLikeDevice } from "@/lib/client-motion"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -155,6 +155,7 @@ export function HeroSearch({
 }: HeroSearchProps) {
   const router = useRouter()
   const tabletLike = useTabletLikeDevice()
+  const allowHomeVideo = useAllowRichHomeMedia()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   /** Defer mounting hero <video> until after first paint + idle — avoids decode/network fighting hydration (OOM / tab crash). */
@@ -203,6 +204,7 @@ export function HeroSearch({
   }, [])
 
   useEffect(() => {
+    if (!allowHomeVideo) return
     if (typeof window === "undefined") return
     let idleId: number
     let usedIdleCallback = false
@@ -221,7 +223,7 @@ export function HeroSearch({
         window.clearTimeout(idleId)
       }
     }
-  }, [])
+  }, [allowHomeVideo])
 
   const homeNasHeroSources = homeHeroVideoSources()
 
@@ -451,7 +453,7 @@ export function HeroSearch({
           style={{ contain: "paint", willChange: "transform" }}
         >
           {/* Locked NAS MP4 hero background after idle. */}
-          {idleHeroVideoReady && homeNasHeroSources[0] ? (
+          {allowHomeVideo && idleHeroVideoReady && homeNasHeroSources[0] ? (
             <AutoplayVideo
               src={homeNasHeroSources[0]}
               sources={homeNasHeroSources}
