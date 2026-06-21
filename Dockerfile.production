@@ -26,6 +26,7 @@
 # CREPDashboardClient + home-command-page changes must invalidate npm run build.
 # Jun 20, 2026 (r9): iPad Earth Sim — SGP4 satellites + terrain3d boot + tablet terrain thresholds.
 # Jun 21, 2026 (r10): fix AutoplayVideo pointerClass TDZ crash on touch (device pages blank on iPad).
+# Jun 21, 2026 (r11): remove touchPosterOnly — hero/tile videos must play on phone and tablet.
 
 FROM node:20-bookworm-slim AS base
 # SECURITY: no default — NEXTAUTH_SECRET must be supplied at build/runtime (docker-compose
