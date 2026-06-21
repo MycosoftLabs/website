@@ -22,6 +22,8 @@
 # Force clean `npm run build` layer so manual-SHA image registers new routes.
 # Jun 20, 2026 (r7): instant-deploy no_cache=true — GHA cache still served stale
 # npm run build output despite r5/r6 bust strings; full rebuild required.
+# Jun 20, 2026 (r8): tablet Earth Sim pan freeze + poster-first home video —
+# CREPDashboardClient + home-command-page changes must invalidate npm run build.
 
 FROM node:20-bookworm-slim AS base
 # SECURITY: no default — NEXTAUTH_SECRET must be supplied at build/runtime (docker-compose

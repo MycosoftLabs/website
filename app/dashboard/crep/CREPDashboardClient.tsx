@@ -2406,6 +2406,16 @@ function getEarthSimViewportPerfClass(): "desktop" | "tablet" | "phone" {
   return "desktop";
 }
 
+/** Tablet/phone: always freeze DOM lists during pan. Desktop: live bounds only when not streaming. */
+function shouldHoldDomMarkerListsDuringGlobePan(
+  isMapAnimationActive: boolean,
+  liveMarkerBounds: { north: number; south: number; east: number; west: number } | null,
+): boolean {
+  if (!isMapAnimationActive) return false;
+  if (getEarthSimViewportPerfClass() !== "desktop") return true;
+  return !liveMarkerBounds;
+}
+
 function getEarthSimGlobalEventApiLimit(): number {
   const perfClass = getEarthSimViewportPerfClass();
   if (perfClass === "phone") return 220;
@@ -2447,11 +2457,11 @@ function getEventDomMarkerCapForZoom(zoom: number, earthSimulator = false) {
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 9 ? 100 :
-        zoom >= 7 ? 90 :
-        zoom >= 5 ? 75 :
-        zoom >= 3 ? 65 :
-        55;
+        zoom >= 9 ? 70 :
+        zoom >= 7 ? 60 :
+        zoom >= 5 ? 50 :
+        zoom >= 3 ? 40 :
+        35;
       return Math.min(baseCap, tabletCap);
     }
     return baseCap;
@@ -2489,13 +2499,13 @@ function getNatureDomMarkerCapForZoom(
     }
     if (perfClass === "tablet") {
       const tabletCap =
-        zoom >= 11 ? 380 :
-        zoom >= 9 ? 330 :
-        zoom >= 7 ? 280 :
-        zoom >= 5 ? 220 :
-        zoom >= 3 ? 160 :
-        120;
-      return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(80, Math.floor(tabletCap * kingdomScale)));
+        zoom >= 11 ? 220 :
+        zoom >= 9 ? 180 :
+        zoom >= 7 ? 140 :
+        zoom >= 5 ? 110 :
+        zoom >= 3 ? 80 :
+        60;
+      return Math.min(EARTH_SIM_DOM_MARKER_CAP, Math.max(40, Math.floor(tabletCap * kingdomScale)));
     }
     const tierCap =
       zoom >= 11 ? 900 :
@@ -13731,7 +13741,7 @@ export default function CREPDashboardPage({
     groundFilter.showMarineLife
   ), [natureSpeciesFilterKey]);
   const visibleFungalObservations = useMemo(() => {
-    const holdMarkerLists = isMapAnimationActive && !liveMarkerBounds;
+    const holdMarkerLists = shouldHoldDomMarkerListsDuringGlobePan(isMapAnimationActive, liveMarkerBounds);
     // Recompute from cached store + live bounds during globe pan (occlusion hides back-side).
     if (holdMarkerLists) {
       const frozen = visibleFungalObservationsStableRef.current.list;
@@ -14069,7 +14079,7 @@ export default function CREPDashboardPage({
   }, [fungalObservations, mapZoom, markerBounds, natureObservationFilter, fungalSpeciesFilter, natureFiltersEnabled, natureSpeciesFilterKey, auditAllOffMode, isMapAnimationActive, isEarthSimulatorRoute, liveMarkerBounds]);
 
   const renderedFungalObservationsForMap = useMemo(() => {
-    const holdMarkerLists = isMapAnimationActive && !liveMarkerBounds;
+    const holdMarkerLists = shouldHoldDomMarkerListsDuringGlobePan(isMapAnimationActive, liveMarkerBounds);
     if (holdMarkerLists) {
       const frozen = renderedNatureStableRef.current.list;
       if (frozen.length > 0) return frozen;
@@ -14434,7 +14444,7 @@ export default function CREPDashboardPage({
     [typeFilteredEvents],
   );
   const visibleEvents = useMemo(() => {
-    const holdMarkerLists = isMapAnimationActive && !liveMarkerBounds;
+    const holdMarkerLists = shouldHoldDomMarkerListsDuringGlobePan(isMapAnimationActive, liveMarkerBounds);
     if (holdMarkerLists) {
       const frozen = visibleEventsStableRef.current.events;
       if (frozen.length > 0) return frozen;
@@ -14888,7 +14898,7 @@ export default function CREPDashboardPage({
     : null;
   const mycaAnalysisContext = sustainedHoverContext ?? mycaHoverContext ?? mycaSelectedContext;
   const renderedEventsForMap = useMemo(() => {
-    const holdMarkerLists = isMapAnimationActive && !liveMarkerBounds;
+    const holdMarkerLists = shouldHoldDomMarkerListsDuringGlobePan(isMapAnimationActive, liveMarkerBounds);
     if (holdMarkerLists) {
       const frozen = renderedEventsStableRef.current.events;
       if (frozen.length > 0) return frozen;
@@ -15848,6 +15858,11 @@ export default function CREPDashboardPage({
     if (auditAllOffMode) return true;
     if (assetIsolationMode) return true;
     if (isEmbeddedEarthquakeSearch) return true;
+    if (mapInteractionActiveRef.current && getEarthSimViewportPerfClass() !== "desktop") return true;
+    const map = mapNativeRef.current;
+    if (map && getEarthSimViewportPerfClass() !== "desktop") {
+      if (map.isMoving?.() || map.isZooming?.() || map.isRotating?.()) return true;
+    }
     return typeof document !== "undefined" && document.hidden;
   }, [assetIsolationMode, auditAllOffMode, isEmbeddedEarthquakeSearch]);
   const selectStableLiveMoverFeatures = useCallback((
@@ -16084,6 +16099,7 @@ export default function CREPDashboardPage({
   useEffect(() => {
     const map = mapNativeRef.current
     if (!map || typeof map.getSource !== "function") return
+    if (mapInteractionActiveRef.current && getEarthSimViewportPerfClass() !== "desktop") return
     if (isEmbeddedEarthquakeSearch || assetIsolationMode) {
       const emptyFC = { type: "FeatureCollection", features: [] }
       try {
@@ -22217,7 +22233,13 @@ export default function CREPDashboardPage({
                   mapZoomRef.current = newZoom;
                   mapBoundsRef.current = nextBounds;
                   publishViewportState("live", newZoom, nextBounds);
-                  if (isGlobeRoute) {
+                  const perfClass = earthStrictPerfMode ? getEarthSimViewportPerfClass() : "desktop";
+                  const skipLiveReactBounds =
+                    perfClass !== "desktop" ||
+                    mapInteractionActiveRef.current ||
+                    (typeof map.isMoving === "function" && map.isMoving()) ||
+                    (typeof map.isZooming === "function" && map.isZooming());
+                  if (isGlobeRoute && !skipLiveReactBounds) {
                     setLiveMarkerBounds((prev) => (boundsNearlyEqual(prev, nextBounds, 0.001) ? prev : nextBounds));
                   }
                 });

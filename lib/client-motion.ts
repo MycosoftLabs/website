@@ -43,3 +43,12 @@ export function useTabletLikeDevice() {
   return tabletLike
 }
 
+/** Poster/static until desktop confirmed — avoids iPad hydration flash loading 10+ decoders. */
+export function useAllowRichHomeMedia() {
+  const [allow, setAllow] = useState(false)
+  useEffect(() => {
+    setAllow(!prefersReducedVisualMotion() && !isTabletLikeDevice())
+  }, [])
+  return allow
+}
+
