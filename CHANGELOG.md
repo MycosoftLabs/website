@@ -405,6 +405,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Remove broken free-disk-space action from Instant Deploy
 - *(tablet)* Stop Earth Sim freeze on globe pan and poster-first home video
 - *(tablet)* Enable Earth Sim satellites and 3D terrain on iPad
+- *(devices)* AutoplayVideo pointerClass crash on touch devices
 
 ### CREP
 
@@ -657,6 +658,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Add Earth Simulator section to README.
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
