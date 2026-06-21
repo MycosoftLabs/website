@@ -83,7 +83,7 @@ ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Cache-bust token MUST change when routes must register on prod (BuildKit GHA cache).
-RUN echo "DEPLOY_CACHE_BUST=earth-sim-entities-via-crep-jun20-r7 commit=${SOURCE_COMMIT}" && npm run build
+RUN echo "DEPLOY_CACHE_BUST=ipad-tablet-perf-jun20-r8 commit=${SOURCE_COMMIT}" && npm run build
 
 # Production image
 FROM base AS runner
