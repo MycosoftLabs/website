@@ -530,6 +530,7 @@ export function AutoplayVideo({
   }, [activeSrc, stallTimeoutMs, hideUntilPlaying, shouldLoad, youtubeFallbackId, usingYoutubeFallback, fallbackAfterFreezeMs, pauseWhenOutsideViewport, smoothLoop, disableProgressWatch, effectiveSmoothLoop])
 
   if (!activeSrc) return null
+  const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
   const touchPosterOnly =
     typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1
   const derivedPoster = sidecarPosterForVideo(activeSrc)
@@ -578,7 +579,6 @@ export function AutoplayVideo({
       : hideUntilPlaying
         ? "opacity-100 transition-opacity duration-500"
         : ""
-  const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
   const showYoutubeFallback = Boolean(youtubeFallbackId && usingYoutubeFallback)
   const hidePrimaryForYoutube = showYoutubeFallback && youtubeFallbackReady
   const videoStyle = hidePrimaryForYoutube ? { ...style, opacity: 0 } : style
