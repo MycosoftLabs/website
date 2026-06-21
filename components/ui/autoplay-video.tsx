@@ -531,8 +531,6 @@ export function AutoplayVideo({
 
   if (!activeSrc) return null
   const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
-  const touchPosterOnly =
-    typeof navigator !== "undefined" && (navigator.maxTouchPoints ?? 0) > 1
   const derivedPoster = sidecarPosterForVideo(activeSrc)
   const rawPoster = typeof poster === "string" && poster ? poster : derivedPoster
   const posterAttr =
@@ -541,21 +539,6 @@ export function AutoplayVideo({
         ? encodeAssetUrl(rawPoster)
         : rawPoster
       : undefined
-
-  if (touchPosterOnly && posterAttr) {
-    return (
-      <div
-        aria-hidden="true"
-        className={[className, pointerClass].filter(Boolean).join(" ")}
-        style={{
-          ...style,
-          backgroundImage: `url("${posterAttr}")`,
-          backgroundSize: style?.backgroundSize || "cover",
-          backgroundPosition: style?.backgroundPosition || "center",
-        }}
-      />
-    )
-  }
 
   if (hideUntilPlaying && allFailed) {
     if (!posterAttr) return null

@@ -30,9 +30,9 @@ export function shouldUseLightweightVisuals() {
   return prefersReducedVisualMotion() || isCoarsePointerDevice()
 }
 
-/** Poster-only video on tablet/iPad — avoids multiple simultaneous decoders. */
+/** Poster-only when user prefers reduced motion — never tablet/phone-only. */
 export function shouldUsePosterOnlyVideo() {
-  return shouldUseLightweightVisuals() && isTabletLikeDevice()
+  return prefersReducedVisualMotion()
 }
 
 export function useTabletLikeDevice() {
@@ -43,11 +43,11 @@ export function useTabletLikeDevice() {
   return tabletLike
 }
 
-/** Poster/static until desktop confirmed — avoids iPad hydration flash loading 10+ decoders. */
+/** Allow hero/tile video on all devices; only block when user prefers reduced motion. */
 export function useAllowRichHomeMedia() {
-  const [allow, setAllow] = useState(false)
+  const [allow, setAllow] = useState(true)
   useEffect(() => {
-    setAllow(!prefersReducedVisualMotion() && !isTabletLikeDevice())
+    setAllow(!prefersReducedVisualMotion())
   }, [])
   return allow
 }
