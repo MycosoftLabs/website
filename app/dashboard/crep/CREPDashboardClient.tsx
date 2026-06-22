@@ -276,6 +276,7 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
 import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
 import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
+import MindexFirmsLayer from "@/components/crep/layers/mindex-firms-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -10316,6 +10317,7 @@ export default function CREPDashboardPage({
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
+    { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
     { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
@@ -23261,6 +23263,15 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
             sound={false}
+          />}
+
+          {/* MINDEX FIRMS wildfires (live NASA FIRMS VIIRS from earth.wildfires via
+              internal-token BFF). Additive, default-OFF — toggle "MINDEX FIRMS (live)".
+              Self-contained static glow+dot layer; off == byte-for-byte v1. */}
+          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && (layers.find(l => l.id === "mindexFirms")?.enabled ?? false) && <MindexFirmsLayer
+            map={mapRef.current}
+            enabled={layers.find(l => l.id === "mindexFirms")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexFirms")?.opacity ?? 0.85}
           />}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
