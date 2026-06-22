@@ -2790,6 +2790,7 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
   "weatherRadar",     // Live Weather Radar (animated RainViewer)
   "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
+  "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -23268,8 +23269,8 @@ export default function CREPDashboardPage({
           {/* MINDEX FIRMS wildfires (live NASA FIRMS VIIRS from earth.wildfires via
               internal-token BFF). Additive, default-OFF — toggle "MINDEX FIRMS (live)".
               Self-contained static glow+dot layer; off == byte-for-byte v1. */}
-          {!auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && mapRef.current && (layers.find(l => l.id === "mindexFirms")?.enabled ?? false) && <MindexFirmsLayer
-            map={mapRef.current}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexFirms")?.enabled ?? false) && <MindexFirmsLayer
+            map={mapRef}
             enabled={layers.find(l => l.id === "mindexFirms")?.enabled ?? false}
             opacity={layers.find(l => l.id === "mindexFirms")?.opacity ?? 0.85}
           />}
