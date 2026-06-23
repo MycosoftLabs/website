@@ -277,6 +277,7 @@ import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer"
 import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
 import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
 import MindexFirmsLayer from "@/components/crep/layers/mindex-firms-layer";
+import MindexEnvPointsLayer from "@/components/crep/layers/mindex-env-points-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -2791,6 +2792,8 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "weatherRadar",     // Live Weather Radar (animated RainViewer)
   "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
   "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
+  "mindexAirQuality", // MINDEX Air Quality (atmos.air_quality — OpenAQ/AirNow)
+  "mindexWeather",    // MINDEX Weather (atmos.weather_observations — POWER/Open-Meteo/METAR)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -10319,6 +10322,8 @@ export default function CREPDashboardPage({
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
     { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
+    { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
+    { id: "mindexWeather", name: "MINDEX Weather (live)", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#38bdf8", description: "MINDEX atmos.weather_observations — NASA POWER / Open-Meteo / METAR stations. Default OFF; sparse until ETL scales.", dataStatus: "real", dataSource: "MINDEX atmos.weather_observations" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
     { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
@@ -23273,6 +23278,29 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={layers.find(l => l.id === "mindexFirms")?.enabled ?? false}
             opacity={layers.find(l => l.id === "mindexFirms")?.opacity ?? 0.85}
+          />}
+
+          {/* MINDEX Air Quality + Weather (live atmos.* point stations via internal-token BFF).
+              Additive, default-OFF; honest empty state until their ETL lands on 189. */}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexAirQuality")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/air-quality"
+            idBase="crep-mindex-air"
+            color="#2dd4bf"
+            popupTitle="Air quality"
+            popupFields={[{ key: "parameter", label: "param" }, { key: "value", label: "value" }, { key: "unit", label: "unit" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
+          />}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexWeather")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexWeather")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexWeather")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/weather"
+            idBase="crep-mindex-weather"
+            color="#38bdf8"
+            popupTitle="Weather"
+            popupFields={[{ key: "temperatureC", label: "temp", suffix: "°C" }, { key: "humidityPct", label: "humidity", suffix: "%" }, { key: "conditions", label: "cond" }, { key: "source", label: "src" }, { key: "observedAt", label: "obs" }]}
           />}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
