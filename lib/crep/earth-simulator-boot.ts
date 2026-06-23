@@ -223,12 +223,22 @@ export const EARTH_SIM_MOVER_BOOT_LAYER_IDS = [
   "satellites",
 ] as const
 
+/** Animated live weather ON at first paint (Jun 23 2026, Morgan: "production should
+ *  start with the live weather radar and the live lightning on"). Heavy animated
+ *  overlays, but explicitly requested on-at-boot; gated by shouldRenderHeavyOverlays at
+ *  mount so they still defer until the map is past first-paint. */
+export const EARTH_SIM_WEATHER_ANIM_BOOT_LAYER_IDS = [
+  "weatherRadar",
+  "stormLightning",
+] as const
+
 export const EARTH_SIM_PROFILE_ON_LAYER_IDS = new Set<string>([
   ...EARTH_SIM_BASE_LAYER_IDS,
   ...EARTH_SIM_INSTANT_INFRA_LINE_IDS,
   ...EARTH_SIM_BOOT_INFRA_ON_LAYER_IDS,
   ...EARTH_SIM_TELECOM_BOOT_LAYER_IDS,
   ...EARTH_SIM_MOVER_BOOT_LAYER_IDS,
+  ...EARTH_SIM_WEATHER_ANIM_BOOT_LAYER_IDS,
   ...EARTH_SIM_DEVICE_BOOT_LAYER_IDS,
   ...EARTH_SIM_BOUNDARY_BOOT_LAYER_IDS,
   ...EARTH_SIM_EVENT_LAYER_IDS,
