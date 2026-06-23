@@ -354,14 +354,25 @@ export async function addInfraSourceWithFallback(
     if (!(await isGeojsonFallbackAllowed(cfg))) {
       return { mode: "skipped", sourceId: cfg.sourceId }
     }
-    const res = await fetch(cfg.geojsonUrl, { cache: "force-cache" })
+    // Jun 23 2026: "force-cache" + concurrent loadPermanentInfra calls could hand the
+    // browser a partial/garbled cached body (res.json() -> "Expected property name at
+    // position 1") even though the file is valid 4,156-feature GeoJSON — which silently
+    // dropped the GLOBAL data centers (only the 44 static showed). Use a normal cache
+    // and parse via text() with a no-cache retry so a transient bad read can't kill it.
+    const res = await fetch(cfg.geojsonUrl, { cache: "default" })
     if (!res.ok) throw new Error(`${cfg.geojsonUrl} → HTTP ${res.status}`)
     const contentType = res.headers.get("content-type") || ""
     if (!contentType.includes("json") && !contentType.includes("geo+json")) {
       const preview = (await res.clone().text()).slice(0, 80)
       throw new Error(`${cfg.geojsonUrl} returned non-JSON (${contentType || "unknown"}): ${preview}`)
     }
-    const fc = await res.json()
+    let fc: any
+    try {
+      fc = JSON.parse(await res.text())
+    } catch {
+      const retry = await fetch(cfg.geojsonUrl, { cache: "reload" })
+      fc = JSON.parse(await retry.text())
+    }
     try {
       map.addSource(cfg.sourceId, { type: "geojson", data: fc })
     } catch (e: any) {
