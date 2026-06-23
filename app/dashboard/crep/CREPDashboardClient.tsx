@@ -10333,8 +10333,13 @@ export default function CREPDashboardPage({
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
+    // Jun 23 2026 (Morgan): aircraft are the heaviest movers (~70% of the frame
+    // budget at globe zoom, per the LOD audit) — default them OFF on the Earth
+    // Simulator so a fresh production load is light; the user opts in. enabled
+    // false here ALSO blocks the OpenSky/FR24 poll (allowAircraft gate). On the
+    // internal CREP dashboard (!earthStrictPerfMode) they stay default-on.
+    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions. Default OFF on Earth Simulator — toggle on to load (starts the live aircraft poll)." },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport. Default OFF on Earth Simulator." },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
     { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
     { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
@@ -10350,7 +10355,7 @@ export default function CREPDashboardPage({
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM â€” US + global" },
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B. Default OFF on Earth Simulator (aircraft)." },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
     { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
     { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
@@ -19581,7 +19586,18 @@ export default function CREPDashboardPage({
                 // + animate — the signature); rings reveal as you zoom in. (Morgan, Jun 18 2026.)
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
                   minzoom: 4,
-                  paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
+                  // Jun 23 2026 (Morgan): orbit rings were "too much energy over the globe".
+                  // Far more transparent + thinner so they read as a faint trace behind the
+                  // dots, not a purple web. Zoom-fade so they barely register at globe scale
+                  // and only firm up close in. (Count is also cut from 200 -> 24 rings and
+                  // coupled to rendered dots in satellite-animation.ts to kill orphans.)
+                  paint: {
+                    "line-color": "#c084fc",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 8, 0.6, 12, 0.8],
+                    "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.06, 7, 0.1, 12, 0.16],
+                    "line-blur": 0.4,
+                    "line-dasharray": [3, 5]
+                  }});
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // ðŸš¢ VESSELS â€” Detailed cargo-ship sprite (hull + deck +
@@ -22306,6 +22322,15 @@ export default function CREPDashboardPage({
               });
 
               const clickPickLayerPriority = [
+                // Jun 23 2026 — the new MINDEX weather + air-quality station points
+                // overlay military-base icons at US zoom. They MUST win the pick over the
+                // underlying base, so they sit at the very top. Each owns its own
+                // map.on("click", DOT) popup handler (mindex-env-points-layer.tsx); the
+                // router defers to that handler instead of letting the base steal the
+                // overlapping click — which mounted the heavy full-screen infra panel over
+                // an already-struggling frame and read as a freeze.
+                "crep-mindex-weather-dot",
+                "crep-mindex-air-dot",
                 "crep-live-aircraft-dot",
                 "crep-live-vessels-dot",
                 "crep-live-satellites-dot",
@@ -22410,6 +22435,16 @@ export default function CREPDashboardPage({
                   };
                 } catch { /* debug only */ }
 
+                // MINDEX station points own their own map.on("click", DOT) popup handler
+                // (mindex-env-points-layer.tsx). When one wins the pick (it now
+                // out-prioritises an underlying military dot), DEFER to that handler: mark
+                // the click handled so we neither select the base beneath it nor mount the
+                // full-screen infra panel over the station's own popup. Removes the
+                // click-through that produced the military-base "freeze". (Jun 23 2026)
+                if (layerId === "crep-mindex-weather-dot" || layerId === "crep-mindex-air-dot") {
+                  lastEntityPickTimeRef.current = Date.now();
+                  return true;
+                }
                 if (layerId === "crep-live-aircraft-dot") {
                   const ac = findPickedEntity((window as any).__crep_aircraft, props, ["id", "icao24", "callsign"]);
                   if (!ac) return false;
