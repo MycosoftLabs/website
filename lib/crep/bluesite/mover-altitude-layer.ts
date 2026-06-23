@@ -32,8 +32,13 @@ const MAX_SATS = 4000;
 const TICK_MS = 2500;
 
 function visualZ(altMeters: number): number {
+  // Jun 23 2026 (Morgan: "satellites are not elevated, they look v1"): the sprites
+  // ARE globe-locked at altitude, but the 0.06 shell hugged the surface and read
+  // flat at world view. Raise the coefficient to 0.10 so LEO lifts to ~0.09R above
+  // the limb — clearly an orbital shell — while the 0.16R clamp still keeps GEO
+  // from ballooning off-screen.
   const a = Math.max(0, Number(altMeters) || 0);
-  return Math.min(EARTH_R_M * 0.06 * Math.log10(1 + a / 60_000), EARTH_R_M * 0.16);
+  return Math.min(EARTH_R_M * 0.10 * Math.log10(1 + a / 60_000), EARTH_R_M * 0.16);
 }
 function tierColor(altKm: number, out: Float32Array, o: number): void {
   if (altKm >= 20000) { out[o] = 0.984; out[o + 1] = 0.749; out[o + 2] = 0.141; }       // amber
@@ -300,9 +305,8 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
     // missed. Long interval so it never competes with the ~2.5s SGP4 cadence.
     fallbackTimer = window.setInterval(() => rebuild(), 4000);
     // The v1 layer system re-asserts the native sat layers visible on its own
-    // re-renders; keep re-hiding (no-op when already hidden) so we never show two
-    // satellite sets. (Jun 15 2026 — "I'm seeing both of them".)
-    hideTimer = window.setInterval(() => setNative("none"), 1000);
+    // re-renders; the mount-time hideTimer (started before data even arrives) keeps
+    // re-hiding so we never show two satellite sets. (Jun 15 2026 — "I'm seeing both".)
     map.on("click", onClick);
     map.on("mousemove", onMove);
     map.on("moveend", onMoveEnd);
@@ -310,6 +314,13 @@ export function mountMoverAltitudeLayer(map: any): MoverAltitudeHandle {
   const onData = (e: any) => {
     if (e?.sourceId === "crep-live-satellites" || (window as any).__crep_sat_fc?.features?.length) { map.off("data", onData); start(); }
   };
+  // Hide the native FLAT sat layers IMMEDIATELY on mount — before the SGP4 data even
+  // loads — so the user never sees a flat-sat phase during the cold ~10s registry fetch
+  // (much worse on the slow dev server). The elevated sprites fill in the moment
+  // __crep_sat_fc arrives. (Jun 23 2026 — Morgan: "why are the satellites still flat …
+  // pops up after 2 min … sometimes still flat after 3 min".)
+  setNative("none");
+  hideTimer = window.setInterval(() => setNative("none"), 1000);
   if ((window as any).__crep_sat_fc?.features?.length) start();
   else map.on("data", onData);
 

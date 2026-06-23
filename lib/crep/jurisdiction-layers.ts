@@ -191,7 +191,10 @@ export function addJurisdictionLayers(map: any, options?: {
         "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1.2, 4, 2, 7, 2.8, 12, 3.5],
         "line-opacity": 1,
       },
-      minzoom: 4,
+      // State/province outlines reveal at continent zoom (Morgan, Jun 23 2026):
+      // user wants US state borders visible at ~3.5-4. Lines are cheap (vector-tile
+      // boundary, admin_level=4) so no FPS cost dropping the floor from 4 -> 3.
+      minzoom: 3,
     })
 
     // State names — dark-matter-nolabels strips place_state; add dedicated labels.

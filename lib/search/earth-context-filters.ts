@@ -38,6 +38,9 @@ export interface EarthContextLayerState {
   earth2WindField: boolean
   earth2StormCells: boolean
   earth2Clouds: boolean
+  mindexFirms: boolean
+  mindexAirQuality: boolean
+  mindexWeather: boolean
 }
 
 export interface EarthContextFilters {
@@ -70,6 +73,9 @@ export const EARTH_LAYER_KEYS: Array<keyof EarthContextLayerState> = [
   "earth2WindField",
   "earth2StormCells",
   "earth2Clouds",
+  "mindexFirms",
+  "mindexAirQuality",
+  "mindexWeather",
 ]
 
 export const EMPTY_EARTH_LAYER_STATE: EarthContextLayerState = {
@@ -90,6 +96,9 @@ export const EMPTY_EARTH_LAYER_STATE: EarthContextLayerState = {
   earth2WindField: false,
   earth2StormCells: false,
   earth2Clouds: false,
+  mindexFirms: false,
+  mindexAirQuality: false,
+  mindexWeather: false,
 }
 
 const INFRASTRUCTURE_ALIASES: Array<{

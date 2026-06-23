@@ -276,6 +276,8 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
 import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
 import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
+import MindexFirmsLayer from "@/components/crep/layers/mindex-firms-layer";
+import MindexEnvPointsLayer from "@/components/crep/layers/mindex-env-points-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -873,10 +875,13 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
   // (Jun 14, 2026 — "almost no planes/vessels, thousands missing, gate by lod + viewport".)
   aircraft: 2_500,
   vessels: 2_500,
-  // Satellites are worker-propagated GPU symbols (dots+icons; orbit rings capped
-  // at MAX_ORBIT_PATHS=200) and the SGP4 loop only runs on desktop, so a large
-  // pool just blankets the globe at altitude without touching tablet/phone.
-  satellites: 1_600,
+  // Satellites render as SYMBOL layers (icons) which run per-frame label-collision
+  // detection — expensive at scale. The 1600 pool was only ever "safe" because the
+  // SatNOGS supply was starved to ~100 (paging bug, now fixed); with real supply the
+  // full pool collapsed the globe to ~1 FPS and the resource governor hid the sats
+  // entirely. Cap to a few hundred — dense enough to read, light enough to stay
+  // smooth. (Jun 23 2026, Morgan.)
+  satellites: 450,
   streamed: 180,
   lastKnown: 900,
 };
@@ -889,11 +894,15 @@ function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zo
   // (Jun 14, 2026 — gate by lod + viewport, not device class.)
   const desktop = getEarthSimViewportPerfClass() === "desktop";
   if (kind === "satellite") {
-    if (!desktop) { if (z < 5) return 350; if (z < 10) return 500; return 650; }
-    if (z < 3) return 1000;
-    if (z < 5) return 1200;
-    if (z < 7) return 1400;
-    return 1600;
+    // Jun 23 2026 (Morgan): symbol-layer per-frame collision makes >~400 rendered
+    // sats tank FPS to ~1 once supply is real (was masked by the ~100 paging-bug
+    // starvation). A few hundred reads as a dense sat field without collapsing the
+    // frame; the resource governor no longer has to hide them.
+    if (!desktop) { if (z < 5) return 250; if (z < 10) return 300; return 350; }
+    if (z < 3) return 300;
+    if (z < 5) return 350;
+    if (z < 7) return 400;
+    return 400;
   }
   if (kind === "vessel") {
     if (!desktop) { if (z < 3) return 120; if (z < 5) return 160; if (z < 7) return 240; if (z < 10) return 320; return 400; }
@@ -2789,6 +2798,9 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
   "weatherRadar",     // Live Weather Radar (animated RainViewer)
   "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
+  "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
+  "mindexAirQuality", // MINDEX Air Quality (atmos.air_quality — OpenAQ/AirNow)
+  "mindexWeather",    // MINDEX Weather (atmos.weather_observations — POWER/Open-Meteo/METAR)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -10316,6 +10328,9 @@ export default function CREPDashboardPage({
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
+    { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
+    { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
+    { id: "mindexWeather", name: "MINDEX Weather (live)", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#38bdf8", description: "MINDEX atmos.weather_observations — NASA POWER / Open-Meteo / METAR stations. Default OFF; sparse until ETL scales.", dataStatus: "real", dataSource: "MINDEX atmos.weather_observations" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
     { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
@@ -10325,8 +10340,13 @@ export default function CREPDashboardPage({
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
+    // Jun 23 2026 (Morgan): aircraft are the heaviest movers (~70% of the frame
+    // budget at globe zoom, per the LOD audit) — default them OFF on the Earth
+    // Simulator so a fresh production load is light; the user opts in. enabled
+    // false here ALSO blocks the OpenSky/FR24 poll (allowAircraft gate). On the
+    // internal CREP dashboard (!earthStrictPerfMode) they stay default-on.
+    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions. Default OFF on Earth Simulator — toggle on to load (starts the live aircraft poll)." },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport. Default OFF on Earth Simulator." },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
     { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
     { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
@@ -10342,7 +10362,7 @@ export default function CREPDashboardPage({
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM â€” US + global" },
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B. Default OFF on Earth Simulator (aircraft)." },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
     { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
     { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
@@ -19573,7 +19593,18 @@ export default function CREPDashboardPage({
                 // + animate — the signature); rings reveal as you zoom in. (Morgan, Jun 18 2026.)
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
                   minzoom: 4,
-                  paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
+                  // Jun 23 2026 (Morgan): orbit rings were "too much energy over the globe".
+                  // Far more transparent + thinner so they read as a faint trace behind the
+                  // dots, not a purple web. Zoom-fade so they barely register at globe scale
+                  // and only firm up close in. (Count is also cut from 200 -> 24 rings and
+                  // coupled to rendered dots in satellite-animation.ts to kill orphans.)
+                  paint: {
+                    "line-color": "#c084fc",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 8, 0.6, 12, 0.8],
+                    "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.06, 7, 0.1, 12, 0.16],
+                    "line-blur": 0.4,
+                    "line-dasharray": [3, 5]
+                  }});
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // ðŸš¢ VESSELS â€” Detailed cargo-ship sprite (hull + deck +
@@ -22298,6 +22329,15 @@ export default function CREPDashboardPage({
               });
 
               const clickPickLayerPriority = [
+                // Jun 23 2026 — the new MINDEX weather + air-quality station points
+                // overlay military-base icons at US zoom. They MUST win the pick over the
+                // underlying base, so they sit at the very top. Each owns its own
+                // map.on("click", DOT) popup handler (mindex-env-points-layer.tsx); the
+                // router defers to that handler instead of letting the base steal the
+                // overlapping click — which mounted the heavy full-screen infra panel over
+                // an already-struggling frame and read as a freeze.
+                "crep-mindex-weather-dot",
+                "crep-mindex-air-dot",
                 "crep-live-aircraft-dot",
                 "crep-live-vessels-dot",
                 "crep-live-satellites-dot",
@@ -22309,8 +22349,13 @@ export default function CREPDashboardPage({
                 "crep-dcs-global-dot",
                 "crep-mycosoft-devices-core",
                 "crep-live-military-dot",
-                "crep-military-perimeters-line",
-                "crep-military-perimeters-fill",
+                // NOTE: crep-military-perimeters-{fill,line} are deliberately NOT in this
+                // box-pick list. They are a non-tiled GeoJSON source of ~858 polygons /
+                // ~282k vertices; a 28px-box queryRenderedFeatures over them runs synchronously
+                // on the main thread on EVERY click and froze the UI when the box overlapped a
+                // large base polygon (Jun 23 2026). Perimeter clicks are still handled by their
+                // dedicated point-based map.on("click", "crep-military-perimeters-*") handlers,
+                // and the base centroid dot (above) remains box-pickable.
                 "crep-txlines-sub-line",
                 "crep-txlines-line",
                 "crep-txlines-full-line",
@@ -22397,6 +22442,16 @@ export default function CREPDashboardPage({
                   };
                 } catch { /* debug only */ }
 
+                // MINDEX station points own their own map.on("click", DOT) popup handler
+                // (mindex-env-points-layer.tsx). When one wins the pick (it now
+                // out-prioritises an underlying military dot), DEFER to that handler: mark
+                // the click handled so we neither select the base beneath it nor mount the
+                // full-screen infra panel over the station's own popup. Removes the
+                // click-through that produced the military-base "freeze". (Jun 23 2026)
+                if (layerId === "crep-mindex-weather-dot" || layerId === "crep-mindex-air-dot") {
+                  lastEntityPickTimeRef.current = Date.now();
+                  return true;
+                }
                 if (layerId === "crep-live-aircraft-dot") {
                   const ac = findPickedEntity((window as any).__crep_aircraft, props, ["id", "icao24", "callsign"]);
                   if (!ac) return false;
@@ -23261,6 +23316,44 @@ export default function CREPDashboardPage({
             map={mapRef}
             enabled={layers.find(l => l.id === "stormLightning")?.enabled ?? false}
             sound={false}
+          />}
+
+          {/* MINDEX FIRMS wildfires (live NASA FIRMS VIIRS from earth.wildfires via
+              internal-token BFF). Additive, default-OFF — toggle "MINDEX FIRMS (live)".
+              Self-contained static glow+dot layer; off == byte-for-byte v1. */}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexFirms")?.enabled ?? false) && <MindexFirmsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexFirms")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexFirms")?.opacity ?? 0.85}
+          />}
+
+          {/* MINDEX Air Quality + Weather (live atmos.* point stations via internal-token BFF).
+              Additive, default-OFF; honest empty state until their ETL lands on 189. */}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexAirQuality")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/air-quality"
+            idBase="crep-mindex-air"
+            color="#2dd4bf"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(45,212,191,0.5)", 0.4, "rgba(132,204,22,0.72)", 0.65, "rgba(250,204,21,0.86)", 0.85, "rgba(217,70,239,0.92)", 1, "rgba(168,85,247,0.97)"]}
+            heatRadius={[10, 22, 42, 66]}
+            heatIntensity={[0.7, 1.6, 2.6]}
+            popupTitle="Air quality"
+            popupFields={[{ key: "summary", label: "readings" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
+          />}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexWeather")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexWeather")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexWeather")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/weather"
+            idBase="crep-mindex-weather"
+            color="#38bdf8"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(37,99,235,0.45)", 0.4, "rgba(56,189,248,0.68)", 0.65, "rgba(34,211,238,0.82)", 0.85, "rgba(165,243,252,0.9)", 1, "rgba(236,254,255,0.97)"]}
+            heatRadius={[6, 14, 28, 50]}
+            heatIntensity={[0.5, 1.2, 2.0]}
+            popupTitle="Weather"
+            popupFields={[{ key: "temperatureC", label: "temp", suffix: "°C" }, { key: "humidityPct", label: "humidity", suffix: "%" }, { key: "conditions", label: "cond" }, { key: "source", label: "src" }, { key: "observedAt", label: "obs" }]}
           />}
 
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
