@@ -101,10 +101,12 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     pmtilesLayerName: "data_centers",
     pmtilesUrl: "/api/crep/tiles/data-centers-global.pmtiles",
     geojsonUrl: "/data/crep/data-centers-global.geojson",
-    // ~1.1 MB of points — load the full set so every data center shows at
-    // flyover zoom (the PMTiles decimate; user: "missing data centers ...
-    // should be the neon blue icons everywhere").
-    preferGeoJSON: false,
+    // ~1.2 MB / 4,156 points — load the full GeoJSON so every data center shows at
+    // continent/flyover zoom. The baked PMTiles decimate points below their base
+    // zoom (tippecanoe drops most at z3-4), which left the global neon-DC field
+    // nearly empty at continent zoom even though the source loaded. Points are
+    // GPU-cheap, so the full set is safe to render. (Data-center fix Jun 23 2026.)
+    preferGeoJSON: true,
     maxGeojsonFallbackBytes: 8 * MB,
     label: "Global data centers (OSM + PeeringDB + MINDEX)",
   },

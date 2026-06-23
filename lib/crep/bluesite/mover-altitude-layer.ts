@@ -32,8 +32,13 @@ const MAX_SATS = 4000;
 const TICK_MS = 2500;
 
 function visualZ(altMeters: number): number {
+  // Jun 23 2026 (Morgan: "satellites are not elevated, they look v1"): the sprites
+  // ARE globe-locked at altitude, but the 0.06 shell hugged the surface and read
+  // flat at world view. Raise the coefficient to 0.10 so LEO lifts to ~0.09R above
+  // the limb — clearly an orbital shell — while the 0.16R clamp still keeps GEO
+  // from ballooning off-screen.
   const a = Math.max(0, Number(altMeters) || 0);
-  return Math.min(EARTH_R_M * 0.06 * Math.log10(1 + a / 60_000), EARTH_R_M * 0.16);
+  return Math.min(EARTH_R_M * 0.10 * Math.log10(1 + a / 60_000), EARTH_R_M * 0.16);
 }
 function tierColor(altKm: number, out: Float32Array, o: number): void {
   if (altKm >= 20000) { out[o] = 0.984; out[o + 1] = 0.749; out[o + 2] = 0.141; }       // amber
