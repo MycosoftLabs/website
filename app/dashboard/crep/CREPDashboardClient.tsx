@@ -23336,6 +23336,9 @@ export default function CREPDashboardPage({
             endpoint="/api/crep/environment/air-quality"
             idBase="crep-mindex-air"
             color="#2dd4bf"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(45,212,191,0.5)", 0.4, "rgba(132,204,22,0.72)", 0.65, "rgba(250,204,21,0.86)", 0.85, "rgba(217,70,239,0.92)", 1, "rgba(168,85,247,0.97)"]}
+            heatRadius={[10, 22, 42, 66]}
+            heatIntensity={[0.7, 1.6, 2.6]}
             popupTitle="Air quality"
             popupFields={[{ key: "summary", label: "readings" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
           />}
@@ -23346,6 +23349,9 @@ export default function CREPDashboardPage({
             endpoint="/api/crep/environment/weather"
             idBase="crep-mindex-weather"
             color="#38bdf8"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(37,99,235,0.45)", 0.4, "rgba(56,189,248,0.68)", 0.65, "rgba(34,211,238,0.82)", 0.85, "rgba(165,243,252,0.9)", 1, "rgba(236,254,255,0.97)"]}
+            heatRadius={[6, 14, 28, 50]}
+            heatIntensity={[0.5, 1.2, 2.0]}
             popupTitle="Weather"
             popupFields={[{ key: "temperatureC", label: "temp", suffix: "°C" }, { key: "humidityPct", label: "humidity", suffix: "%" }, { key: "conditions", label: "cond" }, { key: "source", label: "src" }, { key: "observedAt", label: "obs" }]}
           />}

@@ -1,17 +1,18 @@
 "use client"
 
 /**
- * Earth Simulator — generic MINDEX environment points layer (additive, default-OFF).
+ * Earth Simulator — generic MINDEX environment HEATMAP layer (additive, default-OFF).
  *
- * A parameterized glow+dot circle layer fed by an internal-token CREP BFF that
- * proxies a MINDEX `atmos.*` / `earth.*` point table (air-quality, weather, …).
- * Self-contained: owns its source + two layers, viewport-scoped fetch on moveend
- * + a slow periodic refresh, and full teardown on disable/unmount — so with the
- * toggle off the globe is byte-for-byte identical to v1.
+ * Renders a MINDEX `atmos.*` point table (air-quality, weather, …) from an
+ * internal-token CREP BFF as a DENSITY HEATMAP with a per-layer color ramp +
+ * texture (radius/intensity), plus a small dot layer that fades in at high zoom
+ * for clicks/popups. Mirrors the FIRMS heatmap so the env layers are visually
+ * consistent AND each reads as distinct data over the dense fungal/event dots.
+ * (Jun 23 2026 — Morgan: "mindex data should be heatmaps just like firms, each
+ * with different coloring and texture.")
  *
- * Static circles (no animation) keep it FPS-safe. Fails open / empty: when the
- * upstream table has no rows (e.g. air_quality before its ETL keys land) it
- * renders nothing — honest empty state, no mock data.
+ * Self-contained: owns its source + layers, viewport-scoped fetch on moveend +
+ * a slow refresh, full teardown on disable/unmount — toggle off = byte-for-byte v1.
  *
  * NOTE: `map` is the MapLibre instance (CREPDashboardPage stores it in a
  * useState, not a ref) — callers pass `map={mapRef}`, never `mapRef.current`.
@@ -35,13 +36,19 @@ interface Props {
   endpoint: string
   /** Unique source id base, e.g. "crep-mindex-air" */
   idBase: string
-  /** Dot/glow color. */
+  /** Dot color (high-zoom precision dots + popup heading). */
   color: string
+  /** Heatmap color ramp — a MapLibre interpolate/heatmap-density expression. */
+  heatRamp: any
+  /** Per-zoom heatmap radius [z1,z3,z6,z9] — tunes the layer's "texture". */
+  heatRadius?: [number, number, number, number]
+  /** Per-zoom heatmap intensity [z2,z6,z10]. */
+  heatIntensity?: [number, number, number]
   /** Popup heading. */
   popupTitle: string
   /** Properties to show in the popup, in order. */
   popupFields: MindexEnvPopupField[]
-  /** Reveal zoom floor (default 2). */
+  /** Reveal zoom floor (default 1 — heatmap should read at globe zoom). */
   minZoom?: number
 }
 
@@ -54,9 +61,12 @@ export default function MindexEnvPointsLayer({
   endpoint,
   idBase,
   color,
+  heatRamp,
+  heatRadius = [6, 14, 28, 50],
+  heatIntensity = [0.6, 1.4, 2.2],
   popupTitle,
   popupFields,
-  minZoom = 2,
+  minZoom = 1,
 }: Props) {
   const popupRef = useRef<maplibregl.Popup | null>(null)
   const lastBboxRef = useRef<string>("")
@@ -65,7 +75,7 @@ export default function MindexEnvPointsLayer({
     if (!map) return
     let cancelled = false
     const SRC = idBase
-    const GLOW = `${idBase}-glow`
+    const HEAT = `${idBase}-heat`
     const DOT = `${idBase}-dot`
 
     // HTML-escape EVERY interpolated value: popup content is upstream MINDEX data
@@ -102,10 +112,12 @@ export default function MindexEnvPointsLayer({
 
     const removeAll = () => {
       try { map.off("click", DOT, onClick); map.off("mouseenter", DOT, onEnter); map.off("mouseleave", DOT, onLeave) } catch { /* */ }
-      for (const id of [DOT, GLOW]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
+      for (const id of [DOT, HEAT]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
       try { if (map.getSource(SRC)) map.removeSource(SRC) } catch { /* */ }
       lastBboxRef.current = ""
     }
+
+    const heatOpacity = (o: number): any => ["interpolate", ["linear"], ["zoom"], 6.5, 0.9 * o, 9.5, 0.4 * o]
 
     const ensureLayers = (data: any) => {
       if (cancelled) return
@@ -113,28 +125,34 @@ export default function MindexEnvPointsLayer({
         const ex = map.getSource(SRC) as any
         if (ex?.setData) { ex.setData(data); return }
         map.addSource(SRC, { type: "geojson", data })
+        // Density heatmap (primary) — per-layer color ramp + texture so air vs
+        // weather vs FIRMS each read distinctly. Fades out as the dots fade in.
         map.addLayer({
-          id: GLOW,
-          type: "circle",
+          id: HEAT,
+          type: "heatmap",
           source: SRC,
           minzoom: minZoom,
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4, 8, 9, 12, 16],
-            "circle-color": color,
-            "circle-opacity": 0.25,
-            "circle-blur": 0.9,
+            "heatmap-weight": 1,
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 2, heatIntensity[0], 6, heatIntensity[1], 10, heatIntensity[2]],
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 1, heatRadius[0], 3, heatRadius[1], 6, heatRadius[2], 9, heatRadius[3]],
+            "heatmap-opacity": heatOpacity(opacity),
+            "heatmap-color": heatRamp,
           },
         })
+        // Precision dots — fade in at high zoom (heatmap blurs there); carry the
+        // popup + win the click-pick over underlying military bases (the dot id is
+        // registered in clickPickLayerPriority).
         map.addLayer({
           id: DOT,
           type: "circle",
           source: SRC,
-          minzoom: minZoom,
+          minzoom: 6,
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 8, 4, 12, 6],
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4, 13, 6],
             "circle-color": color,
-            "circle-opacity": opacity,
-            "circle-stroke-width": 1,
+            "circle-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 8, opacity],
+            "circle-stroke-width": 0.6,
             "circle-stroke-color": "rgba(255,255,255,0.7)",
           },
         })
@@ -180,7 +198,14 @@ export default function MindexEnvPointsLayer({
   // Opacity follows the layer's opacity slider without re-fetching.
   useEffect(() => {
     if (!map || !enabled) return
-    try { if (map.getLayer(`${idBase}-dot`)) map.setPaintProperty(`${idBase}-dot`, "circle-opacity", opacity) } catch { /* */ }
+    try {
+      if (map.getLayer(`${idBase}-heat`)) {
+        map.setPaintProperty(`${idBase}-heat`, "heatmap-opacity", ["interpolate", ["linear"], ["zoom"], 6.5, 0.9 * opacity, 9.5, 0.4 * opacity] as any)
+      }
+      if (map.getLayer(`${idBase}-dot`)) {
+        map.setPaintProperty(`${idBase}-dot`, "circle-opacity", ["interpolate", ["linear"], ["zoom"], 6, 0, 8, opacity] as any)
+      }
+    } catch { /* */ }
   }, [map, enabled, opacity, idBase])
 
   return null
