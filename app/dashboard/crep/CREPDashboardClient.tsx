@@ -22317,8 +22317,13 @@ export default function CREPDashboardPage({
                 "crep-dcs-global-dot",
                 "crep-mycosoft-devices-core",
                 "crep-live-military-dot",
-                "crep-military-perimeters-line",
-                "crep-military-perimeters-fill",
+                // NOTE: crep-military-perimeters-{fill,line} are deliberately NOT in this
+                // box-pick list. They are a non-tiled GeoJSON source of ~858 polygons /
+                // ~282k vertices; a 28px-box queryRenderedFeatures over them runs synchronously
+                // on the main thread on EVERY click and froze the UI when the box overlapped a
+                // large base polygon (Jun 23 2026). Perimeter clicks are still handled by their
+                // dedicated point-based map.on("click", "crep-military-perimeters-*") handlers,
+                // and the base centroid dot (above) remains box-pickable.
                 "crep-txlines-sub-line",
                 "crep-txlines-line",
                 "crep-txlines-full-line",
