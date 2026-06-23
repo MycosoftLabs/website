@@ -23290,7 +23290,7 @@ export default function CREPDashboardPage({
             idBase="crep-mindex-air"
             color="#2dd4bf"
             popupTitle="Air quality"
-            popupFields={[{ key: "parameter", label: "param" }, { key: "value", label: "value" }, { key: "unit", label: "unit" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
+            popupFields={[{ key: "summary", label: "readings" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
           />}
           {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexWeather")?.enabled ?? false) && <MindexEnvPointsLayer
             map={mapRef}
