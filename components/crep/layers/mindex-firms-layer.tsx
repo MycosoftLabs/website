@@ -4,17 +4,21 @@
  * Earth Simulator — MINDEX FIRMS wildfire layer (additive, default-OFF).
  *
  * Renders NASA FIRMS VIIRS thermal detections from MINDEX `earth.wildfires`
- * (via the internal-token BFF `/api/crep/environment/wildfires`) as a static
- * glow + dot circle stack. Self-contained: owns its source + two layers,
- * viewport-scoped fetch on moveend + a slow periodic refresh, and full
- * teardown on disable/unmount — so with the toggle off the globe is
- * byte-for-byte identical to v1.
+ * (via the internal-token BFF `/api/crep/environment/wildfires`) as a **density
+ * heatmap** (fire color ramp) — the right viz for raw FIRMS, which are thin
+ * thermal-anomaly pixels with no per-point intensity/name. Individual detections
+ * fade in only at high zoom for precision (the heatmap blurs as you zoom in).
  *
- * Intentionally NOT animated. The BlueSite `FireLayer` paints ~5 animated
- * features per fire on a 60fps rAF loop; FIRMS is dense (~1530 globally), so
- * a single static circle per detection is the FPS-safe choice (static GeoJSON
- * circles are GPU-cheap — the prior FPS work targeted per-frame JS movers,
- * not static circle layers).
+ * Self-contained: owns its source + layers, viewport-scoped fetch on moveend +
+ * a slow periodic refresh, full teardown on disable/unmount — so with the toggle
+ * off the globe is byte-for-byte v1.
+ *
+ * NOTE: `map` is the MapLibre instance (CREPDashboardPage stores it in a
+ * useState, not a ref) — callers pass `map={mapRef}`, never `mapRef.current`.
+ *
+ * Backend gap (Cursor): FIRMS rows currently carry no FRP / confidence /
+ * brightness / satellite — when the ETL stores those, weight the heatmap by FRP
+ * and enrich the popup. Data is also a stale April load, not a live feed.
  */
 
 import { useEffect, useRef } from "react"
@@ -28,11 +32,8 @@ interface Props {
 }
 
 const SRC = "crep-mindex-firms"
-const GLOW = "crep-mindex-firms-glow"
+const HEAT = "crep-mindex-firms-heat"
 const DOT = "crep-mindex-firms-dot"
-// FIRMS dots are meaningless sub-pixel specks at full-globe zoom; reveal from
-// near-continent scale up. (The default Earth Sim view opens at ~z3.)
-const MIN_ZOOM = 2
 // VIIRS refreshes on a multi-hour orbital cadence — a slow refresh is plenty.
 const REFRESH_MS = 10 * 60 * 1000
 
@@ -47,19 +48,19 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
 
     const onClick = (e: any) => {
       const p = e.features?.[0]?.properties
-      if (!p) return
+      const lngLat = e.lngLat
       let when = ""
-      try { if (p.detectedAt) when = new Date(p.detectedAt).toUTCString() } catch { /* */ }
+      try { if (p?.detectedAt) when = new Date(p.detectedAt).toUTCString() } catch { /* */ }
       const html =
-        `<div style="font:11px/1.4 system-ui,sans-serif;color:#e2e8f0;max-width:230px">` +
-        `<div style="color:#fb923c;font-weight:600;margin-bottom:2px">${p.name || "FIRMS detection"}</div>` +
+        `<div style="font:11px/1.4 system-ui,sans-serif;color:#e2e8f0;max-width:220px">` +
+        `<div style="color:#ff7a1f;font-weight:600;margin-bottom:2px">NASA FIRMS · thermal anomaly</div>` +
+        `<div><span style="opacity:.55">satellite:</span> VIIRS</div>` +
         (when ? `<div><span style="opacity:.55">detected:</span> ${when}</div>` : "") +
-        `<div><span style="opacity:.55">source:</span> ${p.source || "firms"}</div>` +
-        (p.severity ? `<div><span style="opacity:.55">severity:</span> ${p.severity}</div>` : "") +
+        `<div><span style="opacity:.55">location:</span> ${lngLat.lat.toFixed(3)}, ${lngLat.lng.toFixed(3)}</div>` +
         `</div>`
       popupRef.current?.remove()
       popupRef.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
-        .setLngLat(e.lngLat)
+        .setLngLat(lngLat)
         .setHTML(html)
         .addTo(map)
     }
@@ -68,7 +69,7 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
 
     const removeAll = () => {
       try { map.off("click", DOT, onClick); map.off("mouseenter", DOT, onEnter); map.off("mouseleave", DOT, onLeave) } catch { /* */ }
-      for (const id of [DOT, GLOW]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
+      for (const id of [DOT, HEAT]) { try { if (map.getLayer(id)) map.removeLayer(id) } catch { /* */ } }
       try { if (map.getSource(SRC)) map.removeSource(SRC) } catch { /* */ }
       lastBboxRef.current = ""
     }
@@ -79,29 +80,39 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
         const ex = map.getSource(SRC) as any
         if (ex?.setData) { ex.setData(data); return }
         map.addSource(SRC, { type: "geojson", data })
+        // Density heatmap (primary) — fire color ramp; fades out as points fade in.
         map.addLayer({
-          id: GLOW,
-          type: "circle",
+          id: HEAT,
+          type: "heatmap",
           source: SRC,
-          minzoom: MIN_ZOOM,
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4, 8, 9, 12, 16],
-            "circle-color": "#fb923c",
-            "circle-opacity": 0.25,
-            "circle-blur": 0.9,
+            // Uniform weight (no FRP yet); switch to ["get","frp"] when the ETL stores it.
+            "heatmap-weight": 1,
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 2, 0.7, 6, 2, 10, 3],
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 1, 5, 3, 12, 6, 26, 9, 48],
+            "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 6.5, 0.85 * opacity, 9, 0.3 * opacity],
+            "heatmap-color": [
+              "interpolate", ["linear"], ["heatmap-density"],
+              0, "rgba(0,0,0,0)",
+              0.15, "rgba(255,221,51,0.5)",
+              0.4, "rgba(255,140,0,0.72)",
+              0.7, "rgba(255,60,0,0.86)",
+              1, "rgba(255,20,0,0.96)",
+            ],
           },
         })
+        // Individual detections — fade in at high zoom (heatmap blurs there).
         map.addLayer({
           id: DOT,
           type: "circle",
           source: SRC,
-          minzoom: MIN_ZOOM,
+          minzoom: 6,
           paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 8, 4, 12, 6],
-            "circle-color": "#fb923c",
-            "circle-opacity": 0.9,
-            "circle-stroke-width": 1,
-            "circle-stroke-color": "rgba(255,255,255,0.7)",
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4, 13, 6],
+            "circle-color": "#ff5a1f",
+            "circle-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 8, opacity],
+            "circle-stroke-width": 0.5,
+            "circle-stroke-color": "rgba(255,255,255,0.6)",
           },
         })
         map.on("click", DOT, onClick)
@@ -143,12 +154,7 @@ export default function MindexFirmsLayer({ map, enabled, opacity = 0.85 }: Props
       try { popupRef.current?.remove() } catch { /* */ }
       removeAll()
     }
-  }, [map, enabled])
-
-  // Opacity follows the layer's opacity slider without re-fetching.
-  useEffect(() => {
-    if (!map || !enabled) return
-    try { if (map.getLayer(DOT)) map.setPaintProperty(DOT, "circle-opacity", opacity) } catch { /* */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, enabled, opacity])
 
   return null
