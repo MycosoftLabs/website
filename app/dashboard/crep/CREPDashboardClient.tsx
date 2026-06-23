@@ -875,10 +875,13 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
   // (Jun 14, 2026 — "almost no planes/vessels, thousands missing, gate by lod + viewport".)
   aircraft: 2_500,
   vessels: 2_500,
-  // Satellites are worker-propagated GPU symbols (dots+icons; orbit rings capped
-  // at MAX_ORBIT_PATHS=200) and the SGP4 loop only runs on desktop, so a large
-  // pool just blankets the globe at altitude without touching tablet/phone.
-  satellites: 1_600,
+  // Satellites render as SYMBOL layers (icons) which run per-frame label-collision
+  // detection — expensive at scale. The 1600 pool was only ever "safe" because the
+  // SatNOGS supply was starved to ~100 (paging bug, now fixed); with real supply the
+  // full pool collapsed the globe to ~1 FPS and the resource governor hid the sats
+  // entirely. Cap to a few hundred — dense enough to read, light enough to stay
+  // smooth. (Jun 23 2026, Morgan.)
+  satellites: 450,
   streamed: 180,
   lastKnown: 900,
 };
@@ -891,11 +894,15 @@ function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zo
   // (Jun 14, 2026 — gate by lod + viewport, not device class.)
   const desktop = getEarthSimViewportPerfClass() === "desktop";
   if (kind === "satellite") {
-    if (!desktop) { if (z < 5) return 350; if (z < 10) return 500; return 650; }
-    if (z < 3) return 1000;
-    if (z < 5) return 1200;
-    if (z < 7) return 1400;
-    return 1600;
+    // Jun 23 2026 (Morgan): symbol-layer per-frame collision makes >~400 rendered
+    // sats tank FPS to ~1 once supply is real (was masked by the ~100 paging-bug
+    // starvation). A few hundred reads as a dense sat field without collapsing the
+    // frame; the resource governor no longer has to hide them.
+    if (!desktop) { if (z < 5) return 250; if (z < 10) return 300; return 350; }
+    if (z < 3) return 300;
+    if (z < 5) return 350;
+    if (z < 7) return 400;
+    return 400;
   }
   if (kind === "vessel") {
     if (!desktop) { if (z < 3) return 120; if (z < 5) return 160; if (z < 7) return 240; if (z < 10) return 320; return 400; }
