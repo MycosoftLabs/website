@@ -671,6 +671,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -907,6 +908,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* MINDEX air + weather as heatmaps with distinct ramps (like FIRMS)
 - *(earth-sim)* Surface infra + borders at continent zoom + lift satellites
 - *(earth-sim)* No flat-sat phase + weather radar/lightning on at boot
+- *(nlm)* Wire /myca/nlm stats to live NLM engine metrics API
 
 ### Fix
 
