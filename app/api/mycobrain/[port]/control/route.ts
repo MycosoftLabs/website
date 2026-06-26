@@ -10,15 +10,6 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
-function isLocalPsathyrellaSerialTarget(port: string) {
-  const value = port.trim()
-  const upper = value.toUpperCase()
-  if (/^COM\d+$/.test(upper)) return true
-  if (/^MYCOBRAIN-COM\d+$/i.test(value)) return true
-  if (upper === "PSATHYRELLA-BUOY-COM4" || upper === "MYCOBRAIN-COM4") return true
-  return value.toLowerCase().includes("psathyrella")
-}
-
 function localSerialServiceDeviceId(port: string) {
   const value = port.trim()
   const bareCom = value.match(/^COM\d+$/i)?.[0]
