@@ -389,7 +389,11 @@ async function fetchLocalMycoBrainSensorCommandSnapshot(
     if (!res.ok) return null
     const data = (await res.json()) as Record<string, unknown>
     const response = typeof data.response === "string" ? data.response : ""
-    return response ? buildPsathyrellaTelemetryFromSensorResponse(response) : null
+    if (!response) return null
+    return (
+      buildPsathyrellaTelemetryFromSensorResponse(response) ??
+      buildPsathyrellaStatusTelemetry(response)
+    )
   } catch {
     return null
   }
@@ -413,6 +417,28 @@ function hasUsefulTelemetry(telemetry: unknown): boolean {
   }
   if (record.schema === "mycosoft.envelope.v1" && normalizeBmeSlotFromEnvelopePack(record.pack)) return true
   return false
+}
+
+/** Raw AMB/ENV probe lines — no numeric BME yet, but widget needs status text. */
+function hasPsathyrellaRawStatusTelemetry(telemetry: unknown): boolean {
+  if (!telemetry || typeof telemetry !== "object") return false
+  const raw = String((telemetry as Record<string, unknown>).raw ?? "")
+  return /AMB:\s*present=/i.test(raw) || /ENV:\s*present=/i.test(raw)
+}
+
+function buildPsathyrellaStatusTelemetry(response: string): Record<string, unknown> | null {
+  const raw = response.trim()
+  if (!raw || !hasPsathyrellaRawStatusTelemetry({ raw })) return null
+  return {
+    raw,
+    wave_height_m: null,
+    water_temperature_c: null,
+    wave_period_s: null,
+    hydrophone_low: "standby",
+    hydrophone_high: "standby",
+    transducer: "standby",
+    captured_at: new Date().toISOString(),
+  }
 }
 
 function resolvePsathyrellaSerialDeviceId(
@@ -809,11 +835,26 @@ async function buildDevicesPayload(): Promise<EarthSimDevicesPayload> {
       if (!hasUsefulTelemetry(telemetry)) {
         telemetry = await fetchNetworkTelemetrySnapshot(registryTarget)
       }
-      if (telemetry && hasUsefulTelemetry(telemetry)) {
+      if (telemetry && !hasUsefulTelemetry(telemetry) && !hasPsathyrellaRawStatusTelemetry(telemetry)) {
+        const rawCandidate =
+          typeof telemetry.raw === "string"
+            ? telemetry.raw
+            : typeof telemetry.response === "string"
+              ? telemetry.response
+              : ""
+        const statusOnly = rawCandidate ? buildPsathyrellaStatusTelemetry(rawCandidate) : null
+        if (statusOnly) telemetry = statusOnly
+      }
+      if (
+        telemetry &&
+        (hasUsefulTelemetry(telemetry) || hasPsathyrellaRawStatusTelemetry(telemetry))
+      ) {
         byId.set("psathyrella-buoy-com4", {
           ...psathyrella,
           telemetry,
           status: "connected",
+          source: "live",
+          port: psathyrella.port ?? "COM3",
           lastSeen: String(
             telemetry.captured_at || telemetry.timestamp || psathyrella.lastSeen || new Date().toISOString()
           ),

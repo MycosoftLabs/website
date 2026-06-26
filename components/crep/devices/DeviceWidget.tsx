@@ -577,7 +577,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
               <button
                 type="button"
                 disabled={!!controlBusy}
-                onClick={() => sendControl("buzzer", { action: "beep", frequency: 1000, duration: 50, duration_ms: 50 })}
+                onClick={() => sendControl("buzzer", { action: "coin" })}
                 className="text-[10px] py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 hover:border-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {controlBusy === "buzzer" ? "..." : "Beep Test"}

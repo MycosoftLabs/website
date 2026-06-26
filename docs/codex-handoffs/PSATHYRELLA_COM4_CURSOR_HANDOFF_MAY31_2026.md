@@ -11,11 +11,19 @@ The Earth Simulator UI should treat this as a real buoy device at Project Oyster
 ## Device identity
 
 - Earth Simulator map id: `psathyrella-buoy-com4`
-- Registry id: `mycobrain-COM4`
+- Registry id: `mycobrain-COM4` (stable API id — keep for MAS/website compatibility)
+- **Physical USB serial port (Jun 25, 2026): `COM3`** (Device Manager; was COM4 in earlier docs)
+- Live MycoBrain service device id: `mycobrain-COM3` (serial); heartbeat maps to registry `mycobrain-COM4`
 - Console URL: `/natureos/mycobrain?device=mycobrain-COM4`
 - Location: `32.56289, -117.13570`
 - Location label: `Project Oyster - North Reef buoy position`
 - Expected hardware role: Psathyrella aquatic MycoBrain buoy with dual BME688 gas telemetry, hydrophones, acoustic transducer, and marine status channels.
+
+### Beep / buzzer (Jun 25, 2026)
+
+- Firmware on this board does **not** accept `beep <freq> <ms>` (returns "Unknown command").
+- Safe UI test: **`coin`** preset (short chirp). **`bump`** also works; avoid long tones that may brown-out USB power.
+- Earth Simulator widget **Beep Test** routes to `coin`, not parameterized beep.
 
 ## Front-end changes made by Codex
 

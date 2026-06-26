@@ -273,9 +273,14 @@ export async function POST(
         } else if (action === "off") {
           payload = { command: { cmd: "buzzer off" } }
         } else if (action === "beep") {
-          const safeFreq = Math.max(50, Math.min(8000, Number(freq)))
-          const safeDuration = Math.max(20, Math.min(2000, Number(duration)))
-          payload = { command: { cmd: `beep ${safeFreq} ${safeDuration}` } }
+          // Psathyrella buoy firmware (Jun 2026): `beep freq ms` is unknown; `coin` is safe short chirp.
+          if (isLocalPsathyrellaSerialTarget(port) || isLocalPsathyrellaSerialTarget(deviceId)) {
+            payload = { command: { cmd: "coin" } }
+          } else {
+            const safeFreq = Math.max(50, Math.min(8000, Number(freq)))
+            const safeDuration = Math.max(20, Math.min(2000, Number(duration)))
+            payload = { command: { cmd: `beep ${safeFreq} ${safeDuration}` } }
+          }
         } else {
           payload = { command: { cmd: "bump" } }
         }
