@@ -401,6 +401,18 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Force npm run build cache bust for stream/entities route [fast]
 - *(earth-sim)* Route entity SSE via /api/stream/crep?mode=entities on prod [fast]
 - *(ops)* Vm cleanup bash syntax and instant-deploy workflow dup keys
+- *(tablet)* Reduce iPad freeze on home and Earth Simulator
+- *(ci)* Remove broken free-disk-space action from Instant Deploy
+- *(tablet)* Stop Earth Sim freeze on globe pan and poster-first home video
+- *(tablet)* Enable Earth Sim satellites and 3D terrain on iPad
+- *(devices)* AutoplayVideo pointerClass crash on touch devices
+- Play hero videos on phone and tablet, not poster-only
+- *(earth-sim)* Show MINDEX FIRMS toggle + fix mapRef crash
+- *(earth-sim)* Dedupe air-quality to one marker per station
+- *(earth-sim)* Restore air-quality BFF (prev commit dropped it via untracked-file diff)
+- *(earth-sim)* HTML-escape MINDEX popup data — DOM XSS (PR #230 security review)
+- *(earth-sim)* Restore MINDEX popup layers with XSS escaping (prev commit deleted them)
+- *(earth-sim)* Robust global data-center fetch (force-cache race dropped the 4,156 set)
 
 ### CREP
 
@@ -654,6 +666,12 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Add Earth Simulator section to README.
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -883,6 +901,14 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
 - *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
 - *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
+- *(earth-sim)* Live MINDEX FIRMS wildfire layer (additive, default-off)
+- *(earth-sim)* MINDEX air/weather layers + Worldview registry + investor BFF
+- *(earth-sim)* Render FIRMS as a density heatmap, not dots
+- *(earth-sim)* Production-readiness — aircraft off, denser sats, lighter orbits, freeze fix
+- *(earth-sim)* MINDEX air + weather as heatmaps with distinct ramps (like FIRMS)
+- *(earth-sim)* Surface infra + borders at continent zoom + lift satellites
+- *(earth-sim)* No flat-sat phase + weather radar/lightning on at boot
+- *(nlm)* Wire /myca/nlm stats to live NLM engine metrics API
 
 ### Fix
 
@@ -996,6 +1022,8 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Gate vessels at pump too + turn off plane trajectory trails
 - *(earth-sim)* Gate vessels' 2nd writer + minzoom; hide sat orbit rings <4
 - *(earth-sim)* Remove FpsAutoGovernor from the tree (dev tool only)
+- *(earth-sim)* Drop military perimeters from per-click box-pick (micro-opt)
+- *(earth-sim)* Cap satellite render pipeline (supply fix exposed a too-high 1600 cap)
 
 ### Refactor
 
