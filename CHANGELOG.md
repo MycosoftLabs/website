@@ -407,12 +407,14 @@ All notable changes to this project will be documented in this file.
 - *(tablet)* Enable Earth Sim satellites and 3D terrain on iPad
 - *(devices)* AutoplayVideo pointerClass crash on touch devices
 - Play hero videos on phone and tablet, not poster-only
+- *(mycobrain)* Remove duplicate isLocalPsathyrellaSerialTarget (TS2440)
 - *(earth-sim)* Show MINDEX FIRMS toggle + fix mapRef crash
 - *(earth-sim)* Dedupe air-quality to one marker per station
 - *(earth-sim)* Restore air-quality BFF (prev commit dropped it via untracked-file diff)
 - *(earth-sim)* HTML-escape MINDEX popup data — DOM XSS (PR #230 security review)
 - *(earth-sim)* Restore MINDEX popup layers with XSS escaping (prev commit deleted them)
 - *(earth-sim)* Robust global data-center fetch (force-cache race dropped the 4,156 set)
+- *(ci)* Commit missing CREP v3 geo shims and widen UnifiedLimits
 
 ### CREP
 
@@ -672,6 +674,8 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(psathyrella)* Update backend status after Jun 26 Cursor handoff
 
 ### Features
 
@@ -901,6 +905,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Emergency popup starts tucked, pill blinks on new info
 - *(earth-sim)* Auto-open emergency popup only when user is IN the warning + looking at it
 - *(earth-sim)* Radar auto-refresh + emergency popup arms radar/lightning
+- *(earth-sim)* Arraylake "Nature & Climate" animated fields — framework + data plane + 3D module
 - *(earth-sim)* Live MINDEX FIRMS wildfire layer (additive, default-off)
 - *(earth-sim)* MINDEX air/weather layers + Worldview registry + investor BFF
 - *(earth-sim)* Render FIRMS as a density heatmap, not dots
