@@ -259,6 +259,22 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import { bootstrapFungalAmEcmRasters, FungalAtlasLayer } from "@/components/crep/layers/fungal-atlas-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
+import GooglePhoto3DV3Underlay from "@/components/crep/three3d/GooglePhoto3DV3Underlay";
+import { syncV3PhotorealisticMapLayer } from "@/lib/geo/v3-photorealistic-maplibre-layer";
+import {
+  publishMapCameraFromMap,
+  resetV3Photo3dCompositing,
+  setV3MapGestureActive,
+  setV3Photo3dLayerActive,
+  v3GooglePhotoBridge,
+} from "@/lib/geo/v3-google-photo-bridge";
+import Mapbox3DBuildings from "@/components/crep/layers/mapbox-3d-buildings";
+import { BASEMAP_LAYER_IDS, setBasemapLayerVisibility } from "@/lib/geo/layers/basemap-stack"
+import { crepBasemapInstall, applyV3GlobeProjection, ensureV3BasemapVisible } from "@/lib/geo/crep-basemap-install";
+import { crepMapFlyTo, crepMapJumpOrFly, crepMapTiltFlyTo } from "@/lib/geo/crep-map-fly-to";
+import { flightSession, V3_FLIGHT_HIDDEN_SAT_LAYERS } from "@/lib/geo/camera/flight-session";
+import { getGlobeEngine, useEarthGlobeEngine } from "@/lib/geo/earth-globe-engine-context";
+import { useGoogleTilesApiKey } from "@/hooks/use-google-tiles-api-key";
 import V3Overlays from "@/components/crep/layers/v3-overlays";
 import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
@@ -276,6 +292,8 @@ import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer
 import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
 import RainViewerRadarLayer from "@/components/crep/layers/rainviewer-radar-layer";
 import StormLightningLayer from "@/components/crep/layers/storm-lightning-layer";
+import MindexFirmsLayer from "@/components/crep/layers/mindex-firms-layer";
+import MindexEnvPointsLayer from "@/components/crep/layers/mindex-env-points-layer";
 // BlueSite v2 — dormant Earth-2 effect layers, wired + flag-gated (smoke/fire = ?smoke=1, spores = ?spores3d=1)
 import { SmokeLayer } from "@/components/crep/earth2/smoke-layer";
 import { FireLayer } from "@/components/crep/earth2/fire-layer";
@@ -294,6 +312,7 @@ import MycaVerifiedEntityFeed from "@/components/crep/myca/MycaVerifiedEntityFee
 // inline MarkerPopup with a beautiful floating high-tech dialog with
 // explicit GPS state surfacing + sparkline telemetry cards.
 import DeviceWidget from "@/components/crep/devices/DeviceWidget";
+import { isLocalPsathyrellaSerialTarget, PSATHYRELLA_REGISTRY_ID, resolveLocalSerialServiceTarget } from "@/lib/devices/psathyrella-local";
 // Tijuana Estuary / Project Oyster (MYCODAO + MYCOSOFT) â€” pollution +
 // environmental data showcase for the SD-MX border zone. Apr 20, 2026.
 // Renders Project Oyster perimeter + Hâ‚‚S hotspot + river flow line +
@@ -302,6 +321,9 @@ import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer"
 import NavChannelsLayer from "@/components/crep/layers/nav-channels-layer";
 import FeedLayer from "@/components/crep/layers/feed-layer";
 import { FEED_REGISTRY, FEED_GROUP_CATEGORY } from "@/lib/crep/feeds/registry";
+import FieldRasterLayer from "@/components/crep/layers/field-raster-layer";
+import FieldWindLayer from "@/components/crep/layers/field-wind-layer";
+import { FIELD_REGISTRY, FIELD_GROUP_CATEGORY, fieldLayerId } from "@/lib/crep/fields/registry";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Apr 22, 2026 â€” SD + TJ data coverage expansion: 7 OSM-derived
@@ -873,10 +895,13 @@ const EARTH_SIM_SAFE_RESOURCE_LIMITS = {
   // (Jun 14, 2026 — "almost no planes/vessels, thousands missing, gate by lod + viewport".)
   aircraft: 2_500,
   vessels: 2_500,
-  // Satellites are worker-propagated GPU symbols (dots+icons; orbit rings capped
-  // at MAX_ORBIT_PATHS=200) and the SGP4 loop only runs on desktop, so a large
-  // pool just blankets the globe at altitude without touching tablet/phone.
-  satellites: 1_600,
+  // Satellites render as SYMBOL layers (icons) which run per-frame label-collision
+  // detection — expensive at scale. The 1600 pool was only ever "safe" because the
+  // SatNOGS supply was starved to ~100 (paging bug, now fixed); with real supply the
+  // full pool collapsed the globe to ~1 FPS and the resource governor hid the sats
+  // entirely. Cap to a few hundred — dense enough to read, light enough to stay
+  // smooth. (Jun 23 2026, Morgan.)
+  satellites: 450,
   streamed: 180,
   lastKnown: 900,
 };
@@ -889,11 +914,15 @@ function getEarthSimMoverRenderCap(kind: "aircraft" | "vessel" | "satellite", zo
   // (Jun 14, 2026 — gate by lod + viewport, not device class.)
   const desktop = getEarthSimViewportPerfClass() === "desktop";
   if (kind === "satellite") {
-    if (!desktop) { if (z < 5) return 350; if (z < 10) return 500; return 650; }
-    if (z < 3) return 1000;
-    if (z < 5) return 1200;
-    if (z < 7) return 1400;
-    return 1600;
+    // Jun 23 2026 (Morgan): symbol-layer per-frame collision makes >~400 rendered
+    // sats tank FPS to ~1 once supply is real (was masked by the ~100 paging-bug
+    // starvation). A few hundred reads as a dense sat field without collapsing the
+    // frame; the resource governor no longer has to hide them.
+    if (!desktop) { if (z < 5) return 250; if (z < 10) return 300; return 350; }
+    if (z < 3) return 300;
+    if (z < 5) return 350;
+    if (z < 7) return 400;
+    return 400;
   }
   if (kind === "vessel") {
     if (!desktop) { if (z < 3) return 120; if (z < 5) return 160; if (z < 7) return 240; if (z < 10) return 320; return 400; }
@@ -1820,7 +1849,7 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
     lng: PSATHYRELLA_COM4_LOCATION.lng,
     status: "connected",
     type: "psathyrella",
-    port: PSATHYRELLA_COM4_REGISTRY_ID,
+    port: "COM3",
     protocol: "MycoBrain buoy link",
     agentUrl: "http://localhost:8003",
     host: "localhost",
@@ -1842,7 +1871,7 @@ const FIELD_MYCOBRAIN_SEED_DEVICES: Device[] = [
     },
   },
 ];
-const EARTH_DEVICE_CONTROL_FETCH_TIMEOUT_MS = 6500;
+const EARTH_DEVICE_CONTROL_FETCH_TIMEOUT_MS = 12_000;
 const EARTH_DEVICE_LIST_FETCH_TIMEOUT_MS = 5000;
 const EARTH_DEVICE_LIST_FAST_URL = "/api/earth-simulator/devices";
 const EARTH_DEVICE_LIST_LIVE_URL = "/api/earth-simulator/devices?refresh=1";
@@ -2134,7 +2163,7 @@ type LayerDataStatus = "real" | "planned_real" | "mock";
 interface LayerConfig {
   id: string;
   name: string;
-  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities" | "projects";
+  category: "events" | "devices" | "environment" | "nature" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities" | "projects";
   icon: React.ReactNode;
   enabled: boolean;
   opacity: number;
@@ -2409,6 +2438,8 @@ function shouldHoldDomMarkerListsDuringGlobePan(
   isMapAnimationActive: boolean,
   liveMarkerBounds: { north: number; south: number; east: number; west: number } | null,
 ): boolean {
+  // V3 Earth Simulator: never drop/hide marker lists during pitch/zoom — only 3D buildings fade in.
+  if (typeof window !== "undefined" && getGlobeEngine() === "v3") return false;
   if (!isMapAnimationActive) return false;
   if (getEarthSimViewportPerfClass() !== "desktop") return true;
   return !liveMarkerBounds;
@@ -2714,6 +2745,9 @@ const layerCategories = {
   projects: { label: "MYCOSOFT Projects", icon: <Sparkles className="w-3.5 h-3.5" />, color: "text-teal-400" },
   // PRIMARY - Biodiversity and devices (shown first)
   environment: { label: "Biodiversity & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  // Animated gridded model fields from the mycosoft Arraylake cubes (ERA5/HRRR/MRMS weather,
+  // Helios solar, ALIVE GPP, canopy, biomass, Sentinel-2 NDVI, GEO stereo wind). Flag-gated.
+  nature: { label: "Nature & Climate", icon: <Thermometer className="w-3.5 h-3.5" />, color: "text-lime-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   // CONTEXT - Natural events for correlation
   events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
@@ -2781,6 +2815,8 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "bathymetry",       // Ocean Bathymetry (GEBCO)
   "topography",       // Land Topography (hillshade)
   "terrain3d",        // 3D Terrain (elevation)
+  "mapbox3dBuildings", // Mapbox extruded buildings (fallback when photorealistic off)
+  "photorealistic3D", // Cesium / Google photorealistic city meshes (V3)
   "swpc-aurora",      // Aurora Oval (SWPC OVATION)
   "gbif-fungi",       // Fungi Occurrences (GBIF)
   "obis-marine",      // Marine Life Occurrences (OBIS)
@@ -2789,6 +2825,9 @@ const NATURE_ENVIRONMENT_LAYER_IDS = new Set<string>([
   "usgs-streamflow",  // River Gauges / Streamflow (USGS)
   "weatherRadar",     // Live Weather Radar (animated RainViewer)
   "stormLightning",   // Live Lightning + Thunder (over real NWS storm cells)
+  "mindexFirms",      // MINDEX FIRMS (live NASA FIRMS VIIRS wildfire detections)
+  "mindexAirQuality", // MINDEX Air Quality (atmos.air_quality — OpenAQ/AirNow)
+  "mindexWeather",    // MINDEX Weather (atmos.weather_observations — POWER/Open-Meteo/METAR)
 ]);
 
 const INFRA_BASE_MAP_LAYER_IDS = new Set<string>([
@@ -2933,9 +2972,26 @@ const HEAVY_TABLET_OFF_LAYER_IDS = new Set<string>([
   "oilGas",
 ]);
 
+/** iPad/tablet freeze guard (Jun 24 2026): keep the heavy multi-MB GeoJSON infra layers
+ *  OFF at first load on sub-desktop perf tiers. They are enabled:true by default AND the
+ *  boot profile force-enables them (PROFILE_ON), and loading their geometry on zoom-in
+ *  synchronously stalls the mobile main thread + blows the tablet GPU budget → the iPad
+ *  freezes after zoom (the same layers enableAllAuditFilters strips via
+ *  HEAVY_TABLET_OFF_LAYER_IDS). Applied at every boot-apply site so it survives the startup
+ *  re-applies; users can still toggle these layers on manually afterward. */
+function applyTabletHeavyOffToLayers<T extends { id: string; enabled: boolean }>(layers: T[]): T[] {
+  if (typeof window === "undefined") return layers;
+  if (!isEarthSimulatorPath() || getEarthSimViewportPerfClass() === "desktop") return layers;
+  let changed = false;
+  const next = layers.map((l) => {
+    if (l.enabled && HEAVY_TABLET_OFF_LAYER_IDS.has(l.id)) { changed = true; return { ...l, enabled: false }; }
+    return l;
+  });
+  return changed ? next : layers;
+}
+
 const FORCE_OFF_UNTIL_STABLE_LAYER_IDS = new Set<string>([
-  "photorealistic3D",
-  "mapbox3dBuildings",
+  // photorealistic3D + mapbox3dBuildings enabled at city zoom on V3 Earth Simulator
   "mapboxSatelliteStreets",
   "orbitalDebris",
   "debrisCloud",
@@ -4403,8 +4459,8 @@ function DeviceMarker({ device, isSelected, onClick, onClose, history, onControl
     if (!registryDeviceId && !device.port) return;
     setControlLoading(peripheral);
     try {
-      const isLocalCom4 = registryDeviceId === PSATHYRELLA_COM4_REGISTRY_ID ||
-        String(device.port || "").toUpperCase() === "COM4";
+      const isLocalPsathyrella = isLocalPsathyrellaSerialTarget(registryDeviceId) ||
+        isLocalPsathyrellaSerialTarget(String(device.port || ""));
       const command = earthSimControlToOperatorCommand(peripheral, params);
       const action =
         peripheral === "neopixel" && params?.effect === "rainbow" ? "rainbow" :
@@ -4412,8 +4468,8 @@ function DeviceMarker({ device, isSelected, onClick, onClose, history, onControl
         peripheral === "buzzer" ? String(params?.action || "beep") :
         typeof params?.cmd === "string" ? "raw" :
         String(params?.effect || peripheral);
-      const localControlId = String(device.port || registryDeviceId);
-      const response = registryDeviceId && !isLocalCom4 ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+      const localControlId = resolveLocalSerialServiceTarget(String(device.port || registryDeviceId || PSATHYRELLA_REGISTRY_ID));
+      const response = registryDeviceId && !isLocalPsathyrella ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
@@ -6934,6 +6990,7 @@ function LayerControlPanel({
     events: true,
     devices: true,
     environment: true,
+    nature: true,
     human: true,
     infrastructure: true,
     military: true,
@@ -6956,6 +7013,7 @@ function LayerControlPanel({
       events: [],
       devices: [],
       environment: [],
+      nature: [],
       human: [],
       infrastructure: [],
       military: [],
@@ -7439,17 +7497,14 @@ const CREPMycaPanel = memo(function CREPMycaPanel({
         mapRef.current ||
         (typeof window !== "undefined" ? (window as any).__crep_map : null);
       try {
-        map?.flyTo?.({
+        crepMapFlyTo(map, {
           center: [target.lng, target.lat],
           zoom: target.zoom,
-          // Reset tilt so a far jump is always visible. On a tilted globe a
-          // flyTo that inherits the current pitch can leave the destination
-          // behind the horizon — looking like the map didn't move. The working
-          // FlyToProjects chips already pass pitch:0/bearing:0. (Jun 13, 2026.)
           pitch: 0,
           bearing: 0,
           duration: 900,
           essential: true,
+          name: target.name,
         });
       } catch {
         /* event fallback below */
@@ -7556,6 +7611,7 @@ export interface CREPDashboardClientProps {
   embedded?: boolean;
   initialQuery?: string;
   enabledLayerIds?: string[];
+  globeEngine?: "legacy" | "v3";
   focusLocation?: {
     lat: number;
     lng: number;
@@ -7779,9 +7835,13 @@ export default function CREPDashboardPage({
   embedded = false,
   initialQuery = "",
   enabledLayerIds = [],
+  globeEngine: globeEngineProp = "legacy",
   focusLocation = null,
   focusAsset = null,
 }: CREPDashboardClientProps) {
+  const globeEngine = useEarthGlobeEngine();
+  const isV3GlobeEngine = globeEngine === "v3" || globeEngineProp === "v3";
+  const { key: googleTilesApiKey } = useGoogleTilesApiKey();
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -8024,6 +8084,36 @@ export default function CREPDashboardPage({
   const earthStrictPerfMode = isEarthSimulatorRoute;
   const earthMoverLimits = earthStrictPerfMode ? EARTH_SIM_SAFE_RESOURCE_LIMITS : RESOURCE_LIMITS.normal;
   const [isMapAnimationActive, setIsMapAnimationActive] = useState(false);
+  const [v3SatelliteResumeTick, setV3SatelliteResumeTick] = useState(0);
+  const v3PausedSatAnimRef = useRef(false);
+  useEffect(() => {
+    if (!isV3GlobeEngine) return;
+    return flightSession.subscribe((active) => {
+      startTransition(() => setIsMapAnimationActive(active));
+      const map = mapNativeRef.current as any;
+      if (map?.setLayoutProperty) {
+        for (const id of V3_FLIGHT_HIDDEN_SAT_LAYERS) {
+          try {
+            if (map.getLayer(id)) {
+              map.setLayoutProperty(id, "visibility", active ? "none" : "visible");
+            }
+          } catch {
+            /* style churn */
+          }
+        }
+      }
+      if (active) {
+        if (isSatelliteAnimationRunning()) {
+          stopSatelliteAnimation();
+          v3PausedSatAnimRef.current = true;
+        }
+      } else if (v3PausedSatAnimRef.current) {
+        v3PausedSatAnimRef.current = false;
+        setV3SatelliteResumeTick((t) => t + 1);
+      }
+    });
+  }, [isV3GlobeEngine]);
+
   const [earthSimDeferredDataReady, setEarthSimDeferredDataReady] = useState(() => !isEarthSimulatorPath());
   // SGP4 + elevated satellites use a shorter stagger than heavy DOM/GeoJSON overlays
   // so iPad sees live sats within a few seconds, not after the full 18s defer.
@@ -8042,8 +8132,8 @@ export default function CREPDashboardPage({
     // the heavier layers hydrate (the 1.75s/2.5s values removed that safety valve
     // and compounded the iPad freeze). Not the old 35-55s — a survivable middle.
     const delayMs =
-      earthSimViewportPerfClass === "phone" ? 10_000 :
-      earthSimViewportPerfClass === "tablet" ? 18_000 :
+      earthSimViewportPerfClass === "phone" ? 4_000 :
+      earthSimViewportPerfClass === "tablet" ? 4_000 :
       750
     const satDelayMs =
       earthSimViewportPerfClass === "phone" ? 6_000 :
@@ -8181,6 +8271,12 @@ export default function CREPDashboardPage({
   // Shows more markers when zoomed in, fewer when zoomed out for performance
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   const [mapZoom, setMapZoom] = useState(CREP_DEFAULT_ZOOM);
+  /** Live map pitch/zoom — used for Mapbox extrusions and compositing hints only. */
+  const [mapPitch, setMapPitch] = useState(0);
+  /** User turned off photorealistic 3D in the layer panel — skip auto-enable until they turn it back on. */
+  const v3Photo3dUserDisabledRef = useRef(false);
+  const v3Photo3dWasOnRef = useRef(false);
+  const v3CityZoomBuildings = isV3GlobeEngine && mapZoom >= 14;
   const [mapBounds, setMapBounds] = useState<{
     north: number;
     south: number;
@@ -8216,6 +8312,27 @@ export default function CREPDashboardPage({
   const markerBounds = isGlobeCrepMapRoute
     ? (liveMarkerBounds ?? markerMapBounds ?? mapBounds)
     : mapBounds;
+
+  // V3: hide satellite markers + orbit lines at continental zoom (globe projection clusters them).
+  useEffect(() => {
+    if (!isV3GlobeEngine) return;
+    const map = mapNativeRef.current as any;
+    if (!map?.setLayoutProperty) return;
+    const showSats =
+      mapZoom >= 4.5 &&
+      !flightSession.shouldPauseLiveWork() &&
+      !isMapAnimationActive;
+    for (const id of V3_FLIGHT_HIDDEN_SAT_LAYERS) {
+      try {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", showSats ? "visible" : "none");
+        }
+      } catch {
+        /* style churn */
+      }
+    }
+  }, [isV3GlobeEngine, mapZoom, isMapAnimationActive, v3SatelliteResumeTick]);
+
   const footerViewportCenter = useMemo(() => {
     const bounds = mapBounds ?? markerBounds;
     if (bounds) {
@@ -8444,8 +8561,8 @@ export default function CREPDashboardPage({
     const registryDeviceId = device.registryId || (typeof device.port === "string" && device.port.startsWith("mycobrain-") ? device.port : undefined);
     if (!registryDeviceId && !device.port) return;
     try {
-      const isLocalCom4 = registryDeviceId === PSATHYRELLA_COM4_REGISTRY_ID ||
-        String(device.port || "").toUpperCase() === "COM4";
+      const isLocalPsathyrella = isLocalPsathyrellaSerialTarget(registryDeviceId) ||
+        isLocalPsathyrellaSerialTarget(String(device.port || ""));
       const command = earthSimControlToOperatorCommand(peripheral, params);
       const action =
         peripheral === "neopixel" && params?.effect === "rainbow" ? "rainbow" :
@@ -8453,8 +8570,8 @@ export default function CREPDashboardPage({
         peripheral === "buzzer" ? String(params?.action || "beep") :
         typeof params?.cmd === "string" ? "raw" :
         String(params?.effect || peripheral);
-      const localControlId = String(device.port || registryDeviceId);
-      const response = registryDeviceId && !isLocalCom4 ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
+      const localControlId = resolveLocalSerialServiceTarget(String(device.port || registryDeviceId || PSATHYRELLA_REGISTRY_ID));
+      const response = registryDeviceId && !isLocalPsathyrella ? await fetchEarthDeviceControl(`/api/devices/network/${encodeURIComponent(registryDeviceId)}/command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command, params: params || {}, timeout: 5 }),
@@ -8522,7 +8639,7 @@ export default function CREPDashboardPage({
       try {
         const m = mapNativeRef.current as any;
         if (m?.flyTo && typeof d.lat === "number" && typeof d.lng === "number") {
-          m.flyTo({ center: [d.lng, d.lat], zoom: 5, pitch: 45, duration: 1500 });
+          crepMapFlyTo(m, { center: [d.lng, d.lat], zoom: 5, pitch: 45, duration: 1500 });
         }
       } catch { /* ignore */ }
     };
@@ -8545,7 +8662,9 @@ export default function CREPDashboardPage({
       try {
         const m = mapNativeRef.current as any;
         // pitch:0/bearing:0 — a tilted globe can hide the destination over the horizon.
-        if (m?.flyTo) m.flyTo({ center: [lng, lat], zoom, pitch: 0, bearing: 0, duration: 1200 });
+        if (m?.flyTo) {
+          crepMapFlyTo(m, { center: [lng, lat], zoom, pitch: 0, bearing: 0, duration: 1200 });
+        }
       } catch { /* ignore */ }
     };
     window.addEventListener("crep:flyto", onFlyTo as any);
@@ -8871,7 +8990,8 @@ export default function CREPDashboardPage({
     fungalAtlasDesiredRef.current = { showAm, showEcm, opacity: nextOpacity };
     const map = mapNativeRef.current || mapRef;
     if (!map) return;
-    const warmInactiveRasters = getEarthSimViewportPerfClass() === "desktop";
+    const warmInactiveRasters =
+      getEarthSimViewportPerfClass() === "desktop" && !isEarthSimulatorPath();
     const setImmediateRasterPaint = (layerId: string, enabled: boolean) => {
       try {
         if (!map.getLayer?.(layerId)) return;
@@ -8912,7 +9032,7 @@ export default function CREPDashboardPage({
     if (type === "satellite") setSelectedSatellite(entity);
     const map = mapNativeRef.current || mapRef;
     if (coord && map?.flyTo) {
-      map.flyTo({
+      crepMapFlyTo(map, {
         center: [coord.lng, coord.lat],
         zoom: type === "satellite" ? 5 : 9,
         pitch: type === "satellite" ? 45 : 35,
@@ -9140,11 +9260,16 @@ export default function CREPDashboardPage({
     if (auditAllOffMode) return true;
     if (assetIsolationMode) return true;
     if (typeof document !== "undefined" && document.hidden) return true;
-    // Never run live refresh / heavy work while the globe is moving (Earth Simulator included).
+    // V3 Earth Simulator: only pause live work during cinematic fly-to — not user pan/zoom/pitch.
+    if (isEarthSimulatorRoute && isV3GlobeEngine) {
+      if (flightSession.shouldPauseLiveWork()) return true;
+      return false;
+    }
+    if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) return true;
     if (isEarthSimulatorRoute && isMapAnimationActive) return true;
     if (mapInteractionActiveRef.current) return true;
     return Date.now() < navigationPauseUntilRef.current;
-  }, [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isMapAnimationActive]);
+  }, [assetIsolationMode, auditAllOffMode, isEarthSimulatorRoute, isMapAnimationActive, isV3GlobeEngine]);
 
   useCrepPollScheduler(
     useMemo(
@@ -9178,7 +9303,7 @@ export default function CREPDashboardPage({
       if (!fungalAtlasUserControlRef.current) {
         const enableStartupFungalRasters = earthSimStartupFungalRastersEnabled();
         setLayers((prev) =>
-          applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev))),
+          applyTabletHeavyOffToLayers(applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev)))),
         );
         setGroundFilter((prev) => applyEarthSimFungalRasterBudgetToGroundFilter({
           ...prev,
@@ -9200,6 +9325,10 @@ export default function CREPDashboardPage({
     const map = mapRef;
     if (!map) return;
     const clearMapInteractionState = (reason: string) => {
+      if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) {
+        scheduleMapInteractionClear(750);
+        return;
+      }
       // Re-attach native marker per-frame _update + snap markers back to their
       // correct positions once the gesture settles (no-op if not frozen).
       thawNativeMarkerUpdates(map);
@@ -9234,8 +9363,8 @@ export default function CREPDashboardPage({
         const elapsed = mapInteractionStartedAtRef.current > 0
           ? Date.now() - mapInteractionStartedAtRef.current
           : 0;
-        if (moving && elapsed < 8_000) {
-          scheduleMapInteractionClear(500);
+        if (moving && elapsed < (isV3GlobeEngine ? 4_000 : 8_000)) {
+          scheduleMapInteractionClear(300);
           return;
         }
         clearMapInteractionState(moving ? "forced-timeout" : "settled-timer");
@@ -9285,14 +9414,23 @@ export default function CREPDashboardPage({
       }
       // Freeze list membership during camera movement, but keep the update
       // non-urgent so panel clicks/taps are never queued behind map motion.
+      // V3 user pitch/zoom: do NOT flip animation flags — all intel layers stay visible.
       startTransition(() => {
-        setIsMapAnimationActive(true);
-        if (isGlobeCrepMapRoute) setIsGlobeMarkerListFrozen(true);
+        if (!(isV3GlobeEngine && !flightSession.shouldPauseLiveWork())) {
+          setIsMapAnimationActive(true);
+          if (isGlobeCrepMapRoute) setIsGlobeMarkerListFrozen(true);
+        }
       });
-      scheduleMapInteractionClear(1800);
+      const clearDelay =
+        isV3GlobeEngine && flightSession.shouldPauseLiveWork() ? 5200 : isV3GlobeEngine ? 900 : 1800;
+      scheduleMapInteractionClear(clearDelay);
     };
     const onMoveEnd = () => {
       if (!mapInteractionActiveRef.current) return;
+      if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) {
+        scheduleMapInteractionClear(800);
+        return;
+      }
       if (typeof map.isMoving === "function" && map.isMoving()) {
         scheduleMapInteractionClear(300);
         return;
@@ -9303,6 +9441,10 @@ export default function CREPDashboardPage({
     };
     const onIdle = () => {
       if (!mapInteractionActiveRef.current) return;
+      if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) {
+        scheduleMapInteractionClear(600);
+        return;
+      }
       clearMapInteractionState("idle");
       // MapLibre can emit idle repeatedly while tiles/symbol placement churn.
       // moveend/zoomend already request the settled viewport refresh; letting
@@ -9349,7 +9491,7 @@ export default function CREPDashboardPage({
       try { map.off?.("pitchend", onMoveEnd); } catch {}
       try { map.off?.("idle", onIdle); } catch {}
     };
-  }, [earthStrictPerfMode, isGlobeCrepMapRoute, mapRef, requestViewportNatureFetch]);
+  }, [earthStrictPerfMode, isGlobeCrepMapRoute, isV3GlobeEngine, mapRef, requestViewportNatureFetch]);
 
   useEffect(() => {
     if (!earthStrictPerfMode || !mapRef) return;
@@ -9718,6 +9860,7 @@ export default function CREPDashboardPage({
       const shouldPauseMoverPump = () => {
         if (auditAllOffMode || assetIsolationMode) return true;
         if (typeof document !== "undefined" && document.hidden) return true;
+        if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) return true;
         return false;
       };
       const earthLayerEnabled = (ids: string[]) => {
@@ -10316,6 +10459,9 @@ export default function CREPDashboardPage({
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
+    { id: "mindexFirms", name: "MINDEX FIRMS (live)", category: "events", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fb923c", description: "MINDEX earth.wildfires — live NASA FIRMS VIIRS 375m thermal detections. Default OFF.", dataStatus: "real", dataSource: "MINDEX earth.wildfires" },
+    { id: "mindexAirQuality", name: "MINDEX Air Quality (live)", category: "environment", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#2dd4bf", description: "MINDEX atmos.air_quality — OpenAQ/AirNow station readings. Default OFF; empty until ETL keys land on 189.", dataStatus: "real", dataSource: "MINDEX atmos.air_quality" },
+    { id: "mindexWeather", name: "MINDEX Weather (live)", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#38bdf8", description: "MINDEX atmos.weather_observations — NASA POWER / Open-Meteo / METAR stations. Default OFF; sparse until ETL scales.", dataStatus: "real", dataSource: "MINDEX atmos.weather_observations" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
     { id: "floods", name: "Floods & Hydrology", category: "events", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#0284c7", description: "Active flood, tsunami, and landslide alerts" },
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
@@ -10325,8 +10471,13 @@ export default function CREPDashboardPage({
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
+    // Jun 23 2026 (Morgan): aircraft are the heaviest movers (~70% of the frame
+    // budget at globe zoom, per the LOD audit) — default them OFF on the Earth
+    // Simulator so a fresh production load is light; the user opts in. enabled
+    // false here ALSO blocks the OpenSky/FR24 poll (allowAircraft gate). On the
+    // internal CREP dashboard (!earthStrictPerfMode) they stay default-on.
+    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions. Default OFF on Earth Simulator — toggle on to load (starts the live aircraft poll)." },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport. Default OFF on Earth Simulator." },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
     { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
     { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
@@ -10342,7 +10493,7 @@ export default function CREPDashboardPage({
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
     { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM â€” US + global" },
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: !earthStrictPerfMode, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B. Default OFF on Earth Simulator (aircraft)." },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
     { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
     { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
@@ -10605,6 +10756,15 @@ export default function CREPDashboardPage({
     for (const f of FEED_REGISTRY) {
       initialLayers.push({ id: f.id, name: f.name, category: FEED_GROUP_CATEGORY[f.group], icon: <Activity className="w-3 h-3" />, enabled: f.default_on ?? false, opacity: 0.85, color: f.color, description: f.notes || "" } as LayerConfig);
     }
+    // Config-driven Arraylake gridded FIELDS (lib/crep/fields/registry) — flag-gated, OFF by default.
+    // No flag → no entries → zero impact on v1. One toggle per dataset+variable.
+    if (process.env.NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS === "1") {
+      for (const d of FIELD_REGISTRY) {
+        for (const v of d.variables) {
+          initialLayers.push({ id: fieldLayerId(d.id, v.key), name: `${d.name} — ${v.name}`, category: FIELD_GROUP_CATEGORY[d.group], icon: <Activity className="w-3 h-3" />, enabled: false, opacity: 0.85, color: (v.ramp && v.ramp[v.ramp.length - 1] && v.ramp[v.ramp.length - 1][1]) || "#38bdf8", description: d.notes || "" } as LayerConfig);
+        }
+      }
+    }
     const layersWithInitialFilters =
       EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()
         ? initialLayers
@@ -10613,9 +10773,9 @@ export default function CREPDashboardPage({
           : initialLayers;
     const forced = applyForceOffToLayers(layersWithInitialFilters);
     if (EARTH_SIM_STAGED_BOOT && isEarthSimulatorPath()) {
-      return applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(forced));
+      return applyTabletHeavyOffToLayers(applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(forced)));
     }
-    return forced;
+    return applyTabletHeavyOffToLayers(forced);
   });
 
   // Earth Simulator startup contract: base context layers must be visible on
@@ -10673,7 +10833,7 @@ export default function CREPDashboardPage({
       setAssetIsolationMode(null);
       const enableStartupFungalRasters = earthSimStartupFungalRastersEnabled();
       setLayers((prev) =>
-        applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev))),
+        applyTabletHeavyOffToLayers(applyEarthSimFungalRasterBudgetToLayers(applyEarthSimulatorBootToLayers(applyForceOffToLayers(prev)))),
       );
       setGroundFilter((prev) => applyEarthSimFungalRasterBudgetToGroundFilter({
         ...prev,
@@ -11002,16 +11162,16 @@ export default function CREPDashboardPage({
     const focusKey = `${target.lat.toFixed(5)}|${target.lng.toFixed(5)}|${zoom.toFixed(2)}`;
     if (lastAppliedExplicitFocusRef.current === focusKey) return;
     lastAppliedExplicitFocusRef.current = focusKey;
-    if (mapRef.jumpTo) {
-      mapRef.jumpTo({ center: [target.lng, target.lat], zoom });
-    } else {
-      mapRef.flyTo({
+    crepMapJumpOrFly(
+      mapRef,
+      {
         center: [target.lng, target.lat],
         zoom,
         duration: 600,
         essential: true,
-      });
-    }
+      },
+      isV3GlobeEngine ? "v3" : "legacy",
+    );
     initialUrlFocusRef.current = null;
     setMapZoom(zoom);
     const bounds = mapRef.getBounds?.();
@@ -11036,6 +11196,7 @@ export default function CREPDashboardPage({
     focusLocation?.lng,
     focusLocation?.zoom,
     earthStrictPerfMode,
+    isV3GlobeEngine,
   ]);
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
@@ -11068,10 +11229,10 @@ export default function CREPDashboardPage({
 
           // If we have a map reference, fly to user's location
           if (mapRef && mapRef.flyTo) {
-            mapRef.flyTo({
+            crepMapFlyTo(mapRef, {
               center: [longitude, latitude],
               zoom: zoomLevel,
-              duration: 2000, // 2 second smooth animation
+              duration: 2000,
               essential: true,
             });
             setHasAutoZoomed(true);
@@ -11083,7 +11244,7 @@ export default function CREPDashboardPage({
           console.log(`[CREP] Geolocation unavailable: ${error.message}. Using default view.`);
           // Default to slightly zoomed out global view
           if (mapRef && mapRef.flyTo) {
-            mapRef.flyTo({
+            crepMapFlyTo(mapRef, {
               center: [-98.5, 39.8],
               zoom: 4,
               duration: 1500,
@@ -11162,19 +11323,41 @@ export default function CREPDashboardPage({
   // Keep base context layer visibility in sync with layer toggles.
   useEffect(() => {
     if (!mapRef) return;
-    const setVisibility = (layerId: string, enabledId: string) => {
+    if (isV3GlobeEngine) {
+      const findLayer = (id: string) => layers.find((layer) => layer.id === id);
+      const satOn = findLayer("satImagery")?.enabled ?? true;
       try {
-        if (mapRef.getLayer(layerId)) {
-          const enabled = layers.find((layer) => layer.id === enabledId)?.enabled ?? true;
-          mapRef.setLayoutProperty(layerId, "visibility", enabled ? "visible" : "none");
-        }
+        ensureV3BasemapVisible(mapRef);
+        setBasemapLayerVisibility(mapRef, "preview", satOn);
+        setBasemapLayerVisibility(mapRef, "hd", satOn);
+        setBasemapLayerVisibility(
+          mapRef,
+          "bathymetry",
+          findLayer("bathymetry")?.enabled ?? true,
+        );
+        setBasemapLayerVisibility(
+          mapRef,
+          "topography",
+          findLayer("topography")?.enabled ?? true,
+        );
       } catch {
-        /* ignore transient style churn */
+        /* style churn */
       }
-    };
-    setVisibility("crep-satimagery-raster", "satImagery");
-    setVisibility("crep-bathymetry-raster", "bathymetry");
-    setVisibility("crep-topo-hillshade", "topography");
+    } else {
+      const setVisibility = (layerId: string, enabledId: string) => {
+        try {
+          if (mapRef.getLayer(layerId)) {
+            const enabled = layers.find((layer) => layer.id === enabledId)?.enabled ?? true;
+            mapRef.setLayoutProperty(layerId, "visibility", enabled ? "visible" : "none");
+          }
+        } catch {
+          /* ignore transient style churn */
+        }
+      };
+      setVisibility("crep-satimagery-raster", "satImagery");
+      setVisibility("crep-bathymetry-raster", "bathymetry");
+      setVisibility("crep-topo-hillshade", "topography");
+    }
 
     const amLayer = layers.find((layer) => layer.id === "fungalAtlasAM");
     const ecmLayer = layers.find((layer) => layer.id === "fungalAtlasECM");
@@ -11186,7 +11369,7 @@ export default function CREPDashboardPage({
         ? (amLayer?.opacity ?? EARTH_SIM_FUNGAL_OPACITY)
         : EARTH_SIM_FUNGAL_OPACITY;
     bootstrapFungalAmEcmRasters(mapRef, { showAm, showEcm, opacity: fungalOpacity });
-  }, [mapRef, layers, mycorrhizalMode]);
+  }, [mapRef, layers, mycorrhizalMode, isV3GlobeEngine]);
 
   // Fetch data
   useEffect(() => {
@@ -11230,7 +11413,10 @@ export default function CREPDashboardPage({
       const showSpinner = !initialDataLoadedRef.current;
       const deferEarthNonCameraData =
         isEarthSimulatorRoute &&
-        (!earthSimDeferredDataReady || isMapAnimationActive || mapInteractionActiveRef.current);
+        (!earthSimDeferredDataReady ||
+          (isV3GlobeEngine
+            ? flightSession.shouldPauseLiveWork()
+            : isMapAnimationActive || mapInteractionActiveRef.current));
       if (showSpinner) setIsLoading(true);
       try {
         // Fetch global events - wrapped in try/catch for graceful failure
@@ -12550,6 +12736,9 @@ export default function CREPDashboardPage({
   }, [applyMycorrhizalRasterState, assetIsolationMode, leaveAssetIsolationMode, mapRef]);
 
   const setLayerEnabled = useCallback((layerId: string, enabled: boolean, syncMoverFilters: boolean = true) => {
+    if (layerId === "photorealistic3D") {
+      v3Photo3dUserDisabledRef.current = !enabled;
+    }
     if (layerId === "fungalAtlasAM") {
       const ecmOn = layersRef.current.find((l) => l.id === "fungalAtlasECM")?.enabled ?? false;
       switchMycorrhizalFungiLayer(enabled ? "am" : ecmOn ? "ecm" : "off");
@@ -12565,15 +12754,13 @@ export default function CREPDashboardPage({
     if (!(assetIsolationMode === "funga" && (isFungalAtlasLayer || isFungaContextLayer))) {
       leaveAssetIsolationMode();
     }
-    const forceOff = FORCE_OFF_UNTIL_STABLE_LAYER_IDS.has(layerId);
+    const forceOff = FORCE_OFF_UNTIL_STABLE_LAYER_IDS.has(layerId) && !enabled;
     const targetIds = new Set(expandLayerToggleIds(layerId));
     setAuditAllOffMode(false);
-    layersRef.current = applyForceOffToLayers(
-      layersRef.current.map((l) => {
-        if (!targetIds.has(l.id)) return l;
-        return { ...l, enabled: forceOff ? false : enabled };
-      }),
-    );
+    layersRef.current = layersRef.current.map((l) => {
+      if (!targetIds.has(l.id)) return l;
+      return { ...l, enabled: forceOff ? false : enabled };
+    });
     setLayers(prev => {
       let changed = false;
       const next = prev.map(l => {
@@ -12583,7 +12770,7 @@ export default function CREPDashboardPage({
         changed = true;
         return { ...l, enabled: nextEnabled };
       });
-      return changed ? applyForceOffToLayers(next) : prev;
+      return changed ? next : prev;
     });
     if (forceOff) return;
     // syncMoverFilters: only the master layer toggle (or "ALL ON") should cascade
@@ -13138,12 +13325,16 @@ export default function CREPDashboardPage({
       window.sessionStorage.removeItem("crep-map-restore-view");
       if (!view.at || Date.now() - view.at > 90_000) return;
       if (![view.lng, view.lat, view.zoom].every((value) => typeof value === "number" && Number.isFinite(value))) return;
-      mapRef.jumpTo?.({
-        center: [view.lng, view.lat],
-        zoom: view.zoom,
-        bearing: typeof view.bearing === "number" ? view.bearing : 0,
-        pitch: typeof view.pitch === "number" ? view.pitch : 0,
-      });
+      crepMapJumpOrFly(
+        mapRef,
+        {
+          center: [view.lng!, view.lat!],
+          zoom: view.zoom,
+          bearing: typeof view.bearing === "number" ? view.bearing : 0,
+          pitch: typeof view.pitch === "number" ? view.pitch : 0,
+        },
+        isV3GlobeEngine ? "v3" : "legacy",
+      );
     } catch {
       /* restore is best-effort only */
     }
@@ -13455,7 +13646,7 @@ export default function CREPDashboardPage({
       if (b && b.north != null && b.south != null && b.east != null && b.west != null && mapRef.fitBounds) {
         mapRef.fitBounds([[b.west, b.south], [b.east, b.north]], { duration: 1000 });
       } else if (prefs.center_lat != null && prefs.center_lng != null && prefs.zoom != null && mapRef.flyTo) {
-        mapRef.flyTo({
+        crepMapFlyTo(mapRef, {
           center: [prefs.center_lng, prefs.center_lat],
           zoom: prefs.zoom,
           duration: 1000,
@@ -13517,6 +13708,226 @@ export default function CREPDashboardPage({
     setVis(JURISDICTION_LAYER_GROUPS.county, !auditAllOffMode && (findLayer("jurisdictionCounty")?.enabled ?? false));
     setVis(JURISDICTION_LAYER_GROUPS.fema, !auditAllOffMode && (findLayer("jurisdictionFema")?.enabled ?? false));
   }, [layers, auditAllOffMode, mapRef]);
+
+  useEffect(() => {
+    if (!isV3GlobeEngine) return;
+    const map: any = mapNativeRef.current || mapRef;
+    if (!map?.getLayer) return;
+    const findLayer = (id: string) => layers.find((l) => l.id === id);
+    try {
+      ensureV3BasemapVisible(map);
+      const satOn = findLayer("satImagery")?.enabled ?? true;
+      setBasemapLayerVisibility(map, "preview", satOn);
+      setBasemapLayerVisibility(map, "hd", satOn);
+      setBasemapLayerVisibility(map, "bathymetry", findLayer("bathymetry")?.enabled ?? true);
+      setBasemapLayerVisibility(map, "topography", findLayer("topography")?.enabled ?? true);
+    } catch {
+      /* style churn */
+    }
+  }, [isV3GlobeEngine, layers, mapRef]);
+
+  // V3: photorealistic 3D and MapLibre terrarium terrain must not stack (coastline mesh spikes).
+  const v3Photo3dOn = layers.find((l) => l.id === "photorealistic3D")?.enabled ?? false;
+
+  useEffect(() => {
+    if (!isV3GlobeEngine) return;
+    setV3Photo3dLayerActive(v3Photo3dOn);
+    if (!v3Photo3dOn) return;
+    const wasOn = v3Photo3dWasOnRef.current;
+    v3Photo3dWasOnRef.current = v3Photo3dOn;
+    if (wasOn) return;
+    setLayerEnabled("terrain3d", false);
+    setLayerEnabled("mapbox3dBuildings", false);
+    const map = (mapNativeRef.current || mapRef) as {
+      getCenter?: () => { lng: number; lat: number };
+      getZoom?: () => number;
+      getPitch?: () => number;
+      getBearing?: () => number;
+      flyTo?: (o: Record<string, unknown>) => void;
+    } | null;
+    if (!map?.getCenter) return;
+    const z = map.getZoom?.() ?? mapZoom;
+    const p = map.getPitch?.() ?? mapPitch;
+    if (z >= 14.5 && p >= 28) {
+      publishMapCameraFromMap(map);
+      return;
+    }
+    crepMapTiltFlyTo(map, {
+      center: [map.getCenter().lng, map.getCenter().lat],
+      zoom: Math.max(z, 15.8),
+      pitch: Math.max(p, 52),
+      bearing: map.getBearing?.() ?? 0,
+      duration: 1400,
+      onEnd: () => publishMapCameraFromMap(map),
+    });
+  }, [isV3GlobeEngine, v3Photo3dOn, mapRef, mapZoom, mapPitch, setLayerEnabled]);
+
+  useEffect(() => {
+    if (!isV3GlobeEngine || !v3Photo3dOn) return;
+    setLayerEnabled("terrain3d", false);
+    const map: { setTerrain?: (v: null) => void; getTerrain?: () => unknown } | null =
+      (mapNativeRef.current || mapRef) as typeof mapNativeRef.current;
+    try {
+      if (map?.getTerrain?.()) map.setTerrain?.(null);
+    } catch {
+      /* map mid-load */
+    }
+  }, [isV3GlobeEngine, v3Photo3dOn, setLayerEnabled, mapRef]);
+
+  // V3: MapLibre custom layer path reserved for future depth-composited tiles; overlay uses R3F embedded.
+  useEffect(() => {
+    if (!isV3GlobeEngine || v3Photo3dOn) return;
+    const map = (mapNativeRef.current || mapRef) as import("maplibre-gl").Map | null;
+    syncV3PhotorealisticMapLayer(map, false);
+  }, [isV3GlobeEngine, v3Photo3dOn, mapRef]);
+
+  const mapbox3dOn = layers.find((l) => l.id === "mapbox3dBuildings")?.enabled ?? false;
+  useEffect(() => {
+    if (!isV3GlobeEngine || !mapbox3dOn) return;
+    if (layersRef.current.find((l) => l.id === "photorealistic3D")?.enabled) {
+      setLayerEnabled("photorealistic3D", false);
+    }
+  }, [isV3GlobeEngine, mapbox3dOn, setLayerEnabled]);
+
+  useEffect(() => {
+    if (!isV3GlobeEngine || !mapRef) return;
+    try {
+      applyV3GlobeProjection(mapRef);
+      setProjectionMode("globe");
+    } catch {
+      /* map mid-load */
+    }
+  }, [isV3GlobeEngine, mapRef]);
+
+  // V3: publish MapLibre camera → Three.js photorealistic overlay.
+  useEffect(() => {
+    if (!isV3GlobeEngine || !mapRef) return;
+    const map = mapRef as {
+      on?: (ev: string, fn: () => void) => void;
+      off?: (ev: string, fn: () => void) => void;
+      getPitch?: () => number;
+    };
+    const publishBridge = () => {
+      try {
+        publishMapCameraFromMap(map);
+        if (v3Photo3dOn) (map as { triggerRepaint?: () => void }).triggerRepaint?.();
+      } catch {
+        /* map mid-gesture */
+      }
+    };
+    const syncReactCamera = () => {
+      try {
+        const pitch = map.getPitch?.() ?? 0;
+        const zoom = (map as { getZoom?: () => number }).getZoom?.() ?? 0;
+        setMapPitch(pitch);
+        setMapZoom(zoom);
+      } catch {
+        /* map mid-gesture */
+      }
+    };
+    const syncCamera = () => {
+      publishBridge();
+      syncReactCamera();
+    };
+    let gestureDepth = 0;
+    const onGestureStart = () => {
+      gestureDepth += 1;
+      setV3MapGestureActive(true);
+    };
+    const onGestureEnd = () => {
+      gestureDepth = Math.max(0, gestureDepth - 1);
+      if (gestureDepth === 0) {
+        setV3MapGestureActive(false);
+        publishBridge();
+      }
+    };
+    // Do not subscribe to "move" — it fires every frame during pan and starves the main thread.
+    const bridgeEvents = ["zoom", "pitch", "rotate", "moveend"] as const;
+    const gestureStartEvents = ["movestart", "zoomstart", "rotatestart", "pitchstart"] as const;
+    const gestureEndEvents = ["moveend", "zoomend", "rotateend", "pitchend"] as const;
+    const reactEvents = ["zoom", "pitch"] as const;
+    const endEvents = ["moveend", "zoomend", "rotateend", "pitchend", "resize"] as const;
+    for (const ev of bridgeEvents) map.on?.(ev, publishBridge);
+    for (const ev of gestureStartEvents) map.on?.(ev, onGestureStart);
+    for (const ev of gestureEndEvents) map.on?.(ev, onGestureEnd);
+    for (const ev of reactEvents) map.on?.(ev, syncReactCamera);
+    for (const ev of endEvents) map.on?.(ev, syncReactCamera);
+    const onFlightChange = (active: boolean) => {
+      if (!active) {
+        setV3MapGestureActive(false);
+        publishBridge();
+      }
+    };
+    const unsubFlight = flightSession.subscribe(onFlightChange);
+    syncCamera();
+    return () => {
+      unsubFlight();
+      setV3MapGestureActive(false);
+      for (const ev of bridgeEvents) map.off?.(ev, publishBridge);
+      for (const ev of gestureStartEvents) map.off?.(ev, onGestureStart);
+      for (const ev of gestureEndEvents) map.off?.(ev, onGestureEnd);
+      for (const ev of reactEvents) map.off?.(ev, syncReactCamera);
+      for (const ev of endEvents) map.off?.(ev, syncReactCamera);
+      resetV3Photo3dCompositing();
+    };
+  }, [isV3GlobeEngine, mapRef, v3Photo3dOn]);
+
+  // V3: deck.gl + photorealistic 3D canvases sit above MapLibre; forward wheel to scrollZoom
+  // so zoom stays anchored to the cursor (MapLibre default) instead of feeling center-locked.
+  useEffect(() => {
+    if (!isV3GlobeEngine || !mapRef || typeof document === "undefined") return;
+    const map = mapRef as {
+      scrollZoom?: { isEnabled?: () => boolean; wheel?: (e: WheelEvent) => void };
+      getCanvas?: () => HTMLCanvasElement;
+    };
+    const container = document.querySelector(".crep-map-container");
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      try {
+        if (!map.scrollZoom?.isEnabled?.()) return;
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest("[data-panel]")) return;
+        if (target.closest(".maplibregl-ctrl")) return;
+        if (target.closest(".maplibregl-popup")) return;
+        const mapCanvas = map.getCanvas?.();
+        if (mapCanvas && (target === mapCanvas || target.classList.contains("maplibregl-canvas"))) {
+          return;
+        }
+        if (!target.closest(".crep-map-container")) return;
+        map.scrollZoom.wheel?.(e);
+        e.preventDefault();
+        e.stopPropagation();
+      } catch {
+        /* map mid-gesture */
+      }
+    };
+
+    container.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => container.removeEventListener("wheel", onWheel, { capture: true });
+  }, [isV3GlobeEngine, mapRef]);
+
+  useEffect(() => {
+    if (isV3GlobeEngine) return;
+    resetV3Photo3dCompositing();
+  }, [isV3GlobeEngine]);
+
+  // Restore satellite opacity when leaving V3.
+  useEffect(() => {
+    if (isV3GlobeEngine || !mapRef) return;
+    const map = mapRef as {
+      getLayer?: (id: string) => unknown;
+      setPaintProperty?: (id: string, prop: string, value: number) => void;
+    };
+    for (const layerId of [BASEMAP_LAYER_IDS.preview, BASEMAP_LAYER_IDS.hd, "crep-satimagery-raster"]) {
+      try {
+        if (map.getLayer?.(layerId)) map.setPaintProperty?.(layerId, "raster-opacity", 1);
+      } catch {
+        /* style churn */
+      }
+    }
+  }, [isV3GlobeEngine, mapRef]);
 
   // Sync ground filter toggles with layer visibility.
   //
@@ -13599,7 +14010,7 @@ export default function CREPDashboardPage({
     return {
       onFlyTo: (lng, lat, zoom, duration) => {
         if (mapRef?.flyTo) {
-          mapRef.flyTo({ center: [lng, lat], zoom: zoom ?? mapRef.getZoom?.() ?? 4, duration: duration ?? 800 });
+          crepMapFlyTo(mapRef, { center: [lng, lat], zoom: zoom ?? mapRef.getZoom?.() ?? 4, duration: duration ?? 800 });
         }
       },
       onGeocodeAndFlyTo: async (query, zoom) => {
@@ -13608,7 +14019,7 @@ export default function CREPDashboardPage({
           const data = await res.json();
           const first = data?.results?.[0];
           if (first?.lat != null && first?.lng != null && mapRef?.flyTo) {
-            mapRef.flyTo({ center: [first.lng, first.lat], zoom: zoom ?? 10, duration: 1000 });
+            crepMapFlyTo(mapRef, { center: [first.lng, first.lat], zoom: zoom ?? 10, duration: 1000 });
           }
         } catch (e) {
           console.warn("[CREP] Geocode failed:", e);
@@ -13627,7 +14038,7 @@ export default function CREPDashboardPage({
         if (mapRef?.panBy) mapRef.panBy(offset, { duration: duration ?? 300 });
       },
       onResetView: () => {
-        if (mapRef?.flyTo) mapRef.flyTo({ center: [0, 20], zoom: 2.5, duration: 800 });
+        if (mapRef?.flyTo) crepMapFlyTo(mapRef, { center: [0, 20], zoom: 2.5, duration: 800 });
       },
       onShowLayer: (layer) => {
         const l = voiceToLayer[layer.toLowerCase()];
@@ -13669,7 +14080,7 @@ export default function CREPDashboardPage({
     if (!embedded || !mounted || !mapRef) return;
 
     if (focusLocation?.lat != null && focusLocation?.lng != null && mapRef.flyTo) {
-      mapRef.flyTo({
+      crepMapFlyTo(mapRef, {
         center: [focusLocation.lng, focusLocation.lat],
         zoom: focusLocation.zoom ?? 7,
         duration: 900,
@@ -13759,7 +14170,7 @@ export default function CREPDashboardPage({
       const fallback = lastRenderedFungalForPanRef.current;
       if (fallback.length > 0) return fallback as any[];
     }
-    if (isMapAnimationActive) {
+    if (isMapAnimationActive && !isV3GlobeEngine) {
       const frozen = visibleFungalObservationsStableRef.current.list;
       if (frozen.length > 0) return frozen;
     }
@@ -14096,7 +14507,7 @@ export default function CREPDashboardPage({
       const fallback = lastRenderedFungalForPanRef.current;
       if (fallback.length > 0) return fallback;
     }
-    if (isMapAnimationActive) {
+    if (isMapAnimationActive && !isV3GlobeEngine) {
       const frozen = renderedNatureStableRef.current.list;
       if (frozen.length > 0) return frozen;
     }
@@ -14154,7 +14565,8 @@ export default function CREPDashboardPage({
   const shouldRenderDomMarkers = true;
   const shouldRenderDeviceDomMarkers = !auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode;
   const shouldRenderHeavyOverlays =
-    !earthStrictPerfMode || (earthSimDeferredDataReady && !isMapAnimationActive);
+    !earthStrictPerfMode ||
+    (earthSimDeferredDataReady && (!isMapAnimationActive || isV3GlobeEngine));
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
@@ -14276,9 +14688,9 @@ export default function CREPDashboardPage({
 
     // If shouldFlyTo, fly to the event location first
     if (shouldFlyTo && mapRef) {
-      mapRef.flyTo({
+      crepMapFlyTo(mapRef, {
         center: [event.lng, event.lat],
-        zoom: Math.max(mapRef.getZoom?.() || 8, 8), // At least zoom level 8
+        zoom: Math.max(mapRef.getZoom?.() || 8, 8),
         duration: 700,
       });
       return; // Pan will happen after flyTo due to flyend event
@@ -14468,7 +14880,7 @@ export default function CREPDashboardPage({
       visibleEventsStableRef.current = { idKey: "", events: [] };
       return [];
     }
-    if (isMapAnimationActive) {
+    if (isMapAnimationActive && !isV3GlobeEngine) {
       return visibleEventsStableRef.current.events;
     }
 
@@ -14751,7 +15163,7 @@ export default function CREPDashboardPage({
       setEarthOverlayAssetsReady(true);
       return;
     }
-    if (!earthSimDesktopOverlayBudget) {
+    if (!earthSimDesktopOverlayBudget && !earthSimLightOverlayBudget) {
       earthOverlayAssetsLoadedRef.current = false;
       setEarthOverlayAssetsReady(false);
       return;
@@ -14767,6 +15179,7 @@ export default function CREPDashboardPage({
   }, [
     isEarthSimulatorRoute,
     earthSimDesktopOverlayBudget,
+    earthSimLightOverlayBudget,
     assetIsolationMode,
     auditAllOffMode,
     isMapAnimationActive,
@@ -14804,15 +15217,17 @@ export default function CREPDashboardPage({
   const satelliteImageryOverlayReady =
     !isEarthSimulatorRoute ||
     (!auditAllOffMode && !assetIsolationMode);
-  const liveAuxiliaryLayersReady = !isEarthSimulatorRoute || (proposalOverlayAssetsReady && earthSimDeferredDataReady);
+  const liveAuxiliaryLayersReady =
+    !isEarthSimulatorRoute ||
+    ((proposalOverlayAssetsReady || proposalOverlayLightAssetsReady) && earthSimDeferredDataReady);
   const liveAqiLayerReady =
     !isEarthSimulatorRoute ||
-    (!auditAllOffMode && !assetIsolationMode && !isMapAnimationActive);
+    (!auditAllOffMode && !assetIsolationMode && (!isMapAnimationActive || isV3GlobeEngine));
   const eagleEyeAssetsReady =
     !auditAllOffMode &&
     !isEmbeddedEarthquakeSearch &&
     !assetIsolationMode &&
-    (!isEarthSimulatorRoute || !isMapAnimationActive);
+    (!isEarthSimulatorRoute || !isMapAnimationActive || isV3GlobeEngine);
   const oysterProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, OYSTER_PROJECT_BBOX, 0.12);
   const mojaveProjectInViewport = !isEarthSimulatorRoute || boundsIntersectBbox(mapBounds, MOJAVE_PROJECT_BBOX, 0.3);
   const viewportEaglePrefetch = useViewportEaglePrefetch(
@@ -14823,7 +15238,7 @@ export default function CREPDashboardPage({
   );
   const viewportSensorPrefetchReady =
     viewportDataPrefetchReady &&
-    (!isEarthSimulatorRoute || (earthSimDeferredDataReady && !isMapAnimationActive));
+    (!isEarthSimulatorRoute || (earthSimDeferredDataReady && (!isMapAnimationActive || isV3GlobeEngine)));
   const viewportSensorPrefetch = useViewportSensorPrefetch(
     viewportSensorPrefetchReady ? mapBounds : null,
     mapZoom,
@@ -14915,7 +15330,7 @@ export default function CREPDashboardPage({
       const fallback = lastRenderedEventsForPanRef.current;
       if (fallback.length > 0) return fallback;
     }
-    if (isMapAnimationActive) {
+    if (isMapAnimationActive && !isV3GlobeEngine) {
       return renderedEventsStableRef.current.events;
     }
     const eventDomCap = getEventDomMarkerCapForZoom(mapZoom, isEarthSimulatorRoute || earthStrictPerfMode);
@@ -16860,6 +17275,11 @@ export default function CREPDashboardPage({
       return;
     }
 
+    if (isV3GlobeEngine && flightSession.shouldPauseLiveWork()) {
+      stopSatelliteAnimation();
+      return;
+    }
+
     // Earth Simulator: SGP4 runs on desktop + tablet/phone after the first-paint
     // stagger so live satellites + the BlueSite mover-altitude layer get data.
     // Orbit-path rings stay desktop-only (main-thread cost). Pan-freeze is handled
@@ -16907,7 +17327,7 @@ export default function CREPDashboardPage({
       // Already running â€” just update the satellite set (adds new ones)
       updateSatelliteAnimation(satInputs);
     }
-  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimSatellitePropReady]);
+  }, [filteredSatellites, earthStrictPerfMode, earthSimViewportPerfClass, earthSimSatellitePropReady, isV3GlobeEngine, v3SatelliteResumeTick]);
 
   // Cleanup: stop satellite animation on unmount
   useEffect(() => {
@@ -17547,7 +17967,12 @@ export default function CREPDashboardPage({
   const makeLayerLegendItem = useCallback((layer: LayerConfig): LegendLayerItem => ({
     id: layer.id,
     color: layer.color,
-    label: layer.name,
+    label:
+      layer.id === "photorealistic3D"
+        ? "Photorealistic 3D"
+        : layer.id === "mapbox3dBuildings"
+          ? "Mapbox 3D Buildings"
+          : layer.name,
     icon: layer.icon,
     title: layer.dataSource ? `${layer.description} Source: ${layer.dataSource}` : layer.description,
   }), []);
@@ -19021,6 +19446,22 @@ export default function CREPDashboardPage({
               pointer-events: auto !important;
               transition: opacity 80ms linear !important;
             }
+            /* Photorealistic 3D overlay: visual only — never intercept pan/zoom/wheel. */
+            .crep-map-container {
+              --v3-photo3d-blend: 0;
+            }
+            [data-testid="v3-photorealistic-3d-overlay"] {
+              z-index: 12 !important;
+              position: absolute !important;
+              inset: 0 !important;
+              pointer-events: none !important;
+              opacity: var(--v3-photo3d-blend, 0);
+              transition: opacity 320ms ease-out;
+            }
+            [data-testid="v3-photorealistic-3d-overlay"],
+            [data-testid="v3-photorealistic-3d-overlay"] canvas {
+              pointer-events: none !important;
+            }
           `}</style>
           <MapComponent
             center={startupMapCenter}
@@ -19036,6 +19477,27 @@ export default function CREPDashboardPage({
               setMapRef(map);
               mapNativeRef.current = map;
               if (typeof window !== "undefined") (window as any).__crep_map = map;
+              if (isV3GlobeEngine) {
+                try {
+                  publishMapCameraFromMap(map);
+                } catch {
+                  /* map mid-init */
+                }
+                const mountV3Basemap = () => {
+                  try {
+                    ensureV3BasemapVisible(map);
+                    setProjectionMode("globe");
+                  } catch {
+                    /* style churn */
+                  }
+                };
+                try {
+                  if (map.isStyleLoaded?.()) mountV3Basemap();
+                  else map.once?.("load", mountV3Basemap);
+                } catch {
+                  mountV3Basemap();
+                }
+              }
               const mountFungalAmEcmBaseLayers = () => {
                 if (!isEarthSimulatorPathFromWindow()) return;
                 const desired = fungalAtlasDesiredRef.current;
@@ -19077,6 +19539,18 @@ export default function CREPDashboardPage({
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
 
+              if (getGlobeEngine() === "v3") {
+                try {
+                  ensureV3BasemapVisible(map);
+                  setProjectionMode("globe");
+                  if (typeof map.getPitch === "function" && map.getPitch() < 8) {
+                    map.easeTo?.({ pitch: 18, duration: 900, essential: true });
+                  }
+                } catch (e: any) {
+                  console.warn("[CREP/V3 basemap]", e?.message || e);
+                }
+              }
+
               // Jurisdiction borders + FEMA â€” mount early; visibility from layer toggles.
               const mountJurisdictionLayers = () => {
                 try {
@@ -19103,12 +19577,19 @@ export default function CREPDashboardPage({
                   const focusKey = `${explicitStartupFocus.lat.toFixed(5)}|${explicitStartupFocus.lng.toFixed(5)}|${zoom.toFixed(2)}`;
                   map.stop?.();
                   map.resize?.();
-                  map.jumpTo?.({
-                    center: [explicitStartupFocus.lng, explicitStartupFocus.lat],
-                    zoom,
-                    pitch: 0,
-                    bearing: 0,
-                  });
+                  if (getGlobeEngine() === "v3") {
+                    crepMapJumpOrFly(map, {
+                      center: [explicitStartupFocus.lng, explicitStartupFocus.lat],
+                      zoom,
+                    }, "v3");
+                  } else {
+                    map.jumpTo?.({
+                      center: [explicitStartupFocus.lng, explicitStartupFocus.lat],
+                      zoom,
+                      pitch: 0,
+                      bearing: 0,
+                    });
+                  }
                   setMapZoom(zoom);
                   const b = map.getBounds?.();
                   if (b) {
@@ -19573,7 +20054,18 @@ export default function CREPDashboardPage({
                 // + animate — the signature); rings reveal as you zoom in. (Morgan, Jun 18 2026.)
                 map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
                   minzoom: 4,
-                  paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
+                  // Jun 23 2026 (Morgan): orbit rings were "too much energy over the globe".
+                  // Far more transparent + thinner so they read as a faint trace behind the
+                  // dots, not a purple web. Zoom-fade so they barely register at globe scale
+                  // and only firm up close in. (Count is also cut from 200 -> 24 rings and
+                  // coupled to rendered dots in satellite-animation.ts to kill orphans.)
+                  paint: {
+                    "line-color": "#c084fc",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 8, 0.6, 12, 0.8],
+                    "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.06, 7, 0.1, 12, 0.16],
+                    "line-blur": 0.4,
+                    "line-dasharray": [3, 5]
+                  }});
 
                 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 // ðŸš¢ VESSELS â€” Detailed cargo-ship sprite (hull + deck +
@@ -22298,6 +22790,15 @@ export default function CREPDashboardPage({
               });
 
               const clickPickLayerPriority = [
+                // Jun 23 2026 — the new MINDEX weather + air-quality station points
+                // overlay military-base icons at US zoom. They MUST win the pick over the
+                // underlying base, so they sit at the very top. Each owns its own
+                // map.on("click", DOT) popup handler (mindex-env-points-layer.tsx); the
+                // router defers to that handler instead of letting the base steal the
+                // overlapping click — which mounted the heavy full-screen infra panel over
+                // an already-struggling frame and read as a freeze.
+                "crep-mindex-weather-dot",
+                "crep-mindex-air-dot",
                 "crep-live-aircraft-dot",
                 "crep-live-vessels-dot",
                 "crep-live-satellites-dot",
@@ -22309,8 +22810,13 @@ export default function CREPDashboardPage({
                 "crep-dcs-global-dot",
                 "crep-mycosoft-devices-core",
                 "crep-live-military-dot",
-                "crep-military-perimeters-line",
-                "crep-military-perimeters-fill",
+                // NOTE: crep-military-perimeters-{fill,line} are deliberately NOT in this
+                // box-pick list. They are a non-tiled GeoJSON source of ~858 polygons /
+                // ~282k vertices; a 28px-box queryRenderedFeatures over them runs synchronously
+                // on the main thread on EVERY click and froze the UI when the box overlapped a
+                // large base polygon (Jun 23 2026). Perimeter clicks are still handled by their
+                // dedicated point-based map.on("click", "crep-military-perimeters-*") handlers,
+                // and the base centroid dot (above) remains box-pickable.
                 "crep-txlines-sub-line",
                 "crep-txlines-line",
                 "crep-txlines-full-line",
@@ -22397,6 +22903,16 @@ export default function CREPDashboardPage({
                   };
                 } catch { /* debug only */ }
 
+                // MINDEX station points own their own map.on("click", DOT) popup handler
+                // (mindex-env-points-layer.tsx). When one wins the pick (it now
+                // out-prioritises an underlying military dot), DEFER to that handler: mark
+                // the click handled so we neither select the base beneath it nor mount the
+                // full-screen infra panel over the station's own popup. Removes the
+                // click-through that produced the military-base "freeze". (Jun 23 2026)
+                if (layerId === "crep-mindex-weather-dot" || layerId === "crep-mindex-air-dot") {
+                  lastEntityPickTimeRef.current = Date.now();
+                  return true;
+                }
                 if (layerId === "crep-live-aircraft-dot") {
                   const ac = findPickedEntity((window as any).__crep_aircraft, props, ["id", "icao24", "callsign"]);
                   if (!ac) return false;
@@ -22611,6 +23127,14 @@ export default function CREPDashboardPage({
                   projectionMode={projectionMode}
                   onNavigate={(lng, lat, zoom) => {
                     if (!mapRef) return;
+                    if (isV3GlobeEngine) {
+                      crepMapFlyTo(mapRef, {
+                        center: [lng, lat],
+                        zoom: Math.max(2, Math.min(12, zoom ?? mapZoom)),
+                        name: "mini-globe",
+                      });
+                      return;
+                    }
                     try {
                       mapRef.easeTo?.({
                         center: [lng, lat],
@@ -22727,7 +23251,7 @@ export default function CREPDashboardPage({
                 event={selectedEvent}
                 onClose={() => handleSelectEvent(null)}
                 onFlyTo={(event) => {
-                  mapRef?.flyTo({
+                  crepMapFlyTo(mapRef, {
                     center: [event.lng, event.lat],
                     zoom: Math.max(mapRef?.getZoom?.() || 8, 9),
                     duration: 800,
@@ -22803,7 +23327,7 @@ export default function CREPDashboardPage({
                   onClose={() => handleSelectEvent(null)}
                   onHover={handleEventHover}
                   onFlyTo={(lat, lng, zoom) => {
-                    mapRef?.flyTo({
+                    crepMapFlyTo(mapRef, {
                       center: [lng, lat],
                       zoom: zoom || 10,
                       duration: 1500,
@@ -22831,7 +23355,7 @@ export default function CREPDashboardPage({
                   onClose={() => handleSelectEvent(null)}
                   onHover={handleEventHover}
                   onFlyTo={(lat, lng, zoom) => {
-                    mapRef?.flyTo({
+                    crepMapFlyTo(mapRef, {
                       center: [lng, lat],
                       zoom: zoom || 10,
                       duration: 1500,
@@ -23097,6 +23621,12 @@ export default function CREPDashboardPage({
                 </MarkerContent>
               </MapMarker>
             ))}
+
+            {isV3GlobeEngine &&
+              !auditAllOffMode &&
+              !isEmbeddedEarthquakeSearch &&
+              !assetIsolationMode &&
+              v3Photo3dOn && <GooglePhoto3DV3Underlay enabled />}
           </MapComponent>
 
           {!auditAllOffMode && !isEmbeddedEarthquakeSearch && !assetIsolationMode && selectedDevice && !shouldRenderDeviceDomMarkers && (
@@ -23121,8 +23651,7 @@ export default function CREPDashboardPage({
 
           {!auditAllOffMode &&
             assetIsolationMode !== "funga" &&
-            hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET) &&
-            (!isEarthSimulatorRoute || earthSimDesktopOverlayBudget || earthSimViewportPerfClass === "tablet" || fungalAtlasUserControlRef.current) && <FungalAtlasLayer
+            hasEnabledLayer(layers, FUNGAL_ATLAS_LAYER_SET) && <FungalAtlasLayer
             map={mapRef}
             enabled={{
               // May 21 2026 (Morgan): every fungal atlas toggle is wired to its
@@ -23162,6 +23691,7 @@ export default function CREPDashboardPage({
               â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {assetIsolationMode !== "funga" && (!isEarthSimulatorRoute || stableEarthOverlayAssetsReady || proposalOverlayAssetsReady || satelliteImageryOverlayReady) && <ProposalOverlays
             map={mapRef || mapNativeRef.current}
+            globeEngine={globeEngine}
             enabled={{
               ports:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "ports")?.enabled ?? false),
               radar:          stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "radar")?.enabled ?? false),
@@ -23174,12 +23704,15 @@ export default function CREPDashboardPage({
               cellTowersG:    stableEarthOverlayAssetsReady && earthSimDesktopOverlayBudget && !assetIsolationMode && (!isEmbeddedEarthquakeSearch || embeddedAllowsInfrastructure) && (layers.find(l => l.id === "cellTowersG")?.enabled ?? true),
               // Default these to true while layer state hydrates so they
               // load immediately on refresh as required.
-              bathymetry:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
-              topography:     stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
-              terrain3d:      stableEarthOverlayAssetsReady && (layers.find(l => l.id === "terrain3d")?.enabled ?? false),
-              satImagery:     satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
+              bathymetry:     !isV3GlobeEngine && stableEarthOverlayAssetsReady && (layers.find(l => l.id === "bathymetry")?.enabled ?? true),
+              topography:     !isV3GlobeEngine && stableEarthOverlayAssetsReady && (layers.find(l => l.id === "topography")?.enabled ?? true),
+              terrain3d:
+                stableEarthOverlayAssetsReady &&
+                !v3Photo3dOn &&
+                (layers.find((l) => l.id === "terrain3d")?.enabled ?? false),
+              satImagery:     !isV3GlobeEngine && satelliteImageryOverlayReady && (layers.find(l => l.id === "satImagery")?.enabled ?? true),
               railwayTracks:  stableEarthOverlayAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTracks")?.enabled ?? true),
-              railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? false),
+              railwayTrains:  proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "railwayTrains")?.enabled ?? true),
               droneNoFly:     proposalOverlayLightAssetsReady && !assetIsolationMode && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "droneNoFly")?.enabled ?? false),
               cctv:           proposalOverlayAssetsReady && !assetIsolationMode && !isEarthSimulatorRoute && !isEmbeddedEarthquakeSearch && (layers.find(l => l.id === "cctv")?.enabled ?? false),
             }}
@@ -23187,6 +23720,16 @@ export default function CREPDashboardPage({
             searchContextMode={isEmbeddedEarthquakeSearch}
             mapZoom={mapZoom ?? 0}
           />}
+
+          {isV3GlobeEngine &&
+            v3CityZoomBuildings &&
+            !auditAllOffMode &&
+            !isEmbeddedEarthquakeSearch &&
+            !assetIsolationMode &&
+            !(layers.find((l) => l.id === "photorealistic3D")?.enabled ?? false) &&
+            (layers.find((l) => l.id === "mapbox3dBuildings")?.enabled ?? false) && (
+            <Mapbox3DBuildings map={mapRef || mapNativeRef.current} enabled3dBuildings />
+          )}
 
           {/* Eagle Eye VideoWallWidget â€” universal player (hls.js / WebRTC
               WHEP / iframe / MJPEG) for permanent cameras + ephemeral clips.
@@ -23263,6 +23806,44 @@ export default function CREPDashboardPage({
             sound={false}
           />}
 
+          {/* MINDEX FIRMS wildfires (live NASA FIRMS VIIRS from earth.wildfires via
+              internal-token BFF). Additive, default-OFF — toggle "MINDEX FIRMS (live)".
+              Self-contained static glow+dot layer; off == byte-for-byte v1. */}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexFirms")?.enabled ?? false) && <MindexFirmsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexFirms")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexFirms")?.opacity ?? 0.85}
+          />}
+
+          {/* MINDEX Air Quality + Weather (live atmos.* point stations via internal-token BFF).
+              Additive, default-OFF; honest empty state until their ETL lands on 189. */}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexAirQuality")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexAirQuality")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/air-quality"
+            idBase="crep-mindex-air"
+            color="#2dd4bf"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(45,212,191,0.5)", 0.4, "rgba(132,204,22,0.72)", 0.65, "rgba(250,204,21,0.86)", 0.85, "rgba(217,70,239,0.92)", 1, "rgba(168,85,247,0.97)"]}
+            heatRadius={[10, 22, 42, 66]}
+            heatIntensity={[0.7, 1.6, 2.6]}
+            popupTitle="Air quality"
+            popupFields={[{ key: "summary", label: "readings" }, { key: "source", label: "src" }, { key: "measuredAt", label: "measured" }]}
+          />}
+          {!auditAllOffMode && !assetIsolationMode && mapRef && (layers.find(l => l.id === "mindexWeather")?.enabled ?? false) && <MindexEnvPointsLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "mindexWeather")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "mindexWeather")?.opacity ?? 0.85}
+            endpoint="/api/crep/environment/weather"
+            idBase="crep-mindex-weather"
+            color="#38bdf8"
+            heatRamp={["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.15, "rgba(37,99,235,0.45)", 0.4, "rgba(56,189,248,0.68)", 0.65, "rgba(34,211,238,0.82)", 0.85, "rgba(165,243,252,0.9)", 1, "rgba(236,254,255,0.97)"]}
+            heatRadius={[6, 14, 28, 50]}
+            heatIntensity={[0.5, 1.2, 2.0]}
+            popupTitle="Weather"
+            popupFields={[{ key: "temperatureC", label: "temp", suffix: "°C" }, { key: "humidityPct", label: "humidity", suffix: "%" }, { key: "conditions", label: "cond" }, { key: "source", label: "src" }, { key: "observedAt", label: "obs" }]}
+          />}
+
           {/* BlueSite v2 — wildfire FLAMES + volumetric SMOKE (Earth-2 fire feed) and
               SPORE DISPERSAL. These were built but dormant (unimported); wired here and
               gated OFF by default — ?bluesite=1&smoke=1 / &spores3d=1. */}
@@ -23306,6 +23887,18 @@ export default function CREPDashboardPage({
           {!auditAllOffMode && !assetIsolationMode && FEED_REGISTRY.map((f) => (
             <FeedLayer key={f.id} map={mapRef} config={f} enabled={layers.find(l => l.id === f.id)?.enabled ?? false} />
           ))}
+          {/* Config-driven Arraylake gridded FIELDS (lib/crep/fields/registry) — flag-gated
+              (NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS), OFF by default. Raster-loop for scalar cubes,
+              particle-flow for wind cubes. Renders nothing until the data plane bakes frames. */}
+          {process.env.NEXT_PUBLIC_ES_ARRAYLAKE_FIELDS === "1" && !auditAllOffMode && !assetIsolationMode && shouldRenderHeavyOverlays && FIELD_REGISTRY.flatMap((d) =>
+            d.variables.map((v) => {
+              const fid = fieldLayerId(d.id, v.key);
+              const on = layers.find((l) => l.id === fid)?.enabled ?? false;
+              return v.render === "wind"
+                ? <FieldWindLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={d.minZoom ?? 0} />
+                : <FieldRasterLayer key={fid} map={mapRef} dataset={d.id} variable={v.key} enabled={on} minZoom={d.minZoom ?? 0} />;
+            })
+          )}
           {/* LIFE-SAFETY: GPS-geofenced NWS emergency warnings (tornado / flash flood / severe
               storms, etc.). ALWAYS mounted and NEVER gated off — it self-portals to <body> and
               only appears when the user's GPS (or, if denied, the map area they're viewing) is
@@ -23538,7 +24131,7 @@ export default function CREPDashboardPage({
                   plant={selectedPlant}
                   onClose={() => setSelectedPlant(null)}
                   onFlyTo={(lat, lng, zoom) => {
-                    mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
+                    crepMapFlyTo(mapRef, { center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
                   }}
                 />
               </div>
@@ -23584,7 +24177,7 @@ export default function CREPDashboardPage({
                   asset={selectedInfraAsset}
                   onClose={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
                   onFlyTo={(lat, lng, zoom) => {
-                    mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 10, duration: 800 });
+                    crepMapFlyTo(mapRef, { center: [lng, lat], zoom: zoom ?? 10, duration: 800 });
                   }}
                 />
               </div>
@@ -23604,25 +24197,41 @@ export default function CREPDashboardPage({
           )}>
             <FlyToButtons
               onFlyTo={(center, zoom) => {
-                GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
-                mapRef?.flyTo({ center, zoom, pitch: 0, bearing: 0, duration: 1200 });
+                const map = (mapNativeRef.current || mapRef) as any;
+                const enableLayers = () => {
+                  GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
+                };
+                if (isV3GlobeEngine) {
+                  flightSession.runAfterEnd(enableLayers);
+                } else {
+                  enableLayers();
+                }
+                crepMapFlyTo(map, { center, zoom, pitch: 0, bearing: 0, duration: 1200 });
               }}
               compact
             />
             <FlyToProjects
               onFlyTo={(t) => {
-                if (!mapRef?.flyTo) return;
-                mapRef.flyTo({
+                const map = (mapNativeRef.current || mapRef) as any;
+                if (!map?.flyTo) return;
+                crepMapFlyTo(map, {
                   center: t.center,
                   zoom: t.zoom,
-                  pitch: t.pitch ?? 0,
+                  pitch: t.pitch3d,
                   bearing: t.bearing ?? 0,
-                  duration: 1800,
+                  onEnd: () => publishMapCameraFromMap(map),
                 });
               }}
               onEnableLayers={(ids) => {
-                GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
-                ids.forEach((id) => setLayerEnabled(id, true));
+                const enableAll = () => {
+                  GLOBAL_FLY_TO_CONTEXT_LAYERS.forEach((id) => setLayerEnabled(id, true));
+                  ids.forEach((id) => setLayerEnabled(id, true));
+                };
+                if (isV3GlobeEngine) {
+                  flightSession.runAfterEnd(enableAll);
+                } else {
+                  enableAll();
+                }
               }}
               compact
             />
@@ -23649,7 +24258,7 @@ export default function CREPDashboardPage({
                   : result.type === "aircraft" || result.type === "vessel" ? 8
                   : result.type === "satellite" ? 4
                   : 12;
-                mapRef?.flyTo({ center: [result.lng, result.lat], zoom, duration: 800 });
+                crepMapFlyTo(mapRef, { center: [result.lng, result.lat], zoom, duration: 800 });
               }
               // Open the right detail panel based on type
               if (result.type === "plant" && result.data) {
@@ -23867,7 +24476,7 @@ export default function CREPDashboardPage({
                     prefetchedRevisionKey={viewportEaglePrefetch.revisionKey}
                     prefetchedSensors={viewportSensorPrefetch.sensors}
                     prefetchedSensorsLoading={viewportSensorPrefetch.loading}
-                    onFlyTo={(lng, lat, zoom) => mapRef?.flyTo({
+                    onFlyTo={(lng, lat, zoom) => crepMapFlyTo(mapRef, {
                       center: [lng, lat],
                       zoom: zoom ?? Math.max(mapZoom, 11),
                       duration: 650,
@@ -23891,7 +24500,7 @@ export default function CREPDashboardPage({
                       prefetchedIntel={viewportIntelPrefetch.intel as ViewportIntelResponse | null}
                       prefetchedOptimisticPlace={viewportIntelPrefetch.optimisticPlace}
                       prefetchedIntelLoading={viewportIntelPrefetch.loading || viewportIntelPrefetch.refreshing}
-                      onFlyTo={(lng, lat, zoom) => mapRef?.flyTo({
+                      onFlyTo={(lng, lat, zoom) => crepMapFlyTo(mapRef, {
                         center: [lng, lat],
                         zoom: zoom ?? Math.max(mapZoom, 11),
                         duration: 650,

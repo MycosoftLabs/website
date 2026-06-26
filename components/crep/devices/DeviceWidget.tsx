@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent 
 import { createPortal } from "react-dom"
 import { X, Activity, Thermometer, Droplets, Wind, Cloud, Gauge, Sparkles, Zap, MapPin, Wifi, Cpu, Clock, Radio, Satellite, AlertTriangle, CheckCircle2, ExternalLink, Waves, Volume2 } from "lucide-react"
 import Link from "next/link"
+import { isPsathyrellaRegistryOrCatalogId } from "@/lib/devices/psathyrella-local"
 
 export interface DeviceLike {
   id: string
@@ -236,9 +237,9 @@ function bmeStatusFromRaw(raw?: string) {
 }
 
 function PsathyrellaBuoyPanel({ device }: { device: DeviceLike }) {
-  const raw = typeof device.sensorData?.raw === "string" ? device.sensorData.raw : undefined
-  const rawStatus = bmeStatusFromRaw(raw)
-  const channels = device.sensorData?.bmeChannels?.length
+  const raw = typeof device.sensorData?.raw === "string" ? device.sensorData.raw.slice(0, 4000) : undefined
+  const rawStatus = useMemo(() => bmeStatusFromRaw(raw), [raw])
+  const channels = useMemo(() => device.sensorData?.bmeChannels?.length
     ? device.sensorData.bmeChannels
     : [
         {
@@ -271,7 +272,7 @@ function PsathyrellaBuoyPanel({ device }: { device: DeviceLike }) {
           pressure: null,
           vocEquivalent: null,
         },
-      ]
+      ], [device.sensorData?.bmeChannels, device.sensorData, rawStatus.ambient, rawStatus.environment])
   const marine = device.sensorData?.marine || {}
 
   return (
@@ -373,7 +374,8 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
   const isPsathyrella =
     device.type?.toLowerCase().includes("psathyrella") ||
     device.id?.toLowerCase().includes("psathyrella") ||
-    device.registryId?.toLowerCase() === "mycobrain-com4"
+    isPsathyrellaRegistryOrCatalogId(device.registryId) ||
+    isPsathyrellaRegistryOrCatalogId(device.id)
   const iaq = iaqQuality(device.sensorData?.iaq)
   const gpsBadge = gpsStateBadge(device.gpsLockState)
   const SignalIcon = signalIcon(device.signalConnectionType)
@@ -575,7 +577,7 @@ export default function DeviceWidget({ device, history, onClose, onControl }: De
               <button
                 type="button"
                 disabled={!!controlBusy}
-                onClick={() => sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100, duration_ms: 100 })}
+                onClick={() => sendControl("buzzer", { action: "beep", frequency: 1000, duration: 50, duration_ms: 50 })}
                 className="text-[10px] py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 hover:border-amber-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {controlBusy === "buzzer" ? "..." : "Beep Test"}

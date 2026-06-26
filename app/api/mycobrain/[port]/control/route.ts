@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth/api-auth"
 import { isFieldRegistryId } from "@/lib/devices/firmware-compatibility"
 import { controlPayloadToOperatorCommand } from "@/lib/mycobrain/control-command"
+import { isLocalPsathyrellaSerialTarget, resolveLocalSerialServiceTarget } from "@/lib/devices/psathyrella-local"
 
 // MycoBrain service runs on port 8003
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
@@ -9,9 +10,13 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
-function isLocalCom4Target(port: string) {
-  const value = port.toUpperCase()
-  return value === "COM4" || value === "MYCOBRAIN-COM4" || value.endsWith("-COM4")
+function isLocalPsathyrellaSerialTarget(port: string) {
+  const value = port.trim()
+  const upper = value.toUpperCase()
+  if (/^COM\d+$/.test(upper)) return true
+  if (/^MYCOBRAIN-COM\d+$/i.test(value)) return true
+  if (upper === "PSATHYRELLA-BUOY-COM4" || upper === "MYCOBRAIN-COM4") return true
+  return value.toLowerCase().includes("psathyrella")
 }
 
 function localSerialServiceDeviceId(port: string) {
@@ -27,7 +32,7 @@ function normalizeRawCommand(cmd: unknown) {
   return typeof cmd === "string" ? cmd.trim().toLowerCase().replace(/\s+/g, " ") : ""
 }
 
-function blockedCom4Control(peripheral: string, action: string, data: Record<string, unknown>) {
+function blockedLocalSerialControl(peripheral: string, action: string, data: Record<string, unknown>) {
   const rawCommand = normalizeRawCommand(data.cmd)
   if (peripheral !== "command") return false
   // COM4 firmware 2.1.1 verifies actuator commands. Keep only low-level
@@ -80,15 +85,15 @@ function blockedCom4Control(peripheral: string, action: string, data: Record<str
   return false
 }
 
-function com4SafetyResponse(peripheral: string, action: string) {
+function localSerialSafetyResponse(peripheral: string, action: string) {
   return NextResponse.json(
     {
       success: false,
-      error: "COM4 safety interlock active",
-      message: "Psathyrella COM4 blocked a low-level reconfiguration command. Verified actuator, sensor, and status commands remain enabled.",
+      error: "Local serial safety interlock active",
+      message: "Psathyrella buoy blocked a low-level reconfiguration command. Verified actuator, sensor, and status commands remain enabled.",
       peripheral,
       action,
-      source: "local-com4-safety-interlock",
+      source: "local-serial-safety-interlock",
     },
     { status: 423 }
   )
@@ -155,8 +160,8 @@ export async function POST(
   const body = await request.json()
   const { peripheral, action, ...data } = body
 
-  if (isLocalCom4Target(port) && blockedCom4Control(peripheral, action, data)) {
-    return com4SafetyResponse(peripheral, action)
+  if (isLocalPsathyrellaSerialTarget(port) && blockedLocalSerialControl(peripheral, action, data)) {
+    return localSerialSafetyResponse(peripheral, action)
   }
 
   if (isFieldRegistryId(port)) {
@@ -177,12 +182,26 @@ export async function POST(
   }
 
   try {
-    // First, try to find the device_id from the port
-    // The port parameter might be a device_id (e.g., "mycobrain-side-a-COM5") or just a port (e.g., "COM5")
+    // Resolve stable registry alias (mycobrain-COM4) to live serial id (e.g. mycobrain-COM3).
     let deviceId = localSerialServiceDeviceId(port) || port
     
-    // If it looks like a port path (COM5, /dev/ttyACM0), try to find the device_id
-    if (!localSerialServiceDeviceId(port) && (port.match(/^COM\d+$/i) || port.startsWith("/dev/"))) {
+    if (isLocalPsathyrellaSerialTarget(port) || isLocalPsathyrellaSerialTarget(deviceId)) {
+      try {
+        const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
+          signal: AbortSignal.timeout(3000),
+        })
+        if (devicesRes.ok) {
+          const devicesData = await devicesRes.json()
+          const connected = (devicesData.devices || [])
+            .map((d: { device_id?: string }) => String(d.device_id || ""))
+            .filter(Boolean)
+          const resolved = resolveLocalSerialServiceTarget(deviceId, connected)
+          if (resolved) deviceId = resolved
+        }
+      } catch {
+        // fall through with best-effort id
+      }
+    } else if (!localSerialServiceDeviceId(port) && (port.match(/^COM\d+$/i) || port.startsWith("/dev/"))) {
       try {
         const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
           signal: AbortSignal.timeout(3000),

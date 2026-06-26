@@ -75,7 +75,7 @@ async function forwardFieldOperatorCommand(
 
   const operatorCommand = networkCommandToOperator(command, params)
   try {
-    const timeoutMs = Math.max(900, Math.min(timeout * 1000, 6500))
+    const timeoutMs = Math.max(900, Math.min(timeout * 1000, 12_000))
     const response = await fetch(`${field.agent_url}/api/cmd`, {
       method: "POST",
       headers: {
@@ -151,8 +151,8 @@ async function forwardLocalSerialCommand(
         success: false,
         device_id: deviceId,
         source: "local-serial-safety-interlock",
-        error: "COM4 safety interlock active",
-        message: "Local COM4 blocked a low-level reconfiguration command. Verified actuator, sensor, and status commands remain enabled.",
+        error: "Local serial safety interlock active",
+        message: "Local Psathyrella buoy blocked a low-level reconfiguration command. Verified actuator, sensor, and status commands remain enabled.",
         command,
         operator_command: operatorCommand,
       },

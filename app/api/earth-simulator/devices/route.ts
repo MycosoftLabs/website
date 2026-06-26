@@ -423,8 +423,15 @@ function resolvePsathyrellaSerialDeviceId(
     const serialId = String(device.device_id ?? device.id ?? "")
     const portalId = String(device.registry_id ?? device.portal_device_id ?? "")
     const role = String(device.device_role ?? device.role ?? "").toLowerCase()
+    const port = String(device.port ?? "").toUpperCase()
     if (!serialId) continue
     if (portalId === registryId || serialId === registryId || role === "psathyrella") {
+      return serialId
+    }
+    if (registryId.toLowerCase().includes("com4") && /^MYCOBRAIN-COM\d+$/i.test(serialId)) {
+      return serialId
+    }
+    if (registryId.toLowerCase().includes("psathyrella") && port.startsWith("COM")) {
       return serialId
     }
   }
