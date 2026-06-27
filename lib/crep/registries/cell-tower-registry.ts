@@ -184,7 +184,60 @@ async function fromOSM(bbox?: [number, number, number, number], limit = 1000): P
   return []
 }
 
-// ─── Source 4: MINDEX ───────────────────────────────────────────────────────
+// ─── Source 4: MINDEX (earth/map/bbox → entities[]) ─────────────────────────
+function normaliseMindexTower(entity: any): CellTowerRecord | null {
+  const props = typeof entity?.properties === "object" && entity?.properties ? entity.properties : {}
+  const loc = entity?.location as
+    | { latitude?: number; longitude?: number; coordinates?: [number, number] }
+    | undefined
+  let lat = Number(
+    entity?.lat ??
+      entity?.latitude ??
+      loc?.latitude ??
+      loc?.coordinates?.[1] ??
+      props?.lat ??
+      props?.latitude,
+  )
+  let lng = Number(
+    entity?.lng ??
+      entity?.longitude ??
+      loc?.longitude ??
+      loc?.coordinates?.[0] ??
+      props?.lng ??
+      props?.longitude,
+  )
+  if ((!Number.isFinite(lat) || !Number.isFinite(lng)) && Array.isArray(entity?.geometry?.coordinates)) {
+    lng = Number(entity.geometry.coordinates[0])
+    lat = Number(entity.geometry.coordinates[1])
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+  const id = String(entity?.id ?? props?.source_id ?? `mindex-${lat.toFixed(5)},${lng.toFixed(5)}`)
+  const nameParts = typeof entity?.name === "string" ? entity.name.split(" — ") : []
+  const operator =
+    entity?.operator ??
+    props?.operator ??
+    (nameParts.length > 1 ? nameParts[nameParts.length - 1] : undefined)
+
+  return {
+    id,
+    lat,
+    lng,
+    radio: props?.radio ?? props?.technology ?? entity?.entity_type,
+    mcc: props?.mcc ?? props?.MCC,
+    net: props?.net ?? props?.mnc ?? props?.MNC,
+    area: props?.area ?? props?.lac ?? props?.LAC,
+    cell: props?.cell ?? props?.cell_id ?? props?.CID,
+    unit: props?.unit ?? props?.pci,
+    range_m: props?.range_m ?? props?.range,
+    samples: props?.samples,
+    operator,
+    height_m: props?.height_m ?? props?.height,
+    structure_type: entity?.entity_type ?? props?.antenna_type ?? props?.structure_type,
+    sources: ["MINDEX"],
+  }
+}
+
 async function fromMindex(baseUrl: string, bbox?: [number, number, number, number], limit = 1000): Promise<CellTowerRecord[]> {
   try {
     const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
@@ -194,14 +247,10 @@ async function fromMindex(baseUrl: string, bbox?: [number, number, number, numbe
     })
     if (!res.ok) return []
     const j = await res.json()
-    const arr: any[] = j?.towers || j?.data || j?.features || []
-    return arr.map((t: any) => ({
-      id: t.id || `mindex-${t.mcc}-${t.net}-${t.cell}`,
-      lat: t.lat ?? t.latitude, lng: t.lng ?? t.longitude,
-      radio: t.radio, mcc: t.mcc, net: t.net, area: t.area, cell: t.cell,
-      operator: t.operator, height_m: t.height_m, structure_type: t.structure_type,
-      sources: ["MINDEX"],
-    })).filter((t: any) => typeof t.lat === "number" && typeof t.lng === "number")
+    const arr: any[] = j?.entities ?? j?.towers ?? j?.data ?? j?.features ?? []
+    return arr
+      .map((entity: any) => normaliseMindexTower(entity))
+      .filter((t): t is CellTowerRecord => t !== null)
   } catch { return [] }
 }
 
