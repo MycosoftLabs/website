@@ -415,6 +415,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Restore MINDEX popup layers with XSS escaping (prev commit deleted them)
 - *(earth-sim)* Robust global data-center fetch (force-cache race dropped the 4,156 set)
 - *(ci)* Commit missing CREP v3 geo shims and widen UnifiedLimits
+- *(psathyrella)* Permissions-Policy camera=(self) for GCS webcam
 
 ### CREP
 
@@ -676,6 +677,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(psathyrella)* Update backend status after Jun 26 Cursor handoff
+- Update changelog [skip ci]
 
 ### Features
 
@@ -914,6 +916,7 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Surface infra + borders at continent zoom + lift satellites
 - *(earth-sim)* No flat-sat phase + weather radar/lightning on at boot
 - *(nlm)* Wire /myca/nlm stats to live NLM engine metrics API
+- *(psathyrella)* Buoy GCS console, telemetry contract, globe map, iPad full-bleed
 
 ### Fix
 
@@ -1034,6 +1037,10 @@ All notable changes to this project will be documented in this file.
 
 - Remove Web Speech API - Moshi handles all STT, MAS gets async memory clone
 - *(crep)* Scrub external-link anti-pattern from 4 more widgets
+
+### Release
+
+- Psathyrella GCS + Earth Sim + CREP shims Jun 26
 
 ### Search
 
