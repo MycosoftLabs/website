@@ -297,6 +297,11 @@ else:
         print("   _sandbox_env_sync.py not found; run it once to push keys to VM.")
 
     mycobrain_url = "http://host.docker.internal:8003"
+    mindex_internal_token = (
+        os.getenv("MINDEX_INTERNAL_TOKEN")
+        or (os.getenv("MINDEX_INTERNAL_TOKENS") or "").split(",")[0]
+        or os.getenv("INTERNAL_API_SECRET", "")
+    ).strip()
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
     supabase_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
     supabase_env = ""
@@ -321,6 +326,7 @@ else:
         -e MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
         -e NEXT_PUBLIC_MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
         -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-192.168.0.189}}:8000 \
+        -e MINDEX_INTERNAL_TOKEN={mindex_internal_token} \
         -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:11434 \
         -e N8N_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
