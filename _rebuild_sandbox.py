@@ -296,36 +296,10 @@ else:
     else:
         print("   _sandbox_env_sync.py not found; run it once to push keys to VM.")
 
-    mycobrain_url = "http://host.docker.internal:8003"
-    supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
-    supabase_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
-    supabase_env = ""
-    if supabase_url:
-        supabase_env += f' -e NEXT_PUBLIC_SUPABASE_URL="{supabase_url}"'
-    if supabase_key:
-        supabase_env += f' -e NEXT_PUBLIC_SUPABASE_ANON_KEY="{supabase_key}"'
     env_file = f"{WEBSITE_DIR}/.env"
     ec, _, _ = _run(f"test -f {env_file} && echo ok", timeout=5)
-    env_file_opt = f" --env-file {env_file}" if (ec == 0) else ""
-    rollback_image = "mycosoft-always-on-mycosoft-website:previous"
-    candidate_name = "mycosoft-website-candidate"
-
-    def _docker_run_cmd(container_name: str, publish: str, img: str) -> str:
-        return f"""docker run -d --name {container_name} -p {publish} \
-        --add-host=host.docker.internal:host-gateway \
-        -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-        {env_file_opt} \
-        -e NEXT_PUBLIC_BASE_URL={base_url} \
-        -e NEXTAUTH_URL={base_url} \
-        -e NEXT_PUBLIC_SITE_URL={base_url} \
-        -e MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
-        -e NEXT_PUBLIC_MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
-        -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-192.168.0.189}}:8000 \
-        -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:11434 \
-        -e N8N_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:5678 \
-        -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
-        -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
-        --restart unless-stopped {img}"""
+    if ec != 0:
+        print("   Warning: VM .env missing — blue-green deploy may fail auth/env checks.")
 
     def _wait_http(url: str, attempts: int = 60, delay_sec: int = 3) -> str:
         """Poll curl on VM until HTTP 200 or attempts exhausted."""
@@ -343,78 +317,99 @@ else:
             time.sleep(delay_sec)
         return last
 
+    def _ensure_blue_green_proxy() -> None:
+        """Ensure mycosoft-website-proxy owns host :3000 — never bind app directly on :3000."""
+        _, out, _ = _run(
+            "docker ps --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy' && echo yes || echo no",
+            timeout=15,
+        )
+        if (out or "").strip() != "yes":
+            print("   Proxy missing — running scripts/blue-green-bootstrap.sh ...")
+            code, bout, berr = _run(
+                f"cd {WEBSITE_DIR} && bash scripts/blue-green-bootstrap.sh",
+                timeout=900,
+            )
+            if code != 0:
+                raise RuntimeError(
+                    f"blue-green-bootstrap failed (exit {code}): {berr or bout}\n"
+                    "Refusing direct docker run on :3000 without nginx proxy."
+                )
+            print(f"   Bootstrap: {(bout or berr or 'ok')[-400:]}")
+
+        proxy_code = _wait_http("http://127.0.0.1:3000/healthz", attempts=40, delay_sec=2)
+        if proxy_code != "200":
+            raise RuntimeError(
+                f"mycosoft-website-proxy unhealthy on :3000/healthz (HTTP {proxy_code}). "
+                "Fix proxy before deploy — do not docker run on host :3000."
+            )
+        print("   mycosoft-website-proxy healthy on :3000/healthz")
+
+    def _blue_green_cutover(img: str, public_host: str) -> None:
+        """Cut over via blue-green-deploy.sh — never single-container docker run on :3000."""
+        cutover = (
+            f"cd {WEBSITE_DIR} && "
+            f"IMAGE={img} PUBLIC_HOST={public_host} "
+            f"bash scripts/blue-green-deploy.sh"
+        )
+        print(f"   Running: IMAGE={img} PUBLIC_HOST={public_host} blue-green-deploy.sh")
+        code, out, err = _run(cutover, timeout=1800)
+        tail = (out or err or "")[-2000:]
+        if tail:
+            print(f"   {tail}")
+        if code != 0:
+            raise RuntimeError(
+                f"blue-green-deploy failed (exit {code}). "
+                "Do not fall back to docker run on :3000 — fix compose/proxy/network on VM 187."
+            )
+
+    def _verify_public_https(url: str, attempts: int = 36, delay_sec: int = 5) -> str:
+        """Verify public URL returns HTTP 200 (from dev machine after VM cutover)."""
+        import subprocess
+
+        last = "000"
+        curl_bin = "curl.exe" if sys.platform == "win32" else "curl"
+        for i in range(attempts):
+            try:
+                proc = subprocess.run(
+                    [curl_bin, "-sS", "-o", os.devnull, "-w", "%{http_code}", "--max-time", "20", url],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                last = (proc.stdout or "000").strip() or "000"
+            except Exception:
+                last = "000"
+            if last == "200":
+                return last
+            if i % 3 == 0:
+                print(f"   ... public {url} attempt {i + 1}/{attempts} (HTTP {last})")
+            time.sleep(delay_sec)
+        return last
+
     http_code = "000"
 
     print(
-        f"\n5. Zero-downtime cutover ({site_label}): candidate on 127.0.0.1:3001, "
-        "then swap :3000 only after HTTP 200..."
+        f"\n5. Blue/green deploy ({site_label}): ensure proxy on :3000, cutover idle slot — "
+        "NEVER docker run single container on host :3000..."
     )
-    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
+    _ensure_blue_green_proxy()
+    _blue_green_cutover(image_tag, site_label)
 
-    cand_cmd = _docker_run_cmd(candidate_name, "127.0.0.1:3001:3000", image_tag)
-    code, out, err = _run(cand_cmd, timeout=90)
-    if out:
-        print(f"   Candidate ID: {(out or '')[:14]}")
-    if code != 0:
-        print(f"   Candidate start failed: {err or out}")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
-        ssh.close()
-        raise RuntimeError("Failed to start candidate container; production container unchanged.")
+    print(f"\n6. Verifying public HTTPS {base_url} returns 200...")
+    http_code = _verify_public_https(base_url, attempts=36, delay_sec=5)
 
-    cand_http = _wait_http("http://127.0.0.1:3001/", attempts=70, delay_sec=3)
-    if cand_http != "200":
-        print(f"\n❌ Candidate never reached HTTP 200 (got {cand_http}). Removing candidate; leaving :3000 as-is.")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
-        ssh.close()
-        raise RuntimeError("Candidate health check failed; no cutover. Fix image and redeploy.")
-
-    print("   Candidate healthy on :3001 — swapping public :3000 (brief handoff).")
-
-    # Free host :3000 from any container (compose stacks often use names like website-live).
-    _, pub3000, _ = _run("docker ps -q --filter publish=3000", timeout=30)
-    for cid in (pub3000 or "").strip().split():
-        _run(f"docker stop {cid}", timeout=90)
-        _run(f"docker rm {cid} 2>/dev/null || true", timeout=30)
-    _run("docker rm -f mycosoft-website website-live 2>/dev/null || true", timeout=20)
-
-    main_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", image_tag)
-    code, out, err = _run(main_cmd, timeout=90)
-    if code != 0:
-        print(f"   Primary container start failed: {err or out}")
-        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
-        # Attempt rollback so Cloudflare origin is not left empty
-        print("   Attempting rollback to :previous image on :3000...")
-        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
-        _run(rb_cmd, timeout=90)
-        _wait_http("http://127.0.0.1:3000/", attempts=40, delay_sec=2)
-        ssh.close()
-        raise RuntimeError("New primary container failed to start; rolled back to :previous if available.")
-
-    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
-
-    print("\n6. Waiting for public :3000 to return HTTP 200...")
-    http_code = _wait_http("http://127.0.0.1:3000/", attempts=70, delay_sec=3)
-
-    stdin, stdout, stderr = ssh.exec_command(
-        "docker ps --filter publish=3000 --format '{{.Names}} {{.Status}}' | head -1",
+    _, pub_status, _ = _run(
+        "docker ps --filter name=mycosoft-website-proxy --format '{{.Names}} {{.Status}}' | head -1",
         timeout=30,
     )
-    status = stdout.read().decode().strip()
-    print(f"   Docker: {status}")
+    print(f"   Proxy: {pub_status or '(unknown)'}")
 
     if http_code != "200":
-        print(f"\n⚠️  Primary returned {http_code} after cutover — attempting rollback to {rollback_image}...")
-        _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=30)
-        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
-        _run(rb_cmd, timeout=90)
-        http_code = _wait_http("http://127.0.0.1:3000/", attempts=50, delay_sec=3)
-        if http_code == "200":
-            print("   Rollback serving 200 on :3000.")
         ssh.close()
-        if http_code != "200":
-            raise RuntimeError("Primary and rollback both unhealthy; check docker logs on VM 187.")
-        print("\n⚠️  Deploy reverted to previous image. Skipping Cloudflare purge.")
-        return
+        raise RuntimeError(
+            f"Deploy guardrail failed: {base_url} returned HTTP {http_code} (expected 200). "
+            "Site may be down — run blue-green-bootstrap.sh on VM 187 and check docker network."
+        )
 
     print("\n7. NAS media spot-check (critical MP4)...")
     _, spot_out, _ = _run(
@@ -449,7 +444,7 @@ else:
     else:
         print(f"\n⚠️  Site returned {http_code} — Cloudflare purge skipped.")
 
-    print("\nNote: Cloudflare purge runs only after HTTP 200 on origin :3000.")
+    print("\nNote: Cloudflare purge runs only after public HTTPS returns 200.")
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,19 @@
 # Mycosoft Site Health Monitor & QA
 # Runs every 5 minutes to verify the site, MYCA, search, and API endpoints are healthy.
-# Opens a GitHub Issue automatically when critical services are down.
+# On CRITICAL failure: emails Morgan immediately, opens a GitHub incident issue, and
+# optionally POSTs to n8n (public webhook URL only — GH runners cannot reach LAN 188).
 #
-# This ensures tunnel drops, container restarts, and LLM provider outages
-# are detected within minutes — not hours.
+# Required GitHub secrets (repo Settings → Secrets → Actions):
+#   NOTIFY_EMAIL              Morgan's alert address (required for email step)
+#   SMTP_SERVER               e.g. smtp.gmail.com or smtp.sendgrid.net
+#   SMTP_PORT                 e.g. 587
+#   SMTP_USERNAME             SMTP user or "apikey" for SendGrid
+#   SMTP_PASSWORD             SMTP password or SendGrid API key
+#   SMTP_FROM                 optional From header (defaults to SMTP_USERNAME)
+# Optional:
+#   N8N_SITE_DOWN_WEBHOOK_URL publicly reachable n8n webhook (NOT 192.168.0.x)
+#
+# Policy (Jun 26 2026): site must NEVER stay down — fix immediately when alerted.
 
 name: Site Health Monitor
 
@@ -18,6 +28,10 @@ on:
         required: false
         default: 'false'
 
+permissions:
+  contents: read
+  issues: write
+
 env:
   SITE_URL: https://mycosoft.com
   # Fallback if the above is unreachable (Cloudflare tunnel target)
@@ -29,6 +43,9 @@ jobs:
     name: Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      critical: ${{ steps.evaluate.outputs.critical }}
+      summary: ${{ steps.evaluate.outputs.summary }}
     steps:
       - name: Check site homepage
         id: homepage
@@ -123,6 +140,7 @@ jobs:
           echo "Search: source=$SOURCE confidence=$CONFIDENCE latency=${LATENCY}ms"
 
       - name: Evaluate results and alert
+        id: evaluate
         if: always()
         env:
           HOMEPAGE_STATUS: ${{ steps.homepage.outputs.status }}
@@ -147,10 +165,17 @@ jobs:
           echo "======================"
 
           CRITICAL=false
+          SUMMARY="prod=$HOMEPAGE_STATUS sandbox=$SANDBOX_STATUS health=$HEALTH_STATUS myca=$MYCA_STATUS"
 
-          # Site completely down
+          # Production site completely down
           if [ "$HOMEPAGE_STATUS" = "000" ] || [ "$HOMEPAGE_STATUS" -ge 500 ] 2>/dev/null; then
-            echo "::error::CRITICAL: Site is DOWN (HTTP $HOMEPAGE_STATUS)"
+            echo "::error::CRITICAL: mycosoft.com is DOWN (HTTP $HOMEPAGE_STATUS)"
+            CRITICAL=true
+          fi
+
+          # Sandbox down (tunnel 1033 / proxy bypass) — treat as CRITICAL per Jun 26 policy
+          if [ "$SANDBOX_STATUS" = "000" ] || [ "$SANDBOX_STATUS" -ge 500 ] 2>/dev/null; then
+            echo "::error::CRITICAL: sandbox.mycosoft.com is DOWN (HTTP $SANDBOX_STATUS)"
             CRITICAL=true
           fi
 
@@ -160,9 +185,101 @@ jobs:
             CRITICAL=true
           fi
 
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+
           if [ "$CRITICAL" = "true" ]; then
-            echo "CRITICAL FAILURE DETECTED — review GitHub Actions log"
+            echo "CRITICAL FAILURE DETECTED — notify-on-down will email Morgan"
             exit 1
           fi
 
           echo "All checks passed or degraded (non-critical)"
+
+  notify-on-down:
+    name: Notify Morgan (site down)
+    needs: health-check
+    if: failure() && needs.health-check.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Build alert body
+        id: alert
+        env:
+          SUMMARY: ${{ needs.health-check.outputs.summary }}
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY=$(cat <<EOF
+          URGENT — Mycosoft site health monitor detected CRITICAL failure.
+
+          Summary: ${SUMMARY:-see workflow log}
+          Workflow: Site Health Monitor
+          Run: ${RUN_URL}
+          Time (UTC): $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Policy: fix immediately — do not leave site down.
+          Common causes: nginx proxy bypassed on VM 187, wrong docker network, tunnel 1033.
+          EOF
+          )
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "run_url=$RUN_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Email Morgan (SMTP)
+        if: ${{ secrets.NOTIFY_EMAIL != '' && secrets.SMTP_SERVER != '' }}
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT || 587 }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "🔴 URGENT: Mycosoft site DOWN — health monitor"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+          body: ${{ steps.alert.outputs.body }}
+
+      - name: n8n webhook (optional, must be public URL)
+        if: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL }}
+        run: |
+          curl -sfS -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg event site_down \
+              --arg source site-health-monitor \
+              --arg summary "${{ needs.health-check.outputs.summary }}" \
+              --arg run_url "${{ steps.alert.outputs.run_url }}" \
+              --arg notify "${{ secrets.NOTIFY_EMAIL }}" \
+              '{event:$event,source:$source,summary:$summary,run_url:$run_url,notify_email:$notify,severity:"critical"}')" \
+            || echo "::warning::n8n webhook failed (URL must be public — GH cannot reach 192.168.0.188)"
+
+      - name: Open GitHub incident issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔴 SITE DOWN — health monitor (${new Date().toISOString().slice(0, 16)}Z)`;
+            const body = `${{ steps.alert.outputs.body }}`;
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "site-down",
+              per_page: 5,
+            });
+            if (open.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body: `Monitor re-fired:\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["site-down", "incident", "urgent"],
+              });
+            }

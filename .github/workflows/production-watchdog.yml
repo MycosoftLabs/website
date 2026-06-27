@@ -87,3 +87,41 @@ jobs:
             } else {
               await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ["prod-down", "incident"] });
             }
+
+      - name: Fail job (triggers notify-on-down)
+        if: steps.probe.outputs.healthy != 'true'
+        run: exit 1
+
+  notify-on-down:
+    name: Email Morgan (prod down)
+    needs: probe
+    if: failure() && needs.probe.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Email Morgan (SMTP)
+        if: ${{ secrets.NOTIFY_EMAIL != '' && secrets.SMTP_SERVER != '' }}
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT || 587 }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "🔴 URGENT: mycosoft.com PROD DOWN — production watchdog"
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+          body: |
+            Production watchdog: https://mycosoft.com/api/health failed 3× in a row.
+            Auto-restart via Instant Deploy was dispatched.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Fix immediately — site must not stay down.
+
+      - name: n8n webhook (optional, public URL only)
+        if: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL }}
+        run: |
+          curl -sfS -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d '{"event":"prod_down","source":"production-watchdog","severity":"critical","url":"https://mycosoft.com/api/health"}' \
+            || echo "::warning::n8n webhook failed"
