@@ -27,7 +27,7 @@ def load_credentials():
             for line in creds_file.read_text(encoding="utf-8", errors="replace").splitlines():
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    os.environ[key.strip()] = value.strip().strip('"\'')
+                    os.environ.setdefault(key.strip(), value.strip().strip('"\''))
     return True
 
 # Try to load from file first
@@ -80,11 +80,27 @@ def main():
         help="Git ref on origin to deploy (default: main or REBUILD_GIT_REF env)",
     )
     parser.add_argument(
+        "--require-gcs-verified",
+        action="store_true",
+        help="Abort if branch looks like Psathyrella GCS and GCS_VERIFIED is not set",
+    )
+    parser.add_argument(
         "--skip-build",
         action="store_true",
         help="Skip Dockerfile fix and docker build; use existing image on VM (start container only)",
     )
     args = parser.parse_args()
+
+    branch_slug = args.branch.replace("origin/", "").lower()
+    if args.require_gcs_verified or "psathyrella" in branch_slug or branch_slug == "feat/psathyrella-gcs":
+        gcs_ok = os.environ.get("GCS_VERIFIED", "").strip().lower() in ("1", "true", "yes", "verified")
+        morgan_ok = os.environ.get("MORGAN_APPROVE_GCS_DEPLOY", "").strip().lower() in ("1", "true", "yes")
+        if not gcs_ok and not morgan_ok:
+            print(
+                "ERROR: Psathyrella GCS deploy blocked. Set GCS_VERIFIED=1 after Claude 3010 smoke, "
+                "or MORGAN_APPROVE_GCS_DEPLOY=1. Use scripts/group_release_deploy.py --phase core for Earth Sim/NLM only."
+            )
+            sys.exit(2)
 
     base_url = "https://mycosoft.com" if args.production else "https://sandbox.mycosoft.com"
     site_label = "mycosoft.com" if args.production else "sandbox.mycosoft.com"
@@ -302,10 +318,11 @@ else:
         -e NEXT_PUBLIC_BASE_URL={base_url} \
         -e NEXTAUTH_URL={base_url} \
         -e NEXT_PUBLIC_SITE_URL={base_url} \
-        -e MAS_API_URL=http://${{MAS_VM_HOST:-localhost}}:8001 \
-        -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-localhost}}:8000 \
-        -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-localhost}}:11434 \
-        -e N8N_URL=http://${{MAS_VM_HOST:-localhost}}:5678 \
+        -e MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
+        -e NEXT_PUBLIC_MAS_API_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:8001 \
+        -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-192.168.0.189}}:8000 \
+        -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:11434 \
+        -e N8N_URL=http://${{MAS_VM_HOST:-192.168.0.188}}:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
         --restart unless-stopped {img}"""
