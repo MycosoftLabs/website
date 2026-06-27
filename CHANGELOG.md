@@ -418,6 +418,9 @@ All notable changes to this project will be documented in this file.
 - *(psathyrella)* Permissions-Policy camera=(self) for GCS webcam
 - *(deploy)* Sandbox MAS_API_URL defaults to 192.168.0.188 not localhost
 - *(oei)* Submarine-cables BFF proxy with real geometry
+- *(mindex)* Proxy internal token + parse entities for cell towers
+- *(deploy)* Pass MINDEX_INTERNAL_TOKEN from credentials on sandbox rebuild
+- *(ci)* Site monitor SMTP secrets path and deploy guardrails
 
 ### CREP
 
@@ -679,6 +682,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(psathyrella)* Update backend status after Jun 26 Cursor handoff
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 
