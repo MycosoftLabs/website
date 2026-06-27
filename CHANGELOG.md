@@ -416,6 +416,8 @@ All notable changes to this project will be documented in this file.
 - *(earth-sim)* Robust global data-center fetch (force-cache race dropped the 4,156 set)
 - *(ci)* Commit missing CREP v3 geo shims and widen UnifiedLimits
 - *(psathyrella)* Permissions-Policy camera=(self) for GCS webcam
+- *(deploy)* Sandbox MAS_API_URL defaults to 192.168.0.188 not localhost
+- *(oei)* Submarine-cables BFF proxy with real geometry
 
 ### CREP
 
@@ -677,6 +679,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - *(psathyrella)* Update backend status after Jun 26 Cursor handoff
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 
 ### Features
