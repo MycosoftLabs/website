@@ -20,6 +20,7 @@ import {
   Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
+import { CMMC_SPRINT_META } from '@/lib/security/posture/sprint-meta';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -901,6 +902,24 @@ export default function CompliancePage() {
             {tab.label}
           </button>
         ))}
+      </div>
+
+      {/* Self-assessment context banner — keeps today's honest low posture from
+          reading as "broken". Current numbers come from live MAS; framing from
+          the CMMC sprint overlay. */}
+      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+          <div>
+            <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
+            Control statuses reflect <span className="font-semibold">current</span> posture (live from MAS{' '}
+            <code className="text-amber-300">soc_ops</code>) — a low percentage today is expected and honest.
+            Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>{' '}
+            after the self-assessment sprint (SPRS submission {CMMC_SPRINT_META.targetSprsSubmissionDate}); one item{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code>) is planned for the POA&amp;M,
+            close {CMMC_SPRINT_META.poamCloseDeadline}. Projected numbers are never shown as achieved.
+          </div>
+        </div>
       </div>
 
       {/* Controls Tab */}
