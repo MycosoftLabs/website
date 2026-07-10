@@ -186,10 +186,10 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           <Meta label="Priority" value={(control.priority || 'medium').toUpperCase()} tone={
             control.priority === 'high' ? 'red' : control.priority === 'medium' ? 'amber' : 'green'} />
-          {ref?.weightMax != null && (
+          {ref && (
             <Meta
               label="SPRS weight (max)"
-              value={`${ref.dual ? `${ref.weightRaw}` : `${ref.weightMax} pt${ref.weightMax === 1 ? '' : 's'}`}${WEIGHTS_VERIFIED ? '' : ' · unverified'}`}
+              value={`${ref.isNa ? 'NA · blocking (SSP)' : ref.dual ? `${ref.weightRaw}` : `${ref.weightMax} pt${ref.weightMax === 1 ? '' : 's'}`}${WEIGHTS_VERIFIED ? '' : ' · unverified'}`}
               tone={WEIGHTS_VERIFIED ? undefined : 'amber'}
             />
           )}

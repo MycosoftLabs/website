@@ -35,20 +35,36 @@ export const STATUTORY_VERIFY_NOTE =
 
 // ── CUI handling (§5) ───────────────────────────────────────────────────────
 
+import cuiFile from './cui-categories.json';
+
 export interface CuiCategory {
   category: string;
   bannerSpecified: string;
   bannerBasic: string;
   categoryMarking: string;
+  basicOrSpecified: string;
   relevance: string;
 }
 
-export const CUI_CATEGORIES: CuiCategory[] = [
-  { category: 'Controlled Technical Information', bannerSpecified: 'CUI//SP-CTI', bannerBasic: '(none)', categoryMarking: 'CTI', relevance: 'Navy TAC-O SOW materials, DARPA program data — Mycosoft\'s primary anticipated CUI category' },
-  { category: 'Export Controlled', bannerSpecified: 'CUI//SP-EXPT', bannerBasic: 'CUI', categoryMarking: 'EXPT', relevance: 'Undersea sensor technology potentially subject to ITAR/EAR' },
-  { category: 'General Proprietary Business Information', bannerSpecified: 'CUI//SP-PROPIN', bannerBasic: 'CUI', categoryMarking: 'PROPIN', relevance: 'Cost data, contract-related pricing information' },
-  { category: 'Unmarked / General CUI', bannerSpecified: '—', bannerBasic: 'CUI', categoryMarking: '—', relevance: 'General defense-related information requiring safeguarding without a more specific subcategory' },
-];
+interface RawCui {
+  category_name: string;
+  category_marking: string | null;
+  banner_marking_specified: string | null;
+  banner_marking_basic: string | null;
+  alternative_banner_marking_for_basic_authorities?: string;
+  basic_or_specified: string;
+  relevance_to_mycosoft: string;
+}
+
+// Authoritative NARA CUI Registry categories (Perplexity 2026-07-12), incl. ISVI.
+export const CUI_CATEGORIES: CuiCategory[] = (cuiFile as unknown as { categories: RawCui[] }).categories.map((c) => ({
+  category: c.category_name,
+  bannerSpecified: c.banner_marking_specified ?? '—',
+  bannerBasic: c.banner_marking_basic ?? c.alternative_banner_marking_for_basic_authorities ?? '—',
+  categoryMarking: c.category_marking ?? '—',
+  basicOrSpecified: c.basic_or_specified,
+  relevance: c.relevance_to_mycosoft,
+}));
 
 export const CUI_HANDLING = {
   basicVsSpecified:

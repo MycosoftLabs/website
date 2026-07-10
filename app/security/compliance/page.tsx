@@ -924,8 +924,8 @@ export default function CompliancePage() {
             after the self-assessment sprint (SPRS submission {CMMC_SPRINT_META.targetSprsSubmissionDate}); one item{' '}
             (<code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code>) is planned for the POA&amp;M,
             close {CMMC_SPRINT_META.poamCloseDeadline}. Projected numbers are never shown as achieved.{' '}
-            SPRS scoring is <span className="font-semibold">not computed from control weights</span> pending reconciliation
-            against the DoD Assessment Methodology v1.2.1 (corrected weight table expected ~2026-07-12).
+            Control weights are <span className="font-semibold">verified</span> against the DoD Assessment Methodology v1.2.1
+            (Annex A); the computed SPRS score appears in the Reference → Verification flags tab.
           </div>
         </div>
       </div>

@@ -1,0 +1,114 @@
+{
+  "$schema_description": "NARA CUI Registry categories relevant to Mycosoft defense contracting, for the compliance web app's L3 pre-readiness and CUI-handling surfaces. Category markings and banner text are exact per the NARA CUI Registry per task DISCIPLINE rule.",
+  "generated_date": "2026-07-10",
+  "registry_index_url": "https://www.archives.gov/cui/registry/category-list",
+  "categories": [
+    {
+      "category_name": "Controlled Technical Information",
+      "category_marking": "CTI",
+      "banner_marking_specified": "CUI//SP-CTI",
+      "banner_marking_basic": null,
+      "basic_or_specified": "Specified",
+      "authorities": [
+        {
+          "authority": "48 CFR 252.204-7012",
+          "type": "Specified"
+        }
+      ],
+      "relevance_to_mycosoft": "Navy TAC-O statement-of-work-derived technical materials and DARPA program data are Mycosoft's primary anticipated CUI category.",
+      "verified": true,
+      "citation": "https://www.archives.gov/cui/registry/category-detail/controlled-technical-info.html"
+    },
+    {
+      "category_name": "Export Controlled",
+      "category_marking": "EXPT",
+      "banner_marking_specified": "CUI//SP-EXPT",
+      "banner_marking_basic": "CUI",
+      "basic_or_specified": "Specified",
+      "authorities": [
+        {
+          "authority": "22 CFR 120.21 (ITAR)",
+          "type": "Specified"
+        },
+        {
+          "authority": "15 CFR 736 Supplement No. 2 (EAR)",
+          "type": "Specified"
+        }
+      ],
+      "relevance_to_mycosoft": "Undersea sensor technology and autonomous-platform work may qualify as export-controlled technical data under ITAR or EAR, creating a live overlap risk with Mycosoft's Psathyrella buoy and related sensor programs.",
+      "verified": true,
+      "citation": "https://www.archives.gov/cui/registry/category-detail/export-control.html"
+    },
+    {
+      "category_name": "General Proprietary Business Information",
+      "category_marking": "PROPIN",
+      "banner_marking_specified": "CUI//SP-PROPIN",
+      "banner_marking_basic": "CUI",
+      "basic_or_specified": "Specified",
+      "authorities": [
+        {
+          "authority": "48 CFR 52.203-13",
+          "type": "Specified"
+        }
+      ],
+      "relevance_to_mycosoft": "Contract cost data, pricing information, and proprietary technical/business information shared with or generated for the government under Mycosoft's Navy/DARPA/SBIR contracts.",
+      "verified": true,
+      "citation": "https://www.archives.gov/cui/registry/category-detail/proprietary-business-info.html"
+    },
+    {
+      "category_name": "Information Systems Vulnerability Information",
+      "category_marking": "ISVI",
+      "banner_marking_specified": null,
+      "banner_marking_basic": "CUI",
+      "alternative_banner_marking_for_basic_authorities": "CUI//ISVI",
+      "basic_or_specified": "Basic",
+      "authorities": [
+        {
+          "authority": "44 U.S.C. 3554 (see OMB M-24-04 for implementing guidance)",
+          "type": "Basic"
+        },
+        {
+          "authority": "44 U.S.C. 3555(f)",
+          "type": "Basic"
+        }
+      ],
+      "category_description": "Related to information that if not protected, could result in adverse effects to information systems. Information system means a discrete set of information resources organized for the collection, processing, maintenance, use, sharing, dissemination, or disposition of information.",
+      "relevance_to_mycosoft": "Applies to vulnerability assessment findings, penetration test results (required under CMMC L3 control CA.L3-3.12.1e), and system security documentation Mycosoft generates internally or receives from assessors.",
+      "verified": true,
+      "citation": "https://www.archives.gov/cui/registry/category-detail/info-systems-vulnerability-info.html"
+    },
+    {
+      "category_name": "General/Basic CUI (unmarked subcategory)",
+      "category_marking": null,
+      "banner_marking_specified": null,
+      "banner_marking_basic": "CUI",
+      "basic_or_specified": "Basic",
+      "authorities": [],
+      "category_description": "Applies where a law, regulation, or government-wide policy requires or permits safeguarding of the information but does not prescribe specific controls, and no more specific NARA Registry category/subcategory applies. Governed by the general CUI Basic baseline established under 32 CFR Part 2002 rather than a category-specific 'SP-' authority.",
+      "relevance_to_mycosoft": "Baseline handling requirement for any defense-related information Mycosoft receives or generates that does not fall into CTI, EXPT, PROPIN, or ISVI specifically, per Mycosoft's own CMMC scope documentation.",
+      "verified": true,
+      "citation": "https://www.archives.gov/cui/registry/category-marking-list"
+    }
+  ],
+  "basic_vs_specified_definitions": {
+    "cui_basic": "Applies where the law, regulation, or government-wide policy requires or permits safeguarding but does not prescribe specific handling controls \u2014 the CUI Program's uniform baseline set of controls (32 CFR Part 2002) governs.",
+    "cui_specified": "Applies where the underlying authority itself prescribes specific handling controls that impose more stringent, different, or additional controls than the CUI Basic baseline (e.g., ITAR/EAR authorities for EXPT, DFARS 252.204-7012 for CTI, FAR 52.203-13 for PROPIN).",
+    "citation": "32 CFR 2002.4(h) (definitional basis, as cross-referenced in the CMMC Assessment Guide)",
+    "citation_url": "https://www.law.cornell.edu/cfr/text/32/2002.4",
+    "verified": true
+  },
+  "marking_rules": {
+    "banner_marking": "Placed at the top (and generally bottom) of a document to indicate overall CUI status of the document, e.g., CUI, CUI//SP-CTI, CUI//SP-EXPT.",
+    "portion_marking": "Individual sections, paragraphs, or fields within a document may carry their own category marking so only the CUI-bearing portions are flagged, distinct from the banner marking of the whole document.",
+    "decontrolling": "Governed by 32 CFR 2002.18. Agencies should decontrol CUI as soon as practicable once safeguarding is no longer required, either automatically (e.g., on a pre-determined event or date per 32 CFR 2002.20(g)) or by affirmative agency decision. Decontrol relieves CUI Program handling obligations but does not itself authorize public release (2002.18(e)); authorized holders must clearly indicate formerly-CUI information is no longer controlled when reusing/republishing it (2002.18(f)); unauthorized disclosure does not constitute decontrol (2002.18(j)); agencies may not decontrol information to conceal or evade accountability for an unauthorized disclosure (2002.18(k)).",
+    "citation": "32 CFR 2002.18",
+    "citation_url": "https://www.law.cornell.edu/cfr/text/32/2002.18",
+    "verified": true
+  },
+  "governing_framework": {
+    "executive_order": "EO 13556, Controlled Unclassified Information (November 2010) \u2014 establishes the CUI Program and designates NARA as Executive Agent.",
+    "implementing_regulation": "32 CFR Part 2002, Controlled Unclassified Information \u2014 establishes CUI categories, marking, safeguarding, dissemination, and decontrol rules government-wide.",
+    "citation_url": "https://www.law.cornell.edu/cfr/text/32/part-2002",
+    "verified": true
+  }
+}

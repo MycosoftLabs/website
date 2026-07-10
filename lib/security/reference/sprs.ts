@@ -48,14 +48,6 @@ export interface SprsResult {
   meetsConditionalThreshold: boolean;
 }
 
-/** Deduction for a control given its posture state. Non-dual: any not-met =
- *  full weight. Dual: partial = 3, absent(planned) = full (5). */
-function deductionFor(weightMax: number, dual: boolean, state: ImplementationState): number {
-  if (state === 'implemented' || state === 'not_applicable') return 0;
-  if (dual) return state === 'partial' ? 3 : weightMax; // weightMax is 5 for dual
-  return weightMax; // planned or partial on a non-dual control → full weight
-}
-
 /** Compute the SPRS score for a posture mode ('current' | 'target'). Pure. */
 export function computeSprs(mode: PostureMode = 'current'): SprsResult {
   let score = POSTURE_OVERLAY.score.max_possible ?? 110;
@@ -66,22 +58,31 @@ export function computeSprs(mode: PostureMode = 'current'): SprsResult {
 
   for (const c of POSTURE_OVERLAY.controls) {
     const ref = getControlReference(c.control_id);
-    const weightMax = ref?.weightMax ?? 1;
+    const weightMax = ref?.weightMax ?? 1; // null only for the NA control
     const dual = ref?.dual ?? false;
+    const isNa = ref?.isNa ?? false;
     const state = stateFor(c, mode).implementation_state;
 
     if (state === 'implemented') met++;
     if (state === 'not_applicable') notApplicable++;
 
-    const deduction = deductionFor(weightMax, dual, state);
-    if (deduction > 0) {
+    const isNotMet = state !== 'implemented' && state !== 'not_applicable';
+    // Deduction: NA control contributes 0 to the numeric score (but a Not-Met
+    // NA control still blocks Conditional status — captured via poamEligible).
+    // Dual: partial deducts the min (3), absent deducts the full (5).
+    let deduction = 0;
+    if (isNotMet && !isNa) {
+      deduction = dual ? (state === 'partial' ? (ref?.dualMin ?? 3) : weightMax) : weightMax;
+    }
+
+    if (isNotMet) {
       gaps.push({
         controlId: c.control_id,
-        weight: weightMax,
+        weight: isNa ? 0 : weightMax,
         deduction,
         state,
         poamEligible: (ref?.poamEligibility === 'yes' || ref?.poamEligibility === 'carveout') && !isPoamExcluded(c.control_id),
-        excluded: isPoamExcluded(c.control_id),
+        excluded: isPoamExcluded(c.control_id) || isNa,
       });
       score -= deduction;
     }

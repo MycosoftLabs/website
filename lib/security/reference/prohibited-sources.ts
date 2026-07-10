@@ -1,65 +1,93 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Supply Chain / Made-in-America — prohibited sources (2026)
+// Supply Chain / Made-in-America — prohibited sources (authoritative)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Source: Perplexity primary-source doc (2026-07-10), §6. REFERENCE ONLY.
-// Named entities + keywords are for the BOM-check engine (see lib/security/
-// supply-chain/bom-check.ts). Effective dates/citations are the doc's primaries.
-//
-// ⚠ VERIFY (per doc §6): the exact NDAA fiscal year / Public Law for "Section
-// 817" differs across sources; the Section 5949 semiconductor prohibition takes
-// effect 2027-12-23 (FAR proposed rule 2026-02-17). Confirm against enacted
-// statute text before treating as authoritative.
+// Source of truth: `supply-chain-prohibitions.json` (Perplexity 2026-07-12).
+// Instruments, vendors, BOM advice, and known gaps load from that file; the
+// BOM-check keyword list is defined explicitly here for reliable matching.
+
+import scFile from './supply-chain-prohibitions.json';
+
+interface RawInstrument {
+  id: string;
+  name: string;
+  statute?: string;
+  far_clause?: string;
+  effective_date: string;
+  scope: string;
+  citation?: string;
+}
+interface RawVendor {
+  vendor: string;
+  prohibition_basis: string[];
+  category: string;
+  bis_entity_list_status?: string;
+  verified: boolean;
+}
+interface RawAdvice {
+  platform: string;
+  advice: string;
+  recommended_bom_fields: string[];
+  source_bom_reference: string;
+}
+interface RawGap { gap: string; verified: boolean; citation: string }
+
+const RAW = scFile as unknown as {
+  instruments: RawInstrument[];
+  prohibited_vendors_summary: RawVendor[];
+  bom_check_advice_for_mycosoft: RawAdvice[];
+  known_gaps: RawGap[];
+};
 
 export type ProhibitionAuthority =
   | 'section-889'
   | 'fascsa'
   | 'section-5949'
+  | 'section-1260h'
   | 'drone-848-817'
-  | 'drone-asda';
+  | 'drone-asda'
+  | 'fcc-covered-list';
 
 export interface ProhibitedEntity {
   name: string;
-  /** Lowercase match keywords (name variants, brands). */
-  keywords: string[];
-  category: 'telecom' | 'video-surveillance' | 'drone' | 'semiconductor';
-  authority: ProhibitionAuthority;
-  effectiveDate: string;
+  keywords: string[]; // lowercase match keywords
+  category: 'telecom' | 'video-surveillance' | 'drone' | 'semiconductor' | 'robotics';
+  authorities: string[];
   note: string;
 }
 
+// Explicit keyword list for the BOM matcher — informed by the authoritative
+// vendor summary, with reliable aliases. Unitree added: it's a China-based
+// quadruped maker on the DoD §1260H list — a direct signal for the Mushroom 1
+// hardware category.
 export const PROHIBITED_ENTITIES: ProhibitedEntity[] = [
-  // Section 889 — telecom
-  { name: 'Huawei Technologies', keywords: ['huawei'], category: 'telecom', authority: 'section-889', effectiveDate: '2019-08-13', note: 'Section 889(a)(1)(A) covered telecom equipment.' },
-  { name: 'ZTE Corporation', keywords: ['zte'], category: 'telecom', authority: 'section-889', effectiveDate: '2019-08-13', note: 'Section 889(a)(1)(A) covered telecom equipment.' },
-  // Section 889 — video surveillance
-  { name: 'Hytera Communications', keywords: ['hytera'], category: 'video-surveillance', authority: 'section-889', effectiveDate: '2020-08-13', note: 'Section 889 covered video surveillance / public-safety radio.' },
-  { name: 'Hangzhou Hikvision', keywords: ['hikvision', 'hik vision'], category: 'video-surveillance', authority: 'section-889', effectiveDate: '2020-08-13', note: 'Section 889 covered video-surveillance equipment.' },
-  { name: 'Dahua Technology', keywords: ['dahua'], category: 'video-surveillance', authority: 'section-889', effectiveDate: '2020-08-13', note: 'Section 889 covered video-surveillance equipment.' },
-  // Drones — Section 848/817 + American Security Drone Act
-  { name: 'DJI (Da-Jiang Innovations)', keywords: ['dji', 'da-jiang', 'da jiang'], category: 'drone', authority: 'drone-848-817', effectiveDate: '2024-10-01', note: 'DJI-specific DoD contracting prohibition effective 2024-10-01; ASDA gov-wide operation ban from 2025-12-22.' },
-  { name: 'Autel Robotics', keywords: ['autel'], category: 'drone', authority: 'drone-asda', effectiveDate: '2025-12-22', note: 'Covered foreign UAS entity under American Security Drone Act (verify current CSL status).' },
-  // Section 5949 — semiconductors (effective 2027-12-23)
-  { name: 'SMIC (Semiconductor Manufacturing International)', keywords: ['smic', 'semiconductor manufacturing international'], category: 'semiconductor', authority: 'section-5949', effectiveDate: '2027-12-23', note: 'NDAA §5949 prohibits SMIC parts in critical/NSS systems from 2027-12-23.' },
-  { name: 'ChangXin Memory Technologies (CXMT)', keywords: ['cxmt', 'changxin'], category: 'semiconductor', authority: 'section-5949', effectiveDate: '2027-12-23', note: 'NDAA §5949 covered memory manufacturer.' },
-  { name: 'Yangtze Memory Technologies (YMTC)', keywords: ['ymtc', 'yangtze memory'], category: 'semiconductor', authority: 'section-5949', effectiveDate: '2027-12-23', note: 'NDAA §5949 covered memory manufacturer.' },
+  { name: 'Huawei Technologies', keywords: ['huawei'], category: 'telecom', authorities: ['Section 889 Part A', 'BIS Entity List'], note: 'Named in Section 889(a)(1)(A); BIS Entity List.' },
+  { name: 'ZTE Corporation', keywords: ['zte'], category: 'telecom', authorities: ['Section 889 Part A'], note: 'Named directly in Section 889; Entity List status not independently confirmed this pass.' },
+  { name: 'Hytera Communications', keywords: ['hytera'], category: 'video-surveillance', authorities: ['Section 889 Part B'], note: 'Named in Section 889 Part B (video/public-safety radio).' },
+  { name: 'Hangzhou Hikvision', keywords: ['hikvision', 'hik vision'], category: 'video-surveillance', authorities: ['Section 889 Part B', 'DoD §1260H', 'FCC Covered List'], note: 'Section 889 Part B; §1260H Chinese Military Companies; FCC Covered List.' },
+  { name: 'Zhejiang Dahua Technology', keywords: ['dahua'], category: 'video-surveillance', authorities: ['Section 889 Part B', 'DoD §1260H', 'FCC Covered List'], note: 'Section 889 Part B; §1260H; FCC Covered List.' },
+  { name: 'Da-Jiang Innovations (DJI)', keywords: ['dji', 'da-jiang', 'da jiang', 'sz dji'], category: 'drone', authorities: ['NDAA §817 (2024-10-01)', 'American Security Drone Act', 'FCC Covered List', 'BIS Entity List'], note: 'DJI-specific DoD contracting ban from 2024-10-01; ASDA gov-wide; FCC Covered List; BIS Entity List.' },
+  { name: 'Autel Robotics', keywords: ['autel'], category: 'drone', authorities: ['FCC Covered List'], note: 'FCC Covered List (drone components).' },
+  { name: 'SMIC (Semiconductor Manufacturing International)', keywords: ['smic', 'semiconductor manufacturing international'], category: 'semiconductor', authorities: ['NDAA §5949 (eff. 2027-12-23)', 'BIS Entity List'], note: '§5949 prohibits SMIC parts in critical/NSS systems from 2027-12-23; BIS Entity List since Dec 2020.' },
+  { name: 'ChangXin Memory Technologies (CXMT)', keywords: ['cxmt', 'changxin'], category: 'semiconductor', authorities: ['NDAA §5949 (eff. 2027-12-23)', 'DoD §1260H'], note: '§5949 named; on §1260H (NOT on BIS Entity List). FAR disclosure designation PENDING.' },
+  { name: 'Yangtze Memory Technologies (YMTC)', keywords: ['ymtc', 'yangtze memory'], category: 'semiconductor', authorities: ['NDAA §5949 (eff. 2027-12-23)', 'DoD §1260H'], note: '§5949 named; on §1260H (NOT on BIS Entity List). FAR disclosure designation PENDING.' },
+  { name: 'Unitree Robotics', keywords: ['unitree'], category: 'robotics', authorities: ['DoD §1260H'], note: 'China-based quadruped maker on the §1260H Chinese Military Companies list — direct category signal for quadruped hardware (Mushroom 1).' },
 ];
 
 /** Covered foreign countries for drone/UAS component-origin review (§848/817). */
 export const COVERED_FOREIGN_COUNTRIES = ['china', 'prc', "people's republic of china", 'russia', 'iran', 'north korea', 'dprk'];
 
-/** Component categories that echo the covered-component list under §848/817 (flight
- * controllers, radios, data-transmission, cameras, gimbals) — origin-sensitive. */
-export const COVERED_COMPONENT_KEYWORDS = ['camera', 'gimbal', 'radio', 'flight controller', 'data-transmission', 'data transmission', 'transmitter', 'rf module', 'lidar', 'sensor', 'semiconductor', 'chip', 'soc', 'fpga', 'gpu'];
+/** Component categories echoing the §848/817 covered-component list. */
+export const COVERED_COMPONENT_KEYWORDS = ['camera', 'gimbal', 'radio', 'flight controller', 'data-transmission', 'data transmission', 'transmitter', 'rf module', 'lidar', 'sensor', 'semiconductor', 'chip', 'soc', 'fpga', 'gpu', 'memory', 'dram', 'nand', 'motor controller'];
 
-export const SUPPLY_CHAIN_INSTRUMENTS = [
-  { instrument: 'Section 889 (Part A/B)', citation: 'FY19 NDAA / FAR 52.204-25', effectiveDate: '2019-08-13 / 2020-08-13', scope: 'Covered telecom & video-surveillance equipment (Huawei, ZTE, Hytera, Hikvision, Dahua).' },
-  { instrument: 'FASCSA', citation: '41 U.S.C. §1323 / FAR 52.204-30', effectiveDate: 'In force (order-by-order)', scope: 'FASC exclusion/removal orders against covered articles/sources; DoD & DHS orders; flows to subcontracts.' },
-  { instrument: 'Buy American Act', citation: '41 U.S.C. §§8301-8305 / FAR Part 25', effectiveDate: 'In force', scope: 'Preference for U.S.-manufactured end products; waivers & trade-agreement exceptions.' },
-  { instrument: 'Trade Agreements Act', citation: '19 U.S.C. §2501 et seq.', effectiveDate: 'In force', scope: 'Restricts covered procurement to U.S./designated-country end products.' },
-  { instrument: 'Berry Amendment', citation: '10 U.S.C. §4862', effectiveDate: 'In force', scope: 'DoD must procure specified items (food, clothing, fabrics, specialty metals, tools) from domestic sources.' },
-  { instrument: 'NDAA Section 5949', citation: 'FY23 NDAA', effectiveDate: 'Effective 2027-12-23 (proposed rule 2026-02-17)', scope: 'Prohibits SMIC/CXMT/YMTC semiconductors in critical systems (NSS).' },
-  { instrument: 'NDAA Section 848 / 817 (drones)', citation: 'FY20 NDAA / amending statute (VERIFY FY)', effectiveDate: '2019-12-20 / DJI ban 2024-10-01', scope: 'Covered-foreign-country UAS + covered components (flight controllers, radios, cameras, gimbals); adds Russia/Iran/NK; DJI-specific ban.' },
-  { instrument: 'American Security Drone Act', citation: 'FY24 NDAA / Pub. L. 118-31', effectiveDate: 'Enacted 2023-12-22; operation ban 2025-12-22', scope: 'Gov-wide ban on procuring/operating UAS from covered foreign entities; federal-funds ban for contractors/grantees.' },
-  { instrument: 'ITAR / EAR', citation: '22 CFR 120-130 / 15 CFR 730-774', effectiveDate: 'In force', scope: 'Export controls on defense articles (USML) and dual-use items; relevant to undersea sensor / autonomous-platform work.' },
-];
+export const SUPPLY_CHAIN_INSTRUMENTS = RAW.instruments.map((i) => ({
+  instrument: i.name,
+  citation: i.statute ?? i.far_clause ?? i.citation ?? '',
+  effectiveDate: i.effective_date,
+  scope: i.scope,
+  href: i.citation,
+}));
+
+export const PROHIBITED_VENDORS = RAW.prohibited_vendors_summary;
+export const BOM_ADVICE = RAW.bom_check_advice_for_mycosoft;
+export const SUPPLY_CHAIN_GAPS = RAW.known_gaps;

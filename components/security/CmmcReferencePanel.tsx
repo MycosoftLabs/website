@@ -54,11 +54,8 @@ export default function CmmcReferencePanel() {
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100 flex gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
               <span>
-                <strong>SPRS scoring is locked.</strong> The doc&rsquo;s per-control table weights ({SPRS_MATH.parsedTableDistribution})
-                do not match the methodology cross-check ({SPRS_MATH.methodologyDistribution}). The app does not compute a
-                SPRS score from weights until Perplexity&rsquo;s corrected weight table lands. Start {SPRS_MATH.startingScore};
-                conditional threshold {SPRS_MATH.conditionalThreshold}; min {SPRS_MATH.minScore}. The scoring engine is built
-                and gated — it activates automatically the moment verified weights are in place.
+                <strong>SPRS scoring is locked</strong> pending weight reconciliation. Distribution {SPRS_MATH.distribution}.
+                Start {SPRS_MATH.startingScore}; conditional threshold {SPRS_MATH.conditionalThreshold}; min {SPRS_MATH.minScore}.
               </span>
             </div>
           )}

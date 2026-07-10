@@ -68,7 +68,7 @@ export function checkBomLine(line: BomLine): BomFinding {
       severity: 'prohibited',
       reason: `Matches prohibited source "${hit.name}" (${hit.category}). ${hit.note}`,
       matchedEntity: hit.name,
-      authority: hit.authority,
+      authority: hit.authorities.join('; '),
     };
   }
   // 2) Origin-sensitive: covered component category + covered foreign country.
@@ -117,16 +117,19 @@ export const MYCOSOFT_DEVICE_BOMS: DeviceBom[] = [
   {
     deviceId: 'psathyrella-buoy',
     deviceName: 'Psathyrella Autonomous Marine Buoy (TAC-O)',
-    description: 'Navy Underwater Warfare Center TAC-O Phase 2 platform.',
+    description: 'Navy Underwater Warfare Center TAC-O Phase 2 platform. Documented BOM (psathyrella_buoy_unit1_bom.md).',
     population: 'partial',
-    note: 'Known sensor/compute payload only. Enter the full production BOM (fasteners, PCBs, connectors, battery, thrusters) before relying on this for a contract determination.',
+    note: 'From the documented buoy BOM: predominantly U.S.-origin compute + sensors, no §889/§1260H-listed vendor identified. Residual: verify the Sony block-camera OEM sensor module (low-cost security cams sometimes embed Hikvision/Dahua modules), the LoRa SX1276 country of manufacture, and fab-level origin of compute/sensor ICs before a §5949 pre-readiness claim.',
     lines: [
-      { component: 'Edge compute / AI SoC', vendor: 'NVIDIA', country: 'USA/Taiwan', partNumber: 'Jetson Orin Nano' },
-      { component: '30X zoom camera', vendor: 'Sony', country: 'Japan' },
-      { component: 'LiDAR sensor', vendor: 'Ouster', country: 'USA' },
-      { component: 'Radar module', vendor: 'TBD', country: 'TBD' },
-      { component: 'LoRa radio module', vendor: 'Semtech', country: 'USA/France' },
-      { component: 'Brushless thruster (x4)', vendor: 'TBD', country: 'TBD' },
+      { component: 'Edge compute / AI SoC', vendor: 'NVIDIA', country: 'USA', partNumber: 'Jetson Orin Nano' },
+      { component: 'Sensor breakouts / microcontrollers', vendor: 'Adafruit', country: 'USA' },
+      { component: 'GPS + sensor breakouts (u-blox via SparkFun)', vendor: 'SparkFun', country: 'USA' },
+      { component: 'Thrusters / marine actuators', vendor: 'Blue Robotics', country: 'USA' },
+      { component: 'Hydrophone', vendor: 'Aquarian Audio', country: 'USA' },
+      { component: 'Water-quality sensors', vendor: 'Atlas Scientific', country: 'USA' },
+      { component: 'GPS receiver', vendor: 'Garmin', country: 'USA' },
+      { component: '30X block camera', vendor: 'Sony', country: 'Japan (verify OEM sensor module origin)' },
+      { component: 'LoRa radio module', vendor: 'Semtech SX1276', country: 'verify country of manufacture' },
     ],
   },
   {
@@ -145,7 +148,7 @@ export const MYCOSOFT_DEVICE_BOMS: DeviceBom[] = [
     deviceName: 'Mushroom 1 quadruped',
     description: 'Autonomous quadruped platform.',
     population: 'none',
-    note: 'BOM not yet entered. Add components to run the prohibited-source screen.',
+    note: 'No BOM documented yet — this is a gap, not a clearance. Quadrupeds commonly integrate cameras/LiDAR/motor-controllers/radios with elevated §889/FCC/§1260H exposure (low-cost robotics cameras often use Hikvision/Dahua OEM modules). Note: Unitree — a China-based quadruped maker — is on the DoD §1260H list, a direct category risk signal. Enter a full BOM (manufacturer + country-of-origin + camera/motor-controller/LiDAR origin) to screen.',
     lines: [],
   },
   {
@@ -153,7 +156,7 @@ export const MYCOSOFT_DEVICE_BOMS: DeviceBom[] = [
     deviceName: 'Hyphae 1 sensor arrays',
     description: 'Distributed sensor array platform.',
     population: 'none',
-    note: 'BOM not yet entered. Add components to run the prohibited-source screen.',
+    note: 'No BOM documented yet — this is a gap, not a clearance. Dense semiconductor content = highest §5949 exposure (SMIC/CXMT/YMTC, eff. 2027-12-23) of the three platforms. Require fab-level traceability (not just board assembler/distributor) for every memory + logic IC, since covered parts are often re-badged through intermediaries.',
     lines: [],
   },
 ];

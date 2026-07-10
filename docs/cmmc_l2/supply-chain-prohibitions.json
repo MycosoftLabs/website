@@ -1,0 +1,396 @@
+{
+  "$schema_description": "Structured defense supply-chain and Made-in-America prohibition reference for Mycosoft compliance web app's supply-chain BOM check (Psathyrella buoy, Mushroom 1 quadruped, Hyphae sensor array).",
+  "generated_date": "2026-07-10",
+  "instruments": [
+    {
+      "id": "section_889_part_a",
+      "name": "Section 889, Part A \u2014 Procurement Ban on Covered Telecom/Video Surveillance Equipment",
+      "statute": "Section 889(a)(1)(A), John S. McCain National Defense Authorization Act for Fiscal Year 2019 (Pub. L. 115-232, H.R. 5515)",
+      "statute_url": "https://www.congress.gov/bill/115th-congress/house-bill/5515",
+      "far_clause": "FAR 52.204-25 (Nov 2021)",
+      "far_clause_url": "https://www.acquisition.gov/far/52.204-25",
+      "effective_date": "2019-08-13",
+      "scope": "Prohibits federal agencies (and their contractors, as a flow-down) from procuring, obtaining, or extending/renewing a contract to procure or obtain, any equipment, system, or service that uses covered telecommunications equipment or services as a substantial or essential component of any system, or as critical technology of any system.",
+      "named_covered_entities": [
+        {
+          "name": "Huawei Technologies Company",
+          "category": "telecommunications equipment",
+          "bis_entity_list_status": "Listed (added May 2019, expanded 2020-2021)",
+          "bis_entity_list_url": "https://china.usembassy-china.org.cn/department-of-commerce-announces-the-addition-of-huawei-to-the-entity-list/",
+          "verified": true
+        },
+        {
+          "name": "ZTE Corporation",
+          "category": "telecommunications equipment",
+          "bis_entity_list_status": "Not on current BIS Entity List (subject to separate historical export-control settlement/denial order); prohibition under Section 889 derives from the statute naming ZTE directly, independent of BIS Entity List status",
+          "verified": true
+        }
+      ],
+      "verified": true,
+      "citation": "https://www.acquisition.gov/far/52.204-25"
+    },
+    {
+      "id": "section_889_part_b",
+      "name": "Section 889, Part B \u2014 Contracting Ban on Entities That Use Covered Equipment",
+      "statute": "Section 889(a)(1)(B), Pub. L. 115-232",
+      "statute_url": "https://www.congress.gov/bill/115th-congress/house-bill/5515",
+      "far_clause": "FAR 52.204-25 (Nov 2021)",
+      "far_clause_url": "https://www.acquisition.gov/far/52.204-25",
+      "effective_date": "2020-08-13",
+      "scope": "Prohibits federal agencies from entering into, extending, or renewing a contract with any entity that uses covered telecommunications equipment or services as a substantial or essential component of any system, or as critical technology as part of any system, regardless of whether that use is in performance of any federal contract.",
+      "named_covered_entities": [
+        {
+          "name": "Hytera Communications Corporation",
+          "category": "video surveillance/telecom for public safety, government facility physical security, critical infrastructure surveillance, national security purposes",
+          "bis_entity_list_status": "Not on BIS Entity List; Section 889 names it directly by statute",
+          "verified": true
+        },
+        {
+          "name": "Hangzhou Hikvision Digital Technology Company",
+          "category": "video surveillance for the purposes listed above",
+          "bis_entity_list_status": "Not on BIS Entity List; Section 889 names it directly by statute; also present on DoD Section 1260H Chinese Military Companies list and FCC Covered List",
+          "verified": true
+        },
+        {
+          "name": "Dahua Technology Company",
+          "category": "video surveillance for the purposes listed above",
+          "bis_entity_list_status": "Not on BIS Entity List; Section 889 names it directly by statute; also present on DoD Section 1260H Chinese Military Companies list and FCC Covered List",
+          "verified": true
+        }
+      ],
+      "catch_all_clause": "Any subsidiary or affiliate of the above entities, and any entity that DoD, DNI, or FBI reasonably believes to be an entity owned or controlled by, or otherwise connected to, the government of a covered foreign country (defined in this clause as the People's Republic of China).",
+      "verified": true,
+      "citation": "https://www.acquisition.gov/far/52.204-25"
+    },
+    {
+      "id": "fascsa",
+      "name": "Federal Acquisition Supply Chain Security Act (FASCSA)",
+      "statute": "41 U.S.C. \u00a7 1323 (FASC establishment and exclusion/removal order authority)",
+      "statute_url": "https://www.law.cornell.edu/uscode/text/41/1323",
+      "far_clause": "FAR 52.204-30 (Dec 2023)",
+      "far_clause_url": "https://www.acquisition.gov/far/52.204-30",
+      "effective_date": "In force; order-by-order implementation ongoing",
+      "scope": "Establishes the Federal Acquisition Security Council (FASC), which can recommend removal/exclusion orders against a 'covered article' (IT including cloud computing, telecom equipment/services, CUI-related information processing per 32 CFR Part 2002, or embedded/incidental IT) or a 'source.' DoD FASCSA orders apply to DoD contracts; DHS FASCSA orders apply to all other agencies; DNI orders apply to intelligence community/SCI systems. Contractors must check SAM.gov for applicable exclusion orders and must not provide/use a prohibited covered article or source.",
+      "contractor_obligation": "Contractor must review SAM.gov (https://www.sam.gov) for FASCSA orders applicable to its contract on a recurring (quarterly recommended) basis; flows down to all subcontracts at any tier.",
+      "cisa_guidance_note": "CISA's public FASCSA/ICT supply-chain guidance page could not be retrieved directly during this research pass (blocked by site access controls); the FAR clause text (52.204-30) and the FASC's own site (https://www.cisa.gov/supply-chain) remain the authoritative implementation references pending a successful fetch.",
+      "verified": true,
+      "citation": "https://www.acquisition.gov/far/52.204-30"
+    },
+    {
+      "id": "ndaa_section_5949",
+      "name": "NDAA Section 5949 \u2014 Prohibition on Semiconductors from SMIC, CXMT, YMTC",
+      "statute": "Section 5949, James M. Inhofe National Defense Authorization Act for Fiscal Year 2023 (Pub. L. 117-263), codified at 41 U.S.C. 4713 note",
+      "statute_url": "https://www.congress.gov/bill/117th-congress/house-bill/7776",
+      "far_clause": "FAR Council Proposed Rule (new FAR 52.240-YY), published in the Federal Register February 17, 2026; comment period closed April 20, 2026; not yet final as of this research date",
+      "far_clause_url": "https://www.govinfo.gov/content/pkg/FR-2026-02-17/pdf/2026-03065.pdf",
+      "effective_date": "2027-12-23",
+      "scope": "Prohibits federal agencies from procuring, obtaining, or contracting (or extending/renewing a contract) for products/services that include electronic parts or semiconductor products/services designed, produced, or provided by named entities, for use in 'critical systems' (national security systems). No retroactive removal is required for equipment lawfully in use before the effective date. Commercial products with no commercially available alternative are excepted through December 23, 2028.",
+      "named_covered_entities": [
+        {
+          "name": "Semiconductor Manufacturing International Corporation (SMIC)",
+          "bis_entity_list_status": "Listed on BIS Entity List since December 2020",
+          "far_disclosure_designation_status": "Designated as a 'semiconductor covered entity' for FAR 52.240-YY(g) disclosure purposes in the Feb 2026 proposed rule",
+          "verified": true
+        },
+        {
+          "name": "ChangXin Memory Technologies, Inc. (CXMT)",
+          "bis_entity_list_status": "NOT on the BIS Entity List (Commerce/EAR); added to DoD's Section 1260H 'Chinese Military Companies' list per the June 8, 2026 update",
+          "far_disclosure_designation_status": "PENDING \u2014 per Semiconductor Industry Association's comment letter, the proposed rule's statutory cross-reference (Section 5949(j)(2) vs (j)(3)) does not currently designate CXMT as a disclosure-triggering 'semiconductor covered entity'; final rule outcome unresolved as of this research date",
+          "verified": false,
+          "citation": "PENDING"
+        },
+        {
+          "name": "Yangtze Memory Technologies Co., Ltd. (YMTC)",
+          "bis_entity_list_status": "NOT on the BIS Entity List (Commerce/EAR); added to DoD's Section 1260H 'Chinese Military Companies' list per the June 8, 2026 update",
+          "far_disclosure_designation_status": "PENDING \u2014 same statutory cross-reference gap as CXMT; final rule outcome unresolved as of this research date",
+          "verified": false,
+          "citation": "PENDING"
+        }
+      ],
+      "catch_all_clause": "Subsidiaries, affiliates, and successors of the three named entities; the broader statutory concept of 'semiconductor foreign country of concern' includes the People's Republic of China, North Korea, Russia, and Iran.",
+      "notes": "Section 805 of a subsequent NDAA separately prohibits DoD from contracting directly with companies on the Section 1260H list starting June 30, 2026, and from buying their products/services via third parties beginning in 2027 \u2014 this is a DISTINCT prohibition from Section 5949 and applies more broadly than the three named semiconductor makers.",
+      "verified": true,
+      "citation": "https://www.congress.gov/bill/117th-congress/house-bill/7776"
+    },
+    {
+      "id": "dod_section_1260h_and_section_805",
+      "name": "DoD Section 1260H Chinese Military Companies List + Section 805 Procurement Ban",
+      "statute": "Section 1260H, William M. (Mac) Thornberry NDAA for FY2021 (Pub. L. 116-283) \u2014 list requirement; Section 805 procurement prohibition per subsequent NDAA",
+      "statute_url": "https://media.defense.gov/2025/Jan/07/2003625471/-1/-1/1/ENTITIES-IDENTIFIED-AS-CHINESE-MILITARY-COMPANIES-OPERATING-IN-THE-UNITED-STATES.PDF",
+      "effective_date": "List updated at least annually; DoD direct-contracting prohibition effective 2026-06-30; third-party/subcontract prohibition effective 2027",
+      "scope": "DoD must publish and annually update a list of entities operating in the U.S. that qualify as 'Chinese military companies.' A separate procurement prohibition (Section 805) bars DoD from contracting directly with listed companies starting June 30, 2026, and from buying their products/services via third parties beginning in 2027.",
+      "named_covered_entities_examples": [
+        "Alibaba",
+        "Baidu",
+        "BYD",
+        "CXMT",
+        "YMTC",
+        "Unitree",
+        "WuXi AppTec",
+        "RoboSense",
+        "Hangzhou Hikvision Digital Technology (Dahua also historically listed)",
+        "Zhongji Innolight"
+      ],
+      "list_size_as_of_2026_06_08": 188,
+      "notes": "This is a distinct legal mechanism from BIS Entity List (Commerce/EAR) and from Section 889 (FAR telecom/video prohibition) \u2014 a company can appear on one, multiple, or none of these lists. The June 8, 2026 update mirrors a previously-withdrawn February 2026 list with CXMT and YMTC added back in.",
+      "verified": true,
+      "citation": "https://www.reuters.com/world/asia-pacific/pentagon-lists-entities-designated-chinese-military-company-2026-06-08/"
+    },
+    {
+      "id": "ndaa_section_848",
+      "name": "NDAA Section 848 \u2014 Original DoD Drone Procurement/Operation Ban (PRC)",
+      "statute": "Section 848, National Defense Authorization Act for Fiscal Year 2020 (Pub. L. 116-92)",
+      "statute_url": "https://www.congress.gov/bill/116th-congress/senate-bill/1790",
+      "effective_date": "2019-12-20 (enactment)",
+      "scope": "Prohibits DoD from operating or procuring unmanned aircraft systems (UAS) manufactured in a 'covered foreign country' (originally defined as the People's Republic of China), or UAS using flight controllers, radios, data-transmission devices, cameras, or gimbals made in or by an entity domiciled in a covered foreign country.",
+      "verified": true,
+      "citation": "https://www.congress.gov/bill/116th-congress/senate-bill/1790"
+    },
+    {
+      "id": "ndaa_section_817",
+      "name": "NDAA Section 817 \u2014 Expanded Drone Ban + DJI-Specific Prohibition",
+      "statute": "Section 817, National Defense Authorization Act for Fiscal Year 2023 (Pub. L. 117-263) \u2014 amends Section 848",
+      "statute_url": "https://www.congress.gov/bill/117th-congress/house-bill/7776",
+      "class_deviation": "OSD Class Deviation 2024-O0014 (dated August 28, 2024), rescinding/superseding Class Deviation 2020-O0015",
+      "class_deviation_url": "https://www.acq.osd.mil/dpap/policy/policyvault/USA001878-24-DPCAP.pdf",
+      "effective_date": "2024-10-01 (DJI-specific contractor prohibition)",
+      "scope": "Expands the 'covered foreign country' list beyond the PRC to include Russia, Iran, and North Korea. Separately prohibits DoD from entering into or renewing a contract, on or after October 1, 2024, with any entity that operates a 'covered unmanned aircraft system' \u2014 defined as UAS manufactured or assembled by Da-Jiang Innovations (DJI) or its affiliates, or by any entity on the Consolidated Screening List, or by an entity domiciled in or subject to control by a covered foreign country.",
+      "named_covered_entities": [
+        {
+          "name": "Da-Jiang Innovations (DJI, a.k.a. SZ DJI Technology Co.)",
+          "bis_entity_list_status": "Listed on BIS Entity List since December 2020",
+          "verified": true
+        }
+      ],
+      "critical_components_definition": "Flight controller, radios, data-transmission devices, cameras, gimbals, ground control system/software, network connectivity hardware/software, data storage \u2014 consistently defined across Section 848, Section 817, and the class deviation text.",
+      "exemptions": "Counter-UAS testing/training and intelligence/electronic-warfare/information-warfare operations; SecDef waiver authority available.",
+      "verified": true,
+      "citation": "https://www.acq.osd.mil/dpap/policy/policyvault/USA001878-24-DPCAP.pdf"
+    },
+    {
+      "id": "american_security_drone_act",
+      "name": "American Security Drone Act of 2023 (ASDA)",
+      "statute": "Sections 1821-1832, FY2024 NDAA (Pub. L. 118-31), 41 U.S.C. 3901 note",
+      "statute_url": "https://www.congress.gov/bill/118th-congress/house-bill/2670",
+      "far_clause": "FAR 52.240-1, Prohibition on Unmanned Aircraft Systems Manufactured or Assembled by American Security Drone Act-Covered Foreign Entities (Nov 2024)",
+      "far_clause_url": "https://www.acquisition.gov/far/52.240-1",
+      "effective_date": "Procurement ban effective on enactment (2023-12-22); operation ban and contractor/grantee federal-funds ban effective 2025-12-22",
+      "scope": "Government-wide (not limited to DoD) ban on procuring or operating UAS manufactured/assembled by an 'American Security Drone Act-covered foreign entity' \u2014 defined as an entity on a list developed and maintained by the Federal Acquisition Security Council (FASC) and published in SAM.gov. Contractor is prohibited from (1) delivering any FASC-prohibited UAS, and (2) on or after December 22, 2025, operating a FASC-prohibited UAS in performance of the contract.",
+      "covered_entity_list_mechanism": "FASC-maintained list published at https://www.sam.gov (not a fixed statutory name list; contractors must check SAM.gov directly for current entries).",
+      "verified": true,
+      "citation": "https://www.acquisition.gov/far/52.240-1"
+    },
+    {
+      "id": "fcc_covered_list_drones",
+      "name": "FCC Covered List \u2014 Drone/UAS Critical Component Restrictions",
+      "statute": "Section 1709, FY2025 NDAA \u2014 adds DJI/Autel and foreign-made UAS critical components to the FCC Covered List",
+      "effective_date": "2025-12-22 to 2025-12-23",
+      "scope": "Blocks new FCC equipment authorizations for DJI, Autel, and 'foreign-made UAS critical components' placed on the FCC's Covered List of communications equipment/services posing an unacceptable risk to U.S. national security.",
+      "exemptions": "Blue UAS Cleared List products and Buy-American-compliant items exempted through a grace period extending to January 1, 2027.",
+      "expansion_2026": "FCC action reported June 28, 2026 expands the Chinese-tech import ban to also cover legacy Huawei, ZTE, Hytera, Hikvision, and Dahua equipment effective July 2026, citing risk to U.S. communications infrastructure.",
+      "verified": true,
+      "citation": "https://www.wiley.law/alert-FCC-Issues-Exemptions-Clarifications-for-Sweeping-Prohibition-of-Foreign-Made-Drones",
+      "citation_2026_expansion": "https://techstory.in/fcc-expands-chinese-tech-import-ban-to-cover-legacy-huawei-zte-and-hikvision-equipment-from-july-2026/"
+    },
+    {
+      "id": "itar",
+      "name": "International Traffic in Arms Regulations (ITAR)",
+      "statute": "Arms Export Control Act (22 U.S.C. \u00a7 2751 et seq.); implementing regulations at 22 CFR Parts 120-130",
+      "statute_url": "https://www.law.cornell.edu/cfr/text/22/part-120",
+      "effective_date": "In force",
+      "scope": "Controls the export, temporary import, and brokering of defense articles and defense services on the United States Munitions List (USML). Administered by the U.S. Department of State's Directorate of Defense Trade Controls (DDTC). Directly relevant to Mycosoft's undersea sensor and autonomous-platform work if any component, technical data, or software qualifies as a 'defense article' or 'defense service' under a USML category.",
+      "verified": true,
+      "citation": "https://www.law.cornell.edu/cfr/text/22/part-120"
+    },
+    {
+      "id": "ear",
+      "name": "Export Administration Regulations (EAR)",
+      "statute": "Export Control Reform Act of 2018 (50 U.S.C. \u00a7 4801 et seq.); implementing regulations at 15 CFR Parts 730-774",
+      "statute_url": "https://www.bis.gov/regulations/ear",
+      "effective_date": "In force",
+      "scope": "Controls the export of 'dual-use' items \u2014 commercial items with potential military applications \u2014 not covered by ITAR. Administered by the Commerce Department's Bureau of Industry and Security (BIS). Includes the BIS Entity List (Supplement No. 4 to 15 CFR Part 744), which imposes license requirements on exports/reexports/transfers to listed entities.",
+      "entity_list_url": "https://www.bis.gov/entity-list",
+      "verified": true,
+      "citation": "https://www.bis.gov/regulations/ear"
+    },
+    {
+      "id": "buy_american_act",
+      "name": "Buy American Act",
+      "statute": "41 U.S.C. \u00a7\u00a7 8301-8305; implementing regulations at FAR Part 25",
+      "statute_url": "https://www.law.cornell.edu/uscode/text/41/subtitle-I/chapter-83",
+      "effective_date": "In force; domestic-content thresholds periodically updated",
+      "scope": "Requires a price preference for U.S.-manufactured end products and construction materials in federal procurement, subject to a domestic-content percentage test, waivers, and exceptions for acquisitions covered by trade agreements.",
+      "verified": true,
+      "citation": "https://www.law.cornell.edu/uscode/text/41/subtitle-I/chapter-83"
+    },
+    {
+      "id": "trade_agreements_act",
+      "name": "Trade Agreements Act (TAA)",
+      "statute": "19 U.S.C. \u00a7 2501 et seq.",
+      "statute_url": "https://www.law.cornell.edu/uscode/text/19/chapter-13",
+      "effective_date": "In force",
+      "scope": "For covered acquisitions above certain dollar thresholds, restricts federal procurement to U.S.-made or 'designated country' end products, generally superseding Buy American Act thresholds for those covered acquisitions.",
+      "verified": true,
+      "citation": "https://www.law.cornell.edu/uscode/text/19/chapter-13"
+    },
+    {
+      "id": "berry_amendment",
+      "name": "Berry Amendment",
+      "statute": "10 U.S.C. \u00a7 4862",
+      "statute_url": "https://www.law.cornell.edu/uscode/text/10/4862",
+      "effective_date": "In force",
+      "scope": "Requires DoD to procure specified items \u2014 food, clothing and fabrics, and specialty metals \u2014 exclusively from domestic sources, subject to narrow statutory exceptions. Less directly applicable to Mycosoft's electronics/sensor hardware than to textile/metal inputs, but relevant if Mycosoft hardware incorporates DoD-procured specialty metals.",
+      "verified": true,
+      "citation": "https://www.law.cornell.edu/uscode/text/10/4862"
+    }
+  ],
+  "prohibited_vendors_summary": [
+    {
+      "vendor": "Huawei Technologies Co., Ltd.",
+      "prohibition_basis": [
+        "Section 889 Part A (named)",
+        "BIS Entity List"
+      ],
+      "category": "telecom equipment",
+      "verified": true
+    },
+    {
+      "vendor": "ZTE Corporation",
+      "prohibition_basis": [
+        "Section 889 Part A (named)"
+      ],
+      "category": "telecom equipment",
+      "verified": true
+    },
+    {
+      "vendor": "Hytera Communications Corporation",
+      "prohibition_basis": [
+        "Section 889 Part B (named)"
+      ],
+      "category": "video surveillance/telecom",
+      "verified": true
+    },
+    {
+      "vendor": "Hangzhou Hikvision Digital Technology Co.",
+      "prohibition_basis": [
+        "Section 889 Part B (named)",
+        "DoD Section 1260H list",
+        "FCC Covered List"
+      ],
+      "category": "video surveillance / cameras",
+      "verified": true
+    },
+    {
+      "vendor": "Zhejiang Dahua Technology Co.",
+      "prohibition_basis": [
+        "Section 889 Part B (named)",
+        "DoD Section 1260H list",
+        "FCC Covered List"
+      ],
+      "category": "video surveillance / cameras",
+      "verified": true
+    },
+    {
+      "vendor": "Semiconductor Manufacturing International Corporation (SMIC)",
+      "prohibition_basis": [
+        "NDAA Section 5949 (named, effective 2027-12-23)",
+        "BIS Entity List"
+      ],
+      "category": "semiconductor foundry",
+      "verified": true
+    },
+    {
+      "vendor": "ChangXin Memory Technologies (CXMT)",
+      "prohibition_basis": [
+        "NDAA Section 5949 (named, effective 2027-12-23)",
+        "DoD Section 1260H list"
+      ],
+      "category": "DRAM memory",
+      "bis_entity_list_status": "not currently on BIS Entity List",
+      "verified": true
+    },
+    {
+      "vendor": "Yangtze Memory Technologies Co. (YMTC)",
+      "prohibition_basis": [
+        "NDAA Section 5949 (named, effective 2027-12-23)",
+        "DoD Section 1260H list"
+      ],
+      "category": "NAND flash memory",
+      "bis_entity_list_status": "not currently on BIS Entity List",
+      "verified": true
+    },
+    {
+      "vendor": "Da-Jiang Innovations (DJI)",
+      "prohibition_basis": [
+        "NDAA Section 817 (named, effective 2024-10-01)",
+        "American Security Drone Act",
+        "FCC Covered List",
+        "BIS Entity List"
+      ],
+      "category": "unmanned aircraft systems / drones",
+      "verified": true
+    },
+    {
+      "vendor": "Autel Robotics",
+      "prohibition_basis": [
+        "FCC Covered List (drone components)"
+      ],
+      "category": "unmanned aircraft systems / drones",
+      "verified": true
+    }
+  ],
+  "bom_check_advice_for_mycosoft": [
+    {
+      "platform": "Psathyrella buoy",
+      "advice": "Documented BOM (per internal build records) uses U.S.-origin compute (NVIDIA Jetson Orin Nano), U.S. sensor vendors (Adafruit, SparkFun, Blue Robotics, Aquarian Audio, Atlas Scientific, u-blox/via SparkFun, Garmin) and no identified Section 889/1260H-listed camera or telecom vendors. Primary residual risk vectors to verify: (1) the Sony 30x block camera's country of origin and any embedded Hikvision/Dahua OEM sensor modules common in low-cost security cameras; (2) LoRa SX1276 module country of manufacture; (3) any COTS marine electronics (e.g., depth/sonar units) that could integrate foreign-made subcomponents. None of the currently documented BOM items are semiconductor products from SMIC/CXMT/YMTC, but the buoy's compute and sensor ICs should be traced to fab-level origin before a Section 5949 pre-readiness claim is made, given the 2027-12-23 effective date.",
+      "recommended_bom_fields": [
+        "component_manufacturer",
+        "country_of_origin",
+        "semiconductor_fab_origin_if_applicable",
+        "camera_module_oem_source",
+        "radio_module_oem_source"
+      ],
+      "source_bom_reference": "/home/user/workspace/mycosoft_contracting_ops/psathyrella_buoy_unit1_bom.md (internal build record, not a primary regulatory source)"
+    },
+    {
+      "platform": "Mushroom 1 quadruped",
+      "advice": "No dedicated BOM was located in the current workspace for this platform as of this research pass \u2014 this is a documented gap, not a cleared assessment. Quadruped robotics platforms commonly integrate cameras, LiDAR, motor controllers, and radios that carry elevated Section 889/FCC Covered List/DoD 1260H exposure (e.g., Hikvision/Dahua-sourced camera modules are common OEM inputs in low-cost robotics cameras; Unitree \u2014 a China-based quadruped manufacturer \u2014 appears on the DoD Section 1260H list, which is a direct competitive/supply-chain risk signal for this hardware category specifically). A full BOM trace with manufacturer and country-of-origin fields is a prerequisite for any Section 889/1260H/FASCSA compliance claim on this platform.",
+      "recommended_bom_fields": [
+        "component_manufacturer",
+        "country_of_origin",
+        "camera_module_oem_source",
+        "motor_controller_origin",
+        "lidar_origin"
+      ],
+      "source_bom_reference": "PENDING \u2014 no internal BOM file located"
+    },
+    {
+      "platform": "Hyphae sensor array",
+      "advice": "Sensor arrays with dense semiconductor content carry the highest direct exposure to NDAA Section 5949 (SMIC/CXMT/YMTC semiconductor prohibition, effective 2027-12-23) of the three platforms, given memory and analog/mixed-signal ICs are common inputs. No dedicated BOM was located in the current workspace for this platform as of this research pass. Recommend fab-level traceability (not just board assembler or distributor) for every memory and logic IC used, since SMIC/CXMT/YMTC parts are frequently re-badged or sold through intermediary distributors without clear fab-origin labeling.",
+      "recommended_bom_fields": [
+        "component_manufacturer",
+        "semiconductor_fab_origin",
+        "distributor_chain_of_custody",
+        "country_of_origin"
+      ],
+      "source_bom_reference": "PENDING \u2014 no internal BOM file located"
+    }
+  ],
+  "known_gaps": [
+    {
+      "gap": "CISA's public FASCSA guidance page returned an access-control error during this research pass and could not be fetched directly; only the FAR 52.204-30 clause text and secondary summaries were used.",
+      "verified": false,
+      "citation": "PENDING"
+    },
+    {
+      "gap": "FAR Council's final rule implementing NDAA Section 5949 (FAR 52.240-YY) had not been published as final as of this research date (comment period closed 2026-04-20); the CXMT/YMTC disclosure-designation question specifically remains open pending the final rule.",
+      "verified": false,
+      "citation": "PENDING"
+    },
+    {
+      "gap": "No internal BOM documentation exists yet for the Mushroom 1 quadruped or Hyphae sensor array platforms; BOM check advice for those two platforms is necessarily generic pending real component data.",
+      "verified": false,
+      "citation": "PENDING"
+    }
+  ]
+}
