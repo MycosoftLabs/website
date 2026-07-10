@@ -120,6 +120,34 @@ export const VERIFICATION_FLAGS: VerificationFlag[] = [
     severity: 'low',
     reconcileAgainst: '32 CFR §170.21(a)(3)',
   },
+  {
+    id: 'ndaa-817-fy',
+    topic: 'NDAA §817 fiscal year attribution',
+    detail: 'The DJI ban 2024-10-01 effective date is confirmed, but the enacting NDAA fiscal year / Public Law is unclear across secondaries.',
+    severity: 'low',
+    reconcileAgainst: 'Enacted Public Law text',
+  },
+  {
+    id: '48cfr-taco',
+    topic: '48 CFR rule vs. TAC-O Phase 2 clause matrix',
+    detail: 'The general CMMC phase schedule need not match individual contract clauses. Check N66604-26-9-A00X\'s clause matrix.',
+    severity: 'medium',
+    reconcileAgainst: 'TAC-O Phase 2 (N66604-26-9-A00X) contract clause matrix',
+  },
+  {
+    id: 'fedramp-equiv',
+    topic: 'FedRAMP Moderate Equivalent vs. formal ATO',
+    detail: 'Distinct standards. Confirm DFARS 252.204-7012(b)(2)(ii)(D) exact "equivalent" language before treating as interchangeable.',
+    severity: 'medium',
+    reconcileAgainst: 'DFARS 252.204-7012(b)(2)(ii)(D)',
+  },
+  {
+    id: 'section-5949-date',
+    topic: 'Section 5949 semiconductor effective date',
+    detail: 'Prohibition effective 2027-12-23; FAR proposed rule 2026-02-17. Confirm before hard-coding into the BOM screen.',
+    severity: 'low',
+    reconcileAgainst: 'FY23 NDAA §5949 + FAR final rule',
+  },
 ];
 
 /** True if a control is on the (unverified) POA&M-excluded list. */

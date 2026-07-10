@@ -22,6 +22,9 @@ import {
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
 import { CMMC_SPRINT_META } from '@/lib/security/posture/sprint-meta';
 import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
+import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
+import SupplyChainPanel from '@/components/security/SupplyChainPanel';
+import { BookOpen, Ban } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -499,7 +502,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -887,6 +890,8 @@ export default function CompliancePage() {
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
+          { id: 'reference', label: 'Reference (L2/L3)', icon: BookOpen, tourId: 'reference-tab' },
+          { id: 'supply-chain', label: 'Supply Chain', icon: Ban, tourId: 'supply-chain-tab' },
           { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
@@ -1428,6 +1433,20 @@ export default function CompliancePage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Reference (L2/L3 + statutory + CUI) Tab */}
+      {activeTab === 'reference' && (
+        <div data-tour="reference-section">
+          <CmmcReferencePanel />
+        </div>
+      )}
+
+      {/* Supply Chain Tab */}
+      {activeTab === 'supply-chain' && (
+        <div data-tour="supply-chain-section">
+          <SupplyChainPanel />
         </div>
       )}
 
