@@ -1611,9 +1611,19 @@ export async function getComplianceControls(options?: {
   const fromMas = await fetchComplianceControlsFromMas();
   let controls: ComplianceControl[];
 
-  if (fromMas !== null) {
+  // Use MAS as the source of truth only when it actually returns rows. An empty
+  // array (MAS reachable but soc_ops.compliance_controls unseeded, or MAS down and
+  // proxied to an empty response) must NOT shadow the seeded baseline — otherwise
+  // every framework tile renders 0% / 0 controls. Fall back to the seeded defaults
+  // so the page always reflects a non-zero posture even when MAS is unavailable.
+  if (fromMas !== null && fromMas.length > 0) {
     controls = fromMas;
   } else {
+    if (fromMas !== null) {
+      console.warn(
+        '[SecurityDB] MAS /api/compliance/controls returned 0 rows; falling back to seeded baseline controls'
+      );
+    }
     ensureDefaultControls();
     controls = Array.from(complianceStore.values());
   }
