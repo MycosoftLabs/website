@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { AlertTriangle, BookOpen, Landmark, FileLock2, ShieldAlert, ExternalLink } from 'lucide-react';
-import { VERIFICATION_FLAGS, SPRS_MATH, POAM_RULES } from '@/lib/security/reference/cmmc-l2-reference';
+import { VERIFICATION_FLAGS, SPRS_MATH, POAM_RULES, WEIGHTS_VERIFIED } from '@/lib/security/reference/cmmc-l2-reference';
+import { computeSprs, determineCmmcStatus } from '@/lib/security/reference/sprs';
 import { CMMC_L3_REQUIREMENTS, CMMC_L3_META } from '@/lib/security/reference/cmmc-l3-requirements';
 import { STATUTORY_FRAMEWORK, STATUTORY_VERIFY_NOTE, CUI_CATEGORIES, CUI_HANDLING } from '@/lib/security/reference/statutory-framework';
 
@@ -49,15 +50,18 @@ export default function CmmcReferencePanel() {
 
       {sub === 'flags' && (
         <div className="space-y-4">
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100 flex gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
-            <span>
-              <strong>SPRS scoring is locked.</strong> The doc&rsquo;s per-control table weights ({SPRS_MATH.parsedTableDistribution})
-              do not match the methodology cross-check ({SPRS_MATH.methodologyDistribution}). The app does not compute a
-              SPRS score from weights until Perplexity&rsquo;s corrected weight table lands. Start {SPRS_MATH.startingScore};
-              conditional threshold {SPRS_MATH.conditionalThreshold}; min {SPRS_MATH.minScore}.
-            </span>
-          </div>
+          {WEIGHTS_VERIFIED ? <SprsCard /> : (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100 flex gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <span>
+                <strong>SPRS scoring is locked.</strong> The doc&rsquo;s per-control table weights ({SPRS_MATH.parsedTableDistribution})
+                do not match the methodology cross-check ({SPRS_MATH.methodologyDistribution}). The app does not compute a
+                SPRS score from weights until Perplexity&rsquo;s corrected weight table lands. Start {SPRS_MATH.startingScore};
+                conditional threshold {SPRS_MATH.conditionalThreshold}; min {SPRS_MATH.minScore}. The scoring engine is built
+                and gated — it activates automatically the moment verified weights are in place.
+              </span>
+            </div>
+          )}
           <div className="space-y-2">
             {VERIFICATION_FLAGS.map((f) => (
               <div key={f.id} className={`rounded-lg border p-3 ${sevColor[f.severity]}`}>
@@ -173,6 +177,47 @@ export default function CmmcReferencePanel() {
             </ul>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function SprsCard() {
+  const current = computeSprs('current');
+  const target = computeSprs('target');
+  const status = determineCmmcStatus(current);
+  const statusCls =
+    status.eligibility === 'final-eligible' ? 'text-emerald-300'
+      : status.eligibility === 'conditional-eligible' ? 'text-amber-300'
+      : 'text-red-300';
+  return (
+    <div className="rounded-lg border border-emerald-600/40 bg-emerald-900/10 p-4 space-y-3">
+      <div className="text-sm font-semibold text-emerald-200">SPRS score (computed — weights verified)</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="rounded border border-slate-700 bg-slate-800/40 p-3">
+          <div className="text-slate-500">Current</div>
+          <div className="text-2xl font-bold text-white">{current.score}</div>
+          <div className="text-slate-500">{current.met}/{current.maxScore} met</div>
+        </div>
+        <div className="rounded border border-slate-700 bg-slate-800/40 p-3">
+          <div className="text-slate-500">Projected (target)</div>
+          <div className="text-2xl font-bold text-emerald-300">{target.score >= 0 ? `+${target.score}` : target.score}</div>
+          <div className="text-slate-500">{target.met}/{target.maxScore} met</div>
+        </div>
+        <div className="rounded border border-slate-700 bg-slate-800/40 p-3">
+          <div className="text-slate-500">Conditional threshold</div>
+          <div className="text-2xl font-bold text-white">{current.conditionalThreshold}</div>
+          <div className="text-slate-500">{current.meetsConditionalThreshold ? 'met' : 'not met'}</div>
+        </div>
+        <div className="rounded border border-slate-700 bg-slate-800/40 p-3">
+          <div className="text-slate-500">Status (current)</div>
+          <div className={`text-sm font-semibold ${statusCls}`}>{status.eligibility.replace('-', ' ')}</div>
+          <div className="text-slate-500">{status.openPoamItems} POA&amp;M-eligible gaps</div>
+        </div>
+      </div>
+      <div className="text-xs text-slate-400">{status.reason}</div>
+      {status.blockingGaps.length > 0 && (
+        <div className="text-xs text-red-300">Must be met (not POA&amp;M-eligible): {status.blockingGaps.join(', ')}</div>
       )}
     </div>
   );
