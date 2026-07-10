@@ -9,6 +9,9 @@ import {
 import {
   getRemediationPlan, type RemediationPlan, type StepAction,
 } from '@/lib/security/remediation/remediation-library';
+import {
+  getControlReference, isPoamExcluded, WEIGHTS_VERIFIED, type PoamEligibility,
+} from '@/lib/security/reference/cmmc-l2-reference';
 
 // Minimal shape we need — matches the page's ComplianceControl.
 export interface WorkbookControl {
@@ -97,7 +100,20 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
     [control.id, control.family]
   );
   const snap = useMemo(() => parseSnapshot(control.notes), [control.notes]);
+  const ref = useMemo(() => getControlReference(control.id), [control.id]);
+  const poamExcluded = useMemo(() => isPoamExcluded(control.id), [control.id]);
   const storageKey = `mycosoft:remediation:v1:${control.id}`;
+
+  // Merge primary-source example tools with the remediation library's tools (dedup).
+  const mergedTools = useMemo(() => {
+    const seen = new Set<string>();
+    return [...(ref?.tools ?? []), ...plan.tools].filter((t) => {
+      const k = t.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [ref, plan.tools]);
 
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState(false);
@@ -157,6 +173,7 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
             On POA&amp;M
           </span>
         )}
+        {ref && <PoamBadge eligibility={ref.poamEligibility} excluded={poamExcluded} />}
         <span className="ml-auto text-xs text-slate-500 flex items-center gap-1">
           <ClipboardList className="w-3.5 h-3.5" /> Remediation workbook
         </span>
@@ -166,13 +183,27 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
         {showDesc && <p className="text-sm text-slate-300">{desc}</p>}
 
         {/* Metadata grid — refined */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           <Meta label="Priority" value={(control.priority || 'medium').toUpperCase()} tone={
             control.priority === 'high' ? 'red' : control.priority === 'medium' ? 'amber' : 'green'} />
+          {ref?.weightMax != null && (
+            <Meta
+              label="SPRS weight (max)"
+              value={`${ref.dual ? `${ref.weightRaw}` : `${ref.weightMax} pt${ref.weightMax === 1 ? '' : 's'}`}${WEIGHTS_VERIFIED ? '' : ' · unverified'}`}
+              tone={WEIGHTS_VERIFIED ? undefined : 'amber'}
+            />
+          )}
           <Meta label="Responsible" value={plan.responsibleRole} />
           <Meta label="Last assessed" value={fmtDate(control.lastAudit)} />
           <Meta label="Assessed by" value={prettyAssessor(control.lastAuditBy)} />
         </div>
+
+        {ref?.weightMax != null && !WEIGHTS_VERIFIED && (
+          <div className="text-[11px] text-amber-300/80 flex items-start gap-1.5 -mt-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>Weight shown for reference only. SPRS score is <strong>not</strong> computed from control weights pending reconciliation against the DoD Assessment Methodology v1.2.1 (corrected table expected ~2026-07-12).</span>
+          </div>
+        )}
 
         {/* Assessment methods */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -240,9 +271,16 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
               <span>{plan.whyItMatters}</span>
             </div>
 
+            {/* Primary-source guidance (cited doc) */}
+            {ref?.guidance && (
+              <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 text-xs text-slate-300">
+                <span className="text-slate-500">Primary-source guidance:</span> {ref.guidance}
+              </div>
+            )}
+
             {/* Tools + protocols + refs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              <Chips title="Tools / systems" items={plan.tools} tone="blue" />
+              <Chips title="Tools / systems" items={mergedTools} tone="blue" />
               <Chips title="Protocols" items={plan.protocols} tone="slate" />
               <Chips title="References" items={plan.references} tone="purple" />
             </div>
@@ -370,6 +408,23 @@ function Meta({ label, value, tone }: { label: string; value: string; tone?: 're
       <div className={`text-xs mt-0.5 ${toneCls}`}>{value}</div>
     </div>
   );
+}
+
+function PoamBadge({ eligibility, excluded }: { eligibility: PoamEligibility; excluded: boolean }) {
+  // Excluded / not-eligible are the ones that MUST be met before assessment.
+  if (eligibility === 'no-excluded' || excluded) {
+    return <span className="text-xs px-2 py-0.5 rounded border border-red-500/40 text-red-300 bg-red-500/10" title="Not POA&M-eligible — must be met before assessment (32 CFR §170.21)">POA&amp;M: excluded</span>;
+  }
+  if (eligibility === 'no') {
+    return <span className="text-xs px-2 py-0.5 rounded border border-red-500/40 text-red-300 bg-red-500/10" title="Weight &gt; 1 — not POA&M-eligible; must be met">POA&amp;M: not eligible</span>;
+  }
+  if (eligibility === 'carveout') {
+    return <span className="text-xs px-2 py-0.5 rounded border border-amber-500/40 text-amber-300 bg-amber-500/10" title="Narrow carve-out (SC.L2-3.13.11): POA&M-able only in the 3-pt not-FIPS-validated case">POA&amp;M: carve-out</span>;
+  }
+  if (eligibility === 'yes') {
+    return <span className="text-xs px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10" title="1-point control — POA&M-eligible under 32 CFR §170.21">POA&amp;M: eligible</span>;
+  }
+  return null;
 }
 
 function Chips({ title, items, tone }: { title: string; items: string[]; tone: 'blue' | 'slate' | 'purple' }) {
