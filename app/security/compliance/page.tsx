@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
 import { CMMC_SPRINT_META } from '@/lib/security/posture/sprint-meta';
+import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -1015,56 +1016,7 @@ export default function CompliancePage() {
                       </div>
                       
                       {isExpanded && (
-                        <div className="mt-4 ml-8 space-y-3">
-                          <p className="text-sm text-slate-400">{control.description}</p>
-                          
-                          <div className="flex flex-wrap gap-4 text-xs">
-                            <div>
-                              <span className="text-slate-500">Priority:</span>
-                              <span className={`ml-2 px-2 py-0.5 rounded ${
-                                control.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                                control.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-green-500/20 text-green-400'
-                              }`}>{control.priority}</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-500">Last Audit:</span>
-                              <span className="ml-2 text-slate-300">{control.lastAudit}</span>
-                            </div>
-                            {control.lastAuditBy && (
-                              <div>
-                                <span className="text-slate-500">By:</span>
-                                <span className="ml-2 text-slate-300">{control.lastAuditBy}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <span className="text-xs text-slate-500">Evidence:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {control.evidence.map((e, i) => (
-                                <span key={i} className="text-xs px-2 py-1 bg-slate-700 rounded">{e}</span>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {control.mappings && Object.keys(control.mappings).length > 0 && (
-                            <div>
-                              <span className="text-xs text-slate-500">Cross-Framework Mappings:</span>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {Object.entries(control.mappings).map(([fw, ids], idx) => (
-                                  <span key={fw || `mapping-${idx}`} className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
-                                    {fw}: {(ids as string[]).join(', ')}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {control.notes && (
-                            <p className="text-xs text-slate-500 italic">{control.notes}</p>
-                          )}
-                        </div>
+                        <ControlRemediationWorkbook control={control as unknown as WorkbookControl} />
                       )}
                     </div>
                   );
