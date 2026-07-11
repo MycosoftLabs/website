@@ -273,8 +273,39 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
 
             {/* Primary-source guidance (cited doc) */}
             {ref?.guidance && (
-              <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 text-xs text-slate-300">
-                <span className="text-slate-500">Primary-source guidance:</span> {ref.guidance}
+              <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 text-xs text-slate-300 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Implementation guidance</span>
+                  {ref.guidanceVerified && <span className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300">CMMC Assessment Guide v2.13 · verbatim</span>}
+                </div>
+                <div className="whitespace-pre-line leading-relaxed">{ref.guidance}</div>
+                {ref.guidanceSourceCitation && <div className="text-[10px] text-slate-600">{ref.guidanceSourceCitation}</div>}
+              </div>
+            )}
+
+            {/* Assessment objectives ([a]/[b]/[c]) — the C3PAO check-off list */}
+            {ref?.assessmentObjectives && ref.assessmentObjectives.length > 0 && (
+              <div className="rounded-lg bg-slate-800/40 border border-slate-700 p-3">
+                <div className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Assessment objectives (determination statements)</div>
+                <ul className="space-y-0.5">
+                  {ref.assessmentObjectives.map((o, i) => (
+                    <li key={i} className="text-xs text-slate-400">{o}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Potential assessment methods & objects */}
+            {ref?.exampleAssessmentObjects && (ref.exampleAssessmentObjects.Examine || ref.exampleAssessmentObjects.Interview || ref.exampleAssessmentObjects.Test) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                {(['Examine', 'Interview', 'Test'] as const).map((m) =>
+                  ref.exampleAssessmentObjects?.[m] ? (
+                    <div key={m} className="rounded-lg bg-slate-800/40 border border-slate-700 p-2">
+                      <div className="text-[11px] font-semibold text-purple-300 mb-1">{m}</div>
+                      <div className="text-[11px] text-slate-400">{ref.exampleAssessmentObjects[m]}</div>
+                    </div>
+                  ) : null
+                )}
               </div>
             )}
 

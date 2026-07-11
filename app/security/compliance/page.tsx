@@ -530,6 +530,38 @@ export default function CompliancePage() {
   const [masBundle, setMasBundle] = useState<MasComplianceBundle | null>(null);
   const [masRegenBusy, setMasRegenBusy] = useState<string | null>(null);
 
+  // MYCA Reports Agent
+  const [reportEngine, setReportEngine] = useState<{ configured: boolean; provider: string | null; model: string | null; note: string } | null>(null);
+  const [reportBusy, setReportBusy] = useState<string | null>(null);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/security/reports/generate')
+      .then((r) => r.json())
+      .then((d) => setReportEngine(d.llm))
+      .catch(() => setReportEngine(null));
+  }, []);
+
+  async function handleGenerateReport(reportType: string) {
+    setReportBusy(reportType);
+    setReportMsg(null);
+    try {
+      const res = await fetch('/api/security/reports/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportType }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.html) { setReportMsg(data.error || 'Report generation failed.'); return; }
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(data.html); w.document.close(); }
+      else setReportMsg('Popup blocked — allow popups to open the report.');
+      setReportMsg(`Generated via ${data.meta?.provider ? `${data.meta.provider} (${data.meta.model})` : 'real data (no LLM configured)'} — SPRS current ${data.meta?.sprsCurrent}, target ${data.meta?.sprsTarget}.`);
+    } catch {
+      setReportMsg('Report generation failed.');
+    } finally {
+      setReportBusy(null);
+    }
+  }
+
   // Fetch compliance data
   useEffect(() => {
     const fetchData = async () => {
@@ -1103,6 +1135,46 @@ export default function CompliancePage() {
       {/* Reports Tab */}
       {activeTab === 'reports' && (
         <div className="space-y-6" data-tour="reports-section">
+          {/* MYCA Reports Agent — real, data-driven, government-standard documents */}
+          <div className="rounded-xl border border-purple-500/40 bg-gradient-to-br from-purple-900/20 to-slate-900/40 p-5">
+            <div className="flex items-center gap-3 mb-1">
+              <Sparkles className="w-6 h-6 text-purple-300" />
+              <h3 className="font-bold text-white">MYCA Reports Agent</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded border ${reportEngine?.configured ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+                {reportEngine ? (reportEngine.configured ? `LLM: ${reportEngine.provider} · ${reportEngine.model}` : 'data-only (no LLM key)') : 'checking…'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-3xl mb-3">
+              Generates real, documented, CUI-marked reports from live compliance data (SPRS score, control posture, POA&amp;M, supply-chain BAA) — formatted to government standard, printable to PDF. The reports agent authors the narrative with the configured model; without a key it still produces a complete data-driven document.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 'cmmc-l2', label: 'CMMC L2 Self-Assessment Report' },
+                { id: 'sprs', label: 'SPRS Score Report' },
+                { id: 'poam', label: 'POA&M' },
+                { id: 'supply-chain', label: 'Supply-Chain / Made-in-America' },
+              ].map((rt) => (
+                <button
+                  key={rt.id}
+                  type="button"
+                  onClick={() => handleGenerateReport(rt.id)}
+                  disabled={reportBusy !== null}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  {reportBusy === rt.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  {rt.label}
+                </button>
+              ))}
+            </div>
+            {reportMsg && <div className="text-xs text-slate-300 mt-2">{reportMsg}</div>}
+            {reportEngine && !reportEngine.configured && (
+              <div className="text-[11px] text-amber-300/80 mt-2 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {reportEngine.note}
+              </div>
+            )}
+          </div>
+
           {/* Row 1: Core Compliance Reports */}
           <div className="grid grid-cols-4 gap-4">
             {/* NIST 800-171 Reports */}

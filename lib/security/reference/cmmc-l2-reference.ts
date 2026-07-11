@@ -29,6 +29,12 @@ interface RawControl {
   poam_rule_note?: string;
   dual_value_min?: number;
   dual_value_rule?: string;
+  // Hydrated guidance fields (v2.13 backfill) — optional; render when present.
+  implementation_guidance?: string;
+  assessment_objectives?: string[];
+  example_assessment_objects?: { Examine?: string; Interview?: string; Test?: string };
+  guidance_source_citation?: string;
+  guidance_verified?: boolean;
 }
 
 interface ScoringRules {
@@ -70,7 +76,11 @@ export interface ControlReference {
   poamEligible: boolean;
   poamRuleNote?: string;
   poamEligibility: PoamEligibility; // derived for the badge
-  guidance: string; // doc-derived (authoritative file omits it)
+  guidance: string; // v2.13 verbatim when hydrated, else doc-derived
+  guidanceVerified: boolean; // true when from the CMMC Assessment Guide v2.13
+  guidanceSourceCitation?: string;
+  assessmentObjectives?: string[]; // [a]/[b]/[c] C3PAO determinations
+  exampleAssessmentObjects?: { Examine?: string; Interview?: string; Test?: string };
   tools: string[];
 }
 
@@ -107,7 +117,12 @@ export const CMMC_L2_CONTROLS: ControlReference[] = RAW.controls.map((c) => {
     poamEligible: c.poam_eligible,
     poamRuleNote: c.poam_rule_note,
     poamEligibility: poamEligibility(c),
-    guidance: g.guidance,
+    // Prefer the hydrated v2.13 guidance when present; else the doc-derived one.
+    guidance: (c.implementation_guidance && c.implementation_guidance.trim()) || g.guidance,
+    guidanceVerified: Boolean(c.guidance_verified),
+    guidanceSourceCitation: c.guidance_source_citation,
+    assessmentObjectives: c.assessment_objectives,
+    exampleAssessmentObjects: c.example_assessment_objects,
     tools: g.tools,
   };
 });
@@ -193,10 +208,10 @@ export const VERIFICATION_FLAGS: VerificationFlag[] = [
   },
   {
     id: 'l2-guidance-source',
-    topic: 'Per-control implementation guidance source',
-    detail: 'Authoritative weight file omits narrative guidance (Assessment Guide v2.13 not fetched). The workbook shows doc-derived guidance/tools — treat as helpful context, not verbatim assessment-guide text.',
+    topic: 'Hydrated v2.13 guidance JSON not yet delivered',
+    detail: 'The app now renders verbatim CMMC Assessment Guide v2.13 implementation_guidance + assessment_objectives + example_assessment_objects when present, but the hydrated cmmc-l2-controls.json (110/110 fields, per Perplexity 2026-07-10) has NOT landed in the repo yet — swap it into lib/security/reference/ to activate. Until then the workbook shows doc-derived guidance (helpful context, not verbatim).',
     severity: 'low',
-    reconcileAgainst: 'CMMC Assessment Guide – Level 2 v2.13 narrative text',
+    reconcileAgainst: 'Hydrated cmmc-l2-controls.json (Perplexity v2.13 backfill)',
   },
 ];
 
