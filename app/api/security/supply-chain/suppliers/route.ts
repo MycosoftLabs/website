@@ -118,8 +118,11 @@ async function writeLog(db: any, entry: { component_name: string; from_status: s
 
 export async function GET() {
   if (!configured()) {
+    const hasUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
     return NextResponse.json({ configured: false, suppliers: [], logs: [], summary: null,
-      guidance: 'Supabase is not configured in this environment. Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (production project) to connect MycoForge.' });
+      guidance: hasUrl
+        ? 'Connected to the Supabase project, but SUPABASE_SERVICE_ROLE_KEY is missing (needed for admin reads/writes). Locally: paste the service_role key into .env.local (Supabase dashboard → project → Settings → API → service_role) and restart the dev server. It is already set in production.'
+        : 'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (production project hnevnsxnhfibhbsipqvz).' });
   }
   const auth = await authorize();
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

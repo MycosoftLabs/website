@@ -229,16 +229,21 @@ export default function SupplyChainPanel() {
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Ban className="w-4 h-4 text-red-300" /> Prohibited-source rules</h3>
         <div className="overflow-x-auto rounded-lg border border-slate-700">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs table-fixed">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[14%]" />
+              <col className="w-[60%]" />
+            </colgroup>
             <thead className="bg-slate-800/60 text-slate-400">
               <tr><th className="text-left p-2">Instrument</th><th className="text-left p-2">Effective</th><th className="text-left p-2">Scope</th></tr>
             </thead>
             <tbody>
               {SUPPLY_CHAIN_INSTRUMENTS.map((s) => (
                 <tr key={s.instrument} className="border-t border-slate-800 align-top">
-                  <td className="p-2 text-slate-200 whitespace-nowrap">{s.instrument}<div className="text-[10px] text-slate-500">{s.citation}</div></td>
-                  <td className="p-2 text-slate-300 whitespace-nowrap">{s.effectiveDate}</td>
-                  <td className="p-2 text-slate-400">{s.scope}</td>
+                  <td className="p-2 text-slate-200 break-words">{s.instrument}<div className="text-[10px] text-slate-500 break-words">{s.citation}</div></td>
+                  <td className="p-2 text-slate-300 break-words">{s.effectiveDate}</td>
+                  <td className="p-2 text-slate-400 break-words">{s.scope}</td>
                 </tr>
               ))}
             </tbody>
@@ -273,41 +278,86 @@ export default function SupplyChainPanel() {
                     <div className="text-xs text-slate-500">{dev.description}</div>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    {r.baa?.asOrderedDomesticPct != null && (
+                      <span className={`px-1.5 py-0.5 rounded border ${r.baa.asOrderedDomesticPct >= r.baa.floorPct ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/40 text-red-300'}`}>
+                        {r.baa.asOrderedDomesticPct}% domestic
+                      </span>
+                    )}
+                    {r.swapNeeded.length > 0 && <span className="text-amber-300">{r.swapNeeded.length} swap</span>}
                     {r.counts.prohibited > 0 && <span className="text-red-300">{r.counts.prohibited} prohibited</span>}
-                    {r.counts.review > 0 && <span className="text-amber-300">{r.counts.review} review</span>}
                     {r.population !== 'none' && <span className="text-emerald-300/70">{r.counts.ok} ok</span>}
                   </div>
                   <span className={`text-[11px] px-2 py-0.5 rounded border ${meta.cls}`}>{meta.label}</span>
                 </button>
                 {isOpen && (
-                  <div className="px-3 pb-3 space-y-2">
+                  <div className="px-3 pb-3 space-y-3">
                     {dev.note && (
                       <div className="text-[11px] text-amber-300/80 flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{dev.note}</div>
                     )}
+
+                    {/* Buy American Act domestic-content summary */}
+                    {r.baa && (
+                      <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300 font-semibold">Buy American Act — domestic content</span>
+                          <span className="text-[10px] text-slate-500">FAR 25.101 · floor {r.baa.floorPct}% (75% from 2029)</span>
+                        </div>
+                        {r.baa.asOrderedDomesticPct != null && (
+                          <div className="relative h-3 rounded-full bg-slate-700 overflow-hidden">
+                            <div className={`h-full ${r.baa.asOrderedDomesticPct >= r.baa.floorPct ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${r.baa.asOrderedDomesticPct}%` }} />
+                            <div className="absolute top-0 bottom-0 border-l-2 border-amber-300/80" style={{ left: `${r.baa.floorPct}%` }} title={`${r.baa.floorPct}% floor`} />
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                          <div><div className="text-slate-500">As-ordered</div><div className={r.baa.asOrderedDomesticPct != null && r.baa.asOrderedDomesticPct < r.baa.floorPct ? 'text-red-300 font-semibold' : 'text-emerald-300'}>{r.baa.asOrderedDomesticPct ?? '—'}%</div></div>
+                          <div><div className="text-slate-500">Post-swap</div><div className="text-emerald-300">{r.baa.postSwapDomesticPct ?? '—'}%</div></div>
+                          <div><div className="text-slate-500">Items to swap</div><div className="text-amber-300">{r.swapNeeded.length}{r.baa.swapDeltaCost != null && <span className="text-slate-500"> · +${r.baa.swapDeltaCost}</span>}</div></div>
+                          <div><div className="text-slate-500">Specialty-metal (DFARS 7009)</div><div className={r.specialtyMetalRisks.length > 0 ? 'text-amber-300' : 'text-slate-400'}>{r.specialtyMetalRisks.length}</div></div>
+                        </div>
+                        {r.baa.source && <div className="text-[10px] text-slate-600">Source: {r.baa.source}</div>}
+                      </div>
+                    )}
+
                     {r.findings.length === 0 ? (
                       <div className="text-xs text-slate-500">No components entered. Add the production BOM to screen it.</div>
                     ) : (
-                      <div className="overflow-x-auto rounded border border-slate-700">
+                      <div className="overflow-x-auto rounded border border-slate-700 max-h-[28rem] overflow-y-auto">
                         <table className="w-full text-xs">
-                          <thead className="bg-slate-800/60 text-slate-400">
-                            <tr><th className="text-left p-2">Component</th><th className="text-left p-2">Vendor</th><th className="text-left p-2">Origin</th><th className="text-left p-2">Finding</th></tr>
+                          <thead className="bg-slate-800/60 text-slate-400 sticky top-0">
+                            <tr>
+                              <th className="text-left p-2">Component</th>
+                              <th className="text-left p-2">Vendor · origin</th>
+                              <th className="text-left p-2">BAA</th>
+                              <th className="text-left p-2">Finding / US-made swap</th>
+                            </tr>
                           </thead>
                           <tbody>
-                            {r.findings.map((f, i) => (
-                              <tr key={i} className="border-t border-slate-800 align-top">
-                                <td className="p-2 text-slate-200">{f.line.component}</td>
-                                <td className="p-2 text-slate-300">{f.line.vendor}</td>
-                                <td className="p-2 text-slate-400 whitespace-nowrap">{f.line.country ?? '—'}</td>
-                                <td className="p-2">
-                                  <span className="inline-flex items-start gap-1.5">
-                                    {f.severity === 'prohibited' ? <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
-                                      : f.severity === 'review' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                                      : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />}
-                                    <span className={f.severity === 'prohibited' ? 'text-red-200' : f.severity === 'review' ? 'text-amber-200' : 'text-slate-400'}>{f.reason}</span>
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                            {r.findings.map((f, i) => {
+                              const b = f.line.baaBucket;
+                              const bCls = b === 'A' ? 'border-emerald-500/40 text-emerald-300' : b === 'B' ? 'border-blue-500/40 text-blue-300' : b === 'C' ? 'border-red-500/40 text-red-300' : 'border-slate-600 text-slate-400';
+                              return (
+                                <tr key={i} className="border-t border-slate-800 align-top">
+                                  <td className="p-2 text-slate-200">
+                                    {f.line.partNumber && <span className="text-[10px] text-slate-500 font-mono mr-1">{f.line.partNumber}</span>}{f.line.component}
+                                    {f.line.critical && <span className="ml-1 text-[10px] text-red-300">critical</span>}
+                                    {f.line.specialtyMetal && <span className="ml-1 text-[10px] text-amber-300">specialty-metal</span>}
+                                  </td>
+                                  <td className="p-2 text-slate-300">{f.line.vendor}<div className="text-[10px] text-slate-500">{f.line.country ?? '—'}{f.line.extCost != null && ` · $${f.line.extCost}`}</div></td>
+                                  <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${bCls}`}>{b ?? '—'}</span></td>
+                                  <td className="p-2">
+                                    {f.severity === 'prohibited' ? (
+                                      <span className="inline-flex items-start gap-1.5"><XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" /><span className="text-red-200">{f.reason}</span></span>
+                                    ) : f.line.baaBucket === 'C' && f.line.recommendedSwap ? (
+                                      <span className="inline-flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" /><span className="text-amber-200">Swap → {f.line.recommendedSwap}</span></span>
+                                    ) : f.severity === 'review' ? (
+                                      <span className="inline-flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" /><span className="text-amber-200">{f.reason}</span></span>
+                                    ) : (
+                                      <span className="inline-flex items-start gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span className="text-slate-400">{f.line.note ?? 'Clear'}</span></span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
