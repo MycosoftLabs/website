@@ -56,8 +56,10 @@ async function execSummary(d: ReturnType<typeof assemble>): Promise<{ html: stri
   ].join('\n');
 
   const gen = await generateNarrative({
-    system: 'You are a DoD compliance officer writing the executive summary of a formal CMMC Level 2 self-assessment report for a small defense contractor. Write in precise, factual, government-standard prose. Do not invent numbers — use only the provided facts. 2–3 short paragraphs. No headings.',
-    user: `Write the executive summary using ONLY these facts:\n\n${facts}`,
+    // Per Perplexity's hard rule: the LLM writes framing prose only — it must
+    // never invent a control status, score, weight, date, or determination.
+    system: 'You are a DoD compliance officer writing the executive summary of a formal CMMC Level 2 self-assessment report for a small defense contractor. Write in precise, factual, government-standard prose, 2–3 short paragraphs, no headings. HARD RULE: never state or invent any control status, SPRS score, weight, date, eligibility, or compliance determination that is not present verbatim in the provided facts. Every number and status comes from the facts; you write only the connective prose around them.',
+    user: `Write the executive summary using ONLY these facts. Do not add any number or status not listed here:\n\n${facts}`,
     maxTokens: 700,
   });
   if (gen) return { html: renderProse(gen.text), llm: true };

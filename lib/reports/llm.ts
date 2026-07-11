@@ -23,6 +23,9 @@ export interface NarrativeRequest {
   user: string;
   maxTokens?: number;
   temperature?: number;
+  /** Use the multi-step reasoning model (Perplexity sonar-reasoning-pro) for
+   *  statutory / supply-chain / cross-clause synthesis. Default false. */
+  reasoning?: boolean;
 }
 
 export interface NarrativeResult {
@@ -107,8 +110,15 @@ async function callAnthropic(c: ProviderConfig, req: NarrativeRequest, key: stri
  * deterministic data-only document instead of breaking.
  */
 export async function generateNarrative(req: NarrativeRequest): Promise<NarrativeResult | null> {
-  const c = selectProvider();
-  if (!c) return null;
+  const base = selectProvider();
+  if (!base) return null;
+  // Per Perplexity: sonar-pro is the default; use sonar-reasoning-pro for
+  // statutory / supply-chain / cross-clause synthesis (reasoning=true).
+  const model =
+    req.reasoning && base.provider === 'perplexity'
+      ? process.env.PERPLEXITY_MODEL_REASONING || 'sonar-reasoning-pro'
+      : base.model;
+  const c: ProviderConfig = { ...base, model };
   const key = (process.env[c.keyEnv] || '').trim();
   try {
     const text = c.style === 'anthropic' ? await callAnthropic(c, req, key) : await callOpenAiStyle(c, req, key);
