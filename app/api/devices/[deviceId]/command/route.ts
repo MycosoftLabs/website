@@ -59,11 +59,54 @@ export async function POST(
   const auth = await requireAdmin()
   if (auth.error) return auth.error
 
+  // The Psathyrella buoy is an OWNER-ONLY control surface (morgan@mycosoft.org). Every other device
+  // stays admin-commandable; only the buoy ids are narrowed to owner. (Ids trend to psathyrella-1;
+  // legacy COM4 aliases kept through the migration.)
+  const PSATHYRELLA_IDS = new Set(["psathyrella-1", "psathyrella-buoy-com4", "mycobrain-COM4"])
+  if (PSATHYRELLA_IDS.has(deviceId) && !auth.user.isOwner) {
+    return NextResponse.json({ error: "Owner access required" }, { status: 403 })
+  }
+
   let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: "bad_json" }, { status: 400 })
+  }
+
+  // Psathyrella bench MDP commands go to the MAS Psathyrella API (188), which forwards to the
+  // MycoBrain registry and returns the ack envelope — NOT the field-Jetson agent resolver
+  // (which has no agent for the buoy and 404s). See PSATHYRELLA_CLAUDE_GCS_MAS_INTEGRATION_HANDOFF.
+  // Device identity is trending to `psathyrella-1` (MQTT mycosoft/devices/psathyrella-1/*, the
+  // Mushroom 1 board on the Jetson); keep the legacy COM4 aliases so nothing breaks mid-migration.
+  if (PSATHYRELLA_IDS.has(deviceId) && typeof body.target === "string" && typeof body.cmd === "string") {
+    const mas = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+    const masTimeoutMs = typeof body.timeout_ms === "number" ? body.timeout_ms : 15000
+    try {
+      const res = await fetch(`${mas}/api/psathyrella/${deviceId}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          target: body.target,
+          cmd: body.cmd,
+          params: (body.params as Record<string, unknown>) ?? {},
+          clientCommandId: typeof body.clientCommandId === "string" ? body.clientCommandId : undefined,
+          user_subject: auth.user.email,
+        }),
+        signal: AbortSignal.timeout(masTimeoutMs + 3000),
+        cache: "no-store",
+      })
+      const text = await res.text()
+      let parsed: unknown
+      try {
+        parsed = text ? JSON.parse(text) : {}
+      } catch {
+        parsed = { raw: text }
+      }
+      return NextResponse.json(parsed as object, { status: res.status })
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 502 })
+    }
   }
 
   const field = deploymentByRegistryId(deviceId)

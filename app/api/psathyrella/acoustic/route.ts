@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/api-auth";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,9 @@ const ACTIONS: Record<string, string> = {
 };
 
 export async function GET() {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner();
+  if (auth.error) return auth.error;
   try {
     const res = await fetch(`${ACOUSTIC}/health`, { signal: AbortSignal.timeout(3500), cache: "no-store" });
     const data = await res.json().catch(() => null);
@@ -34,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   let body: { action?: string; params?: Record<string, unknown> };

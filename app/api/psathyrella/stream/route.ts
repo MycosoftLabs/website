@@ -10,7 +10,8 @@
  * onerror and the hook simply keeps polling — the controls/telemetry never depend on the stream.
  */
 
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { requireOwner } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 const DEFAULT_DEVICE_ID = "psathyrella-1"
@@ -29,6 +30,9 @@ function sseHeaders(): HeadersInit {
 }
 
 export async function GET(req: NextRequest) {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner()
+  if (auth.error) return auth.error
   const { searchParams } = new URL(req.url)
   const deviceId = searchParams.get("deviceId") || DEFAULT_DEVICE_ID
 

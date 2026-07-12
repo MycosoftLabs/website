@@ -8,12 +8,16 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
 const PROPULSION = process.env.PSATHYRELLA_JETSON_PROPULSION_URL || "http://192.168.0.123:8788";
 
 export async function GET() {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner();
+  if (auth.error) return auth.error;
   try {
     const res = await fetch(`${PROPULSION}/state`, {
       headers: { Accept: "application/json" },

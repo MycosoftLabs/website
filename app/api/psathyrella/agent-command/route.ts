@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/api-auth";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ const PROPULSION = process.env.PSATHYRELLA_JETSON_PROPULSION_URL || "http://192.
 const ALLOWED = new Set(["nav.az_zero", "nav.thruster_azimuth", "nav.thruster", "nav.thruster_group", "nav.all_stop"]);
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireOwner();
   if (auth.error) return auth.error;
 
   let body: { cmd?: string; params?: Record<string, unknown>; clientCommandId?: string };

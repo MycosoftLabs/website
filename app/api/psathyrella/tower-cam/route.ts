@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ const STREAM_URL = process.env.PSATHYRELLA_TOWER_CAM_URL || "";
 const SNAPSHOT_URL = process.env.PSATHYRELLA_TOWER_CAM_SNAPSHOT_URL || "";
 
 export async function GET(req: NextRequest) {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner();
+  if (auth.error) return auth.error;
   const mode = req.nextUrl.searchParams.get("mode");
   const snapshot = mode === "snapshot";
   const upstream = snapshot ? SNAPSHOT_URL || STREAM_URL : STREAM_URL;

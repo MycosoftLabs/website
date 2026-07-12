@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,9 @@ async function burstProbe(base: string, n: number, withRadioStats = false) {
 }
 
 export async function GET(req: Request) {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner();
+  if (auth.error) return auth.error;
   const url = new URL(req.url);
   const burst = Math.min(5, Math.max(1, Number(url.searchParams.get("burst")) || 1));
   const [ethernet, wifi] = await Promise.all(

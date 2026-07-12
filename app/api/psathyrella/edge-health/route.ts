@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireOwner } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,9 @@ async function probeFresh(url: string, attempts: number, timeoutMs: number) {
 }
 
 export async function GET() {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner();
+  if (auth.error) return auth.error;
   // Keep the probe set small + fast (4 lightweight health lanes). We deliberately DON'T re-probe
   // MAS /telemetry here — it runs a slow live field query that times out under parallel load, and
   // the GCS client already knows the served deviceId/source from useBuoyTelemetry. Device-id
