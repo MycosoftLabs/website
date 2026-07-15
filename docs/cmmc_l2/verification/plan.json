@@ -4,7 +4,8 @@
   "tally": {
     "blocked": 79,
     "operator-action-required": 20,
-    "ready-collect-now": 11
+    "met": 10,
+    "ready-collect-now": 1
   },
   "controls": [
     {
@@ -710,8 +711,8 @@
       "owner": "cursor",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] changes to the system are tracked;",
         "[b] changes to the system are reviewed;",
@@ -1534,8 +1535,8 @@
       "owner": "myca",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] the frequency to assess risk to organizational operations, organizational assets, and individuals is defined; and",
         "[b] risk to organizational operations, organizational assets, and individuals resulting from the operation of an organizational system that processes, stores, or transmits CUI is assessed with the defined frequency."
@@ -1552,8 +1553,8 @@
       "owner": "cursor",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] the frequency to scan for vulnerabilities in organizational systems and applications is defined;",
         "[b] vulnerability scans are performed on organizational systems with the defined frequency;",
@@ -1573,8 +1574,8 @@
       "owner": "cursor",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] vulnerabilities are identified; and",
         "[b] vulnerabilities are remediated in accordance with risk assessments."
@@ -1591,8 +1592,8 @@
       "owner": "myca",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] the frequency of security control assessments is defined; and",
         "[b] security controls are assessed with the defined frequency to determine if the controls are effective in their application."
@@ -1609,8 +1610,8 @@
       "owner": "myca",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] deficiencies and vulnerabilities to be addressed by the plan of action are identified;",
         "[b] a plan of action is developed to correct identified deficiencies and reduce or eliminate identified vulnerabilities; and",
@@ -1628,8 +1629,8 @@
       "owner": "myca",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] security controls are monitored on an ongoing basis to ensure the continued effectiveness of those controls."
       ]
@@ -1645,8 +1646,8 @@
       "owner": "myca",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] a system security plan is developed;",
         "[b] the system boundary is described and documented in the system security plan;",
@@ -1932,8 +1933,8 @@
       "owner": "cursor",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] the authenticity of communications sessions is protected."
       ]
@@ -1966,8 +1967,8 @@
       "owner": "cursor",
       "blocker": "ready:collect-now",
       "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
-      "evidenced": false,
-      "status": "ready-collect-now",
+      "evidenced": true,
+      "status": "met",
       "assessment_objectives": [
         "[a] the time within which to identify system flaws is specified;",
         "[b] system flaws are identified within the specified time frame;",

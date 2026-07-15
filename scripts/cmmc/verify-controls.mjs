@@ -118,7 +118,18 @@ function hasEvidence(control) {
   // Necessary-but-not-sufficient: a matching, non-dev-PC artifact must exist. Final Met
   // still requires human/assessor validation that the artifact demonstrates the control
   // (the runbook §"validation gate"). soc_ops flips are PROPOSED, not auto-applied.
-  return EVIDENCE_FILES.some((f) => f.includes(`_${num}`) || f.includes(`/${num}_`) || f.includes(full));
+  // Normalize Windows backslashes so `family/3.11.1_*.md` matches on Win32.
+  return EVIDENCE_FILES.some((f) => {
+    const p = f.replace(/\\/g, '/');
+    const name = p.split('/').pop() || '';
+    return (
+      p.includes(`_${num}`) ||
+      p.includes(`/${num}_`) ||
+      p.includes(`/${num}.`) ||
+      name.startsWith(`${num}_`) ||
+      p.includes(full)
+    );
+  });
 }
 
 // ---- build the plan ----

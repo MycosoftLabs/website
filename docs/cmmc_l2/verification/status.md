@@ -5,21 +5,12 @@ Evidence dir: `D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence`
 ## Tally (110 controls)
 - **blocked**: 79
 - **operator-action-required**: 20
-- **ready-collect-now**: 11
+- **met**: 10
+- **ready-collect-now**: 1
 - by owner: cursor 85 · morgan 20 · myca 5
 
 ## Ready to collect NOW (no hardware/PreVeil/human blocker) — start here
-- `CM.L2-3.4.3` (cursor) — gh branch-protection + PR-review policy  `gh api /repos/MycosoftLabs/website/branches/main/protection -> evidence/cm/3.4.3_branch_protection.json`
 - `CM.L2-3.4.4` (cursor) — gh required-status-checks (CI) config
-- `RA.L2-3.11.1` (myca) — risk assessment (docs/audits/2026-07-15-cui-security-audit)
-- `RA.L2-3.11.2` (cursor) — vuln scan: npm audit + gitleaks + supabase advisors  `npm audit --json + advisors -> evidence/ra/3.11.2_vuln_scan.json`
-- `RA.L2-3.11.3` (cursor) — remediation record (undici fix, key restrict, RLS drafts)
-- `CA.L2-3.12.1` (myca) — self-assessment report (docs/audits + report engine cmmc-l2)  `node scripts/... generate cmmc-l2 report -> evidence/ca/3.12.1_self_assessment.pdf`
-- `CA.L2-3.12.2` (myca) — POA&M export (report engine poam)  `POST /api/security/reports/generate {poam} -> evidence/ca/3.12.2_poam.pdf`
-- `CA.L2-3.12.3` (myca) — continuous monitoring log (audit + supabase advisors + npm audit cadence)
-- `CA.L2-3.12.4` (myca) — SSP document (report engine) — NA-weighted but must exist  `report engine cmmc-l2 -> evidence/ca/3.12.4_ssp.pdf`
-- `SC.L2-3.13.15` (cursor) — web session authenticity: TLS/headers (curl -I mycosoft.com)  `curl -sI https://mycosoft.com -> evidence/sc/3.13.15_headers.txt`
-- `SI.L2-3.14.1` (cursor) — flaw remediation: npm audit fix + Dependabot  `npm audit --json -> evidence/si/3.14.1_flaw_remediation.json`
 
 ## One human action away (operator) — you + RJ
 - `AT.L2-3.2.1` — cdse-training-cert → cdse-completion-certificate
@@ -48,4 +39,4 @@ Evidence dir: `D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence`
 - **blocked:preveil-not-provisioned** (35): IA.L2-3.5.1, IA.L2-3.5.2, IA.L2-3.5.3, IA.L2-3.5.4, IA.L2-3.5.5, IA.L2-3.5.6, IA.L2-3.5.7, IA.L2-3.5.8, IA.L2-3.5.9, IA.L2-3.5.10, IA.L2-3.5.11, MP.L2-3.8.1, MP.L2-3.8.2, MP.L2-3.8.3, MP.L2-3.8.4, MP.L2-3.8.5, MP.L2-3.8.6, MP.L2-3.8.7, MP.L2-3.8.8, MP.L2-3.8.9, SC.L2-3.13.1, SC.L2-3.13.2, SC.L2-3.13.3, SC.L2-3.13.4, SC.L2-3.13.5, SC.L2-3.13.6, SC.L2-3.13.7, SC.L2-3.13.8, SC.L2-3.13.9, SC.L2-3.13.10, SC.L2-3.13.11, SC.L2-3.13.12, SC.L2-3.13.13, SC.L2-3.13.14, SC.L2-3.13.16
 - **blocked:wazuh-agents-need-endpoints** (10): AU.L2-3.3.1, AU.L2-3.3.2, AU.L2-3.3.3, AU.L2-3.3.4, AU.L2-3.3.5, AU.L2-3.3.6, AU.L2-3.3.7, AU.L2-3.3.8, AU.L2-3.3.9, SI.L2-3.14.6
 
-> Honesty gate: a control shows `met` only when a real evidence file for it exists under the evidence dir. Currently **0 met**. As Cursor/PreVeil/hardware drop artifacts into `evidence/<family>/`, re-run this script and the count climbs — truthfully.
+> Honesty gate: a control shows `met` only when a real evidence file for it exists under the evidence dir. Currently **10 met**. As Cursor/PreVeil/hardware drop artifacts into `evidence/<family>/`, re-run this script and the count climbs — truthfully.

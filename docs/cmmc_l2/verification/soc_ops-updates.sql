@@ -1,2 +1,10 @@
--- No controls are evidenced yet. Nothing to flip. This file stays empty until real artifacts exist.
--- (Honesty gate working as intended.)
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.4.3','CM.L2-3.4.3'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.11.1','RA.L2-3.11.1'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.11.2','RA.L2-3.11.2'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.11.3','RA.L2-3.11.3'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.12.1','CA.L2-3.12.1'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.12.2','CA.L2-3.12.2'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.12.3','CA.L2-3.12.3'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.12.4','CA.L2-3.12.4'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.13.15','SC.L2-3.13.15'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc
+UPDATE soc_ops.compliance_controls SET implementation_state='implemented', last_verified_at=NOW() WHERE control_id IN ('3.14.1','SI.L2-3.14.1'); -- evidence in D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si
