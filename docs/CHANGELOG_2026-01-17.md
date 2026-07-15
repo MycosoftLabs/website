@@ -185,8 +185,7 @@ temp_*.json
 3. Verify key is enabled in Google Cloud Console
 
 **Localhost Status:** 
-- ⚠️ Key is hardcoded in Dockerfile as fallback: `AIzaSyA9wzTz5MiDhYBdY1vHJQtOnw9uikwauBk`
-- Should be moved to .env.local
+- ⚠️ Historical note: Maps key was once hardcoded in Dockerfile (prefix `AIzaSyA9wz…`, **REDACTED_ROTATE_IN_GCP**). Dockerfile now uses ARG with no secret default; set via `.env.local` / build args only.
 
 ---
 
