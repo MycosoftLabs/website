@@ -24,6 +24,8 @@ import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta
 import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
 import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
+import PreVeilPanel from '@/components/security/PreVeilPanel';
+import { ShieldCheck } from 'lucide-react';
 import { BookOpen, Ban } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -502,7 +504,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -925,7 +927,8 @@ export default function CompliancePage() {
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
           { id: 'reference', label: 'Reference (L2/L3)', icon: BookOpen, tourId: 'reference-tab' },
           { id: 'supply-chain', label: 'Supply Chain', icon: Ban, tourId: 'supply-chain-tab' },
-          { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
+          { id: 'preveil', label: 'PreVeil (L2 Enclave)', icon: ShieldCheck, tourId: 'preveil-tab' },
+          { id: 'exostar', label: 'Exostar (L3)', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1552,9 +1555,16 @@ export default function CompliancePage() {
         </div>
       )}
 
+      {/* PreVeil Tab — the L2 CUI enclave */}
+      {activeTab === 'preveil' && <PreVeilPanel />}
+
       {/* Exostar Tab */}
       {activeTab === 'exostar' && (
         <div className="max-w-4xl mx-auto" data-tour="exostar-section">
+          <div className="mb-4 rounded-lg border border-slate-600 bg-slate-700/30 p-4 text-sm text-slate-300 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+            <div><span className="font-semibold">Level 3 — not used at Level 2.</span> Exostar (DoD Supply Chain Risk Management) is a CMMC <span className="font-semibold">Level 3</span> concern. Mycosoft's Level 2 CUI enclave is <span className="font-semibold text-sky-300">PreVeil</span> (see the PreVeil tab). This tab stays configured but inactive until we pursue L3.</div>
+          </div>
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -1562,7 +1572,7 @@ export default function CompliancePage() {
                   <Link2 className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold">Exostar Integration</h2>
+                  <h2 className="text-2xl font-bold">Exostar Integration <span className="text-sm font-normal text-slate-500">(Level 3)</span></h2>
                   <p className="text-slate-400">Supply Chain Risk Management Platform</p>
                 </div>
               </div>
