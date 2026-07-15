@@ -1,0 +1,2 @@
+-- No controls are evidenced yet. Nothing to flip. This file stays empty until real artifacts exist.
+-- (Honesty gate working as intended.)
