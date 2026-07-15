@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { LOCAL_DEV_ADMIN_COOKIE, isLocalDevAuthEnabled } from '@/lib/auth/local-dev-session';
 import { buildSecurityReport, type SecurityReportType } from '@/lib/reports/security-report';
 import { buildRemediationPlan, buildControlPacket } from '@/lib/reports/remediation';
+import { buildPolicy, buildSupportingDoc, POLICY_KINDS } from '@/lib/reports/policy';
 import { activeReportProvider } from '@/lib/reports/llm';
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,12 @@ export async function POST(request: NextRequest) {
       if (!controlId) return NextResponse.json({ error: 'controlId required' }, { status: 400 });
       result = await buildControlPacket(controlId);
       if (!result) return NextResponse.json({ error: 'unknown controlId' }, { status: 404 });
+    } else if (reportType.startsWith('policy:')) {
+      result = await buildPolicy(reportType.slice('policy:'.length));
+      if (!result) return NextResponse.json({ error: 'unknown policy family' }, { status: 404 });
+    } else if (POLICY_KINDS.includes(reportType)) {
+      result = await buildSupportingDoc(reportType);
+      if (!result) return NextResponse.json({ error: 'unknown document kind' }, { status: 404 });
     } else if (TYPES.includes(reportType as SecurityReportType)) {
       result = await buildSecurityReport(reportType as SecurityReportType);
     } else {
