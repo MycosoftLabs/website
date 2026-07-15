@@ -208,10 +208,10 @@ export const VERIFICATION_FLAGS: VerificationFlag[] = [
   },
   {
     id: 'l2-guidance-source',
-    topic: 'Hydrated v2.13 guidance JSON not yet delivered',
-    detail: 'The app now renders verbatim CMMC Assessment Guide v2.13 implementation_guidance + assessment_objectives + example_assessment_objects when present, but the hydrated cmmc-l2-controls.json (110/110 fields, per Perplexity 2026-07-10) has NOT landed in the repo yet — swap it into lib/security/reference/ to activate. Until then the workbook shows doc-derived guidance (helpful context, not verbatim).',
+    topic: 'Hydrated v2.13 guidance JSON — LANDED',
+    detail: 'Hydrated cmmc-l2-controls.json is live in the repo (461,988 bytes, MD5 abca7ab11c0cd1f5d1cd340760a634f0, verified by scripts/ingest-cmmc-controls.mjs). All 110/110 controls carry verbatim CMMC Assessment Guide v2.13 implementation_guidance + assessment_objectives + example_assessment_objects (Examine/Interview/Test) with guidance_verified:true. The workbook and report engine now render authoritative guidance, not doc-derived summaries.',
+    reconcileAgainst: 'NIST SP 800-171A + CMMC Assessment Guide L2 v2.13 (Perplexity backfill, ingest-verified)',
     severity: 'low',
-    reconcileAgainst: 'Hydrated cmmc-l2-controls.json (Perplexity v2.13 backfill)',
   },
 ];
 

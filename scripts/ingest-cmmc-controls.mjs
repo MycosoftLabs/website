@@ -69,17 +69,22 @@ if (json) {
   else fails.push(`controls length ${cs?.length}, expected ${EXPECT.controls}`);
 
   if (Array.isArray(cs)) {
+    // example_assessment_objects is an object keyed by 800-171A method (Examine/Interview/Test),
+    // or occasionally an array — accept either as long as it is non-empty.
+    const nonEmpty = (v) => v != null && (Array.isArray(v) ? v.length > 0 : typeof v === 'object' ? Object.keys(v).length > 0 : Boolean(v));
     const unhydrated = cs.filter((c) => !(
       c.implementation_guidance &&
       Array.isArray(c.assessment_objectives) && c.assessment_objectives.length > 0 &&
-      Array.isArray(c.example_assessment_objects) && c.example_assessment_objects.length > 0 &&
+      nonEmpty(c.example_assessment_objects) &&
       c.guidance_verified === true
     ));
     if (unhydrated.length === 0) ok(`all 110 controls fully hydrated (4 fields + guidance_verified)`);
     else fails.push(`${unhydrated.length} controls NOT hydrated, e.g. ${unhydrated.slice(0, 5).map((c) => c.control_id).join(', ')}`);
 
     // SPRS weights must survive — do not regress the scoring engine.
-    const noWeight = cs.filter((c) => typeof c.weight !== 'number' || !c.weight_category);
+    // weight is a number for scored controls, or the string "NA" for the one NA control.
+    const validWeight = (w) => typeof w === 'number' || w === 'NA';
+    const noWeight = cs.filter((c) => !validWeight(c.weight) || !c.weight_category);
     if (noWeight.length === 0) ok(`all controls retain weight + weight_category`);
     else fails.push(`${noWeight.length} controls lost weight fields (SPRS would regress), e.g. ${noWeight.slice(0, 5).map((c) => c.control_id).join(', ')}`);
 
