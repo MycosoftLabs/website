@@ -2,56 +2,25 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
-const CABLES_URL = "https://www.submarinecablemap.com/api/v3/cable/all.json"
-const LANDING_POINTS_URL = "https://www.submarinecablemap.com/api/v3/landing-point/all.json"
-const CACHE_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
-const FETCH_TIMEOUT_MS = 15_000
+/** Canonical geometry sources — all.json has metadata only; geo endpoints carry coordinates. */
+const CABLES_GEO_URL = "https://www.submarinecablemap.com/api/v3/cable/cable-geo.json"
+const LANDING_POINTS_GEO_URL =
+  "https://www.submarinecablemap.com/api/v3/landing-point/landing-point-geo.json"
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000
+const FETCH_TIMEOUT_MS = 20_000
 
-interface CableRaw {
-  id: string
-  name: string
-  color: string
-  length?: string
-  rfs?: string
-  owners?: string
-  url?: string
-  coordinates?: number[][][] | number[][] // GeoJSON LineString or MultiLineString
+interface GeoJsonFeatureCollection {
+  type: "FeatureCollection"
+  features: unknown[]
 }
 
-interface LandingPointRaw {
-  id: string
-  name: string
-  country?: string
-  latitude?: string | number
-  longitude?: string | number
-}
-
-interface CachedData {
-  cables: TransformedCable[]
-  landingPoints: TransformedLandingPoint[]
+interface CachedPayload {
+  cables: GeoJsonFeatureCollection
+  landingPoints: GeoJsonFeatureCollection
   timestamp: number
 }
 
-interface TransformedCable {
-  id: string
-  name: string
-  color: string
-  length_km: number | null
-  rfs: string | null
-  owners: string | null
-  url: string | null
-  coordinates: number[][]
-}
-
-interface TransformedLandingPoint {
-  id: string
-  name: string
-  country: string | null
-  latitude: number
-  longitude: number
-}
-
-let cache: CachedData | null = null
+let cache: CachedPayload | null = null
 
 function isCacheValid(): boolean {
   return cache !== null && Date.now() - cache.timestamp < CACHE_DURATION_MS
@@ -61,151 +30,86 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
-    const response = await fetch(url, { signal: controller.signal })
-    return response
+    return await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+      next: { revalidate: 0 },
+    })
   } finally {
     clearTimeout(timeout)
   }
 }
 
-function parseLengthKm(length?: string): number | null {
-  if (!length) return null
-  const cleaned = length.replace(/[^0-9.]/g, "")
-  const parsed = parseFloat(cleaned)
-  return isNaN(parsed) ? null : parsed
+function emptyFeatureCollection(): GeoJsonFeatureCollection {
+  return { type: "FeatureCollection", features: [] }
 }
 
-function extractCoordinates(cable: CableRaw): number[][] {
-  if (!cable.coordinates) return []
-
-  // GeoJSON coordinates can be LineString (number[][]) or MultiLineString (number[][][])
-  // Flatten MultiLineString into a single array of coordinate pairs
-  const coords = cable.coordinates
-  if (coords.length === 0) return []
-
-  // Check if it's a MultiLineString (array of arrays of coordinate pairs)
-  if (Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
-    // MultiLineString: flatten all segments into one path
-    return (coords as number[][][]).flat()
+async function fetchFeatureCollection(url: string): Promise<GeoJsonFeatureCollection> {
+  const response = await fetchWithTimeout(url)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${url}`)
   }
-
-  // LineString: already an array of coordinate pairs
-  return coords as number[][]
-}
-
-function transformCable(raw: CableRaw): TransformedCable {
-  return {
-    id: raw.id,
-    name: raw.name,
-    color: raw.color || "#000000",
-    length_km: parseLengthKm(raw.length),
-    rfs: raw.rfs || null,
-    owners: raw.owners || null,
-    url: raw.url || null,
-    coordinates: extractCoordinates(raw),
+  const body = (await response.json()) as GeoJsonFeatureCollection
+  if (body?.type !== "FeatureCollection" || !Array.isArray(body.features)) {
+    throw new Error(`Invalid FeatureCollection from ${url}`)
   }
-}
-
-function transformLandingPoint(raw: LandingPointRaw): TransformedLandingPoint | null {
-  const lat = typeof raw.latitude === "string" ? parseFloat(raw.latitude) : raw.latitude
-  const lng = typeof raw.longitude === "string" ? parseFloat(raw.longitude) : raw.longitude
-
-  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return null
-
-  return {
-    id: raw.id,
-    name: raw.name,
-    country: raw.country || null,
-    latitude: lat,
-    longitude: lng,
-  }
+  return body
 }
 
 /**
  * GET /api/oei/submarine-cables
- * Fetch submarine cable routes and landing points from Submarine Cable Map API
- *
- * Returns cable routes with GeoJSON coordinates and global landing points.
- * Data is cached for 24 hours since it rarely changes.
+ * Same-origin proxy for Submarine Cable Map GeoJSON (real MultiLineString geometry).
+ * Returns cable FeatureCollection unchanged; landing points in sibling field.
  */
 export async function GET(_request: NextRequest) {
   try {
-    // Return cached data if still valid
     if (isCacheValid() && cache) {
       return NextResponse.json({
-        cables: cache.cables,
+        ...cache.cables,
         landingPoints: cache.landingPoints,
-        total_cables: cache.cables.length,
-        total_landing_points: cache.landingPoints.length,
+        total_cables: cache.cables.features.length,
+        total_landing_points: cache.landingPoints.features.length,
         cached: true,
+        source: "submarinecablemap.com",
       })
     }
 
-    // Fetch cables and landing points in parallel
-    const [cablesResponse, landingPointsResponse] = await Promise.allSettled([
-      fetchWithTimeout(CABLES_URL),
-      fetchWithTimeout(LANDING_POINTS_URL),
+    const [cablesResult, landingResult] = await Promise.allSettled([
+      fetchFeatureCollection(CABLES_GEO_URL),
+      fetchFeatureCollection(LANDING_POINTS_GEO_URL),
     ])
 
-    let cables: TransformedCable[] = []
-    let landingPoints: TransformedLandingPoint[] = []
+    const cables =
+      cablesResult.status === "fulfilled" ? cablesResult.value : emptyFeatureCollection()
+    const landingPoints =
+      landingResult.status === "fulfilled" ? landingResult.value : emptyFeatureCollection()
 
-    // Process cables
-    if (cablesResponse.status === "fulfilled" && cablesResponse.value.ok) {
-      try {
-        const rawCables: CableRaw[] = await cablesResponse.value.json()
-        cables = rawCables.map(transformCable)
-      } catch {
-        console.error("[submarine-cables] Failed to parse cables response")
-      }
-    } else {
-      const reason =
-        cablesResponse.status === "rejected"
-          ? cablesResponse.reason
-          : `HTTP ${cablesResponse.value.status}`
-      console.error("[submarine-cables] Failed to fetch cables:", reason)
+    if (cablesResult.status === "rejected") {
+      console.error("[submarine-cables] Cable geo fetch failed:", cablesResult.reason)
+    }
+    if (landingResult.status === "rejected") {
+      console.error("[submarine-cables] Landing geo fetch failed:", landingResult.reason)
     }
 
-    // Process landing points
-    if (landingPointsResponse.status === "fulfilled" && landingPointsResponse.value.ok) {
-      try {
-        const rawPoints: LandingPointRaw[] = await landingPointsResponse.value.json()
-        landingPoints = rawPoints
-          .map(transformLandingPoint)
-          .filter((p): p is TransformedLandingPoint => p !== null)
-      } catch {
-        console.error("[submarine-cables] Failed to parse landing points response")
-      }
-    } else {
-      const reason =
-        landingPointsResponse.status === "rejected"
-          ? landingPointsResponse.reason
-          : `HTTP ${landingPointsResponse.value.status}`
-      console.error("[submarine-cables] Failed to fetch landing points:", reason)
-    }
-
-    // Update cache if we got any data
-    if (cables.length > 0 || landingPoints.length > 0) {
-      cache = {
-        cables,
-        landingPoints,
-        timestamp: Date.now(),
-      }
+    if (cables.features.length > 0 || landingPoints.features.length > 0) {
+      cache = { cables, landingPoints, timestamp: Date.now() }
     }
 
     return NextResponse.json({
-      cables,
+      ...cables,
       landingPoints,
-      total_cables: cables.length,
-      total_landing_points: landingPoints.length,
+      total_cables: cables.features.length,
+      total_landing_points: landingPoints.features.length,
       cached: false,
+      source: "submarinecablemap.com",
     })
   } catch (error) {
     console.error("[submarine-cables] Unexpected error:", error)
     return NextResponse.json(
       {
-        cables: [],
-        landingPoints: [],
+        type: "FeatureCollection",
+        features: [],
+        landingPoints: emptyFeatureCollection(),
         total_cables: 0,
         total_landing_points: 0,
         cached: false,
