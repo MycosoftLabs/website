@@ -534,6 +534,7 @@ export default function CompliancePage() {
   const [reportEngine, setReportEngine] = useState<{ configured: boolean; provider: string | null; model: string | null; note: string } | null>(null);
   const [reportBusy, setReportBusy] = useState<string | null>(null);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [policyFamily, setPolicyFamily] = useState('AC');
 
   useEffect(() => {
     fetch('/api/security/reports/generate')
@@ -1167,6 +1168,29 @@ export default function CompliancePage() {
                 </button>
               ))}
             </div>
+            {/* Policies & procedures (Batch B) */}
+            <div className="mt-3 pt-3 border-t border-slate-700/60">
+              <div className="text-xs text-slate-400 mb-2">Policies &amp; procedures — MYCA drafts, Morgan reviews &amp; signs:</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={policyFamily} onChange={(e) => setPolicyFamily(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-100">
+                  {[['AC','Access Control'],['AT','Awareness & Training'],['AU','Audit & Accountability'],['CM','Configuration Mgmt'],['IA','Identification & Auth'],['IR','Incident Response'],['MA','Maintenance'],['MP','Media Protection'],['PS','Personnel Security'],['PE','Physical Protection'],['RA','Risk Assessment'],['CA','Security Assessment'],['SC','System & Comms Protection'],['SI','System & Info Integrity']].map(([k,v]) => (
+                    <option key={k} value={k}>{v} policy</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => handleGenerateReport(`policy:${policyFamily}`)} disabled={reportBusy !== null}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                  {reportBusy === `policy:${policyFamily}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Generate policy
+                </button>
+                {[['ir-runbook','IR Runbook'],['access-agreement','Access Agreement'],['physical-access','Physical Access'],['visitor-log','Visitor Log']].map(([id,label]) => (
+                  <button key={id} type="button" onClick={() => handleGenerateReport(id)} disabled={reportBusy !== null}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                    {reportBusy === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {reportMsg && <div className="text-xs text-slate-300 mt-2">{reportMsg}</div>}
             {reportEngine && !reportEngine.configured && (
               <div className="text-[11px] text-amber-300/80 mt-2 flex items-start gap-1.5">
