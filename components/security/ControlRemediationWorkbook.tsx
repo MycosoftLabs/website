@@ -225,7 +225,7 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
             )}
             {snap?.targetNote && (
               <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/10 p-3">
-                <div className="text-xs text-emerald-500/80 mb-1">Target {snap.targetAsOf ? `· ${fmtDate(snap.targetAsOf)}` : ''}</div>
+                <div className="text-xs text-emerald-500/80 mb-1">Target · projected (post-provisioning — not a committed date)</div>
                 <div className="text-sm text-emerald-200/90">{snap.targetNote}</div>
               </div>
             )}

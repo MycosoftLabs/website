@@ -9,14 +9,17 @@
 //   • current_state (as of 2026-07-10): 108 `planned`, 2 `partial`. SPRS -234.
 //     Nothing is implemented yet — PreVeil not purchased, zero evidence. This is
 //     the HONEST posture and the default the UI shows.
-//   • target_state (as of 2026-07-17, end of the 5-day self-assessment sprint):
-//     109 `implemented`, 1 `planned` (AU.L2-3.3.4, on POA&M, close 2026-08-31).
-//     SPRS +109. This is a PROJECTION and must always be labeled as such.
+//   • target_state (post-sprint projection): 109 `implemented`, 1 `planned`
+//     (AU.L2-3.3.4, on POA&M). SPRS +109. This is a PROJECTION and must always
+//     be labeled as such. NOTE: the two CMMC assessment laptops (Morgan + RJ)
+//     are NOT yet procured, so the endpoint-gated controls (AU.L2-3.3.4,
+//     SI.L2-3.14.6) and SPRS submission are pegged to PROV (endpoint
+//     provisioning date), not a fixed calendar date. See sprint-meta.ts.
 //
 // IMPORTANT — never present target_state as achieved posture. The public Trust
 // Center is gated behind `NEXT_PUBLIC_COMPLIANCE_PUBLIC_MODE` (default
 // `in_progress`) and must not publish a numeric SPRS score until it is actually
-// posted on 2026-07-17.
+// posted (post-PROV; date TBD until laptops are provisioned).
 
 import overlayJson from './mycosoft-posture-overlay-v1.json';
 
@@ -160,7 +163,8 @@ export function postureSummary(mode: PostureMode = 'current'): PostureSummary {
 
 /**
  * Resolve the public Trust Center display mode from env. Defaults to
- * `in_progress` so no numeric SPRS score is published until 2026-07-17.
+ * `in_progress` so no numeric SPRS score is published until it is actually
+ * posted (post-endpoint-provisioning; date TBD until laptops are procured).
  */
 export function resolvePublicMode(): CompliancePublicMode {
   const v = (process.env.NEXT_PUBLIC_COMPLIANCE_PUBLIC_MODE || '').toLowerCase();

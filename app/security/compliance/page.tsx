@@ -20,7 +20,7 @@ import {
   Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
-import { CMMC_SPRINT_META } from '@/lib/security/posture/sprint-meta';
+import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta';
 import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
 import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
@@ -953,11 +953,16 @@ export default function CompliancePage() {
             <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
             Control statuses reflect <span className="font-semibold">current</span> posture (live from MAS{' '}
             <code className="text-amber-300">soc_ops</code>) — a low percentage today is expected and honest.
-            Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>{' '}
-            after the self-assessment sprint (SPRS submission {CMMC_SPRINT_META.targetSprsSubmissionDate}); one item{' '}
-            (<code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code>) is planned for the POA&amp;M,
-            close {CMMC_SPRINT_META.poamCloseDeadline}. Projected numbers are never shown as achieved.{' '}
-            Control weights are <span className="font-semibold">verified</span> against the DoD Assessment Methodology v1.2.1
+            Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
+            with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
+            The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.endpointGated.join(', ')}</code>) and the{' '}
+            <code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code> POA&amp;M item close at{' '}
+            <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.poamCloseDeadline)}</span>{' '}
+            (180-day ceiling {CMMC_SPRINT_META.poamCloseCeiling}). Laptop-independent items{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.laptopIndependentClosable.join(', ')}</code>) can close now.
+            Projected numbers are never shown as achieved. Control weights are{' '}
+            <span className="font-semibold">verified</span> against the DoD Assessment Methodology v1.2.1
             (Annex A); the computed SPRS score appears in the Reference → Verification flags tab.
           </div>
         </div>

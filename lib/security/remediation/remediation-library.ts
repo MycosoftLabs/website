@@ -455,21 +455,21 @@ const CONTROL_OVERRIDES: Record<string, RemediationPlan> = {
   // The single POA&M item — special-cased so the workbook explains the POA&M path.
   '3.3.4': {
     objective: 'Alert in the event of an audit logging process failure (NIST 800-171A 3.3.4).',
-    whyItMatters: 'This is Mycosoft\'s one planned POA&M item (AU.L2-3.3.4, close 2026-08-31). It is a 1-point control eligible for the POA&M, closed by the Wazuh SIEM deployment + soak.',
+    whyItMatters: 'This is Mycosoft\'s one planned POA&M item (AU.L2-3.3.4). It is a 1-point control eligible for the POA&M, closed by the Wazuh SIEM deployment + soak. Close is gated on endpoint provisioning (the two assessment laptops do not exist yet): target PROV+2 days, 180-day statutory ceiling 2027-01-11.',
     assessmentMethods: ['examine', 'test'],
     responsibleRole: 'Security Lead (Morgan)',
     tools: ['Wazuh SIEM', 'Alerting (email/Slack)', 'PreVeil (POA&M repo)'],
     protocols: ['Audit-failure detection', 'Automated alerting', 'POA&M tracking'],
     references: ['NIST SP 800-171 Rev.2 3.3.4', 'DFARS 252.204-7020 (POA&M)', '32 CFR §170.21 (POA&M eligibility)'],
-    estimatedEffort: 'POA&M — close by 2026-08-31',
+    estimatedEffort: 'POA&M — close PROV+2 days (endpoint-gated); ceiling 2027-01-11',
     steps: [
-      { id: 'poam', title: 'Record on the POA&M with owner + close date', detail: 'This control is intentionally on the POA&M. Confirm the POA&M entry: weakness = no audit-failure alerting; remediation = Wazuh; owner = Morgan; close 2026-08-31.', action: 'document', system: 'This dashboard (POA&M) + PreVeil', evidenceArtifact: 'POA&M entry AU.L2-3.3.4', owner: 'Security Lead (Morgan)' },
-      { id: 'wazuh', title: 'Deploy Wazuh + configure audit-failure alerting', detail: 'Stand up Wazuh (Day 3 of sprint), configure rules to alert on audit-logging process failure, route alerts to email/Slack, and let it soak.', action: 'deploy', system: 'Wazuh SIEM', evidenceArtifact: 'Wazuh audit-failure alert rule + test alert', owner: 'Security Lead (Morgan)' },
+      { id: 'poam', title: 'Record on the POA&M with owner + close date', detail: 'This control is intentionally on the POA&M. Confirm the POA&M entry: weakness = no audit-failure alerting; remediation = Wazuh; owner = Morgan; close date = PROV+2 days (pending endpoint provisioning), ceiling 2027-01-11.', action: 'document', system: 'This dashboard (POA&M) + PreVeil', evidenceArtifact: 'POA&M entry AU.L2-3.3.4', owner: 'Security Lead (Morgan)' },
+      { id: 'wazuh', title: 'Deploy Wazuh + configure audit-failure alerting', detail: 'Stand up the Wazuh manager now (prep, laptop-independent); enroll agents once the two endpoints are provisioned. Configure rules to alert on audit-logging process failure, route alerts to email/Slack, and let it soak.', action: 'deploy', system: 'Wazuh SIEM', evidenceArtifact: 'Wazuh audit-failure alert rule + test alert', owner: 'Security Lead (Morgan)' },
       { id: 'test', title: 'Test the alert fires', detail: 'Simulate an audit-logging failure and confirm the alert fires and is received. Capture the test evidence.', action: 'test', system: 'Wazuh SIEM', evidenceArtifact: 'Alert test screenshot', owner: 'Security Lead (Morgan)' },
       { id: 'close', title: 'Close the POA&M item', detail: 'After the soak, mark the control Implemented and close the POA&M entry with the closure date.', action: 'submit', system: 'This dashboard → MAS soc_ops', evidenceArtifact: 'POA&M closure record', owner: 'Security Lead (Morgan)' },
     ],
     evidenceRequired: ['POA&M entry (AU.L2-3.3.4)', 'Wazuh audit-failure alert rule', 'Alert test evidence'],
-    acceptanceCriteria: ['The system alerts on audit-logging process failure.', 'The POA&M item is tracked and closed by 2026-08-31.'],
+    acceptanceCriteria: ['The system alerts on audit-logging process failure.', 'The POA&M item is tracked and closed by PROV+2 days (endpoint-gated); statutory ceiling 2027-01-11.'],
   },
 };
 

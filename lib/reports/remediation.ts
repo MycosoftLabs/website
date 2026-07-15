@@ -56,7 +56,7 @@ const FAMILY_OWNER: Record<string, RemediationOwner> = {
 const OVERRIDE: Record<string, { owner: RemediationOwner; action: string; system: string }> = {
   'IA.L2-3.5.3': { owner: 'cursor', action: 'Enforce MFA for all users (Google 2SV enforcement + YubiKey/FIDO2 on privileged accounts). 5-point control — highest single impact.', system: 'Google Workspace + YubiKey' },
   'SI.L2-3.14.6': { owner: 'cursor', action: 'Deploy Wazuh SIEM monitoring inbound/outbound traffic. 5-point, NOT POA&M-eligible — hard gate for Conditional status.', system: 'Wazuh' },
-  'AU.L2-3.3.4': { owner: 'cursor', action: 'Configure Wazuh audit-logging-failure alert rule. The single planned POA&M item (close 2026-08-31).', system: 'Wazuh' },
+  'AU.L2-3.3.4': { owner: 'cursor', action: 'Stand up Wazuh manager now (prep); configure the audit-logging-failure alert rule and enroll agents once the two endpoints are provisioned. The single planned POA&M item (close PROV+2 days; 180-day ceiling 2027-01-11).', system: 'Wazuh' },
   'PS.L2-3.9.1': { owner: 'morgan', action: 'Order background check on RJ (Sterling/HireRight, ~$30–100, 24–48h). 3-point, NOT POA&M-eligible — must be met.', system: 'Sterling / HireRight' },
   'IR.L2-3.6.3': { owner: 'morgan', action: 'Run a 90-minute IR tabletop exercise. NOT POA&M-eligible — must be met.', system: 'Tabletop' },
   'IR.L2-3.6.2': { owner: 'morgan', action: 'Register for DIBNet + establish the 72-hour cyber-incident reporting path (DFARS 252.204-7012).', system: 'DIBNet (dibnet.dod.mil)' },

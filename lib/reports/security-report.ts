@@ -11,7 +11,7 @@
 import { computeSprs, determineCmmcStatus } from '@/lib/security/reference/sprs';
 import { postureSummary } from '@/lib/security/posture/nist-800-171-posture';
 import { SPRS_MATH, POAM_RULES, VERIFICATION_FLAGS, CMMC_L2_CONTROLS } from '@/lib/security/reference/cmmc-l2-reference';
-import { CMMC_SPRINT_META } from '@/lib/security/posture/sprint-meta';
+import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta';
 import { MYCOSOFT_DEVICE_BOMS, checkDeviceBom } from '@/lib/security/supply-chain/bom-check';
 import { generateNarrative, activeReportProvider } from './llm';
 import { renderReportHtml, renderTable, renderProse, esc, type ReportDocument } from './report-doc';
@@ -49,9 +49,9 @@ async function execSummary(d: ReturnType<typeof assemble>): Promise<{ html: stri
   const facts = [
     `Framework: CMMC Level 2 / NIST SP 800-171 Rev. 2 (110 requirements), self-assessment.`,
     `Current SPRS score: ${d.cur.score} of ${d.cur.maxScore} (${d.cur.met} met, ${d.cur.notMet} not met). Conditional threshold ${d.cur.conditionalThreshold}.`,
-    `Projected post-sprint score: ${d.tgt.score} (${d.tgt.met}/${d.tgt.maxScore} met), target SPRS submission ${CMMC_SPRINT_META.targetSprsSubmissionDate}.`,
+    `Projected post-sprint score: ${d.tgt.score} (${d.tgt.met}/${d.tgt.maxScore} met), target SPRS submission ${sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}. The two CMMC assessment laptops are not yet provisioned; endpoint-gated controls (AU.L2-3.3.4, SI.L2-3.14.6) and SPRS submission are pegged to endpoint provisioning (PROV).`,
     `Current CMMC status eligibility: ${d.status.eligibility.replace('-', ' ')} — ${d.status.reason}`,
-    `One control planned for the POA&M: AU.L2-3.3.4 (audit-failure alerting), close ${CMMC_SPRINT_META.poamCloseDeadline}.`,
+    `One control planned for the POA&M: AU.L2-3.3.4 (audit-failure alerting), close ${sprintDate(CMMC_SPRINT_META.poamCloseDeadline)} (PROV+2 days; 180-day ceiling ${CMMC_SPRINT_META.poamCloseCeiling}).`,
     `Supply-chain (Psathyrella buoy, TAC-O): ${d.psath.baa?.asOrderedDomesticPct}% domestic content as-ordered (FAR 25.101 floor 65%), ${d.psath.swapNeeded.length} items to swap to US-made, ${d.psath.specialtyMetalRisks.length} specialty-metal items requiring DFARS 252.225-7009 certs.`,
   ].join('\n');
 
@@ -66,7 +66,7 @@ async function execSummary(d: ReturnType<typeof assemble>): Promise<{ html: stri
 
   // Deterministic fallback — still real, from the data.
   const fallback =
-    `As of ${new Date().toISOString().slice(0, 10)}, ${ORG.legalName} has completed a self-assessment against the 110 NIST SP 800-171 Rev. 2 security requirements that comprise CMMC Level 2. The current SPRS score is ${d.cur.score} of ${d.cur.maxScore} (${d.cur.met} requirements met), against a conditional-eligibility threshold of ${d.cur.conditionalThreshold}. The organization is executing a self-assessment sprint targeting a score of ${d.tgt.score} and SPRS submission on ${CMMC_SPRINT_META.targetSprsSubmissionDate}; one 1-point requirement (AU.L2-3.3.4) is planned for the Plan of Action & Milestones with a close date of ${CMMC_SPRINT_META.poamCloseDeadline}.\n\n` +
+    `As of ${new Date().toISOString().slice(0, 10)}, ${ORG.legalName} has completed a self-assessment against the 110 NIST SP 800-171 Rev. 2 security requirements that comprise CMMC Level 2. The current SPRS score is ${d.cur.score} of ${d.cur.maxScore} (${d.cur.met} requirements met), against a conditional-eligibility threshold of ${d.cur.conditionalThreshold}. The organization is executing a self-assessment sprint targeting a score of ${d.tgt.score} and SPRS submission on ${sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}; one 1-point requirement (AU.L2-3.3.4) is planned for the Plan of Action & Milestones with a close date of ${sprintDate(CMMC_SPRINT_META.poamCloseDeadline)} (endpoint-provisioning-gated; 180-day statutory ceiling ${CMMC_SPRINT_META.poamCloseCeiling}).\n\n` +
     `Current status: ${d.status.reason}\n\n` +
     `On the supply-chain axis, the flagship Psathyrella maritime buoy (NUWC TAC-O Phase 2) currently measures ${d.psath.baa?.asOrderedDomesticPct}% domestic component content — below the FAR 25.101 65% floor — with ${d.psath.swapNeeded.length} components identified for substitution to US-made alternates (raising domestic content to approximately ${d.psath.baa?.postSwapDomesticPct}%) and ${d.psath.specialtyMetalRisks.length} specialty-metal items requiring DFARS 252.225-7009 mill certification before delivery.`;
   return { html: renderProse(fallback), llm: false };
@@ -103,7 +103,7 @@ export async function buildSecurityReport(reportType: SecurityReportType): Promi
 
   // POA&M
   const poamRows: (string | number)[][] = [
-    ['POAM-001', 'AU.L2-3.3.4', 'Alert on audit-logging process failure', 'Deploy Wazuh SIEM audit-failure alerting; soak', ORG.sao ?? '', CMMC_SPRINT_META.poamCloseDeadline, 'Planned'],
+    ['POAM-001', 'AU.L2-3.3.4', 'Alert on audit-logging process failure', 'Deploy Wazuh SIEM audit-failure alerting; soak', ORG.sao ?? '', sprintDate(CMMC_SPRINT_META.poamCloseDeadline), 'Planned — endpoint-gated'],
   ];
   sections.push({
     id: 'poam', heading: 'Plan of Action & Milestones (POA&M)',
