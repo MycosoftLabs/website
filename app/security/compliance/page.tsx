@@ -1149,6 +1149,7 @@ export default function CompliancePage() {
             </p>
             <div className="flex flex-wrap gap-2">
               {[
+                { id: 'remediation-plan', label: 'Remediation Plan (owner-classified)' },
                 { id: 'cmmc-l2', label: 'CMMC L2 Self-Assessment Report' },
                 { id: 'sprs', label: 'SPRS Score Report' },
                 { id: 'poam', label: 'POA&M' },

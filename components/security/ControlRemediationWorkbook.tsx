@@ -117,6 +117,7 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
 
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState(false);
+  const [docBusy, setDocBusy] = useState(false);
 
   useEffect(() => {
     try {
@@ -407,6 +408,26 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
 
             {/* Submit / feedback */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                disabled={docBusy}
+                onClick={async () => {
+                  setDocBusy(true);
+                  try {
+                    const res = await fetch('/api/security/reports/generate', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ reportType: 'control-packet', controlId: control.id, format: 'html' }),
+                    });
+                    const html = await res.text();
+                    const w = window.open('', '_blank');
+                    if (w) { w.document.write(html); w.document.close(); }
+                  } finally { setDocBusy(false); }
+                }}
+                className="min-h-[40px] px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                title="MYCA generates the SSP implementation statement + policy for this control"
+              >
+                {docBusy ? <Circle className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Generate SSP / policy doc
+              </button>
               <button
                 type="button"
                 disabled={!allDone}

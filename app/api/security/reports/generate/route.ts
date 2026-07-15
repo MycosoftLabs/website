@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { LOCAL_DEV_ADMIN_COOKIE, isLocalDevAuthEnabled } from '@/lib/auth/local-dev-session';
 import { buildSecurityReport, type SecurityReportType } from '@/lib/reports/security-report';
+import { buildRemediationPlan, buildControlPacket } from '@/lib/reports/remediation';
 import { activeReportProvider } from '@/lib/reports/llm';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const TYPES: SecurityReportType[] = ['cmmc-l2', 'sprs', 'poam', 'supply-chain', 'compliance-snapshot'];
+const REMEDIATION_TYPES = ['remediation-plan', 'control-packet'];
 
 async function authorize(): Promise<boolean> {
   try {
@@ -28,7 +30,7 @@ async function authorize(): Promise<boolean> {
 export async function GET() {
   const provider = activeReportProvider();
   return NextResponse.json({
-    reportTypes: TYPES,
+    reportTypes: [...TYPES, ...REMEDIATION_TYPES],
     llm: {
       configured: Boolean(provider),
       provider: provider?.provider ?? null,
@@ -43,16 +45,27 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await authorize())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await request.json().catch(() => ({}));
-  const reportType = String(body.reportType ?? 'cmmc-l2') as SecurityReportType;
-  if (!TYPES.includes(reportType)) return NextResponse.json({ error: 'unknown reportType' }, { status: 400 });
+  const reportType = String(body.reportType ?? 'cmmc-l2');
+  const format = String(body.format ?? 'json');
 
   try {
-    const { html, meta } = await buildSecurityReport(reportType);
-    const format = String(body.format ?? 'json');
-    if (format === 'html') {
-      return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    let result: { html: string; meta: Record<string, unknown> } | null;
+    if (reportType === 'remediation-plan') {
+      result = await buildRemediationPlan();
+    } else if (reportType === 'control-packet') {
+      const controlId = String(body.controlId ?? '');
+      if (!controlId) return NextResponse.json({ error: 'controlId required' }, { status: 400 });
+      result = await buildControlPacket(controlId);
+      if (!result) return NextResponse.json({ error: 'unknown controlId' }, { status: 404 });
+    } else if (TYPES.includes(reportType as SecurityReportType)) {
+      result = await buildSecurityReport(reportType as SecurityReportType);
+    } else {
+      return NextResponse.json({ error: 'unknown reportType' }, { status: 400 });
     }
-    return NextResponse.json({ html, meta });
+    if (format === 'html') {
+      return new NextResponse(result.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+    return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json({ error: 'report generation failed', detail: String(e) }, { status: 500 });
   }
