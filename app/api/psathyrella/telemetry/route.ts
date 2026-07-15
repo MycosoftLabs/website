@@ -3,12 +3,16 @@
  */
 
 import { NextResponse } from "next/server"
+import { requireOwner } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
+  // Owner-only buoy surface (morgan@mycosoft.org). Dev/LAN passes via the signed local-dev cookie.
+  const auth = await requireOwner()
+  if (auth.error) return auth.error
   try {
     const res = await fetch(`${MAS_API_URL}/api/psathyrella/telemetry`, {
       headers: { Accept: "application/json" },

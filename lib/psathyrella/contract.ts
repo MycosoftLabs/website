@@ -16,7 +16,9 @@
  */
 
 // ── Device identity / anchor ────────────────────────────────────────────────
-export const PSATHYRELLA_DEVICE_ID = "psathyrella-buoy-com4";
+// Flipped to psathyrella-1 (Jul 03 2026) — MAS now serves the Mushroom 1 Jetson under this id.
+// The command BFF still aliases psathyrella-buoy-com4 / mycobrain-COM4 for mid-migration safety.
+export const PSATHYRELLA_DEVICE_ID = "psathyrella-1";
 export const PSATHYRELLA_PORT = "COM4";
 export const PSATHYRELLA_REGISTRY_ID = "mycobrain-COM4";
 /** Project Oyster, North Reef — buoy home anchor. */
@@ -32,9 +34,11 @@ export const ENDPOINTS = {
   command: `/api/devices/${PSATHYRELLA_DEVICE_ID}/command`,
   /** POST — canonical peripheral control (same bus the Earth-Sim DeviceWidget uses → MQTT/serial → device). */
   control: `/api/mycobrain/${PSATHYRELLA_PORT}/control`,
-  /** GET (planned) — fused nav/propulsion/comms/power/scope telemetry envelope. */
+  /** GET — fused nav/propulsion/comms/power/scope telemetry envelope (MAS 188). */
   telemetry: `/api/psathyrella/telemetry`,
-  /** WS (planned) — MAS push: mission events, MAVLink, NLM results. */
+  /** GET (SSE) — live telemetry push, passthrough to MAS /stream. Additive accelerator over the poll. */
+  stream: `/api/psathyrella/stream`,
+  /** WS (planned) — reserved; SSE `stream` is the live path today. */
   ws: `/api/psathyrella/ws`,
 } as const;
 
@@ -124,6 +128,10 @@ export interface AutonomyState {
   activeWaypointId: string | null;
   cameraHoldBearingDeg: number | null; // point-camera-and-hold
   fightCurrent: boolean;
+  /** Behaviour when the comms link is lost: return-to-launch, hold position, or continue mission. */
+  commsLossPolicy: "rtl" | "hold" | "continue";
+  /** Id of the MissionPlan currently executing (null = manual / no plan). */
+  activeMissionId: string | null;
 }
 
 // ── Power / solar ─────────────────────────────────────────────────────────────
@@ -138,13 +146,26 @@ export interface PowerState {
   sunRepositionSuggested: boolean;
 }
 
-// ── Comms — RF stack + acoustic bridge ───────────────────────────────────────
-export type RadioKind = "ble" | "cellular" | "wifi" | "lora";
+// ── Comms — RF stack + acoustic bridge + satellite ───────────────────────────
+export type RadioKind = "ble" | "cellular" | "wifi" | "lora" | "iridium" | "starlink";
 export const RADIO_LABEL: Record<RadioKind, string> = {
   ble: "BLE",
   cellular: "4G/LTE",
   wifi: "WIFI",
   lora: "LoRa",
+  iridium: "Iridium",
+  starlink: "Starlink",
+};
+// C2 bearer policy (per Cursor pool-drive guidance): bench = Wi-Fi, pool = 4G/LTE cellular are the
+// PRIMARY command-and-control links; LoRa is the SECONDARY long-range / comms-denied fallback; the
+// satellite bearers stay STANDBY until a real modem is wired. Lower priority = preferred when several
+// radios are connected (so the active-bearer pick is cellular > wifi > ble > lora, not strongest-RSSI).
+export const BEARER_PRIORITY: Record<RadioKind, number> = {
+  cellular: 0, wifi: 1, ble: 2, lora: 3, iridium: 4, starlink: 5,
+};
+export type BearerTier = "primary" | "secondary" | "standby";
+export const BEARER_TIER: Record<RadioKind, BearerTier> = {
+  cellular: "primary", wifi: "primary", ble: "secondary", lora: "secondary", iridium: "standby", starlink: "standby",
 };
 export interface RadioLink {
   kind: RadioKind;
@@ -152,6 +173,17 @@ export interface RadioLink {
   rssiDbm: number | null;
   latencyMs: number | null;
   throughputKbps: number | null;
+}
+/** Beyond-line-of-sight satellite bearer state (Iridium SBD or Starlink). */
+export interface SatelliteState {
+  bearer: "iridium" | "starlink" | null;
+  connected: boolean;
+  rssiDbm: number | null;
+  credits: number | null; // remaining SBD credits / data allowance
+  mtQueued: number; // mobile-terminated (ground→buoy) messages queued
+  moQueued: number; // mobile-originated (buoy→ground) messages queued
+  lastContactMsAgo: number | null;
+  nextPassEtaS: number | null; // seconds to next usable pass (Iridium LEO)
 }
 /** Underwater acoustic transducer modem (the RF↔acoustic bridge endpoint). */
 export interface AcousticLink {
@@ -165,11 +197,15 @@ export interface HydrophoneState {
   levelDb: number | null; // broadband level
   peakBearingDeg: number | null; // bearing of strongest signal
   bandHz: { lo: number; hi: number } | null;
+  gainDb: number | null; // current analog/digital gain applied to the array
+  spectrum: number[] | null; // current FFT bin levels 0..1 (~48 bins, live waterfall)
 }
 export interface CommsState {
   radios: RadioLink[];
   acoustic: AcousticLink;
   hydrophone: HydrophoneState;
+  /** Beyond-line-of-sight satellite bearer (Iridium SBD / Starlink). */
+  satellite: SatelliteState;
   /** RF ↔ acoustic translation actively bridging surface and subsurface. */
   bridgeActive: boolean;
   lastUplink: { atMsAgo: number | null; summary: string | null } | null;
@@ -192,6 +228,8 @@ export interface SensorContact {
   strength: number; // 0..1 normalized return strength
   label?: string;
   classifiedAs?: string; // NLM / YOLO classification
+  /** Tamper-evident provenance for this contact (surfaced later; AVANI-verified chain). */
+  chainOfCustody?: { hash: string; merkleRoot: string; avaniVerified: boolean };
 }
 export interface ScopeFrame {
   sweepDeg: number | null; // current sweep angle (rotating sensors), else null
@@ -209,6 +247,72 @@ export interface CameraState {
   tiltDeg: number | null;
 }
 
+// ── Mesh / fleet (Meshtastic-style multi-buoy network) ───────────────────────
+export interface PeerBuoy {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  headingDeg: number;
+  role: "relay" | "sensor" | "gateway" | "buoy";
+  batteryPct: number | null;
+  rssiDbm: number | null;
+  snrDb: number | null;
+  hops: number;
+  online: boolean;
+  lastHeardMsAgo: number | null;
+}
+export type MeshPacketKind = "position" | "telemetry" | "text" | "ack" | "sensor" | "nodeinfo";
+export interface MeshPacket {
+  id: string;
+  fromId: string;
+  toId: string;
+  kind: MeshPacketKind;
+  atMs: number;
+  hops: number;
+  rssiDbm: number | null;
+}
+
+// ── Safety state (hardware safety sensors — surfaced by the persistent safety strip) ──
+// All fields null = "not reported / no sensor wired yet" so the strip degrades gracefully
+// as Morgan wires the forthcoming leak / INA226 current / thermal / kill-switch hardware.
+export interface SafetyState {
+  /** Physical kill-switch engaged (props hard-cut at the power rail). null = not reported. */
+  killSwitchEngaged: boolean | null;
+  /** Seconds until the on-vehicle deadman auto-disarms if no command arrives. null = not reported. */
+  deadmanSecondsRemaining: number | null;
+  /** Configured deadman window in seconds (lets the GCS render a client-side estimate). null = unknown. */
+  deadmanWindowS: number | null;
+  /** Hull leak / water-intrusion detected. null = no sensor / not reported. */
+  leakDetected: boolean | null;
+  /** Raw water-intrusion probe reading (conductivity/level), if analog. null = not reported. */
+  waterIntrusionRaw: number | null;
+  /** Highest ESC / electronics temperature °C. null = not reported. */
+  maxEscTempC: number | null;
+  /** Any monitored temperature over its alarm threshold. null = not reported. */
+  thermalAlarm: boolean | null;
+  /** Highest per-thruster current draw A (from per-ESC INA226 shunts). null = not reported. */
+  maxThrusterCurrentA: number | null;
+  /** Any monitored current over its alarm threshold. null = not reported. */
+  overcurrentAlarm: boolean | null;
+  /** Vehicle-side low-battery alarm (SoC below threshold). null = not reported. */
+  lowBattery: boolean | null;
+}
+
+/** Client-side display thresholds + defaults for the safety strip (not control logic). */
+export const SAFETY_LIMITS = {
+  /** Fallback deadman window (s) for the client-side countdown estimate when the vehicle doesn't report one. */
+  deadmanDefaultS: 8,
+  /** Highlight the countdown amber below this fraction of the window, red below half of it. */
+  deadmanWarnFrac: 0.4,
+  /** SoC (%) below which the strip flags low battery when the vehicle doesn't send an explicit alarm. */
+  lowBatteryPct: 20,
+  /** Per-thruster current (A) above which the strip flags overcurrent when no explicit alarm is sent. */
+  overcurrentA: 10,
+  /** ESC/electronics temp (°C) above which the strip flags thermal when no explicit alarm is sent. */
+  thermalC: 70,
+} as const;
+
 // ── The full telemetry envelope ──────────────────────────────────────────────
 export interface BuoyTelemetry {
   deviceId: string;
@@ -217,25 +321,128 @@ export interface BuoyTelemetry {
   source: string | null; // "live" | "mas" | "field" | "sim" | ...
   /** TRUE only inside the explicit watermarked SIMULATION mode. */
   simulated: boolean;
+  /**
+   * Operational contact state derived from the link/satellite stack:
+   *  - "live"    = RF bearer up (near shore), full two-way telemetry
+   *  - "delayed" = only satellite, or just heard during a pass (store-and-forward)
+   *  - "dark"    = no link between passes (buoy ranged offshore, no sat window)
+   */
+  contactState: "live" | "delayed" | "dark";
+  /** Ms since the last received contact on ANY bearer (link/satellite-derived). */
+  lastContactMsAgo: number | null;
   pose: BuoyPose;
   bme: { a: BmeReading | null; b: BmeReading | null };
   propulsion: PropulsionState;
   autonomy: AutonomyState;
   power: PowerState;
+  /** Hardware safety sensors (kill-switch, deadman, leak, per-ESC current, thermal). */
+  safety: SafetyState;
   comms: CommsState;
   camera: CameraState;
   lidar: ScopeFrame;
   radar: ScopeFrame;
   /** BlueSight = radar + lidar + Wi-Fi-sense fusion. wifi is the extra layer. */
   bluesight: { wifi: SensorContact[]; active: boolean };
+  /** Other buoys in the LoRa mesh fleet (Meshtastic-style). */
+  peers: PeerBuoy[];
+  /** Live mesh-network state: this node's id, recent packets, and the channel. */
+  mesh: { selfId: string; packets: MeshPacket[]; channel: string };
+}
+
+// ── Command lifecycle (client-side ledger + store-and-forward) ───────────────
+export type CommandState = "queued" | "sent" | "acked" | "applied" | "expired" | "failed";
+export interface CommandRecord {
+  id: string;
+  seq: number; // monotonic per-session sequence
+  label: string;
+  domain: string;
+  state: CommandState;
+  bearer: RadioKind | "satellite" | "acoustic" | null;
+  createdMs: number;
+  sentMs?: number;
+  ackMs?: number;
+  latencyMs?: number;
+  detail?: string;
+}
+
+// ── Session record & replay (client-side flight recorder) ────────────────────
+// A compact, self-contained recording of a bench/pool/bay run: telemetry frames +
+// command events over time. Exportable/importable JSON — the "we field-tested it
+// with our own control system" artifact, and a debugging scrubber.
+export const SESSION_FORMAT_VERSION = 1;
+export interface SessionFrame {
+  t: number; // ms epoch
+  lat: number | null;
+  lon: number | null;
+  headingDeg: number | null;
+  speedKn: number | null;
+  depthM: number | null;
+  armed: boolean;
+  mode: string;
+  contactState: "live" | "delayed" | "dark";
+  link: LinkState;
+  batterySocPct: number | null;
+  thrusters: { id: ThrusterId; throttlePct: number; azimuthDeg: number; currentA: number | null; faulted: boolean }[];
+  contacts: number; // total sensor contacts (radar + lidar + bluesight)
+}
+export interface SessionCommandEvent {
+  t: number;
+  id: string;
+  seq: number;
+  label: string;
+  domain: string;
+  state: CommandState;
+  latencyMs?: number;
+}
+export interface RecordedSession {
+  version: number;
+  deviceId: string;
+  startedMs: number;
+  endedMs: number;
+  frames: SessionFrame[];
+  commands: SessionCommandEvent[];
+  note?: string;
+}
+
+// ── Mission planning (multi-task autonomous plans) ───────────────────────────
+export type MissionTaskKind =
+  | "transit"
+  | "loiter"
+  | "survey"
+  | "track"
+  | "solar_reposition"
+  | "station_keep";
+export interface MissionTask {
+  id: string;
+  kind: MissionTaskKind;
+  lat?: number;
+  lon?: number;
+  radiusM?: number;
+  loiterS?: number;
+  note?: string;
+}
+export interface MissionPlan {
+  id: string;
+  name: string;
+  tasks: MissionTask[];
+  geofence?: [number, number][];
+  commsLossPolicy: "rtl" | "hold" | "continue";
+  validUntilMs?: number | null;
+  roe?: string; // rules of engagement / standing orders
+  signature?: string | null; // operator sign-off signature
+  createdMs: number;
 }
 
 // ── Commands (front-end → back-end) ──────────────────────────────────────────
 export type BuoyCommand =
   // propulsion
   | { domain: "thruster"; action: "setVector"; headingDeg: number; magnitudePct: number; yawRateDegS: number }
-  | { domain: "thruster"; action: "setThruster"; id: ThrusterId; throttlePct: number; azimuthDeg: number }
+  | { domain: "thruster"; action: "setThruster"; id: ThrusterId; throttlePct: number; azimuthDeg?: number } // azimuthDeg omitted = throttle-only (pod keeps its angle)
+  | { domain: "thruster"; action: "setAzimuthRate"; id: ThrusterId; ratePct: number } // FS90MR continuous servo: spin rate -100..100 (0 = stop)
+  | { domain: "thruster"; action: "setAzimuth"; id: ThrusterId; azimuthDeg: number } // absolute pod azimuth (0 = home, straight out from center) — no throttle change
   | { domain: "thruster"; action: "allStop" }
+  // raw PCA9685 bench diagnostic — drive ANY channel (0-15) to a pulse, bypassing the thruster map
+  | { domain: "pwm"; action: "setChannel"; channel: number; us: number }
   // autonomy
   | { domain: "autonomy"; action: "setMode"; mode: AutonomyMode }
   | { domain: "autonomy"; action: "arm"; armed: boolean }
@@ -251,6 +458,12 @@ export type BuoyCommand =
   // comms / acoustics (live today via control bus)
   | { domain: "comms"; action: "ping" }
   | { domain: "comms"; action: "recordHydrophone"; band: "lf" | "hf" }
+  | { domain: "comms"; action: "setBearer"; bearer: RadioKind }
+  // acoustics — hydrophone array gain
+  | { domain: "acoustic"; action: "setGain"; gainDb: number }
+  // mission (multi-task autonomous plans)
+  | { domain: "mission"; action: "upload"; plan: MissionPlan }
+  | { domain: "mission"; action: "abort" }
   // diagnostics (live today)
   | { domain: "led"; action: "rainbow" | "off" }
   | { domain: "buzzer"; action: "beep" | "off" };
@@ -292,11 +505,35 @@ export function buildCommandRequest(cmd: BuoyCommand): CommandRequest {
       if (cmd.action === "ping") {
         return { url: control, label: "Transducer ping", body: { peripheral: "transducer", cmd: "transducer ping", pulse_ms: 100 } };
       }
+      if (cmd.action === "recordHydrophone") {
+        return {
+          url: control,
+          label: `Hydrophone ${cmd.band.toUpperCase()} record`,
+          body: { peripheral: `hydrophone-${cmd.band}`, cmd: `hydrophone record ${cmd.band === "lf" ? "low" : "high"}`, duration_s: 10 },
+        };
+      }
+      // setBearer — select the active comms bearer (RF / satellite). MDP nav-side handler routes the bearer switch.
       return {
-        url: control,
-        label: `Hydrophone ${cmd.band.toUpperCase()} record`,
-        body: { peripheral: `hydrophone-${cmd.band}`, cmd: `hydrophone record ${cmd.band === "lf" ? "low" : "high"}`, duration_s: 10 },
+        url,
+        label: `Bearer ${RADIO_LABEL[cmd.bearer]}`,
+        body: { target: "side_b", cmd: "comms.set_bearer", params: { bearer: cmd.bearer } },
       };
+    case "acoustic":
+      // setGain — adjust hydrophone array gain. MDP audio/sensor-side handler (Cursor) applies it.
+      return {
+        url,
+        label: `Hydrophone gain ${cmd.gainDb} dB`,
+        body: { target: "side_a", cmd: "acoustic.set_gain", params: { gain_db: cmd.gainDb } },
+      };
+    case "mission":
+      if (cmd.action === "upload") {
+        return {
+          url,
+          label: `Mission upload: ${cmd.plan.name}`,
+          body: { target: "side_b", cmd: "mission.upload", params: { plan: cmd.plan } },
+        };
+      }
+      return { url, label: "Mission abort", body: { target: "side_b", cmd: "mission.abort" } };
     case "thruster":
       if (cmd.action === "setVector") {
         return {
@@ -313,10 +550,28 @@ export function buildCommandRequest(cmd: BuoyCommand): CommandRequest {
         return {
           url,
           label: `Thruster ${cmd.id}`,
-          body: { target: "side_b", cmd: "nav.thruster", params: { id: cmd.id, throttle: cmd.throttlePct, azimuth: cmd.azimuthDeg } },
+          // azimuth included only when specified — omitted = throttle-only, the pod keeps its angle
+          body: { target: "side_b", cmd: "nav.thruster", params: { id: cmd.id, throttle: cmd.throttlePct, ...(cmd.azimuthDeg != null ? { azimuth: cmd.azimuthDeg } : {}) } },
+        };
+      }
+      if (cmd.action === "setAzimuthRate") {
+        return {
+          url,
+          label: `Azimuth ${cmd.id} rate`,
+          body: { target: "side_b", cmd: "nav.thruster_azimuth", params: { id: cmd.id, rate: cmd.ratePct } },
+        };
+      }
+      if (cmd.action === "setAzimuth") {
+        return {
+          url,
+          label: cmd.azimuthDeg === 0 ? `Pod ${cmd.id} → home` : `Azimuth ${cmd.id} → ${cmd.azimuthDeg}°`,
+          body: { target: "side_b", cmd: "nav.thruster_azimuth", params: { id: cmd.id, azimuth: cmd.azimuthDeg } },
         };
       }
       return { url, label: "ALL STOP", body: { target: "side_b", cmd: "nav.all_stop" } };
+    case "pwm":
+      // Raw PCA9685 channel drive (bench diagnostic) → agent nav.pwm_raw.
+      return { url, label: `CH${cmd.channel} → ${cmd.us}µs`, body: { target: "side_b", cmd: "nav.pwm_raw", params: { channel: cmd.channel, us: cmd.us } } };
     case "autonomy":
       switch (cmd.action) {
         case "setMode":
@@ -356,6 +611,8 @@ export function emptyTelemetry(): BuoyTelemetry {
     lastUpdateMsAgo: null,
     source: null,
     simulated: false,
+    contactState: "dark",
+    lastContactMsAgo: null,
     pose: { lat: null, lon: null, headingDeg: null, speedKn: null, depthM: null, gpsLock: "unavailable" },
     bme: { a: null, b: null },
     propulsion: {
@@ -370,12 +627,14 @@ export function emptyTelemetry(): BuoyTelemetry {
       })),
       commandedVector: null,
     },
-    autonomy: { mode: "MANUAL", armed: false, waypoints: [], activeWaypointId: null, cameraHoldBearingDeg: null, fightCurrent: false },
+    autonomy: { mode: "MANUAL", armed: false, waypoints: [], activeWaypointId: null, cameraHoldBearingDeg: null, fightCurrent: false, commsLossPolicy: "rtl", activeMissionId: null },
     power: { solarInputW: null, panelTempC: null, batterySocPct: null, batteryVoltage: null, loadW: null, estRuntimeH: null, sunRepositionSuggested: false },
+    safety: { killSwitchEngaged: null, deadmanSecondsRemaining: null, deadmanWindowS: null, leakDetected: null, waterIntrusionRaw: null, maxEscTempC: null, thermalAlarm: null, maxThrusterCurrentA: null, overcurrentAlarm: null, lowBattery: null },
     comms: {
-      radios: (["ble", "cellular", "wifi", "lora"] as RadioKind[]).map((kind) => ({ kind, connected: false, rssiDbm: null, latencyMs: null, throughputKbps: null })),
+      radios: (["cellular", "wifi", "ble", "lora", "iridium", "starlink"] as RadioKind[]).map((kind) => ({ kind, connected: false, rssiDbm: null, latencyMs: null, throughputKbps: null })),
       acoustic: { connected: false, carrierKhz: null, snrDb: null, rangeM: null, lastPingMsAgo: null },
-      hydrophone: { levelDb: null, peakBearingDeg: null, bandHz: null },
+      hydrophone: { levelDb: null, peakBearingDeg: null, bandHz: null, gainDb: null, spectrum: null },
+      satellite: { bearer: null, connected: false, rssiDbm: null, credits: null, mtQueued: 0, moQueued: 0, lastContactMsAgo: null, nextPassEtaS: null },
       bridgeActive: false,
       lastUplink: null,
     },
@@ -383,11 +642,89 @@ export function emptyTelemetry(): BuoyTelemetry {
     lidar: { sweepDeg: null, maxRangeM: 500, contacts: [], active: false },
     radar: { sweepDeg: null, maxRangeM: 4000, contacts: [], active: false },
     bluesight: { wifi: [], active: false },
+    peers: [],
+    mesh: { selfId: "psathyrella-01", packets: [], channel: "Myco-LongFast" },
   };
 }
 
-export const VIEW_MODES = ["CAMERA", "LIDAR", "RADAR", "BLUESIGHT", "MAP"] as const;
+export const VIEW_MODES = ["CAMERA", "LIDAR", "RADAR", "BLUESIGHT", "SONAR", "MAP"] as const;
 export type ViewMode = (typeof VIEW_MODES)[number];
+
+// ── Device selection (shared: MAP ⇄ Devices panel ⇄ StatusBar) ───────────────
+// One normalized shape so a click on the map and a click in the Devices/Nodes
+// tab select the SAME entity, and the bottom StatusBar renders THAT entity.
+export type DeviceCategory = "aquatic" | "land" | "flying" | "edge" | "other";
+export interface SelectedDevice {
+  id: string;
+  name: string;
+  category: DeviceCategory;
+  /** True only for the primary Psathyrella buoy — the one with full live telemetry. */
+  isBuoy: boolean;
+  online: boolean;
+  lat: number | null;
+  lon: number | null;
+  batteryPct: number | null;
+  rssiDbm: number | null;
+  peers: number | null;
+}
+
+// ── Map asset hover / pick (Earth-Sim-parity: every asset is hoverable + selectable) ─────────
+// A normalized, layer-agnostic descriptor so ONE delegated click/hover handler can surface any
+// map feature (military base, contact, peer, vessel, cable, plume, …) in a shared card.
+export interface MapAsset {
+  id: string;
+  layerId: string;
+  kind: string;       // human asset category, e.g. "Military base", "Radar contact"
+  label: string;      // primary name
+  detail: string[];   // info lines for the card
+  lat: number | null;
+  lon: number | null;
+  /** A serializable snapshot of the clicked feature's properties (incl. a `__full` JSON string
+   *  of the whole source record where the layer bakes one in) — lets the rich entity widget
+   *  show mass data without a second fetch. Hover stays lightweight and ignores this. */
+  raw?: Record<string, unknown>;
+}
+export interface MapAssetHover extends MapAsset {
+  x: number;          // screen px (cursor) — positions the hover card
+  y: number;
+}
+
+/** The primary buoy as a SelectedDevice — the default focus, derived live from telemetry. */
+export function primaryBuoySelection(t: BuoyTelemetry): SelectedDevice {
+  const best = t.comms.radios
+    .filter((r) => r.connected && r.rssiDbm != null)
+    .sort((a, b) => (BEARER_PRIORITY[a.kind] - BEARER_PRIORITY[b.kind]) || ((b.rssiDbm ?? -999) - (a.rssiDbm ?? -999)))[0];
+  return {
+    id: t.deviceId,
+    name: "Psathyrella",
+    category: "aquatic",
+    isBuoy: true,
+    online: t.link === "online",
+    lat: t.pose.lat,
+    lon: t.pose.lon,
+    batteryPct: t.power.batterySocPct,
+    rssiDbm: best?.rssiDbm ?? null,
+    peers: t.comms.radios.filter((r) => r.connected).length || null,
+  };
+}
+
+export const CATEGORY_LABEL: Record<DeviceCategory, string> = {
+  aquatic: "Aquatic Droid",
+  land: "Land Droid",
+  flying: "Flying Droid",
+  edge: "Edge Data Center",
+  other: "Device",
+};
+
+/** Classify a device-registry row into a droid category (shared by MAP + Devices panel). */
+export function classifyDevice(d: { type?: unknown; id?: unknown; name?: unknown }): DeviceCategory {
+  const t = `${d?.type || ""} ${d?.id || ""} ${d?.name || ""}`.toLowerCase();
+  if (t.includes("psathyrella") || t.includes("buoy")) return "aquatic";
+  if (t.includes("mushroom")) return "land";
+  if (t.includes("agaric")) return "flying";
+  if (t.includes("hyphae")) return "edge";
+  return "other";
+}
 
 /** Color per contact kind — shared by all scopes for a consistent legend. */
 export const CONTACT_COLOR: Record<ContactKind, string> = {

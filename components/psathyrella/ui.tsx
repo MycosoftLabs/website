@@ -72,7 +72,7 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-xl border border-cyan-500/20 bg-[#0a0f1e]/95 backdrop-blur-md shadow-xl shadow-black/40", className)}>
+    <div className={cn("psa-glass flex flex-col overflow-hidden rounded-xl", className)}>
       {title !== undefined && (
         <div className="flex items-center justify-between gap-2 border-b border-cyan-500/10 bg-gradient-to-r from-cyan-500/5 to-transparent px-3 py-2">
           <div className="flex items-center gap-2 text-cyan-300">
@@ -175,7 +175,7 @@ export function TacButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
+        "psa-glass-btn inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
         "disabled:cursor-not-allowed disabled:opacity-40",
         toneClass,
         className
@@ -228,7 +228,7 @@ export function BottomSheet({
   return (
     <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl border-t border-cyan-500/30 bg-[#0a0f1e] shadow-2xl shadow-black/60 duration-200 animate-in slide-in-from-bottom">
+      <div className="psa-glass absolute inset-x-0 bottom-0 flex flex-col rounded-t-2xl border-t shadow-2xl shadow-black/60 duration-200 animate-in slide-in-from-bottom">
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2 text-cyan-200">

@@ -20,6 +20,11 @@ import {
   Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
+import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta';
+import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
+import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
+import SupplyChainPanel from '@/components/security/SupplyChainPanel';
+import { BookOpen, Ban } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -497,7 +502,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -524,6 +529,39 @@ export default function CompliancePage() {
 
   const [masBundle, setMasBundle] = useState<MasComplianceBundle | null>(null);
   const [masRegenBusy, setMasRegenBusy] = useState<string | null>(null);
+
+  // MYCA Reports Agent
+  const [reportEngine, setReportEngine] = useState<{ configured: boolean; provider: string | null; model: string | null; note: string } | null>(null);
+  const [reportBusy, setReportBusy] = useState<string | null>(null);
+  const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [policyFamily, setPolicyFamily] = useState('AC');
+
+  useEffect(() => {
+    fetch('/api/security/reports/generate')
+      .then((r) => r.json())
+      .then((d) => setReportEngine(d.llm))
+      .catch(() => setReportEngine(null));
+  }, []);
+
+  async function handleGenerateReport(reportType: string) {
+    setReportBusy(reportType);
+    setReportMsg(null);
+    try {
+      const res = await fetch('/api/security/reports/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reportType }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.html) { setReportMsg(data.error || 'Report generation failed.'); return; }
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(data.html); w.document.close(); }
+      else setReportMsg('Popup blocked — allow popups to open the report.');
+      setReportMsg(`Generated via ${data.meta?.provider ? `${data.meta.provider} (${data.meta.model})` : 'real data (no LLM configured)'} — SPRS current ${data.meta?.sprsCurrent}, target ${data.meta?.sprsTarget}.`);
+    } catch {
+      setReportMsg('Report generation failed.');
+    } finally {
+      setReportBusy(null);
+    }
+  }
 
   // Fetch compliance data
   useEffect(() => {
@@ -885,6 +923,8 @@ export default function CompliancePage() {
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
+          { id: 'reference', label: 'Reference (L2/L3)', icon: BookOpen, tourId: 'reference-tab' },
+          { id: 'supply-chain', label: 'Supply Chain', icon: Ban, tourId: 'supply-chain-tab' },
           { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
@@ -901,6 +941,31 @@ export default function CompliancePage() {
             {tab.label}
           </button>
         ))}
+      </div>
+
+      {/* Self-assessment context banner — keeps today's honest low posture from
+          reading as "broken". Current numbers come from live MAS; framing from
+          the CMMC sprint overlay. */}
+      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+          <div>
+            <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
+            Control statuses reflect <span className="font-semibold">current</span> posture (live from MAS{' '}
+            <code className="text-amber-300">soc_ops</code>) — a low percentage today is expected and honest.
+            Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
+            with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
+            The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.endpointGated.join(', ')}</code>) and the{' '}
+            <code className="text-amber-300">{CMMC_SPRINT_META.openPoamItem}</code> POA&amp;M item close at{' '}
+            <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.poamCloseDeadline)}</span>{' '}
+            (180-day ceiling {CMMC_SPRINT_META.poamCloseCeiling}). Laptop-independent items{' '}
+            (<code className="text-amber-300">{CMMC_SPRINT_META.laptopIndependentClosable.join(', ')}</code>) can close now.
+            Projected numbers are never shown as achieved. Control weights are{' '}
+            <span className="font-semibold">verified</span> against the DoD Assessment Methodology v1.2.1
+            (Annex A); the computed SPRS score appears in the Reference → Verification flags tab.
+          </div>
+        </div>
       </div>
 
       {/* Controls Tab */}
@@ -996,56 +1061,7 @@ export default function CompliancePage() {
                       </div>
                       
                       {isExpanded && (
-                        <div className="mt-4 ml-8 space-y-3">
-                          <p className="text-sm text-slate-400">{control.description}</p>
-                          
-                          <div className="flex flex-wrap gap-4 text-xs">
-                            <div>
-                              <span className="text-slate-500">Priority:</span>
-                              <span className={`ml-2 px-2 py-0.5 rounded ${
-                                control.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                                control.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-green-500/20 text-green-400'
-                              }`}>{control.priority}</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-500">Last Audit:</span>
-                              <span className="ml-2 text-slate-300">{control.lastAudit}</span>
-                            </div>
-                            {control.lastAuditBy && (
-                              <div>
-                                <span className="text-slate-500">By:</span>
-                                <span className="ml-2 text-slate-300">{control.lastAuditBy}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <span className="text-xs text-slate-500">Evidence:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {control.evidence.map((e, i) => (
-                                <span key={i} className="text-xs px-2 py-1 bg-slate-700 rounded">{e}</span>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {control.mappings && Object.keys(control.mappings).length > 0 && (
-                            <div>
-                              <span className="text-xs text-slate-500">Cross-Framework Mappings:</span>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {Object.entries(control.mappings).map(([fw, ids], idx) => (
-                                  <span key={fw || `mapping-${idx}`} className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
-                                    {fw}: {(ids as string[]).join(', ')}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {control.notes && (
-                            <p className="text-xs text-slate-500 italic">{control.notes}</p>
-                          )}
-                        </div>
+                        <ControlRemediationWorkbook control={control as unknown as WorkbookControl} />
                       )}
                     </div>
                   );
@@ -1125,6 +1141,70 @@ export default function CompliancePage() {
       {/* Reports Tab */}
       {activeTab === 'reports' && (
         <div className="space-y-6" data-tour="reports-section">
+          {/* MYCA Reports Agent — real, data-driven, government-standard documents */}
+          <div className="rounded-xl border border-purple-500/40 bg-gradient-to-br from-purple-900/20 to-slate-900/40 p-5">
+            <div className="flex items-center gap-3 mb-1">
+              <Sparkles className="w-6 h-6 text-purple-300" />
+              <h3 className="font-bold text-white">MYCA Reports Agent</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded border ${reportEngine?.configured ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+                {reportEngine ? (reportEngine.configured ? `LLM: ${reportEngine.provider} · ${reportEngine.model}` : 'data-only (no LLM key)') : 'checking…'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-3xl mb-3">
+              Generates real, documented, CUI-marked reports from live compliance data (SPRS score, control posture, POA&amp;M, supply-chain BAA) — formatted to government standard, printable to PDF. The reports agent authors the narrative with the configured model; without a key it still produces a complete data-driven document.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 'remediation-plan', label: 'Remediation Plan (owner-classified)' },
+                { id: 'cmmc-l2', label: 'CMMC L2 Self-Assessment Report' },
+                { id: 'sprs', label: 'SPRS Score Report' },
+                { id: 'poam', label: 'POA&M' },
+                { id: 'supply-chain', label: 'Supply-Chain / Made-in-America' },
+              ].map((rt) => (
+                <button
+                  key={rt.id}
+                  type="button"
+                  onClick={() => handleGenerateReport(rt.id)}
+                  disabled={reportBusy !== null}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  {reportBusy === rt.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  {rt.label}
+                </button>
+              ))}
+            </div>
+            {/* Policies & procedures (Batch B) */}
+            <div className="mt-3 pt-3 border-t border-slate-700/60">
+              <div className="text-xs text-slate-400 mb-2">Policies &amp; procedures — MYCA drafts, Morgan reviews &amp; signs:</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={policyFamily} onChange={(e) => setPolicyFamily(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-100">
+                  {[['AC','Access Control'],['AT','Awareness & Training'],['AU','Audit & Accountability'],['CM','Configuration Mgmt'],['IA','Identification & Auth'],['IR','Incident Response'],['MA','Maintenance'],['MP','Media Protection'],['PS','Personnel Security'],['PE','Physical Protection'],['RA','Risk Assessment'],['CA','Security Assessment'],['SC','System & Comms Protection'],['SI','System & Info Integrity']].map(([k,v]) => (
+                    <option key={k} value={k}>{v} policy</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => handleGenerateReport(`policy:${policyFamily}`)} disabled={reportBusy !== null}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                  {reportBusy === `policy:${policyFamily}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Generate policy
+                </button>
+                {[['ir-runbook','IR Runbook'],['access-agreement','Access Agreement'],['physical-access','Physical Access'],['visitor-log','Visitor Log']].map(([id,label]) => (
+                  <button key={id} type="button" onClick={() => handleGenerateReport(id)} disabled={reportBusy !== null}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                    {reportBusy === id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reportMsg && <div className="text-xs text-slate-300 mt-2">{reportMsg}</div>}
+            {reportEngine && !reportEngine.configured && (
+              <div className="text-[11px] text-amber-300/80 mt-2 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {reportEngine.note}
+              </div>
+            )}
+          </div>
+
           {/* Row 1: Core Compliance Reports */}
           <div className="grid grid-cols-4 gap-4">
             {/* NIST 800-171 Reports */}
@@ -1455,6 +1535,20 @@ export default function CompliancePage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Reference (L2/L3 + statutory + CUI) Tab */}
+      {activeTab === 'reference' && (
+        <div data-tour="reference-section">
+          <CmmcReferencePanel />
+        </div>
+      )}
+
+      {/* Supply Chain Tab */}
+      {activeTab === 'supply-chain' && (
+        <div data-tour="supply-chain-section">
+          <SupplyChainPanel />
         </div>
       )}
 

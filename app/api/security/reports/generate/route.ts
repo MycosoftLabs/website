@@ -1,0 +1,79 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { LOCAL_DEV_ADMIN_COOKIE, isLocalDevAuthEnabled } from '@/lib/auth/local-dev-session';
+import { buildSecurityReport, type SecurityReportType } from '@/lib/reports/security-report';
+import { buildRemediationPlan, buildControlPacket } from '@/lib/reports/remediation';
+import { buildPolicy, buildSupportingDoc, POLICY_KINDS } from '@/lib/reports/policy';
+import { activeReportProvider } from '@/lib/reports/llm';
+
+export const dynamic = 'force-dynamic';
+// Report generation can call an external LLM; allow more time.
+export const maxDuration = 60;
+
+const TYPES: SecurityReportType[] = ['cmmc-l2', 'sprs', 'poam', 'supply-chain', 'compliance-snapshot'];
+const REMEDIATION_TYPES = ['remediation-plan', 'control-packet'];
+
+async function authorize(): Promise<boolean> {
+  try {
+    const jar = await cookies();
+    if (isLocalDevAuthEnabled() && jar.get(LOCAL_DEV_ADMIN_COOKIE)?.value) return true;
+  } catch { /* ignore */ }
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    if (data?.user) return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
+// Report engine status + available report types.
+export async function GET() {
+  const provider = activeReportProvider();
+  return NextResponse.json({
+    reportTypes: [...TYPES, ...REMEDIATION_TYPES],
+    llm: {
+      configured: Boolean(provider),
+      provider: provider?.provider ?? null,
+      model: provider?.model ?? null,
+      note: provider
+        ? `MYCA reports agent will author narrative with ${provider.provider} (${provider.model}).`
+        : 'No report LLM configured. Reports still generate from real data (deterministic narrative). Set PERPLEXITY_API_KEY (preferred), NVIDIA_NIM_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY to enable AI-authored prose.',
+    },
+  });
+}
+
+export async function POST(request: NextRequest) {
+  if (!(await authorize())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const body = await request.json().catch(() => ({}));
+  const reportType = String(body.reportType ?? 'cmmc-l2');
+  const format = String(body.format ?? 'json');
+
+  try {
+    let result: { html: string; meta: Record<string, unknown> } | null;
+    if (reportType === 'remediation-plan') {
+      result = await buildRemediationPlan();
+    } else if (reportType === 'control-packet') {
+      const controlId = String(body.controlId ?? '');
+      if (!controlId) return NextResponse.json({ error: 'controlId required' }, { status: 400 });
+      result = await buildControlPacket(controlId);
+      if (!result) return NextResponse.json({ error: 'unknown controlId' }, { status: 404 });
+    } else if (reportType.startsWith('policy:')) {
+      result = await buildPolicy(reportType.slice('policy:'.length));
+      if (!result) return NextResponse.json({ error: 'unknown policy family' }, { status: 404 });
+    } else if (POLICY_KINDS.includes(reportType)) {
+      result = await buildSupportingDoc(reportType);
+      if (!result) return NextResponse.json({ error: 'unknown document kind' }, { status: 404 });
+    } else if (TYPES.includes(reportType as SecurityReportType)) {
+      result = await buildSecurityReport(reportType as SecurityReportType);
+    } else {
+      return NextResponse.json({ error: 'unknown reportType' }, { status: 400 });
+    }
+    if (format === 'html') {
+      return new NextResponse(result.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json({ error: 'report generation failed', detail: String(e) }, { status: 500 });
+  }
+}

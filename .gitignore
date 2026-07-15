@@ -68,3 +68,8 @@ credentials.local
 # Worldview launch private artifacts (May 22, 2026)
 docs/launch/2026-05-22/fixtures/api_keys.env.PRIVATE
 docs/launch/2026-05-22/harness/reports/
+
+# CUI audit JUL15 2026 ? build/temp hygiene
+temp_original_crep.txt
+tsc_output_utf8.txt
+*.tsc_output*.txt

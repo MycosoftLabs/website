@@ -23,7 +23,7 @@ export class GoogleVertexProvider {
   }
 
   async chat(options: ChatCompletionOptions): Promise<ChatCompletionResponse> {
-    const model = options.model || 'gemini-1.5-pro'
+    const model = options.model || 'gemini-2.5-pro'
     const endpoint = this.getEndpoint(model)
     const contents = this.convertMessages(options.messages)
 
@@ -106,7 +106,7 @@ export class GoogleVertexProvider {
   }
 
   async *streamChat(options: ChatCompletionOptions): AsyncGenerator<string> {
-    const model = options.model || 'gemini-1.5-pro'
+    const model = options.model || 'gemini-2.5-pro'
     const endpoint = this.getEndpoint(model)
     const contents = this.convertMessages(options.messages)
 

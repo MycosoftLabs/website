@@ -4,11 +4,12 @@
 
 ### Google Maps API Key
 **Location**: Multiple places
-- **Dockerfile** (line 45): `AIzaSyA9wzTz5MiDhYBdY1vHJQtOnw9uikwauBk` (hardcoded fallback)
-- **Environment Variable**: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (should be in `.env.local`)
+- **Dockerfile**: `ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` with **no secret default** (pass at build time)
+- **Environment Variable**: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (set in `.env.local` / CI secrets only)
 - **Usage**: `lib/google-maps-loader.ts`, map components
+- **Historical leak**: plaintext key was in git history (commit `753a7bb2`); treat as compromised — rotate in GCP
 
-**Status**: ⚠️ Hardcoded in Dockerfile, should be in `.env.local`
+**Status**: ⚠️ Rotate key in Google Cloud; never commit plaintext keys. Use `<GOOGLE_MAPS_API_KEY>` / env only.
 
 ### Google OAuth (Login)
 **Location**: NextAuth configuration
@@ -37,11 +38,11 @@
 
 1. **Check `.env.local` file** (in website root):
    ```env
-   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_maps_api_key_here
-   GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your_client_secret
-   NEXTAUTH_URL=http://localhost:3000
-   NEXTAUTH_SECRET=mycosoft-super-secret-key-2024
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<GOOGLE_MAPS_API_KEY>
+   GOOGLE_CLIENT_ID=<GOOGLE_CLIENT_ID>
+   GOOGLE_CLIENT_SECRET=<GOOGLE_CLIENT_SECRET>
+   NEXTAUTH_URL=http://localhost:3010
+   NEXTAUTH_SECRET=<generate with: openssl rand -base64 32>
    ```
 
 2. **Verify API Keys are Valid**:
