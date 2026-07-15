@@ -104,28 +104,48 @@ async function callAnthropic(c: ProviderConfig, req: NarrativeRequest, key: stri
   return (data?.content ?? []).map((b: { text?: string }) => b.text ?? '').join('');
 }
 
+function configuredProviders(): ProviderConfig[] {
+  const chain = providerChain();
+  const forced = (process.env.REPORTS_LLM_PROVIDER || '').toLowerCase();
+  if (forced) {
+    const c = chain.find((p) => p.provider === forced);
+    if (c && (process.env[c.keyEnv] || '').trim()) return [c];
+  }
+  return chain.filter((p) => (process.env[p.keyEnv] || '').trim());
+}
+
 /**
  * Generate document prose from a prompt. Returns null (never throws) when no
- * provider is configured or the call fails, so report building degrades to a
+ * provider is configured or all providers fail, so report building degrades to a
  * deterministic data-only document instead of breaking.
+ *
+ * Tries every configured provider in preference order (Perplexity → NIM →
+ * Anthropic → OpenAI → Groq) so a missing/broken PERPLEXITY_API_KEY does not
+ * kill narrative when Anthropic/OpenAI are present.
  */
 export async function generateNarrative(req: NarrativeRequest): Promise<NarrativeResult | null> {
-  const base = selectProvider();
-  if (!base) return null;
-  // Per Perplexity: sonar-pro is the default; use sonar-reasoning-pro for
-  // statutory / supply-chain / cross-clause synthesis (reasoning=true).
-  const model =
-    req.reasoning && base.provider === 'perplexity'
-      ? process.env.PERPLEXITY_MODEL_REASONING || 'sonar-reasoning-pro'
-      : base.model;
-  const c: ProviderConfig = { ...base, model };
-  const key = (process.env[c.keyEnv] || '').trim();
-  try {
-    const text = c.style === 'anthropic' ? await callAnthropic(c, req, key) : await callOpenAiStyle(c, req, key);
-    if (!text.trim()) return null;
-    return { text: text.trim(), provider: c.provider, model: c.model };
-  } catch (e) {
-    console.warn('[reports/llm] generation failed:', e);
-    return null;
+  const providers = configuredProviders();
+  if (providers.length === 0) return null;
+
+  for (const base of providers) {
+    // Per Perplexity: sonar-pro is the default; use sonar-reasoning-pro for
+    // statutory / supply-chain / cross-clause synthesis (reasoning=true).
+    const model =
+      req.reasoning && base.provider === 'perplexity'
+        ? process.env.PERPLEXITY_MODEL_REASONING || 'sonar-reasoning-pro'
+        : base.model;
+    const c: ProviderConfig = { ...base, model };
+    const key = (process.env[c.keyEnv] || '').trim();
+    try {
+      const text = c.style === 'anthropic' ? await callAnthropic(c, req, key) : await callOpenAiStyle(c, req, key);
+      if (!text.trim()) {
+        console.warn(`[reports/llm] empty response from ${c.provider}; trying next provider`);
+        continue;
+      }
+      return { text: text.trim(), provider: c.provider, model: c.model };
+    } catch (e) {
+      console.warn(`[reports/llm] ${c.provider} failed; trying next provider:`, e);
+    }
   }
+  return null;
 }
