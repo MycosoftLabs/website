@@ -1,0 +1,539 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@ai-sdk/openai": {
+      "name": "@ai-sdk/openai",
+      "severity": "low",
+      "isDirect": true,
+      "via": [
+        "@ai-sdk/provider-utils"
+      ],
+      "effects": [],
+      "range": "<=2.0.112",
+      "nodes": [
+        "node_modules/@ai-sdk/openai"
+      ],
+      "fixAvailable": {
+        "name": "@ai-sdk/openai",
+        "version": "4.0.15",
+        "isSemVerMajor": true
+      }
+    },
+    "@ai-sdk/provider-utils": {
+      "name": "@ai-sdk/provider-utils",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1119676,
+          "name": "@ai-sdk/provider-utils",
+          "dependency": "@ai-sdk/provider-utils",
+          "title": "@ai-sdk/provider-utils has an Uncontrolled Resource Consumption issue",
+          "url": "https://github.com/advisories/GHSA-866g-f22w-33x8",
+          "severity": "low",
+          "cwe": [
+            "CWE-400"
+          ],
+          "cvss": {
+            "score": 4.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L"
+          },
+          "range": "<=3.0.97"
+        }
+      ],
+      "effects": [
+        "@ai-sdk/openai",
+        "@ai-sdk/react",
+        "@ai-sdk/ui-utils",
+        "ai"
+      ],
+      "range": "<=3.0.97",
+      "nodes": [
+        "node_modules/@ai-sdk/provider-utils"
+      ],
+      "fixAvailable": {
+        "name": "ai",
+        "version": "7.0.28",
+        "isSemVerMajor": true
+      }
+    },
+    "@ai-sdk/react": {
+      "name": "@ai-sdk/react",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        "@ai-sdk/provider-utils",
+        "@ai-sdk/ui-utils"
+      ],
+      "effects": [
+        "ai"
+      ],
+      "range": "<=2.0.216",
+      "nodes": [
+        "node_modules/@ai-sdk/react"
+      ],
+      "fixAvailable": {
+        "name": "ai",
+        "version": "7.0.28",
+        "isSemVerMajor": true
+      }
+    },
+    "@ai-sdk/ui-utils": {
+      "name": "@ai-sdk/ui-utils",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        "@ai-sdk/provider-utils"
+      ],
+      "effects": [
+        "@ai-sdk/react",
+        "ai"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@ai-sdk/ui-utils"
+      ],
+      "fixAvailable": {
+        "name": "ai",
+        "version": "7.0.28",
+        "isSemVerMajor": true
+      }
+    },
+    "@janelia-flyem/neuroglancer": {
+      "name": "@janelia-flyem/neuroglancer",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "ikonate"
+      ],
+      "effects": [
+        "@vitessce/neuroglancer",
+        "@vitessce/neuroglancer-workers"
+      ],
+      "range": ">=0.6.0",
+      "nodes": [
+        "node_modules/@janelia-flyem/neuroglancer"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "@langchain/community": {
+      "name": "@langchain/community",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1113156,
+          "name": "@langchain/community",
+          "dependency": "@langchain/community",
+          "title": "@langchain/community affected by SSRF Bypass in RecursiveUrlLoader via insufficient URL origin validation",
+          "url": "https://github.com/advisories/GHSA-gf3v-fwqg-4vh7",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-918"
+          ],
+          "cvss": {
+            "score": 4.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:N/A:N"
+          },
+          "range": "<=1.1.13"
+        },
+        {
+          "source": 1113503,
+          "name": "@langchain/community",
+          "dependency": "@langchain/community",
+          "title": "LangChain Community: redirect chaining can lead to SSRF bypass via RecursiveUrlLoader",
+          "url": "https://github.com/advisories/GHSA-mphv-75cg-56wg",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-918"
+          ],
+          "cvss": {
+            "score": 4.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:N/A:N"
+          },
+          "range": "<=1.1.17"
+        }
+      ],
+      "effects": [],
+      "range": "<=1.1.17",
+      "nodes": [
+        "node_modules/@langchain/community"
+      ],
+      "fixAvailable": {
+        "name": "@langchain/community",
+        "version": "1.1.29",
+        "isSemVerMajor": true
+      }
+    },
+    "@vitessce/all": {
+      "name": "@vitessce/all",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@vitessce/neuroglancer"
+      ],
+      "effects": [
+        "vitessce"
+      ],
+      "range": ">=3.6.2",
+      "nodes": [
+        "node_modules/@vitessce/all"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "@vitessce/neuroglancer": {
+      "name": "@vitessce/neuroglancer",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@janelia-flyem/neuroglancer",
+        "@vitessce/neuroglancer-workers"
+      ],
+      "effects": [
+        "@vitessce/all"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@vitessce/neuroglancer"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "@vitessce/neuroglancer-workers": {
+      "name": "@vitessce/neuroglancer-workers",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@janelia-flyem/neuroglancer"
+      ],
+      "effects": [
+        "@vitessce/neuroglancer"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@vitessce/neuroglancer-workers"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "ai": {
+      "name": "ai",
+      "severity": "low",
+      "isDirect": true,
+      "via": [
+        "@ai-sdk/provider-utils",
+        "@ai-sdk/react",
+        "@ai-sdk/ui-utils",
+        {
+          "source": 1111095,
+          "name": "ai",
+          "dependency": "ai",
+          "title": "Vercel’s AI SDK's filetype whitelists can be bypassed when uploading files",
+          "url": "https://github.com/advisories/GHSA-rwvc-j5jr-mgvh",
+          "severity": "low",
+          "cwe": [
+            "CWE-20",
+            "CWE-682"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": "<5.0.52"
+        }
+      ],
+      "effects": [],
+      "range": "<=5.0.214",
+      "nodes": [
+        "node_modules/ai"
+      ],
+      "fixAvailable": {
+        "name": "ai",
+        "version": "7.0.28",
+        "isSemVerMajor": true
+      }
+    },
+    "dompurify": {
+      "name": "dompurify",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1121192,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+          "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79",
+            "CWE-471",
+            "CWE-665"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=3.4.10"
+        }
+      ],
+      "effects": [],
+      "range": "<=3.4.10",
+      "nodes": [
+        "node_modules/dompurify"
+      ],
+      "fixAvailable": true
+    },
+    "ikonate": {
+      "name": "ikonate",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "jsdom"
+      ],
+      "effects": [
+        "@janelia-flyem/neuroglancer"
+      ],
+      "range": ">=1.0.1",
+      "nodes": [
+        "node_modules/ikonate"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "jsdom": {
+      "name": "jsdom",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "request"
+      ],
+      "effects": [
+        "ikonate"
+      ],
+      "range": "0.1.20 || 0.2.0 - 16.5.3",
+      "nodes": [
+        "node_modules/ikonate/node_modules/jsdom"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "request": {
+      "name": "request",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1096727,
+          "name": "request",
+          "dependency": "request",
+          "title": "Server-Side Request Forgery in Request",
+          "url": "https://github.com/advisories/GHSA-p8p7-x288-28g6",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-918"
+          ],
+          "cvss": {
+            "score": 6.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          },
+          "range": "<=2.88.2"
+        }
+      ],
+      "effects": [
+        "jsdom"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/request"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    },
+    "undici": {
+      "name": "undici",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1121187,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to TLS certificate validation bypass via dropped requestTls in SOCKS5 ProxyAgent",
+          "url": "https://github.com/advisories/GHSA-vmh5-mc38-953g",
+          "severity": "high",
+          "cwe": [
+            "CWE-295"
+          ],
+          "cvss": {
+            "score": 7.4,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121241,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP header injection via Set-Cookie percent-decoding",
+          "url": "https://github.com/advisories/GHSA-p88m-4jfj-68fv",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121244,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici WebSocket client vulnerable to denial of service via fragment count bypass",
+          "url": "https://github.com/advisories/GHSA-vxpw-j846-p89q",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121247,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-origin request routing via SOCKS5 proxy pool reuse",
+          "url": "https://github.com/advisories/GHSA-hm92-r4w5-c3mj",
+          "severity": "high",
+          "cwe": [
+            "CWE-346"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": ">=7.23.0 <7.28.0"
+        },
+        {
+          "source": 1121249,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to HTTP response queue poisoning via keep-alive socket reuse",
+          "url": "https://github.com/advisories/GHSA-35p6-xmwp-9g52",
+          "severity": "low",
+          "cwe": [
+            "CWE-367"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121254,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to Set-Cookie SameSite attribute downgrade via permissive substring matching",
+          "url": "https://github.com/advisories/GHSA-g8m3-5g58-fq7m",
+          "severity": "low",
+          "cwe": [
+            "CWE-183"
+          ],
+          "cvss": {
+            "score": 3.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        },
+        {
+          "source": 1121428,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "undici vulnerable to cross-user information disclosure via shared cache whitespace bypass",
+          "url": "https://github.com/advisories/GHSA-pr7r-676h-xcf6",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-524"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=7.0.0 <7.28.0"
+        }
+      ],
+      "effects": [],
+      "range": "7.0.0 - 7.27.2",
+      "nodes": [
+        "node_modules/undici"
+      ],
+      "fixAvailable": true
+    },
+    "vitessce": {
+      "name": "vitessce",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@vitessce/all"
+      ],
+      "effects": [],
+      "range": ">=3.6.2",
+      "nodes": [
+        "node_modules/vitessce"
+      ],
+      "fixAvailable": {
+        "name": "vitessce",
+        "version": "3.6.1",
+        "isSemVerMajor": true
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 5,
+      "moderate": 10,
+      "high": 1,
+      "critical": 0,
+      "total": 16
+    },
+    "dependencies": {
+      "prod": 2398,
+      "dev": 818,
+      "optional": 200,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 3308
+    }
+  }
+}
