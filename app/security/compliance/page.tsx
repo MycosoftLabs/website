@@ -20,7 +20,11 @@ import {
   Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
-import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta';
+import {
+  CMMC_SPRINT_META,
+  sprintDate,
+  deriveUniquePostureCounts,
+} from '@/lib/security/posture/sprint-meta';
 import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
 import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
@@ -946,16 +950,28 @@ export default function CompliancePage() {
         ))}
       </div>
 
-      {/* Self-assessment context banner — keeps today's honest low posture from
-          reading as "broken". Current numbers come from live MAS; framing from
-          the CMMC sprint overlay. */}
+      {/* Self-assessment context banner — live MAS unique Met when heatmap loads. */}
+      {(() => {
+        const live = controls.length
+          ? deriveUniquePostureCounts(controls)
+          : null;
+        const uniqueMet = live?.uniqueMet ?? CMMC_SPRINT_META.currentImplemented;
+        const uniquePartial = live?.uniquePartial ?? CMMC_SPRINT_META.currentPartial;
+        const rowImpl = live?.implementedRows;
+        return (
       <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
         <div className="flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
           <div>
             <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
-            Control statuses reflect <span className="font-semibold">current</span> posture (live from MAS{' '}
-            <code className="text-amber-300">soc_ops</code>) — a low percentage today is expected and honest.
+            Current unique Met: <span className="font-semibold text-emerald-300">{uniqueMet}</span>
+            {typeof rowImpl === 'number' ? (
+              <> ({rowImpl} MAS rows incl. NIST/CMMC twins)</>
+            ) : null}
+            , unique Partial: <span className="font-semibold text-amber-300">{uniquePartial}</span>
+            {isLiveData ? ' — live from MAS ' : ' — fallback constants; '}
+            <code className="text-amber-300">soc_ops</code>
+            {isLiveData ? '.' : ' until heatmap loads.'}{' '}
             Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
             with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
             The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
@@ -970,6 +986,8 @@ export default function CompliancePage() {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Controls Tab */}
       {activeTab === 'controls' && (

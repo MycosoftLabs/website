@@ -297,7 +297,13 @@ function loadSecurityConfig(): SecurityConfig | null {
  * Admin required (company/SOC access).
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  let auth: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    auth = await requireAdmin();
+  } catch (err) {
+    console.error('[Security] requireAdmin threw:', err);
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
   if (auth.error) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -496,45 +502,115 @@ export async function GET(request: NextRequest) {
       // COMPLIANCE ENDPOINTS
       // ═══════════════════════════════════════════════════════════════
       
-      case 'compliance-controls':
-        // Get compliance controls with optional framework filter
-        // Supports all compliance frameworks including NISP, FOCI, SBIR/STTR, ITAR, EAR
-        type ComplianceFramework = 
-          | 'NIST-800-53' | 'NIST-800-171' 
+      case 'compliance-controls': {
+        // Live MAS soc_ops via getComplianceControls (MAS_API_URL). Never 500 the heatmap.
+        type ComplianceFramework =
+          | 'NIST-800-53' | 'NIST-800-171'
           | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3'
           | 'NISPOM' | 'FOCI' | 'SBIR-STTR' | 'ITAR' | 'EAR';
-        
+
         const frameworkFilter = searchParams.get('framework') as ComplianceFramework | undefined;
         const familyFilter = searchParams.get('family') || undefined;
         const statusFilter = searchParams.get('status') as 'compliant' | 'partial' | 'non_compliant' | 'not_applicable' | undefined;
-        
-        const complianceControls = await getComplianceControls({
-          framework: frameworkFilter || undefined,
-          family: familyFilter,
-          status: statusFilter,
-        });
-        
-        // Return all available frameworks based on the controls in the database
-        // E.O. 12829 NISP frameworks included: NISPOM, FOCI, SBIR-STTR
+
+        let complianceControls: Awaited<ReturnType<typeof getComplianceControls>> = [];
+        let source: 'mas' | 'seeded' | 'error' = 'seeded';
+        try {
+          complianceControls = await getComplianceControls({
+            framework: frameworkFilter || undefined,
+            family: familyFilter,
+            status: statusFilter,
+          });
+          source = getMasApiBase() ? 'mas' : 'seeded';
+        } catch (err) {
+          console.error('[Security] compliance-controls failed:', err);
+          // Direct MAS fallback if DB helper throws
+          const { ok, data } = await masGet('/api/compliance/controls');
+          if (ok && Array.isArray((data as { controls?: unknown[] })?.controls)) {
+            complianceControls = (data as { controls: Record<string, unknown>[] }).controls.map((row) => {
+              const impl = String(row.implementation_state ?? 'planned');
+              const status =
+                impl === 'implemented' ? 'compliant' : impl === 'partial' ? 'partial' : 'non_compliant';
+              return {
+                id: String(row.control_id ?? ''),
+                framework: String(row.framework ?? 'NIST_800_171').includes('CMMC') ? 'CMMC-L2' : 'NIST-800-171',
+                family: String(row.family ?? '—'),
+                name: String(row.title ?? row.control_id ?? ''),
+                description: String((row.state_snapshot as { summary?: string } | undefined)?.summary ?? ''),
+                status: status as 'compliant' | 'partial' | 'non_compliant',
+                evidence: row.evidence_uri ? [String(row.evidence_uri)] : [],
+                lastAudit: row.last_verified_at ? String(row.last_verified_at).split('T')[0] : '',
+                lastAuditBy: 'soc_ops',
+                priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+                notes: '',
+              };
+            }) as Awaited<ReturnType<typeof getComplianceControls>>;
+            source = 'mas';
+          } else {
+            source = 'error';
+          }
+        }
+
+        const implemented = complianceControls.filter((c) => c.status === 'compliant').length;
+        const partial = complianceControls.filter((c) => c.status === 'partial').length;
+
         const allFrameworks = [
-          'NIST-800-53', 'NIST-800-171', 
+          'NIST-800-53', 'NIST-800-171',
           'CMMC-L1', 'CMMC-L2', 'CMMC-L3',
-          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR'
+          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR',
         ];
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
           controls: complianceControls,
           frameworks: allFrameworks,
+          source,
+          counts: { total: complianceControls.length, implemented, partial },
         });
-      
-      case 'compliance-stats':
-        // Get compliance statistics with optional framework filter
-        const statsFramework = searchParams.get('framework') as 'NIST-800-53' | 'NIST-800-171' | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3' | undefined;
-        const complianceStats = await getComplianceStats();
-        return NextResponse.json({
-          ...complianceStats,
-          supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
-        });
+      }
+
+      case 'compliance-stats': {
+        // Get compliance statistics — prefer live MAS; never throw
+        try {
+          const complianceStats = await getComplianceStats();
+          return NextResponse.json({
+            ...complianceStats,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+          });
+        } catch (err) {
+          console.error('[Security] compliance-stats failed:', err);
+          const { ok, data } = await masGet('/api/compliance/score');
+          if (ok && data && typeof data === 'object') {
+            const s = data as {
+              total_controls?: number;
+              implemented?: number;
+              partial?: number;
+              implementation_percent?: number;
+            };
+            return NextResponse.json({
+              totalControls: s.total_controls ?? 0,
+              compliant: s.implemented ?? 0,
+              partial: s.partial ?? 0,
+              nonCompliant: Math.max(0, (s.total_controls ?? 0) - (s.implemented ?? 0) - (s.partial ?? 0)),
+              score: Math.round(s.implementation_percent ?? 0),
+              lastAudit: '',
+              auditLogsToday: 0,
+              supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+              source: 'mas',
+            });
+          }
+          return NextResponse.json({
+            totalControls: 0,
+            compliant: 0,
+            partial: 0,
+            nonCompliant: 0,
+            score: 0,
+            lastAudit: '',
+            auditLogsToday: 0,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+            source: 'error',
+          });
+        }
+      }
       
       case 'compliance-audit-logs':
         // Get compliance audit logs
