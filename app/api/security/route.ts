@@ -199,6 +199,16 @@ interface TrustedService {
 const eventStore: SecurityEvent[] = [];
 const MAX_EVENTS = 1000;
 
+/** Fast-fail MAS calls for compliance polling (avoids ~4s+ hangs on 188). */
+const MAS_COMPLIANCE_FETCH_TIMEOUT_MS = 2000;
+/** Short server TTL so dashboard polling does not hammer MAS. */
+const MAS_COMPLIANCE_BUNDLE_TTL_MS = 20_000;
+
+let masComplianceBundleCache: {
+  expiresAt: number;
+  payload: Record<string, unknown>;
+} | null = null;
+
 function getMasApiBase(): string {
   return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
 }
@@ -210,19 +220,31 @@ function masRequestHeaders(extra?: Record<string, string>): Record<string, strin
   return h;
 }
 
-async function masGet(path: string): Promise<{ ok: boolean; data: unknown; status: number }> {
+async function masGet(
+  path: string,
+  options?: { timeoutMs?: number }
+): Promise<{ ok: boolean; data: unknown; status: number }> {
   const base = getMasApiBase();
   if (!base) return { ok: false, data: null, status: 0 };
   const p = path.startsWith('/') ? path : `/${path}`;
+  const timeoutMs = options?.timeoutMs;
+  const controller = typeof timeoutMs === 'number' ? new AbortController() : null;
+  const timer =
+    controller && typeof timeoutMs === 'number'
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
   try {
     const res = await fetch(`${base}${p}`, {
       cache: 'no-store',
       headers: masRequestHeaders(),
+      ...(controller ? { signal: controller.signal } : {}),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok, data, status: res.status };
   } catch {
     return { ok: false, data: null, status: 0 };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -649,6 +671,14 @@ export async function GET(request: NextRequest) {
 
       /** MAS NIST 800-171 live bundle: score + latest SSP/POAM pointers + control rows for heatmap. */
       case 'mas-compliance-bundle': {
+        const now = Date.now();
+        if (masComplianceBundleCache && masComplianceBundleCache.expiresAt > now) {
+          return NextResponse.json({
+            ...masComplianceBundleCache.payload,
+            cached: true,
+            cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          });
+        }
         const base = getMasApiBase();
         if (!base) {
           return NextResponse.json({
@@ -658,17 +688,18 @@ export async function GET(request: NextRequest) {
             error: 'mas_unconfigured',
           });
         }
+        const fetchOpts = { timeoutMs: MAS_COMPLIANCE_FETCH_TIMEOUT_MS };
         const [score, docs, controls] = await Promise.all([
-          masGet('/api/compliance/score'),
-          masGet('/api/compliance/docs'),
-          masGet('/api/compliance/controls'),
+          masGet('/api/compliance/score', fetchOpts),
+          masGet('/api/compliance/docs', fetchOpts),
+          masGet('/api/compliance/controls', fetchOpts),
         ]);
         const ctrlArr =
           controls.ok &&
           Array.isArray((controls.data as { controls?: unknown[] })?.controls)
             ? (controls.data as { controls: unknown[] }).controls
             : [];
-        return NextResponse.json({
+        const payload: Record<string, unknown> = {
           score: score.ok ? score.data : null,
           docs: docs.ok ? docs.data : null,
           controls: ctrlArr,
@@ -677,7 +708,15 @@ export async function GET(request: NextRequest) {
             docs: docs.ok ? null : docs.status,
             controls: controls.ok ? null : controls.status,
           },
-        });
+          cached: false,
+          cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          mas_timeout_ms: MAS_COMPLIANCE_FETCH_TIMEOUT_MS,
+        };
+        masComplianceBundleCache = {
+          expiresAt: now + MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          payload,
+        };
+        return NextResponse.json(payload);
       }
 
       /** Summary tiles for `/security` dashboard (inventory + compliance score + red team health). */
