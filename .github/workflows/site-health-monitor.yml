@@ -201,6 +201,11 @@ jobs:
     if: failure() && needs.health-check.result == 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    # secrets can't be used in step `if:` — surface them as env (allowed in `if:`).
+    env:
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      N8N_SITE_DOWN_WEBHOOK_URL: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL }}
     steps:
       - name: Build alert body
         id: alert
@@ -226,7 +231,7 @@ jobs:
           echo "run_url=$RUN_URL" >> "$GITHUB_OUTPUT"
 
       - name: Email Morgan (SMTP)
-        if: ${{ secrets.NOTIFY_EMAIL != '' && secrets.SMTP_SERVER != '' }}
+        if: ${{ env.NOTIFY_EMAIL != '' && env.SMTP_SERVER != '' }}
         uses: dawidd6/action-send-mail@v4
         with:
           server_address: ${{ secrets.SMTP_SERVER }}
@@ -239,7 +244,7 @@ jobs:
           body: ${{ steps.alert.outputs.body }}
 
       - name: n8n webhook (optional, must be public URL)
-        if: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL != '' }}
+        if: ${{ env.N8N_SITE_DOWN_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ secrets.N8N_SITE_DOWN_WEBHOOK_URL }}
         run: |

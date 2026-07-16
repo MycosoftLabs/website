@@ -199,6 +199,16 @@ interface TrustedService {
 const eventStore: SecurityEvent[] = [];
 const MAX_EVENTS = 1000;
 
+/** Fast-fail MAS calls for compliance polling (avoids ~4s+ hangs on 188). */
+const MAS_COMPLIANCE_FETCH_TIMEOUT_MS = 2000;
+/** Short server TTL so dashboard polling does not hammer MAS. */
+const MAS_COMPLIANCE_BUNDLE_TTL_MS = 20_000;
+
+let masComplianceBundleCache: {
+  expiresAt: number;
+  payload: Record<string, unknown>;
+} | null = null;
+
 function getMasApiBase(): string {
   return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
 }
@@ -210,19 +220,31 @@ function masRequestHeaders(extra?: Record<string, string>): Record<string, strin
   return h;
 }
 
-async function masGet(path: string): Promise<{ ok: boolean; data: unknown; status: number }> {
+async function masGet(
+  path: string,
+  options?: { timeoutMs?: number }
+): Promise<{ ok: boolean; data: unknown; status: number }> {
   const base = getMasApiBase();
   if (!base) return { ok: false, data: null, status: 0 };
   const p = path.startsWith('/') ? path : `/${path}`;
+  const timeoutMs = options?.timeoutMs;
+  const controller = typeof timeoutMs === 'number' ? new AbortController() : null;
+  const timer =
+    controller && typeof timeoutMs === 'number'
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
   try {
     const res = await fetch(`${base}${p}`, {
       cache: 'no-store',
       headers: masRequestHeaders(),
+      ...(controller ? { signal: controller.signal } : {}),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok, data, status: res.status };
   } catch {
     return { ok: false, data: null, status: 0 };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -297,7 +319,13 @@ function loadSecurityConfig(): SecurityConfig | null {
  * Admin required (company/SOC access).
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  let auth: Awaited<ReturnType<typeof requireAdmin>>;
+  try {
+    auth = await requireAdmin();
+  } catch (err) {
+    console.error('[Security] requireAdmin threw:', err);
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
   if (auth.error) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -496,45 +524,115 @@ export async function GET(request: NextRequest) {
       // COMPLIANCE ENDPOINTS
       // ═══════════════════════════════════════════════════════════════
       
-      case 'compliance-controls':
-        // Get compliance controls with optional framework filter
-        // Supports all compliance frameworks including NISP, FOCI, SBIR/STTR, ITAR, EAR
-        type ComplianceFramework = 
-          | 'NIST-800-53' | 'NIST-800-171' 
+      case 'compliance-controls': {
+        // Live MAS soc_ops via getComplianceControls (MAS_API_URL). Never 500 the heatmap.
+        type ComplianceFramework =
+          | 'NIST-800-53' | 'NIST-800-171'
           | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3'
           | 'NISPOM' | 'FOCI' | 'SBIR-STTR' | 'ITAR' | 'EAR';
-        
+
         const frameworkFilter = searchParams.get('framework') as ComplianceFramework | undefined;
         const familyFilter = searchParams.get('family') || undefined;
         const statusFilter = searchParams.get('status') as 'compliant' | 'partial' | 'non_compliant' | 'not_applicable' | undefined;
-        
-        const complianceControls = await getComplianceControls({
-          framework: frameworkFilter || undefined,
-          family: familyFilter,
-          status: statusFilter,
-        });
-        
-        // Return all available frameworks based on the controls in the database
-        // E.O. 12829 NISP frameworks included: NISPOM, FOCI, SBIR-STTR
+
+        let complianceControls: Awaited<ReturnType<typeof getComplianceControls>> = [];
+        let source: 'mas' | 'seeded' | 'error' = 'seeded';
+        try {
+          complianceControls = await getComplianceControls({
+            framework: frameworkFilter || undefined,
+            family: familyFilter,
+            status: statusFilter,
+          });
+          source = getMasApiBase() ? 'mas' : 'seeded';
+        } catch (err) {
+          console.error('[Security] compliance-controls failed:', err);
+          // Direct MAS fallback if DB helper throws
+          const { ok, data } = await masGet('/api/compliance/controls');
+          if (ok && Array.isArray((data as { controls?: unknown[] })?.controls)) {
+            complianceControls = (data as { controls: Record<string, unknown>[] }).controls.map((row) => {
+              const impl = String(row.implementation_state ?? 'planned');
+              const status =
+                impl === 'implemented' ? 'compliant' : impl === 'partial' ? 'partial' : 'non_compliant';
+              return {
+                id: String(row.control_id ?? ''),
+                framework: String(row.framework ?? 'NIST_800_171').includes('CMMC') ? 'CMMC-L2' : 'NIST-800-171',
+                family: String(row.family ?? '—'),
+                name: String(row.title ?? row.control_id ?? ''),
+                description: String((row.state_snapshot as { summary?: string } | undefined)?.summary ?? ''),
+                status: status as 'compliant' | 'partial' | 'non_compliant',
+                evidence: row.evidence_uri ? [String(row.evidence_uri)] : [],
+                lastAudit: row.last_verified_at ? String(row.last_verified_at).split('T')[0] : '',
+                lastAuditBy: 'soc_ops',
+                priority: status === 'non_compliant' ? 'high' : status === 'partial' ? 'medium' : 'low',
+                notes: '',
+              };
+            }) as Awaited<ReturnType<typeof getComplianceControls>>;
+            source = 'mas';
+          } else {
+            source = 'error';
+          }
+        }
+
+        const implemented = complianceControls.filter((c) => c.status === 'compliant').length;
+        const partial = complianceControls.filter((c) => c.status === 'partial').length;
+
         const allFrameworks = [
-          'NIST-800-53', 'NIST-800-171', 
+          'NIST-800-53', 'NIST-800-171',
           'CMMC-L1', 'CMMC-L2', 'CMMC-L3',
-          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR'
+          'NISPOM', 'FOCI', 'SBIR-STTR', 'ITAR', 'EAR',
         ];
-        
-        return NextResponse.json({ 
+
+        return NextResponse.json({
           controls: complianceControls,
           frameworks: allFrameworks,
+          source,
+          counts: { total: complianceControls.length, implemented, partial },
         });
-      
-      case 'compliance-stats':
-        // Get compliance statistics with optional framework filter
-        const statsFramework = searchParams.get('framework') as 'NIST-800-53' | 'NIST-800-171' | 'CMMC-L1' | 'CMMC-L2' | 'CMMC-L3' | undefined;
-        const complianceStats = await getComplianceStats();
-        return NextResponse.json({
-          ...complianceStats,
-          supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
-        });
+      }
+
+      case 'compliance-stats': {
+        // Get compliance statistics — prefer live MAS; never throw
+        try {
+          const complianceStats = await getComplianceStats();
+          return NextResponse.json({
+            ...complianceStats,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+          });
+        } catch (err) {
+          console.error('[Security] compliance-stats failed:', err);
+          const { ok, data } = await masGet('/api/compliance/score');
+          if (ok && data && typeof data === 'object') {
+            const s = data as {
+              total_controls?: number;
+              implemented?: number;
+              partial?: number;
+              implementation_percent?: number;
+            };
+            return NextResponse.json({
+              totalControls: s.total_controls ?? 0,
+              compliant: s.implemented ?? 0,
+              partial: s.partial ?? 0,
+              nonCompliant: Math.max(0, (s.total_controls ?? 0) - (s.implemented ?? 0) - (s.partial ?? 0)),
+              score: Math.round(s.implementation_percent ?? 0),
+              lastAudit: '',
+              auditLogsToday: 0,
+              supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+              source: 'mas',
+            });
+          }
+          return NextResponse.json({
+            totalControls: 0,
+            compliant: 0,
+            partial: 0,
+            nonCompliant: 0,
+            score: 0,
+            lastAudit: '',
+            auditLogsToday: 0,
+            supportedFrameworks: ['NIST-800-53', 'NIST-800-171', 'CMMC-L2'],
+            source: 'error',
+          });
+        }
+      }
       
       case 'compliance-audit-logs':
         // Get compliance audit logs
@@ -573,6 +671,14 @@ export async function GET(request: NextRequest) {
 
       /** MAS NIST 800-171 live bundle: score + latest SSP/POAM pointers + control rows for heatmap. */
       case 'mas-compliance-bundle': {
+        const now = Date.now();
+        if (masComplianceBundleCache && masComplianceBundleCache.expiresAt > now) {
+          return NextResponse.json({
+            ...masComplianceBundleCache.payload,
+            cached: true,
+            cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          });
+        }
         const base = getMasApiBase();
         if (!base) {
           return NextResponse.json({
@@ -582,17 +688,18 @@ export async function GET(request: NextRequest) {
             error: 'mas_unconfigured',
           });
         }
+        const fetchOpts = { timeoutMs: MAS_COMPLIANCE_FETCH_TIMEOUT_MS };
         const [score, docs, controls] = await Promise.all([
-          masGet('/api/compliance/score'),
-          masGet('/api/compliance/docs'),
-          masGet('/api/compliance/controls'),
+          masGet('/api/compliance/score', fetchOpts),
+          masGet('/api/compliance/docs', fetchOpts),
+          masGet('/api/compliance/controls', fetchOpts),
         ]);
         const ctrlArr =
           controls.ok &&
           Array.isArray((controls.data as { controls?: unknown[] })?.controls)
             ? (controls.data as { controls: unknown[] }).controls
             : [];
-        return NextResponse.json({
+        const payload: Record<string, unknown> = {
           score: score.ok ? score.data : null,
           docs: docs.ok ? docs.data : null,
           controls: ctrlArr,
@@ -601,7 +708,15 @@ export async function GET(request: NextRequest) {
             docs: docs.ok ? null : docs.status,
             controls: controls.ok ? null : controls.status,
           },
-        });
+          cached: false,
+          cache_ttl_ms: MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          mas_timeout_ms: MAS_COMPLIANCE_FETCH_TIMEOUT_MS,
+        };
+        masComplianceBundleCache = {
+          expiresAt: now + MAS_COMPLIANCE_BUNDLE_TTL_MS,
+          payload,
+        };
+        return NextResponse.json(payload);
       }
 
       /** Summary tiles for `/security` dashboard (inventory + compliance score + red team health). */
