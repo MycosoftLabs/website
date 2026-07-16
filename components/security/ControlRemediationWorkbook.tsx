@@ -119,6 +119,22 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
   const [loaded, setLoaded] = useState(false);
   const [docBusy, setDocBusy] = useState(false);
 
+  // Steps complete by virtue of the control's REAL state — not a click. A Met
+  // (or N/A) control's remediation is finished, so every step is complete AND
+  // LOCKED: it reflects verified compliance and can never be un-checked by
+  // clicking. This is the data-integrity guarantee — a real completion cannot
+  // be removed. Manual check-off (localStorage) is only for in-flight controls
+  // and can never override a locked step.
+  const lockedComplete = useMemo(() => {
+    const s = new Set<string>();
+    if (control.status === 'compliant' || control.status === 'not_applicable') {
+      for (const st of plan.steps) s.add(st.id);
+    }
+    return s;
+  }, [control.status, plan.steps]);
+
+  const isStepDone = (stepId: string) => lockedComplete.has(stepId) || !!done[stepId];
+
   useEffect(() => {
     try {
       const raw = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null;
@@ -130,6 +146,7 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
   }, [storageKey]);
 
   function toggle(stepId: string) {
+    if (lockedComplete.has(stepId)) return; // locked — a verified completion can't be removed by a click
     setDone((prev) => {
       const next = { ...prev, [stepId]: !prev[stepId] };
       try {
@@ -142,7 +159,7 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
   }
 
   const total = plan.steps.length;
-  const complete = plan.steps.filter((s) => done[s.id]).length;
+  const complete = plan.steps.filter((s) => isStepDone(s.id)).length;
   const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
   const allDone = total > 0 && complete === total;
 
@@ -331,8 +348,12 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
               </div>
               <div className="mt-2 text-xs text-slate-400">
                 {allDone
-                  ? 'All steps complete — file the evidence bundle and mark this control Implemented to raise the SPRS score.'
-                  : `Estimated effort: ${plan.estimatedEffort}. Checkmarks are saved on this device.`}
+                  ? (control.status === 'compliant'
+                      ? 'Control is Met — all steps verified complete and locked (cannot be un-checked).'
+                      : control.status === 'not_applicable'
+                        ? 'Not applicable — steps locked; no remediation required.'
+                        : 'All steps complete — file the evidence bundle and mark this control Implemented to raise the SPRS score.')
+                  : `Estimated effort: ${plan.estimatedEffort}. Verified steps are locked; in-progress check-offs are saved on this device.`}
               </div>
             </div>
 
@@ -341,15 +362,18 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
               {plan.steps.map((step, i) => {
                 const meta = ACTION_META[step.action];
                 const Icon = meta.icon;
-                const checked = !!done[step.id];
+                const checked = isStepDone(step.id);
+                const locked = lockedComplete.has(step.id);
                 return (
                   <li key={step.id}>
                     <button
                       type="button"
                       onClick={() => toggle(step.id)}
+                      disabled={locked}
+                      title={locked ? 'Completed — reflects this control’s verified/Met status. Not removable.' : undefined}
                       className={`w-full text-left rounded-lg border p-3 flex gap-3 transition ${
                         checked ? 'border-emerald-600/40 bg-emerald-900/10' : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70'
-                      }`}
+                      } ${locked ? 'cursor-default' : ''}`}
                     >
                       {checked
                         ? <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400 mt-0.5" />
@@ -361,6 +385,11 @@ export default function ControlRemediationWorkbook({ control }: { control: Workb
                             <Icon className="w-3 h-3" /> {meta.label}
                           </span>
                           {step.system && <span className="text-[11px] text-slate-400">· {step.system}</span>}
+                          {locked && (
+                            <span className="text-[10px] inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10">
+                              <ShieldCheck className="w-3 h-3" /> verified · locked
+                            </span>
+                          )}
                         </div>
                         <div className={`text-sm mt-1 ${checked ? 'text-slate-400 line-through' : 'text-slate-100'}`}>{step.title}</div>
                         <div className="text-xs text-slate-400 mt-0.5">{step.detail}</div>

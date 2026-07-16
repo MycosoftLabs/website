@@ -15,8 +15,71 @@ import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta
 import { MYCOSOFT_DEVICE_BOMS, checkDeviceBom } from '@/lib/security/supply-chain/bom-check';
 import { generateNarrative, activeReportProvider } from './llm';
 import { renderReportHtml, renderTable, renderProse, esc, type ReportDocument } from './report-doc';
+import { collectFiledPolicies, type EvidenceControl } from '@/lib/security/posture/policy-evidence';
 
 export type SecurityReportType = 'cmmc-l2' | 'sprs' | 'poam' | 'supply-chain' | 'compliance-snapshot';
+
+export interface SecurityReportOptions {
+  /** Live soc_ops control set — enables the Evidence & Documentation Register. */
+  controls?: EvidenceControl[];
+}
+
+function statusLabel(s: string): string {
+  return s === 'compliant' ? 'Met'
+    : s === 'partial' ? 'Partial'
+    : s === 'not_applicable' ? 'N/A'
+    : 'Not Met';
+}
+
+/**
+ * Evidence & Documentation Register section — logs the documentation and
+ * evidence actually on file against the live control set. HONEST BY
+ * CONSTRUCTION: a policy/procedure on file evidences the documentation
+ * (Examine) objective and advances a control's step progress to partial; it is
+ * never presented as a Met determination. Statuses shown are the live soc_ops
+ * values, verbatim.
+ */
+function evidenceSection(controls: EvidenceControl[]): ReportDocument['sections'][number] {
+  const filed = collectFiledPolicies(controls);
+  const isReal = (e: unknown) => {
+    const s = String(e ?? '').trim().toLowerCase();
+    return s.length > 0 && s !== 'null' && s !== 'undefined';
+  };
+  const withEvidence = controls.filter((c) => (c.evidence ?? []).some(isReal));
+  const met = controls.filter((c) => c.status === 'compliant').length;
+  const partial = controls.filter((c) => c.status === 'partial').length;
+  const na = controls.filter((c) => c.status === 'not_applicable').length;
+  const notMet = controls.length - met - partial - na;
+
+  const policyRows: string[][] = filed.map((f) => [
+    f.doc.title,
+    f.doc.kind,
+    f.doc.family ? `${f.doc.family} family (${f.controlIds.length})` : f.controlIds.join(', '),
+    'On file',
+    'Documentation (Examine) — not a Met determination',
+  ]);
+
+  const evidenceRows: string[][] = withEvidence.map((c) => [
+    c.id,
+    c.family,
+    statusLabel(c.status),
+    (c.evidence ?? []).filter(isReal).join('; '),
+  ]);
+
+  const body =
+    `<p>Documentation and evidence recorded against the live control set (<code>soc_ops.compliance_controls</code>). A policy or procedure on file satisfies the <em>documentation (Examine)</em> objective of the controls it covers and advances their remediation-step progress; it is <strong>not</strong>, by itself, an implemented/Met determination — that additionally requires the technical implementation on the operational system and test evidence.</p>` +
+    (filed.length
+      ? `<p style="font-weight:bold;margin-top:10px">Policy &amp; procedure documentation on file (${filed.length}):</p>` +
+        renderTable(['Document', 'Type', 'Covers', 'Status', 'Basis'], policyRows)
+      : `<div class="callout">No policy or procedure documentation is recorded as filed evidence yet.</div>`) +
+    (evidenceRows.length
+      ? `<p style="font-weight:bold;margin-top:10px">Controls with evidence recorded (${withEvidence.length} of ${controls.length}):</p>` +
+        renderTable(['Control', 'Family', 'Status', 'Evidence on file'], evidenceRows)
+      : '') +
+    `<div class="callout"><strong>Honest posture (live soc_ops):</strong> ${met} Met · ${partial} Partial · ${na} N/A · ${notMet} Not Met, of ${controls.length} controls. Documentation on file does not change these counts.</div>`;
+
+  return { id: 'evidence', heading: 'Evidence & Documentation Register', bodyHtml: body };
+}
 
 const ORG = {
   legalName: 'Mycosoft, LLC',
@@ -72,7 +135,7 @@ async function execSummary(d: ReturnType<typeof assemble>): Promise<{ html: stri
   return { html: renderProse(fallback), llm: false };
 }
 
-export async function buildSecurityReport(reportType: SecurityReportType): Promise<{ html: string; meta: Record<string, unknown> }> {
+export async function buildSecurityReport(reportType: SecurityReportType, opts?: SecurityReportOptions): Promise<{ html: string; meta: Record<string, unknown> }> {
   const d = assemble();
   const provider = activeReportProvider();
   const exec = await execSummary(d);
@@ -100,6 +163,12 @@ export async function buildSecurityReport(reportType: SecurityReportType): Promi
       `<div class="callout"><strong>CMMC status (current):</strong> ${esc(d.status.reason)}</div>` +
       `<p style="font-size:9pt;color:#555">Scoring per NIST SP 800-171 DoD Assessment Methodology v1.2.1 (Annex A) and 32 CFR §170.24. Weight distribution: ${esc(SPRS_MATH.distribution)}. Minimum possible ${SPRS_MATH.minScore}.</p>`,
   });
+
+  // Evidence & Documentation Register (only when live controls are supplied)
+  const controls = opts?.controls ?? [];
+  if (controls.length) {
+    sections.push(evidenceSection(controls));
+  }
 
   // POA&M
   const poamRows: (string | number)[][] = [
@@ -172,6 +241,8 @@ export async function buildSecurityReport(reportType: SecurityReportType): Promi
       sprsCurrent: d.cur.score,
       sprsTarget: d.tgt.score,
       generatedAt: now.toISOString(),
+      controlsWithEvidence: controls.filter((c) => (c.evidence ?? []).some((e) => String(e ?? '').trim() && String(e).trim().toLowerCase() !== 'null')).length,
+      policiesOnFile: controls.length ? collectFiledPolicies(controls).length : 0,
     },
   };
 }
