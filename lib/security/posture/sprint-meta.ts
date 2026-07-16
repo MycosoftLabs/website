@@ -10,12 +10,60 @@
 // hardware, not a fixed calendar date. Endpoint-gated dates are `null` and
 // render as "TBD — pending endpoint provisioning" until PROV is set. Presenting
 // a fixed target date we cannot meet would violate the honesty rule.
+//
+// currentImplemented / currentPartial below are FALLBACKS only (unique CMMC Met
+// count when MAS is unreachable). The compliance page prefers live MAS counts
+// from `/api/security?action=compliance-controls` / mas-compliance-bundle.
 
 export const PROV_TBD = 'TBD — pending endpoint provisioning';
 
 /** Render a sprint milestone date, falling back to the PROV placeholder. */
 export function sprintDate(d: string | null | undefined): string {
   return d && d.trim() ? d : PROV_TBD;
+}
+
+/**
+ * Derive unique Met / Partial counts from MAS control rows.
+ * NIST + CMMC twins (e.g. 3.12.1 + CA.L2-3.12.1) count as ONE unique control.
+ */
+export function deriveUniquePostureCounts(
+  rows: Array<{
+    id?: string;
+    control_id?: string;
+    status?: string;
+    implementation_state?: string;
+  }>
+): { uniqueMet: number; uniquePartial: number; implementedRows: number; partialRows: number } {
+  const met = new Set<string>();
+  const partial = new Set<string>();
+  let implementedRows = 0;
+  let partialRows = 0;
+
+  for (const row of rows) {
+    const rawId = String(row.control_id || row.id || '');
+    if (!rawId) continue;
+    const base = rawId.includes('-')
+      ? rawId.split('-').slice(-1)[0] // CA.L2-3.12.1 → 3.12.1
+      : rawId;
+    const state = String(row.implementation_state || row.status || '').toLowerCase();
+    const isMet = state === 'implemented' || state === 'compliant';
+    const isPartial = state === 'partial';
+    if (isMet) {
+      implementedRows += 1;
+      met.add(base);
+      partial.delete(base);
+    } else if (isPartial) {
+      partialRows += 1;
+      if (!met.has(base)) partial.add(base);
+    }
+  }
+
+  return {
+    uniqueMet: met.size,
+    uniquePartial: partial.size,
+    implementedRows,
+    partialRows,
+  };
 }
 
 export const CMMC_SPRINT_META = {
@@ -38,10 +86,12 @@ export const CMMC_SPRINT_META = {
   phase1Cutoff: '2026-11-09',
   c3paoAssessmentTarget: 'Q4 2026 – Q1 2027',
 
-  // Current, honest posture (nothing implemented yet).
-  currentImplemented: 0,
-  currentPartial: 2,
-  currentSprsScore: -234,
+  // Honest fallback when MAS is unreachable (Jul 15 2026 evening: 22 implemented
+  // rows / 0 partial = 11 unique Met after CA trio clear). Prefer live
+  // deriveUniquePostureCounts() on the compliance page.
+  currentImplemented: 11,
+  currentPartial: 0,
+  currentSprsScore: -203,
 
   // Projected post-sprint target (never presented as achieved).
   targetImplemented: 109,

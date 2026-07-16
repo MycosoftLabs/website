@@ -20,10 +20,31 @@ import {
   Settings, RefreshCw, HelpCircle, Sparkles
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
-import { CMMC_SPRINT_META, sprintDate } from '@/lib/security/posture/sprint-meta';
+import {
+  CMMC_SPRINT_META,
+  sprintDate,
+  deriveUniquePostureCounts,
+} from '@/lib/security/posture/sprint-meta';
 import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/security/ControlRemediationWorkbook';
 import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
+import PreVeilPanel from '@/components/security/PreVeilPanel';
+import { ShieldCheck } from 'lucide-react';
+import { getRemediationPlan } from '@/lib/security/remediation/remediation-library';
+
+/**
+ * Per-control remediation-step progress for the glanceable list bar.
+ * total = real remediation-plan step count; done = evidence artifacts collected
+ * (a step is "done" when its evidence exists), with a Met control counted as fully done.
+ * Honest by construction — never shows progress a control hasn't actually made.
+ */
+function controlStepProgress(control: { id: string; family: string; status: string; evidence?: string[] }): { done: number; total: number } {
+  const total = getRemediationPlan(control.id, control.family).steps.length;
+  if (total === 0 || control.status === 'not_applicable') return { done: 0, total: 0 };
+  if (control.status === 'compliant') return { done: total, total };
+  const evidenced = (control.evidence ?? []).filter((e) => e && String(e).trim() && String(e).trim().toLowerCase() !== 'null').length;
+  return { done: Math.min(evidenced, total), total };
+}
 import { BookOpen, Ban } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -502,7 +523,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -925,7 +946,8 @@ export default function CompliancePage() {
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
           { id: 'reference', label: 'Reference (L2/L3)', icon: BookOpen, tourId: 'reference-tab' },
           { id: 'supply-chain', label: 'Supply Chain', icon: Ban, tourId: 'supply-chain-tab' },
-          { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
+          { id: 'preveil', label: 'PreVeil (L2 Enclave)', icon: ShieldCheck, tourId: 'preveil-tab' },
+          { id: 'exostar', label: 'Exostar (L3)', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -943,16 +965,28 @@ export default function CompliancePage() {
         ))}
       </div>
 
-      {/* Self-assessment context banner — keeps today's honest low posture from
-          reading as "broken". Current numbers come from live MAS; framing from
-          the CMMC sprint overlay. */}
+      {/* Self-assessment context banner — live MAS unique Met when heatmap loads. */}
+      {(() => {
+        const live = controls.length
+          ? deriveUniquePostureCounts(controls)
+          : null;
+        const uniqueMet = live?.uniqueMet ?? CMMC_SPRINT_META.currentImplemented;
+        const uniquePartial = live?.uniquePartial ?? CMMC_SPRINT_META.currentPartial;
+        const rowImpl = live?.implementedRows;
+        return (
       <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
         <div className="flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
           <div>
             <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
-            Control statuses reflect <span className="font-semibold">current</span> posture (live from MAS{' '}
-            <code className="text-amber-300">soc_ops</code>) — a low percentage today is expected and honest.
+            Current unique Met: <span className="font-semibold text-emerald-300">{uniqueMet}</span>
+            {typeof rowImpl === 'number' ? (
+              <> ({rowImpl} MAS rows incl. NIST/CMMC twins)</>
+            ) : null}
+            , unique Partial: <span className="font-semibold text-amber-300">{uniquePartial}</span>
+            {isLiveData ? ' — live from MAS ' : ' — fallback constants; '}
+            <code className="text-amber-300">soc_ops</code>
+            {isLiveData ? '.' : ' until heatmap loads.'}{' '}
             Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
             with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
             The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
@@ -967,6 +1001,8 @@ export default function CompliancePage() {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Controls Tab */}
       {activeTab === 'controls' && (
@@ -1050,6 +1086,20 @@ export default function CompliancePage() {
                               )}
                             </div>
                             <h4 className="font-medium mt-1">{control.name}</h4>
+                            {(() => {
+                              const { done, total } = controlStepProgress(control);
+                              if (total === 0) return null;
+                              const pct = Math.round((done / total) * 100);
+                              const barColor = done >= total ? 'bg-emerald-500' : done > 0 ? 'bg-amber-500' : 'bg-slate-600';
+                              return (
+                                <div className="flex items-center gap-2 mt-1.5" title={`${done} of ${total} remediation steps evidenced`}>
+                                  <div className="h-1.5 w-24 sm:w-32 rounded-full bg-slate-700/80 overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 tabular-nums">{done}/{total} steps</span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1552,9 +1602,16 @@ export default function CompliancePage() {
         </div>
       )}
 
+      {/* PreVeil Tab — the L2 CUI enclave */}
+      {activeTab === 'preveil' && <PreVeilPanel />}
+
       {/* Exostar Tab */}
       {activeTab === 'exostar' && (
         <div className="max-w-4xl mx-auto" data-tour="exostar-section">
+          <div className="mb-4 rounded-lg border border-slate-600 bg-slate-700/30 p-4 text-sm text-slate-300 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+            <div><span className="font-semibold">Level 3 — not used at Level 2.</span> Exostar (DoD Supply Chain Risk Management) is a CMMC <span className="font-semibold">Level 3</span> concern. Mycosoft's Level 2 CUI enclave is <span className="font-semibold text-sky-300">PreVeil</span> (see the PreVeil tab). This tab stays configured but inactive until we pursue L3.</div>
+          </div>
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -1562,7 +1619,7 @@ export default function CompliancePage() {
                   <Link2 className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold">Exostar Integration</h2>
+                  <h2 className="text-2xl font-bold">Exostar Integration <span className="text-sm font-normal text-slate-500">(Level 3)</span></h2>
                   <p className="text-slate-400">Supply Chain Risk Management Platform</p>
                 </div>
               </div>
