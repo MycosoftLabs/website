@@ -1,6 +1,6 @@
-{
+﻿{
   "generated_from": "lib/security/reference/cmmc-l2-controls.json (MD5 abca7ab1)",
-  "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence",
+  "evidence_dir": "docs/cmmc_evidence",
   "tally": {
     "blocked": 79,
     "operator-action-required": 20,
@@ -18,7 +18,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -40,7 +40,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -58,7 +58,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -79,7 +79,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -98,7 +98,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -118,7 +118,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -136,7 +136,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -156,7 +156,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -174,7 +174,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -192,7 +192,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -211,7 +211,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -229,7 +229,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -249,7 +249,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -267,7 +267,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -285,7 +285,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -305,7 +305,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -323,7 +323,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -341,7 +341,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -360,7 +360,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -378,7 +378,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -400,7 +400,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -419,7 +419,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ac",
+      "evidence_dir": "docs/cmmc_evidence/ac",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -440,7 +440,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:cdse-training-cert",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/at",
+      "evidence_dir": "docs/cmmc_evidence/at",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -460,7 +460,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:cdse-training-cert",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/at",
+      "evidence_dir": "docs/cmmc_evidence/at",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -479,7 +479,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:cdse-training-cert",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/at",
+      "evidence_dir": "docs/cmmc_evidence/at",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -497,7 +497,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -519,7 +519,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -537,7 +537,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -556,7 +556,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -575,7 +575,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -593,7 +593,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -611,7 +611,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -630,7 +630,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -652,7 +652,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/au",
+      "evidence_dir": "docs/cmmc_evidence/au",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -670,7 +670,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -692,7 +692,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -710,7 +710,7 @@
       "command": "gh api /repos/MycosoftLabs/website/branches/main/protection -> evidence/cm/3.4.3_branch_protection.json",
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -730,7 +730,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "ready-collect-now",
       "assessment_objectives": [
@@ -747,7 +747,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -771,7 +771,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -789,7 +789,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -820,7 +820,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -839,7 +839,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/cm",
+      "evidence_dir": "docs/cmmc_evidence/cm",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -858,7 +858,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -877,7 +877,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -896,7 +896,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -916,7 +916,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -933,7 +933,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -951,7 +951,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -969,7 +969,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -989,7 +989,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1007,7 +1007,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1024,7 +1024,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1042,7 +1042,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ia",
+      "evidence_dir": "docs/cmmc_evidence/ia",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1059,7 +1059,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:ir-tabletop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ir",
+      "evidence_dir": "docs/cmmc_evidence/ir",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1082,7 +1082,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:ir-tabletop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ir",
+      "evidence_dir": "docs/cmmc_evidence/ir",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1104,7 +1104,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:ir-tabletop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ir",
+      "evidence_dir": "docs/cmmc_evidence/ir",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1121,7 +1121,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1138,7 +1138,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1158,7 +1158,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1175,7 +1175,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1192,7 +1192,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1210,7 +1210,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ma",
+      "evidence_dir": "docs/cmmc_evidence/ma",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1227,7 +1227,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1247,7 +1247,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1264,7 +1264,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1282,7 +1282,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1300,7 +1300,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1318,7 +1318,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1335,7 +1335,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1352,7 +1352,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1369,7 +1369,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/mp",
+      "evidence_dir": "docs/cmmc_evidence/mp",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1386,7 +1386,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:background-check",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ps",
+      "evidence_dir": "docs/cmmc_evidence/ps",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1403,7 +1403,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:sign-policy",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ps",
+      "evidence_dir": "docs/cmmc_evidence/ps",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1422,7 +1422,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1442,7 +1442,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1462,7 +1462,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1480,7 +1480,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1497,7 +1497,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1516,7 +1516,7 @@
       "command": null,
       "owner": "morgan",
       "blocker": "operator:physical-home-office",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/pe",
+      "evidence_dir": "docs/cmmc_evidence/pe",
       "evidenced": false,
       "status": "operator-action-required",
       "assessment_objectives": [
@@ -1534,7 +1534,7 @@
       "command": null,
       "owner": "myca",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
+      "evidence_dir": "docs/cmmc_evidence/ra",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1552,7 +1552,7 @@
       "command": "npm audit --json + advisors -> evidence/ra/3.11.2_vuln_scan.json",
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
+      "evidence_dir": "docs/cmmc_evidence/ra",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1573,7 +1573,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ra",
+      "evidence_dir": "docs/cmmc_evidence/ra",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1591,7 +1591,7 @@
       "command": "node scripts/... generate cmmc-l2 report -> evidence/ca/3.12.1_self_assessment.pdf",
       "owner": "myca",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
+      "evidence_dir": "docs/cmmc_evidence/ca",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1609,7 +1609,7 @@
       "command": "POST /api/security/reports/generate {poam} -> evidence/ca/3.12.2_poam.pdf",
       "owner": "myca",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
+      "evidence_dir": "docs/cmmc_evidence/ca",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1628,7 +1628,7 @@
       "command": null,
       "owner": "myca",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
+      "evidence_dir": "docs/cmmc_evidence/ca",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1641,11 +1641,11 @@
       "family": "CA",
       "weight": "NA",
       "poam_eligible": false,
-      "collector": "SSP document (report engine) — NA-weighted but must exist",
+      "collector": "SSP document (report engine) â€” NA-weighted but must exist",
       "command": "report engine cmmc-l2 -> evidence/ca/3.12.4_ssp.pdf",
       "owner": "myca",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/ca",
+      "evidence_dir": "docs/cmmc_evidence/ca",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1669,7 +1669,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1693,7 +1693,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1715,7 +1715,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1734,7 +1734,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1751,7 +1751,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1769,7 +1769,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1787,7 +1787,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1804,7 +1804,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1823,7 +1823,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1842,7 +1842,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1860,7 +1860,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1877,7 +1877,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1896,7 +1896,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1914,7 +1914,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1932,7 +1932,7 @@
       "command": "curl -sI https://mycosoft.com -> evidence/sc/3.13.15_headers.txt",
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1949,7 +1949,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:preveil-not-provisioned",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/sc",
+      "evidence_dir": "docs/cmmc_evidence/sc",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -1966,7 +1966,7 @@
       "command": "npm audit --json -> evidence/si/3.14.1_flaw_remediation.json",
       "owner": "cursor",
       "blocker": "ready:collect-now",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": true,
       "status": "met",
       "assessment_objectives": [
@@ -1988,7 +1988,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -2006,7 +2006,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -2025,7 +2025,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -2042,7 +2042,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -2061,7 +2061,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:wazuh-agents-need-endpoints",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [
@@ -2080,7 +2080,7 @@
       "command": null,
       "owner": "cursor",
       "blocker": "blocked:no-cmmc-laptop",
-      "evidence_dir": "D:/Users/admin2/Desktop/MYCOSOFT/CODE/docs/cmmc_evidence/si",
+      "evidence_dir": "docs/cmmc_evidence/si",
       "evidenced": false,
       "status": "blocked",
       "assessment_objectives": [

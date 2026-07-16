@@ -84,7 +84,7 @@ export const CUI_BOUNDARY = {
 // SIEM Connector → Wazuh: this is how PreVeil evidences the AU (audit) family and feeds
 // the same Wazuh manager that (at PROV) monitors the endpoints.
 export const PREVEIL_SIEM = {
-  target: 'Wazuh manager (MAS 192.168.0.188)',
+  target: 'Wazuh manager (internal)',
   exports: 'Tamper-proof PreVeil user/admin/system event logs',
   satisfies: ['AU.L2-3.3.1', 'AU.L2-3.3.2', 'AU.L2-3.3.5', 'AU.L2-3.3.6', 'AU.L2-3.3.8', 'AU.L2-3.3.9'],
   note: 'Approval-Group consent gates log decrypt/export. Connector runs post-provisioning.',
@@ -101,7 +101,7 @@ export const PREVEIL_PROVISIONING: PreVeilStep[] = [
   { id: 'approval-groups', title: 'Configure Approval Groups', detail: 'Multi-party group for CUI export / admin actions (Morgan + RJ).', owner: 'morgan', evidence: 'evidence/ac/3.1.15_preveil_approval_group.png' },
   { id: 'external', title: 'Set external-recipient + sharing policy', detail: 'Default-deny sharing; allow-list .mil/.gov CUI recipients only.', owner: 'morgan', evidence: 'evidence/sc/3.13.6_preveil_sharing.png' },
   { id: 'retention', title: 'Set retention ≥ 3 years (7yr DoD)', detail: 'Immutable audit-log retention aligned to contract.', owner: 'morgan', evidence: 'evidence/au/3.3.8_preveil_retention.png' },
-  { id: 'siem', title: 'Connect SIEM Connector → Wazuh', detail: 'Stream PreVeil logs to the Wazuh manager on MAS 188.', owner: 'cursor', evidence: 'evidence/au/3.3.5_preveil_siem.png' },
+  { id: 'siem', title: 'Connect SIEM Connector → Wazuh', detail: 'Stream PreVeil logs to the internal Wazuh manager.', owner: 'cursor', evidence: 'evidence/au/3.3.5_preveil_siem.png' },
   { id: 'crm', title: 'Ingest the signed CRM (Appendix A)', detail: 'Populate PREVEIL_CRM_IMPORT with the authoritative Met/Joint/Customer designations.', owner: 'cursor', evidence: 'CRM document + PREVEIL_CRM_IMPORT' },
   { id: 'boundary', title: 'Confirm no CUI in Google Workspace', detail: 'Verify Gmail/Drive hold no CUI; PreVeil is the sole CUI store.', owner: 'morgan', evidence: 'evidence/sc/3.13.1_cui_boundary.md' },
 ];
