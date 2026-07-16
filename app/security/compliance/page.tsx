@@ -30,6 +30,21 @@ import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
 import PreVeilPanel from '@/components/security/PreVeilPanel';
 import { ShieldCheck } from 'lucide-react';
+import { getRemediationPlan } from '@/lib/security/remediation/remediation-library';
+
+/**
+ * Per-control remediation-step progress for the glanceable list bar.
+ * total = real remediation-plan step count; done = evidence artifacts collected
+ * (a step is "done" when its evidence exists), with a Met control counted as fully done.
+ * Honest by construction — never shows progress a control hasn't actually made.
+ */
+function controlStepProgress(control: { id: string; family: string; status: string; evidence?: string[] }): { done: number; total: number } {
+  const total = getRemediationPlan(control.id, control.family).steps.length;
+  if (total === 0 || control.status === 'not_applicable') return { done: 0, total: 0 };
+  if (control.status === 'compliant') return { done: total, total };
+  const evidenced = (control.evidence ?? []).filter((e) => e && String(e).trim() && String(e).trim().toLowerCase() !== 'null').length;
+  return { done: Math.min(evidenced, total), total };
+}
 import { BookOpen, Ban } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1071,6 +1086,20 @@ export default function CompliancePage() {
                               )}
                             </div>
                             <h4 className="font-medium mt-1">{control.name}</h4>
+                            {(() => {
+                              const { done, total } = controlStepProgress(control);
+                              if (total === 0) return null;
+                              const pct = Math.round((done / total) * 100);
+                              const barColor = done >= total ? 'bg-emerald-500' : done > 0 ? 'bg-amber-500' : 'bg-slate-600';
+                              return (
+                                <div className="flex items-center gap-2 mt-1.5" title={`${done} of ${total} remediation steps evidenced`}>
+                                  <div className="h-1.5 w-24 sm:w-32 rounded-full bg-slate-700/80 overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-[11px] text-slate-400 tabular-nums">{done}/{total} steps</span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
