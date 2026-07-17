@@ -6,6 +6,40 @@ import { buildSecurityReport, type SecurityReportType } from '@/lib/reports/secu
 import { buildRemediationPlan, buildControlPacket } from '@/lib/reports/remediation';
 import { buildPolicy, buildSupportingDoc, POLICY_KINDS } from '@/lib/reports/policy';
 import { activeReportProvider } from '@/lib/reports/llm';
+import type { EvidenceControl } from '@/lib/security/posture/policy-evidence';
+
+/**
+ * Live control set for the Evidence & Documentation Register — sourced ONLY
+ * from the live MAS API (soc_ops.compliance_controls), never the seeded demo
+ * store. If MAS is unset / unreachable / empty we return undefined so the report
+ * OMITS the section rather than printing seeded statuses (the seeded store
+ * contains fabricated reference-framework "compliant" rows — DCSA/SCIF/etc. —
+ * which must never appear as posture in a signed CMMC report). Never throws.
+ */
+async function liveControls(): Promise<EvidenceControl[] | undefined> {
+  const base = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+  if (!base) return undefined;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (process.env.MAS_API_KEY) headers['X-API-Key'] = process.env.MAS_API_KEY;
+    const res = await fetch(`${base}/api/compliance/controls`, { cache: 'no-store', headers });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    const rows: any[] = Array.isArray(data?.controls) ? data.controls : [];
+    // Keep the CMMC_L2 twin only so the count is per-practice (110), not doubled.
+    const cmmc = rows.filter((r) => String(r.framework ?? '').toUpperCase().includes('CMMC'));
+    const use = cmmc.length ? cmmc : rows;
+    if (use.length === 0) return undefined;
+    return use.map((r) => {
+      const impl = String(r.implementation_state ?? 'planned');
+      const status = impl === 'implemented' ? 'compliant' : impl === 'partial' ? 'partial' : impl === 'not_applicable' ? 'not_applicable' : 'non_compliant';
+      const id = String(r.control_id ?? '');
+      return { id, family: String(r.family ?? ''), status, evidence: r.evidence_uri ? [String(r.evidence_uri)] : [], name: String(r.title ?? id) };
+    }).filter((c) => c.id);
+  } catch {
+    return undefined;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 // Report generation can call an external LLM; allow more time.
@@ -65,7 +99,7 @@ export async function POST(request: NextRequest) {
       result = await buildSupportingDoc(reportType);
       if (!result) return NextResponse.json({ error: 'unknown document kind' }, { status: 404 });
     } else if (TYPES.includes(reportType as SecurityReportType)) {
-      result = await buildSecurityReport(reportType as SecurityReportType);
+      result = await buildSecurityReport(reportType as SecurityReportType, { controls: await liveControls() });
     } else {
       return NextResponse.json({ error: 'unknown reportType' }, { status: 400 });
     }

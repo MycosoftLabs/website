@@ -2116,3 +2116,67 @@ export function validateCMMCReadiness(controls: ComplianceControl[], targetLevel
     score,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// REFERENCE-FRAMEWORK WIRING (honest baseline)
+// ═══════════════════════════════════════════════════════════════
+//
+// Populates the non-core framework cards (NISPOM, FOCI, SBIR/STTR, ITAR, EAR,
+// ICD-503, CNSSI-1253, FedRAMP High) from the catalogs above — but NEVER as
+// achieved. The catalogs ship with demo "compliant" statuses and fabricated
+// evidence (DCSA FCL, SCIF accreditation, DISS, etc.) that Mycosoft does NOT
+// have. Displaying those would be a false compliance claim. So every reference
+// control is reset to a truthful "not assessed" baseline and the demo evidence
+// is stripped. Core assessed frameworks (NIST-800-171, CMMC-L2) are EXCLUDED —
+// they come LIVE from MAS soc_ops. No false compliance is ever shown.
+
+const REFERENCE_FRAMEWORK_NOTE =
+  'Reference catalog — not in Mycosoft’s current assessment scope (CMMC L2 focus). Control set loaded for planning; not independently assessed. Status is a not-started baseline, not an achieved determination.';
+
+const REFERENCE_FRAMEWORK_CATALOGS: ComplianceControl[][] = [
+  DEFAULT_NISPOM_CONTROLS,
+  DEFAULT_FOCI_CONTROLS,
+  DEFAULT_SBIR_CONTROLS,
+  DEFAULT_ITAR_CONTROLS,
+  DEFAULT_EAR_CONTROLS,
+  DEFAULT_ICD_503_CONTROLS,
+  DEFAULT_CNSSI_1253_CONTROLS,
+  DEFAULT_FEDRAMP_HIGH_CONTROLS,
+];
+
+/**
+ * All non-core framework controls, reset to an honest not-assessed baseline
+ * (status `non_compliant` = not started; demo evidence stripped). Safe to merge
+ * into the live compliance list — it never adds to any "Met" count.
+ */
+function resetToBaseline(c: ComplianceControl, framework?: ComplianceFramework, id?: string): ComplianceControl {
+  return {
+    ...c,
+    id: id ?? c.id,
+    framework: framework ?? c.framework,
+    status: 'non_compliant',
+    evidence: [],
+    lastAudit: '',
+    lastAuditBy: 'unassessed',
+    notes: REFERENCE_FRAMEWORK_NOTE,
+  };
+}
+
+export function getReferenceFrameworkControls(): ComplianceControl[] {
+  const base = REFERENCE_FRAMEWORK_CATALOGS.flat().map((c) => resetToBaseline(c));
+
+  // NIST 800-53 card — FedRAMP High IS the 800-53 High baseline, and each
+  // FedRAMP control carries its real 800-53 identifier in mappings. Re-surface
+  // that set under NIST-800-53 with the authentic control IDs (AC-1, AU-2, …),
+  // at the same honest not-assessed baseline. De-duped by control id.
+  const seen = new Set<string>();
+  const nist53: ComplianceControl[] = [];
+  for (const c of DEFAULT_FEDRAMP_HIGH_CONTROLS) {
+    const id53 = c.mappings?.['NIST-800-53']?.[0] ?? c.id.replace(/^FRP-/, '');
+    if (seen.has(id53)) continue;
+    seen.add(id53);
+    nist53.push(resetToBaseline(c, 'NIST-800-53', id53));
+  }
+
+  return [...base, ...nist53];
+}

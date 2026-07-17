@@ -17,7 +17,7 @@ import {
   Download, FileText, FileSpreadsheet, Loader2, 
   Shield, Lock, Building2, Link2, CheckCircle2, 
   AlertTriangle, XCircle, ChevronRight, ExternalLink,
-  Settings, RefreshCw, HelpCircle, Sparkles
+  Settings, RefreshCw, HelpCircle, Sparkles, ClipboardCheck
 } from 'lucide-react';
 import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
 import {
@@ -29,8 +29,11 @@ import ControlRemediationWorkbook, { type WorkbookControl } from '@/components/s
 import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
 import PreVeilPanel from '@/components/security/PreVeilPanel';
+import Tier1Panel from '@/components/security/Tier1Panel';
 import { ShieldCheck } from 'lucide-react';
 import { getRemediationPlan } from '@/lib/security/remediation/remediation-library';
+import { policyEvidenceForControl } from '@/lib/security/posture/policy-evidence';
+import { getReferenceFrameworkControls } from '@/lib/security/compliance-frameworks';
 
 /**
  * Per-control remediation-step progress for the glanceable list bar.
@@ -523,7 +526,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'tier1' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -576,7 +579,13 @@ export default function CompliancePage() {
       const w = window.open('', '_blank');
       if (w) { w.document.write(data.html); w.document.close(); }
       else setReportMsg('Popup blocked — allow popups to open the report.');
-      setReportMsg(`Generated via ${data.meta?.provider ? `${data.meta.provider} (${data.meta.model})` : 'real data (no LLM configured)'} — SPRS current ${data.meta?.sprsCurrent}, target ${data.meta?.sprsTarget}.`);
+      {
+        const m = data.meta ?? {};
+        const evi = typeof m.policiesOnFile === 'number'
+          ? ` · ${m.policiesOnFile} policy doc(s) on file, ${m.controlsWithEvidence ?? 0} controls evidenced`
+          : '';
+        setReportMsg(`Generated via ${m.provider ? `${m.provider} (${m.model})` : 'real data (no LLM configured)'} — SPRS current ${m.sprsCurrent}, target ${m.sprsTarget}${evi}.`);
+      }
     } catch {
       setReportMsg('Report generation failed.');
     } finally {
@@ -597,7 +606,18 @@ export default function CompliancePage() {
         
         if (controlsRes.ok) {
           const data = await controlsRes.json();
-          setControls(data.controls || []);
+          // Keep ONLY the live core frameworks (NIST-800-171 + CMMC-L2) from MAS
+          // soc_ops, then append the non-core reference-framework catalogs at an
+          // honest not-assessed baseline. When MAS is unreachable the API falls
+          // back to a seeded store that contains demo-"compliant" reference
+          // frameworks with fabricated evidence — filtering to core drops those
+          // so the reference frameworks are ALWAYS the honest (non_compliant)
+          // set, with no duplicate control ids and no false Met.
+          const core = ((data.controls || []) as ComplianceControl[]).filter(
+            (c) => c.framework === 'NIST-800-171' || c.framework === 'CMMC-L2'
+          );
+          const refControls = getReferenceFrameworkControls() as unknown as ComplianceControl[];
+          setControls([...core, ...refControls]);
           setIsLiveData(true);
         }
         
@@ -941,6 +961,7 @@ export default function CompliancePage() {
       <div className="flex gap-2 mb-6" data-tour="compliance-tabs">
         {[
           { id: 'controls', label: 'Controls', icon: Shield, tourId: 'controls-tab' },
+          { id: 'tier1', label: 'Tier-1 Turnkey', icon: ClipboardCheck, tourId: 'tier1-tab' },
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
@@ -1097,6 +1118,23 @@ export default function CompliancePage() {
                                     <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
                                   </div>
                                   <span className="text-[11px] text-slate-400 tabular-nums">{done}/{total} steps</span>
+                                </div>
+                              );
+                            })()}
+                            {(() => {
+                              const policies = policyEvidenceForControl(control);
+                              if (!policies.length) return null;
+                              return (
+                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                  {policies.map((p) => (
+                                    <span
+                                      key={p.id}
+                                      title={`${p.title} on file — advances the documentation (Examine) step. Not, by itself, a Met determination.`}
+                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30"
+                                    >
+                                      <FileText className="w-3 h-3" /> {p.title} on file
+                                    </span>
+                                  ))}
                                 </div>
                               );
                             })()}
@@ -1603,6 +1641,8 @@ export default function CompliancePage() {
       )}
 
       {/* PreVeil Tab — the L2 CUI enclave */}
+      {activeTab === 'tier1' && <Tier1Panel />}
+
       {activeTab === 'preveil' && <PreVeilPanel />}
 
       {/* Exostar Tab */}
