@@ -30,14 +30,33 @@ function parseBounds(params: URLSearchParams): FungalAtlasBounds | undefined {
   return undefined
 }
 
-async function fetchMindexOverlaySamples(bounds: FungalAtlasBounds | undefined, limit: number) {
+async function fetchMindexOverlaySamples(
+  bounds: FungalAtlasBounds | undefined,
+  limit: number,
+  guild?: string,
+) {
+  // MINDEX fungal-overlays require X-Internal-Token (not the customer X-API-Key).
+  // Mirrors the cells route; without this the MINDEX-first path 401s and silently
+  // falls back to the legacy local atlas, so live observations never load.
+  const internalTokenRaw =
+    process.env.MINDEX_INTERNAL_TOKEN ||
+    process.env.MINDEX_INTERNAL_TOKENS ||
+    ""
+  const internalToken = internalTokenRaw.includes(",")
+    ? internalTokenRaw.split(",")[0]?.trim()
+    : internalTokenRaw.trim()
   const params = new URLSearchParams({ limit: String(limit) })
   if (bounds) {
     params.set("bbox", `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`)
   }
+  // Real functional_guild filter (migration 029) — no client-side name-string hacks.
+  if (guild) {
+    params.set("guild", guild)
+  }
   const response = await fetch(`${MINDEX_API}/api/mindex/fungal-overlays/samples?${params.toString()}`, {
     headers: {
       Accept: "application/json",
+      ...(internalToken ? { "X-Internal-Token": internalToken } : {}),
       "X-API-Key": process.env.MINDEX_API_KEY || "",
     },
     signal: AbortSignal.timeout(5000),
@@ -73,6 +92,13 @@ export async function GET(request: NextRequest) {
     .map((s) => s.trim() as FungalSampleGroup)
     .filter((g) => VALID_GROUPS.has(g))
 
+  // Optional ECM/AM/etc. guild filter — forwarded to MINDEX functional_guild.
+  // Only known guilds are forwarded; absent/unknown → all samples (current behavior).
+  const guildRaw = (params.get("guild") || "").trim().toLowerCase()
+  const guild = ["ecm", "am", "saprotroph", "pathogen", "lichen"].includes(guildRaw)
+    ? guildRaw
+    : undefined
+
   if (groupsParam && groups.length === 0) {
     return NextResponse.json({
       type: "FeatureCollection",
@@ -82,7 +108,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const mindexSamplesRaw = await fetchMindexOverlaySamples(bounds, limit || 4000).catch(() => null)
+  const mindexSamplesRaw = await fetchMindexOverlaySamples(bounds, limit || 4000, guild).catch(() => null)
   const mindexSamples = mindexSamplesRaw
     ? groups.length
       ? mindexSamplesRaw.filter((sample) => groups.includes(sample.group as FungalSampleGroup))
