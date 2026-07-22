@@ -1,14 +1,18 @@
 'use client';
 
-import { ShieldCheck, Lock, KeyRound, ScrollText, Radio, Mail, HardDrive, CheckCircle2, Circle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ShieldCheck, Lock, KeyRound, ScrollText, Radio, Mail, HardDrive, CheckCircle2, Circle, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
 import {
   PREVEIL_FACTS, PREVEIL_ENCLAVE_CONTROLS, PREVEIL_ENCLAVE_LIST, PREVEIL_FAMILY_RESPONSIBILITY,
   PREVEIL_CRM_IMPORT, CUI_BOUNDARY, PREVEIL_SIEM, PREVEIL_PROVISIONING,
 } from '@/lib/security/preveil/crm';
 
-// Provisioning is gated until the MSA is signed + both devices enrolled. Honest default: not
-// provisioned. Flip via NEXT_PUBLIC_PREVEIL_PROVISIONED once the enclave is live + evidenced.
-const PROVISIONED = process.env.NEXT_PUBLIC_PREVEIL_PROVISIONED === 'true';
+interface PreVeilPosture {
+  status?: string;
+  pending_onboarding?: boolean;
+  enclave_live?: boolean;
+  pe_l2_3_10_6?: { met?: boolean };
+}
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -20,6 +24,35 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 export default function PreVeilPanel() {
+  const [posture, setPosture] = useState<PreVeilPosture | null>(null);
+  const [postureLoading, setPostureLoading] = useState(true);
+  const [postureError, setPostureError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/security/posture');
+        const data = await res.json();
+        if (!res.ok) {
+          if (!cancelled) setPostureError(data.error || `Posture API ${res.status}`);
+          return;
+        }
+        if (!cancelled) setPosture((data.preveil ?? null) as PreVeilPosture | null);
+      } catch {
+        if (!cancelled) setPostureError('Could not reach MAS posture API');
+      } finally {
+        if (!cancelled) setPostureLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const envProvisioned = process.env.NEXT_PUBLIC_PREVEIL_PROVISIONED === 'true';
+  const pendingOnboarding = posture?.pending_onboarding ?? !posture?.enclave_live;
+  const provisioned = posture?.enclave_live === true || (posture?.status === 'configured' && !pendingOnboarding) || envProvisioned;
+  const peMet = posture?.pe_l2_3_10_6?.met === true;
+
   const crmCount = Object.keys(PREVEIL_CRM_IMPORT).length;
   const respTally = { preveil: 0, joint: 0, customer: 0 };
   // family-level rollup for the coverage bar
@@ -41,11 +74,18 @@ export default function PreVeilPanel() {
               <p className="text-slate-400">{PREVEIL_FACTS.product} · {PREVEIL_FACTS.tier} · {PREVEIL_FACTS.seats} seats (Morgan + RJ)</p>
             </div>
           </div>
-          <div className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium ${PROVISIONED ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
-            {PROVISIONED ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-            {PROVISIONED ? 'Enclave provisioned' : 'Pending provisioning (sign MSA + enroll)'}
+          <div className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium ${provisioned ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+            {postureLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : provisioned ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            {postureLoading ? 'Loading posture…' : provisioned ? 'Enclave provisioned' : 'Pending onboarding — not provisioned'}
           </div>
         </div>
+        {!postureLoading && (
+          <div className="mt-3 text-xs rounded-lg border border-slate-600 bg-slate-900/50 p-2.5 text-slate-300 flex flex-wrap gap-x-4 gap-y-1">
+            <span>MAS posture: <span className="text-slate-200">{posture?.status || 'pending_onboarding'}</span></span>
+            <span>PE.L2-3.10.6 Met: <span className={peMet ? 'text-emerald-300' : 'text-amber-300'}>{peMet ? 'yes (evidence)' : 'no — enclave not live'}</span></span>
+            {postureError && <span className="text-amber-300">{postureError}</span>}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-5">
           <Fact label="Encryption" value={PREVEIL_FACTS.encryption} />

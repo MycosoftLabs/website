@@ -8,6 +8,18 @@ import {
 
 interface Person { id: string; name: string; role?: string; email?: string; sort_order?: number }
 interface Rec { id: string; kind: string; person_id: string | null; item_key: string; data: Record<string, any>; updated_by?: string; updated_at?: string }
+interface MasScore { total_controls: number; implemented: number; partial: number; implementation_percent: number }
+interface ScreeningEvent {
+  event_id: string;
+  legal_name: string;
+  role?: string;
+  provider: string;
+  package: string;
+  completed_at?: string;
+  disposition: string;
+  adjudication_memo_id?: string;
+  adjudicator_name?: string;
+}
 
 const COURSES = [
   { id: 'cui', name: 'CUI — CDSE IF141.06', url: 'https://www.cdse.edu/Training/eLearning/IF141/' },
@@ -27,7 +39,17 @@ const SECTIONS: [string, string, any][] = [
   ['overview', 'Overview', ClipboardCheck], ['training', 'Training', GraduationCap],
   ['screening', 'Screening', Search], ['tabletop', 'Tabletop', FileSignature], ['incidents', 'Incidents · DIBNet', AlertTriangle],
 ];
-const STLBL: Record<string, string> = { met: 'Met · evidence ready', prog: 'In progress', todo: 'Not started' };
+const STLBL: Record<string, string> = {
+  met: 'Met · evidence ready',
+  prog: 'In progress · Partial in soc_ops',
+  todo: 'Not started',
+};
+const masStateToUi = (impl: string | undefined): string => {
+  const s = (impl || '').toLowerCase();
+  if (s === 'implemented') return 'met';
+  if (s === 'partial') return 'prog';
+  return 'todo';
+};
 const stCls = (s: string) => s === 'met' ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
   : s === 'prog' ? 'text-amber-300 border-amber-500/40 bg-amber-500/10' : 'text-slate-300 border-slate-600 bg-slate-500/10';
 const dotCls = (s: string) => s === 'met' ? 'bg-emerald-400' : s === 'prog' ? 'bg-amber-400' : 'bg-slate-500';
@@ -48,6 +70,10 @@ export default function Tier1Panel() {
   const [personnel, setPersonnel] = useState<Person[]>([]);
   const [records, setRecords] = useState<Rec[]>([]);
   const [me, setMe] = useState(''); const [live, setLive] = useState(false); const [note, setNote] = useState<string | null>(null);
+  const [masScore, setMasScore] = useState<MasScore | null>(null);
+  const [masAtControls, setMasAtControls] = useState<Record<string, string>>({});
+  const [masPsControls, setMasPsControls] = useState<Record<string, string>>({});
+  const [screeningEvents, setScreeningEvents] = useState<ScreeningEvent[]>([]);
   const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(0);
   const [section, setSection] = useState('overview');
   const recRef = useRef<Rec[]>([]); recRef.current = records;
@@ -55,7 +81,14 @@ export default function Tier1Panel() {
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/security/tier1'); const d = await r.json();
-      if (r.ok) { setPersonnel(d.personnel || []); setRecords(d.records || []); setMe(d.me || ''); setLive(!!d.live); setNote(d.note || null); }
+      if (r.ok) {
+        setPersonnel(d.personnel || []); setRecords(d.records || []); setMe(d.me || '');
+        setLive(!!d.live); setNote(d.note || null);
+        setMasScore(d.masScore || null);
+        setMasAtControls(d.masAtControls || {});
+        setMasPsControls(d.masPsControls || {});
+        setScreeningEvents(d.screeningEvents || []);
+      }
     } catch { /* offline */ } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
@@ -84,13 +117,29 @@ export default function Tier1Panel() {
   // ---- status ----
   const trainDone = () => personnel.length > 0 && personnel.every(p => COURSES.every(c => dataOf('training', p.id, c.id).status === 'complete'));
   const trainProg = () => personnel.some(p => COURSES.some(c => ['complete', 'progress'].includes(dataOf('training', p.id, c.id).status)));
-  const screenSt = (pid: string) => { const r = dataOf('screening', pid, 'screening'); return (r.completed && r.result === 'favorable' && r.authorized) ? 'met' : (r.initiated || r.type) ? 'prog' : 'todo'; };
-  const aaSt = (pid: string) => { const r = dataOf('access_agreement', pid, 'aa'); return r.emp ? (r.rep ? 'met' : 'prog') : 'todo'; };
+  const screenSt = (pid: string) => { const r = dataOf('screening', pid, 'screening'); return (r.completed && r.result === 'favorable' && r.authorized) ? 'met' : (r.initiated || r.type || r.ref) ? 'prog' : 'todo'; };
+  const aaSt = (pid: string) => { const r = dataOf('access_agreement', pid, 'aa'); return r.emp && r.rep ? 'met' : (r.emp || r.rep) ? 'prog' : 'todo'; };
+  const screeningCleared = () => screeningEvents.length > 0 && screeningEvents.every(e => e.disposition === 'cleared');
   const ctrlSt = (id: string): string => {
-    if (id === 'AT.L2-3.2.1' || id === 'AT.L2-3.2.2') return trainDone() ? 'met' : trainProg() ? 'prog' : 'todo';
-    if (id === 'AT.L2-3.2.3') return (personnel.length > 0 && personnel.every(p => dataOf('training', p.id, 'insider').status === 'complete')) ? 'met' : trainProg() ? 'prog' : 'todo';
-    if (id === 'PS.L2-3.9.1') return (personnel.length > 0 && personnel.every(p => screenSt(p.id) === 'met')) ? 'met' : personnel.some(p => screenSt(p.id) !== 'todo') ? 'prog' : 'todo';
-    if (id === 'PS.L2-3.9.2') return (personnel.length > 0 && personnel.every(p => aaSt(p.id) === 'met')) ? 'met' : personnel.some(p => aaSt(p.id) !== 'todo') ? 'prog' : 'todo';
+    // AT family: soc_ops on MAS is authoritative — training rows complete ≠ Met
+    if (id === 'AT.L2-3.2.1' || id === 'AT.L2-3.2.2' || id === 'AT.L2-3.2.3') {
+      const masSt = masAtControls[id];
+      if (masSt) return masStateToUi(masSt);
+      return trainDone() ? 'prog' : trainProg() ? 'prog' : 'todo';
+    }
+    if (id === 'PS.L2-3.9.1') {
+      const masSt = masPsControls[id];
+      if (masSt) return masStateToUi(masSt);
+      if (screeningCleared()) return 'prog';
+      if (personnel.length > 0 && personnel.every(p => screenSt(p.id) === 'met')) return 'prog';
+      return personnel.some(p => screenSt(p.id) !== 'todo') ? 'prog' : 'todo';
+    }
+    if (id === 'PS.L2-3.9.2') {
+      const masSt = masPsControls[id];
+      if (masSt) return masStateToUi(masSt);
+      if (personnel.length > 0 && personnel.every(p => aaSt(p.id) === 'met')) return 'prog';
+      return personnel.some(p => aaSt(p.id) !== 'todo') ? 'prog' : 'todo';
+    }
     if (id === 'IR.L2-3.6.3') { const t = dataOf('tabletop', null, 'tabletop'); return (t.date && t.signoff) ? 'met' : (t.date || t.s1) ? 'prog' : 'todo'; }
     if (id === 'IR.L2-3.6.2') { const d = dataOf('dibnet', null, 'dibnet'); const keys = ['cert', 'reg', 'test', 'know']; return keys.every(k => d[k]) ? 'met' : keys.some(k => d[k]) ? 'prog' : 'todo'; }
     return 'todo';
@@ -132,6 +181,16 @@ export default function Tier1Panel() {
           </div>
         </div>
         {note && <div className="mt-3 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-amber-100">{note}</div>}
+        {masScore && (
+          <div className="mt-3 text-xs rounded-lg bg-slate-900/60 border border-slate-600 p-2.5 text-slate-300 flex flex-wrap gap-x-4 gap-y-1">
+            <span>MAS score (live): <span className="text-emerald-300 font-medium">{masScore.implemented}</span> implemented rows</span>
+            <span><span className="text-amber-300 font-medium">{masScore.partial}</span> partial</span>
+            <span>of {masScore.total_controls} mapped · {masScore.implementation_percent}%</span>
+            <span className="text-slate-500">AT.L2-3.2.x = Partial until org program close</span>
+            {masPsControls['PS.L2-3.9.1'] && <span className="text-slate-500">PS.3.9.1 = {masPsControls['PS.L2-3.9.1']}</span>}
+            {masPsControls['PS.L2-3.9.2'] && <span className="text-slate-500">PS.3.9.2 = {masPsControls['PS.L2-3.9.2']}</span>}
+          </div>
+        )}
         <div className="flex gap-1.5 mt-4 flex-wrap">
           {SECTIONS.map(([s, n, Ic]) => {
             let cls = 'todo'; if (s !== 'overview') { const cs = CTRLS.filter(c => c.sec === s).map(c => ctrlSt(c.id)); cls = cs.every(x => x === 'met') ? 'met' : cs.some(x => x !== 'todo') ? 'prog' : 'todo'; }
@@ -152,7 +211,7 @@ export default function Tier1Panel() {
                 <button onClick={addPerson} className="text-xs px-3 py-1.5 rounded-lg border border-slate-600 hover:border-sky-500 flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" />Onboard person</button>
               </div>
             </div>
-            <p className="text-sm text-slate-400 mb-3">No hardware needed. Fill each section, capture the named evidence, print the pack, hand to Cursor to flip in <code className="text-purple-300">soc_ops</code>. Nothing shows Met until its evidence exists.</p>
+            <p className="text-sm text-slate-400 mb-3">No hardware needed. Fill each section, capture the named evidence, print the pack, hand to Cursor to flip in <code className="text-purple-300">soc_ops</code>. Tier-1 evidence-ready ≠ Met — AT and PS families follow MAS <code className="text-purple-300">soc_ops</code> unless score API reports implemented.</p>
             <div className="divide-y divide-slate-700/60">
               {CTRLS.map(c => { const s = ctrlSt(c.id); return (
                 <div key={c.id} className="flex items-center gap-3 py-2.5">
@@ -183,23 +242,62 @@ export default function Tier1Panel() {
               <table className="w-full text-sm min-w-[560px]">
                 <thead><tr className="text-slate-400 text-[11px] uppercase bg-slate-800/60"><th className="text-left p-2.5">Person</th><th className="text-left p-2.5">Course</th><th className="text-left p-2.5">Status</th><th className="text-left p-2.5">Completed</th><th className="text-left p-2.5">Certificate ref</th></tr></thead>
                 <tbody className="divide-y divide-slate-700/50">
-                  {personnel.map(p => COURSES.map(c => { const st = dataOf('training', p.id, c.id).status || 'todo'; const cs = st === 'complete' ? 'met' : st === 'progress' ? 'prog' : 'todo'; return (
+                  {personnel.map(p => COURSES.map(c => { const d = dataOf('training', p.id, c.id); const st = d.status || 'todo'; const cs = st === 'complete' ? 'met' : st === 'progress' ? 'prog' : 'todo'; return (
                     <tr key={p.id + c.id}><td className="p-2.5"><span className={`inline-block w-2 h-2 rounded-full mr-2 ${dotCls(cs)}`} />{firstName(p.name)}</td>
                       <td className="p-2.5 text-slate-300">{c.name}</td>
-                      <td className="p-2.5"><select {...sel('training', p.id, c.id, 'status', 'todo')} className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1 text-xs">
-                        <option value="todo">Not started</option><option value="progress">In progress</option><option value="complete">Complete</option></select></td>
-                      <td className="p-2.5">{F('training', p.id, c.id, 'date', { type: 'date' })}</td>
-                      <td className="p-2.5">{F('training', p.id, c.id, 'cert', { ph: 'cert file / STEPP id' })}</td></tr>
+                      <td className="p-2.5">
+                        {st === 'complete' ? (
+                          <span className={`text-[11px] px-2 py-0.5 rounded border ${stCls('met')}`}>Complete</span>
+                        ) : (
+                          <select {...sel('training', p.id, c.id, 'status', 'todo')} className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1 text-xs">
+                            <option value="todo">Not started</option><option value="progress">In progress</option><option value="complete">Complete</option></select>
+                        )}
+                      </td>
+                      <td className="p-2.5">{st === 'complete' && d.date ? <span className="text-emerald-200">{d.date}</span> : F('training', p.id, c.id, 'date', { type: 'date' })}</td>
+                      <td className="p-2.5">{st === 'complete' && d.cert ? <code className="text-emerald-300 text-xs">{d.cert}</code> : F('training', p.id, c.id, 'cert', { ph: 'EV-AT-001 / EV-AT-ROB-MORGAN' })}</td></tr>
                   ); }))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">File the certificates to <code>docs/cmmc_evidence/at/</code>. When every row is Complete, AT.3.2.1/.2/.3 are ready to mark Met.</div>
+            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">
+              Morgan + RJ: CDSE certs <code>EV-AT-001</code>–<code>004</code> and RoB DocuSign <code>EV-AT-ROB-MORGAN</code> / <code>EV-AT-ROB-RJ</code> filed in <code>docs/cmmc_evidence/at/</code>.
+              Tier-1 rows should show <b>Complete</b> with those register IDs (15s refresh). AT.L2-3.2.1/.2/.3 follow MAS soc_ops — currently <b>Partial</b> until org program close.
+            </div>
           </div>
         )}
 
         {/* SCREENING */}
         {section === 'screening' && (<>
+          {screeningEvents.length > 0 && (
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="font-semibold flex items-center gap-2 flex-wrap"><Search className="w-5 h-5 text-sky-400" /> Personnel screening — soc_ops (live MAS)</h3>
+              <p className="text-sm text-slate-400 mt-1">HireRight six-check packages + peer adjudication memos. Metadata only — report bodies stay in PreVeil.</p>
+              <div className="overflow-x-auto mt-3 border border-slate-700 rounded-lg">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead><tr className="text-slate-400 text-[11px] uppercase bg-slate-800/60">
+                    <th className="text-left p-2.5">Person</th><th className="text-left p-2.5">Provider</th><th className="text-left p-2.5">Package</th>
+                    <th className="text-left p-2.5">Completed</th><th className="text-left p-2.5">Disposition</th><th className="text-left p-2.5">Adjudication ref</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {screeningEvents.map(ev => {
+                      const done = ev.disposition === 'cleared';
+                      return (
+                        <tr key={ev.event_id}>
+                          <td className="p-2.5"><span className={`inline-block w-2 h-2 rounded-full mr-2 ${dotCls(done ? 'met' : 'prog')}`} />{ev.legal_name}</td>
+                          <td className="p-2.5 text-slate-300">{ev.provider}</td>
+                          <td className="p-2.5 text-slate-300">{ev.package}</td>
+                          <td className="p-2.5">{ev.completed_at ? String(ev.completed_at).slice(0, 10) : '—'}</td>
+                          <td className="p-2.5"><span className={`text-[11px] px-2 py-0.5 rounded border ${stCls(done ? 'met' : 'prog')}`}>{done ? 'Complete · cleared' : ev.disposition}</span></td>
+                          <td className="p-2.5"><code className="text-emerald-300 text-xs">{ev.adjudication_memo_id || '—'}</code></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">PS.L2-3.9.1 soc_ops: {masPsControls['PS.L2-3.9.1'] || 'loading…'} — Met only after evidence emitter adjudicate run.</div>
+            </div>
+          )}
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
             <h3 className="font-semibold flex items-center gap-2 flex-wrap"><Search className="w-5 h-5 text-sky-400" /> Personnel Screening <span className="text-xs font-mono text-amber-300/90">PS.L2-3.9.1</span></h3>
             <p className="text-sm text-slate-400 mt-1">Screen each handler <b>before</b> CUI access. A documented commercial background check (identity, criminal, employment) with a favorable SAO adjudication is sufficient for CUI (non-classified).</p>
@@ -228,12 +326,15 @@ export default function Tier1Panel() {
               <table className="w-full text-sm min-w-[480px]"><thead><tr className="text-slate-400 text-[11px] uppercase bg-slate-800/60"><th className="text-left p-2.5">Person</th><th className="text-left p-2.5">Employee signed</th><th className="text-left p-2.5">SAO / rep signed</th><th className="text-left p-2.5">Status</th></tr></thead>
                 <tbody className="divide-y divide-slate-700/50">{personnel.map(p => { const s = aaSt(p.id); return (
                   <tr key={p.id}><td className="p-2.5">{p.name}</td>
-                    <td className="p-2.5"><label className="flex items-center gap-2"><input type="checkbox" {...cbx('access_agreement', p.id, 'aa', 'emp')} /> signed</label></td>
-                    <td className="p-2.5"><label className="flex items-center gap-2"><input type="checkbox" {...cbx('access_agreement', p.id, 'aa', 'rep')} /> signed</label></td>
+                    <td className="p-2.5">{s === 'met' ? <span className={`text-[11px] px-2 py-0.5 rounded border ${stCls('met')}`}>Signed</span> : <label className="flex items-center gap-2"><input type="checkbox" {...cbx('access_agreement', p.id, 'aa', 'emp')} /> signed</label>}</td>
+                    <td className="p-2.5">{s === 'met' ? <span className={`text-[11px] px-2 py-0.5 rounded border ${stCls('met')}`}>Signed</span> : <label className="flex items-center gap-2"><input type="checkbox" {...cbx('access_agreement', p.id, 'aa', 'rep')} /> signed</label>}</td>
                     <td className="p-2.5"><span className={`text-[11px] px-2 py-0.5 rounded border ${stCls(s)}`}>{s === 'met' ? 'Complete' : s === 'prog' ? 'Partial' : 'Not started'}</span></td></tr>
                 ); })}</tbody></table>
             </div>
-            <div className="mt-3 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-amber-100">RJ still needs to sign the <b>Employee</b> line of his Access Agreement (Morgan countersigned only) before PS.3.9.2 is Met.</div>
+            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">
+              Morgan + RJ access agreements and HireRight screening complete (Jul 21). Tier-1 <code>access_agreement</code> rows should show both signatures on refresh.
+              PS.L2-3.9.2 soc_ops: <b>{masPsControls['PS.L2-3.9.2'] || 'planned/partial'}</b> — control Met follows MAS score API, not checkbox alone.
+            </div>
           </div>
         </>)}
 

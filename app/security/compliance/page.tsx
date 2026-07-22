@@ -10,7 +10,7 @@
  * - Exostar Integration Ready (Supply Chain Risk Management)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -110,6 +110,8 @@ interface MasComplianceBundle {
   controls: Array<Record<string, unknown>>;
   errors?: Record<string, unknown | null>;
 }
+
+const POSTURE_SNAPSHOT_STORAGE_KEY = 'mycosoft.security.compliance.posture.v1';
 
 interface FrameworkInfo {
   id: ComplianceFramework;
@@ -533,6 +535,9 @@ export default function CompliancePage() {
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiveData, setIsLiveData] = useState(false);
+  const [postureError, setPostureError] = useState<string | null>(null);
+  const [lastKnownPostureAt, setLastKnownPostureAt] = useState<string | null>(null);
+  const lastKnownControlsRef = useRef<ComplianceControl[]>([]);
   const [expandedControl, setExpandedControl] = useState<string | null>(null);
 
   // Exostar state
@@ -595,6 +600,20 @@ export default function CompliancePage() {
 
   // Fetch compliance data
   useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(POSTURE_SNAPSHOT_STORAGE_KEY);
+      if (stored) {
+        const snapshot = JSON.parse(stored) as { controls?: ComplianceControl[]; savedAt?: string };
+        if (Array.isArray(snapshot.controls) && snapshot.controls.length > 0) {
+          setControls(snapshot.controls);
+          lastKnownControlsRef.current = snapshot.controls;
+          setLastKnownPostureAt(snapshot.savedAt ?? null);
+        }
+      }
+    } catch {
+      // Session storage is only a display resilience layer; a bad snapshot is ignored.
+    }
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -616,9 +635,23 @@ export default function CompliancePage() {
           const core = ((data.controls || []) as ComplianceControl[]).filter(
             (c) => c.framework === 'NIST-800-171' || c.framework === 'CMMC-L2'
           );
+          if (data.source === 'error' || core.length === 0) {
+            throw new Error('Live compliance posture contained no core controls');
+          }
           const refControls = getReferenceFrameworkControls() as unknown as ComplianceControl[];
-          setControls([...core, ...refControls]);
+          const nextControls = [...core, ...refControls];
+          const savedAt = new Date().toISOString();
+          setControls(nextControls);
+          lastKnownControlsRef.current = nextControls;
           setIsLiveData(true);
+          setPostureError(null);
+          setLastKnownPostureAt(savedAt);
+          sessionStorage.setItem(
+            POSTURE_SNAPSHOT_STORAGE_KEY,
+            JSON.stringify({ controls: nextControls, savedAt }),
+          );
+        } else {
+          throw new Error(`Live compliance posture request failed (${controlsRes.status})`);
         }
         
         if (logsRes.ok) {
@@ -640,6 +673,12 @@ export default function CompliancePage() {
         }
       } catch (error) {
         console.error('Failed to fetch compliance data:', error);
+        setIsLiveData(false);
+        setPostureError(
+          lastKnownControlsRef.current.length > 0
+            ? 'Live posture is temporarily unavailable. Showing the last known verified snapshot.'
+            : 'Live posture is unavailable. Compliance counts are intentionally withheld.',
+        );
       } finally {
         setIsLoading(false);
       }
@@ -734,11 +773,14 @@ export default function CompliancePage() {
     const partial = fwControls.filter(c => c.status === 'partial').length;
     const nonCompliant = fwControls.filter(c => c.status === 'non_compliant').length;
     const total = fwControls.length;
-    const score = total > 0 ? Math.round(((compliant + partial * 0.5) / total) * 100) : 0;
+    // CMMC posture reports the verified Met rate, not a weighted "progress" value.
+    // Counting Partial as half completed is what inflated a 30/110 posture to ~63%.
+    const score = total > 0 ? Math.round((compliant / total) * 100) : 0;
     return { compliant, partial, nonCompliant, total, score };
   };
 
   const currentStats = getFrameworkStats(selectedFramework);
+  const hasPosture = controls.length > 0;
 
   // Get unique families for current framework
   const availableFamilies = [...new Set(
@@ -867,6 +909,24 @@ export default function CompliancePage() {
     }
   };
 
+  if (!hasPosture) {
+    return (
+      <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 p-4 text-white sm:p-6 lg:p-8">
+        <section className="mx-auto max-w-3xl rounded-xl border border-amber-500/40 bg-amber-500/10 p-6">
+          <div className="flex items-center gap-3">
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin text-amber-300" /> : <AlertTriangle className="h-6 w-6 text-amber-300" />}
+            <div>
+              <h1 className="text-lg font-semibold">Compliance posture unavailable</h1>
+              <p className="mt-1 text-sm text-amber-100">
+                {postureError ?? 'Loading the verified posture. Counts remain hidden until a valid live or saved snapshot is available.'}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 text-white">
       {/* Tour for Compliance page */}
@@ -916,6 +976,12 @@ export default function CompliancePage() {
           </div>
         </div>
       </header>
+      {postureError && (
+        <div role="status" className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          {postureError}
+          {lastKnownPostureAt && ` Last verified snapshot: ${new Date(lastKnownPostureAt).toLocaleString()}.`}
+        </div>
+      )}
 
       {/* Framework Selector */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 overflow-x-auto" data-tour="framework-selector">
@@ -991,9 +1057,16 @@ export default function CompliancePage() {
         const live = controls.length
           ? deriveUniquePostureCounts(controls)
           : null;
+        const masScore = masBundle?.score as {
+          implemented?: number;
+          partial?: number;
+          total_controls?: number;
+          implementation_percent?: number;
+        } | null;
         const uniqueMet = live?.uniqueMet ?? CMMC_SPRINT_META.currentImplemented;
         const uniquePartial = live?.uniquePartial ?? CMMC_SPRINT_META.currentPartial;
-        const rowImpl = live?.implementedRows;
+        const rowImpl = masScore?.implemented ?? live?.implementedRows ?? CMMC_SPRINT_META.masRowImplemented;
+        const rowPartial = masScore?.partial ?? live?.partialRows ?? CMMC_SPRINT_META.masRowPartial;
         return (
       <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
         <div className="flex items-start gap-2">
@@ -1002,12 +1075,20 @@ export default function CompliancePage() {
             <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
             Current unique Met: <span className="font-semibold text-emerald-300">{uniqueMet}</span>
             {typeof rowImpl === 'number' ? (
-              <> ({rowImpl} MAS rows incl. NIST/CMMC twins)</>
+              <> ({rowImpl} MAS implemented rows</>
+            ) : null}
+            {typeof rowPartial === 'number' ? (
+              <>, {rowPartial} partial rows{masScore?.total_controls ? ` of ${masScore.total_controls}` : ''})</>
+            ) : typeof rowImpl === 'number' ? (
+              <>)</>
             ) : null}
             , unique Partial: <span className="font-semibold text-amber-300">{uniquePartial}</span>
-            {isLiveData ? ' — live from MAS ' : ' — fallback constants; '}
+            {isLiveData || masScore ? ' — live from MAS ' : ' — fallback constants; '}
             <code className="text-amber-300">soc_ops</code>
-            {isLiveData ? '.' : ' until heatmap loads.'}{' '}
+            {masScore?.implementation_percent != null ? (
+              <> · {masScore.implementation_percent}% implementation rows</>
+            ) : null}
+            {!isLiveData && !masScore ? ' until heatmap loads.' : '.'}{' '}
             Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
             with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
             The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}

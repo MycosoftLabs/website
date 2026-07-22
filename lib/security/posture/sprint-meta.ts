@@ -86,12 +86,16 @@ export const CMMC_SPRINT_META = {
   phase1Cutoff: '2026-11-09',
   c3paoAssessmentTarget: 'Q4 2026 – Q1 2027',
 
-  // Honest fallback when MAS is unreachable (Jul 15 2026 evening: 22 implemented
-  // rows / 0 partial = 11 unique Met after CA trio clear). Prefer live
-  // deriveUniquePostureCounts() on the compliance page.
-  currentImplemented: 11,
-  currentPartial: 0,
+  // Honest fallback when MAS is unreachable (Jul 21 2026 restore: 42 implemented
+  // rows / 174 partial ≈ 21 unique Met / 87 unique Partial). Prefer live MAS
+  // score + deriveUniquePostureCounts() on the compliance page.
+  currentImplemented: 21,
+  currentPartial: 87,
   currentSprsScore: -203,
+  /** MAS row counts (NIST+CMMC twins) when score API is up but heatmap is not. */
+  masRowImplemented: 42,
+  masRowPartial: 174,
+  masRowTotal: 220,
 
   // Projected post-sprint target (never presented as achieved).
   targetImplemented: 109,
