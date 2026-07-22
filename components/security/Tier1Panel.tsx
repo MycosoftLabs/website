@@ -74,6 +74,7 @@ export default function Tier1Panel() {
   const [masScore, setMasScore] = useState<MasScore | null>(null);
   const [masAtControls, setMasAtControls] = useState<Record<string, string>>({});
   const [masPsControls, setMasPsControls] = useState<Record<string, string>>({});
+  const [masIrControls, setMasIrControls] = useState<Record<string, string>>({});
   const [screeningEvents, setScreeningEvents] = useState<ScreeningEvent[]>([]);
   const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(0);
   const [section, setSection] = useState('overview');
@@ -88,6 +89,7 @@ export default function Tier1Panel() {
         setMasScore(d.masScore || null);
         setMasAtControls(d.masAtControls || {});
         setMasPsControls(d.masPsControls || {});
+        setMasIrControls(d.masIrControls || {});
         setScreeningEvents(d.screeningEvents || []);
       }
     } catch { /* offline */ } finally { setLoading(false); }
@@ -141,8 +143,21 @@ export default function Tier1Panel() {
       if (personnel.length > 0 && personnel.every(p => aaSt(p.id) === 'met')) return 'prog';
       return personnel.some(p => aaSt(p.id) !== 'todo') ? 'prog' : 'todo';
     }
-    if (id === 'IR.L2-3.6.3') { const t = dataOf('tabletop', null, 'tabletop'); return (t.date && t.signoff) ? 'met' : (t.date || t.s1) ? 'prog' : 'todo'; }
-    if (id === 'IR.L2-3.6.2') { const d = dataOf('dibnet', null, 'dibnet'); const keys = ['cert', 'reg', 'test', 'know']; return keys.every(k => d[k]) ? 'met' : keys.some(k => d[k]) ? 'prog' : 'todo'; }
+    // IR family: soc_ops on MAS is authoritative, same as AT/PS. The local
+    // after-action fields are the working record, not the status of record —
+    // without this the panel would claim Met while soc_ops still reads partial.
+    if (id === 'IR.L2-3.6.3') {
+      const masSt = masIrControls[id];
+      if (masSt) return masStateToUi(masSt);
+      const t = dataOf('tabletop', null, 'tabletop');
+      return (t.date && t.signoff) ? 'prog' : (t.date || t.s1) ? 'prog' : 'todo';
+    }
+    if (id === 'IR.L2-3.6.2') {
+      const masSt = masIrControls[id];
+      if (masSt) return masStateToUi(masSt);
+      const d = dataOf('dibnet', null, 'dibnet'); const keys = ['cert', 'reg', 'test', 'know'];
+      return keys.every(k => d[k]) ? 'prog' : keys.some(k => d[k]) ? 'prog' : 'todo';
+    }
     return 'todo';
   };
   const metCount = CTRLS.filter(c => ctrlSt(c.id) === 'met').length;
@@ -411,7 +426,14 @@ export default function Tier1Panel() {
               <div><div className="text-[11px] text-slate-500 mb-0.5">SAO sign-off (name)</div>{F('tabletop', null, 'tabletop', 'signoff', { ph: 'Morgan Rockcoons, SAO' })}</div>
               <div><div className="text-[11px] text-slate-500 mb-0.5">Sign-off date</div>{F('tabletop', null, 'tabletop', 'signoffDate', { type: 'date' })}</div>
             </div>
-            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">Date + sign-off filled → print the Evidence pack; this section is the after-action report for IR.3.6.3.</div>
+            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">
+              Date + sign-off filled → print the Evidence pack; this section is the after-action report for IR.3.6.3.
+              <div className="mt-1.5 text-slate-300">
+                IR.L2-3.6.3 soc_ops: <b>{masIrControls['IR.L2-3.6.3'] || 'loading…'}</b> — status follows the MAS evidence
+                emitter, not the fields above. Filed evidence: <span className="font-mono">EV-IR-001</span> (dual-signed AAR,
+                DocuSign envelope 784BD577…E65, completed 2026-07-22) + <span className="font-mono">EV-IR-CERT-001</span>.
+              </div>
+            </div>
           </div>
         )}
 
