@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   GraduationCap, Search, FileSignature, ClipboardCheck, AlertTriangle,
-  ShieldCheck, Loader2, Printer, UserPlus, ExternalLink, Users, Wifi, WifiOff,
+  ShieldCheck, Loader2, Printer, UserPlus, ExternalLink, Users, Wifi, WifiOff, PlayCircle,
 } from 'lucide-react';
 
 interface Person { id: string; name: string; role?: string; email?: string; sort_order?: number }
@@ -343,6 +344,51 @@ export default function Tier1Panel() {
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
             <h3 className="font-semibold flex items-center gap-2 flex-wrap"><FileSignature className="w-5 h-5 text-sky-400" /> Incident-Response Tabletop <span className="text-xs font-mono text-amber-300/90">IR.L2-3.6.3</span></h3>
             <p className="text-sm text-slate-400 mt-1">Run the three scenarios from the signed IR Runbook (Morgan = lead, RJ = support), then complete the after-action report below.</p>
+
+            {/* Live facilitation console — re-runnable for each periodic test. */}
+            <div className="mt-3 rounded-lg border border-emerald-600/40 bg-emerald-500/5 p-3.5">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="font-medium text-slate-100 flex items-center gap-2"><PlayCircle className="w-4 h-4 text-emerald-300" /> HITL facilitation console</div>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                    Runs the rapid human-in-the-loop script with Morgan and RJ: live timer, the three injects with the exact
+                    decision options, and click-time attendance attestations. Nothing is pre-filled — the discussion is the
+                    exercise. Output is the decision capture that feeds the AAR.
+                  </p>
+                </div>
+                <Link href="/security/compliance/tabletop"
+                  className="shrink-0 px-3.5 py-2 rounded-lg text-sm font-medium bg-emerald-500/15 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/25 flex items-center gap-1.5">
+                  <PlayCircle className="w-4 h-4" /> Launch console
+                </Link>
+              </div>
+              {(() => {
+                const sessions = records
+                  .filter(r => r.kind === 'tabletop' && r.item_key.startsWith('session-'))
+                  .sort((a, b) => (b.data?.startISO || '').localeCompare(a.data?.startISO || ''));
+                if (!sessions.length) return <div className="text-xs text-slate-500 mt-2.5">No recorded sessions yet.</div>;
+                return (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="text-[11px] uppercase tracking-wider text-slate-500">Recorded sessions</div>
+                    {sessions.map(s => {
+                      const d = s.data || {};
+                      const mins = d.startISO && d.endISO ? Math.round((new Date(d.endISO).getTime() - new Date(d.startISO).getTime()) / 60000) : null;
+                      const att = Object.values(d.attestations || {}).filter(Boolean).length;
+                      return (
+                        <div key={s.id} className="flex items-center gap-2 flex-wrap text-xs rounded border border-slate-700 bg-slate-900/40 px-2.5 py-1.5">
+                          <span className="text-slate-200">{d.startISO ? new Date(d.startISO).toLocaleString() : s.item_key}</span>
+                          {mins != null && <span className="text-slate-500">{mins} min</span>}
+                          <span className="text-slate-500">{(d.participants || []).join(' · ')}</span>
+                          <span className={`ml-auto px-1.5 py-0.5 rounded border ${att === 2 ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' : 'text-amber-300 border-amber-500/40 bg-amber-500/10'}`}>
+                            {att}/2 attested
+                          </span>
+                          <span className="text-slate-500 border border-slate-600 rounded px-1.5 py-0.5">unsigned session record</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
             <div className="grid md:grid-cols-3 gap-2 mt-3 text-xs">
               {[['1 — Phishing → CUI exfil', 'Harvested PreVeil creds → unknown-IP CUI download. Detect → contain (revoke) → eradicate → assess reportability → DIBNet ≤72h → recover → lessons.'],
                 ['2 — Ransomware on endpoint', 'Encrypted files on a CMMC laptop. Isolate host → CUI-impact → preserve evidence → rebuild → restore backup → reporting → lessons.'],
