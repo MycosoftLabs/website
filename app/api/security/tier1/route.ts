@@ -12,7 +12,54 @@ export const dynamic = 'force-dynamic';
 
 const COMPANY = /@mycosoft\.(org|com)$/i;
 
+const AT_TIER1_IDS = ['AT.L2-3.2.1', 'AT.L2-3.2.2', 'AT.L2-3.2.3'] as const;
+
 type Ctx = { email: string; supabase: any; live: boolean };
+
+type MasScore = {
+  total_controls: number;
+  implemented: number;
+  partial: number;
+  implementation_percent: number;
+};
+
+function masBase(): string {
+  return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+}
+
+function masHeaders(): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json' };
+  const key = process.env.MAS_API_KEY || process.env.MAS_INTERNAL_API_KEY;
+  if (key) h['X-API-Key'] = key;
+  return h;
+}
+
+async function fetchMasTier1Context(): Promise<{
+  score: MasScore | null;
+  atControls: Record<string, string>;
+}> {
+  const base = masBase();
+  if (!base) return { score: null, atControls: {} };
+  try {
+    const [scoreRes, ctrlRes] = await Promise.all([
+      fetch(`${base}/api/compliance/score`, { cache: 'no-store', headers: masHeaders() }),
+      fetch(`${base}/api/compliance/controls`, { cache: 'no-store', headers: masHeaders() }),
+    ]);
+    const score = scoreRes.ok ? ((await scoreRes.json()) as MasScore) : null;
+    const atControls: Record<string, string> = {};
+    if (ctrlRes.ok) {
+      const rows = ((await ctrlRes.json()) as { controls?: Array<{ control_id?: string; implementation_state?: string }> })
+        .controls || [];
+      for (const id of AT_TIER1_IDS) {
+        const row = rows.find((r) => r.control_id === id);
+        if (row?.implementation_state) atControls[id] = String(row.implementation_state);
+      }
+    }
+    return { score, atControls };
+  } catch {
+    return { score: null, atControls: {} };
+  }
+}
 
 async function ctx(): Promise<Ctx | null> {
   const supabase = await createClient();
@@ -41,12 +88,17 @@ export async function GET() {
     c.supabase.from('cmmc_personnel').select('*').order('sort_order'),
     c.supabase.from('cmmc_tier1_records').select('*'),
   ]);
+  const mas = await fetchMasTier1Context();
   return NextResponse.json({
     personnel: personnel || [],
     records: records || [],
     me: c.email,
     live: c.live,
-    note: (pe || re) ? 'Sign in with your Mycosoft account to load and save (local-dev has no Supabase session).' : null,
+    masScore: mas.score,
+    masAtControls: mas.atControls,
+    note: (pe || re)
+      ? 'Sign in with your Mycosoft account to load and save (local-dev has no Supabase session).'
+      : null,
   });
 }
 

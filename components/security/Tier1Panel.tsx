@@ -8,6 +8,7 @@ import {
 
 interface Person { id: string; name: string; role?: string; email?: string; sort_order?: number }
 interface Rec { id: string; kind: string; person_id: string | null; item_key: string; data: Record<string, any>; updated_by?: string; updated_at?: string }
+interface MasScore { total_controls: number; implemented: number; partial: number; implementation_percent: number }
 
 const COURSES = [
   { id: 'cui', name: 'CUI — CDSE IF141.06', url: 'https://www.cdse.edu/Training/eLearning/IF141/' },
@@ -27,7 +28,17 @@ const SECTIONS: [string, string, any][] = [
   ['overview', 'Overview', ClipboardCheck], ['training', 'Training', GraduationCap],
   ['screening', 'Screening', Search], ['tabletop', 'Tabletop', FileSignature], ['incidents', 'Incidents · DIBNet', AlertTriangle],
 ];
-const STLBL: Record<string, string> = { met: 'Met · evidence ready', prog: 'In progress', todo: 'Not started' };
+const STLBL: Record<string, string> = {
+  met: 'Met · evidence ready',
+  prog: 'In progress · Partial in soc_ops',
+  todo: 'Not started',
+};
+const masStateToUi = (impl: string | undefined): string => {
+  const s = (impl || '').toLowerCase();
+  if (s === 'implemented') return 'met';
+  if (s === 'partial') return 'prog';
+  return 'todo';
+};
 const stCls = (s: string) => s === 'met' ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
   : s === 'prog' ? 'text-amber-300 border-amber-500/40 bg-amber-500/10' : 'text-slate-300 border-slate-600 bg-slate-500/10';
 const dotCls = (s: string) => s === 'met' ? 'bg-emerald-400' : s === 'prog' ? 'bg-amber-400' : 'bg-slate-500';
@@ -48,6 +59,8 @@ export default function Tier1Panel() {
   const [personnel, setPersonnel] = useState<Person[]>([]);
   const [records, setRecords] = useState<Rec[]>([]);
   const [me, setMe] = useState(''); const [live, setLive] = useState(false); const [note, setNote] = useState<string | null>(null);
+  const [masScore, setMasScore] = useState<MasScore | null>(null);
+  const [masAtControls, setMasAtControls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(0);
   const [section, setSection] = useState('overview');
   const recRef = useRef<Rec[]>([]); recRef.current = records;
@@ -55,7 +68,12 @@ export default function Tier1Panel() {
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/security/tier1'); const d = await r.json();
-      if (r.ok) { setPersonnel(d.personnel || []); setRecords(d.records || []); setMe(d.me || ''); setLive(!!d.live); setNote(d.note || null); }
+      if (r.ok) {
+        setPersonnel(d.personnel || []); setRecords(d.records || []); setMe(d.me || '');
+        setLive(!!d.live); setNote(d.note || null);
+        setMasScore(d.masScore || null);
+        setMasAtControls(d.masAtControls || {});
+      }
     } catch { /* offline */ } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
@@ -87,8 +105,12 @@ export default function Tier1Panel() {
   const screenSt = (pid: string) => { const r = dataOf('screening', pid, 'screening'); return (r.completed && r.result === 'favorable' && r.authorized) ? 'met' : (r.initiated || r.type) ? 'prog' : 'todo'; };
   const aaSt = (pid: string) => { const r = dataOf('access_agreement', pid, 'aa'); return r.emp ? (r.rep ? 'met' : 'prog') : 'todo'; };
   const ctrlSt = (id: string): string => {
-    if (id === 'AT.L2-3.2.1' || id === 'AT.L2-3.2.2') return trainDone() ? 'met' : trainProg() ? 'prog' : 'todo';
-    if (id === 'AT.L2-3.2.3') return (personnel.length > 0 && personnel.every(p => dataOf('training', p.id, 'insider').status === 'complete')) ? 'met' : trainProg() ? 'prog' : 'todo';
+    // AT family: soc_ops on MAS is authoritative — training rows complete ≠ Met
+    if (id === 'AT.L2-3.2.1' || id === 'AT.L2-3.2.2' || id === 'AT.L2-3.2.3') {
+      const masSt = masAtControls[id];
+      if (masSt) return masStateToUi(masSt);
+      return trainDone() ? 'prog' : trainProg() ? 'prog' : 'todo';
+    }
     if (id === 'PS.L2-3.9.1') return (personnel.length > 0 && personnel.every(p => screenSt(p.id) === 'met')) ? 'met' : personnel.some(p => screenSt(p.id) !== 'todo') ? 'prog' : 'todo';
     if (id === 'PS.L2-3.9.2') return (personnel.length > 0 && personnel.every(p => aaSt(p.id) === 'met')) ? 'met' : personnel.some(p => aaSt(p.id) !== 'todo') ? 'prog' : 'todo';
     if (id === 'IR.L2-3.6.3') { const t = dataOf('tabletop', null, 'tabletop'); return (t.date && t.signoff) ? 'met' : (t.date || t.s1) ? 'prog' : 'todo'; }
@@ -132,6 +154,14 @@ export default function Tier1Panel() {
           </div>
         </div>
         {note && <div className="mt-3 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-amber-100">{note}</div>}
+        {masScore && (
+          <div className="mt-3 text-xs rounded-lg bg-slate-900/60 border border-slate-600 p-2.5 text-slate-300 flex flex-wrap gap-x-4 gap-y-1">
+            <span>MAS score (live): <span className="text-emerald-300 font-medium">{masScore.implemented}</span> implemented rows</span>
+            <span><span className="text-amber-300 font-medium">{masScore.partial}</span> partial</span>
+            <span>of {masScore.total_controls} mapped · {masScore.implementation_percent}%</span>
+            <span className="text-slate-500">AT.L2-3.2.x = Partial until org program + endpoint leg close</span>
+          </div>
+        )}
         <div className="flex gap-1.5 mt-4 flex-wrap">
           {SECTIONS.map(([s, n, Ic]) => {
             let cls = 'todo'; if (s !== 'overview') { const cs = CTRLS.filter(c => c.sec === s).map(c => ctrlSt(c.id)); cls = cs.every(x => x === 'met') ? 'met' : cs.some(x => x !== 'todo') ? 'prog' : 'todo'; }
@@ -152,7 +182,7 @@ export default function Tier1Panel() {
                 <button onClick={addPerson} className="text-xs px-3 py-1.5 rounded-lg border border-slate-600 hover:border-sky-500 flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" />Onboard person</button>
               </div>
             </div>
-            <p className="text-sm text-slate-400 mb-3">No hardware needed. Fill each section, capture the named evidence, print the pack, hand to Cursor to flip in <code className="text-purple-300">soc_ops</code>. Nothing shows Met until its evidence exists.</p>
+            <p className="text-sm text-slate-400 mb-3">No hardware needed. Fill each section, capture the named evidence, print the pack, hand to Cursor to flip in <code className="text-purple-300">soc_ops</code>. Tier-1 evidence-ready ≠ Met — AT and PS families follow MAS <code className="text-purple-300">soc_ops</code> unless score API reports implemented.</p>
             <div className="divide-y divide-slate-700/60">
               {CTRLS.map(c => { const s = ctrlSt(c.id); return (
                 <div key={c.id} className="flex items-center gap-3 py-2.5">
@@ -194,7 +224,10 @@ export default function Tier1Panel() {
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">File the certificates to <code>docs/cmmc_evidence/at/</code>. When every row is Complete, AT.3.2.1/.2/.3 are ready to mark Met.</div>
+            <div className="mt-3 text-xs rounded-lg bg-sky-500/10 border border-sky-500/30 p-2.5 text-sky-100">
+              Morgan + RJ CDSE certs filed (<code>EV-AT-001</code>–<code>004</code>) and RoB DocuSign signed (<code>EV-AT-ROB-MORGAN</code>, <code>EV-AT-ROB-RJ</code>) in <code>docs/cmmc_evidence/at/</code>.
+              Tier-1 rows should show <b>Complete</b> with those register IDs. AT.L2-3.2.1/.2/.3 remain <b>Partial</b> in soc_ops until the full org program and operate-test leg close — not Met from certs alone.
+            </div>
           </div>
         )}
 

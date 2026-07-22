@@ -991,9 +991,16 @@ export default function CompliancePage() {
         const live = controls.length
           ? deriveUniquePostureCounts(controls)
           : null;
+        const masScore = masBundle?.score as {
+          implemented?: number;
+          partial?: number;
+          total_controls?: number;
+          implementation_percent?: number;
+        } | null;
         const uniqueMet = live?.uniqueMet ?? CMMC_SPRINT_META.currentImplemented;
         const uniquePartial = live?.uniquePartial ?? CMMC_SPRINT_META.currentPartial;
-        const rowImpl = live?.implementedRows;
+        const rowImpl = masScore?.implemented ?? live?.implementedRows ?? CMMC_SPRINT_META.masRowImplemented;
+        const rowPartial = masScore?.partial ?? live?.partialRows ?? CMMC_SPRINT_META.masRowPartial;
         return (
       <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
         <div className="flex items-start gap-2">
@@ -1002,12 +1009,20 @@ export default function CompliancePage() {
             <span className="font-semibold">CMMC L2 self-assessment in progress.</span>{' '}
             Current unique Met: <span className="font-semibold text-emerald-300">{uniqueMet}</span>
             {typeof rowImpl === 'number' ? (
-              <> ({rowImpl} MAS rows incl. NIST/CMMC twins)</>
+              <> ({rowImpl} MAS implemented rows</>
+            ) : null}
+            {typeof rowPartial === 'number' ? (
+              <>, {rowPartial} partial rows{masScore?.total_controls ? ` of ${masScore.total_controls}` : ''})</>
+            ) : typeof rowImpl === 'number' ? (
+              <>)</>
             ) : null}
             , unique Partial: <span className="font-semibold text-amber-300">{uniquePartial}</span>
-            {isLiveData ? ' — live from MAS ' : ' — fallback constants; '}
+            {isLiveData || masScore ? ' — live from MAS ' : ' — fallback constants; '}
             <code className="text-amber-300">soc_ops</code>
-            {isLiveData ? '.' : ' until heatmap loads.'}{' '}
+            {masScore?.implementation_percent != null ? (
+              <> · {masScore.implementation_percent}% implementation rows</>
+            ) : null}
+            {!isLiveData && !masScore ? ' until heatmap loads.' : '.'}{' '}
             Target is <span className="font-semibold">{CMMC_SPRINT_META.targetImplemented}/{CMMC_SPRINT_META.totalControls}</span>,
             with SPRS submission at <span className="font-semibold">{sprintDate(CMMC_SPRINT_META.targetSprsSubmissionDate)}</span>.
             The two assessment laptops (Morgan + RJ) are not yet provisioned, so endpoint-gated controls{' '}
