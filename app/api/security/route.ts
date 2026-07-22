@@ -573,6 +573,20 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // A missing upstream result is not an all-noncompliant posture. Returning
+        // 200 with [] made the client append its reference catalog and briefly
+        // display a fabricated zero-Met score during MAS/database failures.
+        if (source === 'error' || complianceControls.length === 0) {
+          return NextResponse.json(
+            {
+              error: 'Live compliance posture is unavailable; the last known posture must be retained.',
+              source: 'error',
+              posture_available: false,
+            },
+            { status: 503 },
+          );
+        }
+
         const implemented = complianceControls.filter((c) => c.status === 'compliant').length;
         const partial = complianceControls.filter((c) => c.status === 'partial').length;
 
