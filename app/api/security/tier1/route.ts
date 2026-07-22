@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 const COMPANY = /@mycosoft\.(org|com)$/i;
 
 const AT_TIER1_IDS = ['AT.L2-3.2.1', 'AT.L2-3.2.2', 'AT.L2-3.2.3'] as const;
+const PS_TIER1_IDS = ['PS.L2-3.9.1', 'PS.L2-3.9.2'] as const;
 
 type Ctx = { email: string; supabase: any; live: boolean };
 
@@ -37,16 +38,20 @@ function masHeaders(): Record<string, string> {
 async function fetchMasTier1Context(): Promise<{
   score: MasScore | null;
   atControls: Record<string, string>;
+  psControls: Record<string, string>;
+  screeningEvents: unknown[];
 }> {
   const base = masBase();
-  if (!base) return { score: null, atControls: {} };
+  if (!base) return { score: null, atControls: {}, psControls: {}, screeningEvents: [] };
   try {
-    const [scoreRes, ctrlRes] = await Promise.all([
+    const [scoreRes, ctrlRes, screeningRes] = await Promise.all([
       fetch(`${base}/api/compliance/score`, { cache: 'no-store', headers: masHeaders() }),
       fetch(`${base}/api/compliance/controls`, { cache: 'no-store', headers: masHeaders() }),
+      fetch(`${base}/api/security/ps/screening-events`, { cache: 'no-store', headers: masHeaders() }),
     ]);
     const score = scoreRes.ok ? ((await scoreRes.json()) as MasScore) : null;
     const atControls: Record<string, string> = {};
+    const psControls: Record<string, string> = {};
     if (ctrlRes.ok) {
       const rows = ((await ctrlRes.json()) as { controls?: Array<{ control_id?: string; implementation_state?: string }> })
         .controls || [];
@@ -54,10 +59,19 @@ async function fetchMasTier1Context(): Promise<{
         const row = rows.find((r) => r.control_id === id);
         if (row?.implementation_state) atControls[id] = String(row.implementation_state);
       }
+      for (const id of PS_TIER1_IDS) {
+        const row = rows.find((r) => r.control_id === id);
+        if (row?.implementation_state) psControls[id] = String(row.implementation_state);
+      }
     }
-    return { score, atControls };
+    let screeningEvents: unknown[] = [];
+    if (screeningRes.ok) {
+      const body = (await screeningRes.json()) as { events?: unknown[] };
+      screeningEvents = body.events || [];
+    }
+    return { score, atControls, psControls, screeningEvents };
   } catch {
-    return { score: null, atControls: {} };
+    return { score: null, atControls: {}, psControls: {}, screeningEvents: [] };
   }
 }
 
@@ -96,6 +110,8 @@ export async function GET() {
     live: c.live,
     masScore: mas.score,
     masAtControls: mas.atControls,
+    masPsControls: mas.psControls,
+    screeningEvents: mas.screeningEvents,
     note: (pe || re)
       ? 'Sign in with your Mycosoft account to load and save (local-dev has no Supabase session).'
       : null,
