@@ -2386,7 +2386,7 @@ export function MycoBrainDeviceManager({
                 <li>Set environment variables:
                   <code className="block mt-1 p-2 rounded bg-muted font-mono text-xs">
                     MYCOBRAIN_HEARTBEAT_ENABLED=true<br/>
-                    MYCOBRAIN_DEVICE_NAME="Beto&apos;s Lab"<br/>
+                    MYCOBRAIN_DEVICE_NAME="Lab Device 1"<br/>
                     MAS_REGISTRY_URL=http://localhost:8001
                   </code>
                 </li>
