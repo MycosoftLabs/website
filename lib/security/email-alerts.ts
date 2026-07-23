@@ -53,11 +53,10 @@ function getEmailConfig(): EmailConfig {
   const resendApiKey = process.env.RESEND_API_KEY;
   const sendgridApiKey = process.env.SENDGRID_API_KEY;
   
-  // Default recipients from authorized users config
+  // Default recipients — authorized users only. Former staff (Chris, Garret,
+  // Alberto) no longer work at the company and must not receive SOC alerts.
   const defaultRecipients = [
     'morgan@mycosoft.com',
-    'chris@mycosoft.com',
-    'garrett@mycosoft.com',
     'rj@mycosoft.com',
   ];
   

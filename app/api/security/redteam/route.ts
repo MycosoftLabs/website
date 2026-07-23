@@ -9,8 +9,10 @@ import { requireAdmin } from '@/lib/auth/api-auth';
 
 export const dynamic = 'force-dynamic';
 
-const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
-const MAS_API_KEY = process.env.MAS_API_KEY || '';
+// No localhost fallback — a localhost default silently presents a dev service as
+// the production red-team/MAS authority (audit P0: authority boundary leak).
+const MAS_API_URL = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+const MAS_API_KEY = process.env.MAS_API_KEY || process.env.MYCA_POSTURE_API_KEY || '';
 
 function masHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };

@@ -19,10 +19,11 @@ export interface AuthenticatedUser {
   isOwner: boolean
 }
 
+// Authorized users: Morgan (owner) and RJ. Former staff (Garret, Alberto, Chris)
+// no longer work at the company and must not retain admin/SOC access.
 const OWNER_EMAILS = ['morgan@mycosoft.org']
 const ADMIN_EMAILS = [
   'morgan@mycosoft.org',
-  'garret@mycosoft.org',
   'rj@mycosoft.org',
   'admin@mycosoft.org',
 ]

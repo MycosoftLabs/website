@@ -32,6 +32,7 @@ interface LanInventoryRow {
 export default function NetworkSecurityPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [throughput, setThroughput] = useState<Throughput | null>(null);
+  const [throughputAvailable, setThroughputAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -41,6 +42,7 @@ export default function NetworkSecurityPage() {
   const [inventoryRows, setInventoryRows] = useState<LanInventoryRow[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventorySource, setInventorySource] = useState("");
+  const [inventoryError, setInventoryError] = useState(false);
 
   const { event: inventoryWsEvent } = useSecurityWebSocket({
     eventTypes: ["device_inventory"],
@@ -63,12 +65,12 @@ export default function NetworkSecurityPage() {
 
       if (throughputRes.ok) {
         setThroughput((await throughputRes.json()) as Throughput);
+        setThroughputAvailable(true);
       } else {
-        setThroughput({
-          timestamp: new Date().toISOString(),
-          lan: { tx_mbps: 0, rx_mbps: 0 },
-          wan: { tx_mbps: 0, rx_mbps: 0 },
-        });
+        // A failed throughput read is UNAVAILABLE — never a fabricated timestamped
+        // zero, which would read as "the network is idle" when it's actually unknown.
+        setThroughput(null);
+        setThroughputAvailable(false);
       }
       setError(null);
     } catch (err) {
@@ -82,11 +84,19 @@ export default function NetworkSecurityPage() {
     try {
       setInventoryLoading(true);
       const r = await fetch("/api/security?action=network-inventory&limit=5000");
+      if (!r.ok) {
+        // Source failed — mark unavailable rather than showing an empty table that
+        // is indistinguishable from "no devices".
+        setInventoryError(true);
+        setInventorySource("");
+        return;
+      }
       const j = (await r.json()) as { items?: LanInventoryRow[]; source?: string };
       setInventoryRows(Array.isArray(j.items) ? j.items : []);
       setInventorySource(j.source || "");
+      setInventoryError(false);
     } catch {
-      setInventoryRows([]);
+      setInventoryError(true);
       setInventorySource("");
     } finally {
       setInventoryLoading(false);
@@ -218,6 +228,16 @@ export default function NetworkSecurityPage() {
       </div>
 
       {/* Main Content */}
+      {selectedView === "overview" && !data && !loading && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-center">
+          <AlertTriangle className="mx-auto mb-2 text-red-400" size={28} />
+          <p className="font-mono text-red-200">UniFi controller data unavailable</p>
+          <p className="text-xs text-slate-400 mt-1">
+            The UniFi dashboard source did not respond. This is an outage, not an idle network — no traffic, client,
+            or alarm figures are shown. The LAN inventory tab reads a separate MAS source and may still be available.
+          </p>
+        </div>
+      )}
       {selectedView === "overview" && data && (
         <div className="space-y-6">
           {/* WAN & Throughput Stats */}
@@ -234,22 +254,29 @@ export default function NetworkSecurityPage() {
               <div className="text-xs text-slate-500 font-mono">{data.wan?.isp || "Unknown ISP"}</div>
             </div>
 
-            {/* Live Throughput */}
+            {/* Throughput — em-dash when the source is unavailable, never a fake 0 Mbps */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-slate-400 font-mono text-sm">Live Throughput</span>
-                <Activity className="text-cyan-400" size={20} />
+                <span className="text-slate-400 font-mono text-sm">Throughput</span>
+                <Activity className={throughputAvailable === false ? "text-red-400" : "text-cyan-400"} size={20} />
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 text-emerald-400">
-                  <ArrowDown size={16} />
-                  <span className="font-mono font-bold">{(throughput?.lan?.rx_mbps ?? 0).toFixed(1)} Mbps</span>
+              {throughput ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <ArrowDown size={16} />
+                    <span className="font-mono font-bold">{(throughput.lan?.rx_mbps ?? 0).toFixed(1)} Mbps</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-orange-400">
+                    <ArrowUp size={16} />
+                    <span className="font-mono font-bold">{(throughput.lan?.tx_mbps ?? 0).toFixed(1)} Mbps</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-orange-400">
-                  <ArrowUp size={16} />
-                  <span className="font-mono font-bold">{(throughput?.lan?.tx_mbps ?? 0).toFixed(1)} Mbps</span>
+              ) : (
+                <div className="font-mono text-sm text-slate-500">
+                  <span className="text-2xl font-bold text-slate-600">—</span>
+                  <div className="text-xs mt-1">{throughputAvailable === false ? "UniFi throughput unavailable" : "awaiting UniFi throughput"}</div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Connected Clients */}
@@ -441,7 +468,8 @@ export default function NetworkSecurityPage() {
               {data.alarms.list.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 font-mono">
                   <CheckCircle className="mx-auto mb-2 text-emerald-400" size={24} />
-                  <p>No active alarms</p>
+                  <p>No alarms reported by UniFi</p>
+                  <p className="text-xs mt-1">Read from the UniFi controller — a collector outage would show as unavailable, not zero.</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -493,9 +521,9 @@ export default function NetworkSecurityPage() {
         <div className="space-y-4" data-tour="lan-inventory">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-slate-400 font-mono text-sm">
-              Source: <span className="text-cyan-300">{inventorySource || "—"}</span>
+              Source: <span className={inventoryError ? "text-red-400" : "text-cyan-300"}>{inventoryError ? "unavailable" : (inventorySource || "—")}</span>
               {" · "}
-              {inventoryRows.length} host{inventoryRows.length === 1 ? "" : "s"}
+              {inventoryError ? "collection failed" : `${inventoryRows.length} host${inventoryRows.length === 1 ? "" : "s"}`}
             </p>
             <button
               type="button"
@@ -526,11 +554,17 @@ export default function NetworkSecurityPage() {
                       Loading MAS device inventory…
                     </td>
                   </tr>
+                ) : inventoryError ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-red-300">
+                      Device inventory source unavailable — MAS did not return inventory. This is not "no devices".
+                    </td>
+                  </tr>
                 ) : inventoryRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500">
-                      No inventory rows yet. Ensure MAS network discovery and Postgres `soc_ops.device_inventory`
-                      are configured.
+                      No devices returned by MAS. Collection succeeded; ensure MAS network discovery and
+                      Postgres `soc_ops.device_inventory` are populated.
                     </td>
                   </tr>
                 ) : (
@@ -557,7 +591,7 @@ export default function NetworkSecurityPage() {
       {/* Last Update Info */}
       <div className="mt-8 text-center text-slate-500 font-mono text-xs">
         <p>Last Updated: {data?.timestamp ? new Date(data.timestamp).toLocaleString() : "Unknown"}</p>
-        <p>UniFi Dream Machine Pro • Real-time Network Monitoring</p>
+        <p>UniFi Dream Machine Pro • Data read live from the UniFi controller; unavailable sources are shown as such, never as zero.</p>
       </div>
     </div>
   );
@@ -757,33 +791,27 @@ function DevicesView({ devices, formatUptime }: { devices: Device[], formatUptim
               </div>
             )}
 
-            {/* Quick Actions */}
+            {/* Quick Actions — disabled pending a MAS Guardian command contract.
+                Restart/isolate/upgrade are significant device actions; they must
+                go through Guardian authorization + Morgan/RJ HITL + audit, not
+                fire directly at the controller from the browser. */}
             <div className="bg-slate-800/50 rounded-lg p-4">
-              <h3 className="font-bold text-white font-mono mb-3">Quick Actions</h3>
+              <h3 className="font-bold text-white font-mono mb-3">Device Actions</h3>
               <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={handleRestart}
-                  disabled={actionLoading === 'restart-device'}
-                  className="p-2 bg-cyan-600/20 border border-cyan-600/50 rounded-lg text-cyan-400 text-sm font-mono hover:bg-cyan-600/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  {actionLoading === 'restart-device' ? <RefreshCw size={14} className="animate-spin" /> : null}
-                  Restart
-                </button>
-                <button className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-mono hover:bg-slate-700 transition">
-                  Upgrade
-                </button>
-                <button className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-mono hover:bg-slate-700 transition">
-                  View Logs
-                </button>
-                <button 
-                  onClick={handleIsolate}
-                  disabled={actionLoading === 'isolate-device'}
-                  className="p-2 bg-red-600/20 border border-red-600/50 rounded-lg text-red-400 text-sm font-mono hover:bg-red-600/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  {actionLoading === 'isolate-device' ? <RefreshCw size={14} className="animate-spin" /> : null}
-                  Isolate
-                </button>
+                {['Restart', 'Upgrade', 'View Logs', 'Isolate'].map((label) => (
+                  <button
+                    key={label}
+                    disabled
+                    title="Awaiting MAS Guardian command contract — device actions require Guardian authorization + HITL approval + audit."
+                    className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-500 text-sm font-mono cursor-not-allowed flex items-center justify-center gap-1"
+                  >
+                    <Lock size={12} /> {label}
+                  </button>
+                ))}
               </div>
+              <p className="mt-2 text-[11px] text-slate-500 font-mono">
+                Awaiting MAS Guardian command contract (Guardian decision + Morgan/RJ HITL + audit).
+              </p>
             </div>
           </div>
         )}
@@ -1005,25 +1033,14 @@ function ClientsView({ clients, formatBytes }: { clients: DashboardData['clients
               </div>
             )}
 
-            {/* Quick Actions */}
+            {/* Client Actions — View History is read-only and stays enabled.
+                Reconnect / Limit Speed / Block are network mutations and are
+                disabled pending a MAS Guardian command contract (Guardian
+                decision + Morgan/RJ HITL + audit). */}
             <div className="bg-slate-800/50 rounded-lg p-4">
-              <h3 className="font-bold text-white font-mono mb-3">Quick Actions</h3>
+              <h3 className="font-bold text-white font-mono mb-3">Client Actions</h3>
               <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={handleReconnect}
-                  disabled={actionLoading === 'reconnect-client'}
-                  className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-mono hover:bg-slate-700 transition disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  {actionLoading === 'reconnect-client' ? <RefreshCw size={14} className="animate-spin" /> : null}
-                  Reconnect
-                </button>
-                <button 
-                  onClick={() => setShowBandwidthModal(true)}
-                  className="p-2 bg-yellow-600/20 border border-yellow-600/50 rounded-lg text-yellow-400 text-sm font-mono hover:bg-yellow-600/30 transition"
-                >
-                  Limit Speed
-                </button>
-                <button 
+                <button
                   onClick={handleViewHistory}
                   disabled={historyLoading}
                   className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-mono hover:bg-slate-700 transition disabled:opacity-50 flex items-center justify-center gap-1"
@@ -1031,15 +1048,20 @@ function ClientsView({ clients, formatBytes }: { clients: DashboardData['clients
                   {historyLoading ? <RefreshCw size={14} className="animate-spin" /> : null}
                   View History
                 </button>
-                <button 
-                  onClick={handleBlock}
-                  disabled={actionLoading === 'block-client'}
-                  className="p-2 bg-red-600/20 border border-red-600/50 rounded-lg text-red-400 text-sm font-mono hover:bg-red-600/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
-                >
-                  {actionLoading === 'block-client' ? <RefreshCw size={14} className="animate-spin" /> : null}
-                  Block
-                </button>
+                {['Reconnect', 'Limit Speed', 'Block'].map((label) => (
+                  <button
+                    key={label}
+                    disabled
+                    title="Awaiting MAS Guardian command contract — client mutations require Guardian authorization + HITL approval + audit."
+                    className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-500 text-sm font-mono cursor-not-allowed flex items-center justify-center gap-1"
+                  >
+                    <Lock size={12} /> {label}
+                  </button>
+                ))}
               </div>
+              <p className="mt-2 text-[11px] text-slate-500 font-mono">
+                Mutations await a MAS Guardian command contract (Guardian decision + Morgan/RJ HITL + audit).
+              </p>
             </div>
 
             {/* Bandwidth Limit Modal */}
