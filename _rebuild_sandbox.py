@@ -89,6 +89,21 @@ def main():
         action="store_true",
         help="Skip Dockerfile fix and docker build; use existing image on VM (start container only)",
     )
+    parser.add_argument(
+        "--local-build",
+        action="store_true",
+        help="Build on Sandbox only when no verified GHCR image is available",
+    )
+    parser.add_argument(
+        "--image",
+        default=os.environ.get("REBUILD_IMAGE", "ghcr.io/mycosoftlabs/website:production-latest"),
+        help="Verified registry image to pull and deploy (default: GHCR production-latest)",
+    )
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Report Sandbox build capacity and stalled-build evidence without deploying",
+    )
     args = parser.parse_args()
 
     branch_slug = args.branch.replace("origin/", "").lower()
@@ -108,15 +123,26 @@ def main():
         print(f"Connecting to {VM_HOST}...")
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=60)
+        client.connect(
+            VM_HOST,
+            username=VM_USER,
+            password=VM_PASS,
+            look_for_keys=False,
+            allow_agent=False,
+            timeout=60,
+        )
         transport = client.get_transport()
         if transport:
             transport.set_keepalive(30)
         return client
 
     ssh = _connect_ssh()
-    # VM Next.js --no-cache builds often exceed 2h; override with REBUILD_BUILD_TIMEOUT_SEC
+    # This is an absolute safety cap only. The no-progress watchdog below terminates a
+    # hung build far sooner, with an actionable tail of its log.
     build_timeout_sec = int(os.environ.get("REBUILD_BUILD_TIMEOUT_SEC", "14400"))
+    progress_timeout_sec = int(os.environ.get("REBUILD_PROGRESS_TIMEOUT_SEC", "1200"))
+    min_disk_mb = int(os.environ.get("REBUILD_MIN_DISK_MB", "12288"))
+    min_mem_mb = int(os.environ.get("REBUILD_MIN_MEM_MB", "4096"))
 
     def _run(cmd: str, timeout: int = 90) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
@@ -149,7 +175,7 @@ def main():
         # closes as soon as subshell exits; PID written to file so we don't depend on stdout.
         run_cmd = (
             f"echo {b64} | base64 -d > {script_file} && chmod +x {script_file} && "
-            f"( nohup bash {script_file} >>{log} 2>&1 & echo $! > {pid_file} )"
+            f"( nohup setsid bash {script_file} >>{log} 2>&1 & echo $! > {pid_file} )"
         )
         code, out, err = _run(run_cmd, timeout=45)
         if code != 0:
@@ -159,24 +185,81 @@ def main():
             raise RuntimeError(f"Could not read build PID from {pid_file}: {out2!r}")
         return (out2 or "").strip()
 
-    def _poll_build_until_done(pid: str, poll_interval: int = 30, timeout_sec: int = 7200) -> tuple[int, str]:
-        """Poll until /tmp/rebuild_build.exit exists; return (exit_code, last_50_lines). Kill build on timeout."""
+    def _poll_build_until_done(
+        pid: str,
+        poll_interval: int = 30,
+        timeout_sec: int = 7200,
+        no_progress_timeout_sec: int = 1200,
+    ) -> tuple[int, str]:
+        """Poll a build and terminate its process group when its log stops changing."""
         log = "/tmp/rebuild_build.log"
         exit_file = "/tmp/rebuild_build.exit"
         deadline = time.monotonic() + timeout_sec
+        last_size = -1
+        last_progress_at = time.monotonic()
         while time.monotonic() < deadline:
             code, out, _ = _run(f"test -f {exit_file} && cat {exit_file}", timeout=10)
             if code == 0 and out.strip().isdigit():
                 build_code = int(out.strip())
                 _, tail_out, _ = _run(f"tail -50 {log}", timeout=10)
                 return build_code, (tail_out or "").strip()
+            _, size_out, _ = _run(f"stat -c %s {log} 2>/dev/null || echo 0", timeout=10)
+            try:
+                current_size = int((size_out or "0").strip())
+            except ValueError:
+                current_size = 0
+            if current_size != last_size:
+                last_size = current_size
+                last_progress_at = time.monotonic()
+            elif time.monotonic() - last_progress_at >= no_progress_timeout_sec:
+                _, tail_out, _ = _run(f"tail -100 {log}", timeout=10)
+                _run(f"kill -- -{pid} 2>/dev/null || kill {pid} 2>/dev/null || true", timeout=10)
+                raise RuntimeError(
+                    f"Build made no log progress for {no_progress_timeout_sec}s; "
+                    f"terminated process group {pid}. Last log lines:\n{(tail_out or '').strip()}"
+                )
             # Progress: show last 5 lines
             _, progress, _ = _run(f"tail -5 {log} 2>/dev/null || true", timeout=10)
             if progress.strip():
                 print(f"   ... {progress.strip().split(chr(10))[-1]}")
             time.sleep(poll_interval)
-        _run(f"kill {pid} 2>/dev/null || true", timeout=5)
+        _run(f"kill -- -{pid} 2>/dev/null || kill {pid} 2>/dev/null || true", timeout=10)
         raise RuntimeError(f"Build did not finish within {timeout_sec}s (PID {pid} killed)")
+
+    def _build_preflight() -> None:
+        """Fail before a VM build can exhaust disk, RAM, or compete with another build."""
+        command = (
+            "set -eu; "
+            "timeout 15 docker version >/dev/null; "
+            "free_mb=$(awk '/MemAvailable:/ {print int($2/1024)}' /proc/meminfo); "
+            "disk_mb=$(df -Pm /var/lib/docker | awk 'NR==2 {print $4}'); "
+            "if pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' >/dev/null; then "
+            "echo 'Another Docker/Next build is already running:' >&2; "
+            "pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' >&2; exit 21; fi; "
+            f"if [ \"$disk_mb\" -lt {min_disk_mb} ]; then echo \"Insufficient Docker disk: ${'{'}disk_mb{'}'}MB < {min_disk_mb}MB\" >&2; exit 22; fi; "
+            f"if [ \"$free_mb\" -lt {min_mem_mb} ]; then echo \"Insufficient available memory: ${'{'}free_mb{'}'}MB < {min_mem_mb}MB\" >&2; exit 23; fi; "
+            "echo \"Preflight passed: disk=${disk_mb}MB available_mem=${free_mb}MB\""
+        )
+        code, out, err = _run(command, timeout=45)
+        if code != 0:
+            raise RuntimeError(f"Sandbox build preflight failed (exit {code}): {err or out}")
+        print(f"   {out}")
+
+    def _diagnose_build_host() -> None:
+        command = (
+            "echo '=== resources ==='; df -h / /var/lib/docker; df -ih / /var/lib/docker; "
+            "free -h; swapon --show; echo '=== docker ==='; timeout 15 docker system df; "
+            "echo '=== build processes ==='; pgrep -af 'docker( |-)build|buildkitd|buildx.*build|next build' || true; "
+            "echo '=== OOM evidence ==='; (sudo dmesg -T 2>/dev/null || dmesg -T 2>/dev/null || true) | "
+            "grep -Ei 'out of memory|oom-kill|killed process' | tail -30 || true; "
+            "echo '=== last build log ==='; tail -100 /tmp/rebuild_build.log 2>/dev/null || true"
+        )
+        code, out, err = _run(command, timeout=90)
+        print(out)
+        if err:
+            print(err)
+        if code != 0:
+            raise RuntimeError(f"Sandbox diagnostics failed (exit {code})")
     
     # Pull latest code so build uses requested branch/ref
     git_ref = args.branch if args.branch.startswith("origin/") else f"origin/{args.branch}"
@@ -187,6 +270,11 @@ def main():
     if out:
         print(f"   {out.split(chr(10))[-1]}")
 
+    if args.diagnose:
+        _diagnose_build_host()
+        ssh.close()
+        return
+
     image_tag = "mycosoft-always-on-mycosoft-website:latest"
 
     if args.skip_build:
@@ -196,6 +284,24 @@ def main():
             f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} mycosoft-always-on-mycosoft-website:previous || true",
             timeout=30,
         )
+    elif not args.local_build:
+        print(f"\n2–3. Pulling pre-built GHCR image instead of building on Sandbox: {args.image}")
+        _build_preflight()
+        code, out, err = _run(f"timeout 900 docker pull {args.image}", timeout=930)
+        if code != 0:
+            raise RuntimeError(
+                f"Could not pull verified GHCR image {args.image} (exit {code}): {err or out}. "
+                "Refusing to fall back to a local build; rerun with --local-build only after resolving registry availability."
+            )
+        _run(
+            f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} "
+            "mycosoft-always-on-mycosoft-website:previous || true",
+            timeout=30,
+        )
+        code, out, err = _run(f"docker tag {args.image} {image_tag}", timeout=30)
+        if code != 0:
+            raise RuntimeError(f"Could not tag GHCR image for blue/green deploy: {err or out}")
+        print("   GHCR image pulled and tagged for blue/green cutover.")
     else:
         # Fix Dockerfile encoding: strip BOM and convert UTF-16 to UTF-8 (VM git/encoding can cause "unknown instruction" errors)
         print("\n2. Fixing Dockerfile encoding (BOM + UTF-16 -> UTF-8)...")
@@ -230,6 +336,11 @@ else:
         print(f"   {out or err or 'ok'}")
 
         print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
+        print(
+            f"   Preflight thresholds: {min_disk_mb}MB Docker disk, {min_mem_mb}MB available memory; "
+            f"no-progress watchdog: {progress_timeout_sec}s."
+        )
+        _build_preflight()
 
         # Kill any stale build processes so only one build runs (prevents resource contention from multiple deploys)
         print("   Stopping any existing docker build processes on VM...")
@@ -257,17 +368,30 @@ else:
             timeout=30,
         )
 
-        print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
+        print(
+            f"   Build absolute timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h); "
+            f"no-progress timeout: {progress_timeout_sec}s."
+        )
         print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
         pid = _start_background_build(build_cmd_legacy)
-        code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+        code, out = _poll_build_until_done(
+            pid,
+            poll_interval=30,
+            timeout_sec=build_timeout_sec,
+            no_progress_timeout_sec=progress_timeout_sec,
+        )
         print(f"   Last 50 lines:\n{out}")
 
         if code != 0:
             print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
             for attempt in (1, 2):
                 pid = _start_background_build(build_cmd_buildkit)
-                code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+                code, out = _poll_build_until_done(
+                    pid,
+                    poll_interval=30,
+                    timeout_sec=build_timeout_sec,
+                    no_progress_timeout_sec=progress_timeout_sec,
+                )
                 print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
                 if code == 0:
                     break
