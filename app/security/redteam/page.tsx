@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 /**
@@ -114,11 +113,16 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
   const [error, setError] = useState<string | null>(null);
   
   // Form state
-  const [newSchedule, setNewSchedule] = useState({
+  const [newSchedule, setNewSchedule] = useState<{
+    name: string; target: string;
+    scanType: 'ping' | 'syn' | 'version' | 'vuln';
+    frequency: 'hourly' | 'daily' | 'weekly' | 'monthly';
+    dayOfWeek: number; hourOfDay: number; enabled: boolean;
+  }>({
     name: '',
-    target: scanTarget || '192.168.0.0/24',
-    scanType: 'ping' as const,
-    frequency: 'daily' as const,
+    target: scanTarget || '',
+    scanType: 'ping',
+    frequency: 'daily',
     dayOfWeek: 1,
     hourOfDay: 2,
     enabled: true,
@@ -238,12 +242,16 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
           <Database className="text-red-400" size={20} />
           Scheduled Scans
         </h3>
+        {/* Creating a schedule from a browser-authored target is disabled — SOC
+            scan scheduling is a MAS scenario + Guardian responsibility. Existing
+            schedules remain visible read-only below. */}
         <button
-          onClick={() => setIsCreating(true)}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium transition flex items-center gap-2"
+          disabled
+          title="Awaiting MAS scenario registry + Guardian scheduling contract — schedules are not authored in the browser."
+          className="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-500 rounded-lg font-medium cursor-not-allowed flex items-center gap-2"
         >
-          <Zap size={16} />
-          Create Schedule
+          <Lock size={16} />
+          Create Schedule (gated)
         </button>
       </div>
 
@@ -770,45 +778,23 @@ export default function RedTeamDashboard() {
           </div>
         </div>
 
-        {/* Scan Controls */}
-        <div className="bg-slate-800/50 rounded-xl border border-red-900/30 p-6 mb-8">
-          <h2 className="text-lg font-bold mb-4 text-red-400">Network Scanner</h2>
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <label className="text-sm text-slate-400 mb-1 block">Target Network</label>
-              <input
-                type="text"
-                value={scanTarget}
-                onChange={(e) => setScanTarget(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-red-500"
-                placeholder="192.168.0.0/24"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-slate-400 mb-1 block">Scan Type</label>
-              <select
-                value={scanType}
-                onChange={(e) => setScanType(e.target.value as any)}
-                className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-red-500"
-              >
-                <option value="ping">Ping Sweep</option>
-                <option value="syn">SYN Scan</option>
-                <option value="version">Version Detection</option>
-                <option value="vuln">Vulnerability Scan</option>
-              </select>
-            </div>
-            <button
-              onClick={startScan}
-              disabled={isScanning}
-              className={`px-6 py-2 rounded-lg font-medium transition ${
-                isScanning
-                  ? 'bg-slate-600 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              {isScanning ? 'Scanning...' : 'Start Scan'}
-            </button>
+        {/* Network Scanner — DISABLED. A SOC scan must be an approved MAS scenario
+            (allowlisted scope, Guardian risk classification, Morgan/RJ approval,
+            audited run), never an arbitrary CIDR + scan type authored in the
+            browser. The target/type inputs and browser-initiated scan are removed
+            pending the MAS scenario-registry + Guardian command contract. */}
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Lock className="text-slate-400" size={18} />
+            <h2 className="text-lg font-bold text-slate-200">Network Scanner</h2>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-300 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5">Gated</span>
           </div>
+          <p className="text-sm text-slate-400">
+            Arbitrary browser-authored scans are disabled. Scans run only from an approved MAS scenario
+            (allowlisted scope + Guardian risk classification + Morgan/RJ approval + audited run). The scenario
+            catalog and run controls appear below once the MAS scenario-registry / Guardian command contract is available.
+          </p>
+          <p className="mt-2 text-[11px] font-mono text-slate-500">TODO(MAS contract): scenario registry + Guardian-gated run request.</p>
         </div>
 
         {/* Tabs */}
@@ -833,6 +819,19 @@ export default function RedTeamDashboard() {
         <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
           {activeTab === 'topology' && (
             <div>
+              {/* Honest disclaimer: node positions and live nodes come from UniFi
+                  topology, but the exposed-ports, "PRIMARY TARGET", and RF/gateway
+                  labels are ILLUSTRATIVE placeholders, not results of an evidence-
+                  backed scan. No MAS attack-surface contract exists yet. */}
+              <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100 flex items-start gap-2">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-300" />
+                <span>
+                  <b>Illustrative attack surface.</b> Live nodes are read from UniFi topology, but exposed-port
+                  lists, “PRIMARY TARGET” priority, and gateway/RF labels are placeholders — not results of a real,
+                  evidence-backed scan. Treat them as a diagram, not findings, until a MAS attack-surface / scan
+                  contract emits verified data. <span className="font-mono">TODO(MAS contract)</span>.
+                </span>
+              </div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <Target className="text-red-400" />
@@ -1200,31 +1199,18 @@ export default function RedTeamDashboard() {
                     <div className="pt-3 border-t border-slate-700">
                       <div className="text-xs uppercase text-slate-400 mb-2">Quick Actions</div>
                       <div className="grid grid-cols-2 gap-2">
-                        <button 
-                          onClick={() => {
-                            setScanTarget(selectedTarget.ip);
-                            setScanType('syn');
-                          }}
-                          className="p-2 bg-red-600/20 border border-red-600/50 rounded text-red-300 text-xs hover:bg-red-600/30 transition"
-                        >
-                          Port Scan
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setScanTarget(selectedTarget.ip);
-                            setScanType('vuln');
-                          }}
-                          className="p-2 bg-amber-600/20 border border-amber-600/50 rounded text-amber-300 text-xs hover:bg-amber-600/30 transition"
-                        >
-                          Vuln Scan
-                        </button>
-                        <button className="p-2 bg-purple-600/20 border border-purple-600/50 rounded text-purple-300 text-xs hover:bg-purple-600/30 transition">
-                          Banner Grab
-                        </button>
-                        <button className="p-2 bg-blue-600/20 border border-blue-600/50 rounded text-blue-300 text-xs hover:bg-blue-600/30 transition">
-                          OS Detect
-                        </button>
+                        {['Port Scan', 'Vuln Scan', 'Banner Grab', 'OS Detect'].map((label) => (
+                          <button
+                            key={label}
+                            disabled
+                            title="Awaiting MAS scenario registry + Guardian approval — scans are not authored in the browser."
+                            className="p-2 bg-slate-800 border border-slate-700 rounded text-slate-500 text-xs cursor-not-allowed flex items-center justify-center gap-1"
+                          >
+                            <Lock size={11} /> {label}
+                          </button>
+                        ))}
                       </div>
+                      <div className="mt-2 text-[10px] text-amber-300/80">Gated — scans run only as approved MAS scenarios.</div>
                     </div>
                   </div>
                 )}
@@ -1485,93 +1471,35 @@ export default function RedTeamDashboard() {
         {/* Attack Simulation Panel */}
         <div className="mt-8 bg-slate-800/50 rounded-xl border border-red-900/50 p-6" data-tour="attack-simulation">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">⚠️</span>
-            <h2 className="text-lg font-bold text-red-400">Attack Simulation</h2>
-            {authCode && (
-              <span className="px-2 py-1 bg-emerald-900/50 text-emerald-300 text-xs rounded flex items-center gap-1">
-                <Unlock size={12} /> AUTHORIZED
-              </span>
-            )}
-            <span className="ml-auto px-2 py-1 bg-red-900/50 text-red-300 text-xs rounded">
-              ALL ACTIVITIES LOGGED
-            </span>
+            <Lock className="text-slate-400" size={18} />
+            <h2 className="text-lg font-bold text-slate-200">Attack Simulation</h2>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-300 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5">Gated</span>
+            <span className="ml-auto px-2 py-1 bg-slate-700/50 text-slate-300 text-xs rounded">Guardian-gated</span>
           </div>
           <p className="text-slate-400 text-sm mb-4">
-            Run controlled attack simulations to test security controls. All activities are logged and audited via MAS SOC.
+            Simulations run only from an approved MAS scenario (registered scope, risk class, isolation target, and
+            Morgan/RJ approval), never from browser-authored parameters. The four launch controls below previously
+            sent browser-defined payloads (target networks, employee groups, exfil semantics) directly — they are
+            disabled pending the MAS scenario registry + Guardian approval contract.
           </p>
-          <div className="grid grid-cols-4 gap-4">
-            <button 
-              onClick={() => runSimulation('credential-test')}
-              disabled={!!simulationRunning}
-              className={`p-4 border rounded-lg transition text-left ${
-                simulationRunning === 'credential-test' 
-                  ? 'bg-red-900/30 border-red-500 animate-pulse' 
-                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
-              } ${simulationRunning && simulationRunning !== 'credential-test' ? 'opacity-50' : ''}`}
-            >
-              <Lock size={18} className="text-red-400 mb-2" />
-              <div className="text-red-400 font-medium mb-1">Credential Testing</div>
-              <div className="text-xs text-slate-400">Test password policies</div>
-              {simulationRunning === 'credential-test' && (
-                <div className="mt-2 text-xs text-red-300 flex items-center gap-1">
-                  <RefreshCw size={12} className="animate-spin" /> Running...
-                </div>
-              )}
-            </button>
-            <button 
-              onClick={() => runSimulation('phishing-sim')}
-              disabled={!!simulationRunning}
-              className={`p-4 border rounded-lg transition text-left ${
-                simulationRunning === 'phishing-sim' 
-                  ? 'bg-amber-900/30 border-amber-500 animate-pulse' 
-                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
-              } ${simulationRunning && simulationRunning !== 'phishing-sim' ? 'opacity-50' : ''}`}
-            >
-              <Eye size={18} className="text-amber-400 mb-2" />
-              <div className="text-red-400 font-medium mb-1">Phishing Simulation</div>
-              <div className="text-xs text-slate-400">Test user awareness</div>
-              {simulationRunning === 'phishing-sim' && (
-                <div className="mt-2 text-xs text-amber-300 flex items-center gap-1">
-                  <RefreshCw size={12} className="animate-spin" /> Running...
-                </div>
-              )}
-            </button>
-            <button 
-              onClick={() => runSimulation('pivot-test')}
-              disabled={!!simulationRunning}
-              className={`p-4 border rounded-lg transition text-left ${
-                simulationRunning === 'pivot-test' 
-                  ? 'bg-purple-900/30 border-purple-500 animate-pulse' 
-                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
-              } ${simulationRunning && simulationRunning !== 'pivot-test' ? 'opacity-50' : ''}`}
-            >
-              <Router size={18} className="text-purple-400 mb-2" />
-              <div className="text-red-400 font-medium mb-1">Network Pivot Test</div>
-              <div className="text-xs text-slate-400">Test segmentation</div>
-              {simulationRunning === 'pivot-test' && (
-                <div className="mt-2 text-xs text-purple-300 flex items-center gap-1">
-                  <RefreshCw size={12} className="animate-spin" /> Running...
-                </div>
-              )}
-            </button>
-            <button 
-              onClick={() => runSimulation('exfil-test')}
-              disabled={!!simulationRunning}
-              className={`p-4 border rounded-lg transition text-left ${
-                simulationRunning === 'exfil-test' 
-                  ? 'bg-blue-900/30 border-blue-500 animate-pulse' 
-                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
-              } ${simulationRunning && simulationRunning !== 'exfil-test' ? 'opacity-50' : ''}`}
-            >
-              <Database size={18} className="text-blue-400 mb-2" />
-              <div className="text-red-400 font-medium mb-1">Exfil Detection</div>
-              <div className="text-xs text-slate-400">Test DLP controls</div>
-              {simulationRunning === 'exfil-test' && (
-                <div className="mt-2 text-xs text-blue-300 flex items-center gap-1">
-                  <RefreshCw size={12} className="animate-spin" /> Running...
-                </div>
-              )}
-            </button>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Credential Testing', desc: 'Test password policies', Icon: Lock },
+              { label: 'Phishing Simulation', desc: 'Test user awareness', Icon: Eye },
+              { label: 'Network Pivot Test', desc: 'Test segmentation', Icon: Router },
+              { label: 'Exfil Detection', desc: 'Test DLP controls', Icon: Database },
+            ].map(({ label, desc, Icon }) => (
+              <div
+                key={label}
+                title="Awaiting MAS scenario registry + Guardian approval contract."
+                className="p-4 border border-slate-700 bg-slate-800 rounded-lg text-left opacity-70 cursor-not-allowed"
+              >
+                <Icon size={18} className="text-slate-500 mb-2" />
+                <div className="text-slate-300 font-medium mb-1 flex items-center gap-1"><Lock size={12} /> {label}</div>
+                <div className="text-xs text-slate-500">{desc}</div>
+                <div className="mt-2 text-[10px] text-amber-300/80">Gated — MAS scenario contract</div>
+              </div>
+            ))}
           </div>
         </div>
 
