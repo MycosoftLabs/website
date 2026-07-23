@@ -38,44 +38,15 @@ const MYCOSOFT_USERS: MycosoftUser[] = [
     title: "CEO & Founder",
     permissions: ["*"], // Full god-mode access
   },
-  { 
-    id: "2", 
-    email: "garret@mycosoft.org", 
-    name: "Garret Baquet", 
-    role: "admin",
-    title: "CTO",
-    permissions: ["admin", "dev", "ai", "infra", "data"],
-  },
-  { 
-    id: "3", 
-    email: "rj@mycosoft.org", 
-    name: "RJ Ricasata", 
+  // Former staff (Garret Baquet, Chris Freetage, Alberto Septien, Abelardo)
+  // removed 2026-07-22 — no longer with the company; access revoked.
+  {
+    id: "3",
+    email: "rj@mycosoft.org",
+    name: "RJ Ricasata",
     role: "admin",
     title: "COO",
     permissions: ["admin", "dev", "data", "ops"],
-  },
-  { 
-    id: "4", 
-    email: "chris@mycosoft.org", 
-    name: "Chris Freetage", 
-    role: "developer",
-    title: "Engineer",
-    permissions: ["dev", "ai"],
-  },
-  { 
-    id: "5", 
-    email: "alberto@mycosoft.org", 
-    name: "Alberto Septien", 
-    role: "developer",
-    title: "Engineer",
-    permissions: ["dev", "data"],
-  },
-  { 
-    id: "6", 
-    email: "abelardo@mycosoft.org", 
-    name: "Abelardo", 
-    role: "developer",
-    permissions: ["dev"],
   },
   { 
     id: "7", 

@@ -1,10 +1,11 @@
 "use client"
 
 import type React from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { 
-  Shield, Network, AlertTriangle, Skull, FileText, 
+import {
+  Shield, Network, AlertTriangle, Skull, FileText,
   ArrowLeft, Home, Settings, Lock, HelpCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,34 @@ export default function SecurityLayoutClient({
 }) {
   const pathname = usePathname()
   const { user } = useAuth()
+
+  // Footer monitoring indicator is DERIVED from MAS, never asserted. Until the
+  // first poll resolves it reads "checking"; a failed poll reads "unavailable".
+  const [monState, setMonState] = useState<"checking" | "active" | "degraded" | "unavailable">("checking")
+  useEffect(() => {
+    let alive = true
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/security?action=status", { cache: "no-store" })
+        if (!alive) return
+        if (!r.ok) { setMonState("unavailable"); return }
+        const d = await r.json()
+        const s = (d.monitoring_state ?? d.status) as string
+        setMonState(s === "active" ? "active" : s === "degraded" ? "degraded" : "unavailable")
+      } catch {
+        if (alive) setMonState("unavailable")
+      }
+    }
+    poll()
+    const t = setInterval(poll, 30000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
+  const monMeta = {
+    checking: { dot: "bg-slate-500", text: "text-slate-500", label: "Checking monitoring…", pulse: false },
+    active: { dot: "bg-emerald-500", text: "text-slate-500", label: "Monitoring active", pulse: true },
+    degraded: { dot: "bg-amber-500", text: "text-amber-400", label: "Monitoring degraded", pulse: true },
+    unavailable: { dot: "bg-red-500", text: "text-red-400", label: "Monitoring state unavailable", pulse: false },
+  }[monState]
 
   return (
     <SecurityTourProvider>
@@ -128,9 +157,9 @@ export default function SecurityLayoutClient({
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between text-xs font-mono text-slate-500">
             <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Monitoring Active
+              <span className={`flex items-center gap-1 ${monMeta.text}`}>
+                <span className={`h-2 w-2 rounded-full ${monMeta.dot} ${monMeta.pulse ? "animate-pulse" : ""}`} />
+                {monMeta.label}
               </span>
               <span>SOC v2.0.0</span>
             </div>
