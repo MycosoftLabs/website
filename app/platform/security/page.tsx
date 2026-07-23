@@ -17,10 +17,10 @@ const securityPolicies = [
   { label: 'Data Encryption at Rest', description: 'Encrypt all stored data with AES-256', enabled: true },
 ]
 
+// Illustrative sample events — authorized users only (Morgan, RJ). Former staff removed.
 const recentEvents = [
-  { time: '10:30 AM', event: 'Login from new device', user: 'chris@mycosoft.org', severity: 'warning' },
-  { time: '10:15 AM', event: 'Password changed', user: 'alberto@mycosoft.org', severity: 'info' },
-  { time: '09:45 AM', event: 'API key created', user: 'garret@mycosoft.org', severity: 'info' },
+  { time: '10:30 AM', event: 'Login from new device', user: 'rj@mycosoft.org', severity: 'warning' },
+  { time: '09:45 AM', event: 'API key created', user: 'morgan@mycosoft.org', severity: 'info' },
   { time: '09:30 AM', event: 'Failed login attempt', user: 'unknown@external.com', severity: 'error' },
   { time: '09:00 AM', event: 'SSO configuration updated', user: 'morgan@mycosoft.org', severity: 'info' },
   { time: '08:30 AM', event: 'Member role changed', user: 'rj@mycosoft.org', severity: 'info' },

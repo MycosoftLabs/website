@@ -64,7 +64,7 @@ const getNvidiaNimKey = () => getKey("NVIDIA_NIM_API_KEY")
 const NVIDIA_NIM_MODEL = process.env.NVIDIA_NIM_MODEL || "nvidia/llama-3.1-nemotron-70b-instruct"
 
 // Local Nemotron via NemoClaw Gateway (Jetson or GPU node)
-// Currently at Beto's on different IP — will be 192.168.0.123:18789 when back on-site
+// Currently off-site on a different IP — will be 192.168.0.123:18789 when back on-site
 const NEMOCLAW_GATEWAY_URL = process.env.NEMOCLAW_GATEWAY_URL || "http://192.168.0.123:18789"
 
 // CPU-friendly model for Ollama when no GPU available

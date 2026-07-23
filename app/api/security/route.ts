@@ -12,6 +12,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { requireAdmin } from '@/lib/auth/api-auth';
 import { incidentLedger } from '@/lib/security/ledger';
+import { masState } from '@/lib/security/soc/mas-bff';
+import { unavailable, hasData, type OperationalState } from '@/lib/security/soc/operational-state';
 
 // Legacy imports (for backwards compatibility)
 import { 
@@ -734,11 +736,15 @@ export async function GET(request: NextRequest) {
       }
 
       /** Summary tiles for `/security` dashboard (inventory + compliance score + red team health). */
+      case 'soc-overview':
+        return await getSocOverview();
+
       case 'soc-dashboard-tiles': {
         const base = getMasApiBase();
         if (!base) {
+          // Honest unavailable — NOT a zeroed network with fake counts.
           return NextResponse.json({
-            network: { total: 0, online: 0, offline: 0, stale: 0, unknown: 0, source: 'mas_unconfigured' },
+            network: { total: null, online: null, offline: null, stale: null, unknown: null, source: 'mas_unconfigured', state: 'unavailable' },
             compliance: null,
             redteam: null,
           });
@@ -1154,40 +1160,121 @@ export async function POST(request: NextRequest) {
 // Handler functions
 
 async function getSecurityStatus() {
+  // Monitoring status must be DERIVED from real MAS signals, never asserted.
+  // When MAS is unreachable, status is 'unavailable' — not a fabricated 'active'.
+  const base = getMasApiBase();
+  if (!base) {
+    return NextResponse.json({
+      status: 'unavailable',
+      monitoring_enabled: false,
+      monitoring_state: 'unavailable',
+      reason: 'MAS_API_URL not configured',
+      threat_level: 'unknown',
+      last_check: new Date().toISOString(),
+      data_source: 'mas_unconfigured',
+    });
+  }
+
+  const [posture, guardian, heartbeat] = await Promise.all([
+    masGet('/api/security/posture-integrity', { timeoutMs: 8000 }),
+    masGet('/api/guardian/status', { timeoutMs: 8000 }),
+    masGet('/api/agents/heartbeat/summary', { timeoutMs: 8000 }),
+  ]);
+
   const masEvents = await fetchMasIncidentsAsEvents(300);
   const now = new Date();
   const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
   const eventsLastHour = masEvents.filter(e => new Date(e.timestamp) > hourAgo);
   const eventsLastDay = masEvents.filter(e => new Date(e.timestamp) > dayAgo);
-
-  // Calculate threat level based on events
-  let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
   const criticalCount = eventsLastHour.filter(e => e.severity === 'critical').length;
   const highCount = eventsLastHour.filter(e => e.severity === 'high').length;
 
-  if (criticalCount > 0) {
-    threatLevel = 'critical';
-  } else if (highCount > 2) {
-    threatLevel = 'high';
-  } else if (highCount > 0 || eventsLastHour.length > 10) {
-    threatLevel = 'elevated';
-  }
+  let threatLevel: 'low' | 'elevated' | 'high' | 'critical' = 'low';
+  if (criticalCount > 0) threatLevel = 'critical';
+  else if (highCount > 2) threatLevel = 'high';
+  else if (highCount > 0 || eventsLastHour.length > 10) threatLevel = 'elevated';
+
+  // Derive a single monitoring state from the health of the underlying workers.
+  const guardianActive = guardian.ok && (guardian.data as { status?: string })?.status === 'active' && !(guardian.data as { halted?: boolean })?.halted;
+  const postureOk = posture.ok && (posture.data as { ok?: boolean })?.ok !== false;
+  const hb = heartbeat.ok ? (heartbeat.data as { total_registered?: number; stale_count?: number }) : null;
+  const freshAgents = hb ? Math.max(0, (hb.total_registered ?? 0) - (hb.stale_count ?? 0)) : 0;
+
+  let monitoringState: 'active' | 'degraded' | 'unavailable';
+  if (!posture.ok && !guardian.ok && !heartbeat.ok) monitoringState = 'unavailable';
+  else if (guardianActive && postureOk && freshAgents > 0) monitoringState = 'active';
+  else monitoringState = 'degraded';
 
   return NextResponse.json({
-    status: 'active',
+    status: monitoringState,
+    monitoring_state: monitoringState,
+    monitoring_enabled: monitoringState === 'active',
     threat_level: threatLevel,
-    monitoring_enabled: true,
     last_check: now.toISOString(),
     events_last_hour: eventsLastHour.length,
     events_last_day: eventsLastDay.length,
     critical_events: criticalCount,
     high_events: highCount,
     unique_ips: new Set(eventsLastDay.map(e => e.source_ip)).size,
-    uptime_seconds: Math.floor(process.uptime()),
-    data_source: getMasApiBase() ? 'mas_api_incidents' : 'mas_unconfigured',
+    // Agent liveness is the honest headline: registered vs actually fresh.
+    agents_registered: hb?.total_registered ?? null,
+    agents_fresh: hb ? freshAgents : null,
+    agents_stale: hb?.stale_count ?? null,
+    guardian_available: guardian.ok,
+    posture_available: posture.ok,
+    data_source: 'mas_derived',
   });
+}
+
+/**
+ * Composed SOC overview read-model. There is no single MAS `/soc/overview`
+ * endpoint, so this BFF aggregates the real per-domain contracts and returns
+ * each as an OperationalState envelope with its own provenance. Nothing is
+ * fabricated: a failed sub-fetch surfaces as `unavailable`, never a zero.
+ */
+async function getSocOverview() {
+  const S = 'MAS 188';
+  const [posture, score, agents, guardian, incidents, redteam, devices] = await Promise.all([
+    masState(`${S} /api/security/posture-integrity`, '/api/security/posture-integrity', (b) => b),
+    masState(`${S} /api/compliance/score`, '/api/compliance/score', (b) => b),
+    masState(`${S} /api/agents/heartbeat/summary`, '/api/agents/heartbeat/summary', (b) => ({
+      registered: b.total_registered ?? 0,
+      stale: b.stale_count ?? 0,
+      fresh: Math.max(0, (b.total_registered ?? 0) - (b.stale_count ?? 0)),
+      stale_after_seconds: b.stale_after_seconds ?? null,
+    })),
+    masState(`${S} /api/guardian/status`, '/api/guardian/status', (b) => b),
+    masState(`${S} /api/incidents`, '/api/incidents?limit=500', (b) => {
+      const rows: Record<string, unknown>[] = Array.isArray(b.incidents) ? b.incidents : [];
+      const byState: Record<string, number> = {};
+      for (const r of rows) { const s = String(r.status || 'unknown').toLowerCase(); byState[s] = (byState[s] || 0) + 1; }
+      return { count: b.count ?? rows.length, by_state: byState };
+    }),
+    masState(`${S} /api/redteam/health`, '/api/redteam/health', (b) => b),
+    masState(`${S} /api/devices/inventory`, '/api/devices/inventory?limit=5000', (b) => {
+      const items: Record<string, unknown>[] = Array.isArray(b.items) ? b.items : [];
+      let online = 0, offline = 0, stale = 0, unknownC = 0;
+      for (const row of items) {
+        const st = String(row.status || 'unknown').toLowerCase();
+        if (st === 'online') online++; else if (st === 'offline') offline++;
+        else if (st === 'stale') stale++; else unknownC++;
+      }
+      return { total: items.length, online, offline, stale, unknown: unknownC, source: b.source ?? 'inventory' };
+    }),
+  ]);
+
+  // Derived monitoring headline (mirrors getSecurityStatus, single source).
+  const guardianActive = hasData(guardian) && (guardian.data as { status?: string }).status === 'active' && !(guardian.data as { halted?: boolean }).halted;
+  const postureOk = hasData(posture) && (posture.data as { ok?: boolean }).ok !== false;
+  const freshAgents = hasData(agents) ? (agents.data as { fresh: number }).fresh : 0;
+  const anyUp = [posture, guardian, agents].some((e) => e.state !== 'unavailable');
+  const monitoring: OperationalState<{ state: 'active' | 'degraded' | 'unavailable' }> = !anyUp
+    ? unavailable(`${S} derived`, 'no SOC worker signal reachable')
+    : { state: 'healthy', source: `${S} derived`, collected_at: new Date().toISOString(), fresh_until: null, correlation_id: null,
+        data: { state: guardianActive && postureOk && freshAgents > 0 ? 'active' : 'degraded' } };
+
+  return NextResponse.json({ monitoring, posture, compliance: score, agents, guardian, incidents, redteam, devices });
 }
 
 function getAuthorizedUsers() {

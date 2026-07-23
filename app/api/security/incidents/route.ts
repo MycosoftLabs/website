@@ -1,231 +1,132 @@
 /**
- * Incidents API Endpoint
- * 
- * RESTful API for incident management with cryptographic logging.
- * 
- * GET: List incidents with filtering
- * POST: Create new incident (with chain logging)
- * PATCH: Update incident status/details
- * 
- * @version 1.0.0
- * @date January 24, 2026
+ * Incidents BFF — proxies MAS 188 (the source of record), NOT a website-local DB.
+ *
+ * Previously this route read/wrote a website-local Postgres incident store and a
+ * local hash chain, competing with MAS/MINDEX as a second source of truth. It
+ * now proxies the real MAS contracts:
+ *   GET   /api/incidents            → list
+ *   POST  /api/incidents            → create (attributed to the caller)
+ *   PATCH /api/incidents/{id}       → update
+ * All methods require admin auth; every mutation carries the actor's identity.
+ * The website never fabricates incidents or a "0 == healthy" state.
+ *
+ * @date July 22, 2026
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getIncidents, 
-  createIncident, 
-  updateIncident,
-  getIncidentLogChain,
-  getAgentActivity,
-  getAgentActivityStats,
-} from '@/lib/security/database';
-import { logIncidentEvent, getChainStats, verifyChain } from '@/lib/security/incident-chain';
-import { broadcastIncidentEvent } from './stream/route';
+import { requireAdmin } from '@/lib/auth/api-auth';
+import { masFetch, masBase } from '@/lib/security/soc/mas-bff';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/security/incidents
- * List incidents with optional filtering
- */
+/** GET /api/security/incidents — list from MAS, plus real agent liveness. */
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
+  if (!masBase()) {
+    return NextResponse.json(
+      { error: 'MAS not configured', state: 'unavailable', incidents: null, count: null },
+      { status: 503 },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
-  
-  const status = searchParams.get('status') || undefined;
-  const severity = searchParams.get('severity') || undefined;
-  const limit = parseInt(searchParams.get('limit') || '50', 10);
-  const includeChain = searchParams.get('chain') === 'true';
-  const includeStats = searchParams.get('stats') === 'true';
-  
-  try {
-    const incidents = await getIncidents({ status, severity, limit });
-    
-    const response: Record<string, unknown> = { incidents };
-    
-    if (includeChain) {
-      const chainEntries = await getIncidentLogChain({ limit: 50 });
-      response.chain = chainEntries;
-    }
-    
-    if (includeStats) {
-      const [chainStats, activityStats] = await Promise.all([
-        getChainStats(),
-        getAgentActivityStats(),
-      ]);
-      response.stats = {
-        chain: chainStats,
-        activity: activityStats,
-      };
-    }
-    
-    return NextResponse.json(response);
-  } catch (error) {
-    console.error('[Incidents API] GET error:', error);
+  const status = searchParams.get('status');
+  const severity = searchParams.get('severity');
+  const limit = searchParams.get('limit') || '200';
+  const q = new URLSearchParams({ limit });
+  if (status) q.set('status', status);
+  if (severity) q.set('severity', severity);
+
+  // Incident list + agent heartbeat, in parallel. Agent liveness replaces the
+  // page's old `active_agents || 8` fabrication with the real registered/fresh
+  // counts, so the UI can never invent a runtime agent count.
+  const [inc, hb] = await Promise.all([
+    masFetch(`/api/incidents?${q.toString()}`),
+    masFetch('/api/agents/heartbeat/summary'),
+  ]);
+
+  if (!inc.ok) {
     return NextResponse.json(
-      { error: 'Failed to fetch incidents' },
-      { status: 500 }
+      { error: 'MAS incidents unavailable', state: 'unavailable', incidents: null, count: null,
+        reason: inc.status === 0 ? 'unreachable / timed out' : `MAS returned ${inc.status}` },
+      { status: 502 },
     );
   }
+
+  const incidents = Array.isArray(inc.body?.incidents) ? inc.body.incidents : [];
+  const agents = hb.ok
+    ? {
+        registered: hb.body?.total_registered ?? null,
+        stale: hb.body?.stale_count ?? null,
+        fresh: hb.body?.total_registered != null ? Math.max(0, (hb.body.total_registered ?? 0) - (hb.body.stale_count ?? 0)) : null,
+        stale_after_seconds: hb.body?.stale_after_seconds ?? null,
+        state: 'healthy' as const,
+      }
+    : { registered: null, stale: null, fresh: null, stale_after_seconds: null, state: 'unavailable' as const };
+
+  return NextResponse.json({
+    incidents,
+    count: inc.body?.count ?? incidents.length,
+    agents,
+    source: 'MAS 188 /api/incidents',
+    state: 'healthy',
+    collected_at: new Date().toISOString(),
+  });
 }
 
-/**
- * POST /api/security/incidents
- * Create a new incident
- */
+/** POST /api/security/incidents — create in MAS, attributed to the caller. */
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      title,
-      description,
-      severity = 'medium',
-      status = 'open',
-      assigned_to = null,
-      tags = [],
-      source = 'api',
-      reporter_id = 'api',
-      reporter_name = 'API',
-    } = body;
-    
-    if (!title || !description) {
-      return NextResponse.json(
-        { error: 'Title and description are required' },
-        { status: 400 }
-      );
-    }
-    
-    // Create the incident
-    const incident = await createIncident({
-      title,
-      description,
-      severity,
-      status,
-      assigned_to,
-      resolved_at: null,
-      events: [],
-      tags: Array.isArray(tags) ? tags : [tags],
-      timeline: [{
-        timestamp: new Date().toISOString(),
-        action: 'created',
-        actor: reporter_name,
-        details: `Incident created via ${source}`,
-      }],
-    });
-    
-    // Log to cryptographic chain
-    await logIncidentEvent({
-      incident_id: incident.id,
-      event_type: 'created',
-      event_data: {
-        title,
-        description,
-        severity,
-        tags,
-        source,
-      },
-      reporter_type: source === 'agent' ? 'agent' : source === 'system' ? 'system' : 'user',
-      reporter_id,
-      reporter_name,
-    });
-    
-    // Broadcast to connected clients
-    broadcastIncidentEvent({
-      type: 'incident',
-      data: incident,
-    });
-    
-    return NextResponse.json({ incident }, { status: 201 });
-  } catch (error) {
-    console.error('[Incidents API] POST error:', error);
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+  if (!masBase()) return NextResponse.json({ error: 'MAS not configured' }, { status: 503 });
+
+  const body = await request.json().catch(() => ({}));
+  if (!body.title || !body.description) {
+    return NextResponse.json({ error: 'Title and description are required' }, { status: 400 });
+  }
+  const res = await masFetch('/api/incidents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...body,
+      // Attribute the mutation to the authenticated operator, not a generic 'API'.
+      reporter_id: auth.user.email,
+      reporter_name: auth.user.email,
+    }),
+  });
+  if (!res.ok) {
     return NextResponse.json(
-      { error: 'Failed to create incident' },
-      { status: 500 }
+      { error: 'MAS incident create failed', reason: res.status === 0 ? 'unreachable' : `MAS ${res.status}` },
+      { status: 502 },
     );
   }
+  return NextResponse.json(res.body ?? { ok: true }, { status: 201 });
 }
 
-/**
- * PATCH /api/security/incidents
- * Update an existing incident
- */
+/** PATCH /api/security/incidents — update an incident in MAS. */
 export async function PATCH(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    const {
-      id,
-      status,
-      severity,
-      assigned_to,
-      tags,
-      timeline_entry,
-      actor = 'API',
-      actor_id = 'api',
-    } = body;
-    
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Incident ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Build updates object
-    const updates: Record<string, unknown> = {};
-    if (status) updates.status = status;
-    if (severity) updates.severity = severity;
-    if (assigned_to !== undefined) updates.assigned_to = assigned_to;
-    if (tags) updates.tags = tags;
-    
-    // Handle resolved status
-    if (status === 'resolved' || status === 'closed') {
-      updates.resolved_at = new Date().toISOString();
-    }
-    
-    // Update the incident
-    const incident = await updateIncident(id, updates);
-    
-    if (!incident) {
-      return NextResponse.json(
-        { error: 'Incident not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Determine event type based on update
-    let eventType: 'updated' | 'assigned' | 'escalated' | 'resolved' | 'closed' = 'updated';
-    if (status === 'resolved') eventType = 'resolved';
-    else if (status === 'closed') eventType = 'closed';
-    else if (assigned_to !== undefined) eventType = 'assigned';
-    else if (severity && ['high', 'critical'].includes(severity)) eventType = 'escalated';
-    
-    // Log to cryptographic chain
-    await logIncidentEvent({
-      incident_id: id,
-      event_type: eventType,
-      event_data: {
-        updates,
-        previous_status: timeline_entry?.previous_status,
-      },
-      reporter_type: 'user',
-      reporter_id: actor_id,
-      reporter_name: actor,
-    });
-    
-    // Broadcast to connected clients
-    broadcastIncidentEvent({
-      type: 'incident',
-      data: incident,
-    });
-    
-    return NextResponse.json({ incident });
-  } catch (error) {
-    console.error('[Incidents API] PATCH error:', error);
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+  if (!masBase()) return NextResponse.json({ error: 'MAS not configured' }, { status: 503 });
+
+  const body = await request.json().catch(() => ({}));
+  const id = String(body.id ?? '');
+  if (!id) return NextResponse.json({ error: 'Incident ID is required' }, { status: 400 });
+
+  const { id: _omit, ...updates } = body;
+  const res = await masFetch(`/api/incidents/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...updates, actor: auth.user.email, actor_id: auth.user.email }),
+  });
+  if (res.status === 404) return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+  if (!res.ok) {
     return NextResponse.json(
-      { error: 'Failed to update incident' },
-      { status: 500 }
+      { error: 'MAS incident update failed', reason: res.status === 0 ? 'unreachable' : `MAS ${res.status}` },
+      { status: 502 },
     );
   }
+  return NextResponse.json(res.body ?? { ok: true });
 }

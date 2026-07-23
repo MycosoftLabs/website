@@ -18,9 +18,10 @@ import { generatePredictionsForIncident, savePredictions, logAgentRun } from '@/
 
 export const dynamic = 'force-dynamic';
 
-// MAS API URL for fetching real agent data
-const MAS_API_URL = process.env.MAS_API_URL || 'http://localhost:8001';
-const MAS_API_KEY = process.env.MAS_API_KEY || '';
+// MAS API URL for fetching real agent data. No localhost fallback — a localhost
+// default silently presents a dev service as the production SOC authority.
+const MAS_API_URL = (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+const MAS_API_KEY = process.env.MAS_API_KEY || process.env.MYCA_POSTURE_API_KEY || '';
 
 // ═══════════════════════════════════════════════════════════════
 // SUPABASE CLIENT
