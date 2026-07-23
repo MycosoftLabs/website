@@ -14,6 +14,9 @@ const COMPANY = /@mycosoft\.(org|com)$/i;
 
 const AT_TIER1_IDS = ['AT.L2-3.2.1', 'AT.L2-3.2.2', 'AT.L2-3.2.3'] as const;
 const PS_TIER1_IDS = ['PS.L2-3.9.1', 'PS.L2-3.9.2'] as const;
+// IR tabletop + incident tracking — soc_ops is authoritative for these too, so the
+// Tier-1 panel can't disagree with the register about IR.L2-3.6.3.
+const IR_TIER1_IDS = ['IR.L2-3.6.2', 'IR.L2-3.6.3'] as const;
 
 type Ctx = { email: string; supabase: any; live: boolean };
 
@@ -39,39 +42,48 @@ async function fetchMasTier1Context(): Promise<{
   score: MasScore | null;
   atControls: Record<string, string>;
   psControls: Record<string, string>;
+  irControls: Record<string, string>;
   screeningEvents: unknown[];
 }> {
+  const empty = { score: null, atControls: {}, psControls: {}, irControls: {}, screeningEvents: [] };
   const base = masBase();
-  if (!base) return { score: null, atControls: {}, psControls: {}, screeningEvents: [] };
+  if (!base) return empty;
   try {
+    // MAS answers in ~2.5s on a good day and can stall; without a bound, a slow
+    // or hung MAS blocks the whole Tier-1 panel load behind it. On timeout we
+    // fall through to the empty context and the panel renders from the DB.
+    const masFetch = (path: string) =>
+      fetch(`${base}${path}`, { cache: 'no-store', headers: masHeaders(), signal: AbortSignal.timeout(8000) });
     const [scoreRes, ctrlRes, screeningRes] = await Promise.all([
-      fetch(`${base}/api/compliance/score`, { cache: 'no-store', headers: masHeaders() }),
-      fetch(`${base}/api/compliance/controls`, { cache: 'no-store', headers: masHeaders() }),
-      fetch(`${base}/api/security/ps/screening-events`, { cache: 'no-store', headers: masHeaders() }),
+      masFetch('/api/compliance/score'),
+      masFetch('/api/compliance/controls'),
+      masFetch('/api/security/ps/screening-events'),
     ]);
     const score = scoreRes.ok ? ((await scoreRes.json()) as MasScore) : null;
     const atControls: Record<string, string> = {};
     const psControls: Record<string, string> = {};
+    const irControls: Record<string, string> = {};
     if (ctrlRes.ok) {
       const rows = ((await ctrlRes.json()) as { controls?: Array<{ control_id?: string; implementation_state?: string }> })
         .controls || [];
-      for (const id of AT_TIER1_IDS) {
-        const row = rows.find((r) => r.control_id === id);
-        if (row?.implementation_state) atControls[id] = String(row.implementation_state);
-      }
-      for (const id of PS_TIER1_IDS) {
-        const row = rows.find((r) => r.control_id === id);
-        if (row?.implementation_state) psControls[id] = String(row.implementation_state);
-      }
+      const pick = (ids: readonly string[], into: Record<string, string>) => {
+        for (const id of ids) {
+          const row = rows.find((r) => r.control_id === id);
+          if (row?.implementation_state) into[id] = String(row.implementation_state);
+        }
+      };
+      pick(AT_TIER1_IDS, atControls);
+      pick(PS_TIER1_IDS, psControls);
+      pick(IR_TIER1_IDS, irControls);
     }
     let screeningEvents: unknown[] = [];
     if (screeningRes.ok) {
       const body = (await screeningRes.json()) as { events?: unknown[] };
       screeningEvents = body.events || [];
     }
-    return { score, atControls, psControls, screeningEvents };
+    return { score, atControls, psControls, irControls, screeningEvents };
   } catch {
-    return { score: null, atControls: {}, psControls: {}, screeningEvents: [] };
+    return empty;
   }
 }
 
@@ -111,6 +123,7 @@ export async function GET() {
     masScore: mas.score,
     masAtControls: mas.atControls,
     masPsControls: mas.psControls,
+    masIrControls: mas.irControls,
     screeningEvents: mas.screeningEvents,
     note: (pe || re)
       ? 'Sign in with your Mycosoft account to load and save (local-dev has no Supabase session).'

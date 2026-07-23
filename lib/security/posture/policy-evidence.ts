@@ -65,6 +65,10 @@ const FAMILY_POLICIES: PolicyDoc[] = [
 // Supporting documents that evidence a specific control set.
 const SUPPORTING_DOCS: PolicyDoc[] = [
   { id: 'doc:ir-runbook', title: 'Incident Response Runbook', kind: 'procedure', controlIds: ['IR.L2-3.6.1', 'IR.L2-3.6.2', 'IR.L2-3.6.3'], tokens: ['doc:ir-runbook', 'ir_runbook', 'ir-runbook', 'incident response runbook', 'runbook'] },
+  // EV-IR-001 — dual-signed tabletop after-action report (DocuSign envelope
+  // 784BD577-B3D6-8C17-8213-D14CD2872E65, completed 2026-07-22). This is the
+  // "Test" leg of IR.L2-3.6.3; the runbook above is the "Examine" leg.
+  { id: 'doc:ir-aar', title: 'IR Tabletop After-Action Report (signed)', kind: 'record', controlIds: ['IR.L2-3.6.3'], tokens: ['doc:ir-aar', 'ev-ir-001', 'ir_aar', 'ir-aar', 'after-action report', 'after action report', 'tabletop after-action', 'aar'] },
   { id: 'doc:access-agreement', title: 'CUI Access Agreement / Acknowledgment', kind: 'record', controlIds: ['PS.L2-3.9.2'], tokens: ['doc:access-agreement', 'access_agreement', 'access-agreement', 'access agreement', 'acknowledgment and agreement'] },
   { id: 'doc:physical-access', title: 'Physical Access Authorization Record', kind: 'record', controlIds: ['PE.L2-3.10.1', 'PE.L2-3.10.2', 'PE.L2-3.10.3'], tokens: ['doc:physical-access', 'physical_access_record', 'physical access authorization', 'physical-access'] },
   { id: 'doc:visitor-log', title: 'Visitor & Physical Access Log', kind: 'record', controlIds: ['PE.L2-3.10.4', 'PE.L2-3.10.5'], tokens: ['doc:visitor-log', 'visitor_log', 'visitor-log', 'visitor log', 'visitor & physical access'] },
