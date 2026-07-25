@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { SUPPLY_CHAIN_INSTRUMENTS, PROHIBITED_ENTITIES } from '@/lib/security/reference/prohibited-sources';
 import { MYCOSOFT_DEVICE_BOMS, checkDeviceBom, type DeviceBomResult } from '@/lib/security/supply-chain/bom-check';
+import {
+  AMAZON_RECONCILIATION, AMAZON_CLASS_META, DEVICE_ITEM_COUNT, NON_DEVICE_ITEM_COUNT,
+} from '@/lib/security/supply-chain/amazon-reconciliation';
 
 const statusMeta: Record<DeviceBomResult['status'], { label: string; cls: string }> = {
   'prohibited-source-found': { label: 'Prohibited source found', cls: 'border-red-500/40 bg-red-500/10 text-red-300' },
@@ -367,6 +370,72 @@ export default function SupplyChainPanel() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Amazon procurement reconciliation (Perplexity handoff) */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Building2 className="w-4 h-4 text-orange-300" /> Amazon procurement reconciliation</h3>
+
+        <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 space-y-3">
+          {/* summary row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+            <div><div className="text-slate-500">Reconciled ledger</div><div className="text-slate-200 font-semibold">{AMAZON_RECONCILIATION.block}</div></div>
+            <div><div className="text-slate-500">Amazon spend</div><div className="text-slate-100 font-semibold tabular-nums">{AMAZON_RECONCILIATION.totalUsd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</div></div>
+            <div><div className="text-slate-500">Orders</div><div className="text-slate-200">{AMAZON_RECONCILIATION.orderCount}</div></div>
+            <div><div className="text-slate-500">Item split</div><div><span className="text-emerald-300">{DEVICE_ITEM_COUNT} device</span> <span className="text-slate-500">/</span> <span className="text-amber-300">{NON_DEVICE_ITEM_COUNT} non-device</span></div></div>
+          </div>
+
+          {/* classification table */}
+          <div className="overflow-x-auto rounded border border-slate-700">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-800/60 text-slate-400">
+                <tr>
+                  <th className="text-left p-2">Amazon item</th>
+                  <th className="text-left p-2">ASIN</th>
+                  <th className="text-left p-2">Class</th>
+                  <th className="text-left p-2">Maps to</th>
+                </tr>
+              </thead>
+              <tbody>
+                {AMAZON_RECONCILIATION.items.map((it) => {
+                  const m = AMAZON_CLASS_META[it.classification];
+                  return (
+                    <tr key={it.asin} className="border-t border-slate-800 align-top">
+                      <td className="p-2 text-slate-200">{it.item}{it.note && <div className="text-[10px] text-slate-500">{it.note}</div>}</td>
+                      <td className="p-2 font-mono text-[10px] text-slate-400">{it.asin}</td>
+                      <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${m.cls}`}>{m.label}</span></td>
+                      <td className="p-2 text-slate-300">
+                        {it.pmRef
+                          ? <span className="inline-flex items-start gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /><span><span className="font-mono text-emerald-300">{it.pmRef}</span> · {it.destination}</span></span>
+                          : <span className="text-slate-400">{it.destination}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* honesty / limitation note */}
+          <div className="text-[11px] text-amber-300/80 flex gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span><span className="font-semibold">Order-level reconciliation.</span> {AMAZON_RECONCILIATION.limitation}</span>
+          </div>
+
+          {/* order IDs (collapsed) */}
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-slate-400 hover:text-slate-200">{AMAZON_RECONCILIATION.orderIds.length} order IDs (order-level, not tied to items)</summary>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {AMAZON_RECONCILIATION.orderIds.map((id) => (
+                <span key={id} className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900/60 border border-slate-700 text-slate-400">{id}</span>
+              ))}
+            </div>
+          </details>
+
+          <div className="text-[10px] text-slate-600">
+            Source: {AMAZON_RECONCILIATION.reconciledBy} · {AMAZON_RECONCILIATION.workbook} · Block N · as of {AMAZON_RECONCILIATION.asOf}. Snapshot of the sheet; the sheet remains authoritative.
+          </div>
         </div>
       </section>
 
