@@ -2,11 +2,30 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// Google Workspace CUI-boundary integrity check (Perplexity doc §8.5).
-// Google Workspace is OUTSIDE the CUI boundary by policy; this endpoint reports
-// whether an automated scan for CUI-marking keywords is configured and, when it
-// is, surfaces hits. It never fabricates results: if creds are absent it says so.
+// Google Workspace CUI-boundary integrity check — BFF proxy.
+//
+// Google Workspace is OUTSIDE the CUI boundary by policy (CUI lives only in
+// PreVeil), so this is a spillage-detection control: it looks for CUI markings
+// that should never be in Workspace.
+//
+// AUTHORITY: MAS 188 owns the scan (systemd timer + worker, MAS PR #127) and is
+// the source of truth. The website is UI/BFF only — it must never run the scan
+// itself, and it must never synthesize a result.
+//
+// HONESTY RULES enforced here:
+//   • MAS unreachable/erroring → `unavailable`. This is DISTINCT from
+//     `not-configured`: an unreachable MAS means we do not know the boundary
+//     state, and claiming "not configured" would assert knowledge we lack.
+//   • A clean/green boundary is only ever reported when MAS says a scan
+//     actually ran and found nothing. No empty response becomes a clean result.
+//   • Hits carry LOCATION METADATA ONLY (owner/container/id/timestamp/marking
+//     token). Never file contents or message bodies — the thing being detected
+//     is CUI, and it must not transit the website, browser, or repo.
 
+const MAS_PATH = '/api/security/gws-boundary/status';
+
+// Mirrors the marking tokens the MAS worker matches on. Displayed so the
+// operator can see what is being looked for; MAS's own list wins when provided.
 const CUI_KEYWORDS = [
   'CUI',
   'CONTROLLED UNCLASSIFIED',
@@ -18,52 +37,117 @@ const CUI_KEYWORDS = [
   'EXPORT CONTROLLED',
 ];
 
-const SCOPE = [
-  'Gmail (Morgan + RJ mailboxes)',
-  'Google Drive (shared + personal)',
-  'Google Calendar attachments',
-];
+const BOUNDARY_POLICY =
+  'No CUI may reside in or transit Google Workspace — it is outside the CUI Assessment Boundary.';
 
-function isConfigured(): boolean {
-  return Boolean(
-    (process.env.GOOGLE_WORKSPACE_ADMIN_EMAIL && process.env.GOOGLE_WORKSPACE_SA_KEY) ||
-      process.env.GOOGLE_WORKSPACE_REPORTS_TOKEN
-  );
+/** Location-only hit metadata. Deliberately has no content/body field. */
+interface BoundaryHit {
+  source?: string;
+  container?: string;
+  itemId?: string;
+  owner?: string;
+  markingToken?: string;
+  detectedAt?: string;
+}
+
+interface MasBoundaryStatus {
+  configured?: boolean;
+  status?: string;
+  guidance?: string;
+  last_run?: string | null;
+  scanned_scope?: string[];
+  hit_count?: number;
+  hits?: BoundaryHit[];
+  keywords?: string[];
+}
+
+function masBase(): string {
+  return (process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || '').replace(/\/$/, '');
+}
+
+function masHeaders(): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json' };
+  const key = process.env.MAS_API_KEY || process.env.MAS_INTERNAL_API_KEY;
+  if (key) h['X-API-Key'] = key;
+  return h;
+}
+
+/** Strip any hit field that isn't location metadata — defence in depth. */
+function sanitizeHit(h: BoundaryHit): BoundaryHit {
+  return {
+    source: h.source,
+    container: h.container,
+    itemId: h.itemId,
+    owner: h.owner,
+    markingToken: h.markingToken,
+    detectedAt: h.detectedAt,
+  };
+}
+
+const base = {
+  check: 'google-workspace-cui-boundary',
+  boundaryPolicy: BOUNDARY_POLICY,
+  keywords: CUI_KEYWORDS,
+  source: 'MAS 188 gws-boundary worker; CMMC L2 scope guide (Contractor Risk Managed Assets)',
+};
+
+/** Unknown-state response — used whenever MAS cannot be consulted. */
+function unavailable(guidance: string) {
+  return NextResponse.json({
+    ...base,
+    configured: false,
+    status: 'unavailable',
+    guidance,
+    lastRun: null,
+    scope: [],
+    hitCount: null,
+    hits: [],
+  });
 }
 
 export async function GET() {
-  const configured = isConfigured();
+  const url = masBase();
 
-  const base = {
-    check: 'google-workspace-cui-boundary',
-    boundaryPolicy: 'No CUI may reside in or transit Google Workspace — it is outside the CUI Assessment Boundary.',
-    keywords: CUI_KEYWORDS,
-    scope: SCOPE,
-    source: 'CMMC L2 scope guide (Contractor Risk Managed Assets); Perplexity doc §8.5',
-  };
-
-  if (!configured) {
-    return NextResponse.json({
-      ...base,
-      configured: false,
-      status: 'not-configured',
-      guidance:
-        'Automated scanning is not configured. To enable: create a Google Workspace service account with domain-wide delegation for the Admin SDK Reports API + Drive read scope, then set GOOGLE_WORKSPACE_ADMIN_EMAIL + GOOGLE_WORKSPACE_SA_KEY (or GOOGLE_WORKSPACE_REPORTS_TOKEN) in the prod env. Until then, perform the boundary review manually on a documented cadence and record it as evidence.',
-      lastRun: null,
-      hits: [],
-    });
+  if (!url) {
+    return unavailable(
+      'MAS_API_URL is not configured on this website environment, so the boundary-scan status cannot be read. ' +
+        'This is not a statement that the boundary is clean or that scanning is off — the status is unknown.'
+    );
   }
 
-  // Configured: the actual Admin SDK / Drive scan is wired in a follow-up slice.
-  // We return a structured "configured but scan pending" response rather than
-  // inventing hits — honesty over a fake green check.
-  return NextResponse.json({
-    ...base,
-    configured: true,
-    status: 'configured-scan-pending',
-    guidance:
-      'Credentials detected. The Admin SDK Reports API / Drive keyword scan executes in the boundary-scan worker (not yet wired in this route). No results are shown until the worker runs — this endpoint will not report a clean boundary it has not actually verified.',
-    lastRun: null,
-    hits: [],
-  });
+  try {
+    const res = await fetch(`${url}${MAS_PATH}`, {
+      cache: 'no-store',
+      headers: masHeaders(),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) {
+      return unavailable(
+        `MAS boundary-scan status returned HTTP ${res.status}. The boundary state is unknown — this is not a clean result.`
+      );
+    }
+
+    const m = (await res.json()) as MasBoundaryStatus;
+
+    return NextResponse.json({
+      ...base,
+      // MAS's keyword list wins if it publishes one, so the two can't drift.
+      keywords: m.keywords?.length ? m.keywords : CUI_KEYWORDS,
+      configured: Boolean(m.configured),
+      status: m.status ?? 'unknown',
+      guidance: m.guidance ?? 'No guidance returned by the MAS boundary worker.',
+      lastRun: m.last_run ?? null,
+      scope: m.scanned_scope ?? [],
+      hitCount: typeof m.hit_count === 'number' ? m.hit_count : null,
+      hits: (m.hits ?? []).map(sanitizeHit),
+    });
+  } catch (e: any) {
+    const timedOut = e?.name === 'TimeoutError' || /timeout/i.test(String(e?.message ?? ''));
+    return unavailable(
+      timedOut
+        ? 'MAS boundary-scan status timed out. The boundary state is unknown — this is not a clean result.'
+        : `Could not reach the MAS boundary-scan status endpoint (${String(e?.message ?? e)}). The boundary state is unknown.`
+    );
+  }
 }
