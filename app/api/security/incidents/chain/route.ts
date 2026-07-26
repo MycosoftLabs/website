@@ -1,16 +1,18 @@
 /**
  * Incident Chain BFF — proxies MAS 188 per-incident chains.
  *
- * MAS is the source of record and exposes a per-incident chain
- * (`GET /api/incidents/{id}/chain`). It does NOT (yet) expose a single global
- * verified ledger with a Merkle anchor, so this route composes a global view by
- * fanning out over the current incidents, and reports chain verification as
- * `unknown` rather than fabricating `integrity_verified: true`.
+ * MAS is the source of record. Per-incident chains come from
+ * `GET /api/incidents/{id}/chain`; the global entry list is composed by fanning
+ * out over current incidents.
  *
- * TODO(MAS contract): a global chain/ledger endpoint with a verified Merkle root
- * would let us report true integrity state instead of `unknown`.
+ * Chain INTEGRITY is never computed here — it is proxied verbatim from MAS's
+ * own verifier, `GET /api/incidents/chain/verify` (MAS PR #123), which returns
+ * {verified, merkle_root, entries, incidents, reason, invalid_entries,
+ * verified_at}. MAS reports `verified: false` with a reason for an empty
+ * ledger; that is passed through unchanged. The website must never assert
+ * `integrity_verified: true` from an empty, partial, or failed response.
  *
- * @date July 22, 2026
+ * @date July 26, 2026
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -87,31 +89,53 @@ export async function GET(request: NextRequest) {
         });
       }
       case 'verify': {
-        // MAS has no global verify contract. Report honestly rather than assert
-        // integrity. An empty ledger is NOT "verified".
-        const { incidents } = await composeGlobalChain(1);
+        // MAS now owns global verification (MAS PR #123). Proxy it verbatim —
+        // the website never computes or asserts chain integrity itself.
+        const v = await masFetch('/api/incidents/chain/verify');
+        if (!v.ok) {
+          return NextResponse.json({
+            verified: null,
+            state: 'unavailable',
+            reason: v.status === 0 ? 'MAS unreachable' : `MAS ${v.status}`,
+            source: 'MAS 188 /api/incidents/chain/verify',
+          });
+        }
+        const b = v.body ?? {};
         return NextResponse.json({
-          verified: null,
-          state: 'unknown',
-          incidents_scanned: incidents,
-          reason: 'MAS exposes per-incident chains only; no global verified-root contract yet',
-          source: 'MAS 188',
+          // `verified` is MAS's own boolean. MAS returns false (with a reason)
+          // for an empty ledger — an empty chain is NOT verified, and that
+          // distinction is preserved rather than smoothed into a green state.
+          verified: typeof b.verified === 'boolean' ? b.verified : null,
+          state: typeof b.verified === 'boolean' ? 'healthy' : 'unknown',
+          merkle_root: b.merkle_root ?? null,
+          entries: b.entries ?? null,
+          incidents_scanned: b.incidents ?? null,
+          invalid_entries: Array.isArray(b.invalid_entries) ? b.invalid_entries : [],
+          reason: b.reason ?? null,
+          verified_at: b.verified_at ?? null,
+          source: 'MAS 188 /api/incidents/chain/verify',
         });
       }
       case 'stats': {
         const { entries, incidents } = await composeGlobalChain(1000);
         const hourAgo = Date.now() - 3600000;
+        // Integrity + Merkle anchor come from MAS's verifier, never from a
+        // local count of whatever entries this request happened to fetch.
+        const v = await masFetch('/api/incidents/chain/verify');
+        const vb = v.ok ? (v.body ?? {}) : null;
         return NextResponse.json({
           chain: {
-            total_entries: entries.length,
+            total_entries: vb?.entries ?? entries.length,
             entries_last_hour: entries.filter((e) => new Date(String((e as { created_at?: string }).created_at ?? 0)).getTime() > hourAgo).length,
             latest_hash: (entries[0] as { event_hash?: string })?.event_hash ?? '',
             latest_sequence: (entries[0] as { sequence_number?: number })?.sequence_number ?? 0,
-            last_merkle_anchor: null,
-            integrity_verified: null, // never fabricated — see verify action
+            last_merkle_anchor: vb?.merkle_root ?? null,
+            integrity_verified: vb && typeof vb.verified === 'boolean' ? vb.verified : null,
+            integrity_reason: vb?.reason ?? (v.ok ? null : 'MAS verify unavailable'),
+            verified_at: vb?.verified_at ?? null,
             incidents_scanned: incidents,
           },
-          source: 'MAS 188 per-incident chains (composed)',
+          source: 'MAS 188 (entries composed; integrity from /api/incidents/chain/verify)',
           state: 'healthy',
         });
       }
