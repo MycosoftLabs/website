@@ -238,7 +238,7 @@ function StatCard({
 // CHAIN INTEGRITY BADGE
 // ═══════════════════════════════════════════════════════════════
 
-function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) {
+function ChainIntegrityBadge({ chainStats, verifyReason }: { chainStats: ChainStats | null; verifyReason?: string | null }) {
   if (!chainStats) {
     return (
       <Tooltip content="Loading cryptographic chain status. The chain ensures all incident logs are tamper-proof using SHA-256 hashing.">
@@ -250,18 +250,28 @@ function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) 
     );
   }
   
-  // Three honest states: verified (MAS attested), error (verification failed), and
-  // unknown (no global verified-root contract — the current reality). Unknown is
-  // NEVER rendered as green "Chain Verified".
+  // Four honest states, from MAS's verifier (/api/incidents/chain/verify):
+  //   verified   — MAS attested the linked chain
+  //   error      — verification FAILED with entries present (possible tampering)
+  //   nothing-to-verify — MAS says false because the ledger is empty. This is
+  //                NOT tampering, and must not raise a red alarm; treating an
+  //                empty ledger as "Chain Error" would be a false positive just
+  //                as dishonest as calling it verified.
+  //   unknown    — MAS unreachable / no boolean returned
   const iv = chainStats.integrity_verified;
-  const kind = iv === true ? 'verified' : iv === false ? 'error' : 'unknown';
+  const emptyLedger = chainStats.total_entries === 0;
+  const kind = iv === true ? 'verified'
+    : iv === false ? (emptyLedger ? 'nothing-to-verify' : 'error')
+    : 'unknown';
   const meta = {
     verified: { cls: 'bg-emerald-500/10 border border-emerald-500/30', text: 'text-emerald-400', label: 'Chain Verified',
-      tip: `Chain verified: all ${chainStats.total_entries} blocks are cryptographically linked.` },
+      tip: `Chain verified by MAS: all ${chainStats.total_entries} blocks are cryptographically linked.` },
     error: { cls: 'bg-red-500/10 border border-red-500/30', text: 'text-red-400', label: 'Chain Error',
-      tip: 'Chain integrity error — some blocks may have been modified. Investigate immediately.' },
+      tip: `MAS chain verification FAILED${verifyReason ? ` — ${verifyReason}` : ''}. Blocks may have been modified. Investigate immediately.` },
+    'nothing-to-verify': { cls: 'bg-slate-700/40 border border-slate-600', text: 'text-slate-300', label: 'No chain entries',
+      tip: `MAS reports nothing to verify${verifyReason ? ` — ${verifyReason}` : ''}. An empty ledger is not a verified ledger, and is not evidence of tampering.` },
     unknown: { cls: 'bg-slate-700/40 border border-slate-600', text: 'text-slate-300', label: 'Integrity unknown',
-      tip: 'MAS exposes per-incident chains but no global verified-root contract yet, so global integrity cannot be attested. This is not a claim of tampering.' },
+      tip: `Global chain integrity could not be read from MAS${verifyReason ? ` — ${verifyReason}` : ''}. This is not a claim of tampering.` },
   }[kind];
 
   return (
@@ -354,19 +364,39 @@ export default function IncidentDashboard() {
   const [chainStats, setChainStats] = useState<ChainStats | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [blocks, setBlocks] = useState<ChainBlock[]>([]);
+  // MAS's own explanation when the chain isn't verified (e.g. "no incident-chain
+  // entries are available") — shown instead of a bare unknown state.
+  const [chainVerifyReason, setChainVerifyReason] = useState<string | null>(null);
   
   // Fetch all data
   const fetchData = useCallback(async () => {
     try {
-      const [incidentsRes, chainRes] = await Promise.all([
+      const [incidentsRes, chainRes, verifyRes] = await Promise.all([
         fetch('/api/security/incidents?limit=200'),
         fetch('/api/security/incidents/chain?action=entries&limit=100'),
+        fetch('/api/security/incidents/chain?action=verify'),
       ]);
 
       // Source availability drives honest rendering — a failed fetch is NOT an
       // empty-but-healthy state.
       setIncidentsAvailable(incidentsRes.ok);
       setChainAvailable(chainRes.ok);
+
+      // Global chain integrity, straight from MAS's verifier. `verified` stays
+      // null (unknown) unless MAS actually returns a boolean — an unreachable
+      // verifier or an empty ledger never becomes a green "Chain Verified".
+      let verify: { verified: boolean | null; merkle_root: string | null; reason: string | null } = {
+        verified: null, merkle_root: null, reason: null,
+      };
+      if (verifyRes.ok) {
+        const v = await verifyRes.json();
+        verify = {
+          verified: typeof v.verified === 'boolean' ? v.verified : null,
+          merkle_root: v.merkle_root ?? null,
+          reason: v.reason ?? null,
+        };
+      }
+      setChainVerifyReason(verify.reason);
 
       if (incidentsRes.ok) {
         const data = await incidentsRes.json();
@@ -417,9 +447,9 @@ export default function IncidentDashboard() {
         const data = await chainRes.json();
         setBlocks(data.entries || []);
         
-        // Chain integrity is NEVER assumed. MAS exposes per-incident chains but
-        // no global verified-root, so integrity_verified stays null (unknown) —
-        // an empty chain is not a "verified" chain.
+        // Chain integrity is NEVER computed here — `verify` above carries MAS's
+        // own verdict. It stays null (unknown) when MAS can't be asked, and MAS
+        // itself reports false-with-a-reason for an empty ledger.
         if (data.entries && data.entries.length > 0) {
           setChainStats({
             total_entries: data.entries.length,
@@ -429,8 +459,8 @@ export default function IncidentDashboard() {
             entries_last_day: data.entries.length,
             latest_hash: data.entries[0].event_hash,
             latest_sequence: data.entries[0].sequence_number,
-            last_merkle_anchor: null,
-            integrity_verified: null,
+            last_merkle_anchor: verify.merkle_root,
+            integrity_verified: verify.verified,
           });
 
           setLiveStats(prev => ({
@@ -444,8 +474,8 @@ export default function IncidentDashboard() {
             entries_last_day: 0,
             latest_hash: '',
             latest_sequence: 0,
-            last_merkle_anchor: null,
-            integrity_verified: null,
+            last_merkle_anchor: verify.merkle_root,
+            integrity_verified: verify.verified,
           });
         }
       }
@@ -496,7 +526,7 @@ export default function IncidentDashboard() {
               </span>
             </div>
 
-            <ChainIntegrityBadge chainStats={chainStats} />
+            <ChainIntegrityBadge chainStats={chainStats} verifyReason={chainVerifyReason} />
           </div>
           
           <div className="flex items-center gap-4">
