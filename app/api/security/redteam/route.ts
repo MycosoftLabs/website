@@ -76,6 +76,34 @@ export async function GET(request: NextRequest) {
         const body = await res.json().catch(() => ({}));
         return NextResponse.json(body, { status: res.status });
       }
+      // Read-only catalog of APPROVED scenarios (MAS PR #123). The browser
+      // never authors scan parameters; it may only pick a registered scenario.
+      // MAS answers 503 while the registry is unpopulated — surfaced as an
+      // explicit unavailable state, never as "no scenarios exist".
+      case 'scenarios': {
+        const res = await masFetch('/api/redteam/scenarios');
+        if (!res.ok) {
+          return NextResponse.json(
+            {
+              state: 'unavailable',
+              scenarios: null,
+              reason: res.status === 503
+                ? 'MAS scenario registry is not available yet.'
+                : `MAS returned HTTP ${res.status}.`,
+              source: 'MAS 188 /api/redteam/scenarios',
+            },
+            { status: 200 },
+          );
+        }
+        const body = await res.json().catch(() => null);
+        const list = Array.isArray(body) ? body : Array.isArray(body?.scenarios) ? body.scenarios : null;
+        return NextResponse.json({
+          state: list ? 'healthy' : 'unknown',
+          scenarios: list,
+          count: list?.length ?? null,
+          source: 'MAS 188 /api/redteam/scenarios',
+        });
+      }
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
@@ -110,6 +138,38 @@ export async function POST(request: NextRequest) {
         const res = await masFetch('/api/redteam/authorize', { method: 'POST' });
         const out = await res.json().catch(() => ({}));
         return NextResponse.json(out, { status: res.status });
+      }
+
+      // Request a run of a REGISTERED scenario. The browser supplies only the
+      // scenario id + a reason — never targets, scan types, or payloads. MAS
+      // owns scope, risk class, approval, and the run state machine.
+      case 'request-run': {
+        const scenarioId = String((data as Record<string, unknown>).scenario_id ?? '').trim();
+        const reason = String((data as Record<string, unknown>).reason ?? '').trim();
+        if (!scenarioId) {
+          return NextResponse.json({ error: 'scenario_id is required' }, { status: 400 });
+        }
+        if (reason.length < 8) {
+          return NextResponse.json({ error: 'A reason of at least 8 characters is required.' }, { status: 400 });
+        }
+        const res = await masFetch('/api/redteam/runs', {
+          method: 'POST',
+          body: JSON.stringify({ scenario_id: scenarioId, reason }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          // Fail closed — a rejected or unreachable MAS is never a started run.
+          return NextResponse.json(
+            {
+              state: 'unavailable',
+              run: null,
+              reason: (out as { detail?: string })?.detail ?? `MAS returned HTTP ${res.status}.`,
+              requested_by: auth.user.email,
+            },
+            { status: res.status === 0 ? 502 : res.status },
+          );
+        }
+        return NextResponse.json({ state: 'healthy', run: out, requested_by: auth.user.email });
       }
 
       case 'credential-test': {
