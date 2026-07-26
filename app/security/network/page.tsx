@@ -11,6 +11,7 @@ import {
 import { SecurityTour, networkMonitorTour, TourTriggerButton } from "@/components/security/tour";
 import type { DashboardData, Device, Client, ThroughputPayload } from "@/lib/unifi/network-dashboard-map";
 import { useSecurityWebSocket } from "@/hooks/use-security-websocket";
+import GuardianActionButton from "@/components/security/GuardianActionButton";
 
 type Throughput = ThroughputPayload;
 
@@ -791,26 +792,35 @@ function DevicesView({ devices, formatUptime }: { devices: Device[], formatUptim
               </div>
             )}
 
-            {/* Quick Actions — disabled pending a MAS Guardian command contract.
-                Restart/isolate/upgrade are significant device actions; they must
-                go through Guardian authorization + Morgan/RJ HITL + audit, not
-                fire directly at the controller from the browser. */}
+            {/* Device Actions — Guardian-gated REQUESTS (MAS PR #123).
+                Each control asks MAS Guardian for authorization and renders the
+                decision verbatim. The browser never touches the controller and
+                never reports an action as completed. */}
             <div className="bg-slate-800/50 rounded-lg p-4">
               <h3 className="font-bold text-white font-mono mb-3">Device Actions</h3>
               <div className="grid grid-cols-2 gap-2">
-                {['Restart', 'Upgrade', 'View Logs', 'Isolate'].map((label) => (
-                  <button
-                    key={label}
-                    disabled
-                    title="Awaiting MAS Guardian command contract — device actions require Guardian authorization + HITL approval + audit."
-                    className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-500 text-sm font-mono cursor-not-allowed flex items-center justify-center gap-1"
-                  >
-                    <Lock size={12} /> {label}
-                  </button>
+                {([
+                  ['View Logs', 'device.logs', 'read'],
+                  ['Restart', 'device.restart', 'disruptive'],
+                  ['Upgrade', 'device.upgrade', 'disruptive'],
+                  ['Isolate', 'device.isolate', 'high_risk'],
+                ] as const).map(([label, action, policyClass]) => (
+                  <GuardianActionButton
+                    key={action}
+                    label={label}
+                    action={action}
+                    policyClass={policyClass}
+                    target={{
+                      kind: 'device',
+                      id: (selectedDevice as any)?._id ?? (selectedDevice as any)?.device_id ?? null,
+                      mac: (selectedDevice as any)?.mac ?? null,
+                      name: (selectedDevice as any)?.name ?? null,
+                    }}
+                  />
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-slate-500 font-mono">
-                Awaiting MAS Guardian command contract (Guardian decision + Morgan/RJ HITL + audit).
+                Requests go to MAS Guardian (decision + Morgan/RJ HITL + audit). Submitting does not execute the action.
               </p>
             </div>
           </div>
@@ -1033,10 +1043,10 @@ function ClientsView({ clients, formatBytes }: { clients: DashboardData['clients
               </div>
             )}
 
-            {/* Client Actions — View History is read-only and stays enabled.
-                Reconnect / Limit Speed / Block are network mutations and are
-                disabled pending a MAS Guardian command contract (Guardian
-                decision + Morgan/RJ HITL + audit). */}
+            {/* Client Actions — View History is read-only. Reconnect / Limit
+                Speed / Block are network mutations and go through Guardian as
+                requests (decision + Morgan/RJ HITL + audit), never as direct
+                controller calls from the browser. */}
             <div className="bg-slate-800/50 rounded-lg p-4">
               <h3 className="font-bold text-white font-mono mb-3">Client Actions</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -1048,19 +1058,27 @@ function ClientsView({ clients, formatBytes }: { clients: DashboardData['clients
                   {historyLoading ? <RefreshCw size={14} className="animate-spin" /> : null}
                   View History
                 </button>
-                {['Reconnect', 'Limit Speed', 'Block'].map((label) => (
-                  <button
-                    key={label}
-                    disabled
-                    title="Awaiting MAS Guardian command contract — client mutations require Guardian authorization + HITL approval + audit."
-                    className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-500 text-sm font-mono cursor-not-allowed flex items-center justify-center gap-1"
-                  >
-                    <Lock size={12} /> {label}
-                  </button>
+                {([
+                  ['Reconnect', 'client.reconnect', 'low_impact'],
+                  ['Limit Speed', 'client.set_bandwidth', 'disruptive'],
+                  ['Block', 'client.block', 'high_risk'],
+                ] as const).map(([label, action, policyClass]) => (
+                  <GuardianActionButton
+                    key={action}
+                    label={label}
+                    action={action}
+                    policyClass={policyClass}
+                    target={{
+                      kind: 'client',
+                      mac: (selectedClient as any)?.mac ?? null,
+                      ip: (selectedClient as any)?.ip ?? null,
+                      hostname: (selectedClient as any)?.hostname ?? (selectedClient as any)?.name ?? null,
+                    }}
+                  />
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-slate-500 font-mono">
-                Mutations await a MAS Guardian command contract (Guardian decision + Morgan/RJ HITL + audit).
+                Mutations are requested through MAS Guardian (decision + Morgan/RJ HITL + audit). Submitting does not execute the action.
               </p>
             </div>
 

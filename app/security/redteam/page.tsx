@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Globe, Router, Server, Wifi, Monitor, Users, RefreshCw, Target, Shield, AlertTriangle, Crosshair, Lock, Unlock, Zap, Database, Cloud, Eye, ChevronRight, X, HelpCircle } from 'lucide-react';
 import { SecurityTour, redTeamTour, TourTriggerButton } from '@/components/security/tour';
+import ScenarioCatalog from '@/components/security/ScenarioCatalog';
 
 interface Host {
   ip: string;
@@ -247,7 +248,7 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
             schedules remain visible read-only below. */}
         <button
           disabled
-          title="Awaiting MAS scenario registry + Guardian scheduling contract — schedules are not authored in the browser."
+          title="Schedules are not authored in the browser. Cadence is a property of a registered MAS scenario — see Approved scenarios above."
           className="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-500 rounded-lg font-medium cursor-not-allowed flex items-center gap-2"
         >
           <Lock size={16} />
@@ -778,23 +779,23 @@ export default function RedTeamDashboard() {
           </div>
         </div>
 
-        {/* Network Scanner — DISABLED. A SOC scan must be an approved MAS scenario
-            (allowlisted scope, Guardian risk classification, Morgan/RJ approval,
-            audited run), never an arbitrary CIDR + scan type authored in the
-            browser. The target/type inputs and browser-initiated scan are removed
-            pending the MAS scenario-registry + Guardian command contract. */}
+        {/* Approved scenario catalog (MAS PR #123). Arbitrary browser-authored
+            scans remain impossible: the UI can only request a scenario MAS has
+            registered and approved, and supplies nothing but the scenario id +
+            a reason. Scope, risk class, isolation target, approval class and
+            kill switch are MAS's fields, shown read-only. */}
         <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Lock className="text-slate-400" size={18} />
-            <h2 className="text-lg font-bold text-slate-200">Network Scanner</h2>
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-amber-300 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5">Gated</span>
+            <h2 className="text-lg font-bold text-slate-200">Approved scenarios</h2>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 rounded px-1.5 py-0.5">MAS registry</span>
           </div>
-          <p className="text-sm text-slate-400">
-            Arbitrary browser-authored scans are disabled. Scans run only from an approved MAS scenario
-            (allowlisted scope + Guardian risk classification + Morgan/RJ approval + audited run). The scenario
-            catalog and run controls appear below once the MAS scenario-registry / Guardian command contract is available.
+          <p className="text-sm text-slate-400 mb-3">
+            Runs come only from an approved MAS scenario — allowlisted scope, Guardian risk classification,
+            Morgan/RJ approval where required, and an audited run record. Targets, CIDRs, scan types and payloads
+            are never authored in the browser. Requesting a run does not start one.
           </p>
-          <p className="mt-2 text-[11px] font-mono text-slate-500">TODO(MAS contract): scenario registry + Guardian-gated run request.</p>
+          <ScenarioCatalog />
         </div>
 
         {/* Tabs */}
@@ -1203,14 +1204,14 @@ export default function RedTeamDashboard() {
                           <button
                             key={label}
                             disabled
-                            title="Awaiting MAS scenario registry + Guardian approval — scans are not authored in the browser."
+                            title="Scans are not authored in the browser. Request an approved scenario from the Approved scenarios catalog above."
                             className="p-2 bg-slate-800 border border-slate-700 rounded text-slate-500 text-xs cursor-not-allowed flex items-center justify-center gap-1"
                           >
                             <Lock size={11} /> {label}
                           </button>
                         ))}
                       </div>
-                      <div className="mt-2 text-[10px] text-amber-300/80">Gated — scans run only as approved MAS scenarios.</div>
+                      <div className="mt-2 text-[10px] text-amber-300/80">Gated — request these via the Approved scenarios catalog above.</div>
                     </div>
                   </div>
                 )}
@@ -1491,13 +1492,13 @@ export default function RedTeamDashboard() {
             ].map(({ label, desc, Icon }) => (
               <div
                 key={label}
-                title="Awaiting MAS scenario registry + Guardian approval contract."
+                title="Simulations run only as registered MAS scenarios. Request one from the Approved scenarios catalog above."
                 className="p-4 border border-slate-700 bg-slate-800 rounded-lg text-left opacity-70 cursor-not-allowed"
               >
                 <Icon size={18} className="text-slate-500 mb-2" />
                 <div className="text-slate-300 font-medium mb-1 flex items-center gap-1"><Lock size={12} /> {label}</div>
                 <div className="text-xs text-slate-500">{desc}</div>
-                <div className="mt-2 text-[10px] text-amber-300/80">Gated — MAS scenario contract</div>
+                <div className="mt-2 text-[10px] text-amber-300/80">Gated — request via Approved scenarios above</div>
               </div>
             ))}
           </div>
