@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,12 @@ export const dynamic = 'force-dynamic';
 //   • Hits carry LOCATION METADATA ONLY (owner/container/id/timestamp/marking
 //     token). Never file contents or message bodies — the thing being detected
 //     is CUI, and it must not transit the website, browser, or repo.
+//
+// AUTHZ: admin-gated. Next route handlers are public unless explicitly gated,
+// and this endpoint enumerates suspected CUI-spillage locations and owners —
+// exactly the reconnaissance an unauthenticated caller must not get. It also
+// never echoes raw exception text, which would disclose MAS hostnames and
+// internal topology; failures are logged server-side and reported generically.
 
 const MAS_PATH = '/api/security/gws-boundary/status';
 
@@ -106,6 +113,10 @@ function unavailable(guidance: string) {
 }
 
 export async function GET() {
+  // Gate first: everything below can disclose suspected-spillage locations.
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   const url = masBase();
 
   if (!url) {
@@ -144,10 +155,13 @@ export async function GET() {
     });
   } catch (e: any) {
     const timedOut = e?.name === 'TimeoutError' || /timeout/i.test(String(e?.message ?? ''));
+    // Detail stays server-side: raw fetch errors carry the MAS host/port and
+    // internal topology, which must not be echoed to a caller.
+    console.error('[boundary-check] MAS status fetch failed:', e);
     return unavailable(
       timedOut
         ? 'MAS boundary-scan status timed out. The boundary state is unknown — this is not a clean result.'
-        : `Could not reach the MAS boundary-scan status endpoint (${String(e?.message ?? e)}). The boundary state is unknown.`
+        : 'Could not reach the MAS boundary-scan status endpoint. The boundary state is unknown — this is not a clean result.'
     );
   }
 }
