@@ -248,7 +248,7 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
             schedules remain visible read-only below. */}
         <button
           disabled
-          title="Awaiting MAS scenario registry + Guardian scheduling contract — schedules are not authored in the browser."
+          title="Schedules are not authored in the browser. Cadence is a property of a registered MAS scenario — see Approved scenarios above."
           className="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-500 rounded-lg font-medium cursor-not-allowed flex items-center gap-2"
         >
           <Lock size={16} />
@@ -1204,14 +1204,14 @@ export default function RedTeamDashboard() {
                           <button
                             key={label}
                             disabled
-                            title="Awaiting MAS scenario registry + Guardian approval — scans are not authored in the browser."
+                            title="Scans are not authored in the browser. Request an approved scenario from the Approved scenarios catalog above."
                             className="p-2 bg-slate-800 border border-slate-700 rounded text-slate-500 text-xs cursor-not-allowed flex items-center justify-center gap-1"
                           >
                             <Lock size={11} /> {label}
                           </button>
                         ))}
                       </div>
-                      <div className="mt-2 text-[10px] text-amber-300/80">Gated — scans run only as approved MAS scenarios.</div>
+                      <div className="mt-2 text-[10px] text-amber-300/80">Gated — request these via the Approved scenarios catalog above.</div>
                     </div>
                   </div>
                 )}
@@ -1492,13 +1492,13 @@ export default function RedTeamDashboard() {
             ].map(({ label, desc, Icon }) => (
               <div
                 key={label}
-                title="Awaiting MAS scenario registry + Guardian approval contract."
+                title="Simulations run only as registered MAS scenarios. Request one from the Approved scenarios catalog above."
                 className="p-4 border border-slate-700 bg-slate-800 rounded-lg text-left opacity-70 cursor-not-allowed"
               >
                 <Icon size={18} className="text-slate-500 mb-2" />
                 <div className="text-slate-300 font-medium mb-1 flex items-center gap-1"><Lock size={12} /> {label}</div>
                 <div className="text-xs text-slate-500">{desc}</div>
-                <div className="mt-2 text-[10px] text-amber-300/80">Gated — MAS scenario contract</div>
+                <div className="mt-2 text-[10px] text-amber-300/80">Gated — request via Approved scenarios above</div>
               </div>
             ))}
           </div>
