@@ -30,6 +30,7 @@ import CmmcReferencePanel from '@/components/security/CmmcReferencePanel';
 import SupplyChainPanel from '@/components/security/SupplyChainPanel';
 import PreVeilPanel from '@/components/security/PreVeilPanel';
 import Tier1Panel from '@/components/security/Tier1Panel';
+import ClosureBoardPanel from '@/components/security/ClosureBoardPanel';
 import { ShieldCheck } from 'lucide-react';
 import { getRemediationPlan } from '@/lib/security/remediation/remediation-library';
 import { policyEvidenceForControl } from '@/lib/security/posture/policy-evidence';
@@ -48,7 +49,7 @@ function controlStepProgress(control: { id: string; family: string; status: stri
   const evidenced = (control.evidence ?? []).filter((e) => e && String(e).trim() && String(e).trim().toLowerCase() !== 'null').length;
   return { done: Math.min(evidenced, total), total };
 }
-import { BookOpen, Ban } from 'lucide-react';
+import { BookOpen, Ban, Target } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -528,7 +529,7 @@ async function generatePDFReport(
 export default function CompliancePage() {
   const [selectedFramework, setSelectedFramework] = useState<ComplianceFramework>('all');
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'controls' | 'tier1' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
+  const [activeTab, setActiveTab] = useState<'controls' | 'tier1' | 'closure' | 'audit' | 'reports' | 'preveil' | 'exostar' | 'mas-live' | 'reference' | 'supply-chain'>('controls');
   const [controls, setControls] = useState<ComplianceControl[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [incidents, setIncidents] = useState<Record<string, unknown>[]>([]);
@@ -1028,6 +1029,7 @@ export default function CompliancePage() {
         {[
           { id: 'controls', label: 'Controls', icon: Shield, tourId: 'controls-tab' },
           { id: 'tier1', label: 'Tier-1 Turnkey', icon: ClipboardCheck, tourId: 'tier1-tab' },
+          { id: 'closure', label: 'Closure Board', icon: Target, tourId: 'closure-tab' },
           { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
           { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
           { id: 'mas-live', label: 'SSP / POA&M (MAS)', icon: Sparkles, tourId: 'mas-live-tab' },
@@ -1723,6 +1725,13 @@ export default function CompliancePage() {
 
       {/* PreVeil Tab — the L2 CUI enclave */}
       {activeTab === 'tier1' && <Tier1Panel />}
+
+      {/* Closure Board — the 57 baseline Partials, live from MAS */}
+      {activeTab === 'closure' && (
+        <div data-tour="closure-section">
+          <ClosureBoardPanel />
+        </div>
+      )}
 
       {activeTab === 'preveil' && <PreVeilPanel />}
 
