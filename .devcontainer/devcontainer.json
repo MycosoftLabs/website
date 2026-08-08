@@ -1,0 +1,81 @@
+{
+    "name": "Mycosoft Website",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": true,
+            "configureZshAsDefaultShell": false,
+            "username": "node"
+        }
+    },
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "16gb",
+        "storage": "64gb"
+    },
+    "forwardPorts": [3000, 3010, 3020],
+    "portsAttributes": {
+        "3010": {
+            "label": "Next.js dev (mycosoft)",
+            "onAutoForward": "openPreview"
+        },
+        "3000": {
+            "label": "Next.js prod",
+            "onAutoForward": "silent"
+        },
+        "3020": {
+            "label": "Next.js dev:crep",
+            "onAutoForward": "silent"
+        }
+    },
+    "remoteEnv": {
+        "NODE_OPTIONS": "--max-old-space-size=6144",
+        "NEXT_TELEMETRY_DISABLED": "1"
+    },
+    "containerEnv": {
+        "NEXT_TELEMETRY_DISABLED": "1"
+    },
+    "onCreateCommand": "bash .devcontainer/on-create.sh",
+    "postCreateCommand": "bash .devcontainer/post-create.sh",
+    "postStartCommand": "bash .devcontainer/post-start.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "bradlc.vscode-tailwindcss",
+                "ms-playwright.playwright",
+                "Prisma.prisma",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "GitHub.vscode-pull-request-github",
+                "GitHub.vscode-github-actions",
+                "ms-azuretools.vscode-docker",
+                "EditorConfig.EditorConfig",
+                "yzhang.markdown-all-in-one",
+                "Anthropic.claude-code"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+                "files.eol": "\n",
+                "git.autofetch": true,
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        },
+        "codespaces": {
+            "openFiles": [
+                "README.md",
+                ".devcontainer/MOBILE_DEV_QUICKSTART.md"
+            ]
+        }
+    },
+    "remoteUser": "node"
+}
