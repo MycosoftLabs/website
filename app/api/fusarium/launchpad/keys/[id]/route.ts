@@ -22,8 +22,12 @@ export async function DELETE(
   }
 
   const revoked = await revokeApiKeyViaRpc(gate.ctx.supabase, keyId);
-  if (!revoked.ok) {
-    return mapApiKeyRpcError(revoked.error, 'revoke');
+  if (revoked.ok) {
+    return NextResponse.json({ ok: true, id: keyId, revoked: true });
   }
-  return NextResponse.json({ ok: true, id: keyId, revoked: true });
+  const message =
+    typeof (revoked as { error?: string }).error === 'string'
+      ? (revoked as { error: string }).error
+      : 'revoke failed';
+  return mapApiKeyRpcError(message, 'revoke');
 }
