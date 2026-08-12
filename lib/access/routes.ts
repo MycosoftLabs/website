@@ -23,6 +23,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/preview', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Preview page' },
   { path: '/apps', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Apps hub' },
   { path: '/apps/[slug]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'App page' },
+  { path: '/fusarium/launchpad', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'FUSARIUM Launchpad marketing (commercial, non-CUI product)' },
   { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
   { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
   { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
@@ -133,6 +134,11 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
   { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
   { path: '/billing', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Billing' },
+  // FUSARIUM Launchpad authenticated app. Prefix-matched by AUTH_REQUIRED_PREFIXES,
+  // so every /app/launchpad/* page is login-gated at the edge. Tenant membership,
+  // roles, and the LAUNCHPAD_ENABLED flag are enforced by requireTenant() in the
+  // layout and in every BFF route — middleware only guarantees "signed in".
+  { path: '/app/launchpad', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'FUSARIUM Launchpad tenant workspace' },
 ]
 
 // Company routes - require @mycosoft.org or @mycosoft.com email
