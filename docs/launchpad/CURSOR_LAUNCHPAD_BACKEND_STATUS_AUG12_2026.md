@@ -75,4 +75,7 @@ Local `.env.local` presence check (values not logged):
 
 ## Commits / PR
 
-See git log on `feat/launchpad-backend-aug12` after push. Merge to `main` only when green and prod flag still OFF.
+- Branch: `feat/launchpad-backend-aug12`
+- Commit: `1e83f9a4` — feat(launchpad): backend ingest, agent HMAC, Stripe tooling, legacy webhook guard
+- PR: https://github.com/MycosoftLabs/website/pull/260
+- Merge to `main` only when green and prod flag still OFF.
