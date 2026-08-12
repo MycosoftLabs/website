@@ -1,6 +1,6 @@
-# FUSARIUM Launchpad — provision platform secret placeholders + Stripe webhook
+# FUSARIUM Launchpad - provision platform secret placeholders + Stripe webhook
 #
-# Creates/ensures .env.local keys (never invents Supabase service_role — paste from dashboard).
+# Creates/ensures .env.local keys (never invents Supabase service_role - paste from dashboard).
 # If STRIPE_SECRET_KEY is set, registers the Launchpad webhook endpoint (test mode) and
 # writes STRIPE_LAUNCHPAD_WEBHOOK_SECRET once (or prints it).
 #
@@ -8,8 +8,10 @@
 #   .\scripts\launchpad\provision-platform-secrets.ps1
 #   .\scripts\launchpad\provision-platform-secrets.ps1 -WebhookUrl "https://sandbox.mycosoft.com/api/fusarium/launchpad/stripe/webhook"
 #   .\scripts\launchpad\provision-platform-secrets.ps1 -NonInteractive
+#   .\scripts\launchpad\provision-platform-secrets.ps1 -NonInteractive -SkipStripeWebhook
 #
 # Never commit .env.local. LAUNCHPAD_ENABLED stays 0 unless Morgan flips it.
+# ASCII-only file: PowerShell 5.x breaks on em-dash / arrow Unicode in string literals.
 
 param(
   [string]$WebhookUrl = "http://localhost:3010/api/fusarium/launchpad/stripe/webhook",
@@ -75,15 +77,15 @@ if (-not (Test-Path $EnvLocal)) {
 $envMap = Read-DotEnv $EnvLocal
 
 $requiredKeys = @(
-  @{ Key = "NEXT_PUBLIC_SUPABASE_URL"; Hint = "Supabase Dashboard → Project Settings → API → Project URL" },
-  @{ Key = "NEXT_PUBLIC_SUPABASE_ANON_KEY"; Hint = "Supabase Dashboard → API → anon public" },
-  @{ Key = "SUPABASE_SERVICE_ROLE_KEY"; Hint = "Supabase Dashboard → API → service_role (secret) — paste once; cannot invent" },
-  @{ Key = "STRIPE_SECRET_KEY"; Hint = "Stripe Dashboard → Developers → API keys (sk_test_… first)" },
+  @{ Key = "NEXT_PUBLIC_SUPABASE_URL"; Hint = "Supabase Dashboard > Project Settings > API > Project URL" },
+  @{ Key = "NEXT_PUBLIC_SUPABASE_ANON_KEY"; Hint = "Supabase Dashboard > API > anon public" },
+  @{ Key = "SUPABASE_SERVICE_ROLE_KEY"; Hint = "Supabase Dashboard > API > service_role (secret) - paste once; cannot invent" },
+  @{ Key = "STRIPE_SECRET_KEY"; Hint = "Stripe Dashboard > Developers > API keys (sk_test_... first)" },
   @{ Key = "STRIPE_LAUNCHPAD_WEBHOOK_SECRET"; Hint = "Created by this script OR Stripe webhook endpoint signing secret" },
   @{ Key = "SAM_API_KEY"; Hint = "api.data.gov key for SAM.gov collector (optional until radar runs)" },
   @{ Key = "LAUNCHPAD_ENABLED"; Hint = "Keep 0 in sandbox/prod until Morgan go" },
-  @{ Key = "LAUNCHPAD_INGEST_TOKEN"; Hint = "DEPRECATED break-glass — prefer tenant lp_ keys (scope=ingest)" },
-  @{ Key = "LAUNCHPAD_AGENT_ROOT_SECRET"; Hint = "DEPRECATED break-glass — prefer tenant lp_ keys (scope=agent)" }
+  @{ Key = "LAUNCHPAD_INGEST_TOKEN"; Hint = "DEPRECATED break-glass - prefer tenant lp_ keys (scope=ingest)" },
+  @{ Key = "LAUNCHPAD_AGENT_ROOT_SECRET"; Hint = "DEPRECATED break-glass - prefer tenant lp_ keys (scope=agent)" }
 )
 
 foreach ($item in $requiredKeys) {
@@ -121,20 +123,8 @@ if (-not $SkipStripeWebhook) {
     Write-Host "Skip Stripe webhook: live key without ALLOW_STRIPE_LIVE_PROVISION=1"
   } else {
     Write-Host "Registering Stripe webhook endpoint: $WebhookUrl"
-    $body = @{
-      url            = $WebhookUrl
-      "enabled_events[]" = @(
-        "checkout.session.completed",
-        "customer.subscription.updated",
-        "customer.subscription.deleted",
-        "invoice.paid",
-        "invoice.payment_failed"
-      )
-      description    = "FUSARIUM Launchpad entitlements"
-    }
-    # Stripe API expects form encoding for webhook endpoints
     $form = "url=$([uri]::EscapeDataString($WebhookUrl))"
-    $form += "&description=$([uri]::EscapeDataString('FUSARIUM Launchpad entitlements'))"
+    $form += ("&description=" + [uri]::EscapeDataString("FUSARIUM Launchpad entitlements"))
     foreach ($ev in @(
       "checkout.session.completed",
       "customer.subscription.updated",
@@ -142,7 +132,7 @@ if (-not $SkipStripeWebhook) {
       "invoice.paid",
       "invoice.payment_failed"
     )) {
-      $form += "&enabled_events[]=$([uri]::EscapeDataString($ev))"
+      $form += ("&enabled_events[]=" + [uri]::EscapeDataString($ev))
     }
 
     try {
@@ -161,7 +151,7 @@ if (-not $SkipStripeWebhook) {
       }
     } catch {
       Write-Host "Stripe webhook create failed: $($_.Exception.Message)"
-      Write-Host "If endpoint already exists, copy signing secret from Stripe Dashboard → Webhooks."
+      Write-Host "If endpoint already exists, copy signing secret from Stripe Dashboard > Webhooks."
     }
   }
 }
@@ -169,7 +159,7 @@ if (-not $SkipStripeWebhook) {
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  1. Paste SUPABASE_SERVICE_ROLE_KEY from Supabase dashboard if still empty."
-Write-Host "  2. Apply migration: supabase/migrations/20260812120000_launchpad_api_keys.sql"
+Write-Host "  2. Migration 20260812120000_launchpad_api_keys.sql applied on prod (hnevnsxnhfibhbsipqvz); re-apply only if a new env is empty."
 Write-Host "  3. Create company #1 tenant via app onboarding (LAUNCHPAD_ENABLED=1 local only)."
 Write-Host "  4. npx tsx scripts/launchpad/create-tenant-api-key.ts --tenant <slug> --name ingest --scopes ingest"
 Write-Host "  5. Keep LAUNCHPAD_ENABLED=0 in sandbox/prod until Morgan go."

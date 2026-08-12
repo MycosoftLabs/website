@@ -32,3 +32,25 @@ SAM_API_KEY=
 
 - Launchpad: `/api/fusarium/launchpad/stripe/webhook` + `STRIPE_LAUNCHPAD_WEBHOOK_SECRET`
 - Legacy: `/api/stripe/webhooks` — ignores Launchpad-scoped events (lp_tenant_id / fus_launchpad_*)
+
+## Local provision
+
+```powershell
+# ASCII-safe; refuses sk_live_ unless ALLOW_STRIPE_LIVE_PROVISION=1
+.\scripts\launchpad\provision-platform-secrets.ps1 -NonInteractive
+# Prefer sk_test_… for catalog smoke:
+#   $env:STRIPE_SECRET_KEY='sk_test_…'; npx tsx scripts/launchpad/provision-stripe-catalog.ts
+```
+
+## GitHub Actions / blue-green secrets checklist
+
+Set the same names as repository or environment secrets for both colors (values never in git):
+
+| Secret | Notes |
+|---|---|
+| `LAUNCHPAD_ENABLED` | Must remain `0` until Morgan go |
+| `SUPABASE_SERVICE_ROLE_KEY` | Dashboard → service_role |
+| `STRIPE_SECRET_KEY` | `sk_test_` first |
+| `STRIPE_LAUNCHPAD_WEBHOOK_SECRET` | From Launchpad webhook endpoint |
+| `LAUNCHPAD_INGEST_TOKEN` / `LAUNCHPAD_AGENT_ROOT_SECRET` | Deprecated break-glass; prefer `lp_` tenant keys |
+| `SAM_API_KEY` | Optional until collectors run in CI/cron |

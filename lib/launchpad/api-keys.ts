@@ -247,7 +247,9 @@ export async function createApiKeyServiceRole(
 
   if (error || !data) return { ok: false, error: error?.message ?? 'insert failed' };
 
-  await svc.from('launchpad_audit_events').insert({
+  // Chain fields (seq/prev_hash/hash) are set by launchpad_audit_chain trigger.
+  // Best-effort — never fail key mint if audit insert is blocked.
+  const { error: auditError } = await svc.from('launchpad_audit_events').insert({
     tenant_id: opts.tenantId,
     actor_user_id: opts.createdBy ?? null,
     actor_type: opts.createdBy ? 'user' : 'service',
@@ -255,9 +257,10 @@ export async function createApiKeyServiceRole(
     entity: 'launchpad_api_keys',
     entity_id: data.id,
     payload_hash: hashApiKey(JSON.stringify({ name: opts.name, scopes: opts.scopes, prefix })),
-    prev_hash: 'PENDING',
-    hash: 'PENDING',
   });
+  if (auditError) {
+    console.warn('[launchpad/api-keys] audit insert failed after key create:', auditError.message);
+  }
 
   return {
     ok: true,
