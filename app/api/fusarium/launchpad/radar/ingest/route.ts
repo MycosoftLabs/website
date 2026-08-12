@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 import { ingestNormalizedOpportunities } from '@/lib/launchpad/radar/ingest';
 import { isLaunchpadEnabled } from '@/lib/launchpad/flags';
+import { authorizeIngestBearer } from '@/lib/launchpad/api-keys';
 
 /**
- * Contract Radar ingest — bearer LAUNCHPAD_INGEST_TOKEN.
- * validate → service-role upsert (source, source_id) → amendment on hash change → fit-match.
+ * Contract Radar ingest.
+ * Preferred: Authorization: Bearer lp_… (launchpad_api_keys scope=ingest).
+ * Break-glass (deprecated): Bearer LAUNCHPAD_INGEST_TOKEN platform env.
  */
 export const dynamic = 'force-dynamic';
 
@@ -14,10 +16,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not found', code: 'launchpad_disabled' }, { status: 404 });
   }
 
-  const token = process.env.LAUNCHPAD_INGEST_TOKEN;
-  const auth = request.headers.get('authorization') ?? '';
-  if (!token || auth !== `Bearer ${token}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  let svc: ReturnType<typeof createLaunchpadServiceClient> | null = null;
+  try {
+    svc = createLaunchpadServiceClient();
+  } catch {
+    // Service role may still be missing for break-glass-only path; authorizeIngestBearer handles it.
+    svc = null;
+  }
+
+  const auth = await authorizeIngestBearer(svc, request.headers.get('authorization'));
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error, code: auth.code }, { status: auth.status });
+  }
+
+  if (!svc) {
+    try {
+      svc = createLaunchpadServiceClient();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'service role not configured';
+      return NextResponse.json({ error: 'service role not configured', detail: message }, { status: 503 });
+    }
   }
 
   let body: unknown;
@@ -35,16 +53,27 @@ export async function POST(request: NextRequest) {
     );
   }
   if (records.length === 0) {
-    return NextResponse.json({ ok: true, accepted: 0, upsertedIds: [], amendments: 0, matchesWritten: 0 });
+    return NextResponse.json({
+      ok: true,
+      accepted: 0,
+      upsertedIds: [],
+      amendments: 0,
+      matchesWritten: 0,
+      authMode: auth.mode,
+    });
   }
   if (records.length > 500) {
     return NextResponse.json({ error: 'batch too large (max 500)' }, { status: 413 });
   }
 
   try {
-    const svc = createLaunchpadServiceClient();
     const outcome = await ingestNormalizedOpportunities(svc, records);
-    return NextResponse.json({ ok: true, ...outcome });
+    return NextResponse.json({
+      ok: true,
+      ...outcome,
+      authMode: auth.mode,
+      ...(auth.mode === 'api_key' ? { keyPrefix: auth.key.keyPrefix } : {}),
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'ingest failed';
     if (message.includes('service client unavailable') || message.includes('SERVICE_ROLE')) {

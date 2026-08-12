@@ -9,15 +9,17 @@
 | **Plan** | [`CURSOR_LAUNCHPAD_BACKEND_PLAN_AUG12_2026.md`](./CURSOR_LAUNCHPAD_BACKEND_PLAN_AUG12_2026.md) |
 | **Package index** | [`CHATGPT_MASTER_PACKAGE_INDEX_AUG12_2026.md`](./CHATGPT_MASTER_PACKAGE_INDEX_AUG12_2026.md) |
 | **Status doc (Cursor will update)** | [`CURSOR_LAUNCHPAD_BACKEND_STATUS_AUG12_2026.md`](./CURSOR_LAUNCHPAD_BACKEND_STATUS_AUG12_2026.md) |
+| **Tenant API keys architecture** | [`TENANT_API_KEYS_AND_SECRETS_AUG12_2026.md`](./TENANT_API_KEYS_AND_SECRETS_AUG12_2026.md) |
 | **Branch (Cursor target)** | `feat/launchpad-backend-aug12` (carved from `main`; Launchpad-only) |
 | **Prior WIP branch (do not use for Launchpad)** | `tmp-closure-board-ship` (mixed Psathyrella + deploy + Launchpad) |
 | **Agent-coordination MCP** | Unavailable at handoff write time — **file-only** coordination |
+| **PR** | https://github.com/MycosoftLabs/website/pull/260 |
 
 ---
 
 ## 0. One-line summary for Claude
 
-**Cursor is executing Launchpad backend now** (git isolate → Stripe test/webhook → radar ingest + collectors → local-agent enroll/HMAC → CI/env templates → legacy webhook guard). **Claude should stay on front-end / IA / legal DRAFT / ASA UX** and **must not** touch the Cursor path list below or flip `LAUNCHPAD_ENABLED` in sandbox/prod.
+**Cursor is executing Launchpad backend** (ingest, agent, Stripe tooling, **and now Supabase-backed multi-tenant API keys**). Secrets are **created via tooling + DB**, not “ask Morgan for env vars.” **Claude should stay on front-end / IA / legal DRAFT / ASA UX** — including **polishing the key-management UI** at `/app/launchpad/settings/keys` if desired — and **must not** touch the Cursor path list below or flip `LAUNCHPAD_ENABLED` in sandbox/prod.
 
 ---
 
@@ -35,6 +37,8 @@ These are **Cursor-only**. Claude should not duplicate or race-edit them.
 | **Local agent** | Enroll route + HMAC results path per handoff 02; agent binary/scripts + local run docs. Never auto-flip control `implemented`. |
 | **Legacy webhook guard** | Early-return in `app/api/stripe/webhooks/route.ts` when `metadata.lp_tenant_id` or `fus_launchpad_*` lookup_key present. |
 | **Hard data rule** | No mock/fake opportunities, SAM results, or compliance operational data presented as live. |
+| **Tenant API keys backend** | Tables + RLS + hash-at-rest + create/revoke RPCs + BFF `/api/fusarium/launchpad/keys` + Bearer auth on ingest/agent. **Not** Settings UI. |
+| **Tenant API keys (NEW)** | Supabase `launchpad_api_keys` + RPCs; ingest/agent prefer Bearer `lp_…`; platform env tokens deprecated break-glass. See [`TENANT_API_KEYS_AND_SECRETS_AUG12_2026.md`](./TENANT_API_KEYS_AND_SECRETS_AUG12_2026.md). Provision: `scripts/launchpad/provision-platform-secrets.ps1`, `create-tenant-api-key.ts`, `enroll-agent.ts`. |
 
 ### Success signals Cursor will report (status doc)
 
@@ -54,10 +58,12 @@ Claude continues product/shell polish. Cursor will **not** drive-by redesign mar
 | **Marketing IA gaps** | Close missing public routes vs master package (how-it-works, contract-radar marketing page, origin-graph, FAQ, non-cui-policy page, etc.) |
 | **Legal DRAFT polish** | Improve DRAFT outlines with counsel-ready structure; **do not** claim “in effect”; counsel owns operative text |
 | **ASA UI/UX** | Readiness / controls / POA&M / evidence UX refinements (no `state_source='ai'`; no Met auto-flip) |
+| **API key management UI** | Cursor shipped a **minimal** page at `/app/launchpad/settings/keys` + `GET/POST/DELETE /api/fusarium/launchpad/keys`. Claude may polish UX (copy, empty states, nav link from settings, revoke confirm) — **do not** change hash/RPC/auth semantics or invent mock keys |
 | **Founding 50 / dashboard UX** | Cohort + authenticated dashboard polish |
 | **FUSARIUM page copy** | Iterate gateway copy on defense FUSARIUM page **without** breaking Launchpad CTA wiring Cursor may touch lightly for consistency |
 | **Public IA still missing** | Sitemap/nav entries for new marketing routes |
 | **Pure front-end** | Anything that does **not** block Stripe / ingest / agent backend |
+| **Settings → API keys UI** | **Claude owns** — product design + visual system on top of Cursor’s `/api/fusarium/launchpad/keys` contract ([`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md)). Cursor will **not** polish Settings UI (stub/none only). |
 | **`/security/compliance`** | **Keep untouched** (CMMC ENCL / Closure Board — out of Launchpad commercial lane) |
 | **Prod flag** | **Do NOT** set `LAUNCHPAD_ENABLED=1` in sandbox/prod |
 
@@ -163,4 +169,6 @@ Phase 7  verify + CURSOR_LAUNCHPAD_BACKEND_STATUS_AUG12_2026.md
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | Aug 12, 2026 | Initial Cursor→Claude execution handoff before backend code |
+| 1.1 | Aug 12, 2026 | **Lane lock (Morgan):** Cursor = tenant API-key/secret **backend**; Claude = Launchpad visual system + **Settings → API keys UI**. Contract: [`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md). No collision — Claude stays out of `app/api/fusarium/launchpad/keys/**`, `lib/launchpad/api-keys.ts`, and API-keys migrations. |
+| 1.1 | Aug 12, 2026 | Tenant API keys / secrets creation lane; Claude owns key-mgmt UI polish |
 |

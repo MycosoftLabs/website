@@ -2,8 +2,8 @@
  * Local Assurance Agent — HMAC helpers.
  *
  * Per-agent HMAC key is derived from LAUNCHPAD_AGENT_ROOT_SECRET + agent_id
- * so the DB only stores hashes (enrollment_token_hash / hmac_key_hash) and
- * the server can re-derive the key for verification without storing plaintext.
+ * (deprecated break-glass). Preferred production path: Bearer lp_… API keys
+ * with scope=agent (see lib/launchpad/api-keys.ts). DB stores hashes only.
  */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';

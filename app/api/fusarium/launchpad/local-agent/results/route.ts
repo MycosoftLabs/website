@@ -7,16 +7,22 @@ import {
   replayFingerprint,
   verifyAgentSignature,
 } from '@/lib/launchpad/agent/hmac';
+import { authorizeAgentBearer } from '@/lib/launchpad/api-keys';
 
 /**
- * Local Assurance Agent result intake — HMAC-signed.
+ * Local Assurance Agent result intake.
+ *
+ * Auth (either):
+ *   1. Preferred — Authorization: Bearer lp_… (scope agent|admin) + X-LP-Agent-Id
+ *      (agent.tenant_id must match key.tenantId)
+ *   2. Break-glass — HMAC headers with LAUNCHPAD_AGENT_ROOT_SECRET derivation
+ *
  * tenant_id ALWAYS from agent row; never from payload.
  */
 export const dynamic = 'force-dynamic';
 
 const RESULT_VALUES = new Set(['pass', 'fail', 'indeterminate', 'not_applicable']);
 
-/** In-memory replay cache for this process (best-effort; DB uniqueness preferred long-term). */
 const recentReplays = new Map<string, number>();
 
 function pruneReplays(nowSec: number) {
@@ -30,56 +36,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not found', code: 'launchpad_disabled' }, { status: 404 });
   }
 
-  const root = getAgentRootSecret();
-  if (!root) {
-    return NextResponse.json({ error: 'agent root secret not configured' }, { status: 503 });
-  }
-
   const agentId = request.headers.get('x-lp-agent-id') ?? '';
-  const timestamp = request.headers.get('x-lp-timestamp') ?? '';
-  const signature = request.headers.get('x-lp-signature') ?? '';
-  if (!agentId || !timestamp || !signature) {
-    return NextResponse.json(
-      { error: 'missing X-LP-Agent-Id / X-LP-Timestamp / X-LP-Signature' },
-      { status: 401 },
-    );
+  if (!agentId) {
+    return NextResponse.json({ error: 'missing X-LP-Agent-Id' }, { status: 401 });
   }
 
   const rawBody = await request.text();
-  const hmacKey = deriveAgentHmacKey(root, agentId);
-  const verified = verifyAgentSignature({
-    hmacKey,
-    timestampHeader: timestamp,
-    signatureHeader: signature,
-    rawBody,
-  });
-  if (verified.ok === false) {
-    return NextResponse.json({ error: verified.error }, { status: 401 });
-  }
-
-  const fp = replayFingerprint(agentId, verified.timestampSec, signature.trim().toLowerCase());
-  const nowSec = Math.floor(Date.now() / 1000);
-  pruneReplays(nowSec);
-  if (recentReplays.has(fp)) {
-    return NextResponse.json({ error: 'replay rejected' }, { status: 401 });
-  }
-  recentReplays.set(fp, nowSec + 600);
-
-  let body: { results?: unknown };
-  try {
-    body = JSON.parse(rawBody) as { results?: unknown };
-  } catch {
-    return NextResponse.json({ error: 'invalid json' }, { status: 400 });
-  }
-  if (!Array.isArray(body.results) || body.results.length === 0) {
-    return NextResponse.json({ error: 'results array required' }, { status: 400 });
-  }
-  if (body.results.length > 100) {
-    return NextResponse.json({ error: 'max 100 results per request' }, { status: 413 });
-  }
+  let authMode: 'api_key' | 'hmac_root' = 'hmac_root';
+  let bearerTenantId: string | null = null;
 
   try {
     const svc = createLaunchpadServiceClient();
+
+    const bearerKey = await authorizeAgentBearer(svc, request.headers.get('authorization'));
+    if (bearerKey) {
+      authMode = 'api_key';
+      bearerTenantId = bearerKey.tenantId;
+    } else {
+      const root = getAgentRootSecret();
+      const timestamp = request.headers.get('x-lp-timestamp') ?? '';
+      const signature = request.headers.get('x-lp-signature') ?? '';
+      if (!root) {
+        return NextResponse.json(
+          {
+            error:
+              'Provide Authorization: Bearer lp_… (scope=agent) or configure LAUNCHPAD_AGENT_ROOT_SECRET for HMAC',
+            code: 'agent_auth_required',
+          },
+          { status: 401 },
+        );
+      }
+      if (!timestamp || !signature) {
+        return NextResponse.json(
+          { error: 'missing X-LP-Timestamp / X-LP-Signature (or use Bearer lp_ key)' },
+          { status: 401 },
+        );
+      }
+      const hmacKey = deriveAgentHmacKey(root, agentId);
+      const verified = verifyAgentSignature({
+        hmacKey,
+        timestampHeader: timestamp,
+        signatureHeader: signature,
+        rawBody,
+      });
+      if (verified.ok === false) {
+        return NextResponse.json({ error: verified.error }, { status: 401 });
+      }
+      const fp = replayFingerprint(agentId, verified.timestampSec, signature.trim().toLowerCase());
+      const nowSec = Math.floor(Date.now() / 1000);
+      pruneReplays(nowSec);
+      if (recentReplays.has(fp)) {
+        return NextResponse.json({ error: 'replay rejected' }, { status: 401 });
+      }
+      recentReplays.set(fp, nowSec + 600);
+      authMode = 'hmac_root';
+    }
+
+    let body: { results?: unknown };
+    try {
+      body = JSON.parse(rawBody) as { results?: unknown };
+    } catch {
+      return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+    }
+    if (!Array.isArray(body.results) || body.results.length === 0) {
+      return NextResponse.json({ error: 'results array required' }, { status: 400 });
+    }
+    if (body.results.length > 100) {
+      return NextResponse.json({ error: 'max 100 results per request' }, { status: 413 });
+    }
+
     const { data: agent, error: aErr } = await svc
       .from('launchpad_local_agents')
       .select('id, tenant_id, status')
@@ -91,6 +116,19 @@ export async function POST(request: NextRequest) {
     }
     if (agent.status !== 'enrolled' && agent.status !== 'active') {
       return NextResponse.json({ error: 'agent revoked or expired' }, { status: 401 });
+    }
+    if (bearerTenantId && bearerTenantId !== agent.tenant_id) {
+      return NextResponse.json({ error: 'tenant mismatch', code: 'tenant_mismatch' }, { status: 401 });
+    }
+
+    // Credential row must not be revoked when present
+    const { data: cred } = await svc
+      .from('launchpad_agent_credentials')
+      .select('status')
+      .eq('agent_id', agent.id)
+      .maybeSingle();
+    if (cred && cred.status === 'revoked') {
+      return NextResponse.json({ error: 'agent credential revoked' }, { status: 401 });
     }
 
     const rows: Array<Record<string, unknown>> = [];
@@ -118,7 +156,6 @@ export async function POST(request: NextRequest) {
         rejected.push({ index, error: 'summary must be one short sentence (≤280 chars)' });
         return;
       }
-      // Reject if payload tries to smuggle raw logs / configs
       if ('raw' in r || 'logs' in r || 'config' in r || 'capture' in r) {
         rejected.push({ index, error: 'raw logs/configs/captures are prohibited' });
         return;
@@ -153,6 +190,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       inserted: rows.length,
       rejected,
+      authMode,
       note: 'Results may set state_source=agent_check in UI flows but never auto-flip implemented.',
     });
   } catch (e) {

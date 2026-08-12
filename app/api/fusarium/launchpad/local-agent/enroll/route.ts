@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
-import { deriveEntitlements, type SubscriptionRow } from '@/lib/launchpad/entitlements';
 import {
   deriveAgentHmacKey,
   getAgentRootSecret,
@@ -9,10 +8,14 @@ import {
   sha256Hex,
 } from '@/lib/launchpad/agent/hmac';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
+import { deriveEntitlements, type SubscriptionRow } from '@/lib/launchpad/entitlements';
 
 /**
  * POST /api/fusarium/launchpad/local-agent/enroll
- * owner/admin — mint agent row + one-time token + HMAC key (shown once).
+ * owner/admin — mint agent row + credential hash + one-time secrets.
+ *
+ * LAUNCHPAD_AGENT_ROOT_SECRET is optional break-glass for HMAC body signing.
+ * Without it, create a tenant API key with scope=agent for results intake.
  */
 export const dynamic = 'force-dynamic';
 
@@ -20,17 +23,6 @@ export async function POST(request: NextRequest) {
   const gate = await requireTenant({ roles: ['owner', 'admin'], write: true });
   if (gate.error) return gate.error;
   const { ctx } = gate;
-
-  const root = getAgentRootSecret();
-  if (!root) {
-    return NextResponse.json(
-      {
-        error: 'LAUNCHPAD_AGENT_ROOT_SECRET not configured',
-        code: 'agent_root_missing',
-      },
-      { status: 503 },
-    );
-  }
 
   let body: { name?: string; platform?: string } = {};
   try {
@@ -45,7 +37,6 @@ export async function POST(request: NextRequest) {
       ? body.platform
       : null;
 
-  // Cap devices by entitlements
   const { data: sub } = await ctx.supabase
     .from('launchpad_subscriptions')
     .select('plan_key, status, current_period_end, grace_until, founding_pass_expires_at')
@@ -78,8 +69,8 @@ export async function POST(request: NextRequest) {
 
   const enrollmentToken = mintEnrollmentToken();
   const enrollmentTokenHash = sha256Hex(enrollmentToken);
+  const root = getAgentRootSecret();
 
-  // Insert first to get agent id, then set hmac_key_hash from derived key
   const { data: row, error } = await ctx.supabase
     .from('launchpad_local_agents')
     .insert({
@@ -87,7 +78,7 @@ export async function POST(request: NextRequest) {
       name,
       platform,
       enrollment_token_hash: enrollmentTokenHash,
-      hmac_key_hash: 'pending',
+      hmac_key_hash: root ? 'pending' : sha256Hex(`enroll-only:${enrollmentToken}`),
       status: 'enrolled',
       created_by: ctx.user.id,
     })
@@ -98,27 +89,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error?.message ?? 'enroll failed' }, { status: 500 });
   }
 
-  const hmacKey = deriveAgentHmacKey(root, row.id);
-  const hmacKeyHash = sha256Hex(hmacKey);
-  await ctx.supabase
-    .from('launchpad_local_agents')
-    .update({ hmac_key_hash: hmacKeyHash })
-    .eq('id', row.id)
-    .eq('tenant_id', ctx.tenantId);
+  let hmacKey: string | null = null;
+  if (root) {
+    hmacKey = deriveAgentHmacKey(root, row.id);
+    await ctx.supabase
+      .from('launchpad_local_agents')
+      .update({ hmac_key_hash: sha256Hex(hmacKey) })
+      .eq('id', row.id)
+      .eq('tenant_id', ctx.tenantId);
+  }
+
+  // Credential row (hash only). Session cannot insert (no write policy) — service role.
+  try {
+    const svc = createLaunchpadServiceClient();
+    await svc.from('launchpad_agent_credentials').insert({
+      tenant_id: ctx.tenantId,
+      agent_id: row.id,
+      enroll_secret_hash: enrollmentTokenHash,
+      status: 'active',
+    });
+  } catch {
+    // Table may not be applied yet; enroll still succeeds with agent row.
+  }
 
   await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
     action: 'local_agent.enrolled',
     entity: 'launchpad_local_agents',
     entityId: row.id,
-    payload: { name, platform },
+    payload: { name, platform, hmacMode: root ? 'root_derived' : 'api_key_preferred' },
   });
-
-  // Optionally warm service path (ensures service role works in env)
-  try {
-    createLaunchpadServiceClient();
-  } catch {
-    // enroll itself uses session RLS; service role only needed for results intake
-  }
 
   return NextResponse.json({
     ok: true,
@@ -129,11 +128,19 @@ export async function POST(request: NextRequest) {
       status: row.status,
       created_at: row.created_at,
     },
-    /** Shown once — store securely on the device; never logged by the server after this. */
     enrollment_token: enrollmentToken,
-    /** HMAC key for X-LP-Signature — shown once; re-derived server-side from root + agent id. */
     hmac_key: hmacKey,
+    results_auth: hmacKey
+      ? {
+          preferred: 'hmac',
+          alternate: 'Authorization: Bearer lp_… with scope=agent + X-LP-Agent-Id',
+        }
+      : {
+          preferred: 'api_key',
+          instruction:
+            'Create a tenant API key with scope=agent (POST /api/fusarium/launchpad/keys) and send Authorization: Bearer lp_… with X-LP-Agent-Id on results.',
+        },
     warning:
-      'Save enrollment_token and hmac_key now. They are not retrievable later. Raw check detail stays on-device.',
+      'Save enrollment_token (and hmac_key if present) now. They are not retrievable later. Raw check detail stays on-device.',
   });
 }
