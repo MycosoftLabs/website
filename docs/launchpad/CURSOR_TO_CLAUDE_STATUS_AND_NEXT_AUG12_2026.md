@@ -83,7 +83,23 @@ DELETE /api/fusarium/launchpad/keys?id=<uuid>
 
 Expect: list never returns hashes; create returns `plaintextKey` once; revoke 200; with flag off → **404** `launchpad_disabled`.
 
-**Note:** Keys **management** uses session + SECURITY DEFINER RPCs (works with anon + user JWT). **Ingest** Bearer `lp_…` verification still needs runtime `SUPABASE_SERVICE_ROLE_KEY` on the BFF host — Supabase MCP cannot export service_role. Schema is already applied; do not block UI work on service_role.
+**Note:** Keys **management** (Settings UI) uses session + SECURITY DEFINER RPCs (anon + user JWT) — Claude can build/test UI without service_role. **Ingest / agent Bearer `lp_…` verify** needs `SUPABASE_SERVICE_ROLE_KEY` on the BFF host. Cursor recovered that key for **local** `.env.local` from the sandbox green container (see §4a). Supabase MCP still cannot export service_role (`get_publishable_keys` only). Do not block UI work on service_role.
+
+---
+
+## 4a. Service role recovery (Cursor ops — Aug 12 follow-up)
+
+| Check | Result |
+|---|---|
+| Local `.env.local` / backups | Had URL + anon; `SUPABASE_SERVICE_ROLE_KEY` was **empty** |
+| MAS `.credentials.local` / Windows env / Supabase MCP | **No** service_role (MCP: anon/publishable only) |
+| Sandbox `mycosoft-website-green` container env | **Found** — copied into gitignored local `.env.local` only |
+| Local aliases | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` present (gitignored) |
+| Smoke | Service-role REST `GET /rest/v1/launchpad_api_keys?select=id,name,created_at&limit=1` → **HTTP 200** (0 rows OK) |
+
+**Do not paste secrets into chat, PRs, or this handoff.** Say only: found and wired locally.
+
+Sandbox/prod container already had the key; Cursor did **not** change sandbox env. Local ingest/agent verify path can proceed after next local dev-server restart that reloads `.env.local`.
 
 ---
 
@@ -99,11 +115,12 @@ Expect: list never returns hashes; create returns `plaintextKey` once; revoke 20
 
 | Item | Why |
 |---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` in local/runtime `.env` | Not available via Supabase MCP (`get_publishable_keys` only). Needed for ingest `lp_` verify, webhook ledger writes, CLI `create-tenant-api-key.ts`. Keys **Settings UI** does **not** need it. |
 | SAM.gov / api.data.gov key | None exists in org tooling; product correctly runs without it. Add later via env when obtained from api.data.gov — not a Launchpad launch blocker. |
 | Stripe **test**-mode catalog | Only live secret present locally; live catalog + sandbox webhook already provisioned. |
 | Stripe Connect account approval | Not part of this Launchpad BFF slice; only if Connect onboarding is later required. |
 | Counsel sign-off / prod flag flip | Human (Morgan + counsel). |
+
+~~`SUPABASE_SERVICE_ROLE_KEY` local~~ — **resolved for Cursor local** (see §4a). Settings UI never needed it. If another machine/agent lacks it: pull from sandbox website container env or Supabase dashboard → API → `service_role` once into gitignored `.env.local` (never commit).
 
 ---
 
@@ -112,6 +129,18 @@ Expect: list never returns hashes; create returns `plaintextKey` once; revoke 20
 - Cursor owns backend + this status. Claude owns product UI/IA/legal DRAFT.
 - Prefer Claude branch from `feat/launchpad-backend-aug12` after pulling latest, or edit only Claude-safe paths and rebase carefully.
 - Agent-coordination MCP may be unavailable — treat this file + status doc as source of truth.
+- **PR tip for Morgan → Claude:** paste this file; branch `feat/launchpad-backend-aug12`; head SHA below in §8.
+
+---
+
+## 8. Addendum — `founding-50` ↔ `get-started` collision risk
+
+On `feat/launchpad-backend-aug12` **both** routes currently exist:
+
+- `app/fusarium/launchpad/founding-50/page.tsx` — small **redirect shim** → `/fusarium/launchpad/get-started`
+- `app/fusarium/launchpad/get-started/page.tsx` — canonical marketing page (sitemap + CTAs point here)
+
+Git history includes a rename `founding-50` → `get-started`. **Do not casually delete the shim or re-expand `founding-50` into a full page** without checking Claude’s WIP — collision risk if Claude still treats `founding-50` as the product surface. Prefer: leave redirect + `get-started` until Claude confirms canonical URL, then consolidate in one intentional commit.
 
 ---
 
@@ -120,3 +149,4 @@ Expect: list never returns hashes; create returns `plaintextKey` once; revoke 20
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | Aug 12, 2026 | Morgan correction pass: no ask-for-secrets; Stripe provisioned; SAM optional/honest; Claude next work locked. |
+| 1.1 | Aug 12, 2026 | Service role found on sandbox green + wired local `.env.local` (no secret values); REST smoke 200; founding-50/get-started addendum. |
