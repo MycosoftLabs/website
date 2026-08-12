@@ -1,8 +1,10 @@
 # FUSARIUM Launchpad - provision platform secret placeholders + Stripe webhook
 #
-# Creates/ensures .env.local keys (never invents Supabase service_role - paste from dashboard).
-# If STRIPE_SECRET_KEY is set, registers the Launchpad webhook endpoint (test mode) and
-# writes STRIPE_LAUNCHPAD_WEBHOOK_SECRET once (or prints it).
+# Creates/ensures .env.local keys. Supabase service_role cannot be exported via MCP —
+# use apply_migration/execute_sql for schema; runtime BFF keys use session RPCs.
+# If STRIPE_SECRET_KEY is set, registers the Launchpad webhook endpoint and
+# writes STRIPE_LAUNCHPAD_WEBHOOK_SECRET once (HTTPS URLs preferred; localhost may 400).
+# SAM_API_KEY is OPTIONAL — collector skips honestly when unset (no mock awards).
 #
 # Usage:
 #   .\scripts\launchpad\provision-platform-secrets.ps1
@@ -77,12 +79,12 @@ if (-not (Test-Path $EnvLocal)) {
 $envMap = Read-DotEnv $EnvLocal
 
 $requiredKeys = @(
-  @{ Key = "NEXT_PUBLIC_SUPABASE_URL"; Hint = "Supabase Dashboard > Project Settings > API > Project URL" },
-  @{ Key = "NEXT_PUBLIC_SUPABASE_ANON_KEY"; Hint = "Supabase Dashboard > API > anon public" },
-  @{ Key = "SUPABASE_SERVICE_ROLE_KEY"; Hint = "Supabase Dashboard > API > service_role (secret) - paste once; cannot invent" },
-  @{ Key = "STRIPE_SECRET_KEY"; Hint = "Stripe Dashboard > Developers > API keys (sk_test_... first)" },
-  @{ Key = "STRIPE_LAUNCHPAD_WEBHOOK_SECRET"; Hint = "Created by this script OR Stripe webhook endpoint signing secret" },
-  @{ Key = "SAM_API_KEY"; Hint = "api.data.gov key for SAM.gov collector (optional until radar runs)" },
+  @{ Key = "NEXT_PUBLIC_SUPABASE_URL"; Hint = "Supabase project URL (MCP get_project_url / Dashboard)" },
+  @{ Key = "NEXT_PUBLIC_SUPABASE_ANON_KEY"; Hint = "Supabase anon/publishable (MCP get_publishable_keys)" },
+  @{ Key = "SUPABASE_SERVICE_ROLE_KEY"; Hint = "OPTIONAL for keys UI (session RPCs). Required for ingest/agent lp_ verify + webhook writes. Not exportable via Supabase MCP — use existing machine env if present." },
+  @{ Key = "STRIPE_SECRET_KEY"; Hint = "Stripe secret (sk_test preferred; live needs ALLOW_STRIPE_LIVE_PROVISION=1)" },
+  @{ Key = "STRIPE_LAUNCHPAD_WEBHOOK_SECRET"; Hint = "Created by this script OR Stripe webhook signing secret" },
+  @{ Key = "SAM_API_KEY"; Hint = "OPTIONAL — leave empty; collector skips with honest empty (no mock awards)" },
   @{ Key = "LAUNCHPAD_ENABLED"; Hint = "Keep 0 in sandbox/prod until Morgan go" },
   @{ Key = "LAUNCHPAD_INGEST_TOKEN"; Hint = "DEPRECATED break-glass - prefer tenant lp_ keys (scope=ingest)" },
   @{ Key = "LAUNCHPAD_AGENT_ROOT_SECRET"; Hint = "DEPRECATED break-glass - prefer tenant lp_ keys (scope=agent)" }
@@ -158,9 +160,10 @@ if (-not $SkipStripeWebhook) {
 
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  1. Paste SUPABASE_SERVICE_ROLE_KEY from Supabase dashboard if still empty."
-Write-Host "  2. Migration 20260812120000_launchpad_api_keys.sql applied on prod (hnevnsxnhfibhbsipqvz); re-apply only if a new env is empty."
-Write-Host "  3. Create company #1 tenant via app onboarding (LAUNCHPAD_ENABLED=1 local only)."
-Write-Host "  4. npx tsx scripts/launchpad/create-tenant-api-key.ts --tenant <slug> --name ingest --scopes ingest"
-Write-Host "  5. Keep LAUNCHPAD_ENABLED=0 in sandbox/prod until Morgan go."
+Write-Host "  1. Schema/RPCs: Supabase MCP apply_migration/execute_sql (prod hnevnsxnhfibhbsipqvz already has launchpad_api_keys)."
+Write-Host "  2. Keys UI BFF uses session RPCs — no service_role required for Settings create/list/revoke."
+Write-Host "  3. Ingest/agent Bearer lp_ verify + Stripe webhook ledger need SUPABASE_SERVICE_ROLE_KEY in runtime env (not MCP-exportable)."
+Write-Host "  4. SAM_API_KEY optional — run-sam-collector exits 0 when unset (honest skip)."
+Write-Host "  5. Stripe catalog: npx tsx scripts/launchpad/provision-stripe-catalog.ts"
+Write-Host "  6. Keep LAUNCHPAD_ENABLED=0 in sandbox/prod until Morgan go."
 Write-Host "Done."

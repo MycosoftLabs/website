@@ -68,15 +68,17 @@ Claude continues product/shell polish. Cursor will **not** drive-by redesign mar
 
 ---
 
-## 3. Shared / wait for Morgan
+## 3. Shared / wait for Morgan (human gates only)
+
+**Not blocked on Morgan for service_role / Stripe / SAM secrets** (Aug 12 correction): Cursor uses Supabase MCP + existing Stripe access; SAM is optional with honest skip. See [`CURSOR_TO_CLAUDE_STATUS_AND_NEXT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_STATUS_AND_NEXT_AUG12_2026.md).
 
 | Gate | Who |
 |---|---|
 | Counsel sign-off on legal pages (replace DRAFT; bump `TERMS_VERSION`) | Counsel + Morgan |
-| Live Stripe keys + live webhook registration | Morgan / finance + Cursor ops after go |
 | `LAUNCHPAD_ENABLED=1` in sandbox or prod | **Morgan explicit only** |
 | Pen-test / tenant-isolation gate before paying customers | Cursor tech + Morgan accept |
 | CMMC practitioner review of score vectors (content) | Compliance / Morgan — separate from Cursor eng |
+| Stripe Connect approval (if later required) | Stripe + finance — not this BFF slice |
 
 ---
 
@@ -169,4 +171,5 @@ Phase 7  verify + CURSOR_LAUNCHPAD_BACKEND_STATUS_AUG12_2026.md
 |---|---|---|
 | 1.0 | Aug 12, 2026 | Initial Cursor→Claude execution handoff before backend code |
 | 1.1 | Aug 12, 2026 | **Lane lock (Morgan):** Cursor = tenant API-key/secret **backend** (tables, RLS, hash, BFF, ingest/agent auth, Stripe tooling). Claude = Launchpad **visual system** + **Settings → API keys UI**. Contract: [`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md). No collision on `app/api/fusarium/launchpad/keys/**`, `lib/launchpad/api-keys.ts`, or API-keys migrations. |
+| 1.2 | Aug 12, 2026 | Morgan correction: do not ask for secrets; Stripe catalog/webhook provisioned; SAM optional; status handoff [`CURSOR_TO_CLAUDE_STATUS_AND_NEXT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_STATUS_AND_NEXT_AUG12_2026.md). |
 |

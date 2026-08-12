@@ -87,6 +87,42 @@ function asNotice(raw: Record<string, unknown>): NormalizedOpportunity | null {
   };
 }
 
+export type SamCollectResult =
+  | { ok: true; records: NormalizedOpportunity[]; skipped?: false }
+  | { ok: true; records: []; skipped: true; reason: 'sam_not_configured' }
+  | { ok: false; error: string };
+
+/**
+ * Fetch recent SAM.gov opportunities. Returns [] on empty API pages.
+ * When no API key is configured, returns skipped (never invents rows).
+ * Throws only for programming misuse when `apiKey` is required by opts
+ * and the caller used the legacy throw path via `collectSamOpportunities`.
+ */
+export async function collectSamOpportunitiesSafe(
+  opts: Partial<SamCollectorOptions> & { apiKey?: string | null },
+): Promise<SamCollectResult> {
+  const apiKey = opts.apiKey?.trim() ?? '';
+  if (!apiKey) {
+    return {
+      ok: true,
+      records: [],
+      skipped: true,
+      reason: 'sam_not_configured',
+    };
+  }
+  try {
+    const records = await collectSamOpportunities({
+      apiKey,
+      limit: opts.limit,
+      postedFrom: opts.postedFrom,
+      keyword: opts.keyword,
+    });
+    return { ok: true, records };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'SAM collector failed' };
+  }
+}
+
 /**
  * Fetch recent SAM.gov opportunities. Returns [] on empty API pages.
  * Throws if the API key is missing or the upstream errors.
@@ -95,7 +131,9 @@ export async function collectSamOpportunities(
   opts: SamCollectorOptions,
 ): Promise<NormalizedOpportunity[]> {
   if (!opts.apiKey?.trim()) {
-    throw new Error('SAM_API_KEY / DATA_GOV_API_KEY is required — refusing to invent opportunities');
+    throw new Error(
+      'SAM not configured (SAM_API_KEY / DATA_GOV_API_KEY unset) — refusing to invent opportunities',
+    );
   }
   const limit = Math.min(Math.max(opts.limit ?? 25, 1), 100);
   const postedFrom = opts.postedFrom ?? daysAgoIsoDate(7);
