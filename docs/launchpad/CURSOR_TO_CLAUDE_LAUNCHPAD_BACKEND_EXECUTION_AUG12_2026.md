@@ -58,12 +58,11 @@ Claude continues product/shell polish. Cursor will **not** drive-by redesign mar
 | **Marketing IA gaps** | Close missing public routes vs master package (how-it-works, contract-radar marketing page, origin-graph, FAQ, non-cui-policy page, etc.) |
 | **Legal DRAFT polish** | Improve DRAFT outlines with counsel-ready structure; **do not** claim “in effect”; counsel owns operative text |
 | **ASA UI/UX** | Readiness / controls / POA&M / evidence UX refinements (no `state_source='ai'`; no Met auto-flip) |
-| **API key management UI** | Cursor shipped a **minimal** page at `/app/launchpad/settings/keys` + `GET/POST/DELETE /api/fusarium/launchpad/keys`. Claude may polish UX (copy, empty states, nav link from settings, revoke confirm) — **do not** change hash/RPC/auth semantics or invent mock keys |
+| **Settings → API keys UI + visual system** | **Claude owns** — design on top of Cursor’s `/api/fusarium/launchpad/keys` ([`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md)). Cursor ships backend + optional **stub** only (`/app/launchpad/settings/keys`); Claude polishes — **do not** change hash/RPC/auth semantics or invent mock keys. |
 | **Founding 50 / dashboard UX** | Cohort + authenticated dashboard polish |
 | **FUSARIUM page copy** | Iterate gateway copy on defense FUSARIUM page **without** breaking Launchpad CTA wiring Cursor may touch lightly for consistency |
 | **Public IA still missing** | Sitemap/nav entries for new marketing routes |
 | **Pure front-end** | Anything that does **not** block Stripe / ingest / agent backend |
-| **Settings → API keys UI** | **Claude owns** — product design + visual system on top of Cursor’s `/api/fusarium/launchpad/keys` contract ([`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md)). Cursor will **not** polish Settings UI (stub/none only). |
 | **`/security/compliance`** | **Keep untouched** (CMMC ENCL / Closure Board — out of Launchpad commercial lane) |
 | **Prod flag** | **Do NOT** set `LAUNCHPAD_ENABLED=1` in sandbox/prod |
 
@@ -169,6 +168,5 @@ Phase 7  verify + CURSOR_LAUNCHPAD_BACKEND_STATUS_AUG12_2026.md
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | Aug 12, 2026 | Initial Cursor→Claude execution handoff before backend code |
-| 1.1 | Aug 12, 2026 | **Lane lock (Morgan):** Cursor = tenant API-key/secret **backend**; Claude = Launchpad visual system + **Settings → API keys UI**. Contract: [`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md). No collision — Claude stays out of `app/api/fusarium/launchpad/keys/**`, `lib/launchpad/api-keys.ts`, and API-keys migrations. |
-| 1.1 | Aug 12, 2026 | Tenant API keys / secrets creation lane; Claude owns key-mgmt UI polish |
+| 1.1 | Aug 12, 2026 | **Lane lock (Morgan):** Cursor = tenant API-key/secret **backend** (tables, RLS, hash, BFF, ingest/agent auth, Stripe tooling). Claude = Launchpad **visual system** + **Settings → API keys UI**. Contract: [`CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md`](./CURSOR_TO_CLAUDE_API_KEYS_CONTRACT_AUG12_2026.md). No collision on `app/api/fusarium/launchpad/keys/**`, `lib/launchpad/api-keys.ts`, or API-keys migrations. |
 |
