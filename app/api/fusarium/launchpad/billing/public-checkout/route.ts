@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getProduct } from '@/lib/launchpad/catalog';
+import { isLaunchpadPublicCheckoutEnabled } from '@/lib/launchpad/flags';
+import {
+  lookupPublicCheckoutSession,
+  publicCheckoutRateLimited,
+} from '@/lib/launchpad/billing/public-checkout';
 
 /**
  * PUBLIC Stripe checkout — the storefront path.
@@ -48,7 +53,7 @@ function rateLimited(key: string): boolean {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(request: NextRequest) {
-  if (process.env.LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED !== '1') {
+  if (!isLaunchpadPublicCheckoutEnabled()) {
     return NextResponse.json(
       {
         error: 'Online checkout is not open yet.',
@@ -173,4 +178,33 @@ export async function POST(request: NextRequest) {
       { status: 502 },
     );
   }
+}
+
+/** Confirm a Checkout Session after return. Grants nothing. */
+export async function GET(request: NextRequest) {
+  const sessionId = request.nextUrl.searchParams.get('session_id') ?? '';
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+  if (publicCheckoutRateLimited([`public-get:${ip}`])) {
+    return NextResponse.json(
+      { error: 'Too many attempts — wait a minute and try again.', code: 'rate_limited' },
+      { status: 429 },
+    );
+  }
+  const result = await lookupPublicCheckoutSession(sessionId);
+  if ('error' in result) {
+    return NextResponse.json(
+      { error: result.error, code: result.code },
+      { status: result.status },
+    );
+  }
+  return NextResponse.json({
+    paid: result.paid,
+    email: result.email,
+    lookupKey: result.lookupKey,
+    planName: result.planName,
+    claimed: result.claimed,
+  });
 }

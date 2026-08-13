@@ -21,10 +21,10 @@
  * never by the return redirect.
  */
 
-import { Suspense, useCallback, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
+import { loadStripe, type Stripe } from "@stripe/stripe-js"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
 import { ArrowLeft, ArrowRight, Loader2, Lock, ShieldCheck } from "lucide-react"
 import {
@@ -51,11 +51,6 @@ const PLAN_LOOKUP: Record<string, { monthly: string; annual: string }> = {
   origin_graph: { monthly: "fus_launchpad_origin_monthly", annual: "fus_launchpad_origin_annual" },
   partner_mesh_pro: { monthly: "fus_launchpad_partner_monthly", annual: "fus_launchpad_partner_annual" },
 }
-
-/** Publishable key is safe in the browser by design; the secret key never is. */
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null
 
 const field =
   "myco-glass-field w-full rounded-lg border border-border px-3 py-2.5 text-base " +
@@ -114,6 +109,32 @@ function CheckoutFlow() {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [stripe, setStripe] = useState<Stripe | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const baked = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      if (baked?.startsWith("pk_")) {
+        const loaded = await loadStripe(baked)
+        if (!cancelled) setStripe(loaded)
+        return
+      }
+      try {
+        const r = await fetch("/api/fusarium/launchpad/billing/publishable-key")
+        const d = await r.json().catch(() => ({}))
+        const key = typeof d?.publishableKey === "string" ? d.publishableKey : ""
+        if (!key.startsWith("pk_")) return
+        const loaded = await loadStripe(key)
+        if (!cancelled) setStripe(loaded)
+      } catch {
+        // Hosted Checkout still works without a publishable key.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -124,6 +145,7 @@ function CheckoutFlow() {
     setBusy(true)
     setErr(null)
     try {
+      const embedded = Boolean(stripe)
       const r = await fetch("/api/fusarium/launchpad/billing/public-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,15 +154,27 @@ function CheckoutFlow() {
           email: form.email,
           name: form.name,
           company: form.company,
-          embedded: true,
+          embedded,
         }),
       })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok || !d?.clientSecret) {
+      if (!r.ok) {
         setErr(d?.error || "Could not start checkout. Please try again.")
         return
       }
-      setClientSecret(d.clientSecret)
+      if (embedded) {
+        if (!d?.clientSecret) {
+          setErr(d?.error || "Could not start checkout. Please try again.")
+          return
+        }
+        setClientSecret(d.clientSecret)
+        return
+      }
+      if (typeof d?.url === "string" && d.url.startsWith("https://")) {
+        window.location.assign(d.url)
+        return
+      }
+      setErr(d?.error || "Could not start checkout. Please try again.")
     } catch {
       setErr("Network error — please try again.")
     } finally {
@@ -301,9 +335,10 @@ function CheckoutFlow() {
                 Card details are entered inside Stripe and never reach our servers.
               </p>
 
-              {!stripePromise ? (
+              {!stripe ? (
                 <p className="text-sm text-muted-foreground">
-                  Payments are not configured in this environment.
+                  Continue above to open Stripe&apos;s hosted checkout. Card details are collected
+                  on Stripe, never on this page.
                 </p>
               ) : !clientSecret ? (
                 <div className="rounded-xl border border-dashed border-border/70 p-8 text-center">
@@ -313,7 +348,7 @@ function CheckoutFlow() {
                 </div>
               ) : (
                 <div id="stripe-embedded-checkout">
-                  <EmbeddedCheckoutProvider stripe={stripePromise} options={{ fetchClientSecret }}>
+                  <EmbeddedCheckoutProvider stripe={stripe} options={{ fetchClientSecret }}>
                     <EmbeddedCheckout />
                   </EmbeddedCheckoutProvider>
                 </div>
