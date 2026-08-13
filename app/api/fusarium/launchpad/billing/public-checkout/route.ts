@@ -166,8 +166,51 @@ export async function POST(request: NextRequest) {
         : { ok: true, url: session.url },
     );
   } catch (e) {
-    // Never leak Stripe internals to an anonymous caller.
-    console.error('[launchpad/public-checkout] session create failed:', (e as Error).message);
+    // Full detail server-side only — never to an anonymous caller.
+    const err = e as { message?: string; type?: string; code?: string; raw?: { message?: string } };
+    console.error('[launchpad/public-checkout] session create failed:', {
+      type: err.type,
+      code: err.code,
+      message: err.message,
+      lookupKey: product.lookupKey,
+      livemode: !secretKey.startsWith('sk_test_'),
+    });
+
+    // "Could not start checkout, please try again" is useless when the cause is
+    // permanent — an operator retries forever and learns nothing. Map the two
+    // failures that are actually configuration, not transient, to distinct
+    // codes. Still no Stripe internals in the response body.
+    const msg = `${err.message ?? ''} ${err.raw?.message ?? ''}`.toLowerCase();
+
+    if (err.type === 'StripeAuthenticationError') {
+      return NextResponse.json(
+        {
+          error: 'Payments are misconfigured. Our team has been notified.',
+          code: 'stripe_auth_failed',
+        },
+        { status: 503 },
+      );
+    }
+
+    // Live keys on an account that has not completed activation (identity,
+    // bank, ToS) cannot create charges. This is the expected state before
+    // Stripe onboarding finishes, and it is permanent until someone completes
+    // it — so say so rather than inviting a retry loop.
+    if (
+      msg.includes('activate') ||
+      msg.includes('cannot currently make live charges') ||
+      msg.includes('only be used with a connected account') ||
+      err.code === 'account_invalid'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Online payments are not open yet. Please check back shortly.',
+          code: 'stripe_account_not_activated',
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json(
       { error: 'Could not start checkout. Please try again.', code: 'checkout_failed' },
       { status: 502 },
