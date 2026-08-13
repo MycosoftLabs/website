@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Date** | August 13, 2026 (re-verified Aug 12 ~23:55 PT) |
+| **Date** | August 13, 2026 (migration re-attempt ~00:43 PT) |
 | **From** | Cursor (backend / Stripe ops) |
 | **To** | Claude (checkout UI) + Morgan (Dashboard clicks only) |
 | **Worktree** | `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website-cursor-launchpad` |
@@ -23,7 +23,8 @@ Claude confirmed CodeQL SHA-256 on `hashApiKey` is a **false positive**. Cursor 
 |---|---|
 | Publishable key wired | **N** (names present in gitignored env; values empty; never printed) |
 | Webhook path + handler on PR #260 | **Y** |
-| `launchpad_pending_purchases` migration applied to prod | **N** (2026-08-12 23:55 PT attempt — MCP OAuth did not complete; SQL not executed) |
+| `launchpad_pending_purchases` migration applied to prod | **N** (2026-08-13 ~00:43 PT — SQL not executed; see §2 apply attempt) |
+| Table `launchpad_pending_purchases` exists on prod | **N** (REST still **404 PGRST205**) |
 | Webhook + migration (combined) | **N** until the table exists |
 | `charges_enabled` | **false** |
 | `payouts_enabled` | **false** |
@@ -83,31 +84,34 @@ Re-read this session (no rewrite — handler is not broken). On [PR #260](https:
 
 ### Prod Supabase (`hnevnsxnhfibhbsipqvz`)
 
-REST probe with service role (no row data). Re-probed **Aug 12, 2026 ~23:55 PT**:
+REST probe with service role (no row data). Re-probed **Aug 13, 2026 ~00:43 PT**:
 
 | Table | HTTP |
 |---|---|
-| `launchpad_tenants` | 206 (exists) |
-| `launchpad_subscriptions` | 206 (exists) |
-| `launchpad_stripe_events` | 200 (exists) |
-| `launchpad_waitlist` | 206 (exists) |
-| `launchpad_credit_ledger` | 206 (exists) |
-| **`launchpad_pending_purchases`** | **404 — not in schema cache** |
+| **`launchpad_pending_purchases`** | **404 PGRST205 — not in schema cache** |
 
-Migration file is on the PR. **It is not applied** to prod.
+Migration file is on the PR (`supabase/migrations/20260814010000_launchpad_pending_purchases.sql`). **It is not applied** to prod. No fake apply.
 
-#### Apply attempt this session (did not succeed)
+#### Apply attempt this session (did not succeed) — env/SQL path, no OAuth wait
+
+Tried in order. Stopped after all methods failed. Values never printed. Claude tree not switched. Flags not flipped. No live charge. Colliding `launchpad_ai_connections` migrations **not** applied.
 
 | Step | Result |
 |---|---|
-| `plugin-supabase-supabase` in MCP catalog | **Absent** (same as prior session) |
-| Official HTTP MCP added to user `mcp.json` (no secrets; scoped `project_ref=hnevnsxnhfibhbsipqvz&features=database`) | **Y** |
-| `user-supabase` tools | **needsAuth** — `mcp_auth` started; OAuth stayed in progress; no browser tab this agent could complete |
-| `SUPABASE_ACCESS_TOKEN` / CLI login / DB URL | **Absent** (names only; no values printed) |
-| `apply_migration` / `execute_sql` | **Not called** — tools never became available |
+| Load Cursor worktree `.env.local` + MAS `.credentials.local` | **Y** (names loaded into process) |
+| `DATABASE_URL` / `POSTGRES_*` / `DIRECT_URL` / `SUPABASE_DB_URL` | **Absent** (or empty in generated prod env) |
+| `psql` | **Missing** |
+| Python `psycopg` / SQLAlchemy | Present locally; **not used** — no postgres connection string |
+| Service-role SQL API (`/pg/query`, `/pg-meta/*`) | **404** requested path is invalid |
+| RPC `exec_sql` / `execute_sql` | **404 PGRST202** — functions not in schema |
+| Management API `POST /v1/projects/…/database/query` with service role | **403** (no `SUPABASE_ACCESS_TOKEN`; PAT not in env; CLI `~/.supabase/access-token` absent) |
+| `user-supabase` MCP | **needsAuth**. `mcp_auth` called once (“already handled”). Server stayed **needsAuth**. Abandoned MCP; did not start another interactive OAuth loop. |
+| REST verify `GET /rest/v1/launchpad_pending_purchases?select=id&limit=1` | **404 PGRST205** (not 200/206). No rows dumped. |
 | Flags / live charge | Unchanged; no charge |
 
-**Do not treat this as a Morgan Dashboard click.** Remaining Morgan-only gates are still **pk_live** and **Stripe Activate** (identity, bank, ToS). Next agent with a completed Supabase MCP OAuth should `list_tables` / `list_migrations` then `apply_migration` with the exact SQL in `supabase/migrations/20260814010000_launchpad_pending_purchases.sql`, then re-probe until HTTP 206 on `launchpad_pending_purchases`. Until then a live `checkout.session.completed` for public pricing cannot persist a claimable row.
+**Blocker (no secrets):** no `DATABASE_URL` in env, `psql` missing, no `SUPABASE_ACCESS_TOKEN`, MCP OAuth not completed. Cannot run DDL with service role PostgREST alone.
+
+**Do not treat this as a Morgan Dashboard click.** Remaining Morgan-only gates are still **pk_live** paste and **Stripe Activate** (identity, bank, ToS). To apply this table, a later agent needs **one** of: a gitignored `DATABASE_URL` to prod Postgres, a `SUPABASE_ACCESS_TOKEN` (non-interactive), or a completed Supabase MCP session — then apply **only** `20260814010000_launchpad_pending_purchases.sql` and re-probe until HTTP 200/206. Until then a live `checkout.session.completed` for public pricing cannot persist a claimable row.
 
 ---
 
