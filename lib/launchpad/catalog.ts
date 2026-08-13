@@ -32,6 +32,8 @@ export type RadarFrequency = 'weekly' | 'daily';
 export interface Entitlements {
   users: number;
   aiCreditsMonthly: number;
+  /** BYO provider keys are a privacy feature, available on every paid tier including Launch Pass. */
+  byoAiKey: boolean;
   readinessWorkspace: boolean;
   evidenceIndex: boolean;
   documentFactory: boolean;
@@ -51,7 +53,7 @@ export interface Entitlements {
 
 export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
   launch_pass_30d: {
-    users: 3, aiCreditsMonthly: 100,
+    users: 3, aiCreditsMonthly: 100, byoAiKey: true,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
     contractRadarFrequency: 'weekly', activeOpportunityWatches: 25,
@@ -60,7 +62,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
     partnerMesh: false, partnerSandbox: false, apiAccess: false,
   },
   core: {
-    users: 3, aiCreditsMonthly: 100,
+    users: 3, aiCreditsMonthly: 100, byoAiKey: true,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
     contractRadarFrequency: 'weekly', activeOpportunityWatches: 25,
@@ -69,7 +71,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
     partnerMesh: false, partnerSandbox: false, apiAccess: false,
   },
   contractor_ops: {
-    users: 7, aiCreditsMonthly: 250,
+    users: 7, aiCreditsMonthly: 250, byoAiKey: true,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
     contractRadarFrequency: 'daily', activeOpportunityWatches: 100,
@@ -78,7 +80,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
     partnerMesh: false, partnerSandbox: false, apiAccess: false,
   },
   origin_graph: {
-    users: 12, aiCreditsMonthly: 500,
+    users: 12, aiCreditsMonthly: 500, byoAiKey: true,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
     contractRadarFrequency: 'daily', activeOpportunityWatches: 250,
@@ -87,7 +89,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
     partnerMesh: false, partnerSandbox: false, apiAccess: false,
   },
   partner_mesh_pro: {
-    users: 25, aiCreditsMonthly: 1200,
+    users: 25, aiCreditsMonthly: 1200, byoAiKey: true,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
     contractRadarFrequency: 'daily', activeOpportunityWatches: 1000,
@@ -193,5 +195,8 @@ export function catalogInvariants(): string[] {
   }
   const keys = CATALOG.map((p) => p.lookupKey);
   if (new Set(keys).size !== keys.length) errors.push('duplicate lookup keys');
+  for (const [plan, ent] of Object.entries(PLAN_ENTITLEMENTS)) {
+    if (!ent.byoAiKey) errors.push(`${plan} must allow BYO AI keys`);
+  }
   return errors;
 }

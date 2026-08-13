@@ -11,8 +11,10 @@
  *    `.eq('tenant_id', …)` derived from a TRUSTED source (verified Stripe
  *    webhook metadata, an enrolled agent row) — never from a request body.
  *  - Only billing webhooks, opportunity ingestion, agent result intake, rule
- *    packs, and waitlist ops may use this client. User-facing routes use the
- *    session-scoped client from requireTenant() so RLS enforces access.
+ *    packs, waitlist ops, and BYO-key *decrypt* (ciphertext columns are not
+ *    granted to authenticated) may use this client. Decrypt queries MUST
+ *    `.eq('tenant_id', trustedTenantId)` from requireTenant(). User-facing
+ *    routes otherwise use the session-scoped client so RLS enforces access.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
