@@ -59,7 +59,17 @@ const MAX_MESSAGE_CHARS = 4000;
 function makeSessionId(): string {
   const c: Crypto | undefined = typeof globalThis.crypto !== "undefined" ? globalThis.crypto : undefined;
   if (c && typeof c.randomUUID === "function") return `gcs-${c.randomUUID()}`;
-  return `gcs-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  // Fallback for contexts without randomUUID (it needs a secure context).
+  // getRandomValues is available far more widely and is a CSPRNG; the previous
+  // Math.random() fallback produced a guessable session id, which matters
+  // because this id is the conversation's only identifier on the wire.
+  if (c && typeof c.getRandomValues === "function") {
+    const b = new Uint8Array(16);
+    c.getRandomValues(b);
+    return `gcs-${Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("")}`;
+  }
+  // No crypto at all: fail loudly rather than mint a predictable id.
+  throw new Error("Secure random source unavailable — cannot create a session id.");
 }
 
 function errorDetail(body: unknown, status: number): string {
