@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
+import { isLaunchpadEnabled, isLaunchpadPublicCheckoutEnabled } from '@/lib/launchpad/flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,8 @@ export async function GET() {
     scannersInCloud: false,
     localAgentTelemetry: 'sanitized structured results only',
     byoKeys: 'envelope-encrypted; never returned; available on every tier',
-    launchpadEnabled: process.env.LAUNCHPAD_ENABLED === '1',
+    launchpadEnabled: isLaunchpadEnabled(),
+    publicCheckoutEnabled: isLaunchpadPublicCheckoutEnabled(),
     note: 'LAUNCHPAD_ENABLED stays 0 in sandbox/prod until Morgan says otherwise.',
   });
 }

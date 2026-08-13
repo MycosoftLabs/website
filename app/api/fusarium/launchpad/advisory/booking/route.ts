@@ -70,6 +70,17 @@ export async function POST(request: NextRequest) {
     return jsonError(503, url.code, url.error, { calcom: calcomStatus() });
   }
 
+  let svc;
+  try {
+    svc = createLaunchpadServiceClient();
+  } catch {
+    return jsonError(
+      503,
+      'service_unconfigured',
+      'Cannot mint a booking without the service role (needed to mark the credit redeemed).',
+    );
+  }
+
   const { data: booking, error } = await gate.ctx.supabase
     .from('launchpad_advisory_bookings')
     .insert({
@@ -84,7 +95,6 @@ export async function POST(request: NextRequest) {
     .single();
   if (error || !booking) return jsonError(500, 'booking_persist_failed', 'Could not record booking intent');
 
-  const svc = createLaunchpadServiceClient();
   await svc
     .from('launchpad_advisory_credits')
     .update({ status: 'redeemed', redeemed_at: new Date().toISOString(), booking_id: booking.id })

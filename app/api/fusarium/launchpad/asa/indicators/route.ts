@@ -10,13 +10,21 @@ export async function GET() {
   const gate = await requireTenant();
   if (gate.error) return gate.error;
   const { ctx } = gate;
-  const [{ data: states }, { data: evidence }] = await Promise.all([
+  const [
+    statesRes,
+    evidenceRes,
+  ] = await Promise.all([
     ctx.supabase.from('launchpad_control_states').select('control_id, state').eq('tenant_id', ctx.tenantId),
     ctx.supabase.from('launchpad_evidence_index').select('control_ids').eq('tenant_id', ctx.tenantId),
   ]);
-  if (!states && !evidence) {
-    return jsonError(500, 'load_failed', 'Could not load register');
+  if (statesRes.error || evidenceRes.error) {
+    return jsonError(503, 'indicators_unavailable', 'Could not load one or more register queries', {
+      states: statesRes.error ? 'unavailable' : 'ok',
+      evidence: evidenceRes.error ? 'unavailable' : 'ok',
+    });
   }
+  const states = statesRes.data;
+  const evidence = evidenceRes.data;
   const map: Record<string, AssessmentState> = {};
   for (const row of states ?? []) map[row.control_id] = row.state as AssessmentState;
   const covered: string[] = [];

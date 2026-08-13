@@ -9,19 +9,23 @@ export const dynamic = 'force-dynamic';
 
 const STATE_COOKIE = 'lp_docusign_oauth';
 
-function stateSecret(): string {
-  return (
+function stateSecret(): string | null {
+  const secret = (
     process.env.LAUNCHPAD_OAUTH_STATE_SECRET ||
     process.env.LAUNCHPAD_KMS_MASTER_KEY ||
     process.env.NEXTAUTH_SECRET ||
     ''
   ).trim();
+  return secret || null;
 }
 
 export function signOauthState(tenantId: string, nonce: string, exp: number): string {
   const secret = stateSecret();
+  if (!secret) {
+    throw new Error('oauth_state_unconfigured');
+  }
   const payload = `${tenantId}.${nonce}.${exp}`;
-  const sig = createHmac('sha256', secret || 'unconfigured').update(payload).digest('hex');
+  const sig = createHmac('sha256', secret).update(payload).digest('hex');
   return Buffer.from(`${payload}.${sig}`).toString('base64url');
 }
 
@@ -47,6 +51,13 @@ export async function GET() {
     return jsonError(503, 'docusign_unconfigured', status.blockingReason || 'DocuSign OAuth client is not configured', {
       docusign: status,
     });
+  }
+  if (!stateSecret()) {
+    return jsonError(
+      503,
+      'oauth_state_unconfigured',
+      'Set LAUNCHPAD_OAUTH_STATE_SECRET (or LAUNCHPAD_KMS_MASTER_KEY / NEXTAUTH_SECRET). Refusing to HMAC with a placeholder.',
+    );
   }
   const nonce = randomBytes(16).toString('hex');
   const exp = Date.now() + 15 * 60 * 1000;

@@ -3,6 +3,9 @@ import { cookies } from 'next/headers';
 import { createHash } from 'crypto';
 import { requireTenant, ACTIVE_TENANT_COOKIE } from '@/lib/launchpad/tenant-context';
 import { TERMS_VERSION } from '@/lib/launchpad/constants';
+import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
+import { claimPaidPurchasesForVerifiedEmail } from '@/lib/launchpad/billing/grants';
+import { verifiedAuthEmail } from '@/lib/launchpad/billing/public-checkout';
 
 /**
  * POST — create the caller's Launchpad workspace.
@@ -16,7 +19,7 @@ import { TERMS_VERSION } from '@/lib/launchpad/constants';
 const REQUIRED_DOCS = ['terms', 'privacy', 'aup', 'non_cui_policy'] as const;
 
 export async function POST(request: NextRequest) {
-  const result = await requireTenant({ allowNoTenant: true });
+  const result = await requireTenant({ allowNoTenant: true, allowPaidOnboarding: true });
   if (result.error) return result.error;
   const { ctx } = result;
 
@@ -87,5 +90,24 @@ export async function POST(request: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  return NextResponse.json({ ok: true, tenantId });
+  let claimed = 0;
+  const {
+    data: { user: authUser },
+  } = await ctx.supabase.auth.getUser();
+  const verifiedEmail = verifiedAuthEmail(authUser);
+  if (verifiedEmail) {
+    try {
+      const svc = createLaunchpadServiceClient();
+      const claim = await claimPaidPurchasesForVerifiedEmail(svc, {
+        tenantId: tenantId as string,
+        verifiedEmail,
+        eventIdPrefix: 'onboarding-claim',
+      });
+      claimed = claim.claimed;
+    } catch (claimErr) {
+      console.error('[launchpad/onboarding] pending claim failed:', (claimErr as Error).message);
+    }
+  }
+
+  return NextResponse.json({ ok: true, tenantId, claimedPurchases: claimed });
 }

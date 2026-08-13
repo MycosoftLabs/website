@@ -172,6 +172,17 @@ export async function matchTenants(
           fitFactors: scored.fitFactors,
           disqualifiers: scored.disqualifiers,
         });
+        const watchWorthy =
+          scored.fitScore != null && scored.fitScore >= 0.4 && !scored.disqualifiers.includes('agency_excluded_by_profile');
+        if (watchWorthy) {
+          await svc.from('launchpad_radar_alerts').insert({
+            tenant_id: profile.tenant_id,
+            opportunity_id: opp.id,
+            kind: 'watch',
+            title: opp.title ? `Match: ${String(opp.title).slice(0, 180)}` : 'Opportunity match',
+            body: 'Fit match from official collector ingest. Not a bid recommendation.',
+          });
+        }
       }
     }
   }

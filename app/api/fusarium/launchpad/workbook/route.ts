@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { jsonError, readJson } from '@/lib/launchpad/http';
 import { WORKBOOK_STEPS } from '@/lib/launchpad/workbook/steps';
+import { getWalkthrough } from '@/lib/launchpad/walkthroughs';
 
 export const dynamic = 'force-dynamic';
+
+function isAllowedStepId(stepId: string): boolean {
+  if (WORKBOOK_STEPS.some((s) => s.id === stepId)) return true;
+  const namespaced = /^walkthrough:([a-z0-9-]+):([a-z0-9-]+)$/i.exec(stepId);
+  if (!namespaced) return false;
+  const walkthrough = getWalkthrough(namespaced[1]);
+  return Boolean(walkthrough?.steps.some((s) => s.id === namespaced[2]));
+}
 
 export async function GET() {
   const gate = await requireTenant();
@@ -19,7 +28,10 @@ export async function GET() {
     steps: WORKBOOK_STEPS.map((s) => ({ ...s, completed: done.has(s.id) })),
     completedCount: done.size,
     total: WORKBOOK_STEPS.length,
-    note: 'Lego-step walkthrough of the product. Completing a step is not a compliance claim.',
+    walkthroughProgress: (data ?? [])
+      .map((r) => r.step_id)
+      .filter((id) => typeof id === 'string' && id.startsWith('walkthrough:')),
+    note: 'Lego-step walkthrough of the product. Completing a step is not a compliance claim. Founder walkthroughs use walkthrough:<id>:<stepId>.',
   });
 }
 
@@ -30,7 +42,7 @@ export async function PATCH(request: NextRequest) {
   const parsed = await readJson<{ stepId?: string; complete?: boolean }>(request);
   if (parsed.ok === false) return parsed.response;
   const stepId = typeof parsed.body.stepId === 'string' ? parsed.body.stepId : '';
-  if (!WORKBOOK_STEPS.some((s) => s.id === stepId)) {
+  if (!isAllowedStepId(stepId)) {
     return jsonError(400, 'validation_error', 'Unknown workbook step');
   }
   if (parsed.body.complete === false) {

@@ -11,9 +11,23 @@
  * (waitlist vs. buy) and is rebuild-acceptable.
  */
 
+function envFlagOn(name: string): boolean {
+  const v = process.env[name];
+  return v === '1' || v === 'true';
+}
+
 /** Master switch for the authenticated app + BFF. Marketing pages are always public. */
 export function isLaunchpadEnabled(): boolean {
-  return process.env.LAUNCHPAD_ENABLED === '1' || process.env.LAUNCHPAD_ENABLED === 'true';
+  return envFlagOn('LAUNCHPAD_ENABLED');
+}
+
+/**
+ * Storefront kill switch — independent of `LAUNCHPAD_ENABLED`.
+ * Sales can open while the workspace stays closed; checkout can be killed
+ * without taking the authenticated app down. Fail closed.
+ */
+export function isLaunchpadPublicCheckoutEnabled(): boolean {
+  return envFlagOn('LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED');
 }
 
 /** When true, marketing CTAs collect waitlist interest instead of starting checkout. */

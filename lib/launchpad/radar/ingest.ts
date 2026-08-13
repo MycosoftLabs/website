@@ -124,7 +124,22 @@ export async function ingestNormalizedOpportunities(
       amendment_no: nextNo,
       diff,
     });
-    if (!aErr) outcome.amendments += 1;
+    if (!aErr) {
+      outcome.amendments += 1;
+      const { data: watchers } = await svc
+        .from('launchpad_opportunity_matches')
+        .select('tenant_id')
+        .eq('opportunity_id', existing.id);
+      for (const watcher of watchers ?? []) {
+        await svc.from('launchpad_radar_alerts').insert({
+          tenant_id: watcher.tenant_id,
+          opportunity_id: existing.id,
+          kind: 'amendment',
+          title: `Amendment on ${rec.title.slice(0, 160)}`,
+          body: 'Official source hash changed. Review the amendment diff — Launchpad does not invent notices.',
+        });
+      }
+    }
 
     const { error: uErr } = await svc
       .from('launchpad_opportunities')

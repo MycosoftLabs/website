@@ -6,6 +6,7 @@ Copy these into **both** blue and green slots. Values are placeholders — never
 
 ```
 LAUNCHPAD_ENABLED=0
+LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED=0
 NEXT_PUBLIC_LAUNCHPAD_WAITLIST_MODE=1
 STRIPE_SECRET_KEY=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
@@ -77,6 +78,7 @@ Set the same names as repository or environment secrets for both colors (values 
 | Secret | Notes |
 |---|---|
 | `LAUNCHPAD_ENABLED` | Must remain `0` until Morgan go |
+| `LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED` | Storefront kill switch; independent of workspace flag. `0` until Morgan opens sales |
 | `SUPABASE_SERVICE_ROLE_KEY` | Dashboard → service_role |
 | `STRIPE_SECRET_KEY` | `sk_test_` first |
 | `STRIPE_LAUNCHPAD_WEBHOOK_SECRET` | From Launchpad webhook endpoint |

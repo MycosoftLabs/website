@@ -23,7 +23,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { isLaunchpadEnabled } from '@/lib/launchpad/flags';
+import { isLaunchpadEnabled, isLaunchpadPublicCheckoutEnabled } from '@/lib/launchpad/flags';
 
 export type TenantRole = 'owner' | 'admin' | 'member' | 'readonly';
 export type TenantStatus = 'active' | 'grace' | 'read_export' | 'suspended';
@@ -47,6 +47,11 @@ export interface RequireTenantOptions {
   write?: boolean;
   /** Allow a signed-in user with no tenant yet (onboarding + tenant creation). */
   allowNoTenant?: boolean;
+  /**
+   * Allow session routes when the workspace flag is off IF public checkout is
+   * on — paid buyers must still onboard/claim. Does not open the rest of the app.
+   */
+  allowPaidOnboarding?: boolean;
 }
 
 type MembershipRow = {
@@ -62,7 +67,9 @@ export async function requireTenant(
   opts: RequireTenantOptions = {},
 ): Promise<{ ctx: TenantContext; error?: never } | { ctx?: never; error: NextResponse }> {
   if (!isLaunchpadEnabled()) {
-    return { error: err(404, 'launchpad_disabled', 'Not found') };
+    if (!(opts.allowPaidOnboarding && isLaunchpadPublicCheckoutEnabled())) {
+      return { error: err(404, 'launchpad_disabled', 'Not found') };
+    }
   }
 
   const supabase = await createClient();

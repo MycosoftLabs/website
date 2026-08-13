@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createHash } from 'crypto';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
-import { getProduct, LAUNCH_PASS_DAYS } from '@/lib/launchpad/catalog';
+import { getProduct } from '@/lib/launchpad/catalog';
+import {
+  grantCatalogProductToTenant,
+  monthlyCreditsForPlanKey,
+} from '@/lib/launchpad/billing/grants';
+import {
+  markPendingPurchasePaid,
+  normalizeCheckoutEmail,
+} from '@/lib/launchpad/billing/public-checkout';
 
 /**
  * Launchpad's OWN Stripe webhook — deliberately separate from the legacy
@@ -66,7 +74,8 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const tenantId = session.metadata?.lp_tenant_id;
         const lookupKey = session.metadata?.lp_lookup_key;
-        if (!tenantId || !lookupKey) {
+        const lpSource = session.metadata?.lp_source;
+        if (!lookupKey) {
           outcome = svcOutcome({ handled: false, reason: 'not a launchpad session (no lp metadata)' });
           break;
         }
@@ -77,74 +86,53 @@ export async function POST(request: NextRequest) {
         }
 
         const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+        const subscriptionId =
+          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id ?? null;
 
-        if (product.kind === 'pass') {
-          // No cap, no cohort counter — a paid pass is always granted. Replay
-          // safety comes from the stripe_events idempotency check above and the
-          // per-tenant upsert below, not from a scarcity gate.
-          const expires = new Date();
-          expires.setUTCDate(expires.getUTCDate() + LAUNCH_PASS_DAYS);
-          await svc.from('launchpad_subscriptions').upsert(
-            {
-              tenant_id: tenantId,
-              stripe_customer_id: customerId,
-              plan_key: 'launch_pass_30d',
-              status: 'active',
-              founding_pass_expires_at: expires.toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'tenant_id' },
+        if (lpSource === 'public_pricing' && !tenantId) {
+          const stripeEmail = normalizeCheckoutEmail(
+            session.customer_details?.email || session.customer_email || '',
           );
-          // Included credits, granted once per event (ledger is insert-only; replays are blocked above).
-          await svc.from('launchpad_credit_ledger').insert({
-            tenant_id: tenantId, delta: 100, reason: 'launch_pass_grant', ref: { event: event.id },
+          if (!stripeEmail) {
+            outcome = svcOutcome({
+              handled: false,
+              reason: 'public_pricing session has no Stripe email — cannot stage a claimable purchase',
+            });
+            break;
+          }
+          await markPendingPurchasePaid(svc, {
+            stripeSessionId: session.id,
+            stripeCustomerId: customerId,
+            email: stripeEmail,
+            lookupKey: product.lookupKey,
+            planKey: product.planKey ?? session.metadata?.lp_plan_key ?? null,
+            billing: product.billing,
+            kind: product.kind,
+            company: session.metadata?.lp_company ?? null,
           });
-          outcome = svcOutcome({ handled: true, granted: 'launch_pass_30d' });
-          break;
-        }
-
-        if (product.kind === 'credits' && product.creditQuantity) {
-          await svc.from('launchpad_credit_ledger').insert({
-            tenant_id: tenantId, delta: product.creditQuantity, reason: 'pack_purchase',
-            ref: { event: event.id, lookupKey },
+          outcome = svcOutcome({
+            handled: true,
+            pending: true,
+            kind: product.kind,
+            note: 'No tenant yet. Buyer claims by verified auth email.',
           });
-          outcome = svcOutcome({ handled: true, credits: product.creditQuantity });
           break;
         }
 
-        if (product.kind === 'advisory' && product.advisoryMinutes) {
-          await svc.from('launchpad_advisory_credits').insert({
-            tenant_id: tenantId,
-            sku: lookupKey,
-            minutes: product.advisoryMinutes,
-            status: 'unredeemed',
-            stripe_event_id: event.id,
-          });
-          outcome = svcOutcome({ handled: true, granted: 'advisory_credit', minutes: product.advisoryMinutes });
+        if (!tenantId) {
+          outcome = svcOutcome({ handled: false, reason: 'not a launchpad session (no lp_tenant_id)' });
           break;
         }
 
-        if (product.kind === 'plan' && product.planKey) {
-          await svc.from('launchpad_subscriptions').upsert(
-            {
-              tenant_id: tenantId,
-              stripe_customer_id: customerId,
-              stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
-              plan_key: product.planKey,
-              status: 'active',
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'tenant_id' },
-          );
-          await svc
-            .from('launchpad_tenants')
-            .update({ status: 'active', updated_at: new Date().toISOString() })
-            .eq('id', tenantId);
-          outcome = svcOutcome({ handled: true, plan: product.planKey });
-          break;
-        }
-
-        outcome = svcOutcome({ handled: true, note: `no grant path for kind=${product.kind}` });
+        const granted = await grantCatalogProductToTenant(svc, {
+          tenantId,
+          product,
+          lookupKey: product.lookupKey,
+          eventId: event.id,
+          customerId,
+          subscriptionId,
+        });
+        outcome = svcOutcome({ handled: true, ...granted });
         break;
       }
 
@@ -228,20 +216,25 @@ export async function POST(request: NextRequest) {
           .from('launchpad_tenants')
           .update({ status: 'active', updated_at: new Date().toISOString() })
           .eq('id', subRow.tenant_id);
-        // Monthly included credits on each paid invoice for recurring plans.
-        const plan = subRow.plan_key ? getProduct(`fus_launchpad_${
-          subRow.plan_key === 'contractor_ops' ? 'ops' :
-          subRow.plan_key === 'origin_graph' ? 'origin' :
-          subRow.plan_key === 'partner_mesh_pro' ? 'partner' : 'core'}_monthly`) : null;
-        const { PLAN_ENTITLEMENTS } = await import('@/lib/launchpad/catalog');
-        const ent = subRow.plan_key ? PLAN_ENTITLEMENTS[subRow.plan_key as keyof typeof PLAN_ENTITLEMENTS] : null;
-        if (ent && plan) {
-          await svc.from('launchpad_credit_ledger').insert({
-            tenant_id: subRow.tenant_id, delta: ent.aiCreditsMonthly, reason: 'monthly_grant',
-            ref: { event: event.id, invoice: invoice.id },
+        const monthly = monthlyCreditsForPlanKey(subRow.plan_key);
+        if (monthly == null) {
+          outcome = svcOutcome({
+            handled: true,
+            credits: 0,
+            note:
+              subRow.plan_key === 'launch_pass_30d'
+                ? 'Launch Pass is one-time; monthly_grant does not apply (credits granted at pass purchase).'
+                : `unrecognized_plan_key:${subRow.plan_key ?? 'null'} — refusing to invent a credit grant`,
           });
+          break;
         }
-        outcome = svcOutcome({ handled: true, credits: ent?.aiCreditsMonthly ?? 0 });
+        await svc.from('launchpad_credit_ledger').insert({
+          tenant_id: subRow.tenant_id,
+          delta: monthly,
+          reason: 'monthly_grant',
+          ref: { event: event.id, invoice: invoice.id },
+        });
+        outcome = svcOutcome({ handled: true, credits: monthly });
         break;
       }
 

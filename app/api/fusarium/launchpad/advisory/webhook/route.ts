@@ -94,6 +94,19 @@ export async function POST(request: NextRequest) {
     kind: 'advisory',
   });
 
+  if (meta.startTime) {
+    const due = meta.startTime.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(due)) {
+      await svc.from('launchpad_calendar_events').insert({
+        tenant_id: meta.tenantId,
+        source: 'task',
+        title: 'Advisory session (Cal.com)',
+        due_at: due,
+        ref_id: booking?.id ?? meta.creditId,
+      });
+    }
+  }
+
   await appendAuditEvent(svc, meta.tenantId, null, {
     action: 'advisory.booking.created',
     entity: 'launchpad_advisory_bookings',

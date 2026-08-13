@@ -85,17 +85,32 @@ export async function GET() {
     ctx.supabase.from('launchpad_bom_parts').select('id, flags').eq('tenant_id', ctx.tenantId),
   ]);
 
+  const panel = <T,>(res: { data: T | null; error: { message?: string } | null }, empty: T) =>
+    res.error
+      ? { unavailable: true as const, reason: 'query_failed' as const, data: empty }
+      : { unavailable: false as const, data: (res.data ?? empty) as T };
+
+  const statesPanel = panel(states, [] as NonNullable<typeof states.data>);
+  const evidencePanel = panel(evidence, [] as NonNullable<typeof evidence.data>);
+  const tasksPanel = panel(tasks, [] as NonNullable<typeof tasks.data>);
+  const matchesPanel = panel(matches, [] as NonNullable<typeof matches.data>);
+  const proposalsPanel = panel(proposals, [] as NonNullable<typeof proposals.data>);
+  const registrationsPanel = panel(registrations, [] as NonNullable<typeof registrations.data>);
+  const agentsPanel = panel(agents, [] as NonNullable<typeof agents.data>);
+  const consentsPanel = panel(consents, [] as NonNullable<typeof consents.data>);
+  const bomPanel = panel(bom, [] as NonNullable<typeof bom.data>);
+
   const stateMap: Record<string, AssessmentState> = {};
-  for (const row of states.data ?? []) {
+  for (const row of statesPanel.data ?? []) {
     stateMap[row.control_id] = row.state as AssessmentState;
   }
-  const evidenceIds = (evidence.data ?? []).flatMap((row) => {
+  const evidenceIds = (evidencePanel.data ?? []).flatMap((row) => {
     const ids = row.control_ids;
     return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
   });
   const measurements = fourIndependentMeasurements(stateMap, evidenceIds);
-  const confidence = evidenceConfidence(evidence.data ?? []);
-  const originFlags = (bom.data ?? []).filter((p) => Array.isArray(p.flags) && (p.flags as unknown[]).length > 0).length;
+  const confidence = evidenceConfidence(evidencePanel.data ?? []);
+  const originFlags = (bomPanel.data ?? []).filter((p) => Array.isArray(p.flags) && (p.flags as unknown[]).length > 0).length;
 
   return NextResponse.json({
     measurements,
@@ -110,33 +125,55 @@ export async function GET() {
     independenceNote: measurements.independenceNote,
     panels: {
       readiness: {
+        unavailable: statesPanel.unavailable,
         implementedCount: measurements.implementedCount.value,
         catalogSize: CMMC_L2_CONTROLS.length,
         score: measurements.weightedScore.value,
       },
       eligibility: {
+        unavailable: statesPanel.unavailable,
         value: measurements.poamEligibility.value,
         threshold: measurements.weightedScore.threshold,
         reason: measurements.poamEligibility.reason,
       },
-      evidence: confidence,
-      blockers: (tasks.data ?? []).slice(0, 8),
-      deadlines: (tasks.data ?? []).filter((t) => t.due_at).slice(0, 8),
-      opportunityMatches: { count: (matches.data ?? []).length },
-      proposalPipeline: { count: (proposals.data ?? []).length },
-      registrationStatus: registrations.data ?? [],
-      originGraphAlerts: { flaggedLines: originFlags, lineCount: (bom.data ?? []).length },
+      evidence: { ...confidence, unavailable: evidencePanel.unavailable },
+      blockers: { unavailable: tasksPanel.unavailable, items: (tasksPanel.data ?? []).slice(0, 8) },
+      deadlines: {
+        unavailable: tasksPanel.unavailable,
+        items: (tasksPanel.data ?? []).filter((t) => t.due_at).slice(0, 8),
+      },
+      opportunityMatches: {
+        unavailable: matchesPanel.unavailable,
+        count: (matchesPanel.data ?? []).length,
+      },
+      proposalPipeline: {
+        unavailable: proposalsPanel.unavailable,
+        count: (proposalsPanel.data ?? []).length,
+      },
+      registrationStatus: {
+        unavailable: registrationsPanel.unavailable,
+        items: registrationsPanel.data ?? [],
+      },
+      originGraphAlerts: {
+        unavailable: bomPanel.unavailable,
+        flaggedLines: originFlags,
+        lineCount: (bomPanel.data ?? []).length,
+      },
       localAgent: {
-        devices: (agents.data ?? []).length,
+        unavailable: agentsPanel.unavailable,
+        devices: (agentsPanel.data ?? []).length,
         note: 'Raw scanner telemetry stays on-prem. Cloud lists enrollment metadata only.',
       },
       regulatoryUpdates: { note: 'No mock regulatory feed. Empty until a real source is connected.' },
-      partnerMesh: { consents: (consents.data ?? []).filter((c) => !c.revoked_at).length },
+      partnerMesh: {
+        unavailable: consentsPanel.unavailable,
+        consents: (consentsPanel.data ?? []).filter((c) => !c.revoked_at).length,
+      },
       credits: { balance, monthly: derived.entitlements?.aiCreditsMonthly ?? 0, byoAiKey: derived.entitlements?.byoAiKey ?? true },
     },
     empty:
       Object.keys(stateMap).length === 0 &&
-      (evidence.data ?? []).length === 0 &&
-      (tasks.data ?? []).length === 0,
+      (evidencePanel.data ?? []).length === 0 &&
+      (tasksPanel.data ?? []).length === 0,
   });
 }
