@@ -135,7 +135,23 @@ export default function LiveFeedSurface({
     mountedAtRef.current = Date.now();
   }, [base]);
 
-  const live = online && !imgErr;
+  /*
+   * Anti-flap, liveness edition. `online` is the 10 s rig STATUS POLL, not the video.
+   *
+   * Once frames are actually arriving, the poll gets no vote on teardown: going offline renders the
+   * fallback panel below, which unmounts the <img> and drops the MJPEG socket. One late or 503-ing
+   * poll would therefore kill a perfectly good stream, and the reconnect re-arms the same race —
+   * which is the on/off cycling seen on the 360 ring.
+   *
+   * The guard that was meant to prevent this (`lastFrameAtRef` below) cannot: for
+   * multipart/x-mixed-replace Chrome fires `load` ONCE at stream start, not per frame, so the ref
+   * goes stale on a healthy stream and the "frames still arriving" test never rescues it.
+   *
+   * So after first frame, only a real element `error` — the socket actually closing — takes the
+   * stream down. Before first frame we still trust the poll, gated by CONNECT_GRACE_MS, because
+   * there is no frame evidence to prefer over it.
+   */
+  const live = (everLive || online) && !imgErr;
 
   useEffect(() => {
     if (live) { setHardOffline(false); return; }
