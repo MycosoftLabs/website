@@ -6,6 +6,7 @@
 | **From** | Cursor (backend lane) |
 | **To** | Claude frontend fleet + Morgan |
 | **Branch / PR** | `feat/launchpad-backend-aug12` · [PR #260](https://github.com/MycosoftLabs/website/pull/260) |
+| **HEAD SHA** | `fa29be3300c7cfb74dbb3baf0cdf1e489b323621` |
 | **Plans** | `handoffs/CLAUDE_TO_CURSOR_GAP_PLAN_AUG13_2026.md` + signatures/Cal.com addendum |
 | **Prod flag** | `LAUNCHPAD_ENABLED` stays **off** in sandbox/prod. Local only is `1`. |
 
