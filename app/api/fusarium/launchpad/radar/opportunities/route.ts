@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { requireTenant } from '@/lib/launchpad/tenant-context';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireTenantOrHarnessRead } from '@/lib/launchpad/agent/harness-auth';
 import { resolveSamApiKeyFromEnv } from '@/lib/launchpad/collectors/sam';
 
 /**
@@ -7,8 +7,8 @@ import { resolveSamApiKeyFromEnv } from '@/lib/launchpad/collectors/sam';
  * Empty until real collectors ingest official notices; never mock federal data.
  * When SAM_API_KEY is unset, report honest "SAM not configured" status.
  */
-export async function GET() {
-  const result = await requireTenant();
+export async function GET(request: NextRequest) {
+  const result = await requireTenantOrHarnessRead(request);
   if (result.error) return result.error;
   const { ctx } = result;
 

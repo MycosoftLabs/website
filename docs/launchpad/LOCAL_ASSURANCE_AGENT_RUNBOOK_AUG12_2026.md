@@ -26,7 +26,18 @@ Response includes `agent.id`, `enrollment_token`, and `hmac_key` **once**. Save 
 
 Device caps come from `deriveEntitlements().localAgentDevices` (0 on Core / Founding Pass; 25+ on Contractor Ops).
 
-## Submit results (agent)
+## Local MYCA harness (preferred — WP-3)
+
+Not a check-runner. Customer-machine orchestrator with Readiness / Evidence / Document / Systems Check / Radar subagents. BYO AI keys stay local. See `services/launchpad-myca-harness/README.md` and `CURSOR_TO_CLAUDE_MYCA_LOCAL_HARNESS_AUG13_2026.md`.
+
+```powershell
+cd services/launchpad-myca-harness
+python -m launchpad_myca_harness init
+# edit ~/.launchpad-myca/config.json (agent_id + lp_… key; optional byo_ai.api_key)
+python -m launchpad_myca_harness once
+```
+
+## Submit results (legacy HMAC smoke runner)
 
 ```powershell
 $env:LP_AGENT_ID="<uuid>"

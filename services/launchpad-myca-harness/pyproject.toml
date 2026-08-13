@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "launchpad-myca-harness"
+version = "0.1.0"
+description = "FUSARIUM Launchpad local MYCA orchestrator — customer-machine subagents, sanitized sync only"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary — Mycosoft, LLC" }
+authors = [{ name = "Mycosoft" }]
+# Stdlib-only runtime. Optional provider SDKs are not required.
+
+[project.scripts]
+launchpad-myca = "launchpad_myca_harness.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["launchpad_myca_harness*"]

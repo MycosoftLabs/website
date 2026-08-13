@@ -85,3 +85,11 @@ docs/private/**
 
 # Launchpad synthetic demo account credentials (local only)
 .launchpad-demo.local
+
+# Launchpad MYCA local harness (BYO AI keys + lp_ tokens — never commit)
+.launchpad-myca.local.json
+.launchpad-myca.local.yaml
+**/launchpad-myca.local.json
+services/launchpad-myca-harness/.venv/
+services/launchpad-myca-harness/inbox/
+services/launchpad-myca-harness/data/

@@ -1,0 +1,21 @@
+{
+  "launchpad_base_url": "https://sandbox.mycosoft.com",
+  "agent_id": "<uuid from enroll — never commit a real id with secrets>",
+  "workspace_api_key": "",
+  "hmac_key": "",
+  "kill_switch": false,
+  "poll_seconds": 60,
+  "evidence_dir": "",
+  "capability_notes": { "naics": [], "psc": [], "set_asides": [] },
+  "document_families": ["ac", "ia"],
+  "byo_ai": {
+    "provider": "anthropic",
+    "api_key": "",
+    "model": "claude-sonnet-4-20250514"
+  },
+  "sync": {
+    "results": true,
+    "never_send_prompts": true,
+    "never_send_raw_logs": true
+  }
+}

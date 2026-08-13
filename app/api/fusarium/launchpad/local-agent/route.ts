@@ -24,6 +24,6 @@ export async function GET() {
     enroll: 'POST /api/fusarium/launchpad/local-agent/enroll',
     results: 'POST /api/fusarium/launchpad/local-agent/results (sanitized only)',
     note:
-      'The Local Assurance Agent binary/installers are not in this backend pass. Red-team and network scanners stay on-prem; cloud never receives raw telemetry. An agent_check result never flips a control to implemented by itself.',
+      'Local MYCA harness: services/launchpad-myca-harness (WP-3). Cloud stores sanitized results + hashes only. An agent_check never flips a control to implemented.',
   });
 }

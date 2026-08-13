@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
+import { requireTenantOrHarnessRead } from '@/lib/launchpad/agent/harness-auth';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { CMMC_L2_CONTROLS } from '@/lib/security/reference/cmmc-l2-reference';
 import type { AssessmentState } from '@/lib/launchpad/scoring/engine';
@@ -14,8 +15,8 @@ import type { AssessmentState } from '@/lib/launchpad/scoring/engine';
 
 const VALID_STATES: AssessmentState[] = ['implemented', 'partial', 'not_implemented', 'not_applicable'];
 
-export async function GET() {
-  const result = await requireTenant();
+export async function GET(request: NextRequest) {
+  const result = await requireTenantOrHarnessRead(request);
   if (result.error) return result.error;
   const { ctx } = result;
 

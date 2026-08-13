@@ -1,5 +1,8 @@
 /**
- * Minimal Local Assurance Agent runner (read-only check pack MVP).
+ * Legacy HMAC smoke runner (tiny check pack).
+ *
+ * Production local orchestrator (MYCA + subagents):
+ *   services/launchpad-myca-harness  →  python -m launchpad_myca_harness once
  *
  * Prerequisites:
  *   1. LAUNCHPAD_ENABLED=1 locally

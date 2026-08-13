@@ -189,6 +189,21 @@ export async function authorizeAgentBearer(
   return verifyTenantApiKey(svc, token, 'agent');
 }
 
+/**
+ * Local MYCA harness read path: Bearer lp_… with scope agent, read, or admin.
+ * Never grants write. Used by GET /tasks, GET /readiness/controls, GET /radar/*.
+ */
+export async function authorizeHarnessBearer(
+  svc: SupabaseClient,
+  authorizationHeader: string | null,
+): Promise<VerifiedApiKey | null> {
+  const token = extractBearerToken(authorizationHeader);
+  if (!token || !isLaunchpadApiKeyFormat(token)) return null;
+  const agent = await verifyTenantApiKey(svc, token, 'agent');
+  if (agent) return agent;
+  return verifyTenantApiKey(svc, token, 'read');
+}
+
 /** Create key via session RPC (preferred for UI). Returns plaintext once. */
 export async function createApiKeyViaRpc(
   sessionClient: SupabaseClient,
