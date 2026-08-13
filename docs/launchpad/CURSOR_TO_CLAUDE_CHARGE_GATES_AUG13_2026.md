@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Date** | August 13, 2026 (verified Aug 12 evening Pacific) |
+| **Date** | August 13, 2026 (re-verified Aug 12 ~23:55 PT) |
 | **From** | Cursor (backend / Stripe ops) |
 | **To** | Claude (checkout UI) + Morgan (Dashboard clicks only) |
 | **Worktree** | `D:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website-cursor-launchpad` |
@@ -23,7 +23,7 @@ Claude confirmed CodeQL SHA-256 on `hashApiKey` is a **false positive**. Cursor 
 |---|---|
 | Publishable key wired | **N** (names present in gitignored env; values empty; never printed) |
 | Webhook path + handler on PR #260 | **Y** |
-| `launchpad_pending_purchases` migration applied to prod | **N** |
+| `launchpad_pending_purchases` migration applied to prod | **N** (2026-08-12 23:55 PT attempt — MCP OAuth did not complete; SQL not executed) |
 | Webhook + migration (combined) | **N** until the table exists |
 | `charges_enabled` | **false** |
 | `payouts_enabled` | **false** |
@@ -75,7 +75,7 @@ This is the public-checkout webhook path. Not recreated.
 
 ### Handler writes `launchpad_pending_purchases`
 
-On [PR #260](https://github.com/MycosoftLabs/website/pull/260) (confirmed in the pull files list):
+Re-read this session (no rewrite — handler is not broken). On [PR #260](https://github.com/MycosoftLabs/website/pull/260):
 
 - `app/api/fusarium/launchpad/stripe/webhook/route.ts` — `checkout.session.completed` + `lp_source=public_pricing` and no `lp_tenant_id` → `markPendingPurchasePaid`
 - `lib/launchpad/billing/public-checkout.ts` — upserts `launchpad_pending_purchases`
@@ -83,7 +83,7 @@ On [PR #260](https://github.com/MycosoftLabs/website/pull/260) (confirmed in the
 
 ### Prod Supabase (`hnevnsxnhfibhbsipqvz`)
 
-REST probe with service role (no row data):
+REST probe with service role (no row data). Re-probed **Aug 12, 2026 ~23:55 PT**:
 
 | Table | HTTP |
 |---|---|
@@ -92,13 +92,22 @@ REST probe with service role (no row data):
 | `launchpad_stripe_events` | 200 (exists) |
 | `launchpad_waitlist` | 206 (exists) |
 | `launchpad_credit_ledger` | 206 (exists) |
-| **`launchpad_pending_purchases`** | **404 `PGRST205` — not in schema cache** |
+| **`launchpad_pending_purchases`** | **404 — not in schema cache** |
 
 Migration file is on the PR. **It is not applied** to prod.
 
-Supabase MCP is **not** in this Cursor session (`mcp.json` has coordination + DocuSign only). No `SUPABASE_ACCESS_TOKEN` / DB URL in gitignored env, so Cursor could not `db push`. Prior Launchpad migrations were applied via MCP in earlier sessions.
+#### Apply attempt this session (did not succeed)
 
-**Apply next (Cursor or whoever has Supabase MCP):** `supabase/migrations/20260814010000_launchpad_pending_purchases.sql` then re-probe until HTTP 206 on `launchpad_pending_purchases`. Until then a live `checkout.session.completed` for public pricing cannot persist a claimable row.
+| Step | Result |
+|---|---|
+| `plugin-supabase-supabase` in MCP catalog | **Absent** (same as prior session) |
+| Official HTTP MCP added to user `mcp.json` (no secrets; scoped `project_ref=hnevnsxnhfibhbsipqvz&features=database`) | **Y** |
+| `user-supabase` tools | **needsAuth** — `mcp_auth` started; OAuth stayed in progress; no browser tab this agent could complete |
+| `SUPABASE_ACCESS_TOKEN` / CLI login / DB URL | **Absent** (names only; no values printed) |
+| `apply_migration` / `execute_sql` | **Not called** — tools never became available |
+| Flags / live charge | Unchanged; no charge |
+
+**Do not treat this as a Morgan Dashboard click.** Remaining Morgan-only gates are still **pk_live** and **Stripe Activate** (identity, bank, ToS). Next agent with a completed Supabase MCP OAuth should `list_tables` / `list_migrations` then `apply_migration` with the exact SQL in `supabase/migrations/20260814010000_launchpad_pending_purchases.sql`, then re-probe until HTTP 206 on `launchpad_pending_purchases`. Until then a live `checkout.session.completed` for public pricing cannot persist a claimable row.
 
 ---
 
