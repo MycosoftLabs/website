@@ -32,6 +32,7 @@ import {
 import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 
 // ---------------------------------------------------------------------------
 // Hero backdrop. Large media lives on the NAS bind mount under public/assets/
@@ -233,9 +234,7 @@ export default function LaunchpadPage() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
           <div className="container max-w-7xl mx-auto px-4 relative z-10">
             <div className="max-w-4xl mx-auto text-center">
-              <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-400">
-                FUSARIUM LAUNCHPAD
-              </NeuBadge>
+              <GlassChip className="mb-4">FUSARIUM LAUNCHPAD</GlassChip>
               <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight text-white text-balance">
                 Build the technology. Launchpad helps you build the contractor around it.
               </h1>
@@ -251,25 +250,16 @@ export default function LaunchpadPage() {
                   (or drop the default file) and it appears. */}
               <div className="flex flex-wrap gap-4 justify-center">
                 {LAUNCHPAD_DEMO_ENABLED && (
-                  <button type="button" onClick={() => setDemoOpen(true)}
-                    data-analytics="launchpad_demo_open" className="inline-block">
-                    <NeuButton variant="default" className="text-base px-6 py-3 whitespace-nowrap">
-                      <PlayCircle className="mr-2 h-5 w-5 shrink-0" />
-                      Demo
-                    </NeuButton>
-                  </button>
+                  <GlassButton onClick={() => setDemoOpen(true)} dataAnalytics="launchpad_demo_open">
+                    <PlayCircle className="mr-2 h-5 w-5 shrink-0 text-current" />
+                    Demo
+                  </GlassButton>
                 )}
-                <Link href="/fusarium/launchpad/get-started" className="inline-block">
-                  <NeuButton variant="primary" className="text-base px-6 py-3 whitespace-nowrap">
-                    Get started
-                    <ArrowRight className="ml-2 h-5 w-5 shrink-0" />
-                  </NeuButton>
-                </Link>
-                <Link href="/fusarium/launchpad/pricing" className="inline-block">
-                  <NeuButton variant="default" className="text-base px-6 py-3 whitespace-nowrap">
-                    See Pricing
-                  </NeuButton>
-                </Link>
+                <GlassButton href="/fusarium/launchpad/get-started">
+                  Get started
+                  <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
+                </GlassButton>
+                <GlassButton href="/fusarium/launchpad/pricing">See Pricing</GlassButton>
               </div>
               {/* Trust strip (§26.1) */}
               <p className="mt-8 text-sm text-white/60 tracking-wide">
@@ -288,7 +278,7 @@ export default function LaunchpadPage() {
         <section className="py-20 border-t border-border/40">
           <div className="container max-w-6xl mx-auto px-4">
             <div className="text-center mb-12">
-              <NeuBadge variant="default" className="mb-4">Why Launchpad</NeuBadge>
+              <GlassChip className="mb-4">Why Launchpad</GlassChip>
               <h2 className="text-4xl font-bold mb-4 text-balance">
                 The technology is no longer the hard part. Becoming buyable is.
               </h2>
@@ -355,7 +345,7 @@ export default function LaunchpadPage() {
         <section className="py-20">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-12">
-              <NeuBadge variant="default" className="mb-4">The Boundary</NeuBadge>
+              <GlassChip className="mb-4">The Boundary</GlassChip>
               <h2 className="text-4xl font-bold mb-4">What Launchpad is — and is not</h2>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
                 You own every representation, self-assessment, SPRS submission, proposal, signature, and
@@ -407,9 +397,7 @@ export default function LaunchpadPage() {
           <div className="container max-w-7xl mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div>
-                <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-400">
-                  Honest Scoring
-                </NeuBadge>
+                <GlassChip className="mb-4">Honest Scoring</GlassChip>
                 <h2 className="text-4xl font-bold mb-6 text-white">
                   &ldquo;96 of 110 controls complete&rdquo; is not a CMMC status.
                 </h2>
@@ -447,7 +435,7 @@ export default function LaunchpadPage() {
         <section className="py-24">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-16">
-              <NeuBadge variant="default" className="mb-4">Ten Modules</NeuBadge>
+              <GlassChip className="mb-4">Ten Modules</GlassChip>
               <h2 className="text-4xl font-bold mb-4">One operating system for the whole journey</h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Compliance is the front door. The durable value is everything that keeps a defense
@@ -458,7 +446,7 @@ export default function LaunchpadPage() {
               {modules.map((m) => (
                 <NeuCard key={m.name} className="transition-all hover:scale-[1.01]">
                   <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                    <div className="p-3 rounded-xl bg-primary/10">
+                    <div className="myco-glass-tile p-3">
                       <m.icon className="h-6 w-6 text-primary" />
                     </div>
                     <div>
@@ -476,7 +464,7 @@ export default function LaunchpadPage() {
         <section className="py-20">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-12">
-              <NeuBadge variant="default" className="mb-4">How It Works</NeuBadge>
+              <GlassChip className="mb-4">How It Works</GlassChip>
               <h2 className="text-4xl font-bold mb-4">From technical startup to organized contractor</h2>
             </div>
             <div className="grid md:grid-cols-4 gap-6 max-w-6xl mx-auto">
@@ -510,21 +498,17 @@ export default function LaunchpadPage() {
               evidence in your approved systems. That boundary is enforced in code — banners, upload
               interception, prompt firewalls, and per-object sensitivity labels — not just stated in terms.
             </p>
-            <Link href="/fusarium/launchpad/trust">
-              <NeuButton variant="default" className="text-base px-6 py-3">
-                <ShieldCheck className="mr-2 h-5 w-5" />
-                Read the Security Boundary
-              </NeuButton>
-            </Link>
+            <GlassButton href="/fusarium/launchpad/trust">
+              <ShieldCheck className="mr-2 h-5 w-5 text-current" />
+              Read the Security Boundary
+            </GlassButton>
           </div>
         </section>
 
         {/* Entry CTA */}
         <section className="py-24" id="get-started">
           <div className="container max-w-5xl mx-auto px-4 text-center">
-            <NeuBadge variant="default" className="mb-4">
-              Start Here
-            </NeuBadge>
+            <GlassChip className="mb-4">Start Here</GlassChip>
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-balance">
               One guided path from technical startup to defense contractor.
             </h2>
@@ -538,17 +522,11 @@ export default function LaunchpadPage() {
               customer-direct purchases, always disclosed and never marked up into the entry price.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link href="/fusarium/launchpad/get-started">
-                <NeuButton variant="primary" className="text-base px-6 py-3">
-                  Get started
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </NeuButton>
-              </Link>
-              <Link href="/fusarium/launchpad/pricing">
-                <NeuButton variant="default" className="text-base px-6 py-3">
-                  Compare All Plans
-                </NeuButton>
-              </Link>
+              <GlassButton href="/fusarium/launchpad/get-started">
+                Get started
+                <ArrowRight className="ml-2 h-5 w-5 text-current" />
+              </GlassButton>
+              <GlassButton href="/fusarium/launchpad/pricing">Compare All Plans</GlassButton>
             </div>
           </div>
         </section>

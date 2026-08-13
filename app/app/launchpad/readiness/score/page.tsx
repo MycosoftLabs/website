@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, Loader2, History, AlertTriangle, Gauge, Info } from 'lucide-react';
+import { GlassButton } from '@/components/ui/glass-button';
 import {
   PageHeader, Card, StatTile, GateChip, ThresholdMeter, StateBadge, type Tone,
 } from '@/components/launchpad/ui';
+import { OfficialLinksPanel } from '@/components/launchpad/official-links';
 
 /**
  * Weighted score estimate + the three 32 CFR §170.21 gates.
@@ -59,7 +61,7 @@ export default function ScorePage() {
 
   if (loading) {
     return <div className="min-h-[50vh] flex items-center justify-center gap-2 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" /> Loading score history…
+      <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading score history…
     </div>;
   }
 
@@ -77,10 +79,9 @@ export default function ScorePage() {
         icon={Gauge}
         description={<>Deterministic computation from your recorded states under rule pack <code className="text-xs px-1 rounded bg-muted">{latest?.rule_pack_version ?? 'cmmc-l2-v2.13-r1'}</code>. Not an official score — customer review required before any external use.</>}
         actions={
-          <button onClick={compute} disabled={computing}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium disabled:opacity-50 hover:bg-emerald-500">
-            {computing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />} Compute snapshot
-          </button>
+          <GlassButton onClick={compute} disabled={computing}>
+            {computing ? <Loader2 className="h-4 w-4 animate-spin text-current" /> : <Calculator className="h-4 w-4 text-current" />} Compute snapshot
+          </GlassButton>
         }
       />
 
@@ -202,6 +203,8 @@ export default function ScorePage() {
           </div>
         </>
       )}
+
+      <OfficialLinksPanel surface="score" />
     </div>
   );
 }

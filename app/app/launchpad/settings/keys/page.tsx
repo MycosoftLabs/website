@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { PageHeader, Card, StateBadge } from '@/components/launchpad/ui';
 import { LiquidCheckbox, LiquidButton } from '@/components/launchpad/liquid';
+import { GlassButton } from '@/components/ui/glass-button';
 
 /**
  * Settings → API keys (canonical route).
@@ -178,10 +179,9 @@ export default function ApiKeysPage() {
         icon={KeyRound}
         description="Machine credentials scoped to this workspace — for the Contract Radar collector and the Local Assurance Agent. Keys are hashed at rest; the secret is shown once at creation and never again."
         actions={
-          <button onClick={() => setShowForm((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-500">
-            <Plus className="h-4 w-4" /> New key
-          </button>
+          <GlassButton onClick={() => setShowForm((s) => !s)}>
+            <Plus className="h-4 w-4 text-current mr-2" /> New key
+          </GlassButton>
         }
       />
 
@@ -204,7 +204,7 @@ export default function ApiKeysPage() {
               <label className="text-sm font-medium block mb-1.5" htmlFor="lp-key-name">Key name</label>
               <input id="lp-key-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required
                 placeholder="SAM.gov collector (production)"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                className="myco-glass-field w-full rounded-lg border border-border px-3 py-2 text-sm" />
               <p className="text-[11px] text-muted-foreground mt-1">
                 Name it after the thing that will hold it, so a future revoke is obvious.
               </p>
@@ -234,8 +234,7 @@ export default function ApiKeysPage() {
               <LiquidButton type="submit" disabled={creating || !name.trim() || scopes.size === 0}>
                 {creating ? 'Creating…' : 'Create key'}
               </LiquidButton>
-              <button type="button" onClick={() => setShowForm(false)}
-                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted">Cancel</button>
+              <GlassButton onClick={() => setShowForm(false)}>Cancel</GlassButton>
             </div>
           </form>
         </Card>
@@ -243,7 +242,7 @@ export default function ApiKeysPage() {
 
       {loading ? (
         <div className="py-16 flex items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> Loading keys…
+          <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading keys…
         </div>
       ) : active.length === 0 && revoked.length === 0 && !err ? (
         <Card className="p-10 text-center">
@@ -272,10 +271,9 @@ export default function ApiKeysPage() {
                         <span>{k.lastUsedAt ? `last used ${new Date(k.lastUsedAt).toLocaleString()}` : 'never used'}</span>
                       </div>
                     </div>
-                    <button onClick={() => setConfirmRevoke(k)} disabled={revoking === k.id}
-                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-red-500 hover:bg-red-500/10 disabled:opacity-50">
-                      {revoking === k.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Revoke
-                    </button>
+                    <GlassButton onClick={() => setConfirmRevoke(k)} disabled={revoking === k.id} className="myco-glass-danger">
+                      {revoking === k.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-current mr-1.5" /> : <Trash2 className="h-3.5 w-3.5 text-current mr-1.5" />} Revoke
+                    </GlassButton>
                   </div>
                 </Card>
               ))}
@@ -330,13 +328,10 @@ export default function ApiKeysPage() {
               <code className="text-xs break-all font-mono">{created.plaintextKey}</code>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button onClick={copyKey}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-500">
-                {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy key</>}
-              </button>
-              <button onClick={() => setCreated(null)} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted">
-                I&apos;ve saved it
-              </button>
+              <GlassButton onClick={copyKey}>
+                {copied ? <><Check className="h-4 w-4 text-current" /> Copied</> : <><Copy className="h-4 w-4 text-current" /> Copy key</>}
+              </GlassButton>
+              <GlassButton onClick={() => setCreated(null)}>I&apos;ve saved it</GlassButton>
               <span className="text-[11px] text-muted-foreground ml-auto">{created.scopes.join(', ')}</span>
             </div>
           </div>
@@ -359,13 +354,11 @@ export default function ApiKeysPage() {
               issue a new key instead.
             </p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => revoke(confirmRevoke)} disabled={revoking === confirmRevoke.id}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-medium hover:bg-red-500 disabled:opacity-50">
-                {revoking === confirmRevoke.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <GlassButton onClick={() => revoke(confirmRevoke)} disabled={revoking === confirmRevoke.id} className="myco-glass-danger">
+                {revoking === confirmRevoke.id ? <Loader2 className="h-4 w-4 animate-spin text-current mr-2" /> : <Trash2 className="h-4 w-4 text-current mr-2" />}
                 Revoke key
-              </button>
-              <button onClick={() => setConfirmRevoke(null)}
-                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted">Keep it</button>
+              </GlassButton>
+              <GlassButton onClick={() => setConfirmRevoke(null)}>Keep it</GlassButton>
             </div>
           </div>
         </div>

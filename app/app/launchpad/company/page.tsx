@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Building2, Loader2, Save } from 'lucide-react';
+import { PageHeader, Card } from '@/components/launchpad/ui';
+import { GlassButton } from '@/components/ui/glass-button';
+import { CompanyTabs } from '@/components/launchpad/company-tabs';
 
 /**
  * Company profile — public/business facts only. The form deliberately has no
@@ -44,7 +47,7 @@ const SECTIONS: Array<{
   },
 ];
 
-const input = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm';
+const input = 'myco-glass-field w-full rounded-lg border border-border px-3 py-2 text-sm';
 
 export default function CompanyPage() {
   const [data, setData] = useState<Record<string, string>>({});
@@ -81,50 +84,78 @@ export default function CompanyPage() {
 
   if (loading) {
     return <div className="min-h-[50vh] flex items-center justify-center gap-2 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" /> Loading profile…
+      <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading profile…
     </div>;
   }
 
   return (
     <div className="container max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold flex items-center gap-2 mb-1">
-        <Building2 className="h-6 w-6 text-primary" /> Company profile
-      </h1>
-      <p className="text-sm text-muted-foreground mb-8">
-        Public and business facts only. Restricted identifiers (EIN, ownership detail, banking,
-        clearance specifics) are not collected here and are refused by the API — keep them in your
-        own systems.
-      </p>
+      <CompanyTabs />
+      <PageHeader
+        title="Company profile"
+        icon={Building2}
+        description="Public and business facts only. Restricted identifiers (EIN, ownership detail, banking, clearance specifics) are not collected here and are refused by the API — keep them in your own systems."
+      />
 
-      {SECTIONS.map((s) => (
-        <div key={s.title} className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">{s.title}</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {s.fields.map((f) => (
-              <div key={f.key} className={f.multiline ? 'sm:col-span-2' : ''}>
-                <label className="text-sm font-medium block mb-1">{f.label}</label>
-                {f.multiline ? (
-                  <textarea rows={3} className={input} value={data[f.key] ?? ''}
-                    onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
-                ) : (
-                  <input className={input} value={data[f.key] ?? ''}
-                    onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
-                )}
-                {f.hint && <p className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>}
-              </div>
-            ))}
+      {/* Education-first: what / why / next step */}
+      <Card tone="sky" className="p-5 mb-6">
+        <div className="pl-1.5 grid gap-3 sm:grid-cols-3 text-sm">
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">What is this</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              The one company fact sheet the rest of Launchpad reads from — legal identity, federal
+              registration identifiers, and what you build, in your own words.
+            </p>
+          </div>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">Why it matters</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Drafts and checklists pull these fields verbatim, so entering a fact accurately once
+              here beats retyping it into every document.
+            </p>
+          </div>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">Your next step</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Fill in Identity, add UEI and CAGE if you have them, and leave anything undecided
+              blank — drafts show a placeholder instead of a guess.
+            </p>
           </div>
         </div>
-      ))}
+      </Card>
+
+      <div className="space-y-6 mb-6">
+        {SECTIONS.map((s) => (
+          <section key={s.title}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">{s.title}</h2>
+            <Card className="p-5">
+              <div className="grid sm:grid-cols-2 gap-4">
+                {s.fields.map((f) => (
+                  <div key={f.key} className={f.multiline ? 'sm:col-span-2' : ''}>
+                    <label className="text-sm font-medium block mb-1">{f.label}</label>
+                    {f.multiline ? (
+                      <textarea rows={3} className={input} value={data[f.key] ?? ''}
+                        onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
+                    ) : (
+                      <input className={input} value={data[f.key] ?? ''}
+                        onChange={(e) => setData((x) => ({ ...x, [f.key]: e.target.value }))} />
+                    )}
+                    {f.hint && <p className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </section>
+        ))}
+      </div>
 
       {err && <p className="text-sm text-destructive mb-3">{err}</p>}
       {msg && <p className="text-sm text-emerald-500 mb-3">{msg}</p>}
 
-      <button onClick={save} disabled={saving}
-        className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-5 py-2.5 text-sm font-medium disabled:opacity-50">
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      <GlassButton onClick={save} disabled={saving}>
+        {saving ? <Loader2 className="h-4 w-4 animate-spin text-current mr-2" /> : <Save className="h-4 w-4 text-current mr-2" />}
         Save profile
-      </button>
+      </GlassButton>
     </div>
   );
 }

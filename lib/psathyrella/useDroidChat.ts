@@ -123,7 +123,18 @@ function sys(text: string): DroidMessage {
 function makeSessionId(droidId: string): string {
   const safe = droidId.replace(/[^A-Za-z0-9._:-]/g, "-");
   const c: Crypto | undefined = typeof globalThis.crypto !== "undefined" ? globalThis.crypto : undefined;
-  const rand = c && typeof c.randomUUID === "function" ? c.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  // randomUUID needs a secure context; getRandomValues is a CSPRNG available
+  // far more widely. The previous Math.random() fallback minted a guessable
+  // conversation id — no Math.random on any path now.
+  const rand = (() => {
+    if (c && typeof c.randomUUID === "function") return c.randomUUID();
+    if (c && typeof c.getRandomValues === "function") {
+      const b = new Uint8Array(16);
+      c.getRandomValues(b);
+      return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+    }
+    throw new Error("Secure random source unavailable — cannot create a session id.");
+  })();
   return `gcs-${safe}-${rand}`;
 }
 
