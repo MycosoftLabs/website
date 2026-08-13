@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { ArrowRight, CheckCircle2, Info } from "lucide-react"
+import { ArrowRight, CalendarClock, CheckCircle2, Coins, Wallet } from "lucide-react"
 import {
   NeuButton,
   NeuCard,
@@ -19,6 +20,20 @@ import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
 import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 
 const fmt = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`
+
+/** Third-party costs a customer pays their own providers, itemized so the
+ *  total cost of becoming contract-ready is legible before anyone signs up. */
+const DIRECT_COSTS = [
+  "Secure enclave and collaboration services",
+  "Cloud and GovCloud hosting",
+  "C3PAO or practitioner assessments",
+  "Legal, tax, and accounting",
+  "Registered agent services",
+  "Internet and fiber service",
+  "Networking and security hardware",
+  "Endpoint and security software",
+  "E-signature services",
+] as const
 
 // Presentation order + descriptions for the four recurring plans.
 const PLAN_COPY: Array<{ key: PlanKey; monthly: string; annual: string; blurb: string; highlight?: boolean }> = [
@@ -69,6 +84,11 @@ const credits = CATALOG.filter((p) => p.kind === "credits")
 const advisory = CATALOG.filter((p) => p.kind === "advisory")
 
 export default function LaunchpadPricingPage() {
+  // Billing period drives every displayed price AND the checkout link, so what
+  // a visitor sees is what they are charged.
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly")
+  const [selected, setSelected] = useState<PlanKey | null>(null)
+
   return (
     <NeuromorphicProvider>
       <div className="launchpad-glass-page min-h-dvh">
@@ -129,24 +149,75 @@ export default function LaunchpadPricingPage() {
               </NeuCardContent>
             </NeuCard>
 
-            {/* Recurring plans */}
+            {/* Billing period — one control for all four plans, so the prices
+                below always agree with what checkout will charge. */}
+            <div className="flex justify-center mb-8">
+              <div
+                className="myco-glass-surface inline-flex items-center gap-1 rounded-full border border-border/70 p-1"
+                role="radiogroup"
+                aria-label="Billing period"
+              >
+                {(["monthly", "annual"] as const).map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    role="radio"
+                    aria-checked={billing === period}
+                    onClick={() => setBilling(period)}
+                    className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+                      billing === period
+                        ? "bg-emerald-500 text-white shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {period === "monthly" ? "Monthly" : "Annual"}
+                    {period === "annual" && (
+                      <span className={billing === "annual" ? "text-white/80 ml-1.5" : "text-emerald-600 dark:text-emerald-400 ml-1.5"}>
+                        2 months free
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Recurring plans — selectable. Choosing one carries the plan AND
+                the billing period through to checkout, so nobody picks the
+                $999 tier and lands on a $397 page. */}
             <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-16">
               {PLAN_COPY.map(({ key, monthly, annual, blurb, highlight }) => {
                 const mo = CATALOG.find((p) => p.lookupKey === monthly)!
                 const yr = CATALOG.find((p) => p.lookupKey === annual)!
+                const active = billing === "annual" ? yr : mo
+                const isSelected = selected === key
                 return (
-                  <NeuCard key={key} className={highlight ? "border-2 border-primary/40" : ""}>
+                  <NeuCard
+                    key={key}
+                    onClick={() => setSelected(key)}
+                    className={`cursor-pointer transition-shadow ${
+                      isSelected
+                        ? "ring-2 ring-emerald-500 border-2 border-emerald-500/50"
+                        : highlight
+                          ? "border-2 border-primary/40"
+                          : ""
+                    }`}
+                  >
                     <NeuCardHeader className="pb-2 flex-col items-start gap-1">
-                      {highlight && (
-                        <GlassChip className="mb-2 w-fit">Most popular</GlassChip>
-                      )}
-                      <h3 className="text-lg font-semibold">{PLAN_NAMES[key]}</h3>
-                      <div className="text-3xl font-bold mt-1">
-                        {fmt(mo.unitAmount)}
-                        <span className="text-sm font-normal text-muted-foreground">/month</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isSelected && <GlassChip className="w-fit">Selected</GlassChip>}
+                        {highlight && !isSelected && <GlassChip className="w-fit">Most popular</GlassChip>}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        or {fmt(yr.unitAmount)}/year (two months free)
+                      <h3 className="text-lg font-semibold mt-1">{PLAN_NAMES[key]}</h3>
+                      <div className="text-3xl font-bold mt-1 tabular-nums">
+                        {fmt(active.unitAmount)}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {billing === "annual" ? "/year" : "/month"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        {billing === "annual"
+                          ? `${fmt(Math.round(yr.unitAmount / 12))}/month billed annually`
+                          : `or ${fmt(yr.unitAmount)}/year — two months free`}
                       </div>
                       <p className="text-sm text-muted-foreground mt-2 text-balance">{blurb}</p>
                     </NeuCardHeader>
@@ -159,8 +230,12 @@ export default function LaunchpadPricingPage() {
                         ))}
                       </ul>
                       <div className="mt-5">
-                        <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
-                          Get started <ArrowRight className="ml-2 h-4 w-4 text-current" />
+                        <GlassButton
+                          href={`/fusarium/launchpad/get-started?plan=${key}&billing=${billing}`}
+                          className="myco-glass-button--block"
+                        >
+                          Choose {PLAN_NAMES[key]}
+                          <ArrowRight className="ml-2 h-4 w-4 text-current" />
                         </GlassButton>
                       </div>
                     </NeuCardContent>
@@ -169,65 +244,161 @@ export default function LaunchpadPricingPage() {
               })}
             </div>
 
-            {/* Credits + advisory */}
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-16">
-              <NeuCard>
-                <NeuCardHeader>
-                  <h3 className="text-lg font-semibold">AI credit packs</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Credits abstract model and workflow costs — no raw token accounting. Subscription
-                    credits reset monthly; purchased packs last longer.
-                  </p>
-                </NeuCardHeader>
-                <NeuCardContent>
-                  <ul className="space-y-3">
-                    {credits.map((c) => (
-                      <li key={c.lookupKey} className="flex items-center justify-between text-sm">
-                        <span>{c.creditQuantity?.toLocaleString()} credits</span>
-                        <span className="font-semibold">{fmt(c.unitAmount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </NeuCardContent>
-              </NeuCard>
-              <NeuCard>
-                <NeuCardHeader>
-                  <h3 className="text-lg font-semibold">Private advisory</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Focused, prepaid sessions with Mycosoft&apos;s founder. Group clinics are included in
-                    plans; private time is scheduled and scoped.
-                  </p>
-                </NeuCardHeader>
-                <NeuCardContent>
-                  <ul className="space-y-3">
-                    {advisory.map((a) => (
-                      <li key={a.lookupKey} className="flex items-center justify-between text-sm">
-                        <span>{a.advisoryMinutes}-minute session</span>
-                        <span className="font-semibold">{fmt(a.unitAmount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </NeuCardContent>
-              </NeuCard>
-            </div>
-
-            {/* Direct-cost disclosure */}
-            <NeuCard className="max-w-4xl mx-auto">
-              <NeuCardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">
-                      Paid directly to the provider unless separately quoted:
-                    </span>{" "}
-                    secure enclave and collaboration services, cloud and GovCloud hosting, C3PAO or
-                    practitioner assessments, legal, tax, accounting, registered agents, internet and
-                    fiber service, networking and security hardware, endpoint software, and e-signature
-                    services. Launchpad never buries third-party infrastructure in the entry price.
+            {/* Credits + advisory — add-ons, bought as needed, never bundled
+                into the entry price. Each row carries its own unit economics so
+                the value is legible without doing arithmetic. */}
+            <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto mb-14 items-start">
+              <div className="myco-glass-surface rounded-2xl border border-border/70 p-6 sm:p-7 h-full flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="myco-glass-tile h-11 w-11 shrink-0">
+                    <Coins className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold leading-tight">AI credit packs</h3>
+                    <p className="text-[11px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                      One-time · never expires
+                    </p>
                   </div>
                 </div>
-              </NeuCardContent>
-            </NeuCard>
+
+                <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+                  Credits abstract model and workflow costs, so you are never doing raw token
+                  accounting. Your plan&apos;s monthly credits reset each cycle; purchased packs sit
+                  on top and carry over.
+                </p>
+
+                <ul className="border-t border-border/60">
+                  {credits.map((c) => {
+                    const per = c.creditQuantity ? c.unitAmount / c.creditQuantity : null
+                    return (
+                      <li
+                        key={c.lookupKey}
+                        className="flex items-baseline justify-between gap-4 py-3.5 border-b border-border/60"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium tabular-nums">
+                            {c.creditQuantity?.toLocaleString()} credits
+                          </div>
+                          {per !== null && (
+                            // `per` is CENTS per credit (unitAmount is cents).
+                            // Render as dollars — 2000¢ / 100 credits is $0.20,
+                            // not 0.20¢.
+                            <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                              ${(per / 100).toFixed(2)} per credit
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-base font-semibold tabular-nums shrink-0">
+                          {fmt(c.unitAmount)}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                <p className="text-xs text-muted-foreground leading-relaxed mt-5 pt-4 border-t border-border/60">
+                  Bringing your own AI provider key costs zero credits — on every plan, including
+                  the entry tier.
+                </p>
+
+                <div className="mt-5 pt-1 flex-1 flex items-end">
+                  <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
+                    Get started <ArrowRight className="h-4 w-4 text-current ml-2" />
+                  </GlassButton>
+                </div>
+              </div>
+
+              <div className="myco-glass-surface rounded-2xl border border-border/70 p-6 sm:p-7 h-full flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="myco-glass-tile h-11 w-11 shrink-0">
+                    <CalendarClock className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold leading-tight">Private advisory</h3>
+                    <p className="text-[11px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                      Prepaid · scheduled
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+                  Focused sessions with Mycosoft&apos;s founder, booked against your own calendar.
+                  Group clinics are already included in your plan; this is private, scoped time.
+                </p>
+
+                <ul className="border-t border-border/60">
+                  {advisory.map((a) => {
+                    const perHour = a.advisoryMinutes
+                      ? (a.unitAmount / 100) * (60 / a.advisoryMinutes)
+                      : null
+                    return (
+                      <li
+                        key={a.lookupKey}
+                        className="flex items-baseline justify-between gap-4 py-3.5 border-b border-border/60"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium tabular-nums">
+                            {a.advisoryMinutes} minutes
+                          </div>
+                          {perHour !== null && (
+                            <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5">
+                              ${Math.round(perHour)} per hour equivalent
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-base font-semibold tabular-nums shrink-0">
+                          {fmt(a.unitAmount)}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                <p className="text-xs text-muted-foreground leading-relaxed mt-5 pt-4 border-t border-border/60">
+                  Guidance and working sessions — not legal, accounting, or assessment services, and
+                  never a compliance determination.
+                </p>
+
+                <div className="mt-5 pt-1 flex-1 flex items-end">
+                  <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
+                    Book a session <ArrowRight className="h-4 w-4 text-current ml-2" />
+                  </GlassButton>
+                </div>
+              </div>
+            </div>
+
+            {/* Direct-cost disclosure — the honest "what else will this cost me"
+                answer, itemized rather than buried in a paragraph. */}
+            <div className="myco-glass-surface rounded-2xl border border-border/70 p-6 sm:p-8 max-w-4xl mx-auto">
+              <div className="flex items-start gap-4">
+                <div className="myco-glass-tile h-11 w-11 shrink-0">
+                  <Wallet className="h-5 w-5 text-emerald-500" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold leading-tight">
+                    What you pay third parties directly
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                    Launchpad never buries third-party infrastructure in the entry price. These are
+                    billed by their own providers, at their own rates, unless separately quoted:
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2.5 mt-6 pt-6 border-t border-border/60">
+                {DIRECT_COSTS.map((item) => (
+                  <div key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <span className="mt-[0.45rem] h-1 w-1 rounded-full bg-emerald-500/70 shrink-0" />
+                    <span className="leading-snug">{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed mt-6 pt-4 border-t border-border/60">
+                You choose every one of these vendors yourself. Nothing here is a Mycosoft resale, and
+                no listing implies endorsement or that a given provider satisfies a requirement.
+              </p>
+            </div>
           </div>
         </section>
       </div>

@@ -7498,3 +7498,28 @@ html.dark { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) {
   .lp-tour-highlight { animation: none; }
 }
+
+/* =============================================================================
+   Glass button — full-width (block) variant
+   -----------------------------------------------------------------------------
+   The control is an inline-flex pill by default and its drop shadow is sized
+   off .button-wrap. Putting `w-full` on the OUTER span stretched the wrap while
+   the inner control kept its intrinsic width, so the blurred shadow rendered as
+   a wide slab sitting behind and beside the button — visible as a "big moving
+   button" on hover.
+   Use .myco-glass-button--block instead of w-full: it stretches the wrap AND the
+   control together, so the shadow tracks the real edges.
+   ============================================================================= */
+.myco-glass-button.myco-glass-button--block {
+  display: block !important;
+  width: 100% !important;
+}
+.myco-glass-button.myco-glass-button--block .button-wrap {
+  display: block !important;
+  width: 100% !important;
+}
+.myco-glass-button.myco-glass-button--block :is(button, a) {
+  display: flex !important;
+  width: 100% !important;
+  justify-content: center !important;
+}
