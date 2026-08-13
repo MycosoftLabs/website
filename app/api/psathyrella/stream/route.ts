@@ -14,7 +14,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireOwner } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const DEFAULT_DEVICE_ID = "psathyrella-1"
+// Must match telemetry BFF: route slug for MAS path (payload deviceId may differ — see .env.local).
+const DEFAULT_DEVICE_ID = process.env.PSATHYRELLA_MAS_DEVICE_ID || "psathyrella-1"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
