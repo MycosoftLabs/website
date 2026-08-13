@@ -4,8 +4,11 @@
  * MYCA analysis widget (top-left of the MAP) — a stationary, DYNAMIC info panel akin to
  * the Earth-Sim MYCA analysis rail. Updates as the map moves: shows the viewed location +
  * live weather, the buoy's environmental sensors + sea state, a MYCA analysis line, and an
- * Eagle-Eye strip of recent captures (per buoy). Isolated: live weather via a keyless public
- * API; no NatureOS/CREP providers. MYCA inference + real captures wire via lightweight APIs.
+ * Eagle-Eye optic-state strip (per buoy). Isolated: live weather via a keyless public API; no
+ * NatureOS/CREP providers. MYCA inference wires via a lightweight API.
+ *
+ * There is NO capture store anywhere in the system yet, so this widget shows the optic's state and
+ * says so — it must never render capture slots for frames that do not exist.
  */
 
 import useSWR from "swr";
@@ -87,11 +90,18 @@ export function MapAnalysisWidget({
   const bridge = telemetry.comms.bridgeActive;
   const acoustic = telemetry.comms.acoustic.connected;
   const bmeLive = a?.temperature != null;
+  // BSEC2 gas outputs only settle at accuracy 2-3 — below that the sensor itself says the reading is
+  // not trustworthy (see ACCURACY_MEANING in SensorSuitePanel). Used to qualify the IAQ cell below so
+  // an uncalibrated number never reads as a settled air-quality index.
+  const iaqAcc = a?.iaqAccuracy ?? null;
+  const iaqSettled = iaqAcc != null && iaqAcc >= 2;
   const analysis = [
     telemetry.link === "online" ? "Buoy online" : "Buoy link " + telemetry.link,
     bridge ? "RF⇄acoustic bridge active" : "bridge standby",
     acoustic ? "transducer up" : "transducer down",
-    bmeLive ? "atmos nominal" : "BME688 standby",
+    // A subsystem roll-call reports PRESENCE, not health. The presence of a temperature number is not
+    // evidence the atmosphere is nominal — no threshold, IAQ-accuracy or pressure check backs that word.
+    bmeLive ? "BME688 reporting" : "BME688 standby",
     telemetry.comms.lastUplink?.summary ? `NLM: ${telemetry.comms.lastUplink.summary}` : "awaiting NLM",
   ].join(" · ");
   const analysisLine = mycaSummary ?? analysis;
@@ -111,8 +121,15 @@ export function MapAnalysisWidget({
     );
   }
 
+  // The map pane hard-clips (PsathyrellaConsole wraps the viewport in `overflow-hidden rounded-xl`),
+  // so an unbounded overlay silently loses its bottom sections with no scrollbar and no cut-off cue.
+  // This stack grows exactly when it matters — SineWidget adds rows as acoustic detections arrive —
+  // so on a short viewport the Eagle-Eye strip and the SINE read are the first things to vanish.
+  // Bound it and scroll instead, mirroring the right-hand column (MapZone `h-[calc(100%-1.5rem)]` +
+  // MapFiltersPanel `overflow-y-auto`); `overscroll-contain` keeps a bottomed-out scroll from
+  // chaining into the MapLibre canvas underneath.
   return (
-    <div className="psa-glass absolute left-3 top-3 z-20 flex w-60 flex-col gap-2 rounded-xl p-2.5">
+    <div className="psa-glass absolute left-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-60 flex-col gap-2 overflow-y-auto overscroll-contain rounded-xl p-2.5">
       {/* header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-cyan-200"><Brain className="h-4 w-4" /><span className="text-[11px] font-bold uppercase tracking-wider text-white">MYCA · Analysis</span></div>
@@ -141,7 +158,10 @@ export function MapAnalysisWidget({
         <div className="grid grid-cols-4 gap-1 text-center">
           <div><div className="text-[8px] uppercase text-slate-500">Air</div><div className="font-mono text-[11px] text-slate-200">{a?.temperature != null ? `${a.temperature.toFixed(1)}°` : "—"}</div></div>
           <div><div className="text-[8px] uppercase text-slate-500">RH</div><div className="font-mono text-[11px] text-slate-200">{a?.humidity != null ? `${Math.round(a.humidity)}%` : "—"}</div></div>
-          <div><div className="text-[8px] uppercase text-slate-500">IAQ</div><div className="font-mono text-[11px] text-slate-200">{a?.iaq != null ? Math.round(a.iaq) : "—"}</div></div>
+          <div title={a?.iaq == null ? "No IAQ reading" : iaqSettled ? `IAQ settled — BSEC2 accuracy ${iaqAcc}` : `IAQ NOT settled — BSEC2 accuracy ${iaqAcc ?? "unreported"}. IAQ only settles at 2–3; below that the reading is not trustworthy.`}>
+            <div className="text-[8px] uppercase text-slate-500">IAQ{a?.iaq != null && !iaqSettled && <span className="text-amber-400/90">*</span>}</div>
+            <div className={`font-mono text-[11px] ${a?.iaq != null && !iaqSettled ? "text-amber-300/80" : "text-slate-200"}`}>{a?.iaq != null ? Math.round(a.iaq) : "—"}</div>
+          </div>
           <div><Gauge className="mx-auto h-3 w-3 text-slate-400" /><div className="font-mono text-[10px] text-slate-200">{a?.pressure != null ? Math.round(a.pressure) : "—"}</div></div>
         </div>
         <div className="mt-1 grid grid-cols-3 gap-1 text-center">
@@ -157,20 +177,18 @@ export function MapAnalysisWidget({
         <div className="line-clamp-4 text-[10px] leading-relaxed text-cyan-100/90">{analysisLine}</div>
       </div>
 
-      {/* Eagle Eye — recent captures (per buoy) */}
+      {/* Eagle Eye — optic state (per buoy). No captures yet: nothing stores or lists frames. */}
       <div>
         <div className="mb-1 flex items-center gap-1 text-[9px] uppercase tracking-wide text-cyan-400/60"><Camera className="h-2.5 w-2.5" /> Eagle Eye · {focus}</div>
-        {telemetry.camera.active ? (
-          <div className="flex gap-1 overflow-x-auto">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex h-12 w-16 shrink-0 items-center justify-center rounded border border-cyan-500/20 bg-black/40 text-[8px] uppercase text-slate-500">frame {i + 1}</div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex h-12 items-center justify-center rounded border border-dashed border-white/10 bg-black/20 text-[9px] uppercase tracking-wide text-slate-600">
-            No captures — awaiting optic / NLM
-          </div>
-        )}
+        {/* Nothing in the system stores or lists captured frames — app/api/psathyrella/camera/** serves
+            stream, snapshot, detections, models, corrections and selftest, and no capture-list route
+            exists. Four boxes labelled "frame 1".."frame 4" were an implicit claim that four captures
+            exist, sitting under a heading that says "recent captures": unbadged placeholder standing in
+            for data that is nowhere in the system. Say what IS and IS NOT wired instead. When a real
+            capture source lands, render only as many tiles as that fetch actually returned. */}
+        <div className="flex h-12 items-center justify-center rounded border border-dashed border-white/10 bg-black/20 px-2 text-center text-[9px] uppercase leading-tight tracking-wide text-slate-600">
+          {telemetry.camera.active ? "Optic live — no capture store wired" : "No captures — awaiting optic / NLM"}
+        </div>
       </div>
 
       {/* SINE — what the buoy is HEARING (above vs below water) */}

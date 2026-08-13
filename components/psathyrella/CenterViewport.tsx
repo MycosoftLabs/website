@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils";
 import type { BuoyCommand, BuoyTelemetry, SelectedDevice, ViewMode, Waypoint } from "@/lib/psathyrella/contract";
 import { setMapViewActive } from "@/lib/psathyrella/viewState";
 import CameraView from "./views/CameraView";
-import RadarScope from "./views/RadarScope";
-import PointCloudView from "@/components/sensors/PointCloudView";
+// RadarScope and PointCloudView are no longer imported here: LiDAR and Radar stopped being top-level
+// panes and are now windows inside BlueSightView, which mounts them itself. Keeping the imports would
+// have pulled three.js into this module's graph for a pane that no longer exists.
 import BlueSightView from "./views/BlueSightView";
 import SonarView from "./views/SonarView";
 import MapZone from "./views/MapZone";
@@ -80,8 +81,6 @@ export function CenterViewport({
           />
         )}
       {pane(view === "CAMERA", "z-10", <CameraView telemetry={telemetry} sendCommand={sendCommand} visible={view === "CAMERA"} />)}
-      {pane(view === "LIDAR", "z-10", <PointCloudView frame={null} active={view === "LIDAR"} />)}
-      {pane(view === "RADAR", "z-10", <RadarScope telemetry={telemetry} />)}
       {pane(view === "BLUESIGHT", "z-10", <BlueSightView telemetry={telemetry} active={view === "BLUESIGHT"} />)}
       {pane(view === "SONAR", "z-10", <SonarView telemetry={telemetry} sendCommand={sendCommand} active={view === "SONAR"} />)}
     </div>

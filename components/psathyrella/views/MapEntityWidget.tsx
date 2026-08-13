@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { X, MapPin, Shield, Building2, Users, CalendarClock, Phone, Mail, Globe, Cpu, Server, Radio, Clock, ExternalLink } from "lucide-react";
 import type { MapAsset } from "@/lib/psathyrella/contract";
 import { SectionLabel, StatLED, Readout } from "@/components/psathyrella/ui";
+import SensorSuitePanel from "@/components/psathyrella/views/SensorSuitePanel";
 
 function fmtLatLon(lat: number | null, lon: number | null): string | null {
   if (lat == null || lon == null) return null;
@@ -60,7 +61,26 @@ function matchEnrichment(list: any[], name: string): any | null {
   );
 }
 
-const CARD = "psa-glass-strong pointer-events-auto absolute left-1/2 top-3 z-30 flex max-h-[calc(100%-1.5rem)] w-[300px] -translate-x-1/2 flex-col overflow-hidden rounded-xl";
+// Geometry here is a control-reachability constraint, not decoration. This card is z-30 and
+// pointer-events-auto, so whatever it covers stops being clickable. It shares the map pane with two
+// z-20 siblings: MapAnalysisWidget (`left-3 top-3 w-60` -> x 12..252, MapAnalysisWidget.tsx:132) and
+// MapZone's right-hand column (`right-3 top-3`, full pane height, holding DisconnectedOpsHUD and the
+// Layers open/close control, MapZone.tsx:202). The pane is narrow — PsathyrellaConsole's two rails
+// leave 720px at a 1280 viewport, 464px at 1024, 304px at md — so a 300px centred card is WIDER than
+// the gap between those two lanes and no horizontal position clears both. Picking a base therefore
+// used to bury the Layers toggles and MYCA under an opaque panel with no way to reach them.
+//
+// So instead of chasing a horizontal lane that does not exist, vacate the top 80px band: every
+// escape hatch lives there (MYCA's minimize button ~y22..42, the link chip, the Layers button
+// ~y48..76 when the link is live). The card may still overlap a sibling's BODY at narrow widths, but
+// the operator can always minimize MYCA or close Layers to get at what is underneath. `max-h` is
+// reduced by the same 80px plus the 12px bottom margin so the card still bottoms out at bottom-3 —
+// its vertical extent is unchanged, only its top is pulled clear.
+//
+// Width is clamped to the pane because below `md` BOTH console rails are `hidden`: a 375px viewport
+// gives a ~359px pane, where a rigid 300px card centred with -translate-x-1/2 leaves no margin.
+const CARD =
+  "psa-glass-strong pointer-events-auto absolute left-1/2 top-20 z-30 flex max-h-[calc(100%-5.75rem)] w-[min(300px,calc(100%-1.5rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl";
 
 function CardHeader({ eyebrow, title, accent, onClose }: { eyebrow: React.ReactNode; title: string; accent: string; onClose: () => void }) {
   return (
@@ -174,7 +194,6 @@ function DeviceEntityCard({ asset, full, onClose }: { asset: MapAsset; full: any
   const lat = asset.lat ?? num(full?.location?.lat);
   const lon = asset.lon ?? num(full?.location?.lon ?? full?.location?.lng);
   const ll = fmtLatLon(lat, lon);
-  const gasK = num(t.gas_resistance_ohm) != null ? (num(t.gas_resistance_ohm)! / 1000).toFixed(0) : null;
   const pageHref = typeof full.page_href === "string" ? full.page_href : null;
 
   return (
@@ -196,17 +215,22 @@ function DeviceEntityCard({ asset, full, onClose }: { asset: MapAsset; full: any
         </div>
         {full.location_label && <Row label="Site" value={String(full.location_label)} />}
 
-        {/* live BME688 telemetry */}
+        {/* Live BME688 / BSEC2 suite. The hub reports ~25 fields; showing a couple of them let an
+            operator read a converging BSEC2 estimate as a settled measurement, so the whole suite
+            (values + the accuracy/burn-in state that qualifies them) is rendered here. The widget
+            floats over the map, so the panel scrolls inside a fixed-height well — the card itself
+            must not grow. */}
         <SectionLabel className="mb-1 mt-1.5">Environmental telemetry</SectionLabel>
-        <div className="grid grid-cols-3 gap-1.5">
-          <Readout label="Temp" value={num(t.temperature_c) != null ? num(t.temperature_c)!.toFixed(1) : "—"} unit="°C" status="ok" />
-          <Readout label="Humidity" value={num(t.humidity_pct) != null ? num(t.humidity_pct)!.toFixed(0) : "—"} unit="%" status="ok" />
-          <Readout label="Pressure" value={num(t.pressure_hpa) != null ? num(t.pressure_hpa)!.toFixed(0) : "—"} unit="hPa" status="idle" />
-          <Readout label="IAQ" value={num(t.iaq) != null ? num(t.iaq)!.toFixed(0) : "—"} status={num(t.iaq) != null && num(t.iaq)! > 150 ? "warn" : "ok"} />
-          <Readout label="eCO₂" value={num(t.eco2_ppm) != null ? num(t.eco2_ppm)!.toFixed(0) : "—"} unit="ppm" status={num(t.eco2_ppm) != null && num(t.eco2_ppm)! > 1200 ? "warn" : "ok"} />
-          <Readout label="Gas" value={gasK ?? "—"} unit="kΩ" status="idle" />
+        <div className="max-h-[14rem] overflow-y-auto rounded-lg border border-white/5 bg-black/25 px-2 pb-1.5">
+          <SensorSuitePanel
+            compact
+            reading={t}
+            deviceId={typeof full.mdp_device_id === "string" ? full.mdp_device_id : typeof full.id === "string" ? full.id : null}
+            role={typeof full.role === "string" ? full.role : null}
+            fwVersion={typeof full.firmware_version === "string" ? full.firmware_version : null}
+          />
         </div>
-        {t.sensor_slot && <div className="mt-1 text-[9px] uppercase tracking-wide text-slate-500">slot {String(t.sensor_slot)}{t.captured_at ? ` · ${ago(t.captured_at) || ""}` : ""}</div>}
+        {t.captured_at && <div className="mt-1 text-[9px] uppercase tracking-wide text-slate-500">reading {ago(t.captured_at) || "—"}</div>}
 
         {/* connectivity / provenance */}
         <SectionLabel className="mb-1 mt-2"><Server className="mr-1 inline h-3 w-3" /> Node</SectionLabel>

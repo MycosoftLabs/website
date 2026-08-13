@@ -74,8 +74,14 @@ export function SessionRecorderPanel({ recorder }: { recorder: SessionRecorderAp
 
   const activeCommands = frame ? session.commands.filter((c) => c.t <= frame.t).slice(-4).reverse() : [];
 
+  // `h-full` below is load-bearing, not cosmetic. Panel has no intrinsic height and RightPanel's
+  // `min-h-0 flex-1` slot sets no overflow, so without it this panel grows to its content height and
+  // the tail — thruster grid, "Commands @ time" — paints past the rail beneath the StatusBar with no
+  // scrollbar to reach it. Constrained to the slot, the body's FitScale shrinks the content and hands
+  // off to a scrollbar at the legibility floor, so no row is ever silently hidden (see the FitScale
+  // note in ui.tsx). Every sibling rail panel passes the same class.
   return (
-    <Panel title="Session · Record & Replay" icon={<Database className="h-3.5 w-3.5" />}>
+    <Panel title="Session · Record & Replay" icon={<Database className="h-3.5 w-3.5" />} className="h-full">
       {/* Recorder controls */}
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <button

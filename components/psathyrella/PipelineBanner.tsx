@@ -15,11 +15,13 @@
 import { AlertTriangle, ServerCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BuoyTelemetry } from "@/lib/psathyrella/contract";
-import { useEdgeHealth, derivePipelineAlert } from "@/lib/psathyrella/useEdgeHealth";
+import { useConfirmedHub, derivePipelineAlert } from "@/lib/psathyrella/useEdgeHealth";
 
 export function PipelineBanner({ telemetry, simMode }: { telemetry: BuoyTelemetry; simMode: boolean }) {
-  const { data } = useEdgeHealth();
-  const alert = derivePipelineAlert(data?.hub ?? null, telemetry, simMode);
+  // Consecutive-failure confirmation: one missed probe on the stall-prone Jetson path is UNKNOWN,
+  // and must not raise a full-width "GPS/radios unavailable" outage banner over a healthy hub.
+  const { hub, downConfirmed } = useConfirmedHub();
+  const alert = derivePipelineAlert(hub, telemetry, simMode, { hubDownConfirmed: downConfirmed });
   if (!alert) return null;
 
   const crit = alert.level === "crit";

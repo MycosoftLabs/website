@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { Radio, Waves, Volume2, ArrowLeftRight, Bluetooth, Wifi, Signal, RadioTower, Send, Satellite, Orbit, Cable, Activity } from "lucide-react";
+import { Radio, Waves, Volume2, Bluetooth, Wifi, Signal, RadioTower, Send, Satellite, Orbit, Cable, Activity } from "lucide-react";
 import {
   BEARER_TIER,
   RADIO_LABEL,
@@ -63,8 +63,37 @@ export function CommsPanel({
     catch { setBurst(null); }
     finally { setBursting(false); }
   };
-  // C2 (.123) rides Wi-Fi — Wi-Fi down means the buoy is uncommandable regardless of the cable.
-  const c2Down = link && !link.wifi.up;
+  /*
+   * C2 (.123) rides Wi-Fi — Wi-Fi down means the buoy is uncommandable regardless of the cable.
+   *
+   * CONFIRMED over consecutive polls, not asserted from one sample. This used to be
+   * `link && !link.wifi.up`, so a single slow probe painted a full-width "C2 DOWN — buoy is
+   * uncommandable" over a radio measured at −47 dBm and 63% link quality. The probe rides the dev
+   * server, which adds 1–2 s to an 8–25 ms upstream, so single-sample misses are routine.
+   *
+   * One missed probe is UNKNOWN, not an outage. At a 5 s poll a genuine loss of C2 is still declared
+   * within ~10 s — and a banner that only fires on real outages is one the operator will still
+   * believe the day it matters.
+   */
+  const wifiDownStreak = useRef(0);
+  const [c2DownConfirmed, setC2DownConfirmed] = useState(false);
+  useEffect(() => {
+    // Guard the SHAPE, not just the object. `link` is non-null on any 200 — including the route's
+    // error bodies, which carry no `wifi` key at all. Checking only `!link` therefore let an error
+    // payload through and crashed the whole console on `link.wifi.up`, which the error boundary
+    // caught as a render fault and left the page stuck on "RECOVERING CONTROLS".
+    if (!link?.wifi) return;
+    if (!link.wifi.up) {
+      wifiDownStreak.current += 1;
+      if (wifiDownStreak.current >= 2) setC2DownConfirmed(true);
+    } else {
+      wifiDownStreak.current = 0;
+      setC2DownConfirmed(false);
+    }
+  }, [link]);
+  const c2Down = c2DownConfirmed;
+  /** One probe missed but not yet confirmed — surfaced as "checking", never as an outage. */
+  const c2Checking = Boolean(link?.wifi && !link.wifi.up && !c2DownConfirmed);
 
   // Telemetry-hub health (shared edge-health probe). When the hub is down, MAS can't merge the Side-B
   // radios, so BLE/LoRa/cellular read disconnected — that's a PIPELINE outage, not a radio-firmware
@@ -113,17 +142,10 @@ export function CommsPanel({
 
   return (
     <Panel title="Comms · Bridge" icon={<Radio className="h-4 w-4" />} className="h-full">
-      {/* Surface ↔ subsurface bridge */}
-      <div className={`mb-2 flex items-center justify-between rounded-lg border px-3 py-2 ${comms.bridgeActive ? "border-cyan-500/40 bg-cyan-500/10" : "border-white/10 bg-white/[0.02]"}`}>
-        <div className="flex items-center gap-2">
-          <ArrowLeftRight className={`h-4 w-4 ${comms.bridgeActive ? "text-cyan-300" : "text-slate-500"}`} />
-          <div>
-            <div className="text-[11px] font-bold text-white">RF ↔ ACOUSTIC BRIDGE</div>
-            <div className="text-[9px] text-slate-400">radio ⇄ transducer translation</div>
-          </div>
-        </div>
-        <StatLED color={comms.bridgeActive ? "green" : "slate"} pulse={comms.bridgeActive} />
-      </div>
+      {/* The RF ↔ ACOUSTIC BRIDGE header block was removed (Morgan, Aug 03): it occupied the most
+          valuable row of this panel to show a single boolean, above the live link readout an operator
+          actually reads. It returns when the bridge is real hardware with something to report; the
+          underwater acoustic modem section below still carries the live TX state meanwhile. */}
 
       {/* Live buoy link — dual-homed Jetson: Ethernet preferred, Wi-Fi backup. The failover drill
           readout: pull Ethernet and watch it go red while Wi-Fi stays green with live latency. */}
@@ -158,11 +180,17 @@ export function CommsPanel({
             burst: eth {burst.ethernet.up ? `${burst.ethernet.minMs}/${burst.ethernet.latencyMs}/${burst.ethernet.maxMs}ms` : "down"} · wifi {burst.wifi.up ? `${burst.wifi.minMs}/${burst.wifi.latencyMs}/${burst.wifi.maxMs}ms` : "down"} (min/med/max)
           </div>
         )}
-        {c2Down && (
+        {c2Down && link?.wifi ? (
           <div className="rounded border border-red-500/50 bg-red-500/15 px-2 py-1 text-[9px] font-bold text-red-200">
             C2 DOWN — Wi-Fi ({link!.c2TargetIp}) unreachable: buoy is uncommandable{link!.ethernet.up ? " (Ethernet umbilical still up for SSH)" : ""}
           </div>
-        )}
+        ) : c2Checking && link?.wifi ? (
+          /* One missed probe. Say what is actually known — "not answering, re-checking" — rather than
+             escalating straight to an outage claim the next poll usually contradicts. */
+          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-200">
+            Wi-Fi ({link!.c2TargetIp}) missed a probe — re-checking (not yet an outage)
+          </div>
+        ) : null}
       </div>
 
       {/* RF stack */}
@@ -286,23 +314,11 @@ export function CommsPanel({
         )}
       </div>
 
-      {/* Hydrophone — (NLM uplink block removed until the classification feed is live) */}
-      <SectionLabel>Hydrophone (SINE)</SectionLabel>
-      <div className="rounded bg-white/[0.03] px-2 py-2">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-200"><Volume2 className="h-3.5 w-3.5 text-violet-300" /> Broadband</span>
-          <span className="font-mono text-[11px] text-slate-300">{comms.hydrophone.levelDb != null ? `${comms.hydrophone.levelDb.toFixed(0)} dB` : "—"}</span>
-        </div>
-        <div className="mt-1"><Bar value={comms.hydrophone.levelDb != null ? (comms.hydrophone.levelDb + 80) / 80 : null} color="blue" /></div>
-        <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
-          <span><Waves className="mr-1 inline h-3 w-3" />Peak brg {comms.hydrophone.peakBearingDeg != null ? `${Math.round(comms.hydrophone.peakBearingDeg)}°` : "—"}</span>
-          <span>{comms.hydrophone.bandHz ? `${comms.hydrophone.bandHz.lo}–${comms.hydrophone.bandHz.hi} Hz` : "— band"}</span>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-1">
-          <TacButton onClick={() => sendCommand({ domain: "comms", action: "recordHydrophone", band: "lf" })} className="text-[10px]">Rec LF</TacButton>
-          <TacButton onClick={() => sendCommand({ domain: "comms", action: "recordHydrophone", band: "hf" })} className="text-[10px]">Rec HF</TacButton>
-        </div>
-      </div>
+      {/* The Hydrophone (SINE) widget was removed from this panel (Morgan, Aug 03).
+          It showed a level bar, a peak bearing and two permanently-disabled Rec buttons — a large
+          block whose only live content was "—". The recording path still does not exist, so nothing
+          was lost but the space. It belongs with the other acoustic hardware when there IS a capture
+          path; until then the Sensors tab is where sensor state lives. */}
     </Panel>
   );
 }

@@ -56,9 +56,17 @@ async function probe(url: string, opts: { method?: string; timeoutMs?: number } 
  * a brand-new connection recovers immediately. Returns the first success, else the last failure — so
  * a GENUINE outage (the whole point of the hub probe) still resolves as down within attempts×timeout.
  */
-async function probeFresh(url: string, attempts: number, timeoutMs: number) {
+async function probeFresh(url: string, attempts: number, timeoutMs: number, fallbackUrl?: string) {
   let last = await probe(url, { timeoutMs });
   for (let i = 1; i < attempts && !last.up; i++) last = await probe(url, { timeoutMs });
+  if (!last.up && fallbackUrl) {
+    // Second ROUTE on the same service. This separates "the service is down" from "this particular
+    // path is stalling or has moved" — if any route on the host answers, the host is up, and calling
+    // it down would be a false outage. Aug 03: :8790/health answered in 53 ms by curl while the Node
+    // probe reported down, and the banner claimed a healthy hub was dead.
+    const alt = await probe(fallbackUrl, { timeoutMs });
+    if (alt.up) return alt;
+  }
   return last;
 }
 
@@ -72,12 +80,25 @@ export async function GET() {
   // resolution is computed client-side in the panel against the known served id.
   const [masHealth, hub, propulsion, mushroom1, openclaw] = await Promise.all([
     probe(`${MAS}/health`, { timeoutMs: 5000 }),
-    // Telemetry hub — down = pipeline outage. 3 fresh attempts @3.5s: a healthy hub answers on the
-    // first (~8ms), a dev-PC first-SYN stall is caught by a fresh retry, and a real outage still
-    // resolves down in ≤10.5s. Prevents a FALSE "hub down" banner flickering during bench tests.
-    probeFresh(`${HUB}/health`, 3, 3500),
-    probe(`${PROPULSION}/health`, { timeoutMs: 5000 }),
-    probe(`${MUSHROOM1}/`, { timeoutMs: 8000 }), // operator UI root — slow HTML render
+    // Telemetry hub — down = pipeline outage, so a FALSE down here is expensive: it tells the
+    // operator the whole GPS/radio pipeline is dead.
+    //
+    // Budget rationale (retuned Aug 03 after a false "hub DOWN" banner over a healthy hub): the
+    // stall is in CONNECTION SETUP and a stalled socket never recovers, so a long per-attempt
+    // timeout buys nothing — it only delays the retry that actually works. MANY SHORT attempts
+    // strictly beat few long ones. A healthy hub answers in ~50 ms, so 1200 ms is already ~20×
+    // headroom. 5×1200 ms caps the lane at 6 s (was 10.5 s) while surviving four consecutive
+    // stalls instead of two, and `/status` is tried last as a different route on the same host.
+    probeFresh(`${HUB}/health`, 5, 1200, `${HUB}/status`),
+    probeFresh(`${PROPULSION}/health`, 5, 1200), // same first-SYN stall applies to the Jetson agent
+    // Mushroom 1 operator UI root. Measured DIRECTLY from the shell this answers in ~6 ms (14 KB of
+    // HTML), but through this server it has been observed at ~7.0 s against an 8 s budget — that is the
+    // Jetson link's first-SYN stall, not a slow render. One stalled connect was therefore enough to
+    // paint a perfectly healthy service RED. Retry-fresh instead: a new connection recovers instantly,
+    // and a GENUINE outage still resolves as down within attempts x timeout.
+    // Retuned with the hub for the same reason: 5×1200 ms caps this lane at 6 s instead of 12 s and
+    // tolerates more consecutive stalls, since the fix for a stall is a fresh connect, not patience.
+    probeFresh(`${MUSHROOM1}/`, 5, 1200),
     probe(OPENCLAW, { timeoutMs: 8000 }), // MAS-verified openclaw/status route (~2s live query, spikes under load)
   ]);
 

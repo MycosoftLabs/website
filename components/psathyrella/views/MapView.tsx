@@ -6,12 +6,12 @@
  * top-right = collapsible ocean-ops filters. No CREP/MYCA providers, no NatureOS pipeline.
  */
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type JSX } from "react";
 import useSWR from "swr";
 import { Crosshair, Trash2, Navigation2 } from "lucide-react";
 import { Map, MapControls, useMap } from "@/components/ui/map";
 import { cn } from "@/lib/utils";
-import { classifyDevice, CONTACT_COLOR, type BuoyTelemetry, type DeviceCategory, type MapAsset, type MapAssetHover, type SelectedDevice, type SensorContact, type Waypoint } from "@/lib/psathyrella/contract";
+import { classifyDevice, CONTACT_COLOR, type BuoyTelemetry, type DeviceCategory, type GpsLock, type MapAsset, type MapAssetHover, type SelectedDevice, type SensorContact, type Waypoint } from "@/lib/psathyrella/contract";
 import { type LayerState } from "./MapFiltersPanel";
 import { OceanLayers } from "./OceanLayers";
 import { FieldLayers } from "./FieldLayers";
@@ -23,6 +23,10 @@ import { isMapViewActive } from "@/lib/psathyrella/viewState";
 
 const fetcher = (u: string) => fetch(u, { headers: { accept: "application/json" } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const EMPTY_FC = { type: "FeatureCollection", features: [] as unknown[] };
+/** A measurement is a finite number or it is nothing. Same contract as fusionFrame.ts's `fin()`. */
+const fin = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const fmtAge = (s: number) => (s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`);
+const fmtRange = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`);
 
 // ── Universal asset interactivity (Earth-Sim parity) ─────────────────────────────────────────
 // Priority-ordered allowlist of asset layer ids → how to label/detail each in the hover + detail
@@ -356,9 +360,12 @@ function AssetInteractions({ onSelect, onPickAsset, onHover }: {
       onHover({
         id: String(p.id || p.name || id),
         layerId: id,
+        // The buoy's hover card carries the SAME provenance BuoyLayers baked into the feature
+        // (live fix / registry site / held). "Primary buoy (self)" alone reads as a live fix, and
+        // a held or registry-sourced marker must never be described as one.
         kind: isBuoy ? "Primary buoy (self)" : cfg ? cfg.kind : "Asset",
-        label: isBuoy ? "Psathyrella" : cfg ? cfg.label(p) : id,
-        detail: isBuoy ? [] : cfg ? cfg.detail(p).filter(Boolean) : [],
+        label: isBuoy ? astr(p.label) || "Psathyrella" : cfg ? cfg.label(p) : id,
+        detail: isBuoy ? [astr(p.provenance)].filter(Boolean) : cfg ? cfg.detail(p).filter(Boolean) : [],
         lat: ll.lat, lon: ll.lon, x: e.point.x, y: e.point.y,
       });
     };
@@ -390,31 +397,95 @@ function MapCenterTracker({ onMove }: { onMove: (c: { lat: number; lon: number }
   return null;
 }
 
+// ── Buoy position provenance ─────────────────────────────────────────────────────────────────
+// A marker on a navigation chart IS a position claim, so it may only be drawn from something that
+// measured a position. This layer used to seed and hold the marker from the `lat`/`lon` props —
+// but MapZone fills those with PROJECT_OYSTER_ANCHOR whenever `pose.lat/lon` are null, so a cold
+// boot with MAS and the device registry both down painted a confident pulsing dot on the home
+// anchor while StatusBar showed Lat/Lon as "—". Nothing had measured that point.
+//
+// BuoyLayers therefore ignores the props for the MARKER and reads the real nullable pose straight
+// off telemetryRef:
+//   • no fix ever seen        → draw NOTHING (and say so in the overlay — absence is not a position)
+//   • fix seen and then lost  → keep the last real point but render it visibly HELD (dimmed, no
+//                               pulse, age in the label) — a held position must never render
+//                               identically to a current one
+//   • fix present             → colour by gpsLock on StatusBar's convention, so the two surfaces
+//                               agree instead of the map looking the more authoritative of the two
+export type BuoyFixStatus = {
+  /** `pending` = the map has not read the pose yet. It is NOT "unknown" — a still-booting chart
+   *  must not announce a missing fix any more than a missing fix may be drawn as a position. */
+  state: "pending" | "live" | "held" | "unknown";
+  /** Whole minutes since the last real fix — coarse on purpose so the chip re-renders ≤ once a minute. */
+  heldMin: number;
+  lock: GpsLock;
+};
+type BuoyFix = { lon: number; lat: number; atMs: number; lock: GpsLock };
+
+/** GeoJSON for the buoy marker. A null fix yields an EMPTY collection: the honest render of
+ *  "we do not know where the buoy is" is no marker at all, never a marker somewhere plausible. */
+function buoyFC(fix: BuoyFix | null, held: boolean, nowMs: number) {
+  if (!fix) return EMPTY_FC;
+  const ageS = Math.max(0, Math.round((nowMs - fix.atMs) / 1000));
+  const provenance = held
+    ? `Held — last known fix ${fmtAge(ageS)} ago, no current position`
+    : fix.lock === "site"
+      ? "Registry SITE position — not a live field GPS fix"
+      : fix.lock === "manual"
+        ? "Manually entered position — not a GPS fix"
+        : fix.lock === "locked"
+          ? "Live GPS fix · locked"
+          : fix.lock === "drift"
+            // A position arrived but the receiver says it is drifting — say so rather than
+            // calling it a fix.
+            ? "Position reported, GPS drifting — degraded accuracy"
+            : "Position reported, GPS lock unavailable — provenance unconfirmed";
+  // StatusBar.tsx's colour convention, mirrored so map and status bar cannot disagree:
+  // locked = green, site/drift = amber, manual = cyan, held/unknown = slate.
+  const color = held ? "#94a3b8" : fix.lock === "locked" ? "#4ade80" : fix.lock === "site" || fix.lock === "drift" ? "#fbbf24" : "#22d3ee";
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [fix.lon, fix.lat] },
+        properties: {
+          held,
+          color,
+          opacity: held ? 0.45 : 1,
+          label: held ? `Psathyrella · held ${fmtAge(ageS)}` : fix.lock === "site" ? "Psathyrella · site" : "Psathyrella",
+          provenance,
+        },
+      },
+    ],
+  };
+}
+
 /** Buoy + waypoints rendered as GeoJSON layers — NO React portals (those crash MapLibre
  * teardown with "removeChild on null"). The buoy point FOLLOWS its live pose via the STABLE
  * telemetryRef on a ~500ms timer (isolation-safe, like SensorContactsLayer) — never via
- * per-poll React re-renders. `lat`/`lon` are only the first-paint seed + waypoint-line origin
- * fallback; `waypoints` stays reactive so the dashed path updates on edit. */
-function BuoyLayers({ lat, lon, waypoints, telemetryRef }: { lat: number; lon: number; waypoints: Waypoint[]; telemetryRef: { current: BuoyTelemetry } }) {
+ * per-poll React re-renders. `waypoints` stays reactive so the dashed path updates on edit. */
+function BuoyLayers({ waypoints, telemetryRef, onFixStatus }: { waypoints: Waypoint[]; telemetryRef: { current: BuoyTelemetry }; onFixStatus: (s: BuoyFixStatus) => void }) {
   const { map } = useMap();
-  // Mutable seed so ensure()'s first paint uses the latest known pose without re-subscribing.
-  const seedRef = useRef<[number, number]>([lon, lat]);
-  seedRef.current = [lon, lat];
+  // The last position something actually reported, with its arrival time. Stays null until one
+  // exists — this is the ONLY thing allowed to place the marker.
+  const fixRef = useRef<BuoyFix | null>(null);
   useEffect(() => {
     if (!map) return;
     const ensure = () => {
       try {
         if (!map.getSource("psa-buoy")) {
-          // seed the source WITH the buoy already placed — its setData (immediate primitives)
-          // can otherwise fire before the source exists, leaving the buoy unpainted.
-          const [slon, slat] = seedRef.current;
-          map.addSource("psa-buoy", { type: "geojson", data: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [slon, slat] }, properties: {} }] } as any });
-          // animated pulse ring (radius/opacity driven by the rAF loop below) — "pulsing maritime icon"
-          map.addLayer({ id: "psa-buoy-pulse", type: "circle", source: "psa-buoy", paint: { "circle-radius": 12, "circle-color": "#22d3ee", "circle-opacity": 0.35, "circle-stroke-width": 1, "circle-stroke-color": "#22d3ee", "circle-stroke-opacity": 0.5 } });
-          map.addLayer({ id: "psa-buoy-halo", type: "circle", source: "psa-buoy", paint: { "circle-radius": 10, "circle-color": "#22d3ee", "circle-opacity": 0.2 } });
+          // Seed from the LAST REAL FIX (null until one arrives) so the first paint can never
+          // invent a position; the 500 ms timer below fills it in as soon as a pose lands.
+          map.addSource("psa-buoy", { type: "geojson", data: buoyFC(fixRef.current, false, Date.now()) as any });
+          // Animated pulse ring (radius/opacity driven by the rAF loop below) — "pulsing maritime
+          // icon". Filtered OFF for a held marker: a pulse reads as "live", so a remembered
+          // position must not carry one.
+          map.addLayer({ id: "psa-buoy-pulse", type: "circle", source: "psa-buoy", filter: ["==", ["get", "held"], false], paint: { "circle-radius": 12, "circle-color": ["get", "color"], "circle-opacity": 0.35, "circle-stroke-width": 1, "circle-stroke-color": ["get", "color"], "circle-stroke-opacity": 0.5 } } as any);
+          map.addLayer({ id: "psa-buoy-halo", type: "circle", source: "psa-buoy", filter: ["==", ["get", "held"], false], paint: { "circle-radius": 10, "circle-color": ["get", "color"], "circle-opacity": 0.2 } } as any);
           // solid marker — FIXED radius so the buoy is findable at EVERY zoom level
-          map.addLayer({ id: "psa-buoy-dot", type: "circle", source: "psa-buoy", paint: { "circle-radius": 7, "circle-color": "#22d3ee", "circle-stroke-width": 2.5, "circle-stroke-color": "#04070e" } });
-          map.addLayer({ id: "psa-buoy-label", type: "symbol", source: "psa-buoy", layout: { "text-field": "Psathyrella", "text-size": 10, "text-font": ["Open Sans Bold"], "text-offset": [0, 1.4], "text-anchor": "top", "text-allow-overlap": true } as any, paint: { "text-color": "#67e8f9", "text-halo-color": "#04070e", "text-halo-width": 1.2 } });
+          map.addLayer({ id: "psa-buoy-dot", type: "circle", source: "psa-buoy", paint: { "circle-radius": 7, "circle-color": ["get", "color"], "circle-opacity": ["get", "opacity"], "circle-stroke-width": 2.5, "circle-stroke-color": "#04070e" } } as any);
+          map.addLayer({ id: "psa-buoy-label", type: "symbol", source: "psa-buoy", layout: { "text-field": ["coalesce", ["get", "label"], "Psathyrella"], "text-size": 10, "text-font": ["Open Sans Bold"], "text-offset": [0, 1.4], "text-anchor": "top", "text-allow-overlap": true } as any, paint: { "text-color": ["get", "color"], "text-halo-color": "#04070e", "text-halo-width": 1.2 } } as any);
         }
         if (!map.getSource("psa-wp")) {
           map.addSource("psa-wp", { type: "geojson", data: EMPTY_FC as any });
@@ -460,35 +531,47 @@ function BuoyLayers({ lat, lon, waypoints, telemetryRef }: { lat: number; lon: n
 
   // Buoy FOLLOWS its live pose from the STABLE telemetry ref on a ~500ms timer — NO React
   // re-render (so the map memo + freeze-isolation hold), hidden-tab paused, try/caught. This
-  // is what makes the buoy move smoothly WITHOUT recreating the map. We also keep the waypoint
-  // line's origin pinned to the live buoy here, so the dashed path tracks the moving buoy.
-  const liveLL = useRef<[number, number]>([lon, lat]);
+  // is what makes the buoy move smoothly WITHOUT recreating the map.
   useEffect(() => {
     if (!map) return;
     let timer: ReturnType<typeof setTimeout> | 0 = 0;
+    let lastKey = "";
     const paint = () => {
       try {
-        const t = telemetryRef.current;
-        const plat = t?.pose?.lat;
-        const plon = t?.pose?.lon;
-        const useLat = typeof plat === "number" ? plat : liveLL.current[1];
-        const useLon = typeof plon === "number" ? plon : liveLL.current[0];
-        liveLL.current = [useLon, useLat];
-        (map.getSource("psa-buoy") as { setData?: (d: any) => void } | undefined)?.setData?.({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [useLon, useLat] }, properties: {} }] });
+        const pose = telemetryRef.current?.pose;
+        const plat = fin(pose?.lat);
+        const plon = fin(pose?.lon);
+        const now = Date.now();
+        // ONLY a real, finite pose refreshes the fix. Nothing else may write a buoy position —
+        // in particular not the lat/lon props, which are the home anchor when the pose is null.
+        if (plat != null && plon != null) fixRef.current = { lon: plon, lat: plat, atMs: now, lock: pose?.gpsLock ?? "unavailable" };
+        const fix = fixRef.current;
+        const held = fix != null && (plat == null || plon == null);
+        (map.getSource("psa-buoy") as { setData?: (d: any) => void } | undefined)?.setData?.(buoyFC(fix, held, now));
+
+        const state: BuoyFixStatus["state"] = fix == null ? "unknown" : held ? "held" : "live";
+        // Bucket the held age to whole minutes so this only pushes React state on a real change
+        // of situation, never on the 500 ms cadence (the map-isolation guarantee).
+        const heldMin = held && fix ? Math.floor((now - fix.atMs) / 60000) : 0;
+        const lock = fix?.lock ?? pose?.gpsLock ?? "unavailable";
+        const key = `${state}|${heldMin}|${lock}`;
+        if (key !== lastKey) { lastKey = key; onFixStatus({ state, heldMin, lock }); }
       } catch { /* layer mid-teardown */ }
     };
     const tick = () => { if (!document.hidden && isMapViewActive()) paint(); timer = setTimeout(tick, 500); };
     paint();
     timer = setTimeout(tick, 500);
     return () => { if (timer) clearTimeout(timer); };
-  }, [map, telemetryRef]);
+  }, [map, telemetryRef, onFixStatus]);
 
-  // Waypoint dashed path + numbered dots. Reactive on waypoints; the line origin uses the
-  // last live buoy position tracked above so the path stays anchored to the moving buoy.
+  // Waypoint dashed path + numbered dots. Reactive on waypoints; the leg-1 origin is the buoy's
+  // LAST REAL FIX. With no known position there is no origin to draw from, so the path starts at
+  // waypoint 1 — a leg drawn from the home anchor would be a fabricated course over ground.
   useEffect(() => {
-    const [olon, olat] = liveLL.current;
+    const fix = fixRef.current;
     const pts = waypoints.map((wp, i) => ({ type: "Feature", geometry: { type: "Point", coordinates: [wp.lon, wp.lat] }, properties: { n: String(i + 1) } }));
-    const line = waypoints.length ? [{ type: "Feature", geometry: { type: "LineString", coordinates: [[olon, olat], ...waypoints.map((w) => [w.lon, w.lat])] }, properties: {} }] : [];
+    const coords: number[][] = [...(fix ? [[fix.lon, fix.lat]] : []), ...waypoints.map((w) => [w.lon, w.lat])];
+    const line = coords.length >= 2 ? [{ type: "Feature", geometry: { type: "LineString", coordinates: coords }, properties: {} }] : [];
     (map?.getSource("psa-wp") as { setData?: (d: any) => void } | undefined)?.setData?.({ type: "FeatureCollection", features: [...line, ...pts] });
   }, [map, waypoints]);
 
@@ -581,7 +664,19 @@ const SCOPE_META: Record<ScopeKey, { ring: string; defaultRange: number }> = {
   lidar: { ring: "#22d3ee", defaultRange: 500 },
 };
 
-function SensorContactsLayer({ telemetryRef, layers }: { telemetryRef: { current: BuoyTelemetry }; layers: LayerState }) {
+/** What this chart could NOT honestly draw on the last paint — surfaced as an operator caption so
+ *  a withheld contact never reads as "no contact", and a stretched scale never reads as declared. */
+export type ScopeNotice = {
+  /** Bow-relative bearings cannot be georeferenced: heading unknown while a scope is plotting. */
+  headingUnknown: boolean;
+  /** Contacts held back from the chart for that reason, per scope. */
+  withheld: { radar: number; lidar: number };
+  /** Rings widened past the declared max range to contain a real return, in operator wording. */
+  stretched: string[];
+};
+export const EMPTY_SCOPE_NOTICE: ScopeNotice = { headingUnknown: false, withheld: { radar: 0, lidar: 0 }, stretched: [] };
+
+function SensorContactsLayer({ telemetryRef, layers, onNotice }: { telemetryRef: { current: BuoyTelemetry }; layers: LayerState; onNotice: (n: ScopeNotice) => void }) {
   const { map } = useMap();
   const radarOn = !!layers.radar;
   const lidarOn = !!layers.lidar;
@@ -636,38 +731,107 @@ function SensorContactsLayer({ telemetryRef, layers }: { telemetryRef: { current
 
   // live feed via the stable ref on a timer — NO React re-render, hidden-tab paused, try/caught
   useEffect(() => {
-    if (!map || (!radarOn && !lidarOn)) return;
+    if (!map) return;
+    // Both scopes off: nothing is plotted, so clear any standing caption rather than leaving a
+    // stale "contacts withheld" claim about layers that are no longer drawing.
+    if (!radarOn && !lidarOn) { onNotice(EMPTY_SCOPE_NOTICE); return; }
     let timer: ReturnType<typeof setTimeout> | 0 = 0;
+    let lastKey = "";
     const paint = () => {
       try {
         const t = telemetryRef.current;
-        const lat = t?.pose?.lat ?? null;
-        const lon = t?.pose?.lon ?? null;
-        const heading = t?.pose?.headingDeg ?? 0;
+        const lat = fin(t?.pose?.lat);
+        const lon = fin(t?.pose?.lon);
+        // A bow-relative bearing only becomes a GEOGRAPHIC bearing once the true heading is known.
+        // This used to read `?? 0`, which silently turned an UNKNOWN heading into "bow points due
+        // north" and emitted a specific lat/lon for every contact — and the buoy has no heading
+        // source today (/magnetometer returns headingDeg: null, uncompensated). fusionFrame.ts and
+        // targetTracking.ts both null-propagate here; this chart is the one surface that emits a
+        // real position, so it is the last place that may guess.
+        const heading = fin(t?.pose?.headingDeg);
+        const withheld = { radar: 0, lidar: 0 };
+        const stretched: string[] = [];
+        let plotting = false;
         (["radar", "lidar"] as ScopeKey[]).forEach((sk) => {
           const on = sk === "radar" ? radarOn : lidarOn;
           const frame = t?.[sk];
           const ringSrc = map.getSource(`psa-${sk}-ring`) as { setData?: (d: any) => void } | undefined;
           const ctSrc = map.getSource(`psa-${sk}-ct`) as { setData?: (d: any) => void } | undefined;
           if (!on || lat == null || lon == null) { ringSrc?.setData?.(EMPTY_FC); ctSrc?.setData?.(EMPTY_FC); return; }
-          const maxRange = frame?.maxRangeM ?? SCOPE_META[sk].defaultRange;
-          ringSrc?.setData?.({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [ringPolygon(lat, lon, maxRange)] }, properties: {} }] });
-          const cts = frame?.active ? frame.contacts || [] : [];
+          plotting = true;
+          const declared = fin(frame?.maxRangeM) ?? SCOPE_META[sk].defaultRange;
+          const cts = (frame?.active ? frame.contacts || [] : []).filter((c: SensorContact) => fin(c.rangeM) != null && fin(c.bearingDeg) != null);
+          // The ring IS the plotted scale, so the scale must contain the data. The old
+          // Math.min(c.rangeM, maxRange) redrew an over-range return ON the ring — a range the
+          // sensor never reported. Stretch the scale to the furthest REAL return instead and name
+          // the stretch, the rule FusionPlot already follows (only a measurement sets the scale).
+          const furthest = cts.reduce((m: number, c: SensorContact) => Math.max(m, c.rangeM), 0);
+          const scaleM = Math.max(declared, furthest);
+          if (scaleM > declared) stretched.push(`${sk} ring widened to ${fmtRange(scaleM)} (declared ${fmtRange(declared)})`);
+          ringSrc?.setData?.({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [ringPolygon(lat, lon, scaleM)] }, properties: {} }] });
+          if (heading === null) {
+            // The range ring is heading-independent so it stays; the CONTACTS cannot be placed, so
+            // they are DROPPED rather than defaulted — and counted, so an unplaceable contact is
+            // never silently rendered as "no contacts" (that would be an all-clear we can't give).
+            withheld[sk] = cts.length;
+            ctSrc?.setData?.(EMPTY_FC);
+            return;
+          }
           const features = cts.map((c: SensorContact) => {
-            const [clon, clat] = destPoint(lat, lon, (heading + c.bearingDeg) % 360, Math.min(c.rangeM, maxRange));
+            const [clon, clat] = destPoint(lat, lon, (((heading + c.bearingDeg) % 360) + 360) % 360, c.rangeM);
             return { type: "Feature", geometry: { type: "Point", coordinates: [clon, clat] }, properties: { color: CONTACT_COLOR[c.kind] || "#94a3b8", strength: Math.max(0, Math.min(1, c.strength ?? 0.5)), label: c.classifiedAs || c.label || "" } };
           });
           ctSrc?.setData?.({ type: "FeatureCollection", features });
         });
+        // Push to React only when the situation actually changes — the 700 ms cadence must never
+        // reach the map subtree (freeze-isolation).
+        const notice: ScopeNotice = { headingUnknown: heading === null && plotting, withheld, stretched };
+        const key = JSON.stringify(notice);
+        if (key !== lastKey) { lastKey = key; onNotice(notice); }
       } catch { /* layer mid-teardown */ }
     };
     const tick = () => { if (!document.hidden && isMapViewActive()) paint(); timer = setTimeout(tick, 700); };
     paint();
     timer = setTimeout(tick, 700);
     return () => { if (timer) clearTimeout(timer); };
-  }, [map, radarOn, lidarOn, telemetryRef]);
+  }, [map, radarOn, lidarOn, telemetryRef, onNotice]);
 
   return null;
+}
+
+/**
+ * What the chart is NOT showing, in operator words. Every line here exists because the map
+ * otherwise stays silent about a gap: an absent buoy marker would read as "nowhere", a withheld
+ * contact would read as "no contact", and a widened ring would read as the sensor's declared
+ * scale. Amber (a caveat on live data), never red (this is not an alarm).
+ */
+function ChartGapsOverlay({ fix, notice }: { fix: BuoyFixStatus; notice: ScopeNotice }): JSX.Element | null {
+  const lines: string[] = [];
+  if (fix.state === "unknown") {
+    lines.push("Buoy position UNKNOWN — no GPS fix received. The buoy is not plotted; an empty chart is not a position.");
+  } else if (fix.state === "held") {
+    lines.push(`Buoy position HELD — last fix ${fix.heldMin < 1 ? "under a minute" : `${fix.heldMin} min`} ago, nothing reporting now. The dimmed marker is a memory, not a current position.`);
+  } else if (fix.state === "live" && fix.lock === "site") {
+    lines.push("Buoy plotted from the device registry SITE position — not a live field GPS fix.");
+  }
+  const withheld = notice.withheld.radar + notice.withheld.lidar;
+  if (notice.headingUnknown) {
+    const counts = withheld > 0
+      ? `${notice.withheld.radar} radar / ${notice.withheld.lidar} lidar contact(s) withheld`
+      : "no contacts can be placed";
+    lines.push(`Heading UNKNOWN (no compass fix) — ${counts}. Bow-relative bearings cannot be georeferenced; read the relative picture on the BlueSight PPI.`);
+  }
+  for (const s of notice.stretched) lines.push(`${s.charAt(0).toUpperCase()}${s.slice(1)} — the scale follows the furthest real return, not the declared range.`);
+  if (lines.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute bottom-14 left-3 z-20 max-w-md space-y-1">
+      {lines.map((l) => (
+        <div key={l} className="rounded border border-amber-500/40 bg-black/80 px-2 py-1 text-[10px] leading-snug text-amber-200">
+          {l}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -710,9 +874,15 @@ function MapViewInner({
   // Default = SELECTION (click things on the map, like Earth Sim). Waypoint-dropping only
   // happens in Navigation mode, behind this toggle — never just by clicking the map.
   const [navMode, setNavMode] = useState(false);
+  // What the chart cannot honestly draw right now. Both setters are stable and both producers
+  // only push on a real CHANGE of situation, so this state cannot re-render on the poll cadence.
+  const [fixStatus, setFixStatus] = useState<BuoyFixStatus>({ state: "pending", heldMin: 0, lock: "unavailable" });
+  const [scopeNotice, setScopeNotice] = useState<ScopeNotice>(EMPTY_SCOPE_NOTICE);
   // STABLE initial center captured ONCE on first render. The buoyLat/buoyLon props jitter in
   // SIM mode; if they fed <Map center> the map would re-center/re-init every poll → the
   // "blinking" bug. The buoy instead FOLLOWS its live pose via BuoyLayers' telemetryRef timer.
+  // These props are the CAMERA anchor ONLY — MapZone substitutes the home anchor when the pose
+  // is null, so they are not a measured position and must never place the buoy marker.
   const initialCenter = useRef<[number, number]>([buoyLon, buoyLat]);
   return (
     <div className={cn("relative h-full w-full bg-[#060912]", className)}>
@@ -728,11 +898,13 @@ function MapViewInner({
         <MapInteractions navMode={navMode} waypoints={waypoints} onAddWaypoint={onAddWaypoint} onEraseWaypoint={onEraseWaypoint} />
         <MapCenterTracker onMove={onMoveCenter} />
         <MeshLayer telemetryRef={telemetryRef} layers={layers} />
-        <SensorContactsLayer telemetryRef={telemetryRef} layers={layers} />
+        <SensorContactsLayer telemetryRef={telemetryRef} layers={layers} onNotice={setScopeNotice} />
         <GhostTrackLayer telemetryRef={telemetryRef} />
-        <BuoyLayers lat={buoyLat} lon={buoyLon} waypoints={waypoints} telemetryRef={telemetryRef} />
+        <BuoyLayers waypoints={waypoints} telemetryRef={telemetryRef} onFixStatus={setFixStatus} />
         <SelectionHighlight selected={selected} />
       </Map>
+
+      <ChartGapsOverlay fix={fixStatus} notice={scopeNotice} />
 
       {/* bottom-left: Navigation mode toggle (+ waypoint controls only when ON) */}
       <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2">
