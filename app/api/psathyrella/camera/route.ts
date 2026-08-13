@@ -52,6 +52,10 @@ export async function GET() {
   const frontFeed = rig.feeds.find((f) => f.id === "front");
   if (frontFeed && !frontUrlSet) frontFeed.error = "IMX477 is plugged in but not enumerated as its own camera. The Jetson is still on an imx519-dual device-tree (both CSI ports bind as IMX519), so /preview/b, /snapshot/b and /snapshot/front stay offline (503) until Cursor installs a CamArray(IMX519)+IMX477 dual-sensor DT and Argus sensor-id=1 produces a real forward view. The 360° ring uses /preview/a only — Target is never faked from the quad.";
 
+  // Hoisted out of Enrichment A so it can be applied AFTER Enrichment B — see the fold-in below for why
+  // the order is load-bearing rather than incidental.
+  let irCutState: { mode?: string; applied?: boolean; lastError?: string | null } | null = null;
+
   // Enrichment A — Cursor's Jetson camera service (:8792): GET /health confirms reachability. The
   // quad360 ring is the real IMX519 composite; if the service is set but unreachable (Jetson down /
   // power-cycling) every feed goes OFFLINE — never show "online" on a dead service.
@@ -82,6 +86,8 @@ export async function GET() {
       stitch?: boolean; calibrated?: boolean; phase2?: { pano?: boolean; bev?: boolean };
       calibrationSource?: string; bev?: { qualityNote?: string };
       targetDiscrete?: boolean; sensorNote?: string;
+      // IR-cut lives at the TOP level of /health, not on either feed. See the fold-in after Enrichment B.
+      irCut?: { mode?: string; applied?: boolean; method?: string; lastError?: string | null };
     } | null = null;
     for (let i = 0; i < 3 && !health; i++) {
       try {
@@ -118,6 +124,7 @@ export async function GET() {
       if (frontFeed && !frontUrlSet && health.targetDiscrete === false && typeof health.sensorNote === "string" && health.sensorNote.trim()) {
         frontFeed.error = `${health.sensorNote.trim()} — the Jetson is still on an imx519-dual device-tree, so the IMX477 never binds as its own sensor. Cursor's dual-sensor DT (P1) is the fix; the camera being powered (audible IR-cut clicking) does not make it visible to the driver.`;
       }
+      if (health.irCut && typeof health.irCut.mode === "string") irCutState = health.irCut;
       rig.updatedMsAgo = 0;
     } else {
       for (const f of rig.feeds) { f.online = false; f.error = "camera service unreachable"; }
@@ -138,6 +145,35 @@ export async function GET() {
         }
       }
     } catch { /* rig-service down → keep prior, honest */ }
+  }
+
+  /*
+   * IR-cut, folded in LAST — the ordering is the fix, not decoration.
+   *
+   * The camera service reports IR-cut at the TOP level of /health, while its /cam/rig payload carries
+   * `irCut: null` on every feed. Enrichment B above merges that payload with Object.assign (backend
+   * wins), so a value written any earlier is erased back to null on the way out.
+   *
+   * In the contract `null` specifically means "no IR-cut hardware on this feed", and TargetView renders
+   * the DAY / AUTO / NIGHT controls only when it is non-null. So the operator was never looking at dead
+   * buttons — the controls never rendered at all, on a module that does have the filter: the write acks
+   * at i2c:10/0xc and the mechanism clicks audibly. The reasonable conclusion from the console was that
+   * the vehicle had no such capability.
+   */
+  if (irCutState && typeof irCutState.mode === "string") {
+    const ff = rig.feeds.find((f) => f.id === "front");
+    if (ff) {
+      ff.irCut = irCutState.mode as CameraFeed["irCut"];
+      /*
+       * nightActive reports what the DEVICE confirmed, never what we asked for. An unapplied write or a
+       * reported error leaves it null (unknown) rather than asserting a filter position the operator
+       * would read as fact. Note also that a successful write does NOT prove the filter moved: under LED
+       * lighting there is almost no IR in the scene, so day and night look identical. Confirming the
+       * optical effect needs an IR source (a TV remote is the field test).
+       */
+      ff.nightActive =
+        irCutState.applied === true && !irCutState.lastError ? irCutState.mode === "night" : null;
+    }
   }
 
   return NextResponse.json(rig);
