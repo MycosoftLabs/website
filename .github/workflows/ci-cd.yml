@@ -7,7 +7,7 @@
 #   CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET (Cloudflare Access Service Auth for SSH over tunnel)
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 #   NEXTAUTH_SECRET (production cookie signing — set a strong secret)
-#   Optional: SUPABASE_SERVICE_ROLE_KEY, MAS_API_URL, MINDEX_API_URL, MINDEX_API_KEY, OPENAI_API_KEY, AIRNOW_API_KEY, wallet keys
+#   Optional: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (pk_live / pk_test — baked into client bundle)
 #   Optional: CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN (purge after deploy)
 #
 # CREP map/globe client tokens — inlined at `next build` time via Docker
@@ -280,6 +280,7 @@ jobs:
             NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
             NEXT_PUBLIC_MAPBOX_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
             NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
       - name: Build and push Collectors
         continue-on-error: true
@@ -843,6 +844,7 @@ jobs:
             NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
             NEXT_PUBLIC_MAPBOX_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
             NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
   instant-deploy:
     name: Instant Deploy (fast) — VM pull + blue/green cutover
