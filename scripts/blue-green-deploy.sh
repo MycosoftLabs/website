@@ -174,6 +174,93 @@ load_production_env
 # ───── Helpers ──────────────────────────────────────────────────────────────
 compose() { docker compose "${COMPOSE_FILES[@]}" "$@"; }
 
+# Compose matches services by immutable labels. A D-state leftover can keep
+# `com.docker.compose.service=website-blue` after `docker rename`, so
+# `compose up website-blue` tries `docker stop` on the zombie and hangs.
+# Canonical runtime identity is always the container *name* mycosoft-website-{slot}.
+compose_labeled_ids() {
+  local slot="$1"
+  docker ps -aq \
+    --filter "label=com.docker.compose.project=website" \
+    --filter "label=com.docker.compose.service=website-${slot}" 2>/dev/null || true
+}
+
+slot_pid_is_dstate() {
+  local pid="$1"
+  [[ -n "$pid" && "$pid" != "0" && -r "/proc/${pid}/stat" ]] || return 1
+  local st
+  st=$(awk '{print $3}' "/proc/${pid}/stat")
+  [[ "$st" == "D" ]]
+}
+
+compose_service_is_wedged() {
+  local slot="$1" id name pid
+  while read -r id; do
+    [[ -n "$id" ]] || continue
+    name=$(docker inspect -f '{{.Name}}' "$id" 2>/dev/null | sed 's#^/##')
+    pid=$(docker inspect -f '{{.State.Pid}}' "$id" 2>/dev/null || echo 0)
+    if [[ "$name" != "mycosoft-website-${slot}" ]]; then
+      warn "compose website-${slot} is bound to $name ($id), not mycosoft-website-${slot}"
+      return 0
+    fi
+    if slot_pid_is_dstate "$pid"; then
+      warn "compose website-${slot} PID $pid is kernel D-state"
+      return 0
+    fi
+  done < <(compose_labeled_ids "$slot")
+  return 1
+}
+
+# Start idle slot. Never recreate the serving primary. Never docker compose
+# against a D-state / renamed leftover. NAS mount is required on any create.
+start_slot_with_image() {
+  local slot="$1"
+  local image="$2"
+  local cid="mycosoft-website-${slot}"
+
+  if [[ "$slot" == "$ACTIVE" ]]; then
+    err "Refusing to recreate the serving primary ($slot / $cid)"
+    return 1
+  fi
+
+  if compose_service_is_wedged "$slot"; then
+    warn "Skipping docker compose for website-${slot} (wedged leftover). Starting $cid via docker run."
+    if docker ps -a --format '{{.Names}}' | grep -qx "$cid"; then
+      local pid
+      pid=$(docker inspect -f '{{.State.Pid}}' "$cid" 2>/dev/null || echo 0)
+      if slot_pid_is_dstate "$pid"; then
+        err "$cid is D-state; cannot replace it without containerd recycle"
+        return 1
+      fi
+      log "Removing previous idle $cid before docker run"
+      docker stop -t 20 "$cid" >/dev/null 2>&1 || true
+      docker rm -f "$cid" >/dev/null 2>&1 || true
+    fi
+    docker run -d \
+      --name "$cid" \
+      --restart unless-stopped \
+      --network website_mycosoft-network \
+      --network-alias "website-${slot}" \
+      --env-file "${DEPLOY_DIR}/.env" \
+      -e NODE_ENV=production \
+      -e PORT=3000 \
+      -e HOSTNAME=0.0.0.0 \
+      -e "NODE_OPTIONS=${NODE_OPTIONS:---max-http-header-size=32768}" \
+      -e "DEPLOY_SLOT=${slot}" \
+      -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+      "$image"
+    return 0
+  fi
+
+  # Do NOT pass --remove-orphans: a renamed D-state container can become an
+  # "orphan" if labels were edited and compose will try to stop it.
+  if [[ "$slot" == "green" ]]; then
+    WEBSITE_IMAGE_GREEN="$image" compose --profile green up -d --no-deps website-green
+  else
+    WEBSITE_IMAGE_BLUE="$image" compose up -d --no-deps website-blue
+  fi
+}
+
 install_nginx_base_conf() {
   local src="$DEPLOY_DIR/deploy/nginx/nginx.conf"
   local dst="$NGINX_DIR/nginx.conf"
@@ -304,7 +391,14 @@ verify_public() {
 
 stop_slot() {
   local slot="$1" cid="mycosoft-website-$slot"
+  # Never stop isolated D-state leftovers (mycosoft-website-*-wedged).
   if docker ps --format '{{.Names}}' | grep -qx "$cid"; then
+    local pid
+    pid=$(docker inspect -f '{{.State.Pid}}' "$cid" 2>/dev/null || echo 0)
+    if slot_pid_is_dstate "$pid"; then
+      warn "Refusing to docker stop $cid — kernel D-state. Leaving isolated."
+      return 0
+    fi
     log "Stopping $cid (graceful SIGTERM, then remove)"
     docker stop -t 30 "$cid" >/dev/null || true
     docker rm -f "$cid"     >/dev/null || true
@@ -330,11 +424,7 @@ if [[ "$MODE" == "rollback" ]]; then
     # Use the same image as the proxy last served; fall back to :production-latest
     PREV=$(docker image inspect --format='{{index .RepoTags 0}}' \
       "$(docker inspect -f '{{.Image}}' mycosoft-website-$IDLE 2>/dev/null || echo "$IMAGE")" 2>/dev/null || echo "$IMAGE")
-    if [[ "$IDLE" == "green" ]]; then
-      WEBSITE_IMAGE_GREEN="$PREV" compose --profile green up -d --no-deps website-green
-    else
-      WEBSITE_IMAGE_BLUE="$PREV" compose up -d --no-deps website-blue
-    fi
+    start_slot_with_image "$IDLE" "$PREV"
     wait_healthy "$IDLE" || { err "Rollback failed — idle slot didn't come back"; exit 6; }
   fi
   install_nginx_base_conf
@@ -372,13 +462,8 @@ else
 fi
 
 # 2. Start idle slot with the new image
-if [[ "$IDLE" == "green" ]]; then
-  log "Starting website-green with new image"
-  WEBSITE_IMAGE_GREEN="$IMAGE" compose --profile green up -d --no-deps --remove-orphans website-green
-else
-  log "Starting website-blue with new image"
-  WEBSITE_IMAGE_BLUE="$IMAGE" compose up -d --no-deps --remove-orphans website-blue
-fi
+log "Starting website-$IDLE with new image"
+start_slot_with_image "$IDLE" "$IMAGE"
 
 # Ensure proxy is running too (first-time bootstrap)
 if ! docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-proxy"; then

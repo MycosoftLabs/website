@@ -15,6 +15,45 @@ import { createClient } from '@supabase/supabase-js';
 // Force dynamic to avoid build-time errors
 export const dynamic = 'force-dynamic';
 
+/**
+ * Detect Launchpad-scoped Stripe events so the legacy handler early-returns.
+ * Launchpad uses metadata.lp_tenant_id and fus_launchpad_* lookup_keys.
+ */
+function isLaunchpadScopedStripeEvent(event: Stripe.Event): boolean {
+  const obj = event.data?.object as Record<string, unknown> | undefined;
+  if (!obj || typeof obj !== 'object') return false;
+
+  const meta = (obj.metadata ?? {}) as Record<string, unknown>;
+  if (typeof meta.lp_tenant_id === 'string' && meta.lp_tenant_id.length > 0) return true;
+  if (typeof meta.lp_lookup_key === 'string' && String(meta.lp_lookup_key).startsWith('fus_launchpad_')) {
+    return true;
+  }
+
+  const lookupCandidates: string[] = [];
+  if (typeof meta.lookup_key === 'string') lookupCandidates.push(meta.lookup_key);
+  if (typeof obj.lookup_key === 'string') lookupCandidates.push(obj.lookup_key as string);
+
+  const items = (obj as { items?: { data?: Array<{ price?: { lookup_key?: string | null } }> } }).items
+    ?.data;
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      const lk = item?.price?.lookup_key;
+      if (typeof lk === 'string') lookupCandidates.push(lk);
+    }
+  }
+
+  const lines = (obj as { lines?: { data?: Array<{ price?: { lookup_key?: string | null } }> } }).lines
+    ?.data;
+  if (Array.isArray(lines)) {
+    for (const line of lines) {
+      const lk = line?.price?.lookup_key;
+      if (typeof lk === 'string') lookupCandidates.push(lk);
+    }
+  }
+
+  return lookupCandidates.some((k) => k.startsWith('fus_launchpad_'));
+}
+
 // Lazy Supabase client to avoid build-time env var issues
 let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
@@ -66,6 +105,22 @@ export async function POST(request: NextRequest) {
     );
   }
   
+  // Belt-and-suspenders: Launchpad events belong on
+  // /api/fusarium/launchpad/stripe/webhook — never write Launchpad purchases
+  // onto profiles.subscription_tier via this legacy handler.
+  if (isLaunchpadScopedStripeEvent(event)) {
+    console.info(
+      '[stripe/webhooks] Ignoring Launchpad-scoped event; use /api/fusarium/launchpad/stripe/webhook',
+      event.id,
+      event.type,
+    );
+    return NextResponse.json({
+      received: true,
+      ignored: true,
+      reason: 'launchpad_event_use_dedicated_webhook',
+    });
+  }
+
   try {
     switch (event.type) {
       // ============================================

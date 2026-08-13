@@ -6,7 +6,7 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 // useRouter removed; all navigation uses <Link> directly
-import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Users, Key } from "lucide-react"
+import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Waves, Plane, Users, Key, Rocket } from "lucide-react"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -21,6 +21,7 @@ import { AccessGate } from "@/lib/access/types"
 // Navigation items configuration (same as header.tsx)
 const defenseItems = [
   { title: "Fusarium", href: "/defense/fusarium", icon: Bug },
+  { title: "Launchpad", href: "/fusarium/launchpad", icon: Rocket },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText },
 ]

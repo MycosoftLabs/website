@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Fusarium | Defense System | Mycosoft",
-  description: "Fusarium is Mycosoft's integrated defense system combining CREP dashboard, specialized devices, and AI-driven environmental intelligence for military applications.",
+  title: "FUSARIUM | Environmental Intelligence for Defense | Mycosoft",
+  description:
+    "FUSARIUM combines the Nature Learning Model, Earth Simulator, MINDEX, sensing applications, and air, water, and land droids to deliver operational environmental intelligence for defense and infrastructure.",
 }
 
 export default function FusariumLayout({ children }: { children: React.ReactNode }) {

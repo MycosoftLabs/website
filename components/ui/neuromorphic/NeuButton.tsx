@@ -73,7 +73,12 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
         {isLoading ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" aria-hidden />
         ) : null}
-        <span>{children}</span>
+        {/* inline-flex, not a plain inline span: Tailwind preflight sets
+            `svg { display: block }`, so an icon passed as a child became a
+            block box on its own line inside an inline span (label on line 1,
+            arrow on line 2) even with white-space:nowrap. No `gap` here —
+            call sites already space their icons with ml-2/mr-2. */}
+        <span className="inline-flex items-center">{children}</span>
       </Comp>
     )
   }

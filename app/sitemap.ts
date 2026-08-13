@@ -43,6 +43,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/defense/oei`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${baseUrl}/defense/capabilities`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/defense/fusarium`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+
+    // FUSARIUM Launchpad — public marketing only; /app/launchpad is deliberately absent
+    { url: `${baseUrl}/fusarium/launchpad`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/fusarium/launchpad/pricing`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/fusarium/launchpad/trust`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/fusarium/launchpad/get-started`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${baseUrl}/defense/technical-docs`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/defense/request-briefing`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
 
