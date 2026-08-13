@@ -184,7 +184,7 @@ export default function LaunchpadPricingPage() {
             {/* Recurring plans — selectable. Choosing one carries the plan AND
                 the billing period through to checkout, so nobody picks the
                 $999 tier and lands on a $397 page. */}
-            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-16">
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-16 items-stretch">
               {PLAN_COPY.map(({ key, monthly, annual, blurb, highlight }) => {
                 const mo = CATALOG.find((p) => p.lookupKey === monthly)!
                 const yr = CATALOG.find((p) => p.lookupKey === annual)!
@@ -194,7 +194,9 @@ export default function LaunchpadPricingPage() {
                   <NeuCard
                     key={key}
                     onClick={() => setSelected(key)}
-                    className={`cursor-pointer transition-shadow ${
+                    // h-full + column so every card's CTA lands on the same
+                    // baseline regardless of how many features it lists.
+                    className={`cursor-pointer transition-shadow h-full flex flex-col ${
                       isSelected
                         ? "ring-2 ring-emerald-500 border-2 border-emerald-500/50"
                         : highlight
@@ -221,7 +223,7 @@ export default function LaunchpadPricingPage() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-2 text-balance">{blurb}</p>
                     </NeuCardHeader>
-                    <NeuCardContent>
+                    <NeuCardContent className="flex-1 flex flex-col">
                       <ul className="space-y-2">
                         {planFeatures(key).map((f) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
@@ -229,7 +231,8 @@ export default function LaunchpadPricingPage() {
                           </li>
                         ))}
                       </ul>
-                      <div className="mt-5">
+                      {/* mt-auto pushes every CTA to the card floor. */}
+                      <div className="mt-auto pt-5">
                         <GlassButton
                           href={`/fusarium/launchpad/get-started?plan=${key}&billing=${billing}`}
                           className="myco-glass-button--block"
@@ -302,7 +305,7 @@ export default function LaunchpadPricingPage() {
                 </p>
 
                 <div className="mt-5 pt-1 flex-1 flex items-end">
-                  <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
+                  <GlassButton href="/fusarium/launchpad/get-started" className="myco-glass-button--block">
                     Get started <ArrowRight className="h-4 w-4 text-current ml-2" />
                   </GlassButton>
                 </div>
@@ -360,7 +363,7 @@ export default function LaunchpadPricingPage() {
                 </p>
 
                 <div className="mt-5 pt-1 flex-1 flex items-end">
-                  <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
+                  <GlassButton href="/fusarium/launchpad/get-started" className="myco-glass-button--block">
                     Book a session <ArrowRight className="h-4 w-4 text-current ml-2" />
                   </GlassButton>
                 </div>
