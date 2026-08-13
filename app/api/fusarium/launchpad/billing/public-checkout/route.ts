@@ -66,6 +66,11 @@ let acctCache: { at: number; chargesEnabled: boolean } | null = null;
 const ACCT_TTL_MS = 60_000;
 
 async function chargesEnabled(stripe: Stripe): Promise<boolean> {
+  // Escape hatch for exercising the session -> webhook -> pending-row pipeline
+  // before onboarding is finished. It lets a buyer reach a card field that
+  // cannot collect, so it belongs in a sandbox and nowhere else. Named to be
+  // obvious in an env dump rather than blending into the other flags.
+  if (process.env.LAUNCHPAD_CHECKOUT_ALLOW_UNACTIVATED === '1') return true;
   if (acctCache && Date.now() - acctCache.at < ACCT_TTL_MS) return acctCache.chargesEnabled;
   try {
     const acct = await stripe.accounts.retrieve();
