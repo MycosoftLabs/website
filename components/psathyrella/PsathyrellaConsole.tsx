@@ -3,7 +3,9 @@
 import "@/lib/psathyrella/domGuard"; // null-safe removeChild — last-line defense vs the MapLibre↔React commit race
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Camera, ScanLine, Radar, Layers, Map as MapIcon, FlaskConical, X, Navigation, Radio, Waves, Route, Moon, Sun, Monitor, Hand } from "lucide-react";
+// ScanLine/Radar are gone with the LIDAR and RADAR tabs — VIEW_ICON is keyed by ViewMode, so an icon
+// for a mode that no longer exists is dead weight.
+import { Camera, Layers, Map as MapIcon, FlaskConical, X, Navigation, Radio, Waves, Route, Moon, Sun, Monitor, Hand, Bot } from "lucide-react";
 import { VIEW_MODES, type ViewMode, type Waypoint, type SelectedDevice, type MissionPlan, primaryBuoySelection, PSATHYRELLA_DEVICE_ID } from "@/lib/psathyrella/contract";
 import { useBuoyTelemetry } from "@/lib/psathyrella/useBuoyTelemetry";
 import { useSessionRecorder } from "@/lib/psathyrella/useSessionRecorder";
@@ -18,11 +20,10 @@ import { RightPanel } from "./panels/RightPanel";
 import { StatusBar } from "./panels/StatusBar";
 import { MissionPlannerPanel } from "./panels/MissionPlannerPanel";
 import { StatLED, BottomSheet, type LedColor } from "./ui";
+import DroidChatPanel from "./panels/DroidChatPanel";
 
 const VIEW_ICON: Record<ViewMode, typeof Camera> = {
   CAMERA: Camera,
-  LIDAR: ScanLine,
-  RADAR: Radar,
   BLUESIGHT: Layers,
   SONAR: Waves,
   MAP: MapIcon,
@@ -73,13 +74,16 @@ export function PsathyrellaConsole() {
   const [view, setView] = useState<ViewMode>(() => {
     if (typeof window !== "undefined") {
       const v = new URLSearchParams(window.location.search).get("view")?.toUpperCase();
+      // LiDAR/Radar were once their own tabs and are now BlueSight windows. Honour old links and
+      // bookmarks instead of silently dropping the operator on the map.
+      if (v === "LIDAR" || v === "RADAR") return "BLUESIGHT";
       if (v && (VIEW_MODES as readonly string[]).includes(v)) return v as ViewMode;
     }
     return "MAP";
   });
   const [simulated, setSimulated] = useState(() => process.env.NEXT_PUBLIC_PSATHYRELLA_SIM === "1");
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
-  const [sheet, setSheet] = useState<"nav" | "comms" | null>(null);
+  const [sheet, setSheet] = useState<"nav" | "comms" | "droid" | null>(null);
   // The active mission plan, authored in the MissionPlannerPanel and fed to the telemetry hook
   // (sim/executor) + dispatched to the backend as a mission.upload command.
   const [missionPlan, setMissionPlan] = useState<MissionPlan | null>(null);
@@ -123,8 +127,15 @@ export function PsathyrellaConsole() {
   }, [sendCommand]);
   const eraseWaypoint = useCallback((id: string) => setWaypoints((w) => w.filter((x) => x.id !== id)), []);
 
+  // `dark` is a SCOPE, not a preference: this console is hard-coded dark (bg-[#04070e]) whatever the
+  // operator's site theme is, but the shared design tokens are light at `:root` and only flip under
+  // `.dark` (globals.css :49 vs :80). Because `* { border-color: var(--color-border) }` is unlayered,
+  // every bare `border-*` in this subtree — the header rule, the BottomSheet shells, the MapLibre
+  // control chrome — otherwise paints a near-white #e2e8f0 hairline on near-black for a light-theme
+  // operator. Scoping the tokens here fixes all of them at once instead of colour-patching each strip.
+  // (`.psa-*` classes carry no CSS of their own, so nothing else in this tree supplies a border colour.)
   return (
-    <div className={`psa-console fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[#04070e] font-sans text-slate-200 ${display.rootClass}`}>
+    <div className={`psa-console dark [color-scheme:dark] fixed inset-0 z-[60] flex flex-col overflow-hidden bg-[#04070e] font-sans text-slate-200 ${display.rootClass}`}>
       <ConsoleErrorBoundary>
       {/* SIMULATION indicator — compact corner pill (never covers the map) */}
       {simulated && (
@@ -152,15 +163,28 @@ export function PsathyrellaConsole() {
           "GPS/radios broken hardware". Renders nothing when the field pipeline is healthy or in SIM. */}
       <PipelineBanner telemetry={telemetry} simMode={simulated} />
 
-      {/* top bar */}
-      <header className="psa-glass-strong z-[70] flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2">
-        <div className="flex items-center gap-2">
+      {/* Top bar. The console root is `fixed inset-0 overflow-hidden` and page scroll is locked (the
+          effect above), so anything this row pushes past the right edge is CLIPPED, not scrolled —
+          there is no gesture, scrollbar or alternate control that recovers it. On an iPad that put the
+          SIM toggle and the only Exit link (the console's sole way out) permanently off-screen.
+          So the row now degrades in a deliberate order: the view tabs scroll, the device-id sub-label
+          truncates, and the right-hand cluster — which ends in Sim and Exit — wraps onto a second line
+          rather than leaving the viewport. That cluster never shrinks at `md` and up, because there the
+          other two members can absorb the squeeze on their own. */}
+      <header className="psa-glass-strong z-[70] flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2">
           <StatLED color={LINK_LED[telemetry.link] ?? "slate"} pulse={telemetry.link === "online"} />
-          <span className="text-sm font-black uppercase tracking-[0.2em] text-white">Psathyrella</span>
-          <span className="hidden text-[10px] uppercase tracking-wider text-slate-500 sm:inline">GCS · {PSATHYRELLA_DEVICE_ID}</span>
+          {/* The vehicle name never truncates — it is the identity of the thing being driven. The id
+              sub-label below it gives way first, and truncates rather than disappearing, so a narrow
+              viewport never leaves the operator guessing which vehicle this console is flying (full
+              string stays recoverable from the tooltip). */}
+          <span className="shrink-0 text-sm font-black uppercase tracking-[0.2em] text-white">Psathyrella</span>
+          <span className="hidden truncate text-[10px] uppercase tracking-wider text-slate-500 sm:inline" title={`GCS · ${PSATHYRELLA_DEVICE_ID}`}>GCS · {PSATHYRELLA_DEVICE_ID}</span>
         </div>
 
-        <nav className="flex items-center gap-1">
+        {/* min-w-0 + overflow-x-auto makes the tabs the flexible member: under pressure they scroll
+            instead of shoving the safety/exit controls off the clipped edge. */}
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto">
           {VIEW_MODES.map((m) => {
             const Icon = VIEW_ICON[m];
             return (
@@ -168,18 +192,28 @@ export function PsathyrellaConsole() {
                 key={m}
                 type="button"
                 onClick={() => setView(m)}
-                className={`psa-glass-btn flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${
+                title={m}
+                aria-label={m}
+                aria-pressed={view === m}
+                className={`psa-glass-btn flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide ${
                   view === m ? "border-cyan-500/60 bg-cyan-500/20 text-cyan-100" : "border-white/10 text-slate-400 hover:text-slate-100"
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden md:inline">{m}</span>
+                {/* Labels cost ~180px of unshrinkable uppercase; they wait for `lg` so the header still
+                    fits one row on an iPad. When icon-only the title/aria name carries the mode, so the
+                    tab is never an unlabelled glyph. */}
+                <span className="hidden lg:inline">{m}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        {/* Sim and Exit are the last two controls in this cluster, so they were the first casualties of
+            the overflow. Below `md` — where the Nav/Comms sheet buttons also appear and the row can no
+            longer hold eight controls — the cluster wraps onto a second line, costing header height
+            instead of reachability. At `md` and up it is pinned (`shrink-0`) so nothing here compresses. */}
+        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
           <button
             type="button"
             onClick={() => setMissionOpen(true)}
@@ -197,6 +231,14 @@ export function PsathyrellaConsole() {
             title="Navigation & propulsion"
           >
             <Navigation className="h-3.5 w-3.5" /> Nav
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheet("droid")}
+            className="psa-glass-btn flex h-9 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-cyan-500/40"
+            title="Talk to the droid — OpenClaw agent aboard this vehicle"
+          >
+            <Bot className="h-3.5 w-3.5" /> Droid
           </button>
           <button
             type="button"
@@ -281,6 +323,9 @@ export function PsathyrellaConsole() {
       {/* tablet / portrait: panels as bottom sheets */}
       <BottomSheet open={sheet === "nav"} onClose={() => setSheet(null)} title="Navigation · Propulsion" icon={<Navigation className="h-4 w-4" />}>
         <NavPropulsionPanel telemetry={telemetry} sendCommand={sendCommand} />
+      </BottomSheet>
+      <BottomSheet open={sheet === "droid"} onClose={() => setSheet(null)} title="Droid · OpenClaw" icon={<Bot className="h-4 w-4" />}>
+        <DroidChatPanel droidId={PSATHYRELLA_DEVICE_ID} droidName="Jetson-Myco-1" onClose={() => setSheet(null)} />
       </BottomSheet>
       <BottomSheet open={sheet === "comms"} onClose={() => setSheet(null)} title="Comms · Devices" icon={<Radio className="h-4 w-4" />}>
         <RightPanel telemetry={telemetry} sendCommand={sendCommand} selected={selected} onSelect={setSelected} ledger={commandLedger} recorder={recorder} />

@@ -10,6 +10,10 @@
  *
  * Nulls render as "—" (no sensor wired) rather than a false all-clear — honest surfacing for the
  * leak / INA226 current / thermal / kill-switch hardware still being wired.
+ *
+ * The ARM indicator is TRI-state (Armed / Safe / Arm-unknown) for the same reason: `autonomy.armed`
+ * is a plain boolean whose no-data value is `false`, so it must never be rendered as "props
+ * inhibited" unless we are actually hearing the vehicle. See the derivation below.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -71,6 +75,33 @@ export function SafetyBanner({
 }) {
   const { autonomy, safety, power, propulsion } = telemetry;
   const armed = autonomy.armed;
+
+  // ── Arm state is tri-state, not boolean ────────────────────────────────────────────────────
+  // `AutonomyState.armed` is typed `boolean` and `emptyTelemetry()` seeds it FALSE, while
+  // `overlayEnvelope` writes it only when the envelope actually carries a boolean. So "MAS
+  // unreachable / telemetry 401 / cold load before the first frame" is bit-identical to "the
+  // vehicle told us it is disarmed". Painting the seed value as a green "Safe · props inhibited"
+  // would tell an operator the thrusters are inhibited while they are spinning in the pool — the
+  // most dangerous lie this console can tell, and the one chip in this strip that had no unknown
+  // path while every sibling alarm already renders "—".
+  //
+  // So: a TRUE arm flag is always honoured (an assertion that the props are live is never
+  // suppressed), and a FALSE flag only earns the green chip while the link says we are in contact.
+  // Both no-data paths land in "unknown": a cold load leaves link "unknown"/contactState "dark",
+  // and a mid-session MAS drop rebuilds from emptyTelemetry() so contactState falls back to "dark".
+  // A null `lastUpdateMsAgo` is deliberately NOT treated as stale on its own — an envelope that
+  // omits the field is still an envelope, and the contact test already covers "no envelope".
+  // Going unknown while contactState is "dark" in SIM is correct too, not a demo regression: the
+  // command path store-and-forwards while dark, so a disarm the operator just pressed may not have
+  // reached the vehicle.
+  //
+  // This is an inference from link health — the strongest evidence BuoyTelemetry carries today.
+  // It becomes exact once AutonomyState grows an `armedReported` flag that overlayEnvelope sets in
+  // the same branch that writes `armed`; until then, prefer the false amber over the false green.
+  const ARM_STALE_MS = 15_000; // ~6 missed 2.5 s telemetry frames
+  const inContact = telemetry.contactState !== "dark" && telemetry.link !== "offline" && telemetry.link !== "unknown";
+  const armReportStale = telemetry.lastUpdateMsAgo != null && telemetry.lastUpdateMsAgo > ARM_STALE_MS;
+  const armState: "armed" | "safe" | "unknown" = armed ? "armed" : inContact && !armReportStale ? "safe" : "unknown";
 
   // 1 Hz tick to animate the deadman countdown + REC elapsed — only while there's something to
   // animate (armed or recording). Gated on document.hidden; cleaned up. This is LOCAL leaf state:
@@ -139,6 +170,8 @@ export function SafetyBanner({
       : soc < SAFETY_LIMITS.lowBatteryPct ? "crit" : soc < SAFETY_LIMITS.lowBatteryPct * 1.5 ? "warn" : "ok";
 
   // Global E-STOP: cut all thrusters immediately, then disarm. No confirm — stopping is fail-safe.
+  // Never gated on `armed`: the state in which the operator most needs it is the one where we do
+  // not know whether the vehicle is armed.
   const estop = () => {
     void sendCommand({ domain: "thruster", action: "allStop" });
     void sendCommand({ domain: "autonomy", action: "arm", armed: false });
@@ -148,19 +181,33 @@ export function SafetyBanner({
     <div
       className={cn(
         "psa-glass-strong relative z-[71] flex shrink-0 items-center gap-2 border-b px-3 py-1.5 text-[10px]",
-        armed ? "border-red-500/40" : "border-white/10"
+        armState === "armed" ? "border-red-500/40" : armState === "unknown" ? "border-amber-500/40" : "border-white/10"
       )}
     >
-      {/* ARMED / SAFE state */}
+      {/* ARMED / SAFE / ARM-UNKNOWN state. Unknown is amber and pulsing, not the slate the alarm
+          chips use for "no sensor wired" — an unreported arm state is an alarm, not an inert gap. */}
       <div
+        title={
+          armState === "armed"
+            ? "Vehicle reports ARMED — thrusters can spin."
+            : armState === "safe"
+              ? "Vehicle reports disarmed — thrusters inhibited."
+              : "No arm-state report from the vehicle (link down, dark, or no frame yet). The props may be LIVE. Use E-STOP if in doubt."
+        }
         className={cn(
           "flex items-center gap-1.5 rounded-md border px-2 py-1 font-black uppercase tracking-[0.18em]",
-          armed ? "border-red-500/60 bg-red-500/20 text-red-200" : "border-green-500/40 bg-green-500/10 text-green-300"
+          armState === "armed"
+            ? "border-red-500/60 bg-red-500/20 text-red-200"
+            : armState === "safe"
+              ? "border-green-500/40 bg-green-500/10 text-green-300"
+              : "border-amber-500/60 bg-amber-500/15 text-amber-200"
         )}
       >
-        <StatLED color={armed ? "red" : "green"} pulse={armed} />
-        {armed ? "Armed" : "Safe"}
-        <span className="hidden font-semibold tracking-normal opacity-70 sm:inline">{armed ? "· props live" : "· props inhibited"}</span>
+        <StatLED color={armState === "armed" ? "red" : armState === "safe" ? "green" : "amber"} pulse={armState !== "safe"} />
+        {armState === "armed" ? "Armed" : armState === "safe" ? "Safe" : "Arm Unknown"}
+        <span className="hidden font-semibold tracking-normal opacity-70 sm:inline">
+          {armState === "armed" ? "· props live" : armState === "safe" ? "· props inhibited" : "· no report from vehicle"}
+        </span>
       </div>
 
       {/* Control-session state — if there's no admin session, EVERY command 401s silently. Make it loud. */}
@@ -182,9 +229,18 @@ export function SafetyBanner({
         </span>
       )}
 
-      {/* Deadman countdown (only meaningful while armed) */}
-      {armed && (
-        <div className="flex items-center gap-1" title="Deadman: vehicle auto-disarms at 0 unless a command arrives">
+      {/* Deadman countdown — shown while armed AND while the arm state is unknown. If we cannot
+          confirm the vehicle is disarmed we cannot claim its deadman is irrelevant: the row stays
+          up reading "—" (unknown) rather than silently disappearing. */}
+      {armState !== "safe" && (
+        <div
+          className="flex items-center gap-1"
+          title={
+            armState === "unknown"
+              ? "Deadman unknown — no arm-state report from the vehicle"
+              : "Deadman: vehicle auto-disarms at 0 unless a command arrives"
+          }
+        >
           <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">DMS</span>
           <span className={cn("font-mono text-[11px] font-bold tabular-nums", LEVEL_TEXT[deadmanLevel])}>
             {deadman == null ? "—" : `${deadman.toFixed(1)}s`}

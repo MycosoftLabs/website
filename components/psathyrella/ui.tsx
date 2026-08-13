@@ -11,21 +11,46 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Scales its content down so it always fits the available height — never scrolls.
+ * Absorbs a few pixels of height overflow by shrinking, then hands off to a scrollbar.
  * Transform-only (constant layout width) so the ResizeObserver can't oscillate.
+ *
+ * `min` is a legibility floor, NOT a licence to clip. Once shrinking bottoms out there and the
+ * content STILL overflows, the wrapper scrolls instead of hiding the remainder. Before that, the
+ * tail of any growing list (fleet cards, command ledger) simply became invisible — no scrollbar, no
+ * fade, no indication rows existed below the fold. On an operator console a panel that silently
+ * hides rows reads as "there are none", which is the same lie as an unbadged sim.
+ *
+ * ══ WHY THE FLOOR IS 0.94 AND NOT 0.58 ════════════════════════════════════════════════════════════
+ * At 0.58 this was a SHRINK-first component that scrolled only in extremis, and the result was a nav
+ * panel rendering at 0.777 — every 10 px label squeezed to 7.8 px, on a console read at arm's length
+ * on a boat. Worse, the scaling is invisible as a cause: the operator sees "the text got small",
+ * not "a widget below overflowed", so a single oversized child silently degrades legibility across
+ * the WHOLE panel and its siblings. Morgan's call, and it is the right one: that must never happen.
+ *
+ * 0.94 keeps the one thing the shrink was genuinely good for — swallowing 1–3 px of rounding or
+ * sub-pixel overflow so a scrollbar doesn't flicker in and out on every resize — while making a
+ * scrollbar, not illegible text, the answer to real overflow. A panel that needs more room now says
+ * so honestly instead of quietly shrinking everything around it.
  */
-export function FitScale({ children, min = 0.58, className }: { children: ReactNode; min?: number; className?: string }) {
+export function FitScale({ children, min = 0.94, className }: { children: ReactNode; min?: number; className?: string }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [clamped, setClamped] = useState(false);
   useEffect(() => {
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
     const compute = () => {
       const avail = outer.clientHeight;
+      // Unscaled layout height — the transform never changes it, so this reading is
+      // identical with and without the fallback scrollbar and cannot feed back.
       const needed = inner.scrollHeight;
-      if (avail && needed) setScale(needed > avail + 1 ? Math.max(min, avail / needed) : 1);
+      if (!avail || !needed) return;
+      const wanted = avail / needed;
+      setScale(needed > avail + 1 ? Math.max(min, wanted) : 1);
+      // Below the floor the shrink can no longer absorb the overflow: hand it to a scrollbar.
+      setClamped(wanted < min);
     };
     compute();
     const ro = new ResizeObserver(compute);
@@ -34,7 +59,17 @@ export function FitScale({ children, min = 0.58, className }: { children: ReactN
     return () => ro.disconnect();
   }, [min]);
   return (
-    <div ref={outerRef} className={cn("h-full w-full overflow-hidden", className)}>
+    <div
+      ref={outerRef}
+      className={cn(
+        "h-full w-full",
+        // Scrolling is the fallback, never the default: anything that fits keeps the
+        // shrink-never-scroll instrument layout the nav/comms/status panels rely on.
+        // overflow-x stays hidden so scaling down can't summon a horizontal bar.
+        clamped ? "overflow-y-auto overflow-x-hidden overscroll-contain" : "overflow-hidden",
+        className
+      )}
+    >
       <div ref={innerRef} style={{ transform: `scale(${scale})`, transformOrigin: "top center", width: "100%" }}>
         {children}
       </div>
@@ -56,6 +91,17 @@ export function StatLED({ color, pulse, className }: { color: LedColor; pulse?: 
   return <span className={cn("inline-block h-2 w-2 rounded-full", LED_CLASS[color], pulse && "animate-pulse", className)} />;
 }
 
+/**
+ * Instrument panel. The body is fit-scaled by default (see FitScale).
+ *
+ * Pass `fit={false}` when the body is an UNBOUNDED list — command ledger, fleet
+ * devices, bench/edge diagnostics. Those grow without limit, so fitting them means
+ * driving the type toward the 0.58 floor (a 9px label lands at ~5px) before the
+ * fallback scrollbar even engages. Such bodies should scroll at full size instead.
+ * A caller that puts its own `overflow-y-auto h-full` div inside a fitted body gets
+ * no scrollbar at all: `h-full` resolves against FitScale's auto-height inner and
+ * collapses to `auto`.
+ */
 export function Panel({
   title,
   icon,
@@ -63,6 +109,7 @@ export function Panel({
   children,
   className,
   bodyClassName,
+  fit = true,
 }: {
   title?: ReactNode;
   icon?: ReactNode;
@@ -70,6 +117,7 @@ export function Panel({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  fit?: boolean;
 }) {
   return (
     <div className={cn("psa-glass flex flex-col overflow-hidden rounded-xl", className)}>
@@ -82,8 +130,14 @@ export function Panel({
           {right}
         </div>
       )}
-      <div className={cn("min-h-0 flex-1 overflow-hidden px-3 py-2.5", bodyClassName)}>
-        <FitScale>{children}</FitScale>
+      <div
+        className={cn(
+          "min-h-0 flex-1 px-3 py-2.5",
+          fit ? "overflow-hidden" : "overflow-y-auto overscroll-contain",
+          bodyClassName
+        )}
+      >
+        {fit ? <FitScale>{children}</FitScale> : children}
       </div>
     </div>
   );

@@ -26,13 +26,45 @@ export const PROJECT_OYSTER_ANCHOR = { lat: 32.56289, lon: -117.1357 } as const;
 
 // ── Live endpoints the GCS consumes (implemented by Cursor's backend) ────────
 export const ENDPOINTS = {
-  /** GET — live BME688 A/B (works today). */
-  sensors: `/api/mycobrain/${PSATHYRELLA_PORT}/sensors`,
+  /**
+   * GET — BME688 A/B. ⚠ THIS ROUTE IS NOT SERVING THE BUOY. It proxies `MYCOBRAIN_SERVICE_URL`,
+   * the Windows-local serial daemon on :8003, which has answered `devices_connected: 0` and 404'd
+   * `/devices/mycobrain-COM4` ever since the MycoBrain moved onto the Jetson. The daemon failure
+   * comes back as HTTP 200 with an error body carrying no `sensors` key, so `useBuoyTelemetry`
+   * leaves `bme.a`/`bme.b` null and the environmental panel reads STANDBY. That is the honest
+   * outcome of a dead feed, but on screen it is indistinguishable from "no sensor fitted" while a
+   * healthy, calibrating BME688 A is in fact streaming.
+   *
+   * The live readings are on the Jetson telemetry hub (`PSATHYRELLA_TELEMETRY_HUB_URL`, :8790) at
+   * `status.lastSensorReading`. Repointing needs a new owner-gated same-origin proxy — mirror
+   * `app/api/psathyrella/droid-systems/route.ts` (probeFresh is mandatory on this LAN) and emit
+   * this route's `{ sensors: { bme688_1, bme688_2 }, timestamp }` shape, with `timestamp` set to
+   * the READING's own ts so StatusBar's >30 s stale watermark still fires on a frozen hub frame.
+   * Side B publishes a transport-status frame only — not one BME field — so `bme.b` stays null;
+   * `serialBConnected: true` means the Side B serial link is up, NOT that a BME688 B is reporting.
+   *
+   * (The "works today" claim that stood on this line predates the migration and was false as read.)
+   */
+  /**
+   * ✅ REPOINTED Aug 03 2026 to the live Jetson telemetry hub.
+   *
+   * Was `/api/mycobrain/${PSATHYRELLA_PORT}/sensors`, which proxied the Windows-local serial daemon
+   * on :8003. That daemon has not seen the MycoBrain since it moved onto the Jetson — verified live:
+   * `{"devices":[],"count":0}`, 404 on `/devices/mycobrain-COM4`. The environmental panel therefore
+   * read STANDBY while a healthy BME688 streamed 25.5 °C / 48.9 %RH / 648 hPa on the hub, and on
+   * screen a dead FEED was indistinguishable from absent HARDWARE.
+   */
+  sensors: `/api/psathyrella/bme`,
   /** GET — device registry: position, online/source (works today). */
   devices: `/api/earth-simulator/devices`,
   /** POST — command bus (MDP side_a/side_b for nav/cam — Cursor's MQTT→Jetson handlers). */
   command: `/api/devices/${PSATHYRELLA_DEVICE_ID}/command`,
-  /** POST — canonical peripheral control (same bus the Earth-Sim DeviceWidget uses → MQTT/serial → device). */
+  /**
+   * POST — canonical peripheral control (same bus the Earth-Sim DeviceWidget uses → MQTT/serial →
+   * device). Its peripheral switch implements exactly `neopixel`, `buzzer`, `led`, `acoustic` and
+   * `command`; ANY other `peripheral` name returns HTTP 400 "Unknown peripheral" before a backend
+   * is contacted. Do not invent a name here without landing the matching case in that route.
+   */
   control: `/api/mycobrain/${PSATHYRELLA_PORT}/control`,
   /** GET — fused nav/propulsion/comms/power/scope telemetry envelope (MAS 188). */
   telemetry: `/api/psathyrella/telemetry`,
@@ -69,6 +101,36 @@ export interface BuoyPose {
   speedKn: number | null;
   depthM: number | null;
   gpsLock: GpsLock;
+}
+
+// ── Magnetometer (Bosch BMM150 on the MycoBrain I²C bus) ─────────────────────
+/**
+ * A 3-axis geomagnetic reading.
+ *
+ * ⚠ A magnetometer ALONE IS NOT A COMPASS. Converting a field vector into a heading requires tilt
+ * compensation from an accelerometer, and on a buoy that pitches and rolls continuously an
+ * uncompensated "heading" swings with sea state rather than with the bow. Bosch's own ±2.5° heading
+ * spec (BST-BMM150-DS001-05) is footnoted "a fully calibrated sensor and ideal tilt compensation".
+ *
+ * So `magneticBearingDeg` is populated ONLY when the backend both calibrated the sensor and applied
+ * tilt compensation. When either is false it stays null and consumers must render the raw field
+ * instead — never a bearing. `BuoyPose.headingDeg` remains the single authority for true bearings;
+ * this is a cross-check against it, not a replacement for it.
+ */
+export interface MagnetometerReading {
+  present: boolean;
+  /** Raw field vector in microtesla, body frame. Always populated when present. */
+  microTesla: { x: number; y: number; z: number } | null;
+  /** Total field magnitude µT. Earth's is ~25–65 µT — a wildly larger value means local iron. */
+  magnitudeUt: number | null;
+  /** Populated ONLY when calibrated && tiltCompensated. Null otherwise, always. */
+  magneticBearingDeg: number | null;
+  calibrated: boolean;
+  /** False until an accelerometer/IMU is fused in. Gates `magneticBearingDeg` — see the note above. */
+  tiltCompensated: boolean;
+  /** Backend's own words for why a bearing is unavailable, shown verbatim rather than paraphrased. */
+  status: string | null;
+  i2cAddress: string | null;
 }
 
 // ── Propulsion — 4 vectored thrusters (omnidirectional USV) ──────────────────
@@ -247,6 +309,210 @@ export interface CameraState {
   tiltDeg: number | null;
 }
 
+// ── Camera rig — the physical tower optics (Jul 12 2026) ─────────────────────
+//
+// TWO devices on the Jetson's two CSI ports:
+//
+//  1. "quad360" — Arducam Camarray HAT (UC-512) + 4x IMX519, one per tower face
+//     (bow/stbd/aft/port). CRITICAL: the HAT frame-synchronizes all four sensors and
+//     multiplexes them into a SINGLE MIPI stream whose frames are a COMPOSITE of the
+//     four tiles (2x2 or 4x1 — the backend declares which via `quad.cols/rows`). So the
+//     GCS opens ONE stream and crops four tiles from each frame; it never opens four
+//     connections. Combined video tops out ~1920x1080 for the whole composite, and the
+//     per-camera frame rate halves — that is the HAT's documented behavior, not a bug.
+//
+//  2. "front" — Arducam IMX477 HQ (motorized IR-cut, day/night). A TEMPORARY stand-in for
+//     the Sony 30x optical-zoom block, mounted below the ring on the bow face. It has a
+//     fixed CS lens and NO pan/tilt/zoom motors, so `ptz` is "digital" (ROI crop) today and
+//     becomes "optical" when the Sony lands — same commands, the capability flag changes.
+//
+// Honesty rule: a feed with no configured upstream reports online:false and the UI says so.
+// Never synthesize video.
+export type CameraRole = "quad360" | "front";
+/** What pan/tilt/zoom the optic can actually do. Drives which controls the UI enables. */
+export type PtzKind = "none" | "digital" | "optical";
+/** Motorized IR-cut filter state (IMX477): visible-light by day, IR-sensitive at night. */
+export type IrCutMode = "day" | "night" | "auto";
+
+/** How the quad HAT packs its four synchronized sensors into one composite frame. */
+export interface QuadLayout {
+  cols: number; // 2 (2x2) or 4 (4x1 strip)
+  rows: number; // 2 or 1
+  /**
+   * tileOrder[i] = which COMPOSITE tile index holds the camera mounted at ring position i
+   * (i = 0 bow, 1 starboard, 2 aft, 3 port). Lets Cursor fix cable-order mismatches in
+   * config instead of re-plugging ribbons.
+   */
+  tileOrder: number[];
+}
+
+export interface CameraFeed {
+  id: string;
+  role: CameraRole;
+  label: string;
+  /** e.g. "4x IMX519 (Camarray UC-512)" | "IMX477 HQ" — shown in the UI, never guessed. */
+  sensor: string | null;
+  online: boolean;
+  /** Same-origin proxy path (never the raw Jetson IP — keeps HTTPS/iPad working). */
+  streamUrl: string | null;
+  snapshotUrl: string | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  ptz: PtzKind;
+  /** Horizontal FOV of ONE sensor (IMX519 ~75°, IMX477 65° with the bundled 6mm CS lens). */
+  fovDeg: number | null;
+  irCut: IrCutMode | null; // null = no IR-cut hardware on this feed
+  nightActive: boolean | null; // true when the IR-cut filter has swung out (night mode)
+  zoomMax: number | null; // 1 = none; 30 = Sony 30x when it lands
+  quad: QuadLayout | null; // quad360 only
+  /** Mount bearing of each ring camera RELATIVE TO THE BOW, index-aligned to tileOrder. */
+  mountBearingsDeg: number[] | null;
+  /**
+   * Optional Jetson-GPU pre-stitched outputs (DeepStream/CUDA/OpenCV warp+blend). When a URL is
+   * present the 360 view can display a REAL seamless panorama / bird's-eye view instead of the raw-
+   * tile crop. Absent/null → the front end falls back to its always-works canvas tile stitch. This is
+   * the boundary: heavy stitch = Jetson GPU (served as ONE stream); light tile-crop = browser.
+   */
+  stitch: {
+    panoUrl: string | null; // seamless cylindrical 360 panorama (single blended stream)
+    bevUrl: string | null; // bird's-eye / top-down surround view (single stream)
+    /**
+     * True only when a MEASURED ground-plane calibration is loaded on the Jetson.
+     *
+     * This gates how much the geometry can be TRUSTED — it does NOT gate whether the operator may see
+     * the view. A served-but-provisional surround view is still useful situational awareness; hiding
+     * it would be worse than showing it with an honest badge. (Learned the hard way: gating the mode
+     * chips on this flag made the panorama vanish the moment the backend correctly stopped
+     * over-claiming.)
+     */
+    calibrated: boolean;
+    /** "provisional" = geometric guess, "measured" = real chessboard/homography calibration. */
+    calibrationSource?: string | null;
+    /** Backend's own caveat, surfaced verbatim in the UI (e.g. drift on chop). */
+    qualityNote?: string | null;
+  } | null;
+  error: string | null;
+}
+
+export interface CameraRig {
+  feeds: CameraFeed[];
+  updatedMsAgo: number | null;
+}
+
+/**
+ * ── On-board AI (YOLO26 + SAHI tiled inference + DeepStream nvtracker, all on the Jetson) ──
+ *
+ * The Jetson runs detection/tracking and emits metadata; the GCS only DRAWS it. Boxes are in
+ * NORMALIZED frame space (0..1 of the source frame) so one payload renders correctly over a
+ * cover-cropped ring tile, a letterboxed pano/BEV, and a digitally-zoomed target alike — the
+ * browser applies whichever transform that surface uses. Never synthesize detections client-side.
+ */
+export interface CameraDetection {
+  /** Stable per-frame id. */
+  id: string;
+  /** Tracker id — persists across frames for the same object (DeepStream nvtracker). */
+  trackId?: string | null;
+  /** Class label, e.g. "boat", "person", "buoy", "debris". */
+  cls: string;
+  /** 0..1 confidence. */
+  conf: number;
+  /** Normalized 0..1 box in SOURCE-FRAME space: x,y = top-left. */
+  bbox: { x: number; y: number; w: number; h: number };
+  /** True bearing to the object, when the backend can derive it from the ring geometry. */
+  bearingDeg?: number | null;
+  /** Estimated range in metres, when available (BEV ground-plane or stereo). */
+  rangeM?: number | null;
+  /** Ring tile index (0..3) this detection belongs to — quad360 composite only. */
+  tile?: number | null;
+}
+
+export interface DetectionFrame {
+  feedId: string;
+  /** Epoch ms of the inference frame (Jetson clock). */
+  tMs: number;
+  /** Source frame dimensions the normalized boxes refer to. */
+  frameW: number | null;
+  frameH: number | null;
+  /** Inference latency in ms, for the honest HUD readout. */
+  latencyMs?: number | null;
+  /** Model identifier the Jetson actually ran, e.g. "yolo26n-int8" — never assumed. */
+  model?: string | null;
+  /** True when the backend ran SAHI sliced inference for this frame. */
+  sahi?: boolean | null;
+  detections: CameraDetection[];
+}
+
+// Ring cameras are mounted one per tower face, 90° apart, indexed bow→stbd→aft→port.
+// Morgan has them physically set at exactly 90° and will fine-tune; these are the defaults the
+// stitcher uses to lay the tiles out on true bearing (and to fix cable order via tileOrder without
+// re-plugging ribbons). Lenses may differ per face for full coverage — fovDeg is per-feed from the backend.
+export const RING_FACES = ["Bow", "Starboard", "Aft", "Port"] as const;
+export const RING_MOUNT_BEARINGS = [0, 90, 180, 270];
+
+/** Offline default rig — two feeds present but not yet streaming (honest: online:false until the
+ *  backend reports a real upstream). streamUrl/snapshotUrl point at the same-origin proxy so the UI
+ *  is wired the instant Cursor sets the Jetson camera-service env. */
+export function emptyCameraRig(): CameraRig {
+  return {
+    updatedMsAgo: null,
+    feeds: [
+      {
+        id: "quad360",
+        role: "quad360",
+        label: "360° Ring",
+        sensor: null,
+        online: false,
+        streamUrl: "/api/psathyrella/camera/quad360/stream",
+        snapshotUrl: "/api/psathyrella/camera/quad360/snapshot",
+        width: null,
+        height: null,
+        fps: null,
+        ptz: "none",
+        fovDeg: null,
+        irCut: null,
+        nightActive: null,
+        zoomMax: 1,
+        // tileOrder maps DISPLAY position (bow, stbd, aft, port) → which quadrant of the composite
+        // holds that face. Morgan verified the physical ribbon order on the tower Aug 01: the composite
+        // quadrants come out 1,2,3,4 but the true bearing order is 2,4,3,1 → 0-indexed [1,3,2,0].
+        // The Jetson pano/BEV stitch must use this SAME order or the panorama reads out of sequence.
+        quad: { cols: 2, rows: 2, tileOrder: [1, 3, 2, 0] },
+        mountBearingsDeg: [...RING_MOUNT_BEARINGS],
+        // Jetson-GPU stitch outputs (Phase 2, CUDA/DeepStream) — proxied paths; calibrated:false until
+        // the backend loads a calibration + serves a blended pano/BEV. Until then the FE uses tile mode.
+        stitch: {
+          panoUrl: "/api/psathyrella/camera/quad360/pano",
+          bevUrl: "/api/psathyrella/camera/quad360/bev",
+          calibrated: false,
+        },
+        error: null,
+      },
+      {
+        id: "front",
+        role: "front",
+        label: "Target",
+        sensor: null,
+        online: false,
+        streamUrl: "/api/psathyrella/camera/front/stream",
+        snapshotUrl: "/api/psathyrella/camera/front/snapshot",
+        width: null,
+        height: null,
+        fps: null,
+        ptz: "digital", // IMX477 has no motors yet → digital; flips to "optical" when the Sony 30x lands
+        fovDeg: 65, // bundled 6mm CS lens on the IMX477
+        irCut: "auto",
+        nightActive: null,
+        zoomMax: 1,
+        quad: null,
+        mountBearingsDeg: [0],
+        stitch: null, // single camera — nothing to stitch
+        error: null,
+      },
+    ],
+  };
+}
+
 // ── Mesh / fleet (Meshtastic-style multi-buoy network) ───────────────────────
 export interface PeerBuoy {
   id: string;
@@ -339,6 +605,8 @@ export interface BuoyTelemetry {
   safety: SafetyState;
   comms: CommsState;
   camera: CameraState;
+  /** Physical tower optics: 360° quad ring (4x IMX519) + front target cam (IMX477 → Sony 30x). */
+  cameraRig: CameraRig;
   lidar: ScopeFrame;
   radar: ScopeFrame;
   /** BlueSight = radar + lidar + Wi-Fi-sense fusion. wifi is the extra layer. */
@@ -455,10 +723,22 @@ export type BuoyCommand =
   // camera
   | { domain: "camera"; action: "setZoom"; zoom: number }
   | { domain: "camera"; action: "point"; bearingDeg: number; tiltDeg?: number }
-  // comms / acoustics (live today via control bus)
+  | { domain: "camera"; action: "irCut"; mode: IrCutMode } // IMX477 motorized IR-cut: day/night/auto
+  // comms / acoustics — ONLY setBearer reaches hardware. The two below do not; see each note.
+  // ⚠ DEAD — no callers anywhere. Its builder posts `peripheral: "transducer"`, which the control
+  // route does not implement, so it 400s "Unknown peripheral". The transducer TX that actually
+  // works is /api/psathyrella/acoustic (CommsPanel's `uwPing`), so this is a second, unused door to
+  // a control the panel already exposes and it should be deleted — but deleting the member here
+  // alone breaks the `cmd.action === "ping"` comparison in useBuoyTelemetry's bearerFor, so the two
+  // have to go in one change.
   | { domain: "comms"; action: "ping" }
+  // ⚠ NOT WIRED — posts `peripheral: "hydrophone-lf" | "hydrophone-hf"`, which the control route
+  // also does not implement (400), and no hydrophone is fitted at all today: `comms.hydrophone` is
+  // all-null and the mic probe reports hardware absent. It fails honestly (the ledger records
+  // `failed` with the backend's own reason), but CommsPanel still renders Rec LF / Rec HF as live
+  // controls — they need `disabled` + the stated reason until a real record endpoint exists.
   | { domain: "comms"; action: "recordHydrophone"; band: "lf" | "hf" }
-  | { domain: "comms"; action: "setBearer"; bearer: RadioKind }
+  | { domain: "comms"; action: "setBearer"; bearer: RadioKind } // live — MDP side_b bearer handler
   // acoustics — hydrophone array gain
   | { domain: "acoustic"; action: "setGain"; gainDb: number }
   // mission (multi-task autonomous plans)
@@ -503,9 +783,17 @@ export function buildCommandRequest(cmd: BuoyCommand): CommandRequest {
       };
     case "comms":
       if (cmd.action === "ping") {
+        // Dead path, kept only until the union member and bearerFor's "ping" arm are removed
+        // together — "transducer" has no case in the control route, so this 400s. Left pointing at
+        // the same (failing) URL deliberately: silently re-routing it to /api/psathyrella/acoustic
+        // would resurrect a duplicate door to a control CommsPanel already drives directly.
         return { url: control, label: "Transducer ping", body: { peripheral: "transducer", cmd: "transducer ping", pulse_ms: 100 } };
       }
       if (cmd.action === "recordHydrophone") {
+        // No "hydrophone-*" case in the control route and no hydrophone fitted, so this 400s and
+        // the ledger records `failed` with that reason. That honest failure is the correct end
+        // state for now — do NOT add a hydrophone case to the control route to make it "work",
+        // which would fabricate a control path to hardware that isn't there.
         return {
           url: control,
           label: `Hydrophone ${cmd.band.toUpperCase()} record`,
@@ -596,6 +884,9 @@ export function buildCommandRequest(cmd: BuoyCommand): CommandRequest {
       if (cmd.action === "setZoom") {
         return { url, label: `Zoom ${cmd.zoom}x`, body: { target: "side_a", cmd: "cam.zoom", params: { zoom: cmd.zoom } } };
       }
+      if (cmd.action === "irCut") {
+        return { url, label: `IR-cut ${cmd.mode}`, body: { target: "side_a", cmd: "cam.ircut", params: { mode: cmd.mode } } };
+      }
       return { url, label: "Point camera", body: { target: "side_a", cmd: "cam.point", params: { bearing: cmd.bearingDeg, tilt: cmd.tiltDeg ?? 0 } } };
   }
   // exhaustive fallback
@@ -639,6 +930,7 @@ export function emptyTelemetry(): BuoyTelemetry {
       lastUplink: null,
     },
     camera: { active: false, streamUrl: null, zoom: null, bearingDeg: null, tiltDeg: null },
+    cameraRig: emptyCameraRig(),
     lidar: { sweepDeg: null, maxRangeM: 500, contacts: [], active: false },
     radar: { sweepDeg: null, maxRangeM: 4000, contacts: [], active: false },
     bluesight: { wifi: [], active: false },
@@ -647,7 +939,11 @@ export function emptyTelemetry(): BuoyTelemetry {
   };
 }
 
-export const VIEW_MODES = ["CAMERA", "LIDAR", "RADAR", "BLUESIGHT", "SONAR", "MAP"] as const;
+// LiDAR and Radar are NOT top-level views — they are windows inside BlueSight, which is where the
+// sensors are meant to be compared side by side. Promoting them to their own tabs split the same
+// picture across three places and cost the operator the fused context. Select a BlueSight window to
+// enlarge it. Legacy ?view=LIDAR / ?view=RADAR deep links resolve to BLUESIGHT (see PsathyrellaConsole).
+export const VIEW_MODES = ["CAMERA", "BLUESIGHT", "SONAR", "MAP"] as const;
 export type ViewMode = (typeof VIEW_MODES)[number];
 
 // ── Device selection (shared: MAP ⇄ Devices panel ⇄ StatusBar) ───────────────

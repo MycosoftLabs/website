@@ -7,125 +7,269 @@
  *   1. RADAR       (OpenCPN radar_pi PPI)
  *   2. LiDAR       (Ouster 360° scan)
  *   3. WiFi-sense  (RF-presence panel)
- *   4. CAMERA      (split: 360° panorama + Sony 30X optic)
- * — plus a fifth FUSION screen that merges all four onto one canvas.
+ *   4. CAMERA      (split: the 360° ring on top, the Target optic below)
+ * — plus a fifth FUSION screen (`FusionPlot`) that projects every sensor into ONE buoy-centric polar
+ * frame. Any window can be MAXIMIZED to fill the whole area (title bar or double-click), because LiDAR
+ * and Radar no longer have top-level tabs — this view is where they are compared, so each must be
+ * enlargeable.
  *
- * BlueSight's AI (YOLO26 + SAHI tiled inference + Nemotron "why") draws object-recognition boxes
- * over the camera tiles and the fused view. Real inference is the Cursor/edge lane; until it's
- * wired the boxes run as a CLEARLY-BADGED sim derived from the live sensor contacts, so the
- * detection UX is operable now. All sensor returns come from telemetry (no fabricated blips).
+ * AI PROVENANCE — read before touching the camera window.
+ * This file used to synthesize "detection" boxes from radar/lidar contacts: box position from a
+ * contact's bearing and its ARRAY INDEX, box size and "confidence" from signal strength, the whole
+ * thing badged "YOLO26+SAHI". That is fabricated model output presented to an operator as real
+ * inference, and it is deleted. There is exactly one legitimate source of boxes in this codebase:
+ * `useCameraDetections` (the owner-gated proxy to the Jetson detector), drawn by `DetectionOverlay`
+ * in the coordinate space the backend computed them in. If the detector is off or unreachable the
+ * surfaces show an honest standby chip and NO overlay. Never re-introduce a "sim" fallback, and
+ * never print a model name the backend did not report.
+ *
+ * WHAT THE OTHER THREE WINDOWS ACTUALLY SHOW — do not overstate this.
+ *   RADAR          — real: `telemetry.radar` contacts, straight into ScopePPI, which synthesizes
+ *                    nothing. No contacts ⇒ an empty scope.
+ *   FUSION         — real, and it is the one screen that knows what each sensor can MEASURE. It used
+ *                    to be a ScopePPI over `[...radar, ...lidar, ...wifi]`, which drew every contact
+ *                    as a dot at a bearing AND a range — including WiFi-sense, which measures neither.
+ *                    `FusionPlot` replaces that: range-measuring sensors get a dot, bearing-only
+ *                    sensors (camera, WiFi) get a wedge marked RANGE UNKNOWN, and a sensor with no
+ *                    hardware is named in the legend rather than silently missing.
+ *   LiDAR          — NO live Ouster feed exists yet (we pass `frame={null}`), so PointCloudView draws
+ *                    its own clearly-badged demo scene. It is disclosed by the component ("· SIM",
+ *                    "sim · awaiting Ouster") AND by this tile's subtitle. The day the edge serves
+ *                    PointCloudFrames, pass them here and every badge clears itself.
+ *   WiFi-sense     — real: `WifiSensePanel` renders ONLY what `/api/mindex/wifisense` reports, and
+ *                    names which of "unreachable / pipeline off / heard nothing" it is looking at.
+ *                    This window used to render WiFiSenseView's animated walking SKELETON from a
+ *                    `simSubject()` generator, titled "DensePose (through-wall)". That is deleted
+ *                    here. A badge does not defend a human figure on an operator console — at a
+ *                    glance it is a contact on the deck — and it was not a placeholder for anything:
+ *                    pose-from-WiFi has no working implementation, its published rig is two fixed
+ *                    mains-powered 3x3 routers in a surveyed indoor room, and CSI sensing needs rich
+ *                    indoor multipath that open water does not provide. The tower optics are this
+ *                    buoy's person-detection sensor. Do not reintroduce a pose mode here.
+ * A badged simulation is honest; an unbadged one is not. If you wire a real feed, delete the badge —
+ * never the reverse. And a simulated PERSON is not honest at any badge level.
  */
 
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import useSWR from "swr";
 import { cn } from "@/lib/utils";
-import { Radar as RadarIcon, ScanEye, Wifi, Camera as CameraIcon, Layers as LayersIcon, Brain } from "lucide-react";
-import { type BuoyTelemetry, type SensorContact } from "@/lib/psathyrella/contract";
-import { type WiFiSenseFrame } from "@/lib/sensors/frames";
+import {
+  Radar as RadarIcon, ScanEye, Wifi, Camera as CameraIcon, Layers as LayersIcon,
+  ScanSearch, Maximize2, Minimize2,
+} from "lucide-react";
+import { emptyCameraRig, type BuoyTelemetry, type CameraFeed, type CameraRig } from "@/lib/psathyrella/contract";
+import { useWifiSense } from "@/lib/psathyrella/useWifiSense";
 import { ViewBadge } from "@/components/psathyrella/ui";
+import LiveFeedSurface from "@/components/psathyrella/camera/LiveFeedSurface";
+import WifiSensePanel from "@/components/psathyrella/camera/WifiSensePanel";
 import { ScopePPI } from "./ScopePPI";
+import FusionPlot from "./FusionPlot";
 import PointCloudView from "@/components/sensors/PointCloudView";
-import WiFiSenseView from "@/components/sensors/WiFiSenseView";
 
 type Mode = "QUAD" | "FUSION";
+type TileId = "radar" | "lidar" | "wifi" | "camera";
 
-// Map a sensor contact to a normalized "detection" for the AI box overlay (sim until inference lands).
-function classOf(c: SensorContact): { label: string; color: string } {
-  const k = (c.classifiedAs || c.kind || "unknown").toLowerCase();
-  if (/vessel|boat|ship/.test(k)) return { label: "vessel", color: "#fb923c" };
-  if (/person|swimmer|diver/.test(k)) return { label: "person", color: "#f87171" };
-  if (/buoy|aton|marker/.test(k)) return { label: "buoy", color: "#22d3ee" };
-  if (/debris|object/.test(k)) return { label: "debris", color: "#a78bfa" };
-  if (/land|shore/.test(k)) return { label: "landmass", color: "#94a3b8" };
-  return { label: c.classifiedAs || c.kind || "contact", color: "#34d399" };
-}
+const TILE_ORDER: TileId[] = ["radar", "lidar", "wifi", "camera"];
 
-/** AI object-recognition box overlay (sim positions derived from contacts; badged YOLO26+SAHI). */
-function AiBoxes({ contacts, on }: { contacts: SensorContact[]; on: boolean }) {
-  if (!on) return null;
-  const dets = contacts.slice(0, 6).map((c, i) => {
-    const cls = classOf(c);
-    // Project bearing → x across the frame, strength → box size; deterministic per index.
-    const x = ((((c.bearingDeg ?? i * 57) % 360) + 360) % 360) / 360;
-    const y = 0.32 + ((i * 0.13) % 0.4);
-    const s = 0.08 + (c.strength ?? 0.5) * 0.14;
-    return { ...cls, x, y, s, conf: Math.round(55 + (c.strength ?? 0.5) * 44) };
-  });
+const fetcher = (u: string) => fetch(u, { cache: "no-store" }).then((r) => r.json());
+
+/** A single titled sensor window. The whole title bar is the maximize control (so is a double-click). */
+function SensorTile({
+  label,
+  sub,
+  icon,
+  maximized,
+  onToggleMax,
+  children,
+}: {
+  label: string;
+  sub: string;
+  icon: ReactNode;
+  maximized: boolean;
+  onToggleMax: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-20">
-      {dets.map((d, i) => (
-        <div key={i} className="absolute" style={{ left: `${(d.x - d.s / 2) * 100}%`, top: `${(d.y - d.s / 2) * 100}%`, width: `${d.s * 100}%`, height: `${d.s * 100}%`, border: `1.5px solid ${d.color}`, borderRadius: 2, boxShadow: `0 0 0 1px rgba(0,0,0,0.5)` }}>
-          <span className="absolute -top-4 left-0 whitespace-nowrap rounded-sm px-1 text-[8px] font-bold uppercase tracking-wide" style={{ background: d.color, color: "#04070e" }}>{d.label} {d.conf}%</span>
-        </div>
-      ))}
-      <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-violet-300"><Brain className="h-2.5 w-2.5" /> YOLO26+SAHI{dets.length ? "" : " · standby"}</div>
-    </div>
-  );
-}
-
-/** A single titled sensor window. */
-function SensorTile({ label, sub, icon, children, onMax }: { label: string; sub: string; icon: React.ReactNode; children: React.ReactNode; onMax?: () => void }) {
-  return (
-    <div className="relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-cyan-500/15 bg-[#060912]">
-      <div className="flex shrink-0 items-center justify-between border-b border-cyan-500/10 bg-black/40 px-2 py-1">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-cyan-500/15 bg-[#060912]">
+      <button
+        type="button"
+        onClick={onToggleMax}
+        title={maximized ? "Restore the 2×2" : `Maximize ${label}`}
+        className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-cyan-500/10 bg-black/40 px-2 py-1 text-left transition-colors hover:bg-black/60"
+      >
         <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200">{icon} {label}</span>
-        <span className="truncate text-[8px] uppercase tracking-wide text-slate-500">{sub}</span>
-      </div>
-      <div className="relative min-h-0 flex-1" onDoubleClick={onMax}>{children}</div>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-[8px] uppercase tracking-wide text-slate-500">{sub}</span>
+          <span className="shrink-0 text-cyan-300/70">
+            {maximized ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+          </span>
+        </span>
+      </button>
+      <div className="relative min-h-0 flex-1" onDoubleClick={onToggleMax}>{children}</div>
     </div>
   );
 }
 
-/** Camera window: split 360° panorama (top) + Sony 30X optic (bottom), each with AI boxes. */
-function CameraSplit({ telemetry, ai }: { telemetry: BuoyTelemetry; ai: boolean }) {
-  const cam = telemetry.camera;
-  const live = cam.active && cam.streamUrl;
-  const radarLidar = [...telemetry.radar.contacts, ...telemetry.lidar.contacts];
-  const Pane = ({ title, aspect }: { title: string; aspect: string }) => (
-    <div className="relative min-h-0 flex-1 overflow-hidden bg-black">
-      <span className="absolute left-1.5 top-1 z-30 rounded bg-black/60 px-1 text-[8px] font-bold uppercase tracking-wider text-cyan-300/80">{title}</span>
-      {live ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={cam.streamUrl!} alt={title} className={cn("h-full w-full", aspect)} />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.2em] text-slate-600">awaiting Jetson video</div>
-      )}
-      <AiBoxes contacts={radarLidar} on={ai} />
-    </div>
-  );
+/**
+ * CAMERA window — the ACTUAL tower optics, through the same-origin owner-gated proxies.
+ *
+ * WHICH RING SURFACE: the panorama, not the raw 2×2 composite. In a tile this small the composite
+ * would show four sensors at a quarter each of an already-quarter-screen window, and its quadrants
+ * are in cable order (tileOrder [1,3,2,0]), so left-to-right would NOT be bearing order without the
+ * canvas blit machinery Quad360View exists to run. The pano is one 3840×540 strip already stitched
+ * in bearing order on the Jetson: letterboxed into a wide short tile it fills the width and reads as
+ * one continuous horizon. It also keeps the overlay honest — pano boxes are computed in pano space,
+ * so a plain contain-fit is exactly right with no re-projection. If the Jetson never serves a pano
+ * (or it dies), we fall back to the composite and switch the detection feed id with it.
+ *
+ * The SWR poll and the streams live inside this component on purpose: when another tile is
+ * maximized this unmounts, and the video sockets, the detector polling and the rig poll all stop.
+ */
+function CameraWindow({ showAi, active }: { showAi: boolean; active: boolean }) {
+  const { data: rig, mutate: mutateRig } = useSWR<CameraRig>("/api/psathyrella/camera", fetcher, {
+    refreshInterval: 10000, revalidateOnFocus: false, dedupingInterval: 8000,
+  });
+  const fallback = emptyCameraRig().feeds;
+  const feeds = rig?.feeds ?? fallback;
+  const quad: CameraFeed = feeds.find((f) => f.id === "quad360") ?? fallback[0];
+  const front: CameraFeed = feeds.find((f) => f.id === "front") ?? fallback[1];
+
+  // Fall back to the raw composite only when the pano has actually proven dead — not on a status
+  // blip. Reconnect clears it so a recovered stitch service comes straight back.
+  const [panoDead, setPanoDead] = useState(false);
+  const panoUrl = quad.stitch?.panoUrl ?? null;
+  const usePano = Boolean(panoUrl) && !panoDead;
+  useEffect(() => { if (!panoUrl) setPanoDead(false); }, [panoUrl]);
+
+  const reconnect = () => { setPanoDead(false); void mutateRig(); };
+
   return (
     <div className="flex h-full flex-col gap-0.5">
-      <Pane title="360° panorama" aspect="object-cover" />
-      <Pane title="Sony 30X optic" aspect="object-contain" />
+      <div className="relative min-h-0 flex-1">
+        <LiveFeedSurface
+          title={usePano ? "360° Panorama" : "360° Ring composite"}
+          src={usePano ? panoUrl : quad.streamUrl}
+          // Detections must be read in the space they were computed in — the pano stitch geometry
+          // belongs to the Jetson, and re-projecting ring boxes onto it would put a contact on the
+          // wrong bearing. Switching the surface switches the feed id with it.
+          feedId={usePano ? "pano" : "quad360"}
+          online={quad.online}
+          // contain, for both: the composite must show all four quadrants (cover would crop two of
+          // them away), and contain is the fit DetectionOverlay inverts for a whole-frame surface.
+          fit="contain"
+          showAi={showAi}
+          active={active}
+          srcW={usePano ? null : quad.width}
+          srcH={usePano ? null : quad.height}
+          onReconnect={reconnect}
+          onUnavailable={usePano ? () => setPanoDead(true) : undefined}
+          unavailableHint={
+            usePano
+              ? "Jetson CUDA stitch (quad360/pano). Falls back to the raw ring composite."
+              : "Serve the 4× IMX519 Camarray composite on the Jetson (PSATHYRELLA_CAM_QUAD360_URL)."
+          }
+        />
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <LiveFeedSurface
+          title="Target · IMX477"
+          src={front.streamUrl}
+          feedId="front"
+          online={front.online}
+          fit="contain"
+          showAi={showAi}
+          active={active}
+          srcW={front.width}
+          srcH={front.height}
+          onReconnect={reconnect}
+          unavailableHint="Serve the IMX477 on the Jetson (PSATHYRELLA_CAM_FRONT_URL)."
+        />
+      </div>
     </div>
   );
+}
+
+/**
+ * WiFi-SENSE window — passive RF presence off `/api/mindex/wifisense`.
+ *
+ * The poll lives inside this component for the same reason CameraWindow's does: when another tile is
+ * maximized this unmounts and the polling stops with it, instead of a hidden tile quietly holding the
+ * MINDEX round-trip open.
+ */
+function WifiWindow({ active }: { active: boolean }): ReactNode {
+  const wifiSense = useWifiSense({ enabled: active });
+  return <WifiSensePanel state={wifiSense} />;
 }
 
 export default function BlueSightView({ telemetry, active = true, className }: { telemetry: BuoyTelemetry; active?: boolean; className?: string }) {
   const [mode, setMode] = useState<Mode>("QUAD");
-  const [ai, setAi] = useState(true);
+  const [maximized, setMaximized] = useState<TileId | null>(null);
+  const [showAi, setShowAi] = useState(true);
+
+  // Same source of truth the detection hook uses — so the chip can say "off" honestly instead of
+  // implying an overlay the browser is never going to be allowed to fetch.
+  const camAiAvailable = process.env.NEXT_PUBLIC_PSATHYRELLA_CAM_AI === "1";
 
   const radar = telemetry.radar.contacts;
   const lidar = telemetry.lidar.contacts;
-  const wifi = telemetry.bluesight.wifi;
-  // Real RF-presence frame from the buoy's wifi contacts (DensePose subjects arrive from the edge later).
-  const wifiFrame: WiFiSenseFrame = {
-    deviceId: telemetry.deviceId, sensorId: "wifisense", capability: "wifisense",
-    tMs: 0, seq: 0, active: telemetry.bluesight.active, refFrame: "BODY", kind: "presence",
-    devices: wifi.map((c, i) => ({ id: c.id || `dev-${i}`, rssiDbm: Math.round(-40 - (1 - (c.strength ?? 0.5)) * 60), strength: c.strength ?? 0.5, vendor: c.label || c.classifiedAs })),
-  };
   const allActive = telemetry.radar.active || telemetry.lidar.active || telemetry.bluesight.active || telemetry.camera.active;
-  const fused = [...radar, ...lidar, ...wifi];
-  const maxRangeM = Math.max(telemetry.radar.maxRangeM, telemetry.lidar.maxRangeM);
   const heading = telemetry.pose.headingDeg;
+
+  const toggleMax = (id: TileId) => setMaximized((cur) => (cur === id ? null : id));
+  // Only the mounted tile can be live; the others are unmounted while one is maximized, so nothing
+  // hidden keeps a WebGL context or a video socket burning frame budget.
+  const tileActive = active && mode === "QUAD";
+
+  const renderTile = (id: TileId) => {
+    const isMax = maximized === id;
+    switch (id) {
+      case "radar":
+        return (
+          <SensorTile key={id} label="Radar" sub="radar_pi · 4 km" icon={<RadarIcon className="h-3 w-3" />} maximized={isMax} onToggleMax={() => toggleMax(id)}>
+            <ScopePPI contacts={radar} maxRangeM={telemetry.radar.maxRangeM} active={telemetry.radar.active} headingDeg={heading} variant="radar" />
+          </SensorTile>
+        );
+      case "lidar":
+        return (
+          // `frame={null}` — no Ouster feed is wired, so this draws PointCloudView's badged demo
+          // scene. The subtitle says so in the tile header too, not only inside the child.
+          <SensorTile key={id} label="LiDAR" sub="Ouster · no feed · sim scene" icon={<ScanEye className="h-3 w-3" />} maximized={isMax} onToggleMax={() => toggleMax(id)}>
+            <PointCloudView frame={null} active={tileActive} />
+          </SensorTile>
+        );
+      case "wifi":
+        return (
+          // Passive RF only — radios heard, not people, and no pose. The panel names its own empty
+          // state, so the subtitle claims a source rather than a result.
+          <SensorTile key={id} label="WiFi-sense" sub="passive RF · MINDEX" icon={<Wifi className="h-3 w-3" />} maximized={isMax} onToggleMax={() => toggleMax(id)}>
+            <WifiWindow active={tileActive} />
+          </SensorTile>
+        );
+      case "camera":
+        return (
+          <SensorTile key={id} label="Camera" sub="360° ring + Target" icon={<CameraIcon className="h-3 w-3" />} maximized={isMax} onToggleMax={() => toggleMax(id)}>
+            <CameraWindow showAi={showAi} active={tileActive} />
+          </SensorTile>
+        );
+    }
+  };
 
   return (
     <div className={cn("relative flex h-full w-full flex-col bg-[#04070e] p-2", className)}>
       <ViewBadge>BlueSight · {mode === "FUSION" ? "Fused" : "Quad"} · radar · lidar · wifi · camera</ViewBadge>
 
-      {/* mode + AI controls */}
+      {/* mode + camera-AI controls */}
       <div className="absolute right-3 top-3 z-30 flex items-center gap-1.5">
-        <button type="button" onClick={() => setAi((a) => !a)} title="YOLO26 + SAHI object recognition" className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide", ai ? "border-violet-500/50 bg-violet-500/15 text-violet-200" : "border-white/10 text-slate-400 hover:text-slate-200")}>
-          <Brain className="h-3 w-3" /> AI
+        <button
+          type="button"
+          onClick={() => setShowAi((a) => !a)}
+          title={camAiAvailable
+            ? "Detection boxes from the Jetson detector, on the camera surfaces only"
+            : "Camera AI is off — set NEXT_PUBLIC_PSATHYRELLA_CAM_AI=1 to enable the detector overlay"}
+          className={cn("flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide",
+            showAi && camAiAvailable ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-100" : "border-white/10 text-slate-400 hover:text-slate-200")}
+        >
+          <ScanSearch className="h-3 w-3" /> Cam AI{camAiAvailable ? "" : " off"}
         </button>
         <div className="flex overflow-hidden rounded-md border border-cyan-500/25 text-[10px] font-bold uppercase tracking-wide">
           {(["QUAD", "FUSION"] as Mode[]).map((m) => (
@@ -137,26 +281,16 @@ export default function BlueSightView({ telemetry, active = true, className }: {
       </div>
 
       {mode === "QUAD" ? (
-        <div className="mt-9 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
-          <SensorTile label="Radar" sub="radar_pi · 4 km" icon={<RadarIcon className="h-3 w-3" />}>
-            <ScopePPI contacts={radar} maxRangeM={telemetry.radar.maxRangeM} active={telemetry.radar.active} headingDeg={heading} variant="radar" />
-            <AiBoxes contacts={radar} on={ai} />
-          </SensorTile>
-          <SensorTile label="LiDAR" sub="Ouster 3D point cloud" icon={<ScanEye className="h-3 w-3" />}>
-            <PointCloudView frame={null} active={active && mode === "QUAD"} />
-          </SensorTile>
-          <SensorTile label="WiFi-sense" sub="DensePose · through-wall" icon={<Wifi className="h-3 w-3" />}>
-            <WiFiSenseView frame={wifiFrame} active={active && mode === "QUAD"} />
-          </SensorTile>
-          <SensorTile label="Camera" sub="360° + Sony 30X" icon={<CameraIcon className="h-3 w-3" />}>
-            <CameraSplit telemetry={telemetry} ai={ai} />
-          </SensorTile>
-        </div>
+        maximized ? (
+          <div className="mt-9 flex min-h-0 flex-1 flex-col">{renderTile(maximized)}</div>
+        ) : (
+          <div className="mt-9 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2">
+            {TILE_ORDER.map(renderTile)}
+          </div>
+        )
       ) : (
         <div className="relative mt-9 min-h-0 flex-1 overflow-hidden rounded-lg border border-cyan-500/15">
-          <ScopePPI contacts={fused} maxRangeM={maxRangeM} active={allActive} headingDeg={heading} variant="fusion" />
-          <AiBoxes contacts={fused} on={ai} />
-          <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-[9px] uppercase tracking-[0.2em] text-cyan-300/60">Fused · radar + lidar + wifi + camera</div>
+          <FusionPlot telemetry={telemetry} active={active && mode === "FUSION"} />
         </div>
       )}
 

@@ -10,6 +10,11 @@
  *   - a growing uncertainty ELLIPSE (a circle that swells with elapsed time-since-contact),
  * so the watch-stander sees the predicted position cone instead of a frozen dot.
  *
+ * HEADING UNKNOWN is a first-class case, not a default. The buoy has no working heading source
+ * today (BMM150 uncalibrated → /magnetometer publishes headingDeg: null), so a track can only be
+ * drawn when a heading was actually measured. With no heading we draw NO track and instead show
+ * an isotropic REACHABLE-SET ring on the last-known fix, labelled as such — see paint() below.
+ *
  * When contactState === "live" the layer is emptied (the live BuoyLayers dot is authoritative).
  *
  * ISOLATION + FREEZE-SAFETY — built EXACTLY like SensorContactsLayer in MapView.tsx:
@@ -63,7 +68,17 @@ function GhostTrackLayerInner({ telemetryRef }: { telemetryRef: { current: BuoyT
         if (!map.getSource("psa-ghost-uncert")) {
           map.addSource("psa-ghost-uncert", { type: "geojson", data: EMPTY_FC as any });
           map.addLayer({ id: "psa-ghost-uncert-fill", type: "fill", source: "psa-ghost-uncert", paint: { "fill-color": "#f59e0b", "fill-opacity": 0.08 } });
-          map.addLayer({ id: "psa-ghost-uncert-line", type: "line", source: "psa-ghost-uncert", paint: { "line-color": "#f59e0b", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [2, 3] } });
+          // Two outlines off one source so the DR cone (heading measured) and the reachable-set
+          // ring (heading unknown) never look alike. maplibre's line-dasharray is not data-driven,
+          // so the distinction has to be two filtered layers rather than one expression.
+          map.addLayer({ id: "psa-ghost-uncert-line", type: "line", source: "psa-ghost-uncert", filter: ["!=", ["get", "kind"], "reachable"], paint: { "line-color": "#f59e0b", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [2, 3] } });
+          map.addLayer({ id: "psa-ghost-uncert-reach", type: "line", source: "psa-ghost-uncert", filter: ["==", ["get", "kind"], "reachable"], paint: { "line-color": "#f59e0b", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [1, 2] } });
+          // An unexplained circle on a chart reads as a measured cone. The polygon carries its own
+          // caption so the operator is TOLD the direction is unknown, not left to infer it.
+          // text-allow-overlap/ignore-placement: this caption states what is NOT known, so it must
+          // never be silently dropped by label collision (BuoyLayers' "Psathyrella" label sits on
+          // the same coordinate and declares allow-overlap, so it would win otherwise).
+          map.addLayer({ id: "psa-ghost-uncert-label", type: "symbol", source: "psa-ghost-uncert", layout: { "text-field": ["coalesce", ["get", "label"], ""], "text-size": 9, "text-font": ["Open Sans Bold"], "text-anchor": "bottom", "text-offset": [0, -1.6], "text-allow-overlap": true, "text-ignore-placement": true } as any, paint: { "text-color": "#f59e0b", "text-halo-color": "#04070e", "text-halo-width": 1.2 } });
         }
         if (!map.getSource("psa-ghost-track")) {
           map.addSource("psa-ghost-track", { type: "geojson", data: EMPTY_FC as any });
@@ -76,7 +91,7 @@ function GhostTrackLayerInner({ telemetryRef }: { telemetryRef: { current: BuoyT
     runWhenStyleReady(map, ensure);
     return () => {
       try {
-        ["psa-ghost-uncert-fill", "psa-ghost-uncert-line", "psa-ghost-track-line", "psa-ghost-track-end", "psa-ghost-track-label"].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+        ["psa-ghost-uncert-fill", "psa-ghost-uncert-line", "psa-ghost-uncert-reach", "psa-ghost-uncert-label", "psa-ghost-track-line", "psa-ghost-track-end", "psa-ghost-track-label"].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
         ["psa-ghost-uncert", "psa-ghost-track"].forEach((id) => { if (map.getSource(id)) map.removeSource(id); });
       } catch { /* tearing down */ }
     };
@@ -99,9 +114,38 @@ function GhostTrackLayerInner({ telemetryRef }: { telemetryRef: { current: BuoyT
           uncertSrc?.setData?.(EMPTY_FC);
           return;
         }
-        const heading = t.pose.headingDeg ?? 0;
         const speedKn = t.pose.speedKn ?? 0;
         const speedMs = speedKn * KN_TO_MS;
+        // Uncertainty growth terms, shared by both branches below: drift swells with
+        // time-since-contact over a base GPS/last-fix floor, and everything is larger when DARK.
+        const ageS = (t.lastContactMsAgo ?? 0) / 1000;
+        const driftR = DRIFT_MS * Math.max(ageS, PROJECT_S);
+        const stateMult = t.contactState === "dark" ? 1.6 : 1.0;
+
+        // A heading of 0 is DUE NORTH, not "unknown" — so no `?? 0` here. contract.ts calls
+        // pose.headingDeg the single authority for true bearings, and this buoy has no working
+        // heading source (BMM150 uncalibrated → headingDeg: null), so defaulting would draw a
+        // confident dashed track due north in exactly the comms-denied case this layer exists to
+        // serve, with no second source for the watch-stander to check it against.
+        // Number.isFinite, not != null, so a NaN from a malformed envelope takes the same branch.
+        const hdg = t.pose.headingDeg;
+        const heading = typeof hdg === "number" && Number.isFinite(hdg) ? hdg : null;
+
+        if (heading === null) {
+          // Direction unknown ⇒ the buoy could be travelling ANY way. The only honest picture is
+          // an isotropic reachable-set ring centred on the LAST-KNOWN fix. The radius must absorb
+          // the along-track distance too: a drift-only ring (~165 m when DELAYED) would exclude a
+          // 3 kn buoy's ~460 m five-minute reachable set, i.e. show a cone that omits reality.
+          trackSrc?.setData?.(EMPTY_FC);
+          const reachM = speedMs * Math.max(ageS, PROJECT_S);
+          const reachRadiusM = (BASE_UNCERT_M + driftR + reachM) * stateMult;
+          uncertSrc?.setData?.({
+            type: "FeatureCollection",
+            features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [ringPolygon(lat, lon, reachRadiusM)] }, properties: { kind: "reachable", label: "HEADING UNKNOWN · ANY BEARING" } }],
+          });
+          return;
+        }
+
         const projDist = speedMs * PROJECT_S; // metres dead-reckoned ahead
 
         // Dashed predicted track from last-known pose to the projected endpoint.
@@ -115,16 +159,13 @@ function GhostTrackLayerInner({ telemetryRef }: { telemetryRef: { current: BuoyT
 
         // Growing uncertainty ellipse: a circle centred on the projected endpoint whose radius
         // swells with time-since-contact (drift) plus a base GPS/last-fix floor. Larger when DARK.
-        const ageS = (t.lastContactMsAgo ?? 0) / 1000;
-        const driftR = DRIFT_MS * Math.max(ageS, PROJECT_S);
-        const stateMult = t.contactState === "dark" ? 1.6 : 1.0;
         const radiusM = (BASE_UNCERT_M + driftR) * stateMult;
         // Centre on the projected endpoint when moving, else on the last-known pose.
         const cLat = projDist > 1 ? elat : lat;
         const cLon = projDist > 1 ? elon : lon;
         uncertSrc?.setData?.({
           type: "FeatureCollection",
-          features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [ringPolygon(cLat, cLon, radiusM)] }, properties: {} }],
+          features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [ringPolygon(cLat, cLon, radiusM)] }, properties: { kind: "dr" } }],
         });
       } catch { /* layer mid-teardown */ }
     };

@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { Wrench } from "lucide-react";
+import { Wrench, AlertTriangle } from "lucide-react";
 import { type BuoyCommand, type BuoyTelemetry, type ThrusterId } from "@/lib/psathyrella/contract";
 import { useThrottledSend } from "@/lib/psathyrella/useThrottledSend";
 import { cn } from "@/lib/utils";
@@ -235,6 +235,33 @@ export function BenchPanel({
           <button type="button" onClick={() => { setRawUs(chStop + 100); sendRaw(chStop + 100); }} title={`spin other way (${chStop + 100}µs)`} className="flex-1 rounded border border-white/10 bg-black/40 px-1 py-1 text-[9px] font-bold text-cyan-300 hover:text-white">Spin ►</button>
           <button type="button" onClick={() => sendRaw(rawUs)} className="flex-[1.2] rounded border border-amber-500/50 bg-amber-500/20 px-1 py-1 text-[9px] font-bold uppercase text-amber-100">Send {rawUs}</button>
         </div>
+      </div>
+
+      {/* Thruster Telemetry · Faults — moved here from Navigation·Propulsion (Morgan, Aug 03).
+          Per-pod current draw and fault lamps are diagnostics: you read them when something is
+          wrong, not while driving. They sit with the other bring-up tools, and the sailor-facing
+          panel keeps only what is needed to drive. */}
+      <SectionLabel className="mt-3">Thruster Telemetry · Faults</SectionLabel>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+        {telemetry.propulsion.thrusters.map((t) => {
+          const faulted = t.faulted;
+          // Over-current threshold is advisory, not a fault the buoy declared — amber, never red.
+          const overCurrent = t.currentA != null && t.currentA > 8;
+          return (
+            <div key={t.id} className="flex items-center justify-between rounded bg-white/[0.03] px-1.5 py-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <StatLED color={faulted ? "red" : overCurrent ? "amber" : t.currentA ? "cyan" : "slate"} pulse={faulted} />
+                <span className={cn("truncate text-[10px]", faulted ? "font-semibold text-red-200" : "text-slate-300")}>{t.label}</span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {faulted && <AlertTriangle className="h-3 w-3 text-red-400" />}
+                <span className={cn("font-mono text-[10px] tabular-nums", faulted ? "text-red-300" : overCurrent ? "text-amber-300" : "text-slate-400")}>
+                  {faulted ? "FAULT" : t.currentA != null ? `${t.currentA.toFixed(1)}A` : "—"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Panel>
   );

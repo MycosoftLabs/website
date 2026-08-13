@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Navigation, Anchor, Octagon, Waves, Camera, RotateCw, AlertTriangle } from "lucide-react";
+import { Navigation, Anchor, Octagon, Waves, Camera, RotateCw, AlertTriangle, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AUTONOMY_MODES,
   type AutonomyMode,
@@ -10,87 +11,10 @@ import {
   type ThrusterId,
 } from "@/lib/psathyrella/contract";
 import { useThrottledSend } from "@/lib/psathyrella/useThrottledSend";
-import { Panel, SectionLabel, TacButton, Readout, StatLED } from "@/components/psathyrella/ui";
+import { useMagnetometer } from "@/lib/psathyrella/useMagnetometer";
+import { Panel, SectionLabel, TacButton } from "@/components/psathyrella/ui";
+import CompassRose from "@/components/psathyrella/views/CompassRose";
 import { ThumbJoystick } from "./ThumbJoystick";
-
-/**
- * Commanded-vs-actual thrust-vector mini-compass.
- * Cyan needle = commanded translation heading (from propulsion.commandedVector).
- * White needle = actual bow heading (pose.headingDeg). Amber arc = error between them.
- * 0° = true north, clockwise. All headings in degrees.
- */
-function VectorCompass({
-  commandedDeg,
-  magnitudePct,
-  actualDeg,
-}: {
-  commandedDeg: number | null;
-  magnitudePct: number | null;
-  actualDeg: number | null;
-}) {
-  const R = 38;
-  const cx = 50;
-  const cy = 50;
-  // SVG: 0° (north) = straight up, clockwise. screen angle = deg - 90.
-  const tip = (deg: number, len: number) => {
-    const a = ((deg - 90) * Math.PI) / 180;
-    return { x: cx + Math.cos(a) * len, y: cy + Math.sin(a) * len };
-  };
-  const cmdHas = commandedDeg != null;
-  const actHas = actualDeg != null;
-  const cmdLen = R * (magnitudePct != null ? Math.max(0.25, Math.min(1, magnitudePct / 100)) : 0.85);
-  const cmd = cmdHas ? tip(commandedDeg as number, cmdLen) : null;
-  const act = actHas ? tip(actualDeg as number, R) : null;
-  // Smallest signed error (commanded relative to actual)
-  const err =
-    cmdHas && actHas ? (((((commandedDeg as number) - (actualDeg as number)) % 360) + 540) % 360) - 180 : null;
-
-  return (
-    <div className="flex items-center gap-3">
-      <svg viewBox="0 0 100 100" className="h-[72px] w-[72px] shrink-0">
-        <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={1} />
-        <circle cx={cx} cy={cy} r={R * 0.6} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-        {/* cardinal ticks */}
-        {[0, 90, 180, 270].map((d) => {
-          const o = tip(d, R);
-          const i = tip(d, R - 5);
-          return <line key={d} x1={i.x} y1={i.y} x2={o.x} y2={o.y} stroke="rgba(148,163,184,0.5)" strokeWidth={1} />;
-        })}
-        <text x={cx} y={11} textAnchor="middle" className="fill-slate-500" fontSize={7}>N</text>
-        {/* actual bow heading — white */}
-        {act && (
-          <line x1={cx} y1={cy} x2={act.x} y2={act.y} stroke="#e2e8f0" strokeWidth={2} strokeLinecap="round" />
-        )}
-        {/* commanded vector — cyan, length scaled by magnitude */}
-        {cmd && (
-          <>
-            <line x1={cx} y1={cy} x2={cmd.x} y2={cmd.y} stroke="#22d3ee" strokeWidth={2.5} strokeLinecap="round" />
-            <circle cx={cmd.x} cy={cmd.y} r={2.5} fill="#22d3ee" />
-          </>
-        )}
-        <circle cx={cx} cy={cy} r={2.5} fill="#0a0f1e" stroke="rgba(148,163,184,0.6)" strokeWidth={1} />
-      </svg>
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-full bg-cyan-400" />
-          <span className="text-[9px] uppercase tracking-wide text-slate-500">Cmd</span>
-          <span className="font-mono text-[11px] text-cyan-200">{cmdHas ? `${Math.round(commandedDeg as number)}°` : "—"}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-full bg-slate-200" />
-          <span className="text-[9px] uppercase tracking-wide text-slate-500">Act</span>
-          <span className="font-mono text-[11px] text-slate-200">{actHas ? `${Math.round(actualDeg as number)}°` : "—"}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] uppercase tracking-wide text-slate-500">Δ Err</span>
-          <span className={`font-mono text-[11px] ${err == null ? "text-slate-600" : Math.abs(err) > 15 ? "text-amber-300" : "text-green-300"}`}>
-            {err == null ? "—" : `${err > 0 ? "+" : ""}${Math.round(err)}°`}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function NavPropulsionPanel({
   telemetry,
@@ -102,6 +26,11 @@ export function NavPropulsionPanel({
   const [heading, setHeading] = useState(0);
   const [magnitude, setMagnitude] = useState(0);
   const [yawRate, setYawRate] = useState(0);
+  // Collapsed by default — see the note at the selector itself. Not persisted: the operator who
+  // opens it is changing mode now, not setting a preference for every future session.
+  const [modePickerOpen, setModePickerOpen] = useState(false);
+  // BMM150, polled off the fusion-sensors BFF (it is not part of the MAS telemetry stream).
+  const { magnetometer } = useMagnetometer();
   const [mode, setMode] = useState<AutonomyMode>(telemetry.autonomy.mode);
   const [armed, setArmed] = useState(telemetry.autonomy.armed);
   const [fightCurrent, setFightCurrent] = useState(telemetry.autonomy.fightCurrent);
@@ -184,22 +113,67 @@ export function NavPropulsionPanel({
         </div>
       )}
 
-      {/* Autonomy modes */}
-      <SectionLabel>Autonomy Mode</SectionLabel>
-      <div className="mb-2 grid grid-cols-2 gap-1">
-        {AUTONOMY_MODES.map((m) => (
-          <TacButton
-            key={m}
-            active={mode === m}
-            onClick={() => {
-              setMode(m);
-              sendCommand({ domain: "autonomy", action: "setMode", mode: m });
-            }}
-            className="min-h-7 px-1 text-[9px]"
-          >
-            {m.replace("_", " ")}
-          </TacButton>
-        ))}
+      {/* Mode: the ACTIVE mode as a chip, with the selector one click away right beside it.
+          The eight mode buttons used to sit expanded at the top of the rail — four rows for modes
+          that are not in use yet, in the scarcest space on the console. Collapsed to a chevron here
+          they cost nothing, and the active mode (the part an operator actually needs at a glance)
+          is still always visible. */}
+      <div className="relative mb-2 flex items-center gap-1.5">
+        <SectionLabel className="mb-0">Mode</SectionLabel>
+        <button
+          type="button"
+          onClick={() => setModePickerOpen((v) => !v)}
+          aria-expanded={modePickerOpen}
+          title="Change autonomy mode"
+          className="flex min-w-0 items-center gap-1 truncate rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-100 hover:border-cyan-400/60 hover:bg-cyan-500/20"
+        >
+          <span className="truncate">{mode.replace("_", " ")}</span>
+          <ChevronDown className={cn("h-3 w-3 shrink-0 transition-transform", modePickerOpen && "rotate-180")} />
+        </button>
+        <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums text-slate-400">
+          {telemetry.pose.speedKn != null ? `${telemetry.pose.speedKn.toFixed(1)} kn` : "— kn"}
+        </span>
+
+        {/* FLOATING PANEL, not an inline row.
+            Opening this used to insert a 4-row grid into the column, which grew the panel past its
+            slot and forced the whole left rail to scroll. A control that changes the height of its
+            own container is the thing that made this panel scroll at all — as an absolutely
+            positioned overlay it takes ZERO layout space, so the rail cannot move whether it is open
+            or closed. Backdrop closes it on any outside click. */}
+        {modePickerOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Close mode selector"
+              className="fixed inset-0 z-40 cursor-default"
+              onClick={() => setModePickerOpen(false)}
+            />
+            {/* FULLY OPAQUE, deliberately: this panel floats over the compass and the joystick, and
+                a control that COMMITS AN AUTONOMY MODE has to be unambiguously readable — any
+                instrument geometry bleeding through the buttons is a misread waiting to happen.
+                `backdrop-blur` was dropped with it: blurring costs a compositing layer and buys
+                nothing behind a solid fill. */}
+            <div className="absolute left-0 top-full z-50 mt-1 w-[190px] rounded-lg border border-cyan-500/40 bg-[#070d18] p-1.5 shadow-2xl shadow-black/80">
+              <div className="mb-1 px-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-cyan-300/50">Autonomy mode</div>
+              <div className="grid grid-cols-2 gap-1">
+                {AUTONOMY_MODES.map((m) => (
+                  <TacButton
+                    key={m}
+                    active={mode === m}
+                    onClick={() => {
+                      setMode(m);
+                      setModePickerOpen(false);
+                      sendCommand({ domain: "autonomy", action: "setMode", mode: m });
+                    }}
+                    className="min-h-7 px-1 text-[9px]"
+                  >
+                    {m.replace("_", " ")}
+                  </TacButton>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-2 flex items-center gap-2">
@@ -272,56 +246,39 @@ export function NavPropulsionPanel({
 
       {/* Quick holds */}
       <SectionLabel className="mt-2">Hold / Assist</SectionLabel>
-      <div className="grid grid-cols-2 gap-1">
+      {/* One row of four, not 2x2 — these are short labels and the rail has the height to spare
+          nowhere else. */}
+      <div className="grid grid-cols-4 gap-1">
         <TacButton onClick={() => sendCommand({ domain: "autonomy", action: "stationKeep" })} className="min-h-7 text-[9px]"><Anchor className="h-3.5 w-3.5" /> Station</TacButton>
         <TacButton active={fightCurrent} onClick={() => { const v = !fightCurrent; setFightCurrent(v); sendCommand({ domain: "autonomy", action: "fightCurrent", enabled: v }); }} className="min-h-7 text-[9px]"><Waves className="h-3.5 w-3.5" /> Fight Cur</TacButton>
         <TacButton onClick={() => sendCommand({ domain: "autonomy", action: "cameraHold", bearingDeg: heading })} className="min-h-7 text-[9px]"><Camera className="h-3.5 w-3.5" /> Cam Hold</TacButton>
         <TacButton onClick={() => sendVector(heading, magnitude, yawRate)} className="min-h-7 text-[9px]"><RotateCw className="h-3.5 w-3.5" /> Re-send</TacButton>
       </div>
 
-      {/* Commanded-vs-actual thrust vector */}
-      <SectionLabel className="mt-2">Vector · Commanded vs Actual</SectionLabel>
-      <div className="rounded bg-white/[0.03] px-2 py-2">
-        <VectorCompass
+      {/* ONE compass, not two.
+          This previously stacked a commanded-vs-actual VectorCompass above a separate geomagnetic
+          CompassRose — two dials burning double the vertical space to show the same three bearings,
+          and their combined height pushed this panel past its rail slot, which made FitScale shrink
+          the WHOLE left panel. A widget must never resize its siblings. Merged: white needle = actual
+          bow heading, cyan = commanded vector (length scaled by magnitude), dashed amber = raw
+          magnetic field, which is NOT promoted to a heading until it is calibrated AND
+          tilt-compensated. Readout beneath is dynamic — chips appear only when they have data. */}
+      <SectionLabel className="mt-2">Compass · Vector · Geomagnetic</SectionLabel>
+      <div className="flex justify-center rounded bg-white/[0.03] px-2 py-2">
+        <CompassRose
+          headingDeg={telemetry.pose.headingDeg}
           commandedDeg={commandedHeading}
           magnitudePct={commandedMag}
-          actualDeg={telemetry.pose.headingDeg}
+          magnetometer={magnetometer}
+          className="w-full max-w-[124px]"
         />
       </div>
 
       {/* Per-thruster live readout + fault lamps */}
-      <SectionLabel className="mt-2">Thruster Telemetry · Faults</SectionLabel>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-        {telemetry.propulsion.thrusters.map((t) => {
-          const faulted = t.faulted;
-          // Over-current heuristic (no nominal in contract): flag a soft warning ≥ 8A.
-          const overCurrent = !faulted && t.currentA != null && t.currentA >= 8;
-          return (
-            <div
-              key={t.id}
-              className={`flex items-center justify-between rounded px-2 py-1 ${
-                faulted ? "border border-red-500/40 bg-red-500/10" : "bg-white/[0.03]"
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <StatLED color={faulted ? "red" : overCurrent ? "amber" : t.currentA ? "cyan" : "slate"} pulse={faulted} />
-                <span className={`text-[10px] ${faulted ? "font-semibold text-red-200" : "text-slate-300"}`}>{t.label}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {faulted && <AlertTriangle className="h-3 w-3 text-red-400" />}
-                <span className={`font-mono text-[10px] ${faulted ? "text-red-300" : overCurrent ? "text-amber-300" : "text-slate-400"}`}>
-                  {faulted ? "FAULT" : t.currentA != null ? `${t.currentA.toFixed(1)}A` : "—"}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <Readout label="Heading (live)" value={telemetry.pose.headingDeg != null ? Math.round(telemetry.pose.headingDeg) : null} unit="°" />
-        <Readout label="Speed" value={telemetry.pose.speedKn != null ? telemetry.pose.speedKn.toFixed(1) : null} unit="kn" />
-      </div>
+      {/* Thruster Telemetry / Faults moved to the BENCH tab (Morgan, Aug 03). Per-pod current and
+          fault lamps are diagnostics — you read them when something is wrong, not while driving —
+          and they were the last thing forcing this panel past its slot. Faults are still surfaced
+          where they matter: the safety strip and the comms-degraded banner both remain here. */}
     </Panel>
   );
 }

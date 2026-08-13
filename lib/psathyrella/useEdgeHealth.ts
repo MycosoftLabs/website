@@ -16,6 +16,7 @@
  * as offline.
  */
 
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import type { BuoyTelemetry } from "./contract";
 
@@ -64,6 +65,45 @@ export function useEdgeHealth() {
   });
 }
 
+/**
+ * How many CONSECUTIVE failed hub probes before the banner calls it an outage.
+ *
+ * Two, not one. The dev-PC → Jetson path has a documented first-SYN stall, so a single failed
+ * aggregate is genuinely UNKNOWN — and on Aug 03 exactly that painted a full-width "Telemetry hub
+ * DOWN — GPS/radios unavailable" banner over a hub answering `/health` in 53 ms. A false outage
+ * banner is not a harmless flicker: it teaches the operator to disbelieve the banner, which is the
+ * one thing that must stay trustworthy for the real outage. At a 10 s poll a genuine outage is still
+ * announced within ~20 s.
+ */
+export const HUB_DOWN_CONFIRMATIONS = 2;
+
+/**
+ * Hub health plus whether a reported down state has been CONFIRMED by consecutive failures.
+ *
+ * Deliberately does NOT rewrite `hub.up` to true while unconfirmed — that would substitute one
+ * false claim for another. It reports the raw state and lets the caller phrase the difference
+ * between "not answering, re-checking" and "down".
+ */
+export function useConfirmedHub(): { hub: HubHealth | null; downConfirmed: boolean } {
+  const { data } = useEdgeHealth();
+  const hub = data?.hub ?? null;
+  const streak = useRef(0);
+  const [downConfirmed, setDownConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (!hub) return;
+    if (hub.up === false) {
+      streak.current += 1;
+      if (streak.current >= HUB_DOWN_CONFIRMATIONS) setDownConfirmed(true);
+    } else {
+      streak.current = 0;
+      setDownConfirmed(false);
+    }
+  }, [hub]);
+
+  return { hub, downConfirmed };
+}
+
 /** Hub LED semantics used by the Edge panel: green only when up AND both sides + GPS are connected. */
 export function hubLedColor(hub: HubHealth | null | undefined): "green" | "amber" | "red" | "slate" {
   if (!hub) return "slate";
@@ -84,11 +124,21 @@ export function derivePipelineAlert(
   hub: HubHealth | null | undefined,
   telemetry: BuoyTelemetry,
   simMode: boolean,
+  opts?: { hubDownConfirmed?: boolean },
 ): PipelineAlert | null {
   if (simMode) return null;
 
   // 1. Hub down — the headline failure. GPS + Side-B radios cannot be merged until it recovers.
   if (hub && hub.up === false) {
+    // A single missed probe is UNKNOWN, not an outage — see HUB_DOWN_CONFIRMATIONS. Undefined means
+    // the caller does not track confirmation, so the original behaviour is preserved for it.
+    if (opts?.hubDownConfirmed === false) {
+      return {
+        level: "warn",
+        key: "hub-checking",
+        message: "Telemetry hub :8790 not answering — re-checking (a single missed probe is not an outage)",
+      };
+    }
     return { level: "crit", key: "hub-down", message: "Telemetry hub :8790 DOWN — GPS/radios unavailable until hub recovers (pipeline, not hardware)" };
   }
   // 2. Hub up but the u-blox GPS serial isn't connected.

@@ -28,7 +28,10 @@ import {
   type CommandRecord,
   type ContactKind,
   type LinkState,
+  type MeshPacket,
+  type MeshPacketKind,
   type MissionPlan,
+  type PeerBuoy,
   type RadioKind,
   type ScopeFrame,
   type SensorContact,
@@ -86,6 +89,12 @@ function mapContacts(raw: any, prefix: string, defaultKind: ContactKind): Sensor
       bearingDeg: num(c.bearingDeg)!,
       rangeM: num(c.rangeM)!,
       kind: (typeof c.kind === "string" ? c.kind : defaultKind) as ContactKind,
+      // KNOWN FABRICATION — an unreported return strength becomes a literal 0.5 and reaches the
+      // operator as "strength 50%" (MapView asset card), a blip size on ScopePPI and a lidar
+      // intensity colour. It cannot be fixed here alone: SensorContact.strength is typed `number`,
+      // and emitting null without the consumer guards would render as the WEAKEST return (0) rather
+      // than as unknown. Fix = widen contract.ts SensorContact.strength to `number | null`, then
+      // drop the `?? 0.5` and guard ScopePPI + MapView's paint expressions and asset card.
       strength: num(c.strength) ?? 0.5,
       label: str(c.label) ?? undefined,
       classifiedAs: str(c.classifiedAs) ?? undefined,
@@ -107,6 +116,78 @@ function mapScope(raw: any, fallback: ScopeFrame, prefix: string): ScopeFrame {
     maxRangeM: num(raw.maxRangeM) ?? fallback.maxRangeM,
     active: !!raw.active,
     contacts: mapContacts(raw.contacts, prefix, "unknown"),
+  };
+}
+
+const PEER_ROLES: readonly PeerBuoy["role"][] = ["relay", "sensor", "gateway", "buoy"];
+const PACKET_KINDS: readonly MeshPacketKind[] = ["position", "telemetry", "text", "ack", "sensor", "nodeinfo"];
+
+/**
+ * Peer buoys from the MAS envelope.
+ *
+ * A peer that carries no id or no fix cannot be placed on the map, so it is DROPPED rather than
+ * pinned somewhere plausible — the same rule mapContacts and the waypoint mapper follow.
+ *
+ * `headingDeg` and `hops` are typed non-nullable in PeerBuoy, so "the mesh did not report it"
+ * has no representation here. NaN is deliberate: nothing renders either field today, and a NaN
+ * propagates as visibly-unknown, whereas 0 would assert "bow due north" and "direct neighbour" —
+ * two measurements the radio never sent. Widening those two fields to `number | null` in
+ * contract.ts is the real fix; until then this must not launder an absence into a number.
+ *
+ * Returns null when the envelope carried no `peers` key at all, so the caller can leave the base
+ * value untouched instead of overwriting it with an empty fleet.
+ */
+function mapPeers(raw: unknown): PeerBuoy[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw
+    .filter((p: any) => p && p.id != null && num(p.lat) != null && num(p.lon) != null)
+    .map((p: any) => ({
+      id: String(p.id),
+      name: str(p.name) ?? String(p.id),
+      lat: num(p.lat)!,
+      lon: num(p.lon)!,
+      headingDeg: num(p.headingDeg) ?? Number.NaN,
+      role: PEER_ROLES.find((r) => r === p.role) ?? "buoy",
+      batteryPct: num(p.batteryPct),
+      rssiDbm: num(p.rssiDbm),
+      snrDb: num(p.snrDb),
+      hops: num(p.hops) ?? Number.NaN,
+      online: !!p.online,
+      lastHeardMsAgo: num(p.lastHeardMsAgo),
+    }));
+}
+
+/** Mesh packets. The mesh view colour-codes each dot BY KIND, so a packet whose kind the radio did
+ *  not name (or named off-contract) is dropped rather than drawn as some specific traffic type —
+ *  losing one animated dot is cheap, mislabelling the operator's traffic picture is not. Endpoints
+ *  and timestamp are required: a packet with no from/to cannot be placed on a link. */
+function mapMeshPackets(raw: unknown): MeshPacket[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw
+    .filter(
+      (pk: any) =>
+        pk && num(pk.atMs) != null && str(pk.fromId) && str(pk.toId) && PACKET_KINDS.some((k) => k === pk.kind),
+    )
+    .map((pk: any, i: number) => ({
+      id: String(pk.id ?? `pkt-${pk.fromId}-${pk.toId}-${num(pk.atMs)}-${i}`),
+      fromId: String(pk.fromId),
+      toId: String(pk.toId),
+      kind: pk.kind as MeshPacketKind,
+      atMs: num(pk.atMs)!,
+      hops: num(pk.hops) ?? Number.NaN, // see mapPeers — non-nullable in the contract, unreported here
+      rssiDbm: num(pk.rssiDbm),
+    }));
+}
+
+/** Mesh state. `selfId` is load-bearing, not cosmetic: MeshLayer resolves the self node by matching
+ *  packet endpoints against it, so leaving the emptyTelemetry() placeholder in place while MAS
+ *  reports a different node id makes every self↔peer edge fail to resolve and the packets vanish. */
+function mapMesh(raw: any, fallback: BuoyTelemetry["mesh"]): BuoyTelemetry["mesh"] {
+  if (!raw || typeof raw !== "object") return fallback;
+  return {
+    selfId: str(raw.selfId) ?? fallback.selfId,
+    channel: str(raw.channel) ?? fallback.channel,
+    packets: mapMeshPackets(raw.packets) ?? fallback.packets,
   };
 }
 
@@ -258,7 +339,40 @@ function overlayEnvelope(base: BuoyTelemetry, raw: any): BuoyTelemetry {
   if (env.radar) t.radar = mapScope(env.radar, t.radar, "rd");
   if (env.bluesight) t.bluesight = { active: !!env.bluesight.active, wifi: mapContacts(env.bluesight.wifi, "wf", "wifi") };
 
+  // Fleet mesh. MAS emits `peers` and `mesh` on every envelope, but nothing here parsed them, so on
+  // the live path MeshLayer read the emptyTelemetry() placeholders forever — an empty fleet drawn
+  // under two filter rows badged "live". Both the poll and the SSE frame funnel through this
+  // function, so this one block covers both paths.
+  const peers = mapPeers(env.peers);
+  if (peers) t.peers = peers;
+  if (env.mesh) t.mesh = mapMesh(env.mesh, t.mesh);
+
   return t;
+}
+
+/** Score how "live" an envelope is — field/live source + real GPS lock rank high; a site/dark/mas
+ *  fallback ranks low. Used to pick between the SSE push and the poll. */
+function envelopeLiveness(raw: any): number {
+  const e = raw?.telemetry ?? raw;
+  if (!e || typeof e !== "object") return -1;
+  const src = String(e.source ?? "").toLowerCase();
+  const gps = e?.pose?.gpsLock;
+  let r = 0;
+  if (src === "field" || src === "live") r += 3;
+  if (e.contactState === "live") r += 2;
+  if (gps === "locked" || gps === "drift" || gps === "manual") r += 2;
+  if (src === "mas" || src === "site" || e.contactState === "dark" || gps === "site" || gps === "unavailable") r -= 3;
+  return r;
+}
+
+/** The SSE push is normally the lower-latency source, so prefer it — EXCEPT when it is clearly staler
+ *  than the poll. MAS's stream endpoint can lag its poll (serving a site/dark fallback while the poll
+ *  already has a field GPS lock); never let that stale frame override a live fix. Self-corrects the
+ *  moment the stream catches up (equal liveness → keep the low-latency SSE). */
+function preferLiveEnvelope(sse: any, poll: any): any {
+  if (sse == null) return poll;
+  if (poll == null) return sse;
+  return envelopeLiveness(poll) > envelopeLiveness(sse) ? poll : sse;
 }
 
 export interface AckState {
@@ -439,7 +553,7 @@ export function useBuoyTelemetry(
 
     // ── overlay: the fused MAS envelope (wins where present) — prefer the live SSE push frame
     // when present, else the polled envelope. Both unwrap via overlayEnvelope's raw.telemetry ?? raw.
-    overlayEnvelope(base, sseEnvelope ?? envelopeData);
+    overlayEnvelope(base, preferLiveEnvelope(sseEnvelope, envelopeData));
 
     if (simulated) {
       const simT = simulateTelemetry(base, Date.now(), { waypoints: waypointsRef.current, missionPlan: missionPlanRef.current });

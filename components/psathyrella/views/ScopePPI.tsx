@@ -5,17 +5,30 @@
  * BlueSight scopes. Draws range rings, a rotating sweep with afterglow, and live
  * contacts. Per `variant` it layers on instrument chrome:
  *   - radar  (OpenCPN radar_pi style): nmi range rings, sweep persistence trail,
- *            blip history tracks, EBL + VRM cursor, guard-zone arc, sea/rain
- *            clutter texture near center.
+ *            blip history tracks, EBL + VRM cursor.
  *   - lidar  (Ouster style): dense 360° returns, intensity-by-strength color
  *            (near = hot), near-field collision-proximity emphasis ring, metric
  *            range rings labelled in m / ft.
  *   - fusion (BlueSight): the legacy combined view.
  *
- * Contacts come ONLY from telemetry (no fabricated returns); the sweep, clutter
- * texture, EBL/VRM and rings are display chrome. When `active` is false it
- * renders an empty scope. The rAF loop is cleaned up on unmount and paused when
- * the tab is hidden so it never leaks.
+ * FRAME: BOW-UP. `SensorContact.bearingDeg` is bow-relative by contract
+ * (contract.ts:255), so relative bearing 000 points straight up the screen —
+ * the same convention FusionPlot documents at its `ang()` helper. This scope
+ * previously drew those bow-relative bearings under NORTH-UP chrome (fixed
+ * N/E/S/W labels + a heading spoke at `headingDeg - 90`), which displaced every
+ * contact by exactly -headingDeg and disagreed with FusionPlot and MapView about
+ * the same contact on the same console. It is bow-up now because the buoy has no
+ * working compass (BMM150 reports headingDeg:null): rotating contacts into
+ * north-up would blank both scopes whenever the heading is unknown, and a scope
+ * must not go dark because a *different* sensor is missing.
+ *
+ * Contacts come ONLY from telemetry (no fabricated returns); the sweep, EBL/VRM
+ * and rings are display chrome. Nothing synthetic is painted inside the return
+ * field — a previous version scattered a "sea/rain clutter" texture near center
+ * and drew a fixed ±35° "guard zone" sector that no code ever armed; both read as
+ * products of a sensor that reported nothing, and both were deleted. When
+ * `active` is false it renders an empty scope. The rAF loop is cleaned up on
+ * unmount and paused when the tab is hidden so it never leaks.
  */
 
 import { useEffect, useRef } from "react";
@@ -57,12 +70,21 @@ interface ScopePPIProps {
   contacts: SensorContact[];
   maxRangeM: number;
   active: boolean;
+  /**
+   * True bow heading (0 = true north), or null when no compass fix exists. On a
+   * bow-up scope this positions the TRUE-NORTH tick only — it never moves a
+   * contact, so a null heading costs the reference mark, not the picture.
+   */
   headingDeg: number | null;
   variant: Variant;
   sweep?: boolean;
   /** Optional sweep angle in degrees from telemetry; falls back to internal spin. */
   sweepDeg?: number | null;
-  /** Radar: electronic-bearing-line angle (deg, 0=N). Drawn as a cursor spoke. */
+  /**
+   * Radar: electronic-bearing-line angle (deg, 0 = BOW — the scope is bow-up).
+   * Drawn as a cursor spoke. Callers derive this from the screen angle, so it is
+   * a relative bearing; it is NOT a compass bearing and must not be labelled °M.
+   */
   eblDeg?: number | null;
   /** Radar: variable-range-marker radius in meters. Drawn as a highlighted ring. */
   vrmRangeM?: number | null;
@@ -148,26 +170,13 @@ export function ScopePPI({
 
       ctx.clearRect(0, 0, w, h);
 
-      // ── sea / rain clutter texture near center (radar only, display chrome) ──
-      if (isRadar && st.active) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.clip();
-        const clutterR = radius * 0.38;
-        for (let i = 0; i < 90; i++) {
-          // deterministic-ish scatter that drifts slowly with the sweep
-          const a = (i * 39.7 + sweepAngle * 0.4) * (Math.PI / 180);
-          const rr = clutterR * (0.18 + ((i * 97) % 100) / 100) * 0.9;
-          const x = cx + Math.cos(a) * rr;
-          const y = cy + Math.sin(a) * rr;
-          ctx.globalAlpha = 0.05 + ((i * 13) % 7) / 90;
-          ctx.fillStyle = pal.sweep;
-          ctx.fillRect(x, y, 1.2, 1.2);
-        }
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      }
+      // NOTE: a synthetic "sea/rain clutter" speckle field used to be painted here
+      // whenever the radar was active. On a marine PPI, speckle around own ship IS
+      // the visual signature of real close-in returns, and it was drawn from a loop
+      // counter, not from any channel — so an idle radar reporting zero contacts
+      // still showed the operator a sea state. Nothing goes inside the return field
+      // that is not a return. If clutter is ever wanted it must come from a real
+      // clutter/STC channel in the radar feed.
 
       // ── range rings + labels ────────────────────────────────────────────────
       ctx.lineWidth = 1;
@@ -185,7 +194,7 @@ export function ScopePPI({
         ctx.fillText(rangeLabel(range, st.variant), cx + 3, cy - r + 11);
       }
 
-      // ── spokes (compass rose) ───────────────────────────────────────────────
+      // ── graticule spokes (relative-bearing rose, not a compass rose) ────────
       ctx.strokeStyle = pal.grid;
       if (isLidar) {
         // denser 30° graticule for the high-res lidar scope
@@ -207,37 +216,28 @@ export function ScopePPI({
         ctx.stroke();
       }
 
-      // ── cardinal markers ────────────────────────────────────────────────────
+      // ── relative-bearing markers ────────────────────────────────────────────
+      // Bow-up, so these are RELATIVE bearings, not compass points. They used to
+      // read N/E/S/W over bow-relative contacts, which asserted a true-north frame
+      // the scope was never drawing in.
       ctx.fillStyle = pal.text;
       ctx.font = "bold 10px ui-monospace, monospace";
       ctx.textAlign = "center";
-      ctx.fillText("N", cx, cy - radius - 4);
+      ctx.fillText("BOW 000", cx, cy - radius - 4);
       ctx.font = "9px ui-monospace, monospace";
       ctx.globalAlpha = 0.7;
-      ctx.fillText("E", cx + radius + 7, cy + 3);
-      ctx.fillText("S", cx, cy + radius + 11);
-      ctx.fillText("W", cx - radius - 7, cy + 3);
+      ctx.fillText("090", cx + radius + 7, cy + 3);
+      ctx.fillText("180", cx, cy + radius + 11);
+      ctx.fillText("270", cx - radius - 7, cy + 3);
       ctx.globalAlpha = 1;
       ctx.textAlign = "left";
 
-      // ── guard zone arc (radar) — fixed forward sector, display chrome ────────
-      if (isRadar && st.active) {
-        const gzInner = radius * 0.55;
-        const gzOuter = radius * 0.9;
-        const gzA0 = (-35 - 90) * (Math.PI / 180);
-        const gzA1 = (35 - 90) * (Math.PI / 180);
-        ctx.beginPath();
-        ctx.arc(cx, cy, gzOuter, gzA0, gzA1);
-        ctx.arc(cx, cy, gzInner, gzA1, gzA0, true);
-        ctx.closePath();
-        ctx.strokeStyle = "rgba(250,204,21,0.35)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(250,204,21,0.05)";
-        ctx.fill();
-      }
+      // NOTE: a fixed ±35° dashed amber "guard zone" sector used to be drawn here.
+      // A guard sector on a PPI means an armed alarm zone, and nothing in this
+      // codebase ever set, armed, or tested one — grep for guardZone finds only the
+      // drawing calls. Decorative alarm chrome is a claim about vehicle state, so it
+      // was deleted. A real guard zone needs sector bounds, an armed flag, an entry
+      // test that raises an alarm, and an explicit ARMED/DISARMED label.
 
       if (st.active) {
         // ── rotating sweep with afterglow persistence ─────────────────────────
@@ -292,6 +292,9 @@ export function ScopePPI({
         for (const c of st.contacts) {
           liveIds.add(c.id);
           const rr = Math.min(1, c.rangeM / st.maxRangeM) * radius;
+          // Bow-up: `bearingDeg` is bow-relative by contract, so no heading term
+          // belongs here. Adding one would also silently drop every contact the
+          // moment the compass goes null, which is its permanent state today.
           const ang = (c.bearingDeg - 90) * (Math.PI / 180);
           const x = cx + Math.cos(ang) * rr;
           const y = cy + Math.sin(ang) * rr;
@@ -386,15 +389,27 @@ export function ScopePPI({
         }
       }
 
-      // ── heading line (own ship's bow) ───────────────────────────────────────
-      if (st.headingDeg !== null && st.headingDeg !== undefined) {
-        const ha = (st.headingDeg - 90) * (Math.PI / 180);
+      // ── true-north tick ─────────────────────────────────────────────────────
+      // The bow is permanently straight up now, so a separate heading spoke would be
+      // redundant; what the operator cannot otherwise recover is where TRUE north
+      // lies. Drawn ONLY when the heading is actually known — with no compass fix
+      // there is no true bearing, and a tick would assert a reference the buoy does
+      // not have. (Same rule as FusionPlot's N tick.)
+      if (st.headingDeg !== null && st.headingDeg !== undefined && Number.isFinite(st.headingDeg)) {
+        const northRel = ((-st.headingDeg % 360) + 360) % 360;
+        const na = (northRel - 90) * (Math.PI / 180);
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(ha) * radius, cy + Math.sin(ha) * radius);
-        ctx.strokeStyle = "rgba(226,232,240,0.35)";
-        ctx.lineWidth = 1;
+        ctx.moveTo(cx + Math.cos(na) * (radius - 8), cy + Math.sin(na) * (radius - 8));
+        ctx.lineTo(cx + Math.cos(na) * radius, cy + Math.sin(na) * radius);
+        ctx.strokeStyle = "rgba(226,232,240,0.65)";
+        ctx.lineWidth = 2;
         ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(226,232,240,0.75)";
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("N", cx + Math.cos(na) * (radius + 10), cy + Math.sin(na) * (radius + 10) + 3);
+        ctx.textAlign = "left";
       }
 
       // ── center buoy ─────────────────────────────────────────────────────────

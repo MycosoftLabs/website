@@ -25,10 +25,23 @@ type Probe = { up: boolean; latencyMs: number | null; rssiDbm?: number | null; l
 async function probe(base: string, withRadioStats = false): Promise<Probe> {
   const t0 = Date.now();
   try {
-    // Wi-Fi probes hit /state so one round trip yields reachability + latency + LIVE radio RSSI
-    // (the agent reads /proc/net/wireless). 3.5s timeout: this LAN's first packet can stack
-    // 2× 1s TCP retransmits — 2.5s produced false DOWNs.
-    const res = await fetch(`${base}${withRadioStats ? "/state" : "/health"}`, { signal: AbortSignal.timeout(3500), cache: "no-store" });
+    /*
+     * Wi-Fi probes hit /state so one round trip yields reachability + latency + LIVE radio RSSI
+     * (the agent reads /proc/net/wireless).
+     *
+     * ⚠ 3500 ms was tuned against the DIRECT round trip and produced false DOWNs on a healthy radio.
+     * Measured Aug 03: `:8788/state` answers in **8–25 ms** by curl, but the same probe issued from
+     * inside this dev server lands at **1.0–2.1 s** — the server's own queuing, not the link. A
+     * budget set from the upstream's latency while the measurement path adds two orders of magnitude
+     * of overhead will trip on any spike, and each trip painted "C2 DOWN — buoy is unreachable" over
+     * a radio sitting at −47 dBm.
+     *
+     * 8000 ms is >300× the real upstream latency and still ~4× the observed in-server latency, so a
+     * genuine outage is reported within one poll while ordinary jitter is not. The lamp itself also
+     * requires consecutive failures now (see CommsPanel) — a budget alone cannot fix a flapping lamp,
+     * because the honest answer to one missed probe is UNKNOWN, not DOWN.
+     */
+    const res = await fetch(`${base}${withRadioStats ? "/state" : "/health"}`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
     let rssiDbm: number | null = null;
     let linkQuality: number | null = null;
     if (withRadioStats && res.ok) {
