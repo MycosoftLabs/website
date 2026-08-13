@@ -736,3 +736,213 @@ export const CONTACT_COLOR: Record<ContactKind, string> = {
   landmass: "#64748b",
   unknown: "#94a3b8",
 };
+
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════
+   CAMERA RIG — restored Aug 04.
+
+   These types were lost when a git operation reverted this tracked file to its branch copy while the
+   untracked camera components survived. Field set reconstructed from the surviving consumers
+   (CameraView, Quad360View, TargetView, VisorHud, DetectionOverlay, useMagnetometer) and from
+   app/api/psathyrella/camera/route.ts, which is the authority on what the backend actually sends.
+
+   HONESTY RULE carried over from the route: `online` is true only when a feed's stream is genuinely
+   wired. Nothing here may be synthesised — every optional field is `null` when unknown, never a
+   plausible default, because a fabricated resolution or FOV silently corrupts the HUD's geometry.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Digital crop today; "optical" once the Sony 30x lands. Same command surface either way. */
+export type CameraPtz = "digital" | "optical";
+
+/** IR-cut filter state. "auto" hands the decision to the module's own CDS. */
+export type IrCutMode = "day" | "night" | "auto";
+
+export interface CameraFeed {
+  /** "quad360" (IMX519 ring) | "front" (IMX477 target optic). */
+  id: string;
+  label: string | null;
+  /** MJPEG endpoint. Null when nothing is wired — never a placeholder URL. */
+  streamUrl: string | null;
+  /** True ONLY when the stream is genuinely configured upstream. */
+  online: boolean;
+  /** Sensor part name as reported by the device, e.g. "IMX477". Null when unknown. */
+  sensor: string | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  /** Horizontal field of view in degrees — drives the HUD's bearing tape span. */
+  fovDeg: number | null;
+  /** Per-tile mount bearings for the ring, bow-relative. Empty for a single optic. */
+  mountBearingsDeg?: number[];
+  zoomMax?: number | null;
+  ptz?: CameraPtz;
+  irCut?: IrCutMode | null;
+  nightActive?: boolean | null;
+  /** Populated when the feed is wired but unusable — surfaced verbatim, not swallowed. */
+  error?: string | null;
+  /**
+   * On-device CUDA surround-view outputs for the ring feed.
+   *
+   * AVAILABILITY (a url being non-null) means the Jetson is actually serving that stream.
+   * CALIBRATION is reported separately and deliberately does NOT gate availability: a
+   * served-but-provisional surround is still useful, and hiding it whenever the backend honestly
+   * downgraded itself to "provisional" made the panorama vanish for no operational reason.
+   */
+  /**
+   * Composite tile layout for the ring feed. ONE MJPEG carries all four cameras; `tileOrder` maps
+   * grid position → physical face, because the Camarray does not emit them in bow-clockwise order.
+   */
+  quad?: {
+    cols: number;
+    rows: number;
+    /** Grid index → face index. Measured [1,3,2,0] on this rig — never assume identity. */
+    tileOrder?: number[];
+  } | null;
+  stitch?: {
+    panoUrl: string | null;
+    bevUrl: string | null;
+    calibrated: boolean;
+    calibrationSource: string | null;
+    qualityNote: string | null;
+  } | null;
+}
+
+export interface CameraRig {
+  feeds: CameraFeed[];
+  /** Age of the backing rig report, ms. 0 when this process just built it. */
+  updatedMsAgo?: number;
+}
+
+/** One detector result in FRAME pixel space (srcW x srcH), not screen space. */
+export interface CameraDetection {
+  id: string;
+  /** Stable across frames when the tracker holds the object; null on a fresh detection. */
+  trackId?: string | null;
+  cls: string;
+  conf: number | null;
+  /**
+   * Box in NORMALISED frame space (0..1), as an object — DetectionOverlay reads `.x/.y/.w/.h`
+   * directly and applies the crop/zoom transform itself.
+   */
+  bbox: { x: number; y: number; w: number; h: number };
+  /**
+   * Ring tile index (0..3) for quad-360 detections. Null when the detector reported against the
+   * composite rather than a tile — the overlay then culls by geometry instead of by tile id. A
+   * tile-normalised box with a null tile is DROPPED rather than placed by guesswork.
+   */
+  tile?: number | null;
+  /** Milliseconds since the detector reported it. Drives the stale/held presentation. */
+  ageMs?: number;
+  /** True bearing derived from tile mount + in-frame position. Null when heading is unknown. */
+  bearingDeg?: number | null;
+  /** Range, metres — only ever from a RANGE-MEASURING sensor, never from the optic. */
+  rangeM?: number | null;
+  /** True when the detector is no longer reporting it and the box is being HELD. */
+  stale?: boolean;
+  label?: string | null;
+}
+
+/**
+ * BMM150 magnetometer.
+ *
+ * `headingDeg` is populated ONLY when the backend reports BOTH `calibrated` and `tiltCompensated`.
+ * A magnetometer yields a true bearing only when level, which a buoy never is — so the raw vector
+ * must never be turned into a heading by atan2 on the client.
+ */
+export interface MagnetometerReading {
+  /**
+   * True ONLY when the backend said "present" AND a full vector actually arrived. A backend that
+   * reports present while publishing nulls has told us about its own state, not the sensor's.
+   */
+  present: boolean;
+  /** Raw field vector in microtesla. Null unless all three axes arrived. */
+  microTesla: { x: number; y: number; z: number } | null;
+  /** |B| in microtesla — the sanity check against local iron. */
+  magnitudeUt: number | null;
+  /**
+   * Magnetic bearing, degrees. Populated ONLY when the backend reports BOTH `calibrated` and
+   * `tiltCompensated`, and NEVER derived locally from the vector: a magnetometer yields a true
+   * bearing only when level, which a buoy never is.
+   */
+  magneticBearingDeg: number | null;
+  calibrated: boolean;
+  tiltCompensated: boolean;
+  /** Human-readable state when there is no usable reading — surfaced rather than swallowed. */
+  status: string | null;
+  i2cAddress: string | null;
+}
+
+/**
+ * The wired rig with everything unknown. This is the SHAPE, not a claim about hardware: both feeds
+ * are offline with null geometry until the backend says otherwise.
+ */
+export function emptyCameraRig(): CameraRig {
+  return {
+    updatedMsAgo: 0,
+    feeds: [
+      {
+        id: "quad360",
+        label: "360° Ring",
+        streamUrl: null,
+        online: false,
+        sensor: null,
+        width: null,
+        height: null,
+        fps: null,
+        fovDeg: null,
+        mountBearingsDeg: [0, 90, 180, 270],
+        zoomMax: null,
+        ptz: "digital",
+        irCut: null,
+        nightActive: null,
+        error: null,
+        stitch: { panoUrl: null, bevUrl: null, calibrated: false, calibrationSource: null, qualityNote: null },
+      },
+      {
+        id: "front",
+        label: "Target · IMX477",
+        streamUrl: null,
+        online: false,
+        sensor: null,
+        width: null,
+        height: null,
+        fps: null,
+        fovDeg: null,
+        mountBearingsDeg: [0],
+        zoomMax: null,
+        ptz: "digital",
+        irCut: null,
+        nightActive: null,
+        error: null,
+      },
+    ],
+  };
+}
+
+
+/**
+ * The four ring faces, bow-clockwise. This is the ORDER THE OPERATOR THINKS IN; the composite's
+ * physical tile order is a separate mapping (`CameraFeed.quad.tileOrder`) precisely because the two
+ * are not the same on this rig.
+ */
+export const RING_FACES = ["bow", "starboard", "aft", "port"] as const;
+export type RingFace = (typeof RING_FACES)[number];
+/** Bow-clockwise mount bearing for each ring face, degrees relative to the bow. */
+export const RING_FACE_BEARINGS: Record<RingFace, number> = { bow: 0, starboard: 90, aft: 180, port: 270 };
+
+/** One detector report. `tMs` is the DETECTOR's clock, not ours — staleness is measured from it. */
+export interface DetectionFrame {
+  /** Which feed produced this frame — "front" or "quad360". */
+  feedId?: string;
+  tMs: number | null;
+  model: string | null;
+  latencyMs?: number | null;
+  frameW: number | null;
+  frameH: number | null;
+  /**
+   * SAHI slicing state, when the detector ran tiled inference. Reported so the operator can tell a
+   * whole-frame pass from a sliced one — small-object recall differs sharply between them.
+   */
+  sahi?: { enabled: boolean; slices?: number | null } | null;
+  detections: CameraDetection[];
+}
