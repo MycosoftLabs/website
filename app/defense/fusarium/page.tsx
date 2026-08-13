@@ -56,6 +56,7 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 
 // ---------------------------------------------------------------------------
@@ -70,6 +71,13 @@ const EARTH_SIM_BAND_POSTER =
   "/assets/fusarium/earth simulator background-poster.jpg"
 const earthSimBandSources = deviceHeroVideoSources(EARTH_SIM_BAND_MP4, {
   envUrl: process.env.NEXT_PUBLIC_FUSARIUM_EARTHSIM_MP4,
+})
+
+// Section 11 backdrop — the colony still had an animated original; same NAS
+// policy, `-web` first. The 68 MB master stays out of git.
+const ORCHESTRATION_BAND_MP4 = "/assets/fusarium/orchestration-colony.mp4"
+const orchestrationBandSources = deviceHeroVideoSources(ORCHESTRATION_BAND_MP4, {
+  envUrl: process.env.NEXT_PUBLIC_FUSARIUM_ORCHESTRATION_MP4,
 })
 
 // ---------------------------------------------------------------------------
@@ -145,7 +153,10 @@ const operatingDomains: Array<{
     ],
   },
   {
-    domain: "Land & Infrastructure",
+    // Biosphere, not infrastructure — the three domains are named for the
+    // parts of the Earth system they sense (atmosphere, hydrosphere,
+    // biosphere), not for what happens to be installed there.
+    domain: "Land & Biosphere",
     accent: "text-emerald-300",
     droids: [
       {
@@ -372,9 +383,7 @@ export default function FusariumPage() {
 
           <div className="container max-w-7xl mx-auto px-4 relative z-10">
             <div className="max-w-4xl mx-auto text-center">
-              <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-400">
-                OPERATIONAL ENVIRONMENTAL INTELLIGENCE
-              </NeuBadge>
+              <GlassChip className="mb-4">OPERATIONAL ENVIRONMENTAL INTELLIGENCE</GlassChip>
               <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-white">FUSARIUM</h1>
               <p className="text-2xl md:text-3xl font-semibold text-white mb-4">
                 Intelligence grounded in the physical world.
@@ -389,7 +398,7 @@ export default function FusariumPage() {
                 <a href="#nlm" data-analytics="fusarium_hero_explore_click">
                   <NeuButton variant="primary" className="text-base px-6 py-3">
                     Explore the Platform
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <ArrowRight className="ml-2 h-5 w-5 text-current" />
                   </NeuButton>
                 </a>
                 <Link href="/defense/request-briefing" data-analytics="fusarium_hero_briefing_click">
@@ -408,7 +417,7 @@ export default function FusariumPage() {
                 <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-300">
                   <Rocket className="h-4 w-4" />
                   Building technology for the DoD? Enter FUSARIUM Launchpad
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform text-current" />
                 </span>
                 <span className="text-[11px] text-white/55">
                   Readiness, opportunity discovery, evidence organization, and contractor operations for technical startups.
@@ -451,7 +460,7 @@ export default function FusariumPage() {
                 <NeuCard key={p.audience} className="transition-all hover:scale-[1.01]">
                   <NeuCardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+                      <div className="myco-glass-tile p-2.5 shrink-0">
                         <p.icon className="h-5 w-5 text-primary" />
                       </div>
                       <div>
@@ -459,7 +468,7 @@ export default function FusariumPage() {
                         <h3 className="font-semibold mb-1">{p.head}</h3>
                         <p className="text-sm text-muted-foreground mb-3">{p.copy}</p>
                         <Link href={p.href} className="text-sm font-medium text-primary inline-flex items-center gap-1 hover:gap-2 transition-all">
-                          {p.cta} <ArrowRight className="h-4 w-4" />
+                          {p.cta} <ArrowRight className="h-4 w-4 text-current" />
                         </Link>
                       </div>
                     </div>
@@ -491,9 +500,7 @@ export default function FusariumPage() {
             <div className="text-center mb-14">
               {/* Section label uses the same frosted-glass treatment as the
                   hero CTAs — one button language across the page. */}
-              <span className="inline-flex items-center rounded-full border px-4 py-1.5 mb-4 text-[11px] font-semibold tracking-widest">
-                THE INTELLIGENCE CORE
-              </span>
+              <GlassChip className="mb-4">THE INTELLIGENCE CORE</GlassChip>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">Nature Learning Model</h2>
               <p className="text-2xl text-white/85 font-medium mb-4 max-w-3xl mx-auto">
                 Large Language Models begin with words. The Nature Learning Model begins with the world.
@@ -537,12 +544,10 @@ export default function FusariumPage() {
 
             <div className="text-center">
               {/* inline-block so the button centers instead of stretching left */}
-              <Link href="/myca/nlm" data-analytics="fusarium_nlm_detail_click" className="inline-block">
-                <NeuButton variant="primary" className="text-base px-6 py-3">
-                  Explore the Nature Learning Model
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </NeuButton>
-              </Link>
+              <GlassButton href="/myca/nlm" dataAnalytics="fusarium_nlm_detail_click">
+                Explore the Nature Learning Model
+                <ArrowRight className="ml-2 h-5 w-5 text-current" />
+              </GlassButton>
             </div>
           </div>
         </section>
@@ -577,7 +582,7 @@ export default function FusariumPage() {
               <NeuCard className="transition-all hover:scale-[1.005]">
                 <NeuCardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-white/10">
+                    <div className="myco-glass-tile p-3">
                       <Globe className="h-6 w-6 text-cyan-300" />
                     </div>
                     <div>
@@ -602,18 +607,16 @@ export default function FusariumPage() {
                       </div>
                     ))}
                   </div>
-                  <Link href="/natureos/earth-simulator" data-analytics="fusarium_earth_simulator_open" className="inline-block">
-                    <NeuButton variant="default" className="text-sm px-4 py-2 whitespace-nowrap">
-                      Open Earth Simulator <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                    </NeuButton>
-                  </Link>
+                  <GlassButton href="/natureos/earth-simulator" dataAnalytics="fusarium_earth_simulator_open">
+                    Open Earth Simulator <ArrowRight className="ml-2 h-4 w-4 shrink-0 text-current" />
+                  </GlassButton>
                 </NeuCardContent>
               </NeuCard>
 
               <NeuCard className="transition-all hover:scale-[1.005]">
                 <NeuCardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-white/10">
+                    <div className="myco-glass-tile p-3">
                       <Database className="h-6 w-6 text-amber-300" />
                     </div>
                     <div>
@@ -638,11 +641,9 @@ export default function FusariumPage() {
   → Cryptographic evidence reference`}
                     </pre>
                   </div>
-                  <Link href="/mindex" data-analytics="fusarium_mindex_explore" className="inline-block">
-                    <NeuButton variant="default" className="text-sm px-4 py-2 whitespace-nowrap">
-                      Explore MINDEX <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                    </NeuButton>
-                  </Link>
+                  <GlassButton href="/mindex" dataAnalytics="fusarium_mindex_explore">
+                    Explore MINDEX <ArrowRight className="ml-2 h-4 w-4 shrink-0 text-current" />
+                  </GlassButton>
                 </NeuCardContent>
               </NeuCard>
             </div>
@@ -653,9 +654,7 @@ export default function FusariumPage() {
         <section className="py-24 lp-band">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-400">
-                THE PHYSICAL NETWORK
-              </NeuBadge>
+              <GlassChip className="mb-4">THE PHYSICAL NETWORK</GlassChip>
               <h2 className="text-4xl font-bold mb-3 text-white">A body in every domain</h2>
               <p className="text-lg text-white/65 max-w-3xl mx-auto">
                 FUSARIUM does not rely on a single sensor or platform. Mycosoft droids operate across the atmosphere,
@@ -675,22 +674,28 @@ export default function FusariumPage() {
                         data-analytics="fusarium_device_select"
                         data-device={droid.id}
                       >
-                        {/* The device itself, blurred behind frosted glass — present
-                            enough to recognise the hardware, soft enough that the
-                            copy on top stays the thing you read. */}
+                        {/* The device in motion behind frosted glass — the same
+                            showcase loops the homepage tiles use, re-encoded to
+                            card size. Poster paints instantly; the clip loads
+                            only when the card is near the viewport and pauses
+                            when it leaves, so seven of these cost one decoder
+                            each at most and nothing while scrolled past. */}
                         <div className="lp-device-media" aria-hidden="true">
-                          {/* eslint-disable-next-line @next/next/no-img-element -- decorative card backdrop */}
-                          <img
-                            src={`/assets/fusarium/devices/${droid.id}.jpg`}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
+                          <AutoplayVideo
+                            src={`/assets/fusarium/devices/${droid.id}-card.mp4`}
+                            poster={`/assets/fusarium/devices/${droid.id}-card-poster.jpg`}
+                            preload="none"
+                            lazyRootMargin="400px"
+                            pauseWhenOutsideViewport
+                            pointerEventsNone
+                            disableProgressWatch
+                            className="absolute inset-0 h-full w-full object-cover"
                           />
                         </div>
                         <div className="relative">
                           <div className="flex items-start justify-between gap-3 mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="p-2.5 rounded-xl bg-white/10">
+                              <div className="myco-glass-tile p-2.5">
                                 <droid.icon className={`h-5 w-5 ${d.accent}`} />
                               </div>
                               <h4 className="text-lg font-semibold text-white">{droid.name}</h4>
@@ -703,7 +708,7 @@ export default function FusariumPage() {
                             ))}
                           </div>
                           <Link href={droid.href} className="text-sm font-medium text-emerald-400 inline-flex items-center gap-1 hover:gap-2 transition-all">
-                            View device <ArrowRight className="h-4 w-4" />
+                            View device <ArrowRight className="h-4 w-4 text-current" />
                           </Link>
                         </div>
                       </div>
@@ -731,10 +736,22 @@ export default function FusariumPage() {
         </section>
 
         {/* ================= 07 · THE SENSES OF FUSARIUM ================= */}
-        <section className="py-24">
+        {/* Two artworks, one per theme — unlike the other bands, which keep a
+            single dark image and force white type. Because a light-ground
+            version exists, the section keeps NORMAL theme typography: ink on
+            the light plate, white on the dark one. Only the non-matching image
+            is hidden, so exactly one ever paints. */}
+        <section className="py-24 lp-theme-band">
+          <div className="lp-theme-band-bg" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img className="lp-theme-band-light" src="/assets/fusarium/sensing-band-light.jpg" alt="" loading="lazy" decoding="async" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img className="lp-theme-band-dark" src="/assets/fusarium/sensing-band-dark.jpg" alt="" loading="lazy" decoding="async" />
+          </div>
+          <div className="lp-theme-band-scrim" aria-hidden="true" />
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4">Sensing Applications</NeuBadge>
+              <GlassChip className="mb-4">Sensing Applications</GlassChip>
               <h2 className="text-4xl font-bold mb-3">The senses of FUSARIUM</h2>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
                 Each sensing application converts a different class of physical evidence into structured observations
@@ -748,7 +765,7 @@ export default function FusariumPage() {
                   <NeuCardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-primary/10">
+                        <div className="myco-glass-tile p-2.5">
                           <s.icon className="h-5 w-5 text-primary" />
                         </div>
                         <div>
@@ -776,7 +793,7 @@ export default function FusariumPage() {
                     </div>
                     {s.statusNote && <p className="text-xs text-muted-foreground italic mb-3">{s.statusNote}</p>}
                     <Link href={s.href} className="text-sm font-medium text-primary inline-flex items-center gap-1 hover:gap-2 transition-all">
-                      Explore <ArrowRight className="h-4 w-4" />
+                      Explore <ArrowRight className="h-4 w-4 text-current" />
                     </Link>
                   </NeuCardContent>
                 </NeuCard>
@@ -789,9 +806,7 @@ export default function FusariumPage() {
         <section className="py-24 lp-band">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-400">
-                One Operational Picture
-              </NeuBadge>
+              <GlassChip className="mb-4">One Operational Picture</GlassChip>
               <h2 className="text-4xl font-bold mb-3 text-white">From physical signals to mission context</h2>
               <p className="text-lg text-white/65 max-w-3xl mx-auto mb-3">
                 FUSARIUM turns device observations, external sources, model outputs, historical evidence, and operator
@@ -830,14 +845,10 @@ export default function FusariumPage() {
             </div>
 
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link href="/dashboard/crep" data-analytics="fusarium_demo_open">
-                <NeuButton variant="primary" className="text-base px-6 py-3 whitespace-nowrap">
-                  Open Demo Workspace <ArrowRight className="ml-2 h-5 w-5 shrink-0" />
-                </NeuButton>
-              </Link>
-              <Link href="/defense/request-briefing">
-                <NeuButton variant="default" className="text-base px-6 py-3 whitespace-nowrap">Request Operational Access</NeuButton>
-              </Link>
+              <GlassButton href="/dashboard/crep" dataAnalytics="fusarium_demo_open">
+                Open demo <ArrowRight className="ml-2 h-5 w-5 shrink-0 text-current" />
+              </GlassButton>
+              <GlassButton href="/defense/request-briefing">Request Operational Access</GlassButton>
             </div>
           </div>
         </section>
@@ -861,9 +872,7 @@ export default function FusariumPage() {
 
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4 border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-                BUILD FOR DEFENSE · UNCLASSIFIED COMMERCIAL WORKSPACE
-              </NeuBadge>
+              <GlassChip className="mb-4">BUILD FOR DEFENSE · UNCLASSIFIED COMMERCIAL WORKSPACE</GlassChip>
               <h2 className="text-4xl md:text-5xl font-bold mb-4">From technical startup to defense-ready operator</h2>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
                 FUSARIUM Launchpad guides emerging technology companies through the administrative, readiness,
@@ -894,14 +903,12 @@ export default function FusariumPage() {
 
             <div className="text-center mb-8">
               <div className="flex flex-wrap gap-4 justify-center mb-3">
-                <Link href="/fusarium/launchpad" data-analytics="fusarium_launchpad_start">
-                  <NeuButton variant="primary" className="text-base px-6 py-3">
-                    Start Defense Launchpad <ArrowRight className="ml-2 h-5 w-5" />
-                  </NeuButton>
-                </Link>
-                <Link href="/fusarium/launchpad/pricing" data-analytics="fusarium_launchpad_pricing">
-                  <NeuButton variant="default" className="text-base px-6 py-3">View Launchpad Plans</NeuButton>
-                </Link>
+                <GlassButton href="/fusarium/launchpad" dataAnalytics="fusarium_launchpad_start">
+                  Start Launchpad <ArrowRight className="ml-2 h-5 w-5 text-current" />
+                </GlassButton>
+                <GlassButton href="/fusarium/launchpad/pricing" dataAnalytics="fusarium_launchpad_pricing">
+                  View Launchpad Plans
+                </GlassButton>
               </div>
               <p className="text-sm text-muted-foreground">
                 One-time and recurring plans available ·{" "}
@@ -932,7 +939,7 @@ export default function FusariumPage() {
         {/* ================= 10 · PARTNER MESH ================= */}
         <section id="partner-mesh" className="py-20 border-t border-border/40 scroll-mt-16">
           <div className="container max-w-5xl mx-auto px-4 text-center">
-            <NeuBadge variant="default" className="mb-4">Connect Your Technology</NeuBadge>
+            <GlassChip className="mb-4">Connect Your Technology</GlassChip>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Bring your system into the FUSARIUM ecosystem</h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-3">
               Companies using Launchpad may optionally connect compatible robots, sensors, software, models, data
@@ -947,11 +954,9 @@ export default function FusariumPage() {
                 <span key={c} className="text-sm px-3 py-1.5 rounded-full border border-border bg-muted/40 text-muted-foreground">{c}</span>
               ))}
             </div>
-            <Link href="/defense/request-briefing" data-analytics="fusarium_partner_mesh_apply">
-              <NeuButton variant="primary" className="text-base px-6 py-3">
-                Apply to Partner Mesh <ArrowRight className="ml-2 h-5 w-5" />
-              </NeuButton>
-            </Link>
+            <GlassButton href="/defense/request-briefing" dataAnalytics="fusarium_partner_mesh_apply">
+              Apply to Partner Mesh <ArrowRight className="ml-2 h-5 w-5 text-current" />
+            </GlassButton>
           </div>
         </section>
 
@@ -962,22 +967,22 @@ export default function FusariumPage() {
             treatment as the NLM and Earth-Simulator sections. */}
         <section className="py-24 lp-media-band">
           <div className="lp-media-bg">
-            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
-            <img
-              src="/assets/fusarium/orchestration-colony.jpg"
-              alt=""
-              aria-hidden="true"
-              loading="lazy"
-              decoding="async"
+            <AutoplayVideo
+              sources={orchestrationBandSources}
+              poster="/assets/fusarium/orchestration-colony-poster.jpg"
+              preload="none"
+              lazyRootMargin="300px"
+              pauseWhenOutsideViewport
+              pointerEventsNone
+              smoothLoop
+              className="absolute inset-0 h-full w-full object-cover"
             />
           </div>
           <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
 
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4 border-amber-500/40 text-amber-400">
-                ORCHESTRATION, GOVERNANCE, AND NETWORKING
-              </NeuBadge>
+              <GlassChip className="mb-4">ORCHESTRATION, GOVERNANCE, AND NETWORKING</GlassChip>
               <h2 className="text-4xl font-bold mb-3 text-white">
                 How the system coordinates, remembers, and stays accountable
               </h2>
@@ -1019,22 +1024,29 @@ FUSARIUM · CREP · Intelligence Products`}
             </div>
 
             <div className="text-center mt-8">
-              <Link href="/defense/technical-docs" data-analytics="fusarium_docs_open">
-                <NeuButton variant="default" className="text-base px-6 py-3">
-                  <FileText className="mr-2 h-5 w-5" /> Technical Documentation
-                </NeuButton>
-              </Link>
+              <GlassButton href="/defense/technical-docs" dataAnalytics="fusarium_docs_open">
+                <FileText className="mr-2 h-5 w-5 text-current" /> Documentation
+              </GlassButton>
             </div>
           </div>
         </section>
 
         {/* ================= 12 · ABOUT THE NAME (demoted accordion) ================= */}
-        <section className="py-14">
-          <div className="container max-w-3xl mx-auto px-4">
-            <details className="group rounded-lg border border-border/60 bg-muted/20 p-5">
+        {/* The genus itself, behind the paragraph explaining the name. One
+            artwork for both themes — the veil over it flips instead, so the
+            section keeps its normal typography: ink on light, light on dark. */}
+        <section className="py-14 lp-tint-band">
+          <div className="lp-tint-band-bg" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- decorative background layer */}
+            <img src="/assets/fusarium/name-hyphae.jpg" alt="" loading="lazy" decoding="async" />
+          </div>
+          <div className="lp-tint-band-scrim" aria-hidden="true" />
+
+          <div className="container max-w-3xl mx-auto px-4 relative">
+            <details className="group rounded-lg border border-border/60 p-5 lp-tint-panel">
               <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors list-none flex items-center justify-between">
                 Why the name FUSARIUM?
-                <ArrowRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+                <ArrowRight className="h-4 w-4 shrink-0 transition-transform duration-[420ms] ease-[cubic-bezier(0.25,1,0.5,1)] group-open:rotate-90 text-current" />
               </summary>
               <div className="mt-4 text-sm text-muted-foreground space-y-3">
                 <p>
@@ -1057,37 +1069,35 @@ FUSARIUM · CREP · Intelligence Products`}
                 {
                   head: "Deploy FUSARIUM",
                   copy: "For government, defense, infrastructure, and mission customers.",
-                  cta: "Request a Briefing",
+                  cta: "Sign up",
                   href: "/defense/request-briefing",
                   icon: Shield,
                 },
                 {
                   head: "Enter Launchpad",
                   copy: "For technical startups becoming defense-ready.",
-                  cta: "Start Defense Launchpad",
+                  cta: "Start Launchpad",
                   href: "/fusarium/launchpad",
                   icon: Rocket,
                 },
                 {
                   head: "Join Partner Mesh",
                   copy: "For companies integrating technology or data.",
-                  cta: "Apply to Integrate",
+                  cta: "Apply",
                   href: "/defense/request-briefing",
                   icon: Handshake,
                 },
               ].map((c) => (
                 <NeuCard key={c.head} className="text-center transition-all hover:scale-[1.01]">
                   <NeuCardContent className="pt-8 pb-8">
-                    <div className="p-3 rounded-xl bg-primary/10 w-fit mx-auto mb-4">
+                    <div className="myco-glass-tile p-3 w-fit mx-auto mb-4">
                       <c.icon className="h-6 w-6 text-primary" />
                     </div>
                     <h3 className="text-xl font-bold mb-2">{c.head}</h3>
                     <p className="text-sm text-muted-foreground mb-5">{c.copy}</p>
-                    <Link href={c.href}>
-                      <NeuButton variant="primary" className="px-5 py-2.5">
-                        {c.cta} <ArrowRight className="ml-2 h-4 w-4" />
-                      </NeuButton>
-                    </Link>
+                    <GlassButton href={c.href}>
+                      {c.cta} <ArrowRight className="ml-2 h-4 w-4 text-current" />
+                    </GlassButton>
                   </NeuCardContent>
                 </NeuCard>
               ))}
