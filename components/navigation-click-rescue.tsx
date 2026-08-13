@@ -44,6 +44,20 @@ import { usePathname } from "next/navigation"
 const COMMIT_DEADLINE_MS = process.env.NODE_ENV === "development" ? 12_000 : 3_500
 const POLL_MS = 250
 
+/**
+ * Deadline for the CLICK-ARMED path below.
+ *
+ * The pathname-armed watchdog can only start counting once React commits a new
+ * route — and the worst version of this bug never commits at all: the click
+ * lands, nothing moves, and the user sits looking at an unchanged page until
+ * they click again. That is the "everything takes two clicks" report.
+ *
+ * Arming on the click itself catches that case, and it can be far more
+ * aggressive because a user-initiated navigation should show *something*
+ * quickly. Dev still needs rope for a cold route compile; production does not.
+ */
+const CLICK_DEADLINE_MS = process.env.NODE_ENV === "development" ? 4_000 : 1_200
+
 /** One rescue per destination — a hard load always renders, so if we somehow
  *  come back to the same URL, do not reload again and risk a loop. */
 const RESCUE_MARKER = "__navRescueTarget"
@@ -117,6 +131,73 @@ export function NavigationClickRescue() {
     }, POLL_MS)
 
     return () => window.clearInterval(timer)
+  }, [])
+
+  // -------------------------------------------------------------------------
+  // Click-armed rescue — the fast path, and the one that covers the whole site.
+  //
+  // ~200 files render <Link>. Patching each one is not maintainable, and the
+  // sidebar-only fix left every in-page link still able to die. A single
+  // capture-phase listener here covers all of them: snapshot the page on any
+  // internal-link click, and if the rendered content has not moved by the
+  // deadline, complete the navigation the reliable way.
+  //
+  // Deliberately does NOT preventDefault or hijack the click — Next's own
+  // handler runs untouched, so a healthy navigation is a normal instant SPA
+  // transition and this listener simply disarms.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const onClick = (e: MouseEvent) => {
+      // Anything the browser should own: new tab/window, download, modified click.
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+
+      const el = e.target instanceof Element ? e.target.closest("a[href]") : null
+      if (!(el instanceof HTMLAnchorElement)) return
+      if (el.target && el.target !== "_self") return
+      if (el.hasAttribute("download")) return
+
+      // Same-origin, real route change only. Hash and query-only moves do not
+      // swap the page segment, so they would false-positive every time.
+      let url: URL
+      try {
+        url = new URL(el.href, window.location.href)
+      } catch {
+        return
+      }
+      if (url.origin !== window.location.origin) return
+      if (url.pathname === window.location.pathname) return
+
+      const before = pageSignature()
+      const target = `${url.pathname}${url.search}${url.hash}`
+
+      window.setTimeout(() => {
+        const now = pageSignature()
+        // Content moved — healthy navigation, stand down.
+        if (now.node !== before.node || now.text !== before.text) return
+        // Already at the destination with content that simply looks identical,
+        // or the user has since navigated somewhere else entirely: not ours.
+        if (window.location.pathname === url.pathname) return
+
+        // Guard against a reload loop on a route that genuinely renders the
+        // same content (an empty state, say).
+        try {
+          if (window.sessionStorage.getItem(RESCUE_MARKER) === target) return
+          window.sessionStorage.setItem(RESCUE_MARKER, target)
+        } catch {
+          /* storage disabled — proceed without the guard */
+        }
+        if (process.env.NODE_ENV === "development") {
+          console.warn(`[nav-rescue] click to ${target} never rendered — navigating directly.`)
+        }
+        window.location.assign(target)
+      }, CLICK_DEADLINE_MS)
+    }
+
+    // Capture phase: we observe before React's handler, and never consume it.
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
   }, [])
 
   // A successful render clears the one-shot marker, so a later failure on the

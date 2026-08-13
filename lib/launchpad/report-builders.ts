@@ -205,7 +205,16 @@ export interface BuiltReport {
 
 function cell(v: unknown, cap = 90): string {
   if (v === null || v === undefined || v === '') return '—';
-  const s = String(v).replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim().slice(0, cap);
+  const s = String(v)
+    // Backslash FIRST, then pipe. Escaping the pipe first turns an input of
+    // `a\|b` into `a\\|b` — an escaped backslash followed by a bare pipe, which
+    // breaks out of the table cell. Customer-supplied values (part names,
+    // control notes) reach these reports, so the order is load-bearing.
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, cap);
   return s || '—';
 }
 
