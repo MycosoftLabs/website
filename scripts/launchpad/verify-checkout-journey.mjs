@@ -61,13 +61,19 @@ line('   landed on', await page.evaluate(() => location.pathname + location.sear
 line('   price shown', await page.evaluate(() => (document.body.innerText.match(/\$[\d,]+/) || ['none'])[0]));
 
 console.log('\n3. Customer fills in their details');
-const inputs = await page.locator('input').all();
+// Scoped to main and to text-ish types: the header carries its own controls
+// (search, a checkbox toggle) that are not part of the purchase form.
+const inputs = await page
+  .locator('main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')
+  .all();
 line('   fields found', inputs.length);
 if (inputs.length >= 3) {
   await inputs[0].fill('Dana Reyes');
   await inputs[1].fill('dana@northwindrobotics.com');
   await inputs[2].fill('Northwind Robotics');
   line('   filled', 'name / email / company');
+} else {
+  line('   fields', 'FEWER THAN EXPECTED — form may not have rendered');
 }
 
 console.log('\n4. Customer submits — this hits Stripe for real');
