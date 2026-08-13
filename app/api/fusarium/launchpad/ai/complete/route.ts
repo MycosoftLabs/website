@@ -4,7 +4,7 @@ import { jsonError, readJson } from '@/lib/launchpad/http';
 import { routeCompletion } from '@/lib/launchpad/ai/router';
 import { isAiProvider } from '@/lib/launchpad/ai/types';
 import { creditBalance, loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
-import { GOVERNANCE } from '@/lib/launchpad/ai/governance';
+import { GOVERNANCE, maxPromptChars } from '@/lib/launchpad/ai/governance';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,16 +46,27 @@ export async function POST(request: NextRequest) {
     user?: string;
     provider?: string;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const system = typeof parsed.body.system === 'string' ? parsed.body.system : '';
   const user = typeof parsed.body.user === 'string' ? parsed.body.user : '';
   if (!system || !user) return jsonError(400, 'validation_error', 'system and user prompts required');
+  const taskType = parsed.body.taskType || 'general';
+  const maxChars = maxPromptChars(taskType);
+  const submittedChars = system.length + user.length;
+  if (submittedChars > maxChars) {
+    return jsonError(
+      413,
+      'prompt_too_large',
+      `Prompt is ${submittedChars} characters; max for this task is ${maxChars}. Refusing so the provider is not called and credits are not under-charged.`,
+      { maxChars, submittedChars, taskType },
+    );
+  }
   const provider = parsed.body.provider && isAiProvider(parsed.body.provider) ? parsed.body.provider : undefined;
   const result = await routeCompletion({
     tenantId: ctx.tenantId,
     userId: ctx.user.id,
     supabase: ctx.supabase,
-    taskType: parsed.body.taskType || 'general',
+    taskType,
     system,
     user,
     providerPreference: provider,

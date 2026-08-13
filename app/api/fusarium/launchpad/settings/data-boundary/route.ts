@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   if (gate.error) return gate.error;
   const { ctx } = gate;
   const parsed = await readJson<{ text?: string; filename?: string }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const text = typeof parsed.body.text === 'string' ? parsed.body.text : '';
   const filename = typeof parsed.body.filename === 'string' ? parsed.body.filename : '';
   if (filenameLooksDangerous(filename)) {

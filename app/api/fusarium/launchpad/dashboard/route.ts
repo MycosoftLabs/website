@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { creditBalance, loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
-import { computeScore, RULE_PACK_V1, type AssessmentState } from '@/lib/launchpad/scoring/engine';
+import { type AssessmentState } from '@/lib/launchpad/scoring/engine';
+import { fourIndependentMeasurements } from '@/lib/launchpad/scoring/indicators';
 import { CMMC_L2_CONTROLS } from '@/lib/security/reference/cmmc-l2-reference';
 
 export const dynamic = 'force-dynamic';
@@ -69,7 +70,7 @@ export async function GET() {
     ctx.supabase.from('launchpad_control_states').select('control_id, state').eq('tenant_id', ctx.tenantId),
     ctx.supabase
       .from('launchpad_evidence_index')
-      .select('captured_at, sha256, review_status, evidence_type, recorded_by')
+      .select('control_ids, captured_at, sha256, review_status, evidence_type, recorded_by')
       .eq('tenant_id', ctx.tenantId),
     ctx.supabase
       .from('launchpad_tasks')
@@ -88,24 +89,36 @@ export async function GET() {
   for (const row of states.data ?? []) {
     stateMap[row.control_id] = row.state as AssessmentState;
   }
-  const scored = computeScore(stateMap, RULE_PACK_V1);
+  const evidenceIds = (evidence.data ?? []).flatMap((row) => {
+    const ids = row.control_ids;
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  });
+  const measurements = fourIndependentMeasurements(stateMap, evidenceIds);
   const confidence = evidenceConfidence(evidence.data ?? []);
   const originFlags = (bom.data ?? []).filter((p) => Array.isArray(p.flags) && (p.flags as unknown[]).length > 0).length;
 
   return NextResponse.json({
+    measurements,
     indicators: {
-      implementedCount: scored.implementedCount,
-      weightedScoreEstimate: scored.score,
-      maxScore: scored.maxScore,
+      implementedCount: measurements.implementedCount.value,
+      weightedScoreEstimate: measurements.weightedScore.value,
+      maxScore: measurements.weightedScore.max,
       unassessedCount: CMMC_L2_CONTROLS.length - Object.keys(stateMap).length,
       evidenceConfidence: confidence.score,
       evidenceFactors: confidence.factors,
     },
-    independenceNote:
-      'Implementation count, weighted score, conditional eligibility, and evidence confidence are four independent indicators. Never merge them into one number.',
+    independenceNote: measurements.independenceNote,
     panels: {
-      readiness: { implementedCount: scored.implementedCount, catalogSize: CMMC_L2_CONTROLS.length, score: scored.score },
-      eligibility: { meetsThreshold: scored.meetsConditionalThreshold, threshold: scored.conditionalThreshold },
+      readiness: {
+        implementedCount: measurements.implementedCount.value,
+        catalogSize: CMMC_L2_CONTROLS.length,
+        score: measurements.weightedScore.value,
+      },
+      eligibility: {
+        value: measurements.poamEligibility.value,
+        threshold: measurements.weightedScore.threshold,
+        reason: measurements.poamEligibility.reason,
+      },
       evidence: confidence,
       blockers: (tasks.data ?? []).slice(0, 8),
       deadlines: (tasks.data ?? []).filter((t) => t.due_at).slice(0, 8),

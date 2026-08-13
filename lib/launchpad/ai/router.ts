@@ -8,8 +8,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 import { sanitizeForModel, filterModelOutput } from '@/lib/launchpad/prompt-firewall';
-import { envelopeDecrypt, redactSecrets, type EnvelopeBlob } from '@/lib/launchpad/crypto/envelope';
-import { governanceFor, type AiTaskType } from './governance';
+import { envelopeDecrypt, envelopeFromCustodyRow, redactSecrets } from '@/lib/launchpad/crypto/envelope';
+import { governanceFor, maxPromptChars, type AiTaskType } from './governance';
 import { completeWithKey, managedKeyFor } from './providers';
 import { insertCostLedger, refundReservation, reserveCredits, settleCredits } from './metering';
 import type { AiProvider } from './types';
@@ -41,56 +41,29 @@ export interface RouterResult {
 }
 
 const PUBLIC_CONNECTION_COLUMNS =
-  'id, provider, mode, status, display_prefix, last_verified_at, created_at, revoked_at, kms_backend';
+  'id, provider, mode, status, key_last4, label, last_verified_at, created_at, revoked_at, key_kms_key_id';
 
-interface MaterialRow {
-  id: string;
-  provider: string;
-  mode: string;
-  status: string;
-  ciphertext: string;
-  nonce: string;
-  tag: string;
-  wrapped_dek: string;
-  wrap_nonce: string;
-  wrap_tag: string;
-  dek_id: string;
-  alg: string;
-  kms_backend: string;
-}
-
-function blobFromRow(row: MaterialRow): EnvelopeBlob {
-  return {
-    ciphertext: row.ciphertext,
-    nonce: row.nonce,
-    tag: row.tag,
-    wrappedDek: row.wrapped_dek,
-    wrapNonce: row.wrap_nonce,
-    wrapTag: row.wrap_tag,
-    dekId: row.dek_id,
-    alg: row.alg as EnvelopeBlob['alg'],
-    kmsBackend: row.kms_backend as EnvelopeBlob['kmsBackend'],
-  };
-}
+const MATERIAL_COLUMNS =
+  'id, provider, mode, status, key_ciphertext, key_dek_wrapped, key_kms_key_id';
 
 async function loadByoMaterial(
   tenantId: string,
   provider?: AiProvider,
-): Promise<MaterialRow | null> {
+) {
   const svc = createLaunchpadServiceClient();
   let q = svc
     .from('launchpad_ai_connections')
-    .select(
-      'id, provider, mode, status, ciphertext, nonce, tag, wrapped_dek, wrap_nonce, wrap_tag, dek_id, alg, kms_backend',
-    )
+    .select(MATERIAL_COLUMNS)
     .eq('tenant_id', tenantId)
     .eq('mode', 'byo')
-    .eq('status', 'verified')
+    .in('status', ['active', 'verified'])
     .is('revoked_at', null);
   if (provider) q = q.eq('provider', provider);
   const { data, error } = await q.limit(1).maybeSingle();
   if (error || !data) return null;
-  return data as MaterialRow;
+  const blob = envelopeFromCustodyRow(data as Parameters<typeof envelopeFromCustodyRow>[0]);
+  if (!blob) return null;
+  return { id: data.id as string, provider: data.provider as string, blob };
 }
 
 export async function listPublicConnections(
@@ -103,11 +76,36 @@ export async function listPublicConnections(
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false });
   if (error) return { ok: false as const, error: error.message, connections: [] };
-  return { ok: true as const, connections: data ?? [] };
+  const connections = (data ?? []).map((row) => ({
+    id: row.id,
+    provider: row.provider,
+    mode: row.mode,
+    status: row.status,
+    displayPrefix: row.key_last4 ? `…${row.key_last4}` : null,
+    label: row.label,
+    lastVerifiedAt: row.last_verified_at,
+    createdAt: row.created_at,
+    revokedAt: row.revoked_at,
+    kmsKeyId: row.key_kms_key_id,
+  }));
+  return { ok: true as const, connections };
 }
 
 export async function routeCompletion(req: RouterRequest): Promise<RouterResult> {
   const gov = governanceFor(req.taskType);
+  const submittedChars = (req.system?.length ?? 0) + (req.user?.length ?? 0);
+  const maxChars = maxPromptChars(req.taskType);
+  if (submittedChars > maxChars) {
+    return {
+      ok: false,
+      byoKey: false,
+      creditsCharged: 0,
+      firewallRedactions: 0,
+      firewallFlags: [],
+      error: `Prompt is ${submittedChars} characters; max for this task is ${maxChars}. Provider was not called.`,
+      code: 'prompt_too_large',
+    };
+  }
   const { text: safeSystem, redactions: r1 } = sanitizeForModel(req.system);
   const { text: safeUser, redactions: r2 } = sanitizeForModel(req.user);
   const redactions = r1 + r2;
@@ -129,7 +127,7 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
   if (byo) {
     let key = '';
     try {
-      key = envelopeDecrypt(blobFromRow(byo));
+      key = envelopeDecrypt(byo.blob);
       const result = await completeWithKey(byo.provider as AiProvider, key, {
         system: safeSystem,
         user: safeUser,
@@ -181,12 +179,21 @@ export async function routeCompletion(req: RouterRequest): Promise<RouterResult>
 
   const managedProvider: AiProvider =
     preferred && isInferenceProvider(preferred) ? preferred : 'anthropic';
-  const managedKey = managedKeyFor(managedProvider) || managedKeyFor('openai') || managedKeyFor('perplexity');
+  const managedKey =
+    managedKeyFor(managedProvider) ||
+    managedKeyFor('openai') ||
+    managedKeyFor('anthropic') ||
+    managedKeyFor('xai') ||
+    managedKeyFor('perplexity');
   const resolvedProvider: AiProvider = managedKeyFor(managedProvider)
     ? managedProvider
     : managedKeyFor('openai')
       ? 'openai'
-      : 'perplexity';
+      : managedKeyFor('anthropic')
+        ? 'anthropic'
+        : managedKeyFor('xai')
+          ? 'xai'
+          : 'perplexity';
   if (!managedKey) {
     return {
       ok: false,

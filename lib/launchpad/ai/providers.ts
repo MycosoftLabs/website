@@ -185,19 +185,27 @@ export async function completeWithKey(
   };
 }
 
+function firstEnv(names: string[]): string | null {
+  for (const name of names) {
+    const v = (process.env[name] ?? '').trim();
+    if (v) return v;
+  }
+  return null;
+}
+
 /** Managed-key complete using platform env. Returns null if that provider is not configured. */
 export function managedKeyFor(provider: AiProvider): string | null {
-  const envName =
-    provider === 'anthropic'
-      ? 'ANTHROPIC_API_KEY'
-      : provider === 'openai'
-        ? 'OPENAI_API_KEY'
-        : provider === 'perplexity'
-          ? 'PERPLEXITY_API_KEY'
-          : provider === 'xai'
-            ? 'XAI_API_KEY'
-            : null;
-  if (!envName) return null;
-  const v = (process.env[envName] ?? '').trim();
-  return v || null;
+  if (provider === 'anthropic') {
+    return firstEnv(['ANTHROPIC_API_KEY', 'LAUNCHPAD_ANTHROPIC_API_KEY', 'CLAUDE_API_KEY']);
+  }
+  if (provider === 'openai') {
+    return firstEnv(['OPENAI_API_KEY', 'LAUNCHPAD_OPENAI_API_KEY']);
+  }
+  if (provider === 'perplexity') {
+    return firstEnv(['PERPLEXITY_API_KEY', 'LAUNCHPAD_PERPLEXITY_API_KEY']);
+  }
+  if (provider === 'xai') {
+    return firstEnv(['XAI_API_KEY', 'LAUNCHPAD_XAI_API_KEY', 'GROK_API_KEY']);
+  }
+  return null;
 }

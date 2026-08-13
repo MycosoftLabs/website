@@ -11,7 +11,7 @@ export async function GET() {
   const { data, error } = await ctx.supabase
     .from('launchpad_ai_cost_ledger')
     .select(
-      'id, provider, model, input_units, output_units, credits_charged, byo_key, actual_cost, reserved_cost, created_at, task_id',
+      'id, provider, model, input_units, output_units, credits_charged, byo_key, actual_cost_cents, reserved_cost_cents, created_at, task',
     )
     .eq('tenant_id', ctx.tenantId)
     .order('created_at', { ascending: false })

@@ -3,9 +3,27 @@ import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { capExceeded, entitlementDenied, jsonError, readJson } from '@/lib/launchpad/http';
 import { loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
-import { domesticContentEstimate, screenBomPart } from '@/lib/launchpad/origin/screen';
+import { domesticContentEstimate } from '@/lib/launchpad/origin/screen';
+import { originNeedsReplacement } from '@/lib/launchpad/origin/replace';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Validation-only input caps mirroring app/api/fusarium/launchpad/origin/bom/route.ts.
+ * Returns `undefined` when a value is present but the wrong type / out of bounds
+ * (callers turn that into a 400); absent/empty values become null.
+ */
+function cleanStr(v: unknown, max: number): string | null | undefined {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t ? t.slice(0, max) : null;
+}
+function cleanNum(v: unknown): number | null | undefined {
+  if (v === undefined || v === null) return null;
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
 
 export async function GET() {
   const gate = await requireTenant();
@@ -71,26 +89,47 @@ export async function POST(request: NextRequest) {
     countryOfOrigin?: string;
     prototypeOnly?: boolean;
   }>(request);
-  if (!parsed.ok) return parsed.response;
-  const flags = screenBomPart({
-    partNumber: parsed.body.partNumber,
-    description: parsed.body.description,
-    manufacturer: parsed.body.manufacturer,
-    supplier: parsed.body.supplier,
-    countryOfOrigin: parsed.body.countryOfOrigin,
+  if (parsed.ok === false) return parsed.response;
+  const assembly = cleanStr(parsed.body.assembly, 120);
+  const partNumber = cleanStr(parsed.body.partNumber, 120);
+  const description = cleanStr(parsed.body.description, 300);
+  const manufacturer = cleanStr(parsed.body.manufacturer, 200);
+  const supplier = cleanStr(parsed.body.supplier, 200);
+  const countryOfOrigin = cleanStr(parsed.body.countryOfOrigin, 80);
+  const quantity = cleanNum(parsed.body.quantity);
+  const unitCost = cleanNum(parsed.body.unitCost);
+  if (
+    assembly === undefined ||
+    partNumber === undefined ||
+    description === undefined ||
+    manufacturer === undefined ||
+    supplier === undefined ||
+    countryOfOrigin === undefined ||
+    quantity === undefined ||
+    unitCost === undefined
+  ) {
+    return jsonError(400, 'validation_error', 'Invalid field: strings only for text fields; quantity/unitCost must be non-negative finite numbers');
+  }
+  const screened = originNeedsReplacement({
+    partNumber: partNumber ?? undefined,
+    description: description ?? undefined,
+    manufacturer: manufacturer ?? undefined,
+    supplier: supplier ?? undefined,
+    countryOfOrigin: countryOfOrigin ?? undefined,
   });
+  const flags = screened.flags;
   const { data, error } = await ctx.supabase
     .from('launchpad_bom_parts')
     .insert({
       tenant_id: ctx.tenantId,
-      assembly: parsed.body.assembly ?? null,
-      part_number: parsed.body.partNumber ?? null,
-      description: parsed.body.description ?? null,
-      quantity: typeof parsed.body.quantity === 'number' ? parsed.body.quantity : null,
-      unit_cost: typeof parsed.body.unitCost === 'number' ? parsed.body.unitCost : null,
-      manufacturer: parsed.body.manufacturer ?? null,
-      supplier: parsed.body.supplier ?? null,
-      country_of_origin: parsed.body.countryOfOrigin ?? null,
+      assembly,
+      part_number: partNumber,
+      description,
+      quantity,
+      unit_cost: unitCost,
+      manufacturer,
+      supplier,
+      country_of_origin: countryOfOrigin,
       prototype_only: Boolean(parsed.body.prototypeOnly),
       flags,
     })
@@ -102,5 +141,5 @@ export async function POST(request: NextRequest) {
     entity: 'launchpad_bom_parts',
     entityId: data.id,
   });
-  return NextResponse.json({ ok: true, id: data.id, flags });
+  return NextResponse.json({ ok: true, id: data.id, flags, needsReplacementReview: screened.needsReplacementReview });
 }

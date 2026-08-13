@@ -344,7 +344,7 @@ export async function createAndSendEnvelope(input: {
   signers: DocuSignSigner[];
 }): Promise<{ providerEnvelopeId: string; status: EnvelopeStatus; mode: string }> {
   const ctx = await resolveSendContext(input.tenantId);
-  if (!ctx.ok) throw Object.assign(new Error(ctx.error), { code: ctx.code });
+  if (ctx.ok === false) throw Object.assign(new Error(ctx.error), { code: ctx.code });
   const documentBase64 = Buffer.from(htmlWithSignAnchor(input.html), 'utf8').toString('base64');
   const body = {
     emailSubject: `Signature requested: ${input.title}`.slice(0, 100),
@@ -391,7 +391,7 @@ export async function createAndSendEnvelope(input: {
 
 export async function resendEnvelope(tenantId: string, providerEnvelopeId: string): Promise<void> {
   const ctx = await resolveSendContext(tenantId);
-  if (!ctx.ok) throw Object.assign(new Error(ctx.error), { code: ctx.code });
+  if (ctx.ok === false) throw Object.assign(new Error(ctx.error), { code: ctx.code });
   const res = await fetch(
     `${ctx.baseUri}/restapi/v2.1/accounts/${ctx.accountId}/envelopes/${providerEnvelopeId}?resend_envelope=true`,
     {
@@ -409,7 +409,7 @@ export async function voidEnvelope(
   reason: string,
 ): Promise<void> {
   const ctx = await resolveSendContext(tenantId);
-  if (!ctx.ok) throw Object.assign(new Error(ctx.error), { code: ctx.code });
+  if (ctx.ok === false) throw Object.assign(new Error(ctx.error), { code: ctx.code });
   const res = await fetch(
     `${ctx.baseUri}/restapi/v2.1/accounts/${ctx.accountId}/envelopes/${providerEnvelopeId}`,
     {

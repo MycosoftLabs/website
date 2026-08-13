@@ -29,6 +29,38 @@ export interface DerivedEntitlements {
 const ACTIVE_STATUSES = new Set(['active', 'trialing']);
 const GRACE_STATUSES = new Set(['past_due', 'grace']);
 
+export function featureGate(derived: DerivedEntitlements): {
+  lockedVisible: boolean;
+  planKey: PlanKey | null;
+  mode: AccessMode;
+  capabilities: Record<string, boolean | number | string>;
+} {
+  const e = derived.entitlements;
+  return {
+    lockedVisible: true,
+    planKey: derived.planKey,
+    mode: derived.mode,
+    capabilities: {
+      byoAiKey: true,
+      readinessWorkspace: Boolean(e?.readinessWorkspace),
+      evidenceIndex: Boolean(e?.evidenceIndex),
+      documentFactory: Boolean(e?.documentFactory),
+      trainingTracker: Boolean(e?.trainingTracker),
+      resourceGraph: Boolean(e?.resourceGraph),
+      contractRadar: Boolean(e),
+      proposalWorkspaces: e?.proposalWorkspaces ?? 0,
+      localAgentDevices: e?.localAgentDevices ?? 0,
+      enclaveBridge: Boolean(e?.enclaveBridge),
+      originGraph: Boolean(e?.originGraph),
+      bomLineLimit: e?.bomLineLimit ?? 0,
+      partnerMesh: Boolean(e?.partnerMesh),
+      partnerSandbox: Boolean(e?.partnerSandbox),
+      apiAccess: Boolean(e?.apiAccess),
+      aiCreditsMonthly: e?.aiCreditsMonthly ?? 0,
+    },
+  };
+}
+
 export function deriveEntitlements(sub: SubscriptionRow | null, now = new Date()): DerivedEntitlements {
   if (!sub || (!sub.plan_key && !sub.founding_pass_expires_at)) {
     return { mode: 'none', planKey: null, entitlements: null, reason: 'No plan on this workspace yet.' };

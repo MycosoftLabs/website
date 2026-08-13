@@ -1,6 +1,14 @@
 -- ============================================================================
--- FUSARIUM Launchpad — Operational backend (WP-1, WP-4/5/8/10/11 schema)
+-- DO NOT APPLY ON PROD.
+-- Claude already applied launchpad_ai_connections (bytea key_ciphertext /
+-- key_dek_wrapped) as 20260813031155. This file would create a competing
+-- text-column envelope schema and 500 the live BFFs.
+-- Canonical: live bytea columns + surgical extend 20260812223000
+-- (MCP launchpad_ops_extend_aug12 / launchpad_ops_tables_aug12).
 -- Date: 2026-08-12
+-- ============================================================================
+-- FUSARIUM Launchpad — Operational backend (WP-1, WP-4/5/8/10/11 schema)
+-- SUPERSEDED for apply. Kept for history only.
 -- ============================================================================
 -- Recoverable BYO AI provider keys (envelope ciphertext — NEVER plaintext).
 -- Dual-meter cost ledger. Reserve-then-settle credit RPCs.

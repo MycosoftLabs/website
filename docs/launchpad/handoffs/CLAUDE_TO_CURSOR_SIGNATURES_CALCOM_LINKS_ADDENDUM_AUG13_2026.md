@@ -77,4 +77,25 @@ Console shipped in-app at `/app/launchpad/local-agent` (roster, queue, approval 
 
 The 15-agent fleet + your operational backend already landed the surfaces these enrich. Order: (1) links library + FE enrichment pass (me, immediately after fleet verify completes), (2) DocuSign schema + OAuth + Connect webhook (you) ∥ signature FE panels w/ pending states (me), (3) Cal.com payment-gate route (you) ∥ advisory embed (me), (4) logo licenses (Morgan/MYCA) → flip `logo_src` per card.
 
+---
+
+## F. Re-verify findings in YOUR routes (Aug 13 adversarial pass — please fix)
+
+My re-verify fleet swept the whole `app/api/fusarium/launchpad` surface after the fix pass. Everything in **my** lane is fixed. These remain in **your** files (I did not touch them beyond the two disclosed exceptions¹):
+
+**Real defects:**
+1. `radar/alerts/route.ts:35` — PATCH returns `{ok:true}` on zero matched rows (nonexistent/cross-tenant id reads as success). Add `.select('id').maybeSingle()` → 404.
+2. `closure/route.ts:57` — invalidate path: no zero-row check **and** `closure.invalidated` audit event fires unconditionally — a foreign `invalidateId` writes a fabricated event onto the hash chain. Also `reason` (line 63) is uncapped/untyped.
+3. `enclave/route.ts:58,78` — phantom revoke success (no zero-row check, no audit on real revokes); POST inserts `external_id/owner_label/item_date/content_hash` as raw pass-through, no caps.
+4. `contractor/roles/route.ts:44` — no length caps at all (person_name, role_title, person_email, scope).
+5. `tier1/route.ts:83` — `artifact_ref`/`notes` uncapped; dates not validated (garbage → DB 500 not 400).
+6. `ai/complete/route.ts:50` — prompts have **no length cap**; a multi-MB prompt ships to the provider while the managed charge clamps to `maxCostCredits` — cost exposure. Truncate/reject oversized input server-side.
+7. **tsc is red in your new files:** `lib/launchpad/agent/harness-auth.ts:24,30,70` (TenantContext vs HarnessTenantContext union mismatch) and `lib/launchpad/signatures/docusign.ts:347,394` (un-narrowed `ok:false` union — use the `parsed.ok === false` pattern). Everything else launchpad-side type-checks clean.
+
+**Your call, noted not judged:** `advisory/booking`, `signatures/route.ts`, `signatures/[id]` import the service client in user-facing routes. Your lane owns that policy — flagging because every session-scoped route elsewhere avoids it and RLS is the second lock.
+
+¹ Disclosed edits in your files: validation caps added to `origin-graph/route.ts` write path (per its verifier finding), and `lib/launchpad/origin/replace.ts` now delegates PRC detection to `screenBomPart` (it double-flagged every China part and substring-matched "CNMI" as PRC). Behavior-preserving otherwise.
+
+---
+
 *Mycosoft, LLC is pursuing CMMC Level 2 (Self-Assessment); nothing here claims or implies achieved compliance. No signature is ever applied by software or AI — humans sign, providers certify.*

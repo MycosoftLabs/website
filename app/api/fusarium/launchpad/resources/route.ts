@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
-import { jsonError, entitlementDenied } from '@/lib/launchpad/http';
+import { appendAuditEvent } from '@/lib/launchpad/audit';
+import { capText, jsonError, entitlementDenied, readJson } from '@/lib/launchpad/http';
 import { loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
 import {
   RESOURCE_CATALOG,
@@ -25,9 +26,8 @@ import { LINKS_BY_SURFACE } from '@/lib/launchpad/official-links';
  * DB rows win).
  *
  * A tenant must never write the global catalog, so there is no write path.
- * Customer-added resources are coming — they will live in a tenant-scoped
- * table (Cursor: launchpad_tenant_resource_cards), not the shared catalog.
- * Until that table exists, POST returns 501.
+ * Customer-added resources live in launchpad_tenant_resource_cards (tenant RLS).
+ * POST writes there only — never the shared catalog.
  *
  * NON-CUI boundary: metadata and references only — a name, a category, a URL,
  * a short note. No uploads, no credentials, no raw logs.
@@ -35,8 +35,7 @@ import { LINKS_BY_SURFACE } from '@/lib/launchpad/official-links';
 
 export const dynamic = 'force-dynamic';
 
-const CUSTOM_COMING_NOTE =
-  'Customer-added resources are coming — they will live in a workspace-scoped table, not the shared catalog.';
+const CUSTOM_CATEGORIES = new Set<string>([...RESOURCE_CATEGORIES.map((c) => c.key), 'other']);
 
 const CATEGORY_KEYS = new Set<string>(RESOURCE_CATEGORIES.map((c) => c.key));
 
@@ -109,21 +108,73 @@ export async function GET() {
     }
   }
 
+  const { data: customRows } = await ctx.supabase
+    .from('launchpad_tenant_resource_cards')
+    .select(
+      'id, category, vendor, offering, why_consider, when_required, when_not_required, external_url, notes, created_at',
+    )
+    .eq('tenant_id', ctx.tenantId)
+    .order('created_at', { ascending: false });
+
   return NextResponse.json({
     catalog: Array.from(merged.values()),
-    custom: [],
-    customAvailable: false,
-    customNote: CUSTOM_COMING_NOTE,
+    custom: customRows ?? [],
+    customAvailable: true,
     officialLinks: LINKS_BY_SURFACE.resources,
-    note: 'Independent listings — Mycosoft receives no compensation for any listing. A listing is not a certification, and no tool or vendor makes a company CMMC compliant. Vendor logos render only when logo_license records a brand-kit basis; otherwise a monogram.',
+    note: 'Independent listings — Mycosoft receives no compensation for any listing. A listing is not a certification, and no tool or vendor makes a company CMMC compliant. Vendor logos render only when logo_license records a brand-kit basis; otherwise a monogram. Custom cards are workspace-scoped and never write the shared catalog.',
   });
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const gate = await requireTenant({ write: true });
   if (gate.error) return gate.error;
-
-  // launchpad_resource_cards is the GLOBAL shared catalog — a tenant must
-  // never write it. No insert happened, so no audit event is appended.
-  return jsonError(501, 'not_implemented', CUSTOM_COMING_NOTE);
+  const { ctx } = gate;
+  const derived = await loadDerivedEntitlements(ctx.supabase, ctx.tenantId);
+  if (!derived.entitlements?.resourceGraph) {
+    return entitlementDenied('resourceGraph', derived.planKey, 'Resource Graph is not on this plan.');
+  }
+  const parsed = await readJson<{
+    category?: string;
+    vendor?: string;
+    offering?: string;
+    whyConsider?: string;
+    whenRequired?: string;
+    whenNotRequired?: string;
+    externalUrl?: string;
+    notes?: string;
+  }>(request);
+  if (parsed.ok === false) return parsed.response;
+  const category = capText(parsed.body.category, 40);
+  const vendor = capText(parsed.body.vendor, 200);
+  const offering = capText(parsed.body.offering, 200);
+  if (!CUSTOM_CATEGORIES.has(category) || !vendor || !offering) {
+    return jsonError(400, 'validation_error', 'category, vendor, and offering required');
+  }
+  const externalUrl = capText(parsed.body.externalUrl, 500);
+  if (externalUrl && !/^https:\/\//i.test(externalUrl)) {
+    return jsonError(400, 'validation_error', 'externalUrl must be https');
+  }
+  const { data, error } = await ctx.supabase
+    .from('launchpad_tenant_resource_cards')
+    .insert({
+      tenant_id: ctx.tenantId,
+      category,
+      vendor,
+      offering,
+      why_consider: capText(parsed.body.whyConsider, 2000) || null,
+      when_required: capText(parsed.body.whenRequired, 2000) || null,
+      when_not_required: capText(parsed.body.whenNotRequired, 2000) || null,
+      external_url: externalUrl || null,
+      notes: capText(parsed.body.notes, 2000) || null,
+      created_by: ctx.user.id,
+    })
+    .select('id')
+    .single();
+  if (error || !data) return jsonError(500, 'create_failed', 'Could not save workspace resource');
+  await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
+    action: 'resource.custom.created',
+    entity: 'launchpad_tenant_resource_cards',
+    entityId: data.id,
+  });
+  return NextResponse.json({ ok: true, id: data.id });
 }

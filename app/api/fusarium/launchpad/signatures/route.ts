@@ -1,3 +1,9 @@
+/**
+ * Signature envelopes. Session client owns list/create under RLS.
+ * The service client is used ONLY to decrypt the tenant's DocuSign OAuth
+ * envelope (column grants hide ciphertext from authenticated). It is not a
+ * session-bypass for writes of envelope metadata.
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';

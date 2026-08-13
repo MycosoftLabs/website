@@ -1,7 +1,6 @@
 /**
- * Tenant-scoped report catalogue (WP-6). Five types from the internal Reports
- * tab, parameterized by TenantProfile. Deterministic; no Mycosoft literals.
- * Never claims CMMC compliance.
+ * Tenant-scoped report catalogue. DRAFT + placeholders only.
+ * Never claims CMMC / FedRAMP / SPRS Met. Never invents scores.
  */
 
 import { DRAFT_LABEL, PLACEHOLDER } from '@/lib/launchpad/constants';
@@ -13,9 +12,16 @@ import { filterModelOutput } from '@/lib/launchpad/prompt-firewall';
 export const REPORT_TYPES = [
   'remediation_plan',
   'cmmc_l2_self_assessment',
+  'nist_800_171',
   'sprs_score',
   'poam',
   'supply_chain',
+  'sbir_sttr',
+  'ear_itar',
+  'foci',
+  'nisp',
+  'om',
+  'fedramp',
 ] as const;
 
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -35,9 +41,16 @@ export interface ReportInputs {
 const TITLES: Record<ReportType, string> = {
   remediation_plan: 'Remediation plan (DRAFT)',
   cmmc_l2_self_assessment: 'CMMC Level 2 self-assessment cover (DRAFT)',
+  nist_800_171: 'NIST SP 800-171 worksheet (DRAFT)',
   sprs_score: 'SPRS score worksheet (DRAFT)',
   poam: 'POA&M worksheet (DRAFT)',
   supply_chain: 'Supply-chain / Made-in-America worksheet (DRAFT)',
+  sbir_sttr: 'SBIR/STTR readiness cover (DRAFT)',
+  ear_itar: 'EAR/ITAR counsel referral (DRAFT)',
+  foci: 'FOCI questionnaire tracker (DRAFT)',
+  nisp: 'NISP / FCL readiness checklist (DRAFT)',
+  om: 'Operations & maintenance worksheet (DRAFT)',
+  fedramp: 'FedRAMP pointer (DRAFT — not an authorization)',
 };
 
 export function buildTenantReport(
@@ -63,8 +76,26 @@ export function buildTenantReport(
     kind === 'supply_chain'
       ? `BOM lines indexed: ${inputs.bomLines ?? 0}. Origin Graph flags require customer review. Launchpad does not certify domestic content.`
       : '',
-    kind === 'remediation_plan'
-      ? `Sequence work from customer-recorded gaps. AI does not mark controls implemented.`
+    kind === 'nist_800_171'
+      ? `Same 110-requirement corpus as CMMC L2. Implemented count: ${inputs.implementedCount ?? PLACEHOLDER}. Not a Met claim.`
+      : '',
+    kind === 'sbir_sttr'
+      ? `Outline only. Launchpad does not submit SBIR/STTR proposals.`
+      : '',
+    kind === 'ear_itar'
+      ? `Counsel referral worksheet. AI does not classify export-controlled technical data.`
+      : '',
+    kind === 'foci'
+      ? `FOCI tracker metadata only. AI does not classify FOCI. No SF-328 answers stored.`
+      : '',
+    kind === 'nisp'
+      ? `FCL readiness checklist. Launchpad cannot obtain or guarantee a facility clearance.`
+      : '',
+    kind === 'om'
+      ? `Operations & maintenance placeholders. Customer facts only.`
+      : '',
+    kind === 'fedramp'
+      ? `Pointer only. Not a FedRAMP authorization, ATO, or equivalency claim.`
       : '',
     ``,
     `Owner: ${PLACEHOLDER} · Reviewer: ${PLACEHOLDER} · Next review: ${PLACEHOLDER}`,

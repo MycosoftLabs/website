@@ -82,9 +82,15 @@ This is the answer to "how do we make money while letting them keep their data p
 
 **Margin note:** every tenant that switches to BYO improves gross margin. Do not discount BYO tenants. Do not meter their model calls in credits. Do meter their **actions** so entitlement caps (opportunity watches, proposal workspaces, BOM lines) still apply.
 
-### 2.2 Credential custody — DECISION REQUIRED FROM MORGAN BEFORE WP-1 SHIPS
+### 2.2 Credential custody — **DECIDED: Model B, KMS envelope encryption (Morgan, Aug 13 2026)**
 
-There is a direct conflict to resolve, and it must not be resolved silently in code.
+> **Decision record.** Morgan selected KMS envelope encryption. Consequences now in force:
+> 1. **Schema shipped** — migration `20260813120000_launchpad_ai_connections_tier1.sql` (applied to the project) creates `launchpad_ai_connections` with `key_ciphertext` / `key_dek_wrapped` / `key_kms_key_id` / `key_last4`. **Column grants strip key material from the `authenticated` role entirely** — members can see their connection rows but can never select or write the ciphertext columns; only `service_role` touches them. Also shipped: `launchpad_ai_cost_ledger` (§11.4 fields, insert-only) and `launchpad_tier1_records`.
+> 2. **Cursor delivered the envelope service (Aug 12)** — see `CURSOR_TO_CLAUDE_OPERATIONAL_BACKEND_CONTRACT_AUG12_2026.md` §2. **Honest name: application envelope with an env master key, NOT AWS KMS** until `LAUNCHPAD_KMS_ARN` is provisioned (if that ARN is set while AWS wrap is unprovisioned, encrypt fails closed). Random DEK per secret → AES-256-GCM → DEK wrapped with the 32-byte master from `LAUNCHPAD_KMS_MASTER_KEY` (64 hex chars, gitignored `.env.local` only, never committed, never logged); `LAUNCHPAD_KMS_MASTER_KEY_ID` (default `env-master-v1`) is written to `key_kms_key_id`. Without the master key the BFF refuses BYO intake with 503 `kms_unconfigured`. Plaintext key crosses the wire exactly once at POST; every later read is `key_last4` only. Marketing must not say "AWS KMS" until the ARN is real.
+> 3. **Policy bump required before real tenants connect keys** — publish `data_classification_policy` **v1.1** with a carve-out under `credentials_and_secrets`, e.g.: *"Exception: third-party AI provider API keys a customer explicitly connects are stored encrypted under a customer-scoped key (KMS envelope). They are never readable by Mycosoft staff, never logged, never returned by any API, never used for training, and are deleted immediately on revocation or tenant deletion."* Trust-page boundary language changes from "we store no credentials" to the same qualified statement. Draft goes to counsel with the WP-12 legal review.
+> 4. **BYO calls are never metered in credits** and the prompt firewall sits on the BYO egress path exactly as on managed.
+
+The original analysis, kept for context:
 
 `data_classification_policy.yaml` v1.0, currently published on our trust page, says:
 
@@ -297,6 +303,11 @@ Currently we have the banner and the prompt firewall. Missing: upload intercepto
 
 ---
 
+### WP-12a — Management analytics (Mycosoft-side customer view)
+Morgan's ask, Aug 13: *"integrate with Supabase and the back end so we can keep track of all of our customers… treat them as users and customers and get the data that we can get — not CUI data."*
+
+Everything needed already lands in Supabase by construction — tenants, memberships, subscriptions, credit ledger, AI cost ledger, audit events, feature usage. Build the **operator dashboard** (internal, admin-gated, NOT a Launchpad tenant page): tenant list with plan/status/MRR, activation funnel (signup → onboarding → first score → first document → billing), credit + AI-cost burn per tenant vs the <8% guardrail, churn/grace/read-export queue, and spec §29 metrics. Service-role reads with explicit predicates; **never** control states, evidence titles, or document contents in the operator view — business metadata only, matching the data-boundary promise. GTM §29.6 has the panel layout.
+
 ### WP-12 — Production readiness
 Stripe live products by lookup key (idempotent provisioning script); live webhook registration; secret rotation; CI secrets into **both** blue-green colors; migration-apply step; `LAUNCHPAD_ENABLED` rollout order; daily Stripe reconciliation; RLS attack checklist (forged `lp_tenant` cookie, tenant-ID stuffing, service-route probing); counsel review of legal pages before the flag flips.
 
@@ -374,7 +385,7 @@ These survive every refactor. They are the product's credibility.
 
 ## 9. Open items for Morgan
 
-1. **AI credential custody model** — A (session-only), B (KMS envelope, recommended), or C (agent-brokered)? B requires publishing `data_classification_policy` v1.1 and revising the trust-page boundary claim.
+1. ~~**AI credential custody model**~~ — **DECIDED Aug 13: Model B (KMS envelope).** See §2.2 decision record. Remaining sub-item: counsel review of the `data_classification_policy` v1.1 carve-out language before real tenants connect keys.
 2. **BYO-key discount policy** — confirm: no discount, no credit consumption, full subscription. That is what I have specced.
 3. **Cursor and Grok connectors** — Cursor has no public inference API in the same shape as the others; the realistic integration is MCP (our tools inside their editor) rather than us calling Cursor. Confirm that reading.
 4. **Advisory booking** — real calendar integration or a request form for now?

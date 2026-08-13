@@ -1,3 +1,9 @@
+/**
+ * Advisory booking. Session client lists credits/bookings (RLS).
+ * Service client is used only to mark a credit redeemed after a booking row
+ * exists — authenticated cannot UPDATE launchpad_advisory_credits by design.
+ * Availability still comes from Cal.com; we never invent slots.
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';

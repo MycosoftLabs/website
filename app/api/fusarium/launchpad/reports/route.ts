@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return entitlementDenied('documentFactory', derived.planKey, 'Document factory is not on this plan.');
   }
   const parsed = await readJson<{ type?: string }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const type = typeof parsed.body.type === 'string' ? parsed.body.type : '';
   if (!isReportType(type)) return jsonError(400, 'validation_error', 'Unknown report type', { types: REPORT_TYPES });
 

@@ -13,7 +13,7 @@ export interface BomPartInput {
 }
 
 export interface OriginFlag {
-  code: 'section_889' | 'covered_telecom' | 'unknown_origin';
+  code: 'section_889' | 'covered_telecom' | 'unknown_origin' | 'prc_origin';
   message: string;
 }
 
@@ -52,6 +52,12 @@ export function screenBomPart(part: BomPartInput): OriginFlag[] {
     flags.push({
       code: 'unknown_origin',
       message: 'Country of origin not provided — domestic-content calculation cannot run on this line.',
+    });
+  } else if (/^(cn|chn|prc|china|people'?s republic of china)$/i.test(origin) || /\b(prc|china)\b/i.test(origin)) {
+    flags.push({
+      code: 'prc_origin',
+      message:
+        'Customer-supplied origin matches a PRC / China label. This is a review flag, not an automatic exclusion or compliance determination.',
     });
   }
   return flags;

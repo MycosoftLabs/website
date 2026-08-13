@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (gate.error) return gate.error;
   const { ctx } = gate;
   const parsed = await readJson<{ confirm?: string }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   if (parsed.body.confirm !== ctx.tenantName) {
     return jsonError(400, 'confirm_required', 'POST confirm must equal the workspace name. Deletion is owner-only.');
   }

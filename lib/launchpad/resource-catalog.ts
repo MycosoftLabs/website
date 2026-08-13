@@ -3,10 +3,16 @@
  *
  * A typed const array, NOT database seeds: this is editorial content that
  * ships with the app and versions with the code. Tenant-added custom cards
- * live in launchpad_resource_cards; the curated baseline lives here.
+ * live in launchpad_tenant_resource_cards (workspace RLS). The global
+ * launchpad_resource_cards table is the curated catalog and is read-only
+ * to tenants.
+
  *
  * Editorial rules (violations are content bugs):
- *  - Plain-text vendor names, neutral descriptions, no logos.
+ *  - Plain-text vendor names, neutral descriptions. Vendor marks: favicon
+ *    marks are interim identification per Morgan's Aug 13 directive (decision
+ *    recorded over GTM §18.1's no-logo default; license basis tracked per
+ *    mark) — full brand-kit logos require a recorded logo_license basis.
  *  - Every card discloses the relationship: relationship_type 'none' with the
  *    exact FTC material-connection disclosure below.
  *  - NEVER "official partner", "approved", "certified by", or "recommended by
@@ -63,6 +69,13 @@ export interface ResourceCatalogCard {
   logo_src?: string | null;
   /** Human-readable license basis, e.g. "vendor brand kit: https://…". */
   logo_license?: string | null;
+  /**
+   * Vendor domain for the interim favicon mark (see VendorMark). Derived from
+   * external_url's hostname. Favicon marks identify, they never endorse.
+   */
+  logoDomain?: string;
+  /** Brand-kit license basis for a full logo — recorded when collected. */
+  logoLicense?: string;
   /** Position for ordered categories (decision tree, registration path). */
   step?: number;
 }
@@ -169,6 +182,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     ],
     alternatives: ['Microsoft 365 GCC High', 'AWS GovCloud (US)', 'Google Workspace Assured Workloads', 'Self-hosted enclave'],
     external_url: 'https://www.preveil.com',
+    logoDomain: 'preveil.com',
   },
   {
     ...shared,
@@ -186,6 +200,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['Classified information'],
     alternatives: ['PreVeil', 'AWS GovCloud (US)', 'Self-hosted enclave'],
     external_url: 'https://www.microsoft.com/en-us/microsoft-365/government',
+    logoDomain: 'microsoft.com',
   },
   {
     ...shared,
@@ -203,6 +218,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['Classified information'],
     alternatives: ['Microsoft Azure Government', 'Google Assured Workloads', 'Self-hosted enclave'],
     external_url: 'https://aws.amazon.com/govcloud-us/',
+    logoDomain: 'aws.amazon.com',
   },
   {
     ...shared,
@@ -220,6 +236,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['Classified information'],
     alternatives: ['PreVeil', 'Microsoft 365 GCC High', 'AWS GovCloud (US)'],
     external_url: 'https://cloud.google.com/assured-workloads',
+    logoDomain: 'cloud.google.com',
   },
   {
     ...shared,
@@ -256,6 +273,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['Your SAM.gov or portal passwords — never share credentials with anyone, including consultants'],
     alternatives: ['Direct supplier portals run by individual primes'],
     external_url: 'https://www.exostar.com',
+    logoDomain: 'exostar.com',
   },
 
   // -------------------------------------------------------------------------
@@ -387,6 +405,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['Full or unredacted SIEM logs into Launchpad — references and hashes only'],
     alternatives: ['Commercial SIEM platforms', 'Managed security service providers'],
     external_url: 'https://wazuh.com',
+    logoDomain: 'wazuh.com',
   },
   {
     ...shared,
@@ -420,6 +439,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'Non-standard situations — foreign founders, unusual ownership, existing IP entanglements — go to qualified counsel instead.',
     alternatives: ['Qualified startup counsel', 'Other online formation services'],
     external_url: 'https://www.clerky.com',
+    logoDomain: 'clerky.com',
   },
   {
     ...shared,
@@ -463,6 +483,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     data_not_allowed: ['The EIN value itself does not belong in Launchpad — record where it is kept, not the number'],
     alternatives: ['None — go directly to irs.gov'],
     external_url: 'https://www.irs.gov/businesses/small-businesses-self-employed/get-an-employer-identification-number',
+    logoDomain: 'irs.gov',
   },
   {
     ...shared,
@@ -525,6 +546,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'A solo founder holding 100% can wait — but paper every issuance properly in the meantime.',
     alternatives: ['Carta (widely used alternative)', 'Spreadsheet plus counsel at the very earliest stage'],
     external_url: 'https://pulley.com',
+    logoDomain: 'pulley.com',
   },
 
   // -------------------------------------------------------------------------
@@ -543,6 +565,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     when_not_required: 'Only if you will never touch a federal system.',
     alternatives: ['None — this is the standard federal sign-in'],
     external_url: 'https://login.gov',
+    logoDomain: 'login.gov',
   },
   {
     ...shared,
@@ -558,6 +581,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'If you only ever sell to primes as a subcontractor you can sometimes defer it — but most primes still want it done.',
     alternatives: ['Free help: your local APEX Accelerator'],
     external_url: 'https://sam.gov',
+    logoDomain: 'sam.gov',
   },
   {
     ...shared,
@@ -573,6 +597,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'Never pay anyone for an "entity identifier" — the UEI is free and there is no other one.',
     alternatives: ['None — the UEI is the only entity identifier you need'],
     external_url: 'https://sam.gov',
+    logoDomain: 'sam.gov',
   },
   {
     ...shared,
@@ -587,6 +612,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     when_not_required: 'Not skippable — an incomplete registration cannot receive awards.',
     alternatives: ['Free help: APEX Accelerators'],
     external_url: 'https://sam.gov',
+    logoDomain: 'sam.gov',
   },
   {
     ...shared,
@@ -601,6 +627,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     when_not_required: 'Never pay for CAGE "assignment" — it has no fee.',
     alternatives: ['None — assigned automatically'],
     external_url: 'https://cage.dla.mil',
+    logoDomain: 'cage.dla.mil',
   },
   {
     ...shared,
@@ -615,6 +642,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     when_not_required: 'Only once you have permanently exited federal contracting.',
     alternatives: ['Track it in your compliance calendar'],
     external_url: 'https://sam.gov',
+    logoDomain: 'sam.gov',
   },
 
   // -------------------------------------------------------------------------
@@ -633,6 +661,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'If the equity cost outweighs what the program concretely provides for your stage.',
     alternatives: ['Other accelerators', 'Angel investors', 'Bootstrapping'],
     external_url: 'https://www.boost.vc',
+    logoDomain: 'boost.vc',
   },
   {
     ...shared,
@@ -662,6 +691,7 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
       'If your product needs no R&D push, or you cannot yet support the proposal and reporting effort.',
     alternatives: ['Agency BAAs and prize competitions', 'APEX Accelerators for free guidance'],
     external_url: 'https://www.sbir.gov',
+    logoDomain: 'sbir.gov',
   },
   {
     ...shared,
@@ -675,5 +705,6 @@ export const RESOURCE_CATALOG: ResourceCatalogCard[] = [
     when_not_required: 'There is rarely a reason to skip free, government-funded help.',
     alternatives: ['SBA resource partners (SBDC, SCORE)'],
     external_url: 'https://www.apexaccelerators.us',
+    logoDomain: 'apexaccelerators.us',
   },
 ];

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
-import { entitlementDenied, jsonError, readJson } from '@/lib/launchpad/http';
+import { capText, entitlementDenied, jsonError, parseIsoDate, readJson, SHA256_RE } from '@/lib/launchpad/http';
 import { loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
 
 const PROVIDERS = ['preveil', 'gcc_high', 'govcloud', 'assured_workloads', 'self_hosted', 'exostar', 'other'] as const;
@@ -54,20 +54,40 @@ export async function POST(request: NextRequest) {
     contentHash?: string;
     revokeId?: string;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   if (parsed.body.revokeId) {
-    const { error } = await ctx.supabase
+    const revokeId = typeof parsed.body.revokeId === 'string' ? parsed.body.revokeId.trim() : '';
+    if (!revokeId) return jsonError(400, 'validation_error', 'revokeId required');
+    const { data, error } = await ctx.supabase
       .from('launchpad_enclave_references')
       .update({ status: 'revoked', revoked_at: new Date().toISOString() })
       .eq('tenant_id', ctx.tenantId)
-      .eq('id', parsed.body.revokeId);
+      .eq('id', revokeId)
+      .select('id')
+      .maybeSingle();
     if (error) return jsonError(500, 'revoke_failed', 'Could not revoke reference');
-    return NextResponse.json({ ok: true, revoked: true });
+    if (!data) return jsonError(404, 'not_found', 'Enclave reference not found in this workspace');
+    await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
+      action: 'enclave.revoked',
+      entity: 'launchpad_enclave_references',
+      entityId: data.id,
+    });
+    return NextResponse.json({ ok: true, revoked: true, id: data.id });
   }
   const provider = typeof parsed.body.provider === 'string' ? parsed.body.provider : '';
-  const title = typeof parsed.body.title === 'string' ? parsed.body.title.trim().slice(0, 300) : '';
+  const title = capText(parsed.body.title, 300);
   if (!(PROVIDERS as readonly string[]).includes(provider) || !title) {
     return jsonError(400, 'validation_error', 'provider and title required');
+  }
+  const externalId = capText(parsed.body.externalId, 200) || null;
+  const ownerLabel = capText(parsed.body.ownerLabel, 200) || null;
+  const itemDateParsed = parseIsoDate(parsed.body.itemDate);
+  if (itemDateParsed.ok === false) {
+    return jsonError(400, 'validation_error', 'itemDate must be a valid ISO date');
+  }
+  const rawHash = capText(parsed.body.contentHash, 64);
+  if (rawHash && !SHA256_RE.test(rawHash)) {
+    return jsonError(400, 'validation_error', 'contentHash must be a 64-char hex SHA-256');
   }
   const { data, error } = await ctx.supabase
     .from('launchpad_enclave_references')
@@ -75,10 +95,10 @@ export async function POST(request: NextRequest) {
       tenant_id: ctx.tenantId,
       provider,
       title,
-      external_id: parsed.body.externalId ?? null,
-      owner_label: parsed.body.ownerLabel ?? null,
-      item_date: parsed.body.itemDate ?? null,
-      content_hash: parsed.body.contentHash ?? null,
+      external_id: externalId,
+      owner_label: ownerLabel,
+      item_date: itemDateParsed.iso,
+      content_hash: rawHash ? rawHash.toLowerCase() : null,
       created_by: ctx.user.id,
     })
     .select('id')

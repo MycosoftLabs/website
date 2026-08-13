@@ -5,6 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 import type { CostLedgerInput } from './types';
 
 export interface ReserveResult {
@@ -77,11 +78,11 @@ export async function insertCostLedger(
   userId: string | null,
   input: CostLedgerInput,
 ): Promise<void> {
-  const { error } = await supabase.from('launchpad_ai_cost_ledger').insert({
+  const svc = createLaunchpadServiceClient();
+  const { error } = await svc.from('launchpad_ai_cost_ledger').insert({
     tenant_id: tenantId,
     user_id: userId,
-    task_id: input.taskId,
-    reservation_id: input.reservationId,
+    task: input.taskId,
     provider: input.provider,
     model: input.model,
     provider_price_version: input.providerPriceVersion,
@@ -92,10 +93,11 @@ export async function insertCostLedger(
     reasoning_units: input.reasoningUnits,
     cache_read: input.cacheRead,
     cache_write: input.cacheWrite,
-    actual_cost: input.actualCost,
-    reserved_cost: input.reservedCost,
+    actual_cost_cents: input.actualCost,
+    reserved_cost_cents: input.reservedCost,
     credits_charged: input.creditsCharged,
     byo_key: input.byoKey,
+    ref: input.reservationId ? { reservation_id: input.reservationId } : {},
   });
   if (error) {
     console.error('[launchpad/ai] cost ledger insert failed:', error.message);

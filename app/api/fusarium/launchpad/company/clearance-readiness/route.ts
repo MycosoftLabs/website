@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
     fociPositive?: boolean;
     exportPositive?: boolean;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const { data: existing } = await ctx.supabase
     .from('launchpad_clearance_readiness')
     .select('data, disclaimer_acknowledged_at')

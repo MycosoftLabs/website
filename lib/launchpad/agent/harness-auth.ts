@@ -21,13 +21,13 @@ export async function requireTenantOrHarnessRead(
     return { ctx: { ...session.ctx, viaApiKey: false } };
   }
   if (session.error.status !== 401) {
-    return session;
+    return { error: session.error };
   }
 
   try {
     const svc = createLaunchpadServiceClient();
     const key = await authorizeHarnessBearer(svc, request.headers.get('authorization'));
-    if (!key) return session;
+    if (!key) return { error: session.error };
 
     const { data: tenant } = await svc
       .from('launchpad_tenants')
@@ -67,6 +67,6 @@ export async function requireTenantOrHarnessRead(
         ),
       };
     }
-    return session;
+    return { error: session.error };
   }
 }

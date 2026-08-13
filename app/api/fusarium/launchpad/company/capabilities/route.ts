@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
   if (gate.error) return gate.error;
   const { ctx } = gate;
   const parsed = await readJson<Record<string, unknown>>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const clean: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed.body)) {
     if (!(FIELDS as readonly string[]).includes(k)) continue;

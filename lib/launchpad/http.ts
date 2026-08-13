@@ -6,6 +6,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CATALOG, PLAN_ENTITLEMENTS, type Entitlements, type PlanKey } from '@/lib/launchpad/catalog';
 
+export {
+  EMAIL_RE,
+  SHA256_RE,
+  UUID_RE,
+  capText,
+  parseIsoDate,
+  looksLikeSecret,
+} from '@/lib/launchpad/validate';
+
 export function jsonError(
   status: number,
   code: string,

@@ -23,6 +23,7 @@ export async function GET() {
     deviceCap: derived.entitlements?.localAgentDevices ?? 0,
     enroll: 'POST /api/fusarium/launchpad/local-agent/enroll',
     results: 'POST /api/fusarium/launchpad/local-agent/results (sanitized only)',
+    proposals: 'GET/POST/PATCH /api/fusarium/launchpad/local-agent/proposals (human gate)',
     note:
       'Local MYCA harness: services/launchpad-myca-harness (WP-3). Cloud stores sanitized results + hashes only. An agent_check never flips a control to implemented.',
   });

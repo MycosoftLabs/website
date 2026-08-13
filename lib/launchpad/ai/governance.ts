@@ -116,3 +116,10 @@ export const GOVERNANCE: Record<AiTaskType, ModelGovernance> = {
 export function governanceFor(taskType: string): ModelGovernance {
   return GOVERNANCE[(taskType as AiTaskType)] ?? GOVERNANCE.general;
 }
+
+/** Conservative chars-per-token for server-side prompt caps (reject, never under-charge). */
+export const PROMPT_CHARS_PER_TOKEN = 4;
+
+export function maxPromptChars(taskType: string): number {
+  return governanceFor(taskType).maxContextTokens * PROMPT_CHARS_PER_TOKEN;
+}

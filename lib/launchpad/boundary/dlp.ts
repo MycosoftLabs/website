@@ -59,3 +59,23 @@ export function filenameLooksDangerous(name: string): boolean {
   const n = name.toLowerCase();
   return n.includes('sf-86') || n.includes('sf86') || n.endsWith('.pcap') || n.endsWith('.pcapng');
 }
+
+/**
+ * Mandatory interceptor for any future file-touch surface.
+ * Call this BEFORE persisting bytes. Blocked uploads must not be stored;
+ * callers append a quarantine/audit event with hashes only.
+ */
+export function interceptUpload(input: {
+  filename: string;
+  textSample?: string;
+}): DlpResult {
+  const hits: DlpHit[] = [];
+  if (filenameLooksDangerous(input.filename)) {
+    hits.push({ kind: 'sf86', excerpt: input.filename.slice(0, 80) });
+  }
+  if (input.textSample) {
+    const scanned = scanTextForBoundary(input.textSample);
+    hits.push(...scanned.hits);
+  }
+  return { blocked: hits.length > 0, hits };
+}

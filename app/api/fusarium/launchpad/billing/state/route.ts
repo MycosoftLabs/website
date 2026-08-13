@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
-import { deriveEntitlements, type SubscriptionRow } from '@/lib/launchpad/entitlements';
+import { deriveEntitlements, featureGate, type SubscriptionRow } from '@/lib/launchpad/entitlements';
 
 /** GET — subscription + derived entitlements + credit balance for the tenant. */
 export async function GET() {
@@ -26,7 +26,9 @@ export async function GET() {
   return NextResponse.json({
     subscription: sub ?? null,
     derived,
+    featureGate: featureGate(derived),
     creditBalance,
-    note: 'Entitlements are derived server-side from the verified subscription state. The checkout redirect grants nothing; only the webhook does.',
+    lockedVisible: true,
+    note: 'Entitlements are derived server-side from the verified subscription state. The checkout redirect grants nothing; only the webhook does. Locked features stay visible in nav.',
   });
 }

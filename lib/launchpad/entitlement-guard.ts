@@ -1,5 +1,7 @@
 /**
  * Load server-derived entitlements for the current tenant (session client).
+ * FeatureGate source of truth: launchpad_subscriptions + catalog.ts.
+ * Demo tenant is Partner Mesh Pro via the subscription row — no extra unlock column.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -9,12 +11,12 @@ export async function loadDerivedEntitlements(
   supabase: SupabaseClient,
   tenantId: string,
 ): Promise<DerivedEntitlements> {
-  const { data } = await supabase
+  const { data: sub } = await supabase
     .from('launchpad_subscriptions')
     .select('plan_key, status, current_period_end, grace_until, founding_pass_expires_at')
     .eq('tenant_id', tenantId)
     .maybeSingle();
-  return deriveEntitlements((data as SubscriptionRow | null) ?? null);
+  return deriveEntitlements((sub as SubscriptionRow | null) ?? null);
 }
 
 export async function creditBalance(supabase: SupabaseClient, tenantId: string): Promise<number> {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
-import { jsonError, readJson } from '@/lib/launchpad/http';
+import { capText, jsonError, looksLikeSecret, parseIsoDate, readJson } from '@/lib/launchpad/http';
 import { scanTextForBoundary } from '@/lib/launchpad/boundary/dlp';
 
 const KINDS = [
@@ -55,23 +55,42 @@ export async function POST(request: NextRequest) {
     renewalAt?: string;
     data?: Record<string, unknown>;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const kind = typeof parsed.body.kind === 'string' ? parsed.body.kind : '';
-  const label = typeof parsed.body.label === 'string' ? parsed.body.label.trim().slice(0, 200) : '';
+  const label = capText(parsed.body.label, 200);
   if (!(KINDS as readonly string[]).includes(kind) || !label) {
     return jsonError(400, 'validation_error', 'kind (allowed enum) and label required');
   }
   const data = parsed.body.data && typeof parsed.body.data === 'object' ? parsed.body.data : {};
-  for (const key of Object.keys(data)) {
+  const keys = Object.keys(data);
+  if (keys.length > 40) {
+    return jsonError(400, 'validation_error', 'Registration data has too many keys');
+  }
+  for (const key of keys) {
+    if (key.length > 80) return jsonError(400, 'validation_error', 'Registration data key too long');
     if (BLOCKED.some((b) => key.toLowerCase().includes(b))) {
       return jsonError(400, 'blocked_field', `Field "${key}" is not stored. Portal passwords, DUNS, and EINs stay in customer systems.`);
     }
+    const value = data[key];
+    if (typeof value === 'string') {
+      if (value.length > 500) return jsonError(400, 'validation_error', `Field "${key}" exceeds 500 characters`);
+      if (looksLikeSecret(value)) {
+        return jsonError(400, 'blocked_field', `Field "${key}" looks like a secret and is not stored.`);
+      }
+    } else if (value != null && typeof value !== 'number' && typeof value !== 'boolean') {
+      return jsonError(400, 'validation_error', `Field "${key}" must be a string, number, or boolean`);
+    }
   }
   const blob = JSON.stringify(data);
+  if (blob.length > 8000) return jsonError(400, 'validation_error', 'Registration payload too large');
   const dlp = scanTextForBoundary(blob);
   if (dlp.blocked) return jsonError(400, 'boundary_blocked', 'Registration payload failed the data-boundary scan.');
   if ('login_password' in data || 'password' in data || 'duns' in data) {
     return jsonError(400, 'blocked_field', 'Passwords and DUNS numbers are not stored.');
+  }
+  const renewal = parseIsoDate(parsed.body.renewalAt);
+  if (renewal.ok === false) {
+    return jsonError(400, 'validation_error', 'renewalAt must be a valid ISO date');
   }
   const { data: row, error } = await ctx.supabase
     .from('launchpad_registration_records')
@@ -79,8 +98,8 @@ export async function POST(request: NextRequest) {
       tenant_id: ctx.tenantId,
       kind,
       label,
-      status: typeof parsed.body.status === 'string' ? parsed.body.status.slice(0, 80) : 'unknown',
-      renewal_at: parsed.body.renewalAt || null,
+      status: capText(parsed.body.status, 80) || 'unknown',
+      renewal_at: renewal.iso,
       data,
       updated_by: ctx.user.id,
     })
