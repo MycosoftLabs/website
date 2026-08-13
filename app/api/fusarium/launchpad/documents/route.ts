@@ -97,3 +97,41 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ ok: true, id: doc.id, meta: draft.meta });
 }
+
+/** Human-only status transition. The factory can never set approved. */
+export async function PATCH(request: NextRequest) {
+  const result = await requireTenant({ roles: ['owner', 'admin'], write: true });
+  if (result.error) return result.error;
+  const { ctx } = result;
+  let body: { id?: string; status?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+  const id = typeof body.id === 'string' ? body.id : '';
+  const status = body.status;
+  const allowed = ['draft', 'customer_review', 'approved', 'superseded'];
+  if (!id || !status || !allowed.includes(status)) {
+    return NextResponse.json({ error: 'id and status (draft|customer_review|approved|superseded) required' }, { status: 400 });
+  }
+  const patch: Record<string, unknown> = { status };
+  if (status === 'approved') {
+    patch.approved_by = ctx.user.id;
+    patch.approved_at = new Date().toISOString();
+  }
+  const { error } = await ctx.supabase
+    .from('launchpad_generated_documents')
+    .update(patch)
+    .eq('tenant_id', ctx.tenantId)
+    .eq('id', id);
+  if (error) return NextResponse.json({ error: 'Could not update document status' }, { status: 500 });
+  await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
+    action: 'document.status.changed',
+    entity: 'launchpad_generated_documents',
+    entityId: id,
+    payload: { status },
+  });
+  return NextResponse.json({ ok: true, id, status });
+}
+
