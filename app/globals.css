@@ -7523,3 +7523,19 @@ html.dark { color-scheme: dark; }
   width: 100% !important;
   justify-content: center !important;
 }
+
+/* Block glass buttons: tame the 3D press.
+   The base control borrows the Petri dish sim's rotate3d(1,0,0,25deg) hover —
+   convincing on a small pill, but on a 250-450px block button it reads as the
+   whole slab swinging and drags the blurred shadow with it. Keep the depth
+   cue, drop the swing. */
+.myco-glass-button.myco-glass-button--block .button-wrap:has(:is(button, a):hover),
+.myco-glass-button.myco-glass-button--block .button-wrap:has(:is(button, a):active) {
+  transform: rotate3d(1, 0, 0, 7deg) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .myco-glass-button.myco-glass-button--block .button-wrap:has(:is(button, a):hover),
+  .myco-glass-button.myco-glass-button--block .button-wrap:has(:is(button, a):active) {
+    transform: none !important;
+  }
+}

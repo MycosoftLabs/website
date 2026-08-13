@@ -142,7 +142,7 @@ export default function LaunchpadPricingPage() {
                   private advisory, or proposal submission.
                 </p>
                 <div className="text-center">
-                  <GlassButton href="/fusarium/launchpad/get-started">
+                  <GlassButton href="/fusarium/launchpad/checkout">
                     Get started <ArrowRight className="ml-2 h-4 w-4 text-current" />
                   </GlassButton>
                 </div>
@@ -234,7 +234,7 @@ export default function LaunchpadPricingPage() {
                       {/* mt-auto pushes every CTA to the card floor. */}
                       <div className="mt-auto pt-5">
                         <GlassButton
-                          href={`/fusarium/launchpad/get-started?plan=${key}&billing=${billing}`}
+                          href={`/fusarium/launchpad/checkout?plan=${key}&billing=${billing}`}
                           className="myco-glass-button--block"
                         >
                           Choose {PLAN_NAMES[key]}
@@ -274,12 +274,13 @@ export default function LaunchpadPricingPage() {
                   {credits.map((c) => {
                     const per = c.creditQuantity ? c.unitAmount / c.creditQuantity : null
                     return (
-                      <li
-                        key={c.lookupKey}
-                        className="flex items-baseline justify-between gap-4 py-3.5 border-b border-border/60"
-                      >
+                      <li key={c.lookupKey} className="border-b border-border/60">
+                        <Link
+                          href={`/fusarium/launchpad/checkout?item=${c.lookupKey}`}
+                          className="group flex items-baseline justify-between gap-4 py-3.5 -mx-2 px-2 rounded-lg hover:bg-emerald-500/5 transition-colors"
+                        >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium tabular-nums">
+                          <div className="text-sm font-medium tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                             {c.creditQuantity?.toLocaleString()} credits
                           </div>
                           {per !== null && (
@@ -291,9 +292,11 @@ export default function LaunchpadPricingPage() {
                             </div>
                           )}
                         </div>
-                        <div className="text-base font-semibold tabular-nums shrink-0">
-                          {fmt(c.unitAmount)}
+                        <div className="flex items-baseline gap-2 shrink-0">
+                          <span className="text-base font-semibold tabular-nums">{fmt(c.unitAmount)}</span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
                         </div>
+                        </Link>
                       </li>
                     )
                   })}
@@ -335,12 +338,13 @@ export default function LaunchpadPricingPage() {
                       ? (a.unitAmount / 100) * (60 / a.advisoryMinutes)
                       : null
                     return (
-                      <li
-                        key={a.lookupKey}
-                        className="flex items-baseline justify-between gap-4 py-3.5 border-b border-border/60"
-                      >
+                      <li key={a.lookupKey} className="border-b border-border/60">
+                        <Link
+                          href={`/fusarium/launchpad/checkout?item=${a.lookupKey}`}
+                          className="group flex items-baseline justify-between gap-4 py-3.5 -mx-2 px-2 rounded-lg hover:bg-emerald-500/5 transition-colors"
+                        >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium tabular-nums">
+                          <div className="text-sm font-medium tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                             {a.advisoryMinutes} minutes
                           </div>
                           {perHour !== null && (
@@ -349,9 +353,11 @@ export default function LaunchpadPricingPage() {
                             </div>
                           )}
                         </div>
-                        <div className="text-base font-semibold tabular-nums shrink-0">
-                          {fmt(a.unitAmount)}
+                        <div className="flex items-baseline gap-2 shrink-0">
+                          <span className="text-base font-semibold tabular-nums">{fmt(a.unitAmount)}</span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
                         </div>
+                        </Link>
                       </li>
                     )
                   })}

@@ -82,6 +82,29 @@ const PLAN_LOOKUP: Record<string, { monthly: string; annual: string }> = {
 
 /** Resolve ?plan=&billing= into a real catalog product. Returns null for the
  *  default (no plan chosen) path so the page falls back to the Launch Pass. */
+/**
+ * Resolve ?item=<lookupKey> for the one-time add-ons — credit packs and
+ * advisory sessions. Whitelisted against the catalog: an unknown key resolves
+ * to null rather than rendering an unpriced or invented item.
+ */
+function resolveItem(itemParam: string | null) {
+  if (!itemParam) return null
+  const product = CATALOG.find((p) => p.lookupKey === itemParam)
+  if (!product) return null
+  if (product.kind !== "credits" && product.kind !== "advisory") return null
+  const isAdvisory = product.kind === "advisory"
+  return {
+    product,
+    title: isAdvisory
+      ? `${product.advisoryMinutes}-minute advisory session`
+      : `${product.creditQuantity?.toLocaleString()} AI credits`,
+    kicker: isAdvisory ? "Prepaid session" : "One-time credit pack",
+    nextStep: isAdvisory
+      ? "You pay first, then pick a time against real availability — a slot is never held without payment."
+      : "Credits are added to your workspace balance and never expire. They sit on top of your plan's monthly allotment.",
+  }
+}
+
 function resolveSelection(planParam: string | null, billingParam: string | null) {
   if (!planParam || !(planParam in PLAN_LOOKUP)) return null
   const billing: "monthly" | "annual" = billingParam === "annual" ? "annual" : "monthly"
@@ -103,6 +126,7 @@ export default function GetStartedPage() {
 function GetStartedForm() {
   const searchParams = useSearchParams()
   const selection = resolveSelection(searchParams?.get("plan") ?? null, searchParams?.get("billing") ?? null)
+  const item = resolveItem(searchParams?.get("item") ?? null)
 
   const [form, setForm] = useState({
     name: "", email: "", company: "", website: "", builds: "",
@@ -133,6 +157,9 @@ function GetStartedForm() {
                 selectedLookupKey: selection.product.lookupKey,
               }
             : {}),
+          ...(item
+            ? { selectedItemKind: item.product.kind, selectedLookupKey: item.product.lookupKey }
+            : {}),
         }),
       })
       const d = await r.json().catch(() => ({}))
@@ -154,8 +181,12 @@ function GetStartedForm() {
 
         <div className="border-b border-border/50">
           <div className="container max-w-7xl mx-auto px-4 py-4">
-            <Link href="/fusarium/launchpad" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" /> Back to Launchpad
+            <Link
+              href={selection || item ? "/fusarium/launchpad/pricing" : "/fusarium/launchpad"}
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {selection || item ? "Back to pricing" : "Back to Launchpad"}
             </Link>
           </div>
         </div>
@@ -204,6 +235,35 @@ function GetStartedForm() {
                   className="inline-block text-xs text-emerald-600 dark:text-emerald-400 underline underline-offset-2 mt-4"
                 >
                   Change plan
+                </Link>
+              </div>
+            )}
+
+            {/* One-time add-ons: a credit pack or an advisory session. Same
+                treatment as a plan — the page shows what was actually clicked,
+                priced from the catalog, with the real next step spelled out. */}
+            {item && (
+              <div className="myco-glass-surface rounded-2xl border-2 border-emerald-500/50 p-6 sm:p-7 mb-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {item.kicker}
+                    </p>
+                    <h2 className="text-2xl font-bold mt-1">{item.title}</h2>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md leading-relaxed">
+                      {item.nextStep}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-3xl font-bold tabular-nums">{fmtUsd(item.product.unitAmount)}</div>
+                    <div className="text-xs text-muted-foreground">one time</div>
+                  </div>
+                </div>
+                <Link
+                  href="/fusarium/launchpad/pricing"
+                  className="inline-block text-xs text-emerald-600 dark:text-emerald-400 underline underline-offset-2 mt-4"
+                >
+                  Choose something else
                 </Link>
               </div>
             )}

@@ -1,189 +1,176 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { jsonError, readJson } from '@/lib/launchpad/http';
-import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
-import {
-  assertPublicCheckoutEnabled,
-  isPublicCheckoutLookupKey,
-  maskEmail,
-  normalizeCheckoutEmail,
-  publicCheckoutDisabledResponse,
-  publicCheckoutProduct,
-  publicCheckoutRateLimited,
-  stripeModeForProduct,
-  upsertGuestCheckoutSession,
-} from '@/lib/launchpad/billing/public-checkout';
+import { getProduct } from '@/lib/launchpad/catalog';
 
 /**
- * PUBLIC Stripe checkout — anonymous storefront.
+ * PUBLIC Stripe checkout — the storefront path.
  *
- * Deliberately separate from ../checkout (requireTenant owner/admin).
- * Do not relax auth on the tenant route.
+ * The sibling route at ../checkout is for an EXISTING customer upgrading from
+ * inside the workspace: it calls requireTenant(), so an anonymous visitor on
+ * the pricing page can never reach it. That gap is why every plan CTA used to
+ * dead-end in a lead form. This route is that missing piece and nothing more.
  *
- * Request: { lookupKey, email, company? }
- * Lookup keys are whitelisted against lib/launchpad/catalog.ts (plans, launch
- * pass, every credit pack, every advisory SKU). Never accept a price ID or amount.
- * Kill switch: LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED — not LAUNCHPAD_ENABLED.
+ * SECURITY
+ * - The caller sends a lookup_key, never a price id and never an amount. The
+ *   key is whitelisted against lib/launchpad/catalog.ts and the price is
+ *   resolved from Stripe at runtime, so a tampered request cannot invent a
+ *   cheaper price or a product we do not sell.
+ * - No tenant exists yet, so nothing here touches tenant data. The webhook
+ *   records a pending purchase and the buyer claims it after signing up,
+ *   matched on their VERIFIED auth email — never on a value from this body.
+ * - Entitlements are granted only by the verified webhook. The redirect back
+ *   from Stripe proves nothing and grants nothing.
+ * - Its own switch, deliberately NOT LAUNCHPAD_ENABLED: sales can open while
+ *   the authenticated workspace stays closed, and checkout can be killed
+ *   without taking the app down.
+ *
+ * Card data never touches this server — Stripe's hosted page collects it.
  */
 
 export const dynamic = 'force-dynamic';
 
-function clientIp(request: NextRequest): string {
-  return (
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
-  );
+/** Crude in-process throttle. This endpoint is unauthenticated and creates
+ *  Stripe objects, so it is a scraping target. A real limiter (Upstash/KV)
+ *  belongs here before high traffic; this stops casual abuse in the meantime. */
+const RECENT = new Map<string, number[]>();
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 8;
+
+function rateLimited(key: string): boolean {
+  const now = Date.now();
+  const hits = (RECENT.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  hits.push(now);
+  RECENT.set(key, hits);
+  if (RECENT.size > 5_000) RECENT.clear(); // bound memory
+  return hits.length > MAX_PER_WINDOW;
 }
 
-function originFrom(request: NextRequest): string {
-  const env = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? '').replace(
-    /\/$/,
-    '',
-  );
-  if (env) return env;
-  return request.nextUrl.origin;
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(request: NextRequest) {
-  if (!assertPublicCheckoutEnabled()) {
-    const d = publicCheckoutDisabledResponse();
-    return NextResponse.json({ error: d.error, code: d.code }, { status: d.status });
+  if (process.env.LAUNCHPAD_PUBLIC_CHECKOUT_ENABLED !== '1') {
+    return NextResponse.json(
+      {
+        error: 'Online checkout is not open yet.',
+        code: 'public_checkout_disabled',
+      },
+      { status: 503 },
+    );
   }
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    return jsonError(503, 'stripe_unconfigured', 'Billing is not configured in this environment');
-  }
-
-  const parsed = await readJson<{ lookupKey?: unknown; email?: unknown; company?: unknown }>(
-    request,
-  );
-  if (parsed.ok === false) return parsed.response;
-
-  const lookupKey = typeof parsed.body.lookupKey === 'string' ? parsed.body.lookupKey.trim() : '';
-  if (!lookupKey || !isPublicCheckoutLookupKey(lookupKey)) {
-    return jsonError(400, 'unknown_product', 'Unknown product');
-  }
-  const product = publicCheckoutProduct(lookupKey);
-  if (!product) return jsonError(400, 'unknown_product', 'Unknown product');
-
-  const email = normalizeCheckoutEmail(parsed.body.email);
-  if (!email) {
-    return jsonError(400, 'email_required', 'A valid email is required to start checkout');
-  }
-  const company =
-    typeof parsed.body.company === 'string' ? parsed.body.company.trim().slice(0, 200) : '';
-
-  const ip = clientIp(request);
-  if (publicCheckoutRateLimited([`ip:${ip}`, `email:${email}`])) {
-    return jsonError(429, 'rate_limited', 'Too many attempts — wait a minute and try again.');
-  }
-
-  const stripe = new Stripe(secretKey);
-  const prices = await stripe.prices.list({ lookup_keys: [product.lookupKey], limit: 1 });
-  const price = prices.data[0];
-  if (!price) {
-    return jsonError(
-      503,
-      'price_not_provisioned',
-      `No Stripe price carries lookup_key "${product.lookupKey}" in this mode.`,
+    return NextResponse.json(
+      { error: 'Billing is not configured in this environment', code: 'stripe_unconfigured' },
+      { status: 503 },
     );
   }
 
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+  if (rateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many attempts — wait a minute and try again.', code: 'rate_limited' },
+      { status: 429 },
+    );
+  }
+
+  let body: {
+    lookupKey?: unknown;
+    email?: unknown;
+    company?: unknown;
+    name?: unknown;
+    embedded?: unknown;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  // Whitelist: unknown keys are rejected, and no price/amount is accepted.
+  const product = getProduct(typeof body.lookupKey === 'string' ? body.lookupKey : '');
+  if (!product) {
+    return NextResponse.json({ error: 'Unknown product', code: 'unknown_product' }, { status: 400 });
+  }
+
+  // Email is OPTIONAL on purpose. Stripe's hosted page collects and verifies it
+  // itself, so requiring it here would mean a form standing between "I want
+  // this plan" and a card field — which is the exact dead end this route
+  // exists to remove. If we already know it, prefill; otherwise Stripe asks.
+  const rawEmail = typeof body.email === 'string' ? body.email.trim().slice(0, 200) : '';
+  const email = rawEmail && EMAIL_RE.test(rawEmail) ? rawEmail : '';
+  const company = typeof body.company === 'string' ? body.company.trim().slice(0, 200) : '';
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 200) : '';
+  // Embedded mode returns a client_secret to mount Stripe's payment widget
+  // inside our own page (account fields above, card fields below, one submit).
+  const embedded = body.embedded === true;
+
+  const stripe = new Stripe(secretKey);
+
+  const prices = await stripe.prices.list({ lookup_keys: [product.lookupKey], limit: 1 });
+  const price = prices.data[0];
+  if (!price) {
+    return NextResponse.json(
+      {
+        error: `No Stripe price carries lookup_key "${product.lookupKey}" in this mode.`,
+        code: 'price_not_provisioned',
+      },
+      { status: 503 },
+    );
+  }
+
+  // Metadata carries billing identity ONLY — never readiness data, never CUI.
   const metadata: Record<string, string> = {
     lp_source: 'public_pricing',
     lp_lookup_key: product.lookupKey,
     lp_kind: product.kind,
-    lp_billing: product.billing,
     ...(product.planKey ? { lp_plan_key: product.planKey } : {}),
     ...(company ? { lp_company: company } : {}),
+    ...(name ? { lp_contact_name: name } : {}),
   };
 
-  const origin = originFrom(request);
-  const mode = stripeModeForProduct(product);
+  const origin = request.nextUrl.origin;
+  const isSubscription = product.billing !== 'one_time';
 
   try {
     const session = await stripe.checkout.sessions.create({
-      mode,
+      mode: isSubscription ? 'subscription' : 'payment',
       line_items: [{ price: price.id, quantity: 1 }],
-      customer_email: email,
-      success_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/fusarium/launchpad/pricing`,
+      // Every payment method enabled on the Stripe account appears here —
+      // card, Apple Pay, Google Pay, Link, Cash App Pay, PayPal, bank debit.
+      // Which ones show is a Dashboard setting, not a code change, so turning
+      // one on never requires a deploy.
+      ...(email ? { customer_email: email } : {}),
+      allow_promotion_codes: true,
+      billing_address_collection: 'auto',
       metadata,
-      ...(mode === 'subscription' ? { subscription_data: { metadata } } : {}),
+      ...(isSubscription ? { subscription_data: { metadata } } : {}),
+      ...(embedded
+        ? {
+            ui_mode: 'embedded' as const,
+            // Embedded sessions use return_url, not success/cancel.
+            return_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
+          }
+        : {
+            success_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${origin}/fusarium/launchpad/pricing?checkout=cancelled`,
+          }),
     });
 
-    try {
-      const svc = createLaunchpadServiceClient();
-      await upsertGuestCheckoutSession(svc, {
-        stripe_session_id: session.id,
-        stripe_customer_id: typeof session.customer === 'string' ? session.customer : null,
-        email,
-        lookup_key: product.lookupKey,
-        plan_key: product.planKey ?? null,
-        billing: product.billing,
-        kind: product.kind,
-        company: company || null,
-        status: 'checkout_created',
-      });
-    } catch (storeErr) {
-      console.error(
-        '[launchpad/public-checkout] guest session store failed (webhook remains source of truth):',
-        (storeErr as Error).message,
-      );
-    }
-
-    return NextResponse.json({ ok: true, url: session.url });
+    return NextResponse.json(
+      embedded
+        ? { ok: true, clientSecret: session.client_secret }
+        : { ok: true, url: session.url },
+    );
   } catch (e) {
+    // Never leak Stripe internals to an anonymous caller.
     console.error('[launchpad/public-checkout] session create failed:', (e as Error).message);
-    return jsonError(502, 'checkout_failed', 'Could not start checkout. Please try again.');
-  }
-}
-
-/** Welcome-page confirmation. Retrieves Stripe session. Grants nothing. */
-export async function GET(request: NextRequest) {
-  if (!assertPublicCheckoutEnabled()) {
-    const d = publicCheckoutDisabledResponse();
-    return NextResponse.json({ error: d.error, code: d.code }, { status: d.status });
-  }
-  const ip = clientIp(request);
-  if (publicCheckoutRateLimited([`ip:${ip}:get`])) {
-    return jsonError(429, 'rate_limited', 'Too many attempts — wait a minute and try again.');
-  }
-  const sessionId = request.nextUrl.searchParams.get('session_id') ?? '';
-  if (!sessionId.startsWith('cs_')) {
-    return jsonError(400, 'session_required', 'session_id required');
-  }
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    return jsonError(503, 'stripe_unconfigured', 'Billing is not configured in this environment');
-  }
-  const stripe = new Stripe(secretKey);
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.metadata?.lp_source !== 'public_pricing') {
-      return jsonError(404, 'not_found', 'Checkout session not found');
-    }
-    const lookupKey = session.metadata.lp_lookup_key ?? '';
-    const product = publicCheckoutProduct(lookupKey);
-    const email =
-      session.customer_details?.email ||
-      session.customer_email ||
-      '';
-    return NextResponse.json({
-      ok: true,
-      paid: session.payment_status === 'paid' || session.status === 'complete',
-      status: session.status,
-      paymentStatus: session.payment_status,
-      lookupKey: product?.lookupKey ?? lookupKey,
-      kind: product?.kind ?? session.metadata.lp_kind ?? null,
-      planKey: product?.planKey ?? session.metadata.lp_plan_key ?? null,
-      emailMasked: email ? maskEmail(email.toLowerCase()) : null,
-      livemode: session.livemode,
-      note: 'Confirmation only. Entitlements are granted by the webhook + claim against your verified auth email.',
-    });
-  } catch {
-    return jsonError(404, 'not_found', 'Checkout session not found');
+    return NextResponse.json(
+      { error: 'Could not start checkout. Please try again.', code: 'checkout_failed' },
+      { status: 502 },
+    );
   }
 }
