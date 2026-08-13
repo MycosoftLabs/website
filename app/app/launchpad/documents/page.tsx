@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileText, Loader2, Download } from 'lucide-react';
 import { POLICY_FAMILIES } from '@/lib/reports/policy';
+import { GlassButton } from '@/components/ui/glass-button';
+import { OfficialLinksPanel } from '@/components/launchpad/official-links';
 
 /**
  * Document factory — DRAFT policies generated from the tenant's own profile
@@ -68,7 +70,7 @@ export default function DocumentsPage() {
 
   if (loading) {
     return <div className="min-h-[50vh] flex items-center justify-center gap-2 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" /> Loading documents…
+      <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading documents…
     </div>;
   }
 
@@ -85,16 +87,15 @@ export default function DocumentsPage() {
 
       <div className="flex flex-wrap items-center gap-2 mb-8 rounded-lg border border-border/60 p-4 bg-muted/10">
         <select value={family} onChange={(e) => setFamily(e.target.value)}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+          className="myco-glass-field rounded-lg border border-border px-3 py-2 text-sm">
           {Object.entries(POLICY_FAMILIES).map(([k, v]) => (
             <option key={k} value={k}>{k} — {v.policyTitle}</option>
           ))}
         </select>
-        <button onClick={generate} disabled={!!generating}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50">
-          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        <GlassButton onClick={generate} disabled={!!generating}>
+          {generating ? <Loader2 className="h-4 w-4 animate-spin text-current mr-2" /> : null}
           Generate DRAFT policy
-        </button>
+        </GlassButton>
         <span className="text-xs text-muted-foreground">
           Works without an AI key (deterministic skeleton); richer narrative when a drafting model is configured.
         </span>
@@ -125,14 +126,14 @@ export default function DocumentsPage() {
               <span className="text-xs text-muted-foreground ml-auto">
                 {new Date(d.created_at).toLocaleString()}
               </span>
-              <button onClick={() => download(d.id, d.title)}
-                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-border hover:bg-muted">
-                <Download className="h-3.5 w-3.5" /> Download DRAFT
-              </button>
+              <GlassButton onClick={() => download(d.id, d.title)}>
+                <Download className="h-3.5 w-3.5 text-current mr-1.5" /> Download DRAFT
+              </GlassButton>
             </div>
           ))}
         </div>
       )}
+      <OfficialLinksPanel surface="documents" title="Policy and signature sources" />
     </div>
   );
 }

@@ -3,12 +3,22 @@ import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
 import { jsonError, readJson, entitlementDenied } from '@/lib/launchpad/http';
 import { loadDerivedEntitlements } from '@/lib/launchpad/entitlement-guard';
+import { LINKS_BY_SURFACE } from '@/lib/launchpad/official-links';
 
 /**
  * Training tracker — link + completion metadata only.
  * Never hosts copyrighted course content (spec §14.5).
  */
 export const dynamic = 'force-dynamic';
+
+/** YYYY-MM-DD or ISO 8601 timestamp. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/** Non-empty values must be date-shaped strings; null/undefined/'' pass (absent or clearing). */
+function isBadDate(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return false;
+  return typeof value !== 'string' || !DATE_RE.test(value);
+}
 
 export async function GET() {
   const gate = await requireTenant();
@@ -27,6 +37,7 @@ export async function GET() {
   const rows = data ?? [];
   return NextResponse.json({
     assignments: rows,
+    officialLinks: LINKS_BY_SURFACE.training,
     note:
       rows.length === 0
         ? 'No training assignments yet. Record official/approved course links and completion metadata — do not paste course content.'
@@ -51,10 +62,13 @@ export async function POST(request: NextRequest) {
     expiresAt?: string;
     certificateRef?: string;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const personName = typeof parsed.body.personName === 'string' ? parsed.body.personName.trim().slice(0, 200) : '';
   const course = typeof parsed.body.course === 'string' ? parsed.body.course.trim().slice(0, 500) : '';
   if (!personName || !course) return jsonError(400, 'validation_error', 'personName and course (title or URL) are required');
+  if (isBadDate(parsed.body.assignedAt) || isBadDate(parsed.body.completedAt) || isBadDate(parsed.body.expiresAt)) {
+    return jsonError(400, 'validation_error', 'dates must be YYYY-MM-DD or ISO 8601');
+  }
 
   const { data, error } = await ctx.supabase
     .from('launchpad_training_assignments')
@@ -84,25 +98,38 @@ export async function PATCH(request: NextRequest) {
   const gate = await requireTenant({ write: true });
   if (gate.error) return gate.error;
   const { ctx } = gate;
+  const derived = await loadDerivedEntitlements(ctx.supabase, ctx.tenantId);
+  if (!derived.entitlements?.trainingTracker) {
+    return entitlementDenied('trainingTracker', derived.planKey, 'Training tracker is not on this plan.');
+  }
   const parsed = await readJson<{
     id?: string;
     completedAt?: string | null;
     expiresAt?: string | null;
     certificateRef?: string | null;
   }>(request);
-  if (!parsed.ok) return parsed.response;
+  if (parsed.ok === false) return parsed.response;
   const id = typeof parsed.body.id === 'string' ? parsed.body.id : '';
   if (!id) return jsonError(400, 'id_required', 'id required');
+  if (isBadDate(parsed.body.completedAt) || isBadDate(parsed.body.expiresAt)) {
+    return jsonError(400, 'validation_error', 'dates must be YYYY-MM-DD or ISO 8601');
+  }
   const patch: Record<string, unknown> = { updated_by: ctx.user.id };
   if ('completedAt' in parsed.body) patch.completed_at = parsed.body.completedAt;
   if ('expiresAt' in parsed.body) patch.expires_at = parsed.body.expiresAt;
-  if ('certificateRef' in parsed.body) patch.certificate_ref = parsed.body.certificateRef;
-  const { error } = await ctx.supabase
+  if ('certificateRef' in parsed.body) {
+    patch.certificate_ref =
+      typeof parsed.body.certificateRef === 'string' ? parsed.body.certificateRef.slice(0, 500) : null;
+  }
+  const { data: updated, error } = await ctx.supabase
     .from('launchpad_training_assignments')
     .update(patch)
     .eq('tenant_id', ctx.tenantId)
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return jsonError(500, 'update_failed', 'Could not update assignment');
+  if (!updated) return jsonError(404, 'not_found', 'Assignment not found');
   await appendAuditEvent(ctx.supabase, ctx.tenantId, ctx.user.id, {
     action: 'training.updated',
     entity: 'launchpad_training_assignments',

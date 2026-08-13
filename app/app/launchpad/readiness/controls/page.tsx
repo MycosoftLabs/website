@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDashed, MinusCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { STATUS_VOCABULARY } from '@/lib/launchpad/constants';
 import { LiquidRadio, LiquidSwitch } from '@/components/launchpad/liquid';
+import { OfficialLinksPanel } from '@/components/launchpad/official-links';
 
 /**
  * The 110-requirement register — customer-owned states only.
@@ -100,7 +101,7 @@ export default function ControlsRegisterPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center gap-2 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" /> Loading the 110-requirement register…
+        <Loader2 className="h-5 w-5 animate-spin text-current" /> Loading the 110-requirement register…
       </div>
     );
   }
@@ -130,13 +131,13 @@ export default function ControlsRegisterPage() {
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Search id or title…"
-              className="pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-sm w-56"
+              className="myco-glass-field pl-8 pr-3 py-2 rounded-lg border border-border text-sm w-56"
             />
           </div>
           <select
             value={family}
             onChange={(e) => setFamily(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+            className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm"
           >
             <option value="all">All families</option>
             {families.map((f) => (
@@ -158,7 +159,7 @@ export default function ControlsRegisterPage() {
                 onClick={() => setOpen(open === r.controlId ? null : r.controlId)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 rounded-lg"
               >
-                <Icon className={`h-4 w-4 shrink-0 ${meta?.[3] ?? 'text-slate-300'}`} />
+                <Icon className={`h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${open === r.controlId ? 'scale-110' : ''} ${meta?.[3] ?? 'text-slate-300'}`} />
                 <code className="text-sm font-semibold shrink-0 w-32">{r.controlId}</code>
                 <span className="text-sm text-muted-foreground flex-1 truncate">{r.title}</span>
                 <span className="text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground shrink-0 tabular-nums">
@@ -175,7 +176,7 @@ export default function ControlsRegisterPage() {
                 ) : null}
               </button>
               {open === r.controlId && (
-                <div className="px-4 pb-3 pt-1 border-t border-border/50">
+                <div className="lp-row-panel px-4 pb-3 pt-1 border-t border-border/50">
                   <div className="text-xs text-muted-foreground mb-2">
                     {r.familyName}{r.dual ? ' · dual-value requirement (partial credit applies)' : ''}
                   </div>
@@ -196,7 +197,7 @@ export default function ControlsRegisterPage() {
                     ))}
                     {saving === r.controlId && (
                       <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-current" /> Saving…
                       </span>
                     )}
                   </div>
@@ -207,11 +208,14 @@ export default function ControlsRegisterPage() {
         })}
       </div>
 
+      <OfficialLinksPanel surface="requirements" />
+
       <p className="text-xs text-muted-foreground mt-6">
         &ldquo;{STATUS_VOCABULARY.implemented}&rdquo; means you state the implementation exists —
         Launchpad has not independently verified it and does not certify anything. Unassessed
         requirements count as Not Met in every score estimate.
       </p>
+      <OfficialLinksPanel surface="requirements" title="The source text of these requirements" />
     </div>
   );
 }

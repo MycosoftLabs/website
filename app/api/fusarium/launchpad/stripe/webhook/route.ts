@@ -112,6 +112,18 @@ export async function POST(request: NextRequest) {
           break;
         }
 
+        if (product.kind === 'advisory' && product.advisoryMinutes) {
+          await svc.from('launchpad_advisory_credits').insert({
+            tenant_id: tenantId,
+            sku: lookupKey,
+            minutes: product.advisoryMinutes,
+            status: 'unredeemed',
+            stripe_event_id: event.id,
+          });
+          outcome = svcOutcome({ handled: true, granted: 'advisory_credit', minutes: product.advisoryMinutes });
+          break;
+        }
+
         if (product.kind === 'plan' && product.planKey) {
           await svc.from('launchpad_subscriptions').upsert(
             {

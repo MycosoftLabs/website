@@ -16,6 +16,33 @@ SUPABASE_SERVICE_ROLE_KEY=
 SAM_API_KEY=
 ```
 
+## DocuSign + Cal.com (placeholders — Aug 13 addendum)
+
+Keep `LAUNCHPAD_DOCUSIGN_PLATFORM_SEND=0` unless Mycosoft dogfood JWT is explicitly enabled. Customer send path is OAuth to **their** DocuSign account.
+
+```
+DOCUSIGN_INTEGRATION_KEY=
+DOCUSIGN_SECRET_KEY=
+DOCUSIGN_USER_ID=
+DOCUSIGN_API_ACCOUNT_ID=
+DOCUSIGN_AUTH_SERVER=https://account-d.docusign.com
+DOCUSIGN_BASE_URL=https://demo.docusign.net
+DOCUSIGN_REDIRECT_URI=
+DOCUSIGN_RSA_PRIVATE_KEY_PATH=
+DOCUSIGN_CONNECT_HMAC_KEY=
+LAUNCHPAD_DOCUSIGN_PLATFORM_SEND=0
+CALCOM_API_KEY=
+CALCOM_WEBHOOK_SECRET=
+CALCOM_BOOKING_BASE_URL=
+CALCOM_EVENT_TYPE_ADVISORY_15=
+CALCOM_EVENT_TYPE_ADVISORY_30=
+CALCOM_EVENT_TYPE_ADVISORY_60=
+CALCOM_EVENT_TYPE_ADVISORY_90=
+```
+
+Connect webhook: `/api/fusarium/launchpad/signatures/webhook`  
+Cal.com webhook: `/api/fusarium/launchpad/advisory/webhook`
+
 ## Rollout order (handoff 04)
 
 1. Land env with `LAUNCHPAD_ENABLED=0` on green
@@ -54,3 +81,6 @@ Set the same names as repository or environment secrets for both colors (values 
 | `STRIPE_LAUNCHPAD_WEBHOOK_SECRET` | From Launchpad webhook endpoint |
 | `LAUNCHPAD_INGEST_TOKEN` / `LAUNCHPAD_AGENT_ROOT_SECRET` | Deprecated break-glass; prefer `lp_` tenant keys |
 | `SAM_API_KEY` | Optional until collectors run in CI/cron |
+| `DOCUSIGN_*` | Integration key + secret for customer OAuth; RSA PEM + user/account only for JWT dogfood |
+| `LAUNCHPAD_DOCUSIGN_PLATFORM_SEND` | Must stay `0` unless Morgan enables Mycosoft-as-sender |
+| `CALCOM_*` | Booking base URL + event types; webhook secret for `BOOKING_CREATED` |
