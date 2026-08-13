@@ -60,7 +60,12 @@ export const NeuButton = forwardRef<HTMLButtonElement, NeuButtonProps>(
       ...props,
     }
     if (!asChild) {
-      buttonProps.type = "button"
+      // Default to "button" so a NeuButton dropped inside a form does not
+      // submit it by accident — but let a caller opt into type="submit".
+      // This used to be an unconditional assignment placed AFTER the props
+      // spread, which silently overrode any type the caller passed: every
+      // NeuButton inside a <form> was a dead button that could not submit.
+      buttonProps.type = (props as { type?: string }).type ?? "button"
       buttonProps.disabled = disabled ?? isLoading
     }
 

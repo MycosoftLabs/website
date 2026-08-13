@@ -55,9 +55,13 @@ function planTerms(planKey: PlanKey, billing: "monthly" | "annual", amountCents:
   ]
 }
 
+// myco-glass-field, not bg-background: the plain utility left the <select> and
+// its native options rendering white-on-white against the dark glass page.
+// (The global `color-scheme` rule themes the OS-drawn options popup; this
+// styles the closed control so the two agree.)
 const input =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base " +
-  "focus:outline-none focus:ring-2 focus:ring-primary/40"
+  "myco-glass-field w-full rounded-lg border border-border px-3 py-2.5 text-base " +
+  "focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
 
 const fmtUsd = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`
 
@@ -289,7 +293,7 @@ function GetStartedForm() {
 
                     {error && <p className="text-sm text-destructive">{error}</p>}
 
-                    <NeuButton variant="primary" className="w-full py-3 text-base" disabled={state === "sending"}>
+                    <NeuButton type="submit" variant="primary" className="w-full py-3 text-base" disabled={state === "sending"}>
                       {state === "sending"
                         ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sending…</>
                         : <><Send className="mr-2 h-5 w-5" /> Get started</>}
