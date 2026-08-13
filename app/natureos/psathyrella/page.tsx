@@ -2,6 +2,12 @@
 
 import dynamic from "next/dynamic";
 
+// The GCS `psa-*` vocabulary lives here rather than in app/globals.css. That file
+// is shared with every other surface on the site, and two agents editing it in one
+// working tree is how both this console's styling and the Launchpad glass system
+// got clobbered on Aug 12. Route-scoped, so the two can never overwrite each other.
+import "./psathyrella-gcs.css";
+
 /**
  * Psathyrella Buoy — Ground Control Station.
  * The console is a heavy WebGL/canvas client surface, so it is loaded

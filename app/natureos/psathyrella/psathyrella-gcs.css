@@ -1,0 +1,250 @@
+/*
+ * ============================================================================
+ * Psathyrella buoy Ground Control Station — /natureos/psathyrella
+ * ============================================================================
+ * The GCS is written against a `psa-*` class vocabulary that never had a
+ * stylesheet: `psa-glass` / `psa-glass-strong` / `psa-glass-btn` across a dozen
+ * component files, plus the `psa-night` / `psa-day` / `psa-field` display modes
+ * that lib/psathyrella/useDisplayMode.ts puts on the console root. Until this
+ * block landed all six resolved to nothing, with two real consequences:
+ *   - every console panel rendered as bare text directly over live MapLibre
+ *     imagery, which is the "everything blends together" symptom operators hit;
+ *   - the header's Display-mode and Glove buttons lit up while doing nothing.
+ *     A control that reports itself as ON while inert is the same class of lie
+ *     the console's honesty rules exist to prevent, so the modes are defined
+ *     here rather than the two buttons being deleted.
+ *
+ * WHY A CASCADE LAYER: the console mounts inside `.natureos-glass-page`
+ * (app/natureos/NatureOSLayoutClient.tsx), and the NatureOS glass template
+ * earlier in this file repaints every button and every rounded+bordered box
+ * with `!important` — a light-glass gradient, drop shadow and backdrop blur,
+ * all wrong on a dark tactical console. `!important` declarations inside a
+ * cascade layer outrank `!important` declarations in unlayered styles no matter
+ * what the selectors are, so a layer settles this without a specificity arms
+ * race. Verified in-browser against the running console, Aug 2026.
+ * Nothing here declares `touch-action`, so the single-tap hardening above still
+ * wins inside the console.
+ */
+@layer psathyrella {
+  /* ---------------------------------------------------------------------
+     1. The console opts out of the site glass template.
+     The selector list is the same element set the `.natureos-glass-page`
+     rules above repaint. Only the decoration is dropped; the accent colours
+     the console encodes state with are put straight back below, because
+     without them the operator cannot see which view is active, whether the
+     vehicle is ARMED, or that a lane is in alarm.
+     --------------------------------------------------------------------- */
+  .psa-console :is([data-slot="card"], .bg-card, .btn, button, a[role="button"],
+      [class*="inline-flex"][class*="border"],
+      .rounded-lg.border, .rounded-xl.border, .rounded-2xl.border, .rounded-3xl.border) {
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: rgba(255, 255, 255, 0.1) !important; /* the console's own idle hairline */
+
+    /*
+     * The leading space in each matcher is load-bearing: it matches a real
+     * utility (" bg-amber-500/20") and never a variant ("hover:bg-amber-500/20"),
+     * so a control that is only amber ON HOVER is never painted as though it
+     * were latched on. `^=` covers the utility being the first token.
+     */
+    &[class^="bg-black"], &[class*=" bg-black"] { background-color: rgba(0, 0, 0, 0.5) !important; }
+    &[class^="bg-white"], &[class*=" bg-white"] { background-color: rgba(255, 255, 255, 0.05) !important; }
+    &[class^="bg-cyan"], &[class*=" bg-cyan"] { background-color: rgba(6, 182, 212, 0.18) !important; }
+    &[class^="bg-amber"], &[class*=" bg-amber"] { background-color: rgba(245, 158, 11, 0.18) !important; }
+    &[class^="bg-red"], &[class*=" bg-red"] { background-color: rgba(239, 68, 68, 0.2) !important; }
+    &[class^="bg-green"], &[class*=" bg-green"],
+    &[class^="bg-emerald"], &[class*=" bg-emerald"] { background-color: rgba(16, 185, 129, 0.18) !important; }
+    &[class^="bg-violet"], &[class*=" bg-violet"] { background-color: rgba(139, 92, 246, 0.18) !important; }
+
+    &[class^="border-cyan"], &[class*=" border-cyan"] { border-color: rgba(6, 182, 212, 0.45) !important; }
+    &[class^="border-amber"], &[class*=" border-amber"] { border-color: rgba(245, 158, 11, 0.5) !important; }
+    &[class^="border-red"], &[class*=" border-red"] { border-color: rgba(239, 68, 68, 0.55) !important; }
+    &[class^="border-green"], &[class*=" border-green"],
+    &[class^="border-emerald"], &[class*=" border-emerald"] { border-color: rgba(16, 185, 129, 0.45) !important; }
+    &[class^="border-violet"], &[class*=" border-violet"] { border-color: rgba(139, 92, 246, 0.45) !important; }
+    &[class^="border-transparent"], &[class*=" border-transparent"] { border-color: transparent !important; }
+  }
+
+  /* ---------------------------------------------------------------------
+     2. Panel surfaces. These float over live satellite imagery, so the
+     opacity here is a legibility requirement rather than decoration: a
+     status line the operator cannot read is a status line that is not
+     actually being reported.
+     --------------------------------------------------------------------- */
+  .psa-console .psa-glass {
+    background-color: rgba(8, 13, 24, 0.78) !important;
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  }
+
+  .psa-console .psa-glass-strong {
+    background-color: rgba(3, 7, 15, 0.93) !important;
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  }
+
+  /* Hairline only for surfaces that declare no border utility of their own.
+     The guard is what keeps this from overwriting a panel's ARMED/alarm
+     border with decorative cyan. */
+  .psa-console .psa-glass:not([class*="border"]),
+  .psa-console .psa-glass-strong:not([class*="border"]) {
+    border: 1px solid rgba(34, 211, 238, 0.16) !important;
+  }
+
+  /* ---------------------------------------------------------------------
+     3. Buttons. Deliberately quiet: state is carried by the accent rules in
+     section 1, so an idle chip must never compete with an ARMED or SIM one.
+     --------------------------------------------------------------------- */
+  .psa-console .psa-glass-btn {
+    background-color: rgba(255, 255, 255, 0.045) !important;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 90ms ease, box-shadow 140ms ease;
+  }
+
+  .psa-console .psa-glass-btn:hover:not(:disabled) {
+    background-color: rgba(34, 211, 238, 0.12) !important;
+  }
+
+
+
+  .psa-console .psa-glass-btn:active:not(:disabled) {
+    background-color: rgba(34, 211, 238, 0.22) !important;
+    transform: translateY(1px) scale(0.97);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .psa-console .psa-glass-btn:disabled {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  .psa-console .psa-glass-btn:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.7);
+    outline-offset: 1px;
+  }
+
+  /* ---------------------------------------------------------------------
+     4. Display modes (lib/psathyrella/useDisplayMode.ts).
+     --------------------------------------------------------------------- */
+  /*
+   * Bridge watch. The filter goes on the console ROOT on purpose: the map
+   * canvas is by far the brightest surface on screen, so red-shifting only the
+   * chrome would not preserve the operator's dark adaptation, which is the
+   * whole point of the mode. Note the consequence — night mode collapses hue,
+   * so amber/red/cyan stop being distinguishable from each other. Every status
+   * this console reports is also stated in words for exactly that reason;
+   * nothing may be signalled by colour alone.
+   */
+  .psa-console.psa-night {
+    filter: sepia(1) hue-rotate(-32deg) saturate(2.6) brightness(0.68) !important;
+  }
+
+  /* Direct sunlight on deck — lift contrast and luminance, nothing else. */
+  .psa-console.psa-day {
+    filter: contrast(1.14) brightness(1.32) saturate(1.05) !important;
+  }
+
+  /*
+   * Glove mode. The hook promises this only ever ENLARGES touch targets and
+   * never shrinks or hides anything, so every rule here is a minimum rather
+   * than a fixed size, and text sizes are left alone.
+   */
+  .psa-console.psa-field :is(button, a[href], [role="button"], summary) {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .psa-console.psa-field :is(input:not([type="range"]), select, textarea) {
+    min-height: 40px !important;
+  }
+
+  .psa-console.psa-field input[type="range"] { height: 28px !important; }
+  .psa-console.psa-field input[type="range"]::-webkit-slider-thumb { width: 26px !important; height: 26px !important; }
+  .psa-console.psa-field input[type="range"]::-moz-range-thumb { width: 26px !important; height: 26px !important; }
+
+  /* ---------------------------------------------------------------------
+     5. Light site theme. The console is a dark surface whatever the site
+     theme is, but the NatureOS light-theme rules above launder inherited text
+     to #0f172a, which is invisible on the console's #04070e. Pin a legible
+     base colour so no status line silently disappears for an operator who has
+     the site in light mode.
+     --------------------------------------------------------------------- */
+  html:not(.dark) .psa-console { color: #e2e8f0 !important; }
+  html:not(.dark) .psa-console :is(button, a[role="button"], [role="button"]),
+  html:not(.dark) .psa-console :is(button, a[role="button"], [role="button"]) * { color: inherit !important; }
+}
+
+/* =====================================================================
+   Liquid-glass control button — the exact computed style of the Petri
+   dish sim's Start/Reset, measured off the live page.
+
+   DELIBERATELY UNLAYERED AND LAST. The console's own rules live in a
+   @layer, and for !important declarations the cascade REVERSES layer
+   order, so a layered !important loses to the unlayered NatureOS button
+   rule. Declaring it here, outside any layer, is what actually wins.
+   ===================================================================== */
+.psa-console .psa-liquid-btn.psa-liquid-btn {
+  background-image: linear-gradient(-75deg, rgba(0,0,0,0.86), rgba(15,23,42,0.58), rgba(0,0,0,0.84)) !important;
+  background-color: transparent !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+  border: 0 none !important;
+  border-radius: 9999px !important;
+  color: #fff !important;
+  box-shadow:
+    rgba(255,255,255,0.043) 0 2.9px 2.9px 0 inset,
+    rgba(255,255,255,0.08) 0 -2.9px 2.9px 0 inset,
+    rgba(0,0,0,0.62) 0 5.8px 2.9px -2.9px,
+    rgba(255,255,255,0.055) 0 0 2.32px 4.64px inset !important;
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+.psa-console .psa-liquid-btn.psa-liquid-btn:hover:not(:disabled) {
+  transform: scale(0.975);
+  box-shadow:
+    rgba(0,0,0,0.05) 0 0.125em 0.125em inset,
+    rgba(255,255,255,0.5) 0 -0.125em 0.125em inset,
+    rgba(0,0,0,0.25) 0 0.15em 0.05em -0.1em,
+    rgba(255,255,255,0.5) 0 0 0.05em 0.1em inset !important;
+}
+.psa-console .psa-liquid-btn.psa-liquid-btn:active:not(:disabled) {
+  transform: scale(0.94) translateY(1px);
+  box-shadow: rgba(0,0,0,0.5) 0 0.2em 0.35em inset !important;
+}
+
+/* =====================================================================
+   Glass joystick (camera pan). Same liquid-glass family as the buttons:
+   unlayered and last so the NatureOS !important button/panel rules cannot
+   flatten it. The knob carries the specular highlight; the base is the
+   darker well it rides in.
+   ===================================================================== */
+.psa-console .psa-joy.psa-joy {
+  background-image:
+    radial-gradient(circle at 50% 32%, rgba(255,255,255,0.10), transparent 58%),
+    linear-gradient(-75deg, rgba(0,0,0,0.88), rgba(15,23,42,0.62), rgba(0,0,0,0.86)) !important;
+  backdrop-filter: blur(16px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow:
+    rgba(0,0,0,0.70) 0 10px 22px -6px,
+    rgba(0,0,0,0.55) 0 0 18px 2px inset,
+    rgba(255,255,255,0.10) 0 1px 0 inset !important;
+  cursor: grab;
+}
+.psa-console .psa-joy.psa-joy:active { cursor: grabbing; }
+.psa-console .psa-joy.psa-joy:focus-visible {
+  outline: 2px solid rgba(34,211,238,0.75);
+  outline-offset: 2px;
+}
+.psa-console .psa-joy-knob.psa-joy-knob {
+  background-image:
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0.10) 42%, transparent 62%),
+    linear-gradient(-75deg, rgba(226,240,255,0.30), rgba(15,23,42,0.70)) !important;
+  backdrop-filter: blur(6px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(1.25) !important;
+  border: 1px solid rgba(255,255,255,0.42) !important;
+  box-shadow:
+    rgba(0,0,0,0.60) 0 6px 12px -2px,
+    rgba(255,255,255,0.55) 0 1px 0 inset,
+    rgba(0,0,0,0.35) 0 -2px 6px inset !important;
+  transition: transform 120ms cubic-bezier(0.25, 1, 0.5, 1);
+}
