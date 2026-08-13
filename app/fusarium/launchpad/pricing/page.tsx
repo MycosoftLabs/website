@@ -16,6 +16,7 @@ import {
   type PlanKey,
 } from "@/lib/launchpad/catalog"
 import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
+import { GlassButton, GlassChip } from "@/components/ui/glass-button"
 
 const fmt = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`
 
@@ -80,7 +81,7 @@ export default function LaunchpadPricingPage() {
         <section className="py-20">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="text-center mb-14">
-              <NeuBadge variant="default" className="mb-4">Pricing</NeuBadge>
+              <GlassChip className="mb-4">Pricing</GlassChip>
               <h1 className="text-4xl md:text-5xl font-bold mb-4">Transparent pricing. Direct third-party costs.</h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                 Start for less than the monthly cost of many secure collaboration tools. Pay external
@@ -91,10 +92,8 @@ export default function LaunchpadPricingPage() {
 
             {/* Launch Pass */}
             <NeuCard className="max-w-3xl mx-auto mb-16 border-2 border-primary/30">
-              <NeuCardHeader className="text-center pb-2">
-                <NeuBadge variant="default" className="mb-2 mx-auto">
-                  Start here
-                </NeuBadge>
+              <NeuCardHeader className="text-center pb-2 flex-col items-center gap-1">
+                <GlassChip className="mb-2 mx-auto">Start here</GlassChip>
                 <h2 className="text-2xl font-bold">Launch Pass</h2>
                 <div className="text-4xl font-bold mt-2">
                   {fmt(39700)} <span className="text-base font-normal text-muted-foreground">one time</span>
@@ -123,11 +122,9 @@ export default function LaunchpadPricingPage() {
                   private advisory, or proposal submission.
                 </p>
                 <div className="text-center">
-                  <Link href="/fusarium/launchpad/get-started">
-                    <NeuButton variant="primary" className="px-6 py-3">
-                      Get started <ArrowRight className="ml-2 h-4 w-4" />
-                    </NeuButton>
-                  </Link>
+                  <GlassButton href="/fusarium/launchpad/get-started">
+                    Get started <ArrowRight className="ml-2 h-4 w-4 text-current" />
+                  </GlassButton>
                 </div>
               </NeuCardContent>
             </NeuCard>
@@ -139,9 +136,9 @@ export default function LaunchpadPricingPage() {
                 const yr = CATALOG.find((p) => p.lookupKey === annual)!
                 return (
                   <NeuCard key={key} className={highlight ? "border-2 border-primary/40" : ""}>
-                    <NeuCardHeader className="pb-2">
+                    <NeuCardHeader className="pb-2 flex-col items-start gap-1">
                       {highlight && (
-                        <NeuBadge variant="default" className="mb-2 w-fit">Most popular</NeuBadge>
+                        <GlassChip className="mb-2 w-fit">Most popular</GlassChip>
                       )}
                       <h3 className="text-lg font-semibold">{PLAN_NAMES[key]}</h3>
                       <div className="text-3xl font-bold mt-1">
@@ -151,7 +148,7 @@ export default function LaunchpadPricingPage() {
                       <div className="text-xs text-muted-foreground">
                         or {fmt(yr.unitAmount)}/year (two months free)
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2">{blurb}</p>
+                      <p className="text-sm text-muted-foreground mt-2 text-balance">{blurb}</p>
                     </NeuCardHeader>
                     <NeuCardContent>
                       <ul className="space-y-2">
@@ -161,6 +158,11 @@ export default function LaunchpadPricingPage() {
                           </li>
                         ))}
                       </ul>
+                      <div className="mt-5">
+                        <GlassButton href="/fusarium/launchpad/get-started" className="w-full">
+                          Get started <ArrowRight className="ml-2 h-4 w-4 text-current" />
+                        </GlassButton>
+                      </div>
                     </NeuCardContent>
                   </NeuCard>
                 )

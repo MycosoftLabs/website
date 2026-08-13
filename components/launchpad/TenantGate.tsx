@@ -20,10 +20,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Loader2, AlertTriangle, LayoutDashboard, ClipboardCheck, Gauge, ListChecks,
   FolderLock, FileText, Radar, Building2, CreditCard, ScrollText, Menu, X, Rocket, ShieldCheck, KeyRound,
+  ListTodo, Crosshair, GraduationCap, FileCheck2, PenLine, Boxes, HardDrive, Library, Vault,
+  Handshake, CalendarClock, Plug, ShieldAlert, Download, ClipboardList,
+  Layers, FileSpreadsheet, FileSignature, Lightbulb, BookOpen, Map as MapIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { COMMERCIAL_NON_CUI_BANNER } from '@/lib/launchpad/constants';
 import { LiquidFilters } from '@/components/launchpad/liquid';
+import { EntitlementsProvider, PlanBadge, CreditMeter } from '@/components/launchpad/entitlements';
+import { TourBar } from '@/components/launchpad/tour-bar';
 
 interface TenantInfo {
   state: 'ok' | 'needs_onboarding';
@@ -33,35 +38,142 @@ interface TenantInfo {
 }
 
 type NavItem = { label: string; href: string; icon: LucideIcon };
+// The full Partner-Mesh-Pro surface. Lower tiers see the same map — locked
+// screens render a FeatureGate plate, never a hidden nav item, so every
+// customer can see what the product does above their plan.
 const NAV_GROUPS: Array<{ group: string; items: NavItem[] }> = [
   {
     group: 'Overview',
-    items: [{ label: 'Dashboard', href: '/app/launchpad/dashboard', icon: LayoutDashboard }],
+    items: [
+      { label: 'Dashboard', href: '/app/launchpad/dashboard', icon: LayoutDashboard },
+      { label: 'Tasks & deadlines', href: '/app/launchpad/tasks', icon: ListTodo },
+    ],
   },
   {
     group: 'Readiness',
     items: [
+      { label: 'Scope', href: '/app/launchpad/readiness/scope', icon: Crosshair },
       { label: 'Requirements', href: '/app/launchpad/readiness/controls', icon: ClipboardCheck },
       { label: 'Score', href: '/app/launchpad/readiness/score', icon: Gauge },
       { label: 'POA&M', href: '/app/launchpad/readiness/poam', icon: ListChecks },
+      { label: 'Closure Board', href: '/app/launchpad/readiness/closure', icon: Layers },
+      { label: 'Tier-1 Turnkey', href: '/app/launchpad/readiness/tier1', icon: ClipboardList },
+      { label: 'SSP', href: '/app/launchpad/readiness/ssp', icon: FileCheck2 },
+      { label: 'Reports', href: '/app/launchpad/readiness/reports', icon: FileSpreadsheet },
       { label: 'Evidence', href: '/app/launchpad/evidence', icon: FolderLock },
       { label: 'Documents', href: '/app/launchpad/documents', icon: FileText },
+      { label: 'Signatures', href: '/app/launchpad/signatures', icon: FileSignature },
+      { label: 'Training', href: '/app/launchpad/training', icon: GraduationCap },
     ],
   },
   {
     group: 'Operations',
-    items: [{ label: 'Contract Radar', href: '/app/launchpad/opportunities', icon: Radar }],
+    items: [
+      { label: 'Contract Radar', href: '/app/launchpad/opportunities', icon: Radar },
+      { label: 'Proposals', href: '/app/launchpad/proposals', icon: PenLine },
+      { label: 'Origin Graph', href: '/app/launchpad/origin-graph', icon: Boxes },
+      { label: 'Local Agent', href: '/app/launchpad/local-agent', icon: HardDrive },
+    ],
+  },
+  {
+    group: 'Network',
+    items: [
+      { label: 'Resources', href: '/app/launchpad/resources', icon: Library },
+      { label: 'Enclave Bridge', href: '/app/launchpad/enclave', icon: Vault },
+      { label: 'Partner Mesh', href: '/app/launchpad/partner-mesh', icon: Handshake },
+      { label: 'Advisory', href: '/app/launchpad/advisory', icon: CalendarClock },
+    ],
+  },
+  {
+    group: 'Learn',
+    items: [
+      { label: 'Learn hub', href: '/app/launchpad/learn', icon: Lightbulb },
+      { label: 'Glossary', href: '/app/launchpad/learn/glossary', icon: BookOpen },
+      { label: 'Walkthroughs', href: '/app/launchpad/learn/walkthroughs', icon: MapIcon },
+    ],
   },
   {
     group: 'Account',
     items: [
       { label: 'Company', href: '/app/launchpad/company', icon: Building2 },
       { label: 'Billing', href: '/app/launchpad/billing', icon: CreditCard },
+      { label: 'AI integrations', href: '/app/launchpad/settings/integrations', icon: Plug },
       { label: 'API keys', href: '/app/launchpad/settings/keys', icon: KeyRound },
+      { label: 'Data boundary', href: '/app/launchpad/settings/data-boundary', icon: ShieldAlert },
+      { label: 'Export', href: '/app/launchpad/settings/export', icon: Download },
       { label: 'Audit', href: '/app/launchpad/settings/audit', icon: ScrollText },
     ],
   },
 ];
+
+/**
+ * Sidebar navigation link.
+ *
+ * Neither plain option works here:
+ *  - <Link> alone hits the App Router client-cache stall — the URL never moves,
+ *    <main> never swaps, and the click reads as dead (the "everything takes two
+ *    clicks" complaint).
+ *  - a plain <a> always works but is a full document load, so the shell
+ *    remounts and every section change flashes "Loading workspace…".
+ *
+ * So: keep a real <a href> (middle-click, open-in-new-tab, and copy-link all
+ * behave), try the client-side push first, and if the router has not committed
+ * shortly after, fall back to a real navigation. Healthy navigations are
+ * instant and never reload; a stalled one self-heals instead of dying.
+ */
+function NavLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+
+  const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Modified clicks belong to the browser (new tab, new window, download).
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+      return;
+    }
+    e.preventDefault();
+
+    // The failure mode is NOT a stuck URL — the URL commits fine and <main>
+    // keeps rendering the previous route (verified live: path moved to
+    // /dashboard while the heading still read "Evidence index"). So the only
+    // reliable success signal is that the rendered content actually changed.
+    const mainBefore = document.querySelector('main');
+    const nodeBefore = mainBefore?.firstElementChild ?? null;
+    const textBefore = (
+      mainBefore instanceof HTMLElement ? mainBefore.innerText : mainBefore?.textContent ?? ''
+    ).slice(0, 200);
+
+    router.push(href);
+
+    window.setTimeout(() => {
+      const mainNow = document.querySelector('main');
+      const nodeNow = mainNow?.firstElementChild ?? null;
+      const textNow = (
+        mainNow instanceof HTMLElement ? mainNow.innerText : mainNow?.textContent ?? ''
+      ).slice(0, 200);
+      const swapped = nodeNow !== nodeBefore || textNow !== textBefore;
+      if (!swapped) window.location.assign(href);
+    }, 1200);
+  };
+
+  return (
+    <a
+      href={href}
+      className={className}
+      onClick={onClick}
+      // Warm the route so the client-side path usually wins the race.
+      onMouseEnter={() => router.prefetch(href)}
+    >
+      {children}
+    </a>
+  );
+}
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || 'W';
@@ -124,25 +236,26 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
   const tenant = info.tenant!;
   const Sidebar = (
     <nav className="flex flex-col h-full">
-      <Link href="/app/launchpad/dashboard" className="flex items-center gap-2.5 px-5 h-16 border-b border-border/60 shrink-0">
-        <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+      <NavLink href="/app/launchpad/dashboard" className="flex items-center gap-2.5 px-5 h-16 border-b border-border/60 shrink-0">
+        <div className="myco-glass-tile h-8 w-8">
           <Rocket className="h-4.5 w-4.5 text-emerald-500" />
         </div>
         <div className="leading-tight">
           <div className="text-sm font-bold tracking-tight">Launchpad</div>
           <div className="text-[10px] text-muted-foreground">Contractor Readiness OS</div>
         </div>
-      </Link>
+      </NavLink>
 
       {/* Workspace identity */}
       <div className="px-4 py-3 border-b border-border/60">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+          <div className="myco-glass-tile myco-glass-tile--accent h-9 w-9 text-xs font-bold shrink-0">
             {initials(tenant.name)}
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">{tenant.name}</div>
             <div className="text-[11px] text-muted-foreground capitalize">{info.role} · {tenant.status}</div>
+            <PlanBadge />
           </div>
         </div>
       </div>
@@ -155,13 +268,13 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
               {g.items.map((it) => {
                 const active = pathname === it.href || pathname?.startsWith(it.href + '/');
                 return (
-                  <Link key={it.href} href={it.href}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
-                      active ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium'
-                             : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}>
+                  <NavLink key={it.href} href={it.href}
+                    className={`myco-glass-navlink flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${
+                      active ? 'is-active text-emerald-600 dark:text-emerald-400 font-medium'
+                             : 'text-muted-foreground hover:text-foreground'}`}>
                     <it.icon className="h-4 w-4 shrink-0" />
                     {it.label}
-                  </Link>
+                  </NavLink>
                 );
               })}
             </div>
@@ -169,7 +282,8 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
         ))}
       </div>
 
-      <div className="px-4 py-3 border-t border-border/60">
+      <div className="px-4 py-3 border-t border-border/60 space-y-2">
+        <CreditMeter />
         <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
           <ShieldCheck className="h-3 w-3" /> {COMMERCIAL_NON_CUI_BANNER}
         </div>
@@ -180,6 +294,7 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
   return (
     // House glass/neumorphic template (same as Apps, Devices, NatureOS):
     // frosted card + button surfaces, light/dark aware.
+    <EntitlementsProvider>
     <div className="launchpad-glass-page min-h-dvh flex flex-col">
       {/* Gooey filter defs — one set per document; every liquid control below
           references them by id. */}
@@ -195,7 +310,7 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
 
       <div className="flex-1 flex">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex w-60 shrink-0 border-r border-border/60 flex-col sticky top-0 h-dvh">
+        <aside className="myco-glass-rail hidden lg:flex w-60 shrink-0 border-r border-border/60 flex-col sticky top-0 h-dvh">
           {Sidebar}
         </aside>
 
@@ -203,7 +318,7 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
         {mobileOpen && (
           <div className="lg:hidden fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-            <aside className="relative w-64 bg-background border-r border-border h-full">{Sidebar}</aside>
+            <aside className="myco-glass-rail relative w-64 border-r border-border h-full">{Sidebar}</aside>
           </div>
         )}
 
@@ -218,7 +333,11 @@ export default function TenantGate({ children }: { children: React.ReactNode }) 
           <main className="flex-1">{children}</main>
         </div>
       </div>
+
+      {/* Guided-visit companion — renders only while a tour is active. */}
+      <TourBar />
     </div>
+    </EntitlementsProvider>
   );
 }
 

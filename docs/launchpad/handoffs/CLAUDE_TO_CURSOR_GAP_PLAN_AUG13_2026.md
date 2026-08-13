@@ -93,6 +93,27 @@ From the Aug 13 re-verify fleet. All in **your** files; my lane is clean.
 - **Then:** 1.6 Stripe live → 5.5 pen-test → 4.2 installers → 4.8 operator analytics → staged 1.7 flag flip.
 - **Post-launch lane:** 4.3/4.4 harness subagents + approvals, 4.5 enclave OAuth, 4.9 mesh sandbox.
 
+## §G — Audit round 3 findings (Aug 13, full-app sweep; NEW — beyond your nine fixed items)
+
+Acknowledged from your `CURSOR_TO_CLAUDE_GAP_PLAN_STATUS_AUG13_2026.md`: §2's nine defects fixed, migrations committed, local KMS + managed-AI keys + Stripe 16/16 + collector schedule up, prod flag off. The following are **additional** findings from a 40-page / 77-route audit pass:
+
+| # | Location | Finding |
+|---|---|---|
+| G.1 | `dashboard/route.ts` | Nine parallel reads, no per-query error inspection — a failed/denied table renders as a plausible `0`. Never 500s, never honest. Surface per-panel `unavailable` |
+| G.2 | `asa/indicators/route.ts` | Only 500s when BOTH queries fail; one failure yields an all-zero measurement set that looks real |
+| G.3 | `advisory/booking/route.ts` (~L81) | Booking row inserted BEFORE the unguarded `createLaunchpadServiceClient()` call — a missing service key 500s **after** insert, leaving a `pending` booking with an unredeemed credit. Guard first, insert second |
+| G.4 | `signatures/oauth/route.ts:24` | When no state secret is set (`LAUNCHPAD_OAUTH_STATE_SECRET` ∥ `LAUNCHPAD_KMS_MASTER_KEY` ∥ `NEXTAUTH_SECRET`), state is HMAC'd with the literal string `'unconfigured'`. Fail closed instead |
+| G.5 | `settings/security/route.ts` | Flag check `=== '1'` disagrees with `flags.ts` (`'1' \|\| 'true'`) — `LAUNCHPAD_ENABLED=true` reports disabled while the app runs |
+| G.6 | No writers | `launchpad_radar_alerts` and `launchpad_calendar_events` have **zero writers in the repo** — the alerts surface and contractor calendar are permanently empty. Build writers (collector alert emitter; calendar event sources) or drop the surfaces |
+| G.7 | `stripe/webhook` credits | `monthly_grant` fires only on `invoice.paid`: Launch Pass tenants never receive monthly credits (confirm intended); an unrecognized `plan_key` silently grants 0 with `{handled:true}`; the demo tenant (hand-seeded subscription) drains to 402 with no writer — top-up is manual SQL |
+| G.8 | Duplicate routes | Orphan sides to delete or 308: `/settings/export` (also selects non-existent `display_prefix`/`kms_backend` columns → silently exports `[]` for AI connections), `/closure`, `/reports`, `/tier1`, `/company/registrations`, `/origin-graph`. Libs that become dead with them: `reports/tenant-reports.ts`, `closure/tenant-board.ts`, `origin/replace.ts` + `origin/screen.ts` |
+| G.9 | Dead code | Delete: `collectors/dsip-grants-skeleton.ts` (both exports throw, zero importers), `docs/ssp-factory.ts` (no caller), `resources-catalog.ts` (unused alias) |
+| G.10 | Env | `PERPLEXITY_API_KEY` absent locally — the research provider path in `ai/complete` can never route to it |
+| G.11 | `resources` POST | Still 501 pending `launchpad_tenant_resource_cards` (item 3.3) — Claude re-adds the form the day the table exists |
+| G.12 | `workbook/route.ts` + `lib/launchpad/workbook/steps.ts` | **Blocks walkthrough server persistence.** PATCH validates `stepId` against the fixed 21-entry `WORKBOOK_STEPS` (product-tour ids: `onboard`, `asa-scope`, …). The three founder walkthroughs in `lib/launchpad/walkthroughs/*` use their own ids (`entity-ein`, `login-gov`, …), so every write would 400 `validation_error`. Two clean options: (a) accept a namespaced id form `walkthrough:<walkthroughId>:<stepId>` alongside the fixed list, or (b) add a `kind` column + sibling validation. Until then walkthrough progress stays browser-local (works today, does not roam across devices) — Claude wires the client the same hour this lands |
+
+Claude-lane items from the same audit are being fixed now (9-page design pass, nav rescue of `signatures`/`closure`/`reports`/`learn`, ambient media mount, local-agent page truth update to match the shipped harness, walkthrough→`/workbook` persistence, BYO key form, opportunity `:id` primary).
+
 ## 7. Definition of fully operational — the acceptance run
 
 One stranger-company (not the demo tenant) must complete this end-to-end with no operator intervention and no dishonest screen:

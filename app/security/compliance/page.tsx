@@ -624,6 +624,16 @@ export default function CompliancePage() {
           fetch('/api/security?action=incidents'),
         ]);
         
+        // A 401 is a session problem, not a posture problem — say so, or a
+        // signed-out local dev server reads as "compliance is broken".
+        if (controlsRes.status === 401) {
+          setIsLiveData(false);
+          setPostureError(
+            'Sign in required — this page needs an authenticated admin session. ' +
+            'On a local dev server, establish one with POST /api/auth/local-dev-session.'
+          );
+          return;
+        }
         if (controlsRes.ok) {
           const data = await controlsRes.json();
           // Keep ONLY the live core frameworks (NIST-800-171 + CMMC-L2) from MAS

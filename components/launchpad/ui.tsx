@@ -77,7 +77,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`relative rounded-xl border border-border/70 overflow-hidden ${className}`}>
+    <div className={`myco-glass-surface relative rounded-xl border border-border/70 overflow-hidden ${className}`}>
       {tone && <div className={`absolute inset-y-0 left-0 w-1 ${TONE_STRIPE[tone]}`} />}
       {children}
     </div>
@@ -117,7 +117,7 @@ export function StatTile({
 /** Pill badge with a state dot. */
 export function StateBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${TONE_CHIP[tone]}`}>
+    <span className={`myco-glass-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${TONE_CHIP[tone]}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${TONE_STRIPE[tone]}`} />
       {children}
     </span>

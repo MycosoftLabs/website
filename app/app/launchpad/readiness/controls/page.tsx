@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleDashed, MinusCircle, XCircle, Loader2, Search } from 'lucide-react';
+import { CheckCircle2, CircleDashed, ClipboardCheck, MinusCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { STATUS_VOCABULARY } from '@/lib/launchpad/constants';
+import { PageHeader, Card } from '@/components/launchpad/ui';
 import { LiquidRadio, LiquidSwitch } from '@/components/launchpad/liquid';
 import { OfficialLinksPanel } from '@/components/launchpad/official-links';
 
@@ -33,7 +34,7 @@ const STATE_META: Array<[value: string, label: string, icon: typeof CheckCircle2
   ['implemented', STATUS_VOCABULARY.implemented, CheckCircle2, 'text-emerald-500'],
   ['partial', 'In progress (partial)', CircleDashed, 'text-amber-500'],
   ['not_implemented', 'Not implemented', XCircle, 'text-red-400'],
-  ['not_applicable', STATUS_VOCABULARY.not_applicable, MinusCircle, 'text-slate-400'],
+  ['not_applicable', STATUS_VOCABULARY.not_applicable, MinusCircle, 'text-slate-500 dark:text-slate-400'],
 ];
 
 export default function ControlsRegisterPage() {
@@ -111,41 +112,74 @@ export default function ControlsRegisterPage() {
 
   return (
     <div className="container max-w-6xl mx-auto px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Requirement register</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <PageHeader
+        title="Requirement register"
+        icon={ClipboardCheck}
+        description={
+          <>
             {assessed} of {rows.length} requirements assessed. States are yours: Launchpad records
             what you mark and never marks anything for you.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <LiquidSwitch
-            checked={unassessedOnly}
-            onChange={setUnassessedOnly}
-            label="Unassessed only"
-          />
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
-            <input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search id or title…"
-              className="myco-glass-field pl-8 pr-3 py-2 rounded-lg border border-border text-sm w-56"
+          </>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <LiquidSwitch
+              checked={unassessedOnly}
+              onChange={setUnassessedOnly}
+              label="Unassessed only"
             />
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search id or title…"
+                className="myco-glass-field pl-8 pr-3 py-2 rounded-lg border border-border text-sm w-56"
+              />
+            </div>
+            <select
+              value={family}
+              onChange={(e) => setFamily(e.target.value)}
+              className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm"
+            >
+              <option value="all">All families</option>
+              {families.map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
           </div>
-          <select
-            value={family}
-            onChange={(e) => setFamily(e.target.value)}
-            className="myco-glass-field px-3 py-2 rounded-lg border border-border text-sm"
-          >
-            <option value="all">All families</option>
-            {families.map((f) => (
-              <option key={f} value={f}>{f}</option>
-            ))}
-          </select>
+        }
+      />
+
+      {/* Education-first: what / why / next step */}
+      <Card tone="sky" className="p-5 mb-5">
+        <div className="pl-1.5 grid gap-3 sm:grid-cols-3 text-sm">
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">What is this</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              The full register of the 110 security requirements in NIST SP 800-171, grouped by
+              family. Each row is one requirement — open it and mark the state that is true today:
+              implemented, partial, not implemented, or not applicable.
+            </p>
+          </div>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">Why it matters</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              These marked states are the raw material for everything downstream — the score
+              estimate, the SSP, and the POA&amp;M. Unassessed requirements count as Not Met in
+              every score estimate, so an honest register beats an optimistic one.
+            </p>
+          </div>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">Your next step</div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Work one family at a time. Flip on &ldquo;Unassessed only&rdquo; to see what is left,
+              open a row, and mark it. Marking a state records your own statement — Launchpad never
+              verifies or certifies anything for you.
+            </p>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {err && <p className="text-sm text-destructive mb-3">{err}</p>}
 
@@ -159,7 +193,7 @@ export default function ControlsRegisterPage() {
                 onClick={() => setOpen(open === r.controlId ? null : r.controlId)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 rounded-lg"
               >
-                <Icon className={`h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${open === r.controlId ? 'scale-110' : ''} ${meta?.[3] ?? 'text-slate-300'}`} />
+                <Icon className={`h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${open === r.controlId ? 'scale-110' : ''} ${meta?.[3] ?? 'text-slate-500 dark:text-slate-400'}`} />
                 <code className="text-sm font-semibold shrink-0 w-32">{r.controlId}</code>
                 <span className="text-sm text-muted-foreground flex-1 truncate">{r.title}</span>
                 <span className="text-[11px] px-1.5 py-0.5 rounded border border-border text-muted-foreground shrink-0 tabular-nums">
@@ -207,8 +241,6 @@ export default function ControlsRegisterPage() {
           );
         })}
       </div>
-
-      <OfficialLinksPanel surface="requirements" />
 
       <p className="text-xs text-muted-foreground mt-6">
         &ldquo;{STATUS_VOCABULARY.implemented}&rdquo; means you state the implementation exists —

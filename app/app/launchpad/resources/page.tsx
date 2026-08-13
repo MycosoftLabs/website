@@ -18,6 +18,7 @@ import { ExternalLink, Info, Library, Loader2 } from 'lucide-react';
 import { PageHeader, Card, StatTile, StateBadge } from '@/components/launchpad/ui';
 import { FeatureGate, TierTag } from '@/components/launchpad/entitlements';
 import { OfficialLinksPanel } from '@/components/launchpad/official-links';
+import { VendorMark } from '@/components/launchpad/vendor-mark';
 import {
   RESOURCE_CATEGORIES,
   resourceCategoryLabel,
@@ -56,6 +57,12 @@ function CatalogCard({ card, ordered }: { card: ResourceCatalogCard; ordered: bo
   return (
     <Card className="p-4">
       <div className="flex flex-wrap items-start gap-2">
+        <VendorMark
+          domain={card.logoDomain ?? (card.external_url ? hostOf(card.external_url) : null)}
+          name={card.vendor}
+          size={24}
+          className="mt-0.5"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {ordered && card.step && (
