@@ -23,7 +23,7 @@ export default function LegalDraft({
 }) {
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="launchpad-glass-page min-h-dvh">
         <div className="bg-slate-950 text-center py-1.5 px-4">
           <span className="text-[11px] tracking-widest font-semibold text-emerald-400">
             {COMMERCIAL_NON_CUI_BANNER}

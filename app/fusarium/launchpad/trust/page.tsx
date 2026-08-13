@@ -45,7 +45,7 @@ const customerOwns = [
 export default function LaunchpadTrustPage() {
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="launchpad-glass-page min-h-dvh">
         <div className="bg-slate-950 text-center py-1.5 px-4">
           <span className="text-[11px] tracking-widest font-semibold text-emerald-400">
             {COMMERCIAL_NON_CUI_BANNER}
@@ -157,9 +157,9 @@ export default function LaunchpadTrustPage() {
                   <ShieldCheck className="mr-2 h-5 w-5" /> Back to Launchpad
                 </NeuButton>
               </Link>
-              <Link href="/fusarium/launchpad/founding-50" className="ml-3">
+              <Link href="/fusarium/launchpad/get-started" className="ml-3">
                 <NeuButton variant="primary" className="px-6 py-3">
-                  Apply for the Founding 50 <ArrowRight className="ml-2 h-4 w-4" />
+                  Get started <ArrowRight className="ml-2 h-4 w-4" />
                 </NeuButton>
               </Link>
             </div>

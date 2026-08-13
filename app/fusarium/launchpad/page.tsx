@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import {
   ArrowRight,
@@ -17,6 +18,8 @@ import {
   CheckCircle2,
   XCircle,
   Lock,
+  PlayCircle,
+  X,
 } from "lucide-react"
 import {
   NeuButton,
@@ -27,6 +30,37 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
+
+// ---------------------------------------------------------------------------
+// Hero backdrop. Large media lives on the NAS bind mount under public/assets/
+// (gitignored) — the 50 MB master never enters git. `-web` is tried first, the
+// full file only if the NAS is missing the smaller variant. The poster is the
+// video's own first frame, so the still that paints instantly is continuous
+// with the motion that follows.
+// ---------------------------------------------------------------------------
+const LAUNCHPAD_HERO_MP4 = "/assets/launchpad/launchpad-hero.mp4"
+const LAUNCHPAD_HERO_POSTER =
+  process.env.NEXT_PUBLIC_LAUNCHPAD_HERO_POSTER?.trim() ||
+  "/assets/launchpad/launchpad-hero-poster.jpg"
+const launchpadHeroSources = deviceHeroVideoSources(LAUNCHPAD_HERO_MP4, {
+  envUrl: process.env.NEXT_PUBLIC_LAUNCHPAD_HERO_MP4,
+})
+
+/**
+ * Product-walkthrough video for the hero's Demo button. Not filmed yet, so the
+ * button is opt-in: point NEXT_PUBLIC_LAUNCHPAD_DEMO_MP4 at the file (or drop
+ * the default onto the NAS and set the flag) and the button appears. Until
+ * then it stays out of the DOM — a Demo button that opens an empty player is
+ * worse than no Demo button.
+ */
+const LAUNCHPAD_DEMO_MP4 =
+  process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_MP4?.trim() || "/assets/launchpad/launchpad-demo.mp4"
+const LAUNCHPAD_DEMO_POSTER =
+  process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_POSTER?.trim() || "/assets/launchpad/launchpad-demo-poster.jpg"
+const LAUNCHPAD_DEMO_ENABLED = process.env.NEXT_PUBLIC_LAUNCHPAD_DEMO_ENABLED === "1"
+const launchpadDemoSources = deviceHeroVideoSources(LAUNCHPAD_DEMO_MP4)
 
 // The ten Launchpad modules (master plan §4.1).
 const modules = [
@@ -92,6 +126,57 @@ const modules = [
   },
 ]
 
+// Why a founder should care — the pain first, then what changes. Kept to
+// things Launchpad genuinely does; nothing here promises an award.
+const whyLaunchpad = [
+  {
+    title: "Small teams, prime-sized paperwork",
+    icon: Building2,
+    pain: "AI has collapsed the team size needed to build defense-grade technology. It has not collapsed the compliance surface: a four-person company answers the same security requirements as a four-hundred-person prime, with the same registrations, the same evidence, and the same sourcing rules.",
+    shift: "the work is scoped to the environment you actually run and sequenced so each step unlocks the next, instead of arriving all at once.",
+  },
+  {
+    title: "What CMMC Level 2 actually asks of you",
+    icon: ClipboardCheck,
+    pain: "If a contract sends you Controlled Unclassified Information — drawings, specs, test data — you must assess your own systems against NIST SP 800-171, a catalogue of 110 security requirements, and post the resulting score to SPRS, the government's supplier risk database. Most Level 2 work is self-assessed; some programs require a third-party assessor. Buyers increasingly check that score before award.",
+    shift: "the 110 become a worked register with a live score, using the same arithmetic an assessor uses — where a partial implementation still deducts the requirement's full weight and anything unassessed counts as not met, which is why so many first scores come back negative.",
+  },
+  {
+    title: "Evidence nobody kept",
+    icon: FolderLock,
+    pain: "Claiming a requirement is implemented is easy. Producing the artifact, its owner, its date and its hash eighteen months later, under assessment, is where companies fail.",
+    shift: "an evidence index that records the reference, owner and hash as you go — the content stays in your systems.",
+  },
+  {
+    title: "Opportunities found too late",
+    icon: Radar,
+    pain: "Solicitations sit across scattered official sources, amendments move deadlines quietly, and by the time a small team notices a fit there is no runway left to respond well.",
+    shift: "official sources ingested once, deduplicated, matched to your profile, and watched for amendments.",
+  },
+  {
+    title: "\u201cMade in America\u201d is not one rule",
+    icon: Factory,
+    pain: "It is several, and they stack. The Buy American Act sets a domestic-content percentage that rises on a published schedule. The Trade Agreements Act permits some countries of origin and bars others. The Berry Amendment restricts certain materials outright. And Section 889 prohibits specific Chinese telecom and video-surveillance brands anywhere in your supply chain — including a camera module inside a subassembly you bought whole.",
+    shift: "your bill of materials is tracked by part origin with domestic-content estimates under the rule pack the contract actually invokes, so a disqualifying part surfaces during design rather than during a contract review.",
+  },
+  {
+    title: "AI that drafts, never decides",
+    icon: ShieldCheck,
+    pain: "Tooling that lets a model mark controls implemented produces a confident, unfounded posture — the exact thing an assessment is designed to catch.",
+    shift: "AI drafts, organizes and explains; a human marks implementation, and the data model has no way to record otherwise.",
+  },
+]
+
+const timeSinks = [
+  "Which registration unlocks which portal, and in what order",
+  "Which of the 110 security requirements your scope genuinely excludes",
+  "What counts as evidence for a given requirement, and who has to own it",
+  "Which gaps may sit on a POA&M — a scheduled fix-it plan — and which block an award outright",
+  "Which sourcing rule a given solicitation actually invokes, and at what threshold",
+  "When SAM, portal accounts and training quietly expire",
+  "What a submission package must contain before it is worth writing",
+]
+
 const isIsNot: Array<[string, string]> = [
   ["A readiness workflow and evidence-indexing platform", "A C3PAO or independent certification body"],
   ["A customer-owned self-assessment workspace", "A guarantee of CMMC status or a government finding"],
@@ -109,9 +194,11 @@ const journey = [
 ]
 
 export default function LaunchpadPage() {
+  const [demoOpen, setDemoOpen] = useState(false)
+
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="launchpad-glass-page min-h-dvh">
         {/* Boundary strip — always visible, before anything else */}
         <div className="bg-slate-950 text-center py-1.5 px-4">
           <span className="text-[11px] tracking-widest font-semibold text-emerald-400">
@@ -123,8 +210,26 @@ export default function LaunchpadPage() {
         </div>
 
         {/* Hero (copy: master plan §26.1) */}
-        <section className="relative overflow-hidden py-24 md:py-32" data-over-video>
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-background" />
+        <section className="relative overflow-hidden py-24 md:py-32 lp-media-band" data-over-video>
+          {/* Hero artwork: the ecosystem Launchpad exists to serve — droids,
+              vessels, satellites, operators, all on one mesh. Same band
+              treatment as the FUSARIUM intelligence-core section, so the
+              frosted CTAs read THROUGH to the image in both themes. */}
+          <div className="lp-media-bg">
+            <AutoplayVideo
+              sources={launchpadHeroSources}
+              poster={LAUNCHPAD_HERO_POSTER}
+              preload="auto"
+              pointerEventsNone
+              smoothLoop
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </div>
+          <div className="lp-media-scrim lp-media-scrim--strong" aria-hidden="true" />
+          {/* Hold the dark ground until past the trust strip, then hand off to
+              the page. The copy in this hero is white in both themes, so the
+              fade must not reach the light background while text sits on it. */}
+          <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_bottom,transparent_0%,transparent_84%,var(--background)_100%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#fff2_1px,transparent_1px),linear-gradient(to_bottom,#fff2_1px,transparent_1px)] bg-[size:32px_32px] opacity-[0.06] pointer-events-none" />
           <div className="container max-w-7xl mx-auto px-4 relative z-10">
             <div className="max-w-4xl mx-auto text-center">
@@ -139,15 +244,29 @@ export default function LaunchpadPage() {
                 CMMC self-assessment readiness, evidence, opportunity discovery, proposal operations,
                 domestic sourcing, and secure vendor decisions — without pretending software can certify you.
               </p>
+              {/* Demo · Get started · See pricing. The demo button is gated on
+                  the asset actually existing — until the walkthrough is filmed
+                  and dropped on the NAS it stays out of the DOM rather than
+                  opening an empty player. Set NEXT_PUBLIC_LAUNCHPAD_DEMO_MP4
+                  (or drop the default file) and it appears. */}
               <div className="flex flex-wrap gap-4 justify-center">
-                <Link href="/fusarium/launchpad/founding-50">
-                  <NeuButton variant="primary" className="text-base px-6 py-3">
-                    Apply for the Founding 50
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                {LAUNCHPAD_DEMO_ENABLED && (
+                  <button type="button" onClick={() => setDemoOpen(true)}
+                    data-analytics="launchpad_demo_open" className="inline-block">
+                    <NeuButton variant="default" className="text-base px-6 py-3 whitespace-nowrap">
+                      <PlayCircle className="mr-2 h-5 w-5 shrink-0" />
+                      Demo
+                    </NeuButton>
+                  </button>
+                )}
+                <Link href="/fusarium/launchpad/get-started" className="inline-block">
+                  <NeuButton variant="primary" className="text-base px-6 py-3 whitespace-nowrap">
+                    Get started
+                    <ArrowRight className="ml-2 h-5 w-5 shrink-0" />
                   </NeuButton>
                 </Link>
-                <Link href="/fusarium/launchpad/pricing">
-                  <NeuButton variant="default" className="text-base px-6 py-3">
+                <Link href="/fusarium/launchpad/pricing" className="inline-block">
+                  <NeuButton variant="default" className="text-base px-6 py-3 whitespace-nowrap">
                     See Pricing
                   </NeuButton>
                 </Link>
@@ -158,6 +277,77 @@ export default function LaunchpadPage() {
                 Transparent pricing · Optional expert guidance
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* ================= WHY THIS EXISTS =================
+            The module list says WHAT Launchpad does. This says why a founder
+            should care, in the terms they actually feel: the gap between
+            building something the DoD wants and being an entity the DoD is
+            allowed to buy from. */}
+        <section className="py-20 border-t border-border/40">
+          <div className="container max-w-6xl mx-auto px-4">
+            <div className="text-center mb-12">
+              <NeuBadge variant="default" className="mb-4">Why Launchpad</NeuBadge>
+              <h2 className="text-4xl font-bold mb-4 text-balance">
+                The technology is no longer the hard part. Becoming buyable is.
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                A four-person team with modern tooling can now build something a program office
+                genuinely wants. What stops that team is everything around the technology — and most
+                of it arrives as acronyms nobody explains: a CMMC Level 2 self-assessment, an SPRS
+                score, Section 889, the Buy American Act, a POA&amp;M. None of it is difficult once it
+                is sequenced. All of it is expensive to learn by losing an award. Launchpad is the
+                operating layer for that second problem, and it says what each term means as you
+                meet it.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-5 mb-12">
+              {whyLaunchpad.map((w) => (
+                <NeuCard key={w.title}>
+                  <NeuCardHeader className="pb-2">
+                    <div className="flex items-center gap-2.5">
+                      <w.icon className="h-5 w-5 text-primary shrink-0" />
+                      <h3 className="font-semibold">{w.title}</h3>
+                    </div>
+                  </NeuCardHeader>
+                  <NeuCardContent>
+                    <p className="text-sm text-muted-foreground mb-3">{w.pain}</p>
+                    <p className="text-sm">
+                      <span className="font-medium text-primary">With Launchpad: </span>
+                      {w.shift}
+                    </p>
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+
+            <NeuCard className="max-w-4xl mx-auto">
+              <NeuCardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Where the time actually goes</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Most of the delay between building it and being able to be paid for it is not
+                  technical work. It is sequencing: knowing which registration unlocks which portal,
+                  which requirement needs evidence before it can be claimed, and which of the 110 you
+                  are allowed to defer. Getting that order wrong costs months. Launchpad encodes the
+                  order.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  {timeSinks.map((t) => (
+                    <div key={t} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">{t}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-5 pt-4 border-t border-border/50">
+                  Launchpad compresses the administration around the work. It does not certify you,
+                  assess you, or win the award — those stay yours. That honesty is the product: a
+                  tool willing to claim otherwise would be the thing that fails your assessment.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
           </div>
         </section>
 
@@ -213,7 +403,7 @@ export default function LaunchpadPage() {
         </section>
 
         {/* Why a count is not a status (§2.2) — the product's core honesty pitch */}
-        <section className="py-20 bg-slate-950 text-white">
+        <section className="py-20 lp-band">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div>
@@ -308,7 +498,7 @@ export default function LaunchpadPage() {
         </section>
 
         {/* Security boundary teaser */}
-        <section className="py-20 bg-slate-950 text-white">
+        <section className="py-20 lp-band">
           <div className="container max-w-5xl mx-auto px-4 text-center">
             <Lock className="h-10 w-10 text-emerald-400 mx-auto mb-6" />
             <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
@@ -329,28 +519,28 @@ export default function LaunchpadPage() {
           </div>
         </section>
 
-        {/* Founding 50 CTA */}
-        <section className="py-24" id="founding-50">
+        {/* Entry CTA */}
+        <section className="py-24" id="get-started">
           <div className="container max-w-5xl mx-auto px-4 text-center">
-            <NeuBadge variant="default" className="mb-4 border-destructive/30 text-destructive">
-              Limited Cohort
+            <NeuBadge variant="default" className="mb-4">
+              Start Here
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-balance">
-              Fifty technical startups. One guided path into defense contracting.
+              One guided path from technical startup to defense contractor.
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-4">
-              The Founding Launch Pass is $397 one time: guided activation, your company baseline, a
-              first score and scope snapshot, and the first 30 days of Launchpad Core. Recurring plans
-              are optional and explicitly selected — nothing silently converts.
+              The Launch Pass is $397 one time: guided activation, your company baseline, a first
+              score and scope snapshot, and the first 30 days of Launchpad Core. Recurring plans are
+              optional and explicitly selected — nothing silently converts.
             </p>
             <p className="text-sm text-muted-foreground max-w-2xl mx-auto mb-8">
               External providers — secure enclaves, cloud, assessors, counsel, hardware — remain
               customer-direct purchases, always disclosed and never marked up into the entry price.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link href="/fusarium/launchpad/founding-50">
+              <Link href="/fusarium/launchpad/get-started">
                 <NeuButton variant="primary" className="text-base px-6 py-3">
-                  Apply for the Founding 50
+                  Get started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </NeuButton>
               </Link>
@@ -377,6 +567,29 @@ export default function LaunchpadPage() {
           </div>
         </section>
       </div>
+
+        {/* Demo player — mounted only when the asset is configured. */}
+        {LAUNCHPAD_DEMO_ENABLED && demoOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+            role="dialog" aria-modal="true" aria-label="Launchpad product demo">
+            <div className="absolute inset-0 bg-black/80" onClick={() => setDemoOpen(false)} />
+            <div className="relative w-full max-w-4xl">
+              <button onClick={() => setDemoOpen(false)}
+                className="absolute -top-10 right-0 inline-flex items-center gap-1.5 text-sm text-white/80 hover:text-white"
+                aria-label="Close demo">
+                <X className="h-4 w-4" /> Close
+              </button>
+              <div className="relative aspect-video overflow-hidden rounded-xl border border-white/15 bg-black shadow-2xl">
+                <AutoplayVideo
+                  sources={launchpadDemoSources}
+                  poster={LAUNCHPAD_DEMO_POSTER}
+                  preload="auto"
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        )}
     </NeuromorphicProvider>
   )
 }

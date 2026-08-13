@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { requireTenant } from '@/lib/launchpad/tenant-context';
 import { appendAuditEvent } from '@/lib/launchpad/audit';
-import { getProduct, FOUNDING_PASS_CAP } from '@/lib/launchpad/catalog';
+import { getProduct } from '@/lib/launchpad/catalog';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
 
 /**
@@ -37,19 +37,7 @@ export async function POST(request: NextRequest) {
   const product = getProduct(String(body.lookupKey ?? ''));
   if (!product) return NextResponse.json({ error: 'Unknown product' }, { status: 400 });
 
-  // Founding pass soft gate at checkout time (the webhook re-verifies under lock).
-  if (product.planKey === 'founding_pass_30d') {
-    const svc = createLaunchpadServiceClient();
-    const { count } = await svc
-      .from('launchpad_founding_pass_claims')
-      .select('tenant_id', { count: 'exact', head: true });
-    if ((count ?? 0) >= FOUNDING_PASS_CAP) {
-      return NextResponse.json(
-        { error: 'The Founding 50 cohort is full', code: 'founding_pass_sold_out' },
-        { status: 409 },
-      );
-    }
-  }
+  // No cohort cap: the Launch Pass is not seat-limited and never publishes a count.
 
   const stripe = new Stripe(secretKey);
 

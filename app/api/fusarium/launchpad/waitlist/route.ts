@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role';
 
 /**
- * Founding 50 application intake — the one PUBLIC (pre-tenant) Launchpad route.
+ * Get-started intake — the one PUBLIC (pre-tenant) Launchpad route.
  *
  * Public marketing form -> service-role insert into launchpad_waitlist (RLS
  * denies anon/authenticated entirely) -> best-effort MAS notification. Modeled
@@ -72,10 +72,10 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'launchpad_founding50_application',
+          type: 'launchpad_get_started_enquiry',
           priority: 'normal',
           recipient: process.env.ADMIN_EMAIL || 'morgan@mycosoft.org',
-          subject: `Founding 50 application: ${company}`,
+          subject: `Launchpad enquiry: ${company}`,
           body: `${name} <${email}> — ${company}\nStage: ${clean(body.stage) || 'n/a'}\nBuilds: ${clean(body.builds) || 'n/a'}\nApplication ID: ${data.id}`,
         }),
         signal: AbortSignal.timeout(4000),

@@ -12,7 +12,16 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
-import { FOUNDING_PASS_CAP } from "@/lib/launchpad/catalog"
+
+/**
+ * Launchpad sign-up.
+ *
+ * This is an open front door, not a selection process. An earlier draft framed
+ * it as applying to a capped "Founding 50" cohort — a number carried in from
+ * the spec package that was never a real limit. Launchpad is not seat-limited
+ * and does not publish a seat count, so nothing here implies scarcity,
+ * competition, review order, or acceptance.
+ */
 
 const STAGES = [
   ["idea", "Idea — entity not fully established"],
@@ -23,19 +32,18 @@ const STAGES = [
 ] as const
 
 const offerTerms = [
-  `$397 one-time Founding Launch Pass, limited to the first ${FOUNDING_PASS_CAP} accepted companies`,
+  "$397 one-time Launch Pass — no seat limit, no cohort, no waiting list",
   "Guided activation plus the first 30 days of Launchpad Core",
-  "A recurring plan is optional and explicitly selected — nothing auto-renews silently",
+  "A recurring plan is optional and explicitly selected — nothing auto-renews",
   "External providers (enclave, cloud, assessors, counsel, hardware) are paid directly by you",
   "No certification, no independent assessment, no legal advice, no award guarantee, no clearance sponsorship, no CUI hosting",
-  "Applicants must have a legitimate technology or business and agree to truthful use",
 ]
 
 const input =
   "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base " +
   "focus:outline-none focus:ring-2 focus:ring-primary/40"
 
-export default function Founding50Page() {
+export default function GetStartedPage() {
   const [form, setForm] = useState({
     name: "", email: "", company: "", website: "", builds: "",
     stage: "", targetAgencies: "", heardFrom: "",
@@ -65,7 +73,7 @@ export default function Founding50Page() {
 
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="launchpad-glass-page min-h-dvh">
         <div className="bg-slate-950 text-center py-1.5 px-4">
           <span className="text-[11px] tracking-widest font-semibold text-emerald-400">
             {COMMERCIAL_NON_CUI_BANNER}
@@ -83,21 +91,21 @@ export default function Founding50Page() {
         <section className="py-16">
           <div className="container max-w-3xl mx-auto px-4">
             <div className="text-center mb-10">
-              <NeuBadge variant="default" className="mb-4 border-destructive/30 text-destructive">
-                Founding 50
+              <NeuBadge variant="default" className="mb-4">
+                Get Started
               </NeuBadge>
               <h1 className="text-4xl md:text-5xl font-bold mb-4 text-balance">
-                Fifty technical startups. One guided path into defense contracting.
+                One guided path from technical startup to defense contractor.
               </h1>
               <p className="text-lg text-muted-foreground">
-                Apply below. Applications are reviewed in order; qualified companies receive an
-                activation invitation when the cohort opens.
+                Tell us what you build and where you are today. We use it to set your workspace up
+                against the right readiness track, then send your activation link and next steps.
               </p>
             </div>
 
             <NeuCard className="mb-10">
               <NeuCardHeader>
-                <h2 className="text-lg font-semibold">The offer, plainly</h2>
+                <h2 className="text-lg font-semibold">What you get, plainly</h2>
               </NeuCardHeader>
               <NeuCardContent>
                 <ul className="space-y-2.5">
@@ -114,16 +122,17 @@ export default function Founding50Page() {
               <NeuCard>
                 <NeuCardContent className="pt-8 pb-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold mb-2">Application received</h2>
+                  <h2 className="text-2xl font-bold mb-2">You&apos;re in — check your inbox</h2>
                   <p className="text-muted-foreground">
-                    We will review it and reply to {form.email || "your email"}. No payment is due now.
+                    We&apos;ll send your activation link and next steps to {form.email || "your email"}.
+                    No payment is due now.
                   </p>
                 </NeuCardContent>
               </NeuCard>
             ) : (
               <NeuCard>
                 <NeuCardHeader>
-                  <h2 className="text-lg font-semibold">Apply</h2>
+                  <h2 className="text-lg font-semibold">Tell us about your company</h2>
                   <p className="text-sm text-muted-foreground">
                     Public, non-sensitive company facts only. Do not include CUI, credentials, or
                     proprietary technical data in this form.
@@ -178,11 +187,11 @@ export default function Founding50Page() {
 
                     <NeuButton variant="primary" className="w-full py-3 text-base" disabled={state === "sending"}>
                       {state === "sending"
-                        ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Submitting…</>
-                        : <><Send className="mr-2 h-5 w-5" /> Submit application</>}
+                        ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sending…</>
+                        : <><Send className="mr-2 h-5 w-5" /> Get started</>}
                     </NeuButton>
                     <p className="text-xs text-muted-foreground text-center">
-                      Submitting an application creates no obligation on either side and stores only the
+                      Submitting this creates no obligation on either side and stores only the
                       information above.
                     </p>
                   </form>

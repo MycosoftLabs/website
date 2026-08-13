@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2, Rocket, ShieldCheck } from 'lucide-react';
 import { BLOCKED_DATA_CLASSES } from '@/lib/launchpad/constants';
+import { LiquidCheckbox } from '@/components/launchpad/liquid';
 
 /**
  * Tenant onboarding: name the company, accept the four policy documents,
@@ -93,20 +94,19 @@ export default function OnboardingPage() {
           </div>
           <div className="space-y-2.5">
             {DOCS.map((d) => (
-              <label key={d.key} className="flex items-start gap-2.5 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={accepted.has(d.key)}
-                  onChange={() => toggle(d.key)}
-                  className="mt-0.5 h-4 w-4"
-                />
-                <span>
-                  I accept the{' '}
-                  <Link href={d.href} target="_blank" className="text-primary underline underline-offset-2">
-                    {d.label}
-                  </Link>
-                </span>
-              </label>
+              <LiquidCheckbox
+                key={d.key}
+                checked={accepted.has(d.key)}
+                onChange={() => toggle(d.key)}
+                label={
+                  <>
+                    I accept the{' '}
+                    <Link href={d.href} target="_blank" className="text-primary underline underline-offset-2">
+                      {d.label}
+                    </Link>
+                  </>
+                }
+              />
             ))}
           </div>
         </div>

@@ -21,7 +21,7 @@ interface BillingState {
 }
 
 const PLAN_NAMES: Record<PlanKey, string> = {
-  founding_pass_30d: 'Founding Launch Pass',
+  launch_pass_30d: 'Launch Pass',
   core: 'Launchpad Core',
   contractor_ops: 'Contractor Ops',
   origin_graph: 'Ops + Origin Graph',
@@ -109,7 +109,7 @@ export default function BillingPage() {
       <div className="grid sm:grid-cols-2 gap-3 mb-8">
         <div className="rounded-lg border-2 border-primary/30 p-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-semibold text-sm">{PLAN_NAMES.founding_pass_30d}</span>
+            <span className="font-semibold text-sm">{PLAN_NAMES.launch_pass_30d}</span>
             <span className="font-bold">{fmt(pass.unitAmount)} <span className="text-xs font-normal text-muted-foreground">one time</span></span>
           </div>
           <p className="text-xs text-muted-foreground mb-3">

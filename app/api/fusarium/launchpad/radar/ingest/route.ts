@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
   }
 
   const auth = await authorizeIngestBearer(svc, request.headers.get('authorization'));
-  if (!auth.ok) {
+  // tsconfig has strictNullChecks off — `if (!auth.ok)` does not narrow the union.
+  if (auth.ok === false) {
     return NextResponse.json({ error: auth.error, code: auth.code }, { status: auth.status });
   }
 

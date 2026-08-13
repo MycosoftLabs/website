@@ -1997,7 +1997,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   text-shadow: 0.025em 0.25em 0.05em rgba(0, 0, 0, 0.12);
 }
 
-.natureos-glass-page .petri-codepen-button-demo {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo {
   --global--size: clamp(2rem, 4vw, 5rem);
   --anim--hover-time: 400ms;
   --anim--hover-ease: cubic-bezier(0.25, 1, 0.5, 1);
@@ -2019,7 +2019,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   isolation: isolate;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap {
   position: relative;
   z-index: 2;
   border-radius: 999vw;
@@ -2029,7 +2029,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   transform-style: preserve-3d;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-shadow {
   --shadow-cuttoff-fix: 2em;
   position: absolute;
   z-index: 1;
@@ -2045,7 +2045,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   pointer-events: none;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-shadow::after {
   content: "";
   position: absolute;
   z-index: 0;
@@ -2067,7 +2067,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   opacity: 1;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button {
   --border-width: clamp(1px, 0.0625em, 4px);
   all: unset;
   cursor: pointer;
@@ -2095,7 +2095,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   transition: all var(--anim--hover-time) var(--anim--hover-ease);
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover {
   transform: scale(0.975);
   backdrop-filter: blur(0.01em);
   -webkit-backdrop-filter: blur(0.01em);
@@ -2109,7 +2109,7 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
     0 0 0 0 rgba(255, 255, 255, 1);
 }
 
-.natureos-glass-page .petri-codepen-button-demo button span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button span {
   position: relative;
   display: block;
   user-select: none;
@@ -2129,11 +2129,11 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   padding-block: 0.875em;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover span {
   text-shadow: 0.025em 0.025em 0.025em rgba(0, 0, 0, 0.12);
 }
 
-.natureos-glass-page .petri-codepen-button-demo button span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button span::after {
   content: "";
   display: block;
   position: absolute;
@@ -2161,16 +2161,16 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
     --angle-2 calc(var(--anim--hover-time) * 1.25) var(--anim--hover-ease);
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover span::after {
   background-position: 25% 50%;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:active span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active span::after {
   background-position: 50% 15%;
   --angle-2: -15deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button::after {
   content: "";
   position: absolute;
   z-index: 1;
@@ -2202,15 +2202,15 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.5);
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover::after {
   --angle-1: -125deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:active::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active::after {
   --angle-1: -75deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow {
   filter: blur(clamp(2px, 0.0625em, 6px));
   -webkit-filter: blur(clamp(2px, 0.0625em, 6px));
   -moz-filter: blur(clamp(2px, 0.0625em, 6px));
@@ -2218,16 +2218,16 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
   transition: filter var(--anim--hover-time) var(--anim--hover-ease);
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow::after {
   top: calc(var(--shadow-cuttoff-fix) - 0.875em);
   opacity: 1;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) {
   transform: rotate3d(1, 0, 0, 25deg);
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
@@ -2238,14 +2238,14 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
     inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.15);
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow {
   filter: blur(clamp(2px, 0.125em, 12px));
   -webkit-filter: blur(clamp(2px, 0.125em, 12px));
   -moz-filter: blur(clamp(2px, 0.125em, 12px));
   -ms-filter: blur(clamp(2px, 0.125em, 12px));
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow::after {
   top: calc(var(--shadow-cuttoff-fix) - 0.5em);
   opacity: 0.75;
   background:
@@ -2253,19 +2253,19 @@ html:not(.dark) .natureos-glass-page textarea::placeholder {
     linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.1));
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) span {
   text-shadow: 0.025em 0.25em 0.05em rgba(0, 0, 0, 0.12);
 }
 
 @media (hover: none) and (pointer: coarse) {
-  .natureos-glass-page .petri-codepen-button-demo button span::after,
-  .natureos-glass-page .petri-codepen-button-demo button:active span::after {
+  :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button span::after,
+  :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active span::after {
     --angle-2: -45deg;
   }
 
-  .natureos-glass-page .petri-codepen-button-demo button::after,
-  .natureos-glass-page .petri-codepen-button-demo button:hover::after,
-  .natureos-glass-page .petri-codepen-button-demo button:active::after {
+  :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button::after,
+  :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover::after,
+  :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active::after {
     --angle-1: -75deg;
   }
 }
@@ -2911,12 +2911,12 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 0.4em 1.1em rgba(0, 0, 0, 0.38) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo::before {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo::before {
   content: none !important;
   display: none !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo::before {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo::before {
   content: none !important;
   display: none !important;
 }
@@ -3002,7 +3002,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   initial-value: -45deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo {
   --global--size: clamp(2rem, 4vw, 5rem);
   --anim--hover-time: 400ms;
   --anim--hover-ease: cubic-bezier(0.25, 1, 0.5, 1);
@@ -3026,7 +3026,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   isolation: isolate;
 }
 
-.natureos-glass-page .petri-codepen-button-demo {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo {
   width: fit-content !important;
   min-height: auto !important;
   padding: 0 !important;
@@ -3171,7 +3171,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 8px 20px -16px rgba(0, 0, 0, 0.8) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo > svg {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo > svg {
   position: absolute !important;
   width: 100% !important;
   height: 100% !important;
@@ -3182,7 +3182,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transform: none !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap {
   position: relative !important;
   z-index: 2 !important;
   border-radius: 999vw !important;
@@ -3192,7 +3192,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transition: all var(--anim--hover-time) var(--anim--hover-ease) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-shadow {
   --shadow-cuttoff-fix: 2em;
   position: absolute !important;
   width: calc(100% + var(--shadow-cuttoff-fix)) !important;
@@ -3208,7 +3208,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transform: none !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-shadow::after {
   content: "" !important;
   position: absolute !important;
   z-index: 0 !important;
@@ -3237,7 +3237,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transform: none !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button {
   --border-width: clamp(1px, 0.0625em, 4px);
   all: unset !important;
   cursor: pointer !important;
@@ -3265,7 +3265,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transition: all var(--anim--hover-time) var(--anim--hover-ease) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover {
   transform: scale(0.975) !important;
   background: linear-gradient(
     -75deg,
@@ -3285,7 +3285,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 0 0 0 rgba(255, 255, 255, 1) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:active {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active {
   background: linear-gradient(
     -75deg,
     rgba(255, 255, 255, 0.05),
@@ -3294,7 +3294,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   ) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button span {
   position: relative !important;
   display: block !important;
   user-select: none !important;
@@ -3314,11 +3314,11 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   padding-block: 0.875em !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover span {
   text-shadow: 0.025em 0.025em 0.025em rgba(0, 0, 0, 0.12) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button span::after {
   content: "" !important;
   display: block !important;
   position: absolute !important;
@@ -3346,16 +3346,16 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     --angle-2 calc(var(--anim--hover-time) * 1.25) var(--anim--hover-ease) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover span::after {
   background-position: 25% 50% !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:active span::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active span::after {
   background-position: 50% 15% !important;
   --angle-2: -15deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button::after {
   content: "" !important;
   position: absolute !important;
   z-index: 1 !important;
@@ -3387,15 +3387,15 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.5) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:hover::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:hover::after {
   --angle-1: -125deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo button:active::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo button:active::after {
   --angle-1: -75deg;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow {
   filter: blur(clamp(2px, 0.0625em, 6px)) !important;
   -webkit-filter: blur(clamp(2px, 0.0625em, 6px)) !important;
   -moz-filter: blur(clamp(2px, 0.0625em, 6px)) !important;
@@ -3403,16 +3403,16 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   transition: filter var(--anim--hover-time) var(--anim--hover-ease) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:hover) .button-shadow::after {
   top: calc(var(--shadow-cuttoff-fix) - 0.875em) !important;
   opacity: 1 !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) {
   transform: rotate3d(1, 0, 0, 25deg) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
@@ -3423,23 +3423,23 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.15) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow {
   filter: blur(clamp(2px, 0.125em, 12px)) !important;
   -webkit-filter: blur(clamp(2px, 0.125em, 12px)) !important;
   -moz-filter: blur(clamp(2px, 0.125em, 12px)) !important;
   -ms-filter: blur(clamp(2px, 0.125em, 12px)) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) .button-shadow::after {
   top: calc(var(--shadow-cuttoff-fix) - 0.5em) !important;
   opacity: 0.75 !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo .button-wrap:has(button:active) span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo .button-wrap:has(button:active) span {
   text-shadow: 0.025em 0.25em 0.05em rgba(0, 0, 0, 0.12) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-reset {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-reset {
   width: fit-content !important;
   min-height: auto !important;
   padding: 0 !important;
@@ -3451,7 +3451,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   box-shadow: none !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-reset button span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-reset button span {
   display: grid !important;
   place-items: center !important;
   min-width: 2.8em !important;
@@ -3459,7 +3459,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   padding: 0.75em !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect {
   width: 100% !important;
   min-height: auto !important;
   padding: 0 !important;
@@ -3471,20 +3471,20 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   box-shadow: none !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect .button-wrap,
-.natureos-glass-page .petri-codepen-button-demo-rect button,
-.natureos-glass-page .petri-codepen-button-demo-rect button::after,
-.natureos-glass-page .petri-codepen-button-demo-rect button span::after,
-.natureos-glass-page .petri-codepen-button-demo-rect .button-shadow::after {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button::after,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button span::after,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-shadow::after {
   border-radius: 0.55rem !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect .button-wrap,
-.natureos-glass-page .petri-codepen-button-demo-rect button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button {
   width: 100% !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect button span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button span {
   display: grid !important;
   min-height: 2.35em !important;
   place-items: center !important;
@@ -3493,7 +3493,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   letter-spacing: 0 !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect[data-active="true"] button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect[data-active="true"] button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.05),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.5),
@@ -3502,13 +3502,13 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 0 0.7em rgba(59, 130, 246, 0.16) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-wide,
-.natureos-glass-page .petri-codepen-button-demo-wide .button-wrap,
-.natureos-glass-page .petri-codepen-button-demo-wide button {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-wide,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-wide .button-wrap,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-wide button {
   width: 100% !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-wide button span {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-wide button span {
   grid-auto-flow: column !important;
   gap: 0.55em !important;
   min-height: 2.65em !important;
@@ -3723,7 +3723,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   width: 1.25rem !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button {
   background: linear-gradient(
     -75deg,
     rgba(0, 0, 0, 0.86),
@@ -3740,14 +3740,14 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button span {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button span {
   color: rgba(255, 255, 255, 0.92) !important;
   text-shadow:
     0 0.12em 0.08em rgba(0, 0, 0, 0.32),
     0 0 1em rgba(255, 255, 255, 0.08) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button::after {
   background:
     conic-gradient(
       from var(--angle-1) at 50% 50%,
@@ -3761,14 +3761,14 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.12) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-shadow::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-shadow::after {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.36)),
     radial-gradient(ellipse at 50% 70%, rgba(15, 23, 42, 0.74), transparent 60%) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button:hover,
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button:active {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button:hover,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button:active {
   background: linear-gradient(
     -75deg,
     rgba(0, 0, 0, 0.76),
@@ -3785,7 +3785,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 0 0 0 rgba(255, 255, 255, 0) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect[data-active="true"] button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect[data-active="true"] button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(255, 255, 255, 0.08),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.14),
@@ -3794,7 +3794,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     0 0 0.75em rgba(96, 165, 250, 0.18) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect button span::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect button span::after {
   background: linear-gradient(
     var(--angle-2),
     rgba(0, 0, 0, 0) 0%,
@@ -3807,8 +3807,8 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   opacity: 0.72 !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:hover) button,
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:active) button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:hover) button,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:active) button {
   background: linear-gradient(
     -75deg,
     rgba(0, 0, 0, 0.34),
@@ -3825,7 +3825,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   -webkit-backdrop-filter: blur(0.01em) saturate(1.08) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:active) button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:active) button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.42),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.055),
@@ -3836,16 +3836,16 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.48) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:hover) .button-shadow::after,
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:active) .button-shadow::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:hover) .button-shadow::after,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:active) .button-shadow::after {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.5)),
     radial-gradient(ellipse at 50% 74%, rgba(15, 23, 42, 0.86), transparent 62%) !important;
   opacity: 0.92 !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:hover) button::after,
-.dark .natureos-glass-page .petri-codepen-button-demo-rect .button-wrap:has(button:active) button::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:hover) button::after,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap:has(button:active) button::after {
   background:
     conic-gradient(
       from var(--angle-1) at 50% 50%,
@@ -4197,7 +4197,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     inset -0.7rem 0 0.9rem -1rem rgba(0, 0, 0, 0.82) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button {
   background: linear-gradient(
     -75deg,
     rgba(0, 0, 0, 0.86),
@@ -4214,14 +4214,14 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   -webkit-backdrop-filter: blur(16px) saturate(1.18) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button span {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button span {
   color: rgba(255, 255, 255, 0.92) !important;
   text-shadow:
     0 0.12em 0.08em rgba(0, 0, 0, 0.32),
     0 0 1em rgba(255, 255, 255, 0.08) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button::after {
   background:
     conic-gradient(
       from var(--angle-1) at 50% 50%,
@@ -4235,13 +4235,13 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   box-shadow: inset 0 0 0 calc(var(--border-width) / 2) rgba(255, 255, 255, 0.12) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-shadow::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-shadow::after {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.36)),
     radial-gradient(ellipse at 50% 70%, rgba(15, 23, 42, 0.74), transparent 60%) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button span::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) button span::after {
   background: linear-gradient(
     var(--angle-2),
     rgba(0, 0, 0, 0) 0%,
@@ -4254,8 +4254,8 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   opacity: 0.72 !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:hover) button,
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:hover) button,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) button {
   background: linear-gradient(
     -75deg,
     rgba(0, 0, 0, 0.34),
@@ -4272,7 +4272,7 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
   -webkit-backdrop-filter: blur(0.01em) saturate(1.08) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) button {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) button {
   box-shadow:
     inset 0 0.125em 0.125em rgba(0, 0, 0, 0.42),
     inset 0 -0.125em 0.125em rgba(255, 255, 255, 0.055),
@@ -4283,8 +4283,8 @@ html:not(.dark) .search-glass-page [class*="text-muted-foreground"] {
     inset 0 0.25em 0.05em 0 rgba(0, 0, 0, 0.48) !important;
 }
 
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:hover) .button-shadow::after,
-.dark .natureos-glass-page .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) .button-shadow::after {
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:hover) .button-shadow::after,
+.dark :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo:not(.petri-codepen-button-demo-rect) .button-wrap:has(button:active) .button-shadow::after {
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.5)),
     radial-gradient(ellipse at 50% 74%, rgba(15, 23, 42, 0.86), transparent 62%) !important;
@@ -5586,7 +5586,7 @@ html body .home-command-page-light .home-hero-glass-field.home-hero-glass-field[
 
 /* Native-link variants for the homepage glass controls. These preserve first-load
    navigation even if React hydration is delayed by video or Earth-sim work. */
-.natureos-glass-page .petri-codepen-button-demo a {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo a {
   all: unset !important;
   cursor: pointer !important;
   position: relative !important;
@@ -5600,7 +5600,7 @@ html body .home-command-page-light .home-hero-glass-field.home-hero-glass-field[
   transition: all var(--anim--hover-time) var(--anim--hover-ease) !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo a:hover {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo a:hover {
   transform: scale(0.975) !important;
 }
 
@@ -5623,8 +5623,8 @@ html body .home-command-page-light .home-hero-glass-field.home-hero-glass-field[
   text-align: center !important;
 }
 
-.natureos-glass-page .petri-codepen-button-demo-rect .button-wrap,
-.natureos-glass-page .petri-codepen-button-demo-rect a {
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect .button-wrap,
+:is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo-rect a {
   width: 100% !important;
   border-radius: 0.55rem !important;
 }
@@ -6154,9 +6154,725 @@ html:not(.dark) .mycobrain-petri-over-video .mycobrain-petri-link a svg {
   -webkit-tap-highlight-color: transparent;
 }
 
-html body .natureos-glass-page .petri-codepen-button-demo :is(a[href], button),
+html body :is(.natureos-glass-page, .launchpad-glass-page) .petri-codepen-button-demo :is(a[href], button),
 html body .natureos-glass-page .button-wrap > :is(a[href], button),
 html body .home-command-page-light .home-hero-glass-field :is(a[href], button) {
   touch-action: manipulation !important;
   -webkit-tap-highlight-color: transparent !important;
+}
+
+/* =============================================================================
+   FUSARIUM Launchpad — neutral black/white frosted glass
+   -----------------------------------------------------------------------------
+   About-page glass language (translucent surface + backdrop blur + inset
+   highlight), rebuilt neutral so nothing reads blue: light mode is white glass
+   on a warm-neutral ground, dark mode is near-black glass with a white hairline.
+
+   Uses [class*="rounded-"][class*="border"] substring matching like the About
+   page, so Tailwind variants such as `border-border/70` still match.
+   ============================================================================= */
+
+.launchpad-glass-page {
+  background:
+    radial-gradient(1100px 520px at 12% -12%, rgba(16, 185, 129, 0.07), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(100, 116, 139, 0.08), transparent 55%),
+    linear-gradient(180deg, #f7f8f9 0%, #eef0f2 100%);
+}
+.dark .launchpad-glass-page {
+  background:
+    radial-gradient(1100px 520px at 12% -12%, rgba(16, 185, 129, 0.10), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(255, 255, 255, 0.045), transparent 55%),
+    linear-gradient(180deg, #0a0b0d 0%, #050607 100%);
+}
+
+/* --- Glass surfaces (cards, panels, tiles) --- */
+.launchpad-glass-page [class*="rounded-lg"][class*="border"],
+.launchpad-glass-page [class*="rounded-xl"][class*="border"],
+.launchpad-glass-page [class*="rounded-2xl"][class*="border"],
+.launchpad-glass-page [class*="rounded-3xl"][class*="border"] {
+  position: relative;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.60) 44%, rgba(255, 255, 255, 0.46)) !important;
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.10),
+    0 2px 6px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+.dark .launchpad-glass-page [class*="rounded-lg"][class*="border"],
+.dark .launchpad-glass-page [class*="rounded-xl"][class*="border"],
+.dark .launchpad-glass-page [class*="rounded-2xl"][class*="border"],
+.dark .launchpad-glass-page [class*="rounded-3xl"][class*="border"] {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.04) 44%, rgba(255, 255, 255, 0.022)) !important;
+  box-shadow:
+    0 20px 54px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Small inline chips/code stay flat — glass on 20px pills reads as noise. */
+.launchpad-glass-page code[class*="rounded"],
+.launchpad-glass-page [class*="rounded-full"][class*="border"],
+.launchpad-glass-page [class*="rounded-sm"][class*="border"] {
+  background: rgba(15, 23, 42, 0.05) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.dark .launchpad-glass-page code[class*="rounded"],
+.dark .launchpad-glass-page [class*="rounded-full"][class*="border"],
+.dark .launchpad-glass-page [class*="rounded-sm"][class*="border"] {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* --- Glass buttons --- */
+.launchpad-glass-page button:not([class*="bg-emerald"]):not([data-flat]),
+.launchpad-glass-page a[role="button"]:not([class*="bg-emerald"]) {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.62) 46%, rgba(255, 255, 255, 0.48)) !important;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.dark .launchpad-glass-page button:not([class*="bg-emerald"]):not([data-flat]),
+.dark .launchpad-glass-page a[role="button"]:not([class*="bg-emerald"]) {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0.03)) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+/* The glass fill above replaces a button's own dark/gradient background, so a
+   button that declares `text-white` (NeuButton variant="primary") would render
+   white-on-white glass in light mode. Remap that ink; the accent stays in the
+   fill, not the type. Specificity is deliberately (0,3,2) — equal to the
+   .lp-media-band button rules further down, which are later in source and
+   therefore still win where white type belongs (over artwork). */
+html:not(.dark) .launchpad-glass-page button[class*="text-white"],
+html:not(.dark) .launchpad-glass-page a[role="button"][class*="text-white"] {
+  color: #0f172a !important;
+}
+
+/* =============================================================================
+   Type sitting ON the hero video — identical in both themes
+   -----------------------------------------------------------------------------
+   `[data-over-video]` is the house marker for "there is footage behind this,"
+   already honoured by .natureos-glass-page. .launchpad-glass-page needs the same
+   contract, because the neuromorphic sheet paints light-mode headings slate
+   (`.neuromorphic-page:not(.neuromorphic-dark) h1 { color:#111827 }`) — which
+   turned the FUSARIUM wordmark near-black over a dark video. The video does not
+   change with the theme, so neither does the type on it.
+
+   Selectors are written out rather than wrapped in :where() on purpose —
+   :where() contributes zero specificity, which left this tying with the
+   neuromorphic sheet's `.neu-raised span` rule and losing on source order
+   (one CTA label white, its neighbour slate).
+   ============================================================================= */
+html:not(.dark) .launchpad-glass-page [data-over-video],
+html:not(.dark) .launchpad-glass-page [data-over-video] h1,
+html:not(.dark) .launchpad-glass-page [data-over-video] h2,
+html:not(.dark) .launchpad-glass-page [data-over-video] h3,
+html:not(.dark) .launchpad-glass-page [data-over-video] h4,
+html:not(.dark) .launchpad-glass-page [data-over-video] h5,
+html:not(.dark) .launchpad-glass-page [data-over-video] h6,
+html:not(.dark) .launchpad-glass-page [data-over-video] p,
+html:not(.dark) .launchpad-glass-page [data-over-video] span,
+html:not(.dark) .launchpad-glass-page [data-over-video] div,
+html:not(.dark) .launchpad-glass-page [data-over-video] li,
+html:not(.dark) .launchpad-glass-page [data-over-video] strong,
+html:not(.dark) .launchpad-glass-page [data-over-video] em,
+html:not(.dark) .launchpad-glass-page [data-over-video] a,
+html:not(.dark) .launchpad-glass-page [data-over-video] svg {
+  color: #ffffff !important;
+}
+/* One class higher, so Tailwind's own alpha steps (text-white/75, /65 …) keep
+   their hierarchy instead of flattening to solid white. */
+html:not(.dark) .launchpad-glass-page [data-over-video] [class*="text-white/"] {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* The CTAs over the video get the DARK glass too — a white label on the
+   light-mode white glass would be the same invisible-text bug one layer down. */
+html:not(.dark) .launchpad-glass-page [data-over-video] button,
+html:not(.dark) .launchpad-glass-page [data-over-video] a[role="button"],
+html:not(.dark) .launchpad-glass-page [data-over-video] .neu-btn {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07) 46%, rgba(255, 255, 255, 0.04)) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+}
+
+/* Primary emerald actions keep their fill, gain glass depth. */
+.launchpad-glass-page [class*="bg-emerald-600"] {
+  box-shadow:
+    0 12px 30px rgba(16, 185, 129, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Sidebar rail: slightly deeper glass so it separates from content. */
+.launchpad-glass-page aside {
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+.dark .launchpad-glass-page aside {
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+/* Hover lift on interactive glass. */
+.launchpad-glass-page a[class*="rounded-xl"][class*="border"]:hover,
+.launchpad-glass-page button[class*="rounded-lg"]:not([class*="bg-emerald"]):hover {
+  border-color: rgba(15, 23, 42, 0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.72) 46%, rgba(255, 255, 255, 0.56)) !important;
+}
+.dark .launchpad-glass-page a[class*="rounded-xl"][class*="border"]:hover,
+.dark .launchpad-glass-page button[class*="rounded-lg"]:not([class*="bg-emerald"]):hover {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.07) 46%, rgba(255, 255, 255, 0.04)) !important;
+}
+
+/* -----------------------------------------------------------------------------
+   .lp-band — theme-aware feature band.
+   Replaces hardcoded `bg-slate-950 text-white` sections so they stop being
+   black slabs in light mode. Dark mode keeps the deep band; light mode becomes
+   a tinted glass panel and the white text is remapped to ink.
+   -------------------------------------------------------------------------- */
+.lp-band {
+  position: relative;
+  background:
+    radial-gradient(900px 400px at 20% 0%, rgba(16, 185, 129, 0.10), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.68)) !important;
+  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+.dark .lp-band {
+  background:
+    radial-gradient(900px 400px at 20% 0%, rgba(16, 185, 129, 0.12), transparent 60%),
+    linear-gradient(180deg, #0a0b0d, #06070a) !important;
+  border-top-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Light mode: remap the band's white-on-black type to ink-on-glass. */
+html:not(.dark) .lp-band,
+html:not(.dark) .lp-band h1,
+html:not(.dark) .lp-band h2,
+html:not(.dark) .lp-band h3,
+html:not(.dark) .lp-band h4,
+html:not(.dark) .lp-band p,
+html:not(.dark) .lp-band span,
+html:not(.dark) .lp-band div,
+html:not(.dark) .lp-band li,
+html:not(.dark) .lp-band code,
+html:not(.dark) .lp-band pre {
+  color: #0f172a;
+}
+html:not(.dark) .lp-band [class*="text-white/6"],
+html:not(.dark) .lp-band [class*="text-white/7"],
+html:not(.dark) .lp-band [class*="text-white/8"],
+html:not(.dark) .lp-band [class*="text-white/4"],
+html:not(.dark) .lp-band [class*="text-white/5"] {
+  color: #475569 !important;
+}
+html:not(.dark) .lp-band .text-white,
+html:not(.dark) .lp-band [class*="text-white"]:not([class*="text-white/"]) {
+  color: #0f172a !important;
+}
+/* Inner tiles inside a band: light glass instead of white/5 on black. */
+html:not(.dark) .lp-band [class*="bg-white/5"],
+html:not(.dark) .lp-band [class*="bg-white/10"] {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+/* Emerald accents stay emerald in both modes (the single brand accent). */
+html:not(.dark) .lp-band .text-emerald-400,
+html:not(.dark) .lp-band [class*="text-emerald-4"] {
+  color: #059669 !important;
+}
+
+/* Bands may contain animated canvas backdrops (e.g. intelligence waves) that are
+   authored dark. In light mode fade them to a texture so the band reads light
+   and its remapped ink text stays legible; dark mode keeps them at full weight. */
+html:not(.dark) .lp-band canvas,
+html:not(.dark) .lp-band > [aria-hidden="true"] canvas {
+  opacity: 0.12;
+}
+html:not(.dark) .lp-band > div[class*="absolute"][class*="bg-gradient"],
+html:not(.dark) .lp-band > div[class*="absolute"][class*="bg-slate"],
+html:not(.dark) .lp-band > div[class*="absolute"][class*="bg-black"] {
+  opacity: 0.06;
+}
+
+/* Tailwind's `!text-white` emits its own !important; match specificity to remap
+   it inside light-mode bands (html+body raises specificity above the utility). */
+html:not(.dark) body .lp-band .\!text-white,
+html:not(.dark) body .lp-band [class*="!text-white"] {
+  color: #0f172a !important;
+}
+
+/* =============================================================================
+   .lp-media-band — section with a full-bleed graphic behind TRUE see-through glass
+   -----------------------------------------------------------------------------
+   Unlike .lp-band (which swaps a solid ground per theme), this band keeps its
+   artwork in both themes and floats translucent frosted surfaces over it, so the
+   graphic reads THROUGH the cards, badges and buttons. Type stays white in both
+   modes — the same convention the video hero already uses.
+   ============================================================================= */
+.lp-media-band {
+  position: relative;
+  isolation: isolate;
+}
+.lp-media-band > .lp-media-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+}
+/* The backdrop may be a still or a looping video — both fill the band the
+   same way, so the glass treatment below is identical either way. */
+.lp-media-band > .lp-media-bg img,
+.lp-media-band > .lp-media-bg video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* No blur — the artwork renders sharp. (No overscan scale needed either:
+     scale only existed to hide the soft edge a blur creates at the bounds.) */
+  filter: saturate(1.06);
+}
+/* AutoplayVideo mounts its own absolutely-positioned wrapper; make sure that
+   wrapper fills the band rather than collapsing to zero height. */
+.lp-media-band > .lp-media-bg > * {
+  position: absolute;
+  inset: 0;
+}
+/* Legibility veil — dark in both themes because the artwork is dark and the
+   type over it is white. Kept light enough that the colour still comes through. */
+.lp-media-band > .lp-media-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(3, 6, 12, 0.58), rgba(3, 6, 12, 0.38) 45%, rgba(3, 6, 12, 0.66));
+}
+/* Moving footage swings from near-black space to a sunlit Earth, so a scrim
+   tuned to a fixed still leaves the bright frames washing out the glass. This
+   variant holds the floor up through the middle of the band. */
+.lp-media-band > .lp-media-scrim--strong {
+  background:
+    linear-gradient(180deg, rgba(3, 6, 12, 0.72), rgba(3, 6, 12, 0.60) 45%, rgba(3, 6, 12, 0.78));
+}
+
+/* --- Every surface in the band becomes the SAME see-through frosted glass:
+       cards, badges, pills, and buttons all share one treatment. Higher
+       specificity than the page-level glass rules so it wins in both themes. --- */
+.launchpad-glass-page .lp-media-band [class*="rounded-lg"][class*="border"],
+.launchpad-glass-page .lp-media-band [class*="rounded-xl"][class*="border"],
+.launchpad-glass-page .lp-media-band [class*="rounded-2xl"][class*="border"],
+.launchpad-glass-page .lp-media-band [class*="rounded-full"][class*="border"],
+.launchpad-glass-page .lp-media-band button,
+.launchpad-glass-page .lp-media-band a[role="button"],
+.launchpad-glass-page .lp-media-band .neu-btn,
+.launchpad-glass-page .lp-media-band .neu-raised,
+.launchpad-glass-page .lp-media-band .neu-raised-sm,
+html:not(.dark) .launchpad-glass-page .lp-media-band [class*="rounded-lg"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band [class*="rounded-xl"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band [class*="rounded-full"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band button,
+html:not(.dark) .launchpad-glass-page .lp-media-band a[role="button"],
+html:not(.dark) .launchpad-glass-page .lp-media-band .neu-btn {
+  border-color: rgba(255, 255, 255, 0.30) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.07) 45%, rgba(255, 255, 255, 0.035)) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.50),
+    inset 0 -18px 32px rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  color: #ffffff !important;
+}
+
+/* Hover lift, same for cards and buttons. */
+.launchpad-glass-page .lp-media-band [class*="rounded-xl"][class*="border"]:hover,
+.launchpad-glass-page .lp-media-band button:hover,
+.launchpad-glass-page .lp-media-band a[role="button"]:hover,
+.launchpad-glass-page .lp-media-band .neu-btn:hover {
+  border-color: rgba(255, 255, 255, 0.48) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.11) 45%, rgba(255, 255, 255, 0.06)) !important;
+}
+
+/* --- Motion variant ---------------------------------------------------------
+   A still can be scrimmed once and trusted. Footage cannot: this clip swings
+   from black space to a sunlit forest, and a white-tinted glass fill lets those
+   bright frames swallow the white type sitting on it. So cards and buttons in a
+   motion band get a DARK translucent base instead — still glass (the blur keeps
+   the movement legible behind it), but with a contrast floor that holds no
+   matter what frame is playing. Doubled class + `html` prefix so this outranks
+   the light-mode base rules above regardless of source order. */
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-lg"][class*="border"],
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-xl"][class*="border"],
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-2xl"][class*="border"],
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-full"][class*="border"],
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band button,
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band a[role="button"],
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band .neu-btn,
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band .neu-raised,
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-lg"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-xl"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-full"][class*="border"],
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band button,
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band a[role="button"],
+html:not(.dark) .launchpad-glass-page .lp-media-band--motion.lp-media-band .neu-btn {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background:
+    linear-gradient(135deg, rgba(6, 10, 18, 0.60), rgba(6, 10, 18, 0.46) 45%, rgba(6, 10, 18, 0.56)) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+}
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band [class*="rounded-xl"][class*="border"]:hover,
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band button:hover,
+html .launchpad-glass-page .lp-media-band--motion.lp-media-band .neu-btn:hover {
+  border-color: rgba(255, 255, 255, 0.40) !important;
+  background:
+    linear-gradient(135deg, rgba(6, 10, 18, 0.52), rgba(6, 10, 18, 0.38) 45%, rgba(6, 10, 18, 0.48)) !important;
+}
+
+/* Type over artwork stays white in BOTH themes (hero convention). */
+.lp-media-band,
+.lp-media-band h1, .lp-media-band h2, .lp-media-band h3, .lp-media-band h4,
+.lp-media-band p, .lp-media-band span, .lp-media-band div, .lp-media-band li,
+html:not(.dark) .lp-media-band,
+html:not(.dark) .lp-media-band h1, html:not(.dark) .lp-media-band h2,
+html:not(.dark) .lp-media-band h3, html:not(.dark) .lp-media-band h4,
+html:not(.dark) .lp-media-band p, html:not(.dark) .lp-media-band span,
+html:not(.dark) .lp-media-band div, html:not(.dark) .lp-media-band li {
+  color: #ffffff;
+}
+html:not(.dark) body .lp-media-band .\!text-white,
+html:not(.dark) body .lp-media-band [class*="!text-white"] { color: #ffffff !important; }
+/* Emerald accent survives in both themes. */
+.lp-media-band .text-emerald-400,
+html:not(.dark) .lp-media-band .text-emerald-400,
+html:not(.dark) .lp-media-band [class*="text-emerald-4"] { color: #34d399 !important; }
+/* Muted copy inside the band reads as translucent white, not slate. */
+html:not(.dark) .lp-media-band [class*="text-white/"] { color: rgba(255, 255, 255, 0.72) !important; }
+
+/* --- NeuCard inside a media band --------------------------------------------
+   The neuromorphic sheet hard-sets light-mode card type to slate
+   (`.neuromorphic-page:not(.neuromorphic-dark) .neu-raised p { color:#111827
+   !important }`, specificity 0-3-1). Over artwork that reads as missing text,
+   so these two blocks outrank it: solid white for ordinary type, then the
+   alpha block LAST and one class higher so `text-white/70`-style tonal steps
+   survive instead of flattening to pure white. */
+html .lp-media-band .neu-raised h1, html .lp-media-band .neu-raised h2,
+html .lp-media-band .neu-raised h3, html .lp-media-band .neu-raised h4,
+html .lp-media-band .neu-raised p, html .lp-media-band .neu-raised span,
+html .lp-media-band .neu-raised li, html .lp-media-band .neu-raised pre,
+html .lp-media-band .neu-raised code, html .lp-media-band .neu-raised td,
+html .lp-media-band .neu-raised th, html .lp-media-band .neu-raised label,
+html:not(.dark) .lp-media-band .neu-raised h1, html:not(.dark) .lp-media-band .neu-raised h2,
+html:not(.dark) .lp-media-band .neu-raised h3, html:not(.dark) .lp-media-band .neu-raised h4,
+html:not(.dark) .lp-media-band .neu-raised p, html:not(.dark) .lp-media-band .neu-raised span,
+html:not(.dark) .lp-media-band .neu-raised li, html:not(.dark) .lp-media-band .neu-raised pre,
+html:not(.dark) .lp-media-band .neu-raised code {
+  color: #ffffff !important;
+}
+html .lp-media-band .neu-raised [class*="text-white/"],
+html:not(.dark) .lp-media-band .neu-raised [class*="text-white/"] {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+/* Accent icons keep their hue instead of the sheet's slate default. */
+html:not(.dark) .lp-media-band .neu-raised svg[class*="text-cyan"] { color: #67e8f9 !important; }
+html:not(.dark) .lp-media-band .neu-raised svg[class*="text-amber"] { color: #fcd34d !important; }
+html:not(.dark) .lp-media-band .text-muted-foreground { color: rgba(255, 255, 255, 0.70) !important; }
+
+/* =============================================================================
+   Liquid UI controls — port of Aaron Iker's "Liquid UI Elements"
+   (codepen.io/aaroniker/pen/ZEpEvdz) into the Launchpad app.
+   -----------------------------------------------------------------------------
+   The geometry, the gooey SVG filters and the GSAP timings in
+   components/launchpad/liquid.tsx are reproduced exactly; what changes here is
+   the palette. `--c-active` becomes the Launchpad emerald and the neutrals
+   become theme-aware, so the same controls read on the light ground and on the
+   dark glass without a second implementation.
+   ============================================================================= */
+.launchpad-glass-page {
+  --c-active: #10b981;          /* emerald-500 — the single commercial accent */
+  --c-active-inner: #ffffff;
+  --c-default: #cbd5e1;         /* slate-300 */
+  --c-default-dark: #94a3b8;    /* slate-400 — switch hover */
+}
+.dark .launchpad-glass-page {
+  --c-active: #34d399;          /* emerald-400 reads better on dark */
+  --c-active-inner: #04140d;
+  --c-default: #3f4a5c;
+  --c-default-dark: #4d5a70;
+}
+
+.launchpad-glass-page .lp-liquid-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  user-select: none;
+}
+.launchpad-glass-page .lp-liquid-label {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.launchpad-glass-page .radio,
+.launchpad-glass-page .checkbox,
+.launchpad-glass-page .switch {
+  display: table;
+  border-radius: var(--border-radius, 12px) var(--border-radius-corner, 12px)
+                 var(--border-radius, 12px) var(--border-radius, 12px);
+  position: relative;
+  flex: none;
+}
+.launchpad-glass-page .radio input,
+.launchpad-glass-page .checkbox input,
+.launchpad-glass-page .switch input {
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  border: none;
+  background: var(--input-background, none);
+  display: block;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border-radius: inherit;
+  width: var(--input-width, 24px);
+  height: var(--input-height, 24px);
+}
+.launchpad-glass-page .radio svg,
+.launchpad-glass-page .checkbox svg,
+.launchpad-glass-page .switch svg {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  fill: var(--c-active-inner);
+  transform: scale(1.01) translateZ(0);
+}
+/* Keyboard focus must survive appearance:none. */
+.launchpad-glass-page .radio input:focus-visible,
+.launchpad-glass-page .checkbox input:focus-visible,
+.launchpad-glass-page .switch input:focus-visible {
+  outline: 2px solid var(--c-active);
+  outline-offset: 3px;
+}
+
+.launchpad-glass-page .radio input,
+.launchpad-glass-page .checkbox input {
+  --border-color: var(--c-default);
+  --border-width: 2px;
+  box-shadow: inset 0 0 0 var(--border-width) var(--border-color);
+}
+.launchpad-glass-page .radio input:checked,
+.launchpad-glass-page .checkbox input:checked { --border-color: var(--c-active); }
+.launchpad-glass-page .radio input:not(:checked),
+.launchpad-glass-page .checkbox input:not(:checked) { transition: box-shadow 0.25s; }
+.launchpad-glass-page .radio input:not(:checked):hover,
+.launchpad-glass-page .checkbox input:not(:checked):hover {
+  --border-width: 3px;
+  --border-color: var(--c-active);
+}
+
+.launchpad-glass-page .radio input:checked { --border-width: 6.75px; }
+.launchpad-glass-page .radio input + svg {
+  --top-y: 0; --dot-y: -17px; --drop-y: -14px; --top-s-x: 1.75; --top-s-y: 1;
+}
+.launchpad-glass-page .radio input + svg .top {
+  transform-origin: 12px -12px;
+  transform: translateY(var(--top-y)) scale(var(--top-s-x), var(--top-s-y)) translateZ(0);
+}
+.launchpad-glass-page .radio input + svg .dot { transform: translateY(var(--dot-y)) translateZ(0); }
+.launchpad-glass-page .radio input + svg .drop { transform: translateY(var(--drop-y)) translateZ(0); }
+
+.launchpad-glass-page .checkbox { --border-radius: 5px; --border-radius-corner: 5px; }
+.launchpad-glass-page .checkbox input:checked { --border-width: 12px; }
+.launchpad-glass-page .checkbox input:checked + svg { --tick-offset: 46.5px; }
+.launchpad-glass-page .checkbox input + svg {
+  --dot-x: 14px; --dot-y: -14px; --dot-s: 1;
+  --tick-offset: 20.5px; --tick-array: 16px; --tick-s: 1; --drop-s: 1;
+}
+.launchpad-glass-page .checkbox input + svg .tick {
+  fill: none;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: var(--c-active-inner);
+  stroke-dasharray: var(--tick-array) 33px;
+  stroke-dashoffset: var(--tick-offset);
+  transform-origin: 10.5px 16px;
+  transform: scale(var(--tick-s)) translateZ(0);
+}
+.launchpad-glass-page .checkbox input + svg .dot {
+  transform-origin: 10.5px 15.5px;
+  transform: translate(var(--dot-x), var(--dot-y)) scale(var(--dot-s)) translateZ(0);
+}
+.launchpad-glass-page .checkbox input + svg .drop {
+  transform-origin: 25px -1px;
+  transform: scale(var(--drop-s)) translateZ(0);
+}
+
+.launchpad-glass-page .switch { --input-width: 38px; }
+.launchpad-glass-page .switch input { --input-background: var(--c-default); }
+.launchpad-glass-page .switch input:checked { --input-background: var(--c-active); }
+.launchpad-glass-page .switch input:checked + svg {
+  --default-s: 0; --default-x: 8px; --dot-s: 1; --dot-x: 0px;
+}
+.launchpad-glass-page .switch input + svg {
+  --input-background: var(--c-default);
+  --default-s: 1; --default-x: 0px; --dot-s: 0; --dot-x: -8px;
+}
+.launchpad-glass-page .switch .default {
+  transform-origin: 12px 12px;
+  transform: translateX(var(--default-x)) scale(var(--default-s)) translateZ(0);
+}
+.launchpad-glass-page .switch .dot {
+  transform-origin: 26px 12px;
+  transform: translateX(var(--dot-x)) scale(var(--dot-s)) translateZ(0);
+}
+
+/* Blob button — five circles converge on hover through the big gooey filter.
+   The page-level glass rules would repaint its background and hide the blobs,
+   so the fill/shadow/backdrop are pinned here with !important. */
+.launchpad-glass-page .lp-liquid-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  position: relative;
+  background: #0f172a !important;
+  color: #fff !important;
+  outline: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 600;
+  display: block;
+  width: 132px;
+  text-align: center;
+  border-radius: 7px;
+  padding: 12px 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  overflow: hidden;
+}
+.dark .launchpad-glass-page .lp-liquid-btn { background: #020617 !important; }
+.launchpad-glass-page .lp-liquid-btn span { position: relative; z-index: 1; }
+.launchpad-glass-page .lp-liquid-btn svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  fill: var(--c-active);
+}
+.launchpad-glass-page .lp-liquid-btn svg circle {
+  transition: transform var(--duration, 0.25s) ease-out;
+}
+.launchpad-glass-page .lp-liquid-btn svg circle.top-left { transform: translate(var(--spacing, -16px), var(--spacing, -40px)); }
+.launchpad-glass-page .lp-liquid-btn svg circle.middle-bottom { transform: translate(var(--spacing, 8px), var(--spacing, 40px)); }
+.launchpad-glass-page .lp-liquid-btn svg circle.top-right { transform: translate(var(--spacing, 40px), var(--spacing, -40px)); }
+.launchpad-glass-page .lp-liquid-btn svg circle.right-bottom { transform: translate(var(--spacing, 4px), var(--spacing, 40px)); }
+.launchpad-glass-page .lp-liquid-btn svg circle.left-bottom { transform: translate(var(--spacing, -40px), var(--spacing, 40px)); }
+.launchpad-glass-page .lp-liquid-btn:hover { --spacing: 0; --duration: 0.45s; }
+.launchpad-glass-page .lp-liquid-btn:focus-visible { outline: 2px solid var(--c-active); outline-offset: 3px; }
+.launchpad-glass-page .lp-liquid-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  .launchpad-glass-page .lp-liquid-btn svg circle,
+  .launchpad-glass-page .radio input,
+  .launchpad-glass-page .checkbox input { transition: none; }
+}
+
+/* =============================================================================
+   .lp-device-card — device photo, blurred, behind frosted glass
+   -----------------------------------------------------------------------------
+   The physical-network cards each carry a picture of the hardware they describe.
+   It sits at z-index -1: negative-z children paint ABOVE the card's own
+   background but BELOW its in-flow content, which is exactly the sandwich we
+   want — translucent card fill, then the photo, then a theme scrim, then type.
+   `isolation: isolate` keeps that negative layer inside the card instead of
+   escaping to the section behind it.
+
+   The scrim flips with the theme because .lp-band flips the type with it: white
+   copy on dark ground in dark mode, ink on light ground in light mode. A single
+   fixed scrim would leave one of the two unreadable.
+   ============================================================================= */
+.lp-device-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.lp-device-card > .lp-device-media {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+.lp-device-card > .lp-device-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Overscan so the blur has material past the edges instead of fading to
+     transparent at the card border. */
+  transform: scale(1.14);
+  filter: blur(7px) saturate(1.12);
+}
+.lp-device-card > .lp-device-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Floor raised for the white-on-white product shots (MycoNode, Hyphae lab
+     prototype): a blurred bright photo under white/65 body copy is the one
+     combination that drops below a comfortable contrast ratio. */
+  background: linear-gradient(150deg, rgba(4, 8, 16, 0.70), rgba(4, 8, 16, 0.84));
+}
+html:not(.dark) .lp-device-card > .lp-device-media::after {
+  /* Light enough to keep ink legible, thin enough that the hardware is still
+     recognisable rather than a colour wash — Morgan's ask was blurred BUT
+     visible. Ink at #0f172a over a 0.60 white floor still clears 6:1. */
+  background: linear-gradient(150deg, rgba(248, 250, 252, 0.60), rgba(241, 245, 249, 0.78));
+}
+/* Light mode: the photo is competing with ink, so pull it back further. */
+html:not(.dark) .lp-device-card > .lp-device-media img {
+  filter: blur(6px) saturate(1);
+  opacity: 0.95;
+}
+/* Hover brings the hardware forward a little — the card is a link target. */
+.lp-device-card:hover > .lp-device-media img {
+  filter: blur(5px) saturate(1.2);
+  transform: scale(1.18);
+  transition: filter 0.4s ease, transform 0.6s ease;
+}
+html:not(.dark) .lp-device-card:hover > .lp-device-media img {
+  filter: blur(6px) saturate(1);
+  opacity: 0.95;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-device-card:hover > .lp-device-media img { transform: scale(1.14); transition: none; }
 }

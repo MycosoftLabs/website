@@ -21,7 +21,7 @@
 // ---------------------------------------------------------------------------
 
 export type PlanKey =
-  | 'founding_pass_30d'
+  | 'launch_pass_30d'
   | 'core'
   | 'contractor_ops'
   | 'origin_graph'
@@ -50,7 +50,7 @@ export interface Entitlements {
 }
 
 export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
-  founding_pass_30d: {
+  launch_pass_30d: {
     users: 3, aiCreditsMonthly: 100,
     readinessWorkspace: true, evidenceIndex: true, documentFactory: true,
     trainingTracker: true, resourceGraph: true,
@@ -97,10 +97,16 @@ export const PLAN_ENTITLEMENTS: Record<PlanKey, Entitlements> = {
   },
 };
 
-/** Founding cohort cap — enforced server-side (DB counter), never by Stripe. */
-export const FOUNDING_PASS_CAP = 50;
-/** Days of Core included in the Founding Pass. Never auto-renews unless explicitly selected. */
-export const FOUNDING_PASS_DAYS = 30;
+/**
+ * Days of Core included in the one-time Launch Pass. Never auto-renews unless a
+ * recurring plan is explicitly selected.
+ *
+ * There is deliberately NO cohort cap. An earlier draft carried a "first 50
+ * companies" limit lifted from the spec package; it was never a real business
+ * constraint, and publishing a seat count tells customers how small the book
+ * is. Do not reintroduce one.
+ */
+export const LAUNCH_PASS_DAYS = 30;
 
 // ---------------------------------------------------------------------------
 // Stripe product catalog (stripe_product_catalog.json, verbatim amounts in cents)
@@ -120,8 +126,8 @@ export interface CatalogProduct {
 }
 
 export const CATALOG: CatalogProduct[] = [
-  { lookupKey: 'fus_launchpad_founding_pass', name: 'FUSARIUM Launchpad Founding Launch Pass',
-    kind: 'pass', billing: 'one_time', unitAmount: 39700, planKey: 'founding_pass_30d' },
+  { lookupKey: 'fus_launchpad_launch_pass', name: 'FUSARIUM Launchpad Launch Pass',
+    kind: 'pass', billing: 'one_time', unitAmount: 39700, planKey: 'launch_pass_30d' },
 
   { lookupKey: 'fus_launchpad_core_monthly', name: 'FUSARIUM Launchpad Core',
     kind: 'plan', billing: 'month', unitAmount: 14900, planKey: 'core' },

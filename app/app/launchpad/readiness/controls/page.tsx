@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleDashed, MinusCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { STATUS_VOCABULARY } from '@/lib/launchpad/constants';
+import { LiquidRadio, LiquidSwitch } from '@/components/launchpad/liquid';
 
 /**
  * The 110-requirement register — customer-owned states only.
@@ -42,6 +43,7 @@ export default function ControlsRegisterPage() {
   const [family, setFamily] = useState<string>('all');
   const [open, setOpen] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [unassessedOnly, setUnassessedOnly] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -67,11 +69,12 @@ export default function ControlsRegisterPage() {
       rows.filter(
         (r) =>
           (family === 'all' || r.family === family) &&
+          (!unassessedOnly || r.state === null) &&
           (filter === '' ||
             r.controlId.toLowerCase().includes(filter.toLowerCase()) ||
             r.title.toLowerCase().includes(filter.toLowerCase())),
       ),
-    [rows, family, filter],
+    [rows, family, filter, unassessedOnly],
   );
   const assessed = rows.filter((r) => r.state !== null).length;
 
@@ -115,7 +118,12 @@ export default function ControlsRegisterPage() {
             what you mark and never marks anything for you.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <LiquidSwitch
+            checked={unassessedOnly}
+            onChange={setUnassessedOnly}
+            label="Unassessed only"
+          />
           <div className="relative">
             <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
             <input
@@ -171,21 +179,26 @@ export default function ControlsRegisterPage() {
                   <div className="text-xs text-muted-foreground mb-2">
                     {r.familyName}{r.dual ? ' · dual-value requirement (partial credit applies)' : ''}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  {/* Exactly one state per requirement — a radio group, not a
+                      row of toggle buttons. Marking is always the customer's
+                      action; the BFF stamps state_source='customer'. */}
+                  <div className="flex flex-wrap gap-x-6 gap-y-3">
                     {STATE_META.map(([value, label]) => (
-                      <button
+                      <LiquidRadio
                         key={value}
+                        name={`state-${r.controlId}`}
+                        value={value}
+                        checked={r.state === value}
                         disabled={saving === r.controlId}
-                        onClick={() => setState(r.controlId, value)}
-                        className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                          r.state === value
-                            ? 'border-primary bg-primary/10 text-primary font-medium'
-                            : 'border-border text-muted-foreground hover:bg-muted'
-                        } disabled:opacity-50`}
-                      >
-                        {saving === r.controlId ? '…' : label}
-                      </button>
+                        onChange={(on) => { if (on) setState(r.controlId, value); }}
+                        label={label}
+                      />
                     ))}
+                    {saving === r.controlId && (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

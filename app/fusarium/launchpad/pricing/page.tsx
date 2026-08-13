@@ -13,7 +13,6 @@ import {
 import {
   CATALOG,
   PLAN_ENTITLEMENTS,
-  FOUNDING_PASS_CAP,
   type PlanKey,
 } from "@/lib/launchpad/catalog"
 import { COMMERCIAL_NON_CUI_BANNER } from "@/lib/launchpad/constants"
@@ -41,7 +40,7 @@ const PLAN_COPY: Array<{ key: PlanKey; monthly: string; annual: string; blurb: s
 ]
 
 const PLAN_NAMES: Record<PlanKey, string> = {
-  founding_pass_30d: "Founding Launch Pass",
+  launch_pass_30d: "Launch Pass",
   core: "Launchpad Core",
   contractor_ops: "Contractor Ops",
   origin_graph: "Ops + Origin Graph",
@@ -71,7 +70,7 @@ const advisory = CATALOG.filter((p) => p.kind === "advisory")
 export default function LaunchpadPricingPage() {
   return (
     <NeuromorphicProvider>
-      <div className="min-h-dvh">
+      <div className="launchpad-glass-page min-h-dvh">
         <div className="bg-slate-950 text-center py-1.5 px-4">
           <span className="text-[11px] tracking-widest font-semibold text-emerald-400">
             {COMMERCIAL_NON_CUI_BANNER}
@@ -90,13 +89,13 @@ export default function LaunchpadPricingPage() {
               </p>
             </div>
 
-            {/* Founding pass */}
+            {/* Launch Pass */}
             <NeuCard className="max-w-3xl mx-auto mb-16 border-2 border-primary/30">
               <NeuCardHeader className="text-center pb-2">
-                <NeuBadge variant="default" className="mb-2 border-destructive/30 text-destructive mx-auto">
-                  First {FOUNDING_PASS_CAP} companies
+                <NeuBadge variant="default" className="mb-2 mx-auto">
+                  Start here
                 </NeuBadge>
-                <h2 className="text-2xl font-bold">Founding Launch Pass</h2>
+                <h2 className="text-2xl font-bold">Launch Pass</h2>
                 <div className="text-4xl font-bold mt-2">
                   {fmt(39700)} <span className="text-base font-normal text-muted-foreground">one time</span>
                 </div>
@@ -111,7 +110,7 @@ export default function LaunchpadPricingPage() {
                     "Core templates and workflows",
                     "First 30 days of Launchpad Core",
                     "One group onboarding clinic",
-                    "Founding member status",
+                    "Direct line to the Launchpad team",
                   ].map((f) => (
                     <div key={f} className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> {f}
@@ -124,9 +123,9 @@ export default function LaunchpadPricingPage() {
                   private advisory, or proposal submission.
                 </p>
                 <div className="text-center">
-                  <Link href="/fusarium/launchpad/founding-50">
+                  <Link href="/fusarium/launchpad/get-started">
                     <NeuButton variant="primary" className="px-6 py-3">
-                      Apply for the Founding 50 <ArrowRight className="ml-2 h-4 w-4" />
+                      Get started <ArrowRight className="ml-2 h-4 w-4" />
                     </NeuButton>
                   </Link>
                 </div>

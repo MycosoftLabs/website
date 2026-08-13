@@ -34,22 +34,22 @@ export function deriveEntitlements(sub: SubscriptionRow | null, now = new Date()
     return { mode: 'none', planKey: null, entitlements: null, reason: 'No plan on this workspace yet.' };
   }
 
-  // Founding pass: 30 days of Core; expires without explicit renewal.
-  if (sub.founding_pass_expires_at && (!sub.plan_key || sub.plan_key === 'founding_pass_30d')) {
+  // Launch Pass: 30 days of Core; expires without explicit renewal.
+  if (sub.founding_pass_expires_at && (!sub.plan_key || sub.plan_key === 'launch_pass_30d')) {
     const exp = new Date(sub.founding_pass_expires_at);
     if (exp.getTime() > now.getTime()) {
       return {
         mode: 'full',
-        planKey: 'founding_pass_30d',
-        entitlements: PLAN_ENTITLEMENTS.founding_pass_30d,
-        reason: `Founding Launch Pass active through ${exp.toISOString().slice(0, 10)}. Recurring plans require explicit selection — nothing auto-renews.`,
+        planKey: 'launch_pass_30d',
+        entitlements: PLAN_ENTITLEMENTS.launch_pass_30d,
+        reason: `Launch Pass active through ${exp.toISOString().slice(0, 10)}. Recurring plans require explicit selection — nothing auto-renews.`,
       };
     }
     return {
       mode: 'read_export',
-      planKey: 'founding_pass_30d',
+      planKey: 'launch_pass_30d',
       entitlements: null,
-      reason: 'Founding Pass period ended. Select a recurring plan to continue; your data remains readable and exportable.',
+      reason: 'Launch Pass period ended. Select a recurring plan to continue; your data remains readable and exportable.',
     };
   }
 

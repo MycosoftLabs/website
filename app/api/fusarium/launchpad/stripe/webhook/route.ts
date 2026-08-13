@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createHash } from 'crypto';
 import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
-import { getProduct, FOUNDING_PASS_CAP, FOUNDING_PASS_DAYS } from '@/lib/launchpad/catalog';
+import { getProduct, LAUNCH_PASS_DAYS } from '@/lib/launchpad/catalog';
 
 /**
  * Launchpad's OWN Stripe webhook — deliberately separate from the legacy
@@ -16,7 +16,6 @@ import { getProduct, FOUNDING_PASS_CAP, FOUNDING_PASS_DAYS } from '@/lib/launchp
  *  - tenant id ONLY from verified session/subscription metadata;
  *  - every service-role write carries an explicit tenant filter;
  *  - failed payment → grace, never destruction;
- *  - founding-pass cap re-verified under an advisory lock at grant time.
  */
 
 export const dynamic = 'force-dynamic';
@@ -80,27 +79,16 @@ export async function POST(request: NextRequest) {
         const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
 
         if (product.kind === 'pass') {
-          // Cap re-verified under lock; oversell → flagged, never silently granted.
-          const { data: claimed, error: claimErr } = await svc.rpc('launchpad_claim_founding_pass', {
-            t: tenantId,
-            p_payment_intent: typeof session.payment_intent === 'string' ? session.payment_intent : null,
-            cap: FOUNDING_PASS_CAP,
-          });
-          if (claimErr || claimed !== true) {
-            outcome = svcOutcome({
-              handled: true, granted: false,
-              reason: claimErr?.message ?? 'founding pass cap reached — REFUND REQUIRED',
-              refund_required: true,
-            });
-            break;
-          }
+          // No cap, no cohort counter — a paid pass is always granted. Replay
+          // safety comes from the stripe_events idempotency check above and the
+          // per-tenant upsert below, not from a scarcity gate.
           const expires = new Date();
-          expires.setUTCDate(expires.getUTCDate() + FOUNDING_PASS_DAYS);
+          expires.setUTCDate(expires.getUTCDate() + LAUNCH_PASS_DAYS);
           await svc.from('launchpad_subscriptions').upsert(
             {
               tenant_id: tenantId,
               stripe_customer_id: customerId,
-              plan_key: 'founding_pass_30d',
+              plan_key: 'launch_pass_30d',
               status: 'active',
               founding_pass_expires_at: expires.toISOString(),
               updated_at: new Date().toISOString(),
@@ -109,9 +97,9 @@ export async function POST(request: NextRequest) {
           );
           // Included credits, granted once per event (ledger is insert-only; replays are blocked above).
           await svc.from('launchpad_credit_ledger').insert({
-            tenant_id: tenantId, delta: 100, reason: 'founding_pass_grant', ref: { event: event.id },
+            tenant_id: tenantId, delta: 100, reason: 'launch_pass_grant', ref: { event: event.id },
           });
-          outcome = svcOutcome({ handled: true, granted: 'founding_pass_30d' });
+          outcome = svcOutcome({ handled: true, granted: 'launch_pass_30d' });
           break;
         }
 

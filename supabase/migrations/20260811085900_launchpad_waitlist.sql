@@ -1,4 +1,4 @@
--- FUSARIUM Launchpad — Founding 50 waitlist / application intake.
+-- FUSARIUM Launchpad — get-started / enquiry intake.
 -- Public marketing form data (pre-tenant). Service-role writes only; no anon or
 -- authenticated access. This is deliberately NOT tenant-scoped — applicants do
 -- not have tenants yet.
@@ -20,7 +20,7 @@ create table if not exists public.launchpad_waitlist (
 );
 
 comment on table public.launchpad_waitlist is
-  'Founding 50 applications from the public marketing site. Non-CUI intake only. Service-role access only.';
+  'Get-started enquiries from the public marketing site. Non-CUI intake only. Service-role access only.';
 
 alter table public.launchpad_waitlist enable row level security;
 -- No policies on purpose: anon/authenticated get nothing; service role bypasses RLS.
