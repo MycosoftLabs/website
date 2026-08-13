@@ -7,7 +7,7 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Dot, ScanSearch, Sun, Moon, CircleDot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { emptyCameraRig, type BuoyCommand, type BuoyTelemetry, type CameraFeed, type CameraRig, type IrCutMode } from "@/lib/psathyrella/contract";
+import { emptyCameraRig, type BuoyCommand, type BuoyTelemetry, type CameraFeed, type CameraRig } from "@/lib/psathyrella/contract";
 import { ViewBadge } from "@/components/psathyrella/ui";
 import Quad360View from "./Quad360View";
 import TargetView from "./TargetView";
@@ -149,7 +149,10 @@ export default function CameraView({
   };
   const resetPtz = () => { setAuto(false); setZoom(1); setPan({ x: 0, y: 0 }); if (tab === "front" && optical) { sendCommand({ domain: "camera", action: "setZoom", zoom: 1 }); sendCommand({ domain: "camera", action: "point", bearingDeg: Math.round(telemetry.pose.headingDeg ?? 0), tiltDeg: 0 }); } };
   const applyPreset = (z: number, autoScan: boolean) => { setZoom(z); setPan({ x: 0, y: 0 }); setAuto(autoScan); if (tab === "front" && optical) sendCommand({ domain: "camera", action: "setZoom", zoom: z }); };
-  const setIrCut = (mode: IrCutMode) => sendCommand({ domain: "camera", action: "irCut", mode });
+  // NOTE: no setIrCut here. A `sendCommand({ domain: "camera", action: "irCut" })` helper used to live
+  // on this line, firing into the generic command bus, which has no handler for that action. It was
+  // already unreferenced, and left in place it reads like live wiring to anyone tracing why the
+  // day/night controls do nothing. TargetView owns IR-cut and posts to /api/psathyrella/camera/ircut.
 
   const ptzStyle = { transform: `scale(${zoom})`, transformOrigin: `${50 + pan.x * 45}% ${50 + pan.y * 45}%`, transition: "transform 0.18s ease-out" } as const;
   const tiltDeg = Math.round(pan.y * 30);
