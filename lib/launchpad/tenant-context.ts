@@ -60,8 +60,20 @@ type MembershipRow = {
   launchpad_tenants: { id: string; name: string; status: TenantStatus } | null;
 };
 
-const err = (status: number, code: string, message: string) =>
-  NextResponse.json({ error: message, code }, { status });
+export interface TenantMembershipChoice {
+  id: string;
+  name: string;
+}
+
+function membershipChoices(memberships: MembershipRow[]): TenantMembershipChoice[] {
+  return memberships.map((m) => ({
+    id: m.tenant_id,
+    name: m.launchpad_tenants?.name ?? '',
+  }));
+}
+
+const err = (status: number, code: string, message: string, extra?: Record<string, unknown>) =>
+  NextResponse.json({ error: message, code, ...extra }, { status });
 
 export async function requireTenant(
   opts: RequireTenantOptions = {},
@@ -118,11 +130,12 @@ export async function requireTenant(
     : undefined;
   if (!membership) {
     if (memberships.length === 1) membership = memberships[0];
-    else if (cookieTenant) {
-      // Forged or stale cookie: matched zero rows under RLS.
-      return { error: err(409, 'tenant_selection_required', 'Select a workspace') };
-    } else {
-      return { error: err(409, 'tenant_selection_required', 'Select a workspace') };
+    else {
+      return {
+        error: err(409, 'tenant_selection_required', 'Select a workspace', {
+          memberships: membershipChoices(memberships),
+        }),
+      };
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { requireTenant, ACTIVE_TENANT_COOKIE } from '@/lib/launchpad/tenant-context';
+import { TERMS_VERSION } from '@/lib/launchpad/constants';
 
 /**
  * GET  — resolve the caller's Launchpad context (or signal onboarding/selection).
@@ -15,13 +16,37 @@ export async function GET() {
   const { ctx } = result;
 
   if (!ctx.tenantId) {
-    return NextResponse.json({ state: 'needs_onboarding', user: { email: ctx.user.email } });
+    return NextResponse.json({
+      state: 'needs_onboarding',
+      user: { email: ctx.user.email },
+      acceptance: {
+        termsVersion: TERMS_VERSION,
+        accepted: false,
+        docs: [] as string[],
+      },
+    });
   }
+
+  const requiredDocs = ['terms', 'privacy', 'aup', 'non_cui_policy'] as const;
+  const { data: rows } = await ctx.supabase
+    .from('launchpad_terms_acceptances')
+    .select('doc_key')
+    .eq('tenant_id', ctx.tenantId)
+    .eq('user_id', ctx.user.id)
+    .eq('doc_version', TERMS_VERSION);
+  const docs = Array.from(new Set((rows ?? []).map((r) => r.doc_key as string)));
+  const accepted = requiredDocs.every((doc) => docs.includes(doc));
+
   return NextResponse.json({
     state: 'ok',
     tenant: { id: ctx.tenantId, name: ctx.tenantName, status: ctx.tenantStatus },
     role: ctx.role,
     user: { email: ctx.user.email },
+    acceptance: {
+      termsVersion: TERMS_VERSION,
+      accepted,
+      docs,
+    },
   });
 }
 

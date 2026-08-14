@@ -10,15 +10,19 @@ import {
   normalizeCheckoutEmail,
   publicCheckoutRateLimited,
 } from '@/lib/launchpad/billing/public-checkout';
-import { provisionPaidPublicPurchase } from '@/lib/launchpad/billing/provision';
+import {
+  provisionPaidPublicPurchase,
+  shouldAutoLoginAfterPurchase,
+} from '@/lib/launchpad/billing/provision';
 
 /**
- * POST { session_id } — turn a paid Stripe Checkout Session into a logged-in
- * Launchpad workspace. session_id is the capability token from Stripe's
- * return URL. Email comes from Stripe, never from the body.
+ * POST { session_id } — turn a paid Stripe Checkout Session into a workspace.
+ * session_id is the capability token from Stripe's return URL. Email comes
+ * from Stripe, never from the body.
  *
- * Sets Supabase auth cookies + lp_tenant. Claude's welcome page should POST
- * here then redirect to `redirectTo` (onboarding first-run, then dashboard).
+ * Auto-login (magic-link redeem + cookies) runs ONLY when this purchase
+ * created the auth user. A pre-existing email gets a real inbox magic link
+ * and `loggedIn: false`. Never return actionLink on that branch.
  */
 
 export const dynamic = 'force-dynamic';
@@ -107,6 +111,31 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = request.nextUrl.origin;
+  const created = shouldAutoLoginAfterPurchase(provisioned);
+
+  if (!created) {
+    await svc.auth.signInWithOtp({
+      email: provisioned.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${origin}${ONBOARDING}`,
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      provisioned: true,
+      alreadyClaimed: Boolean(provisioned.alreadyClaimed),
+      created: false,
+      tenantId: provisioned.tenantId,
+      email: provisioned.email,
+      loggedIn: false,
+      nextStep: 'onboarding',
+      redirectTo: `/login?redirectTo=${encodeURIComponent(ONBOARDING)}`,
+      dashboardPath: DASHBOARD,
+      note: 'This email already has an account. Sign in to claim the purchase.',
+    });
+  }
+
   const { data: link, error: linkError } = await svc.auth.admin.generateLink({
     type: 'magiclink',
     email: provisioned.email,
@@ -117,11 +146,14 @@ export async function POST(request: NextRequest) {
       {
         ok: true,
         provisioned: true,
+        alreadyClaimed: Boolean(provisioned.alreadyClaimed),
+        created: true,
         tenantId: provisioned.tenantId,
         email: provisioned.email,
         loggedIn: false,
         nextStep: 'onboarding',
         redirectTo: ONBOARDING,
+        dashboardPath: DASHBOARD,
         code: 'magic_link_failed',
         note: 'Workspace is ready. Sign in with the Stripe email to continue.',
       },
@@ -149,12 +181,12 @@ export async function POST(request: NextRequest) {
     ok: true,
     provisioned: true,
     alreadyClaimed: Boolean(provisioned.alreadyClaimed),
+    created: true,
     tenantId: provisioned.tenantId,
     email: provisioned.email,
     loggedIn: !otpError,
     nextStep: 'onboarding',
     redirectTo: otpError ? `/login?redirectTo=${encodeURIComponent(ONBOARDING)}` : ONBOARDING,
     dashboardPath: DASHBOARD,
-    actionLink: otpError ? link.properties.action_link : undefined,
   });
 }
