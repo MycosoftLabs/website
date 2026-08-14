@@ -2,6 +2,9 @@
  * Provision a paid public-checkout purchase: auth user + tenant + entitlements.
  * Called from the verified Stripe webhook and from /billing/activate.
  * Identity is Stripe session email — never a request-body email.
+ *
+ * Paying does not prove inbox ownership. Callers MUST gate auto-login on
+ * `userWasCreated === true` (see shouldAutoLoginAfterPurchase).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -15,23 +18,85 @@ export interface ProvisionResult {
   userId?: string;
   tenantId?: string;
   email?: string;
+  /** True only when this purchase created the auth user. Never infer from email match. */
+  userWasCreated?: boolean;
   granted?: Record<string, unknown>;
   error?: string;
   code?: string;
 }
 
-async function findUserIdByEmail(svc: SupabaseClient, email: string): Promise<string | null> {
-  const { data, error } = await svc.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (error) return null;
-  const match = (data.users ?? []).find((u) => normalizeCheckoutEmail(u.email ?? '') === email);
-  return match?.id ?? null;
+export interface EnsuredUser {
+  id: string;
+  created: boolean;
 }
 
-async function ensureUser(svc: SupabaseClient, email: string, name: string): Promise<string> {
-  const existing = await findUserIdByEmail(svc, email);
-  if (existing) return existing;
+const LIST_PAGE_SIZE = 200;
+const LIST_PAGE_CAP = 1000;
 
-  const { data, error } = await svc.auth.admin.createUser({
+type AuthAdminWithEmailLookup = {
+  getUserByEmail?: (email: string) => Promise<{
+    data: { user?: { id: string } | null } | null;
+    error: { message?: string } | null;
+  }>;
+  listUsers: (params: { page: number; perPage: number }) => Promise<{
+    data: { users?: Array<{ id: string; email?: string | null }> };
+    error: { message?: string } | null;
+  }>;
+  createUser: (attrs: {
+    email: string;
+    email_confirm: boolean;
+    user_metadata: Record<string, unknown>;
+  }) => Promise<{
+    data: { user?: { id: string } | null };
+    error: { message?: string } | null;
+  }>;
+};
+
+function authAdmin(svc: SupabaseClient): AuthAdminWithEmailLookup {
+  return svc.auth.admin as unknown as AuthAdminWithEmailLookup;
+}
+
+/** Auto-login is allowed only when this purchase created the auth user. */
+export function shouldAutoLoginAfterPurchase(
+  result: Pick<ProvisionResult, 'userWasCreated'>,
+): boolean {
+  return result.userWasCreated === true;
+}
+
+/**
+ * Find an auth user by email. Uses getUserByEmail when the client exposes it;
+ * otherwise pages the Admin list until found or exhausted. Never stops at 200.
+ */
+export async function findUserIdByEmail(
+  svc: SupabaseClient,
+  email: string,
+): Promise<string | null> {
+  const admin = authAdmin(svc);
+  if (typeof admin.getUserByEmail === 'function') {
+    const { data, error } = await admin.getUserByEmail(email);
+    if (!error && data?.user?.id) return data.user.id;
+  }
+
+  for (let page = 1; page <= LIST_PAGE_CAP; page += 1) {
+    const { data, error } = await admin.listUsers({ page, perPage: LIST_PAGE_SIZE });
+    if (error) return null;
+    const users = data.users ?? [];
+    const match = users.find((u) => normalizeCheckoutEmail(u.email ?? '') === email);
+    if (match) return match.id;
+    if (users.length < LIST_PAGE_SIZE) return null;
+  }
+  return null;
+}
+
+export async function ensureUser(
+  svc: SupabaseClient,
+  email: string,
+  name: string,
+): Promise<EnsuredUser> {
+  const existing = await findUserIdByEmail(svc, email);
+  if (existing) return { id: existing, created: false };
+
+  const { data, error } = await authAdmin(svc).createUser({
     email,
     email_confirm: true,
     user_metadata: {
@@ -39,12 +104,24 @@ async function ensureUser(svc: SupabaseClient, email: string, name: string): Pro
       lp_source: 'public_checkout_provision',
     },
   });
-  if (error || !data.user) {
-    const again = await findUserIdByEmail(svc, email);
-    if (again) return again;
-    throw new Error(error?.message || 'could not create auth user');
+  if (!error && data.user?.id) {
+    return { id: data.user.id, created: true };
   }
-  return data.user.id;
+
+  const again = await findUserIdByEmail(svc, email);
+  if (again) {
+    return { id: again, created: await createdByThisCheckoutFlow(svc, again) };
+  }
+  throw new Error(error?.message || 'could not create auth user');
+}
+
+/** True when webhook/activate raced createUser for this same new checkout. */
+async function createdByThisCheckoutFlow(svc: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await svc.auth.admin.getUserById(userId);
+  const source = (data.user?.user_metadata as { lp_source?: unknown } | undefined)?.lp_source;
+  if (source !== 'public_checkout_provision') return false;
+  const createdAt = data.user?.created_at ? Date.parse(data.user.created_at) : 0;
+  return createdAt > 0 && Date.now() - createdAt < 15 * 60 * 1000;
 }
 
 export async function provisionPaidPublicPurchase(
@@ -71,24 +148,33 @@ export async function provisionPaidPublicPurchase(
 
   const { data: pending } = await svc
     .from('launchpad_pending_purchases')
-    .select('status, claimed_tenant_id, provisioned_user_id, company, contact_name')
+    .select('status, claimed_tenant_id, provisioned_user_id, company, contact_name, user_was_created')
     .eq('stripe_session_id', input.stripeSessionId)
     .maybeSingle();
-
-  if (pending?.status === 'claimed' && pending.claimed_tenant_id) {
-    return {
-      ok: true,
-      alreadyClaimed: true,
-      tenantId: pending.claimed_tenant_id,
-      userId: pending.provisioned_user_id ?? undefined,
-      email,
-    };
-  }
 
   const companyName = (input.company || pending?.company || 'Launchpad workspace').trim().slice(0, 120);
   const contactName = (input.contactName || pending?.contact_name || '').trim();
 
-  const userId = await ensureUser(svc, email, contactName);
+  const ensured = await ensureUser(svc, email, contactName);
+  const userWasCreated = ensured.created || pending?.user_was_created === true;
+  const userId = ensured.id;
+
+  if (pending?.status === 'claimed' && pending.claimed_tenant_id) {
+    if (ensured.created) {
+      await svc
+        .from('launchpad_pending_purchases')
+        .update({ user_was_created: true, updated_at: new Date().toISOString() })
+        .eq('stripe_session_id', input.stripeSessionId);
+    }
+    return {
+      ok: true,
+      alreadyClaimed: true,
+      tenantId: pending.claimed_tenant_id,
+      userId: pending.provisioned_user_id ?? userId,
+      email,
+      userWasCreated,
+    };
+  }
 
   const { data: membership } = await svc
     .from('launchpad_memberships')
@@ -125,16 +211,15 @@ export async function provisionPaidPublicPurchase(
   });
 
   const now = new Date().toISOString();
-  await svc
-    .from('launchpad_pending_purchases')
-    .update({
-      status: 'claimed',
-      claimed_at: now,
-      claimed_tenant_id: tenantId,
-      provisioned_user_id: userId,
-      updated_at: now,
-    })
-    .eq('stripe_session_id', input.stripeSessionId);
+  const claimedPatch: Record<string, unknown> = {
+    status: 'claimed',
+    claimed_at: now,
+    claimed_tenant_id: tenantId,
+    provisioned_user_id: userId,
+    updated_at: now,
+  };
+  if (ensured.created) claimedPatch.user_was_created = true;
+  await svc.from('launchpad_pending_purchases').update(claimedPatch).eq('stripe_session_id', input.stripeSessionId);
 
-  return { ok: true, userId, tenantId, email, granted };
+  return { ok: true, userId, tenantId, email, granted, userWasCreated };
 }
