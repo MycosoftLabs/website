@@ -5,7 +5,11 @@ import { isLaunchpadPublicCheckoutEnabled } from '@/lib/launchpad/flags';
 import {
   lookupPublicCheckoutSession,
   publicCheckoutRateLimited,
+  upsertGuestCheckoutSession,
+  normalizeCheckoutEmail,
 } from '@/lib/launchpad/billing/public-checkout';
+import { createLaunchpadServiceClient } from '@/lib/launchpad/service-client';
+import { intakeMetadata, parsePublicCheckoutIntake } from '@/lib/launchpad/billing/intake';
 
 /**
  * PUBLIC Stripe checkout — the storefront path.
@@ -113,13 +117,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: {
-    lookupKey?: unknown;
-    email?: unknown;
-    company?: unknown;
-    name?: unknown;
-    embedded?: unknown;
-  };
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
@@ -132,16 +130,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unknown product', code: 'unknown_product' }, { status: 400 });
   }
 
+  const intake = parsePublicCheckoutIntake(body, { requireReason: false });
+  if ('error' in intake) {
+    return NextResponse.json({ error: intake.error, code: intake.code }, { status: intake.status });
+  }
+
   // Email is OPTIONAL on purpose. Stripe's hosted page collects and verifies it
-  // itself, so requiring it here would mean a form standing between "I want
-  // this plan" and a card field — which is the exact dead end this route
-  // exists to remove. If we already know it, prefill; otherwise Stripe asks.
+  // itself. Extra intake fields persist on pending_purchases when present.
   const rawEmail = typeof body.email === 'string' ? body.email.trim().slice(0, 200) : '';
   const email = rawEmail && EMAIL_RE.test(rawEmail) ? rawEmail : '';
-  const company = typeof body.company === 'string' ? body.company.trim().slice(0, 200) : '';
-  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 200) : '';
-  // Embedded mode returns a client_secret to mount Stripe's payment widget
-  // inside our own page (account fields above, card fields below, one submit).
+  intake.email = email;
+  const company = intake.company;
+  const name = intake.name;
   const embedded = body.embedded === true;
 
   const stripe = new Stripe(secretKey);
@@ -178,8 +178,7 @@ export async function POST(request: NextRequest) {
     lp_lookup_key: product.lookupKey,
     lp_kind: product.kind,
     ...(product.planKey ? { lp_plan_key: product.planKey } : {}),
-    ...(company ? { lp_company: company } : {}),
-    ...(name ? { lp_contact_name: name } : {}),
+    ...intakeMetadata(intake),
   };
 
   const origin = request.nextUrl.origin;
@@ -228,6 +227,30 @@ export async function POST(request: NextRequest) {
           'dashboard.stripe.com/settings/payment_methods to offer wallets, Link, Cash App and PayPal.',
       );
       session = await stripe.checkout.sessions.create({ ...params, payment_method_types: ['card'] });
+    }
+
+    const pendingEmail = normalizeCheckoutEmail(email) || `pending+${session.id.slice(-12)}@checkout.local`;
+    try {
+      const svc = createLaunchpadServiceClient();
+      await upsertGuestCheckoutSession(svc, {
+        stripe_session_id: session.id,
+        stripe_customer_id: typeof session.customer === 'string' ? session.customer : null,
+        email: pendingEmail,
+        lookup_key: product.lookupKey,
+        plan_key: product.planKey ?? null,
+        billing: product.billing,
+        kind: product.kind,
+        company: company || null,
+        contact_name: name || null,
+        job_title: intake.jobTitle || null,
+        company_size: intake.companySize || null,
+        company_website: intake.companyWebsite || null,
+        apply_reason: intake.applyReason || null,
+        intended_use: intake.intendedUse || null,
+        status: 'checkout_created',
+      });
+    } catch (persistErr) {
+      console.error('[launchpad/public-checkout] pending persist failed:', (persistErr as Error).message);
     }
 
     return NextResponse.json(
@@ -314,5 +337,16 @@ export async function GET(request: NextRequest) {
     lookupKey: result.lookupKey,
     planName: result.planName,
     claimed: result.claimed,
+    kind: result.kind,
+    company: result.company,
+    contactName: result.contactName,
+    jobTitle: result.jobTitle,
+    companySize: result.companySize,
+    companyWebsite: result.companyWebsite,
+    applyReason: result.applyReason,
+    intendedUse: result.intendedUse,
+    accessReady: result.accessReady,
+    nextStep: result.nextStep,
+    activatePath: result.activatePath,
   });
 }

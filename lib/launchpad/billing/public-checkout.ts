@@ -106,6 +106,8 @@ export function isStripeCheckoutSessionId(id: string): boolean {
   return STRIPE_SESSION_ID_RE.test(id) && id.length >= 20 && id.length <= 256;
 }
 
+export type PublicCheckoutNextStep = 'pay' | 'activate' | 'onboarding' | 'dashboard';
+
 export interface PublicSessionLookup {
   paid: boolean;
   email: string | null;
@@ -114,6 +116,15 @@ export interface PublicSessionLookup {
   claimed: boolean;
   kind: string | null;
   company: string | null;
+  contactName: string | null;
+  jobTitle: string | null;
+  companySize: string | null;
+  companyWebsite: string | null;
+  applyReason: string | null;
+  intendedUse: string | null;
+  accessReady: boolean;
+  nextStep: PublicCheckoutNextStep;
+  activatePath: '/api/fusarium/launchpad/billing/activate';
 }
 
 /**
@@ -140,6 +151,12 @@ export async function lookupPublicCheckoutSession(
   let lookupKey: string | null = null;
   let kind: string | null = null;
   let company: string | null = null;
+  let contactName: string | null = null;
+  let jobTitle: string | null = null;
+  let companySize: string | null = null;
+  let companyWebsite: string | null = null;
+  let applyReason: string | null = null;
+  let intendedUse: string | null = null;
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -150,6 +167,7 @@ export async function lookupPublicCheckoutSession(
     lookupKey = session.metadata?.lp_lookup_key ?? null;
     kind = session.metadata?.lp_kind ?? null;
     company = session.metadata?.lp_company ?? null;
+    contactName = session.metadata?.lp_contact_name ?? null;
     if (session.metadata?.lp_source && session.metadata.lp_source !== 'public_pricing') {
       return { error: 'Not a Launchpad storefront session', code: 'not_storefront', status: 404 };
     }
@@ -166,14 +184,30 @@ export async function lookupPublicCheckoutSession(
     const svc = createLaunchpadServiceClient();
     const { data: pending } = await svc
       .from('launchpad_pending_purchases')
-      .select('status, claimed_at')
+      .select(
+        'status, claimed_at, company, contact_name, job_title, company_size, company_website, apply_reason, intended_use',
+      )
       .eq('stripe_session_id', sessionId)
       .maybeSingle();
     claimed = pending?.status === 'claimed' || Boolean(pending?.claimed_at);
     if (!paid && pending?.status === 'paid') paid = true;
+    if (!company && pending?.company) company = pending.company;
+    contactName = pending?.contact_name ?? contactName;
+    jobTitle = pending?.job_title ?? jobTitle;
+    companySize = pending?.company_size ?? companySize;
+    companyWebsite = pending?.company_website ?? companyWebsite;
+    applyReason = pending?.apply_reason ?? applyReason;
+    intendedUse = pending?.intended_use ?? intendedUse;
   } catch {
     // Table or service role missing: still return Stripe-backed paid/email.
   }
+
+  const accessReady = paid && claimed;
+  const nextStep: PublicCheckoutNextStep = !paid
+    ? 'pay'
+    : !claimed
+      ? 'activate'
+      : 'onboarding';
 
   return {
     paid,
@@ -183,6 +217,15 @@ export async function lookupPublicCheckoutSession(
     claimed,
     kind,
     company,
+    contactName,
+    jobTitle,
+    companySize,
+    companyWebsite,
+    applyReason,
+    intendedUse,
+    accessReady,
+    nextStep,
+    activatePath: '/api/fusarium/launchpad/billing/activate',
   };
 }
 
@@ -195,6 +238,12 @@ export interface PendingPurchaseRow {
   billing: string;
   kind: string;
   company: string | null;
+  contact_name?: string | null;
+  job_title?: string | null;
+  company_size?: string | null;
+  company_website?: string | null;
+  apply_reason?: string | null;
+  intended_use?: string | null;
   status: 'checkout_created' | 'paid' | 'claimed';
   claimed_at?: string | null;
   claimed_tenant_id?: string | null;
@@ -214,6 +263,12 @@ export async function upsertGuestCheckoutSession(
       billing: row.billing,
       kind: row.kind,
       company: row.company,
+      contact_name: row.contact_name ?? null,
+      job_title: row.job_title ?? null,
+      company_size: row.company_size ?? null,
+      company_website: row.company_website ?? null,
+      apply_reason: row.apply_reason ?? null,
+      intended_use: row.intended_use ?? null,
       status: row.status ?? 'checkout_created',
       updated_at: new Date().toISOString(),
     },
@@ -232,6 +287,12 @@ export async function markPendingPurchasePaid(
     billing: string;
     kind: string;
     company: string | null;
+    contactName?: string | null;
+    jobTitle?: string | null;
+    companySize?: string | null;
+    companyWebsite?: string | null;
+    applyReason?: string | null;
+    intendedUse?: string | null;
   },
 ): Promise<void> {
   await svc.from('launchpad_pending_purchases').upsert(
@@ -244,6 +305,12 @@ export async function markPendingPurchasePaid(
       billing: input.billing,
       kind: input.kind,
       company: input.company,
+      contact_name: input.contactName ?? null,
+      job_title: input.jobTitle ?? null,
+      company_size: input.companySize ?? null,
+      company_website: input.companyWebsite ?? null,
+      apply_reason: input.applyReason ?? null,
+      intended_use: input.intendedUse ?? null,
       status: 'paid',
       updated_at: new Date().toISOString(),
     },

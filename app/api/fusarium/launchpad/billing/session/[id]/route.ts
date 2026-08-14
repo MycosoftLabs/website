@@ -47,5 +47,14 @@ export async function GET(
     claimed: result.claimed,
     kind: result.kind,
     company: result.company,
+    contactName: result.contactName,
+    jobTitle: result.jobTitle,
+    companySize: result.companySize,
+    companyWebsite: result.companyWebsite,
+    applyReason: result.applyReason,
+    intendedUse: result.intendedUse,
+    accessReady: result.accessReady,
+    nextStep: result.nextStep,
+    activatePath: result.activatePath,
   });
 }
