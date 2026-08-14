@@ -52,6 +52,37 @@ function rateLimited(key: string): boolean {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** Cached account-state preflight.
+ *
+ *  A Stripe account that has not finished onboarding still creates Checkout
+ *  Sessions quite happily — it just cannot charge them. Without this check the
+ *  buyer fills in the form, gets a working card field, submits, and only then
+ *  discovers nothing can be collected. Failing at the door with an honest
+ *  message is much better than failing at the card.
+ *
+ *  Cached because it is one extra API round-trip on a path we want fast, and
+ *  the answer changes roughly once in the account's lifetime. */
+let acctCache: { at: number; chargesEnabled: boolean } | null = null;
+const ACCT_TTL_MS = 60_000;
+
+async function chargesEnabled(stripe: Stripe): Promise<boolean> {
+  // Escape hatch for exercising the session -> webhook -> pending-row pipeline
+  // before onboarding is finished. It lets a buyer reach a card field that
+  // cannot collect, so it belongs in a sandbox and nowhere else. Named to be
+  // obvious in an env dump rather than blending into the other flags.
+  if (process.env.LAUNCHPAD_CHECKOUT_ALLOW_UNACTIVATED === '1') return true;
+  if (acctCache && Date.now() - acctCache.at < ACCT_TTL_MS) return acctCache.chargesEnabled;
+  try {
+    const acct = await stripe.accounts.retrieve();
+    acctCache = { at: Date.now(), chargesEnabled: acct.charges_enabled === true };
+    return acctCache.chargesEnabled;
+  } catch {
+    // Never let a preflight outage be the thing that blocks a sale — if we
+    // cannot ask, proceed and let session creation be the real arbiter.
+    return true;
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!isLaunchpadPublicCheckoutEnabled()) {
     return NextResponse.json(
@@ -115,6 +146,20 @@ export async function POST(request: NextRequest) {
 
   const stripe = new Stripe(secretKey);
 
+  if (!(await chargesEnabled(stripe))) {
+    console.error(
+      '[launchpad/public-checkout] refusing checkout: Stripe account has charges_enabled=false ' +
+        '(onboarding incomplete — identity, bank and ToS). Complete activation in the Stripe Dashboard.',
+    );
+    return NextResponse.json(
+      {
+        error: 'Online payments are not open yet. Please check back shortly.',
+        code: 'stripe_account_not_activated',
+      },
+      { status: 503 },
+    );
+  }
+
   const prices = await stripe.prices.list({ lookup_keys: [product.lookupKey], limit: 1 });
   const price = prices.data[0];
   if (!price) {
@@ -140,30 +185,50 @@ export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin;
   const isSubscription = product.billing !== 'one_time';
 
+  const params: Stripe.Checkout.SessionCreateParams = {
+    mode: isSubscription ? 'subscription' : 'payment',
+    line_items: [{ price: price.id, quantity: 1 }],
+    // No payment_method_types here on purpose. Omitting it lets Stripe offer
+    // every method enabled on the account — card, Apple Pay, Google Pay, Link,
+    // Cash App Pay, PayPal, bank debit — so turning one on is a Dashboard
+    // toggle rather than a deploy.
+    ...(email ? { customer_email: email } : {}),
+    allow_promotion_codes: true,
+    billing_address_collection: 'auto',
+    metadata,
+    ...(isSubscription ? { subscription_data: { metadata } } : {}),
+    ...(embedded
+      ? {
+          ui_mode: 'embedded' as const,
+          // Embedded sessions use return_url, not success/cancel.
+          return_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
+        }
+      : {
+          success_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}/fusarium/launchpad/pricing?checkout=cancelled`,
+        }),
+  };
+
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: isSubscription ? 'subscription' : 'payment',
-      line_items: [{ price: price.id, quantity: 1 }],
-      // Every payment method enabled on the Stripe account appears here —
-      // card, Apple Pay, Google Pay, Link, Cash App Pay, PayPal, bank debit.
-      // Which ones show is a Dashboard setting, not a code change, so turning
-      // one on never requires a deploy.
-      ...(email ? { customer_email: email } : {}),
-      allow_promotion_codes: true,
-      billing_address_collection: 'auto',
-      metadata,
-      ...(isSubscription ? { subscription_data: { metadata } } : {}),
-      ...(embedded
-        ? {
-            ui_mode: 'embedded' as const,
-            // Embedded sessions use return_url, not success/cancel.
-            return_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
-          }
-        : {
-            success_url: `${origin}/fusarium/launchpad/welcome?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${origin}/fusarium/launchpad/pricing?checkout=cancelled`,
-          }),
-    });
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(params);
+    } catch (first) {
+      // Automatic selection throws outright when the Dashboard has no method
+      // enabled for the currency — which is the state a fresh account is in.
+      // Rather than lose the sale to a settings gap, fall back to cards, which
+      // every account supports. The moment someone enables wallets or PayPal
+      // the first call starts succeeding again and this path goes quiet, with
+      // no deploy involved.
+      const m = (first as { message?: string }).message ?? '';
+      if (!/no valid payment method types/i.test(m)) throw first;
+      console.warn(
+        '[launchpad/public-checkout] no payment methods enabled for this currency in the ' +
+          'Stripe Dashboard — falling back to card only. Enable methods at ' +
+          'dashboard.stripe.com/settings/payment_methods to offer wallets, Link, Cash App and PayPal.',
+      );
+      session = await stripe.checkout.sessions.create({ ...params, payment_method_types: ['card'] });
+    }
 
     return NextResponse.json(
       embedded
@@ -171,8 +236,51 @@ export async function POST(request: NextRequest) {
         : { ok: true, url: session.url },
     );
   } catch (e) {
-    // Never leak Stripe internals to an anonymous caller.
-    console.error('[launchpad/public-checkout] session create failed:', (e as Error).message);
+    // Full detail server-side only — never to an anonymous caller.
+    const err = e as { message?: string; type?: string; code?: string; raw?: { message?: string } };
+    console.error('[launchpad/public-checkout] session create failed:', {
+      type: err.type,
+      code: err.code,
+      message: err.message,
+      lookupKey: product.lookupKey,
+      livemode: !secretKey.startsWith('sk_test_'),
+    });
+
+    // "Could not start checkout, please try again" is useless when the cause is
+    // permanent — an operator retries forever and learns nothing. Map the two
+    // failures that are actually configuration, not transient, to distinct
+    // codes. Still no Stripe internals in the response body.
+    const msg = `${err.message ?? ''} ${err.raw?.message ?? ''}`.toLowerCase();
+
+    if (err.type === 'StripeAuthenticationError') {
+      return NextResponse.json(
+        {
+          error: 'Payments are misconfigured. Our team has been notified.',
+          code: 'stripe_auth_failed',
+        },
+        { status: 503 },
+      );
+    }
+
+    // Live keys on an account that has not completed activation (identity,
+    // bank, ToS) cannot create charges. This is the expected state before
+    // Stripe onboarding finishes, and it is permanent until someone completes
+    // it — so say so rather than inviting a retry loop.
+    if (
+      msg.includes('activate') ||
+      msg.includes('cannot currently make live charges') ||
+      msg.includes('only be used with a connected account') ||
+      err.code === 'account_invalid'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Online payments are not open yet. Please check back shortly.',
+          code: 'stripe_account_not_activated',
+        },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json(
       { error: 'Could not start checkout. Please try again.', code: 'checkout_failed' },
       { status: 502 },
