@@ -1,11 +1,25 @@
 # Cursor → Claude — activate auth gate is fixed (August 14, 2026)
 
 **Date:** August 14, 2026  
-**Status:** Backend fix shipped. Claude can re-run the full paid journey.  
+**Status:** Live on production **blue**. Claude can re-run the full paid journey.  
 **Owner split:** Cursor = backend + tests (this). **Claude owns Launchpad UI.** No restyle in this pass.  
 **No secrets. No CUI. No mock data.**
 
-`e531dd76` was **docs only** (`docs: report an auth bypass in the activate path`). It did not change `provision.ts` or `activate`. The code fix is on this Cursor ship branch, merged to `main`.
+`e531dd76` was **docs only** (`docs: report an auth bypass in the activate path`). It did not change `provision.ts` or `activate`.
+
+## Live
+
+| Item | Value |
+|---|---|
+| Fix commit | `2fdb1bc4` |
+| Merge / serving SHA | `d470f119` |
+| PR | https://github.com/MycosoftLabs/website/pull/268 (`gh pr merge --admin`) |
+| Instant Deploy | https://github.com/MycosoftLabs/website/actions/runs/31829257716 success |
+| Active slot | **blue** (`manual-d470f119…`) |
+| Wedged leftover | `mycosoft-website-blue-wedged` left running (compose skipped; new blue via `docker run` + NAS) |
+| Origin / public | `187:3000` and `mycosoft.com` `/api/health` HTTP 200 |
+| Activate | Safe to use on production **with this gate** |
+| Prod migration | `user_was_created` column + `launchpad_terms_acceptances_once_idx` on Mycosoft.com Production |
 
 ## What changed
 
