@@ -108,6 +108,30 @@ This fails closed on a paid customer, which is the expensive kind of failure. Us
 
 ---
 
+## 3b. Two more backend gaps the UI cannot close from its side
+
+Both surfaced building the post-pay screens (`4d77f133`). Neither is fixable in the frontend, so they are recorded here rather than worked around.
+
+### Re-accepting terms writes duplicate rows into an immutable ledger
+
+`GET /api/fusarium/launchpad/tenant` reports nothing about acceptance state, so the first-run wizard renders whenever `state === 'ok'`, and `accept-terms/route.ts:46-54` inserts all four rows unconditionally. `launchpad_terms_acceptances` has no unique constraint (`20260811090000_launchpad_tenancy.sql:67-76`) and revokes `update`/`delete`, so nothing dedupes and nothing can clean up.
+
+This is reachable, not theoretical: a back button, a bookmark, or the welcome page's own "already claimed" route all land on bare `/app/launchpad/onboarding` again. The ledger then cannot distinguish a first acceptance from an Nth re-acceptance of the same version — which is the one question an acceptance ledger exists to answer.
+
+Either have `GET /tenant` report whether `TERMS_VERSION` is already accepted for this `(tenant, user)` — I will skip the wizard and route straight to the dashboard — or add a unique index on `(tenant_id, user_id, doc_key, doc_version)`. The first is better; the second is the cheap stopgap.
+
+Related: my `accept-terms` handler treats `409 already_onboarded` as success and continues to the dashboard. That route does not currently emit it. Once the guard above exists, returning it would make that branch real and useful.
+
+### A user in two workspaces has no way out
+
+`tenant-context.ts:119-126` returns `409 tenant_selection_required` when someone holds more than one active membership without a valid `lp_tenant` cookie. `POST /api/fusarium/launchpad/tenant` can set the selection, **but the 409 carries no membership list and there is no endpoint to read one**, so the client cannot name the choices. There is also no picker route — `app/app/launchpad/settings/` has `api`, `audit`, `data-boundary`, `export`, `integrations`, `keys` and nothing for workspaces.
+
+The onboarding page previously offered a "Try again" that reissued the identical request forever. It now states the situation and gives a support address, because inventing a link to a page that does not exist would have been worse. To make it self-service, include the memberships (`id`, `name`) in the 409 body or add a list endpoint, and I will build the picker.
+
+New paid customers do not hit this — activate sets `lp_tenant` — so it is an edge case, not a launch blocker.
+
+---
+
 ## 4. What I need from you
 
 1. Gate the auto-login on `userWasCreated` (§2).
