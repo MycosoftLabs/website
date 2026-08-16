@@ -25,7 +25,7 @@
  * stacking a second identical bar under the first.
  */
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -106,6 +106,16 @@ interface TenantInfo {
   tenant?: { id: string; name: string; status: string };
   role?: string;
   user?: { email: string };
+  /** Present once the backend can say whether this (tenant, user) already
+   *  accepted every doc at the current version. Optional so an older serving
+   *  image just falls through to showing the wizard. */
+  acceptance?: { termsVersion: string; accepted: boolean; docs: string[] };
+}
+
+/** One workspace offered by a 409 tenant_selection_required. */
+interface Membership {
+  id: string;
+  name: string;
 }
 
 /** Echo of the purchase itself — only readable when we still hold the Stripe session id. */
@@ -152,6 +162,40 @@ function OnboardingFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [choosing, setChoosing] = useState<string | null>(null);
+
+  // Held in a ref because choosing a workspace has to re-run the same load that
+  // rejected us, and that function is declared below this one.
+  const loadRef = useRef<(() => Promise<void>) | null>(null);
+
+  /** Set the active workspace, then re-run the load that just 409'd. */
+  const chooseWorkspace = useCallback(
+    async (tenantId: string) => {
+      setChoosing(tenantId);
+      setError(null);
+      try {
+        const r = await fetch('/api/fusarium/launchpad/tenant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          setError(d?.error || 'Could not open that workspace.');
+          setChoosing(null);
+          return;
+        }
+        setMode('loading');
+        setChoosing(null);
+        void loadRef.current?.();
+      } catch {
+        setError('Network error — could not open that workspace.');
+        setChoosing(null);
+      }
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -167,9 +211,24 @@ function OnboardingFlow() {
         // 409 forever, so the generic "Try again" card is a dead end — send them
         // somewhere that can actually set the cookie.
         if (d?.code === 'tenant_selection_required') {
+          // The 409 now carries the workspaces this session can already see under
+          // RLS, so the choice can be offered instead of described. Names come
+          // from that payload only — never assembled here.
+          const offered: Membership[] = Array.isArray(d.memberships)
+            ? d.memberships
+                .filter(
+                  (m: unknown): m is Membership =>
+                    !!m &&
+                    typeof (m as Membership).id === 'string' &&
+                    typeof (m as Membership).name === 'string',
+                )
+                .map((m: Membership) => ({ id: m.id, name: m.name }))
+            : [];
+          setMemberships(offered);
           setError(
-            'You belong to more than one workspace, so we cannot tell which one to open. ' +
-              'Pick one and we will remember it.',
+            offered.length
+              ? 'You belong to more than one workspace. Pick the one to open and we will remember it.'
+              : 'You belong to more than one workspace, but we could not read the list.',
           );
           setMode('choose');
           return;
@@ -183,13 +242,26 @@ function OnboardingFlow() {
         setMode('error');
         return;
       }
-      setInfo(d as TenantInfo);
-      setMode(d?.state === 'ok' ? 'provisioned' : 'create');
+      const tenantInfo = d as TenantInfo;
+      setInfo(tenantInfo);
+      // Already accepted every doc at this version? Then this is a back button,
+      // a bookmark, or a second visit — not a first run. Showing the wizard
+      // again would write four more rows into a ledger that cannot be edited or
+      // deleted, leaving it unable to say when consent was actually given.
+      if (tenantInfo?.state === 'ok' && tenantInfo.acceptance?.accepted) {
+        router.replace(DASHBOARD);
+        return;
+      }
+      setMode(tenantInfo?.state === 'ok' ? 'provisioned' : 'create');
     } catch {
       setError('Network error — could not reach Launchpad.');
       setMode('error');
     }
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -372,17 +444,39 @@ function OnboardingFlow() {
             <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div>
               <h1 className="text-lg font-semibold mb-1">Choose a workspace</h1>
-              <p className="text-sm text-muted-foreground mb-2">{error}</p>
-              <p className="text-sm text-muted-foreground">
-                Workspace switching is not built yet, so we cannot show you the list here. Email{' '}
-                <a
-                  href="mailto:support@mycosoft.org?subject=Launchpad%20workspace%20selection"
-                  className="text-emerald-600 dark:text-emerald-400 underline underline-offset-2"
-                >
-                  support@mycosoft.org
-                </a>{' '}
-                and we will set your default workspace. Your purchase and your data are unaffected.
-              </p>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              {memberships.length > 0 ? (
+                <ul className="space-y-2">
+                  {memberships.map((m) => (
+                    <li key={m.id}>
+                      <GlassButton
+                        onClick={() => void chooseWorkspace(m.id)}
+                        disabled={choosing !== null}
+                        className="myco-glass-button--block"
+                      >
+                        {choosing === m.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 text-current mr-2 animate-spin" /> Opening…
+                          </>
+                        ) : (
+                          m.name
+                        )}
+                      </GlassButton>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Email{' '}
+                  <a
+                    href="mailto:support@mycosoft.org?subject=Launchpad%20workspace%20selection"
+                    className="text-emerald-600 dark:text-emerald-400 underline underline-offset-2"
+                  >
+                    support@mycosoft.org
+                  </a>{' '}
+                  and we will set your default workspace. Your purchase and your data are unaffected.
+                </p>
+              )}
             </div>
           </div>
         </div>
