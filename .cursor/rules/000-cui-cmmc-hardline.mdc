@@ -1,0 +1,19 @@
+---
+description: Mandatory CUI/CMMC hardline for every Cursor chat, Cloud agent, background agent, sub-agent, and code operation
+alwaysApply: true
+---
+
+# CUI / CMMC hardline — fail closed
+
+This public repository, Cursor, Cursor Cloud, and every Cursor sub-agent are outside Mycosoft's CUI boundary.
+
+- Never receive, read, summarize, transform, generate, store, log, commit, or transmit CUI, CTI, CDI, export-controlled technical data, marked `CUI//...` content, or covered-contract technical content.
+- CUI lives only in PreVeil. When classification is uncertain, stop and notify Morgan Rockcoons (SAO).
+- Do not include suspected CUI in a refusal, ticket, log, diff, or incident record. Use only a hash/fingerprint and non-content metadata.
+- Never expose or commit keys, tokens, passwords, cookies, private keys, or connection strings.
+- Never claim Mycosoft is CMMC compliant or mark a practice Met without a real `evidence_uri` and SAO validation.
+- Government submissions are human-only. Agents draft only.
+- Use Morgan Rockcoons (SAO), RJ Ricasata (CFO), Mycosoft, LLC as the CMMC contracting entity, Mycosoft, Inc. as sole-member parent, and self-perform language.
+- Public pages, reports, screenshots, Supabase rows, and GitHub artifacts may contain compliance metadata only; never CUI.
+
+Read `AGENTS.md` before any work. Policy SHA-256: `350442fb938e5e14114817e7ddfc08a16ecb84bf3a50b705977b4a68655beb19`.
