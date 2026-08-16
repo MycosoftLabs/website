@@ -38,6 +38,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { data: existing } = await ctx.supabase
+    .from('launchpad_terms_acceptances')
+    .select('doc_key')
+    .eq('tenant_id', ctx.tenantId)
+    .eq('user_id', ctx.user.id)
+    .eq('doc_version', TERMS_VERSION);
+  const already = new Set((existing ?? []).map((row) => row.doc_key as string));
+  if (REQUIRED_DOCS.every((doc) => already.has(doc))) {
+    return NextResponse.json(
+      {
+        error: 'Terms already accepted',
+        code: 'already_onboarded',
+        tenantId: ctx.tenantId,
+        nextStep: 'dashboard',
+        redirectTo: '/app/launchpad/dashboard',
+      },
+      { status: 409 },
+    );
+  }
+
   const ipHash = createHash('sha256')
     .update(request.headers.get('x-forwarded-for') ?? 'unknown')
     .digest('hex')
